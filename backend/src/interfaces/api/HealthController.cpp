@@ -2,8 +2,8 @@
  * @file HealthController.cpp
  * @brief 健康检查控制器实现
  * @author 白洋
- * @date 2026-02-15
- * @copyright Copyright (c) 2026 HeartLake. All rights reserved.
+ * @date 2025-02-15
+ * @copyright Copyright (c) 2025 HeartLake. All rights reserved.
  */
 
 #include "interfaces/api/HealthController.h"

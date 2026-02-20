@@ -1,7 +1,7 @@
 /**
  * @file SecurityAuditScore.cpp
  * @brief 安全审计评分系统实现
- * Created by engineer-4
+ * Created by 白洋
  */
 
 #include "utils/SecurityAuditScore.h"

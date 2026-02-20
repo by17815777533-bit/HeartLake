@@ -305,7 +305,7 @@ std::string EmailService::getVerificationEmailTemplate(const std::string& code,
         
         <div class="footer">
             <p>此邮件由系统自动发送，请勿回复</p>
-            <p>© 2026 心湖 HeartLake. All rights reserved.</p>
+            <p>© 2025 心湖 HeartLake. All rights reserved.</p>
         </div>
     </div>
 </body>
@@ -372,7 +372,7 @@ std::string EmailService::getWelcomeEmailTemplate(const std::string& nickname) {
         
         <div class="footer">
             <p>此邮件由系统自动发送，请勿回复</p>
-            <p>© 2026 心湖 HeartLake. All rights reserved.</p>
+            <p>© 2025 心湖 HeartLake. All rights reserved.</p>
         </div>
     </div>
 </body>
@@ -424,7 +424,7 @@ std::string EmailService::getPasswordResetEmailTemplate(const std::string& code)
         
         <div class="footer">
             <p>此邮件由系统自动发送，请勿回复</p>
-            <p>© 2026 心湖 HeartLake. All rights reserved.</p>
+            <p>© 2025 心湖 HeartLake. All rights reserved.</p>
         </div>
     </div>
 </body>

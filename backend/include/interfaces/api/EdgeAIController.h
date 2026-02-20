@@ -15,12 +15,11 @@
  *   "code": 200,
  *   "message": "ok",
  *   "data": { ... },
- *   "timestamp": "2026-02-20T12:00:00Z"
+ *   "timestamp": "2025-06-15T12:00:00Z"
  * }
  * @endcode
  *
- * @author EdgeAI Team
- * @date 2026-02-20
+ * Created by 白洋
  */
 #pragma once
 

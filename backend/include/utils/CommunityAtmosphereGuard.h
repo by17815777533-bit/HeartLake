@@ -1,7 +1,7 @@
 /**
  * @file CommunityAtmosphereGuard.h
  * @brief 社区氛围守护 - 防止负能量传染
- * Created by engineer-4
+ * Created by 白洋
  */
 
 #pragma once

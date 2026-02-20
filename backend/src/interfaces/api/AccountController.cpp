@@ -2,7 +2,7 @@
  * @file AccountController.cpp
  * @brief 账号管理控制器实现
  * @author 白洋
- * @date 2026-02-08
+ * @date 2025-02-08
  */
 
 #include "interfaces/api/AccountController.h"

@@ -1,6 +1,6 @@
 # HeartLake API 参考文档
 
-> 版本：v1.0 | 最后更新：2026-02-20
+> 版本：v1.0 | 最后更新：2025-06-15
 
 ## 概述
 
@@ -79,7 +79,7 @@ Authorization: Bearer <access_token>
       "username": "lakewalker",
       "email": "walker@heartlake.app",
       "avatar": null,
-      "createdAt": "2026-02-20T10:00:00Z"
+      "createdAt": "2025-06-15T10:00:00Z"
     },
     "accessToken": "eyJhbGciOiJIUzI1NiIs...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
@@ -123,7 +123,7 @@ Authorization: Bearer <access_token>
       "username": "lakewalker",
       "email": "walker@heartlake.app",
       "avatar": "https://cdn.heartlake.app/avatars/u_abc123.jpg",
-      "createdAt": "2026-02-20T10:00:00Z"
+      "createdAt": "2025-06-15T10:00:00Z"
     },
     "accessToken": "eyJhbGciOiJIUzI1NiIs...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
@@ -261,7 +261,7 @@ Authorization: Bearer <access_token>
       "name": "西湖"
     },
     "rippleCount": 0,
-    "createdAt": "2026-02-20T10:30:00Z"
+    "createdAt": "2025-06-15T10:30:00Z"
   },
   "timestamp": 1708387200
 }
@@ -311,7 +311,7 @@ Authorization: Bearer <access_token>
         "tags": ["心情", "自然"],
         "visibility": "public",
         "rippleCount": 5,
-        "createdAt": "2026-02-20T10:30:00Z"
+        "createdAt": "2025-06-15T10:30:00Z"
       }
     ],
     "pagination": {
@@ -368,8 +368,8 @@ Authorization: Bearer <access_token>
       "name": "西湖"
     },
     "rippleCount": 5,
-    "createdAt": "2026-02-20T10:30:00Z",
-    "updatedAt": "2026-02-20T11:00:00Z"
+    "createdAt": "2025-06-15T10:30:00Z",
+    "updatedAt": "2025-06-15T11:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -457,7 +457,7 @@ Authorization: Bearer <access_token>
     "content": "好美的白鹭！我也想去看看",
     "parentRippleId": null,
     "emoji": "heart",
-    "createdAt": "2026-02-20T11:15:00Z"
+    "createdAt": "2025-06-15T11:15:00Z"
   },
   "timestamp": 1708387200
 }
@@ -507,7 +507,7 @@ Authorization: Bearer <access_token>
         "content": "好美的白鹭！我也想去看看",
         "parentRippleId": null,
         "emoji": "heart",
-        "createdAt": "2026-02-20T11:15:00Z"
+        "createdAt": "2025-06-15T11:15:00Z"
       }
     ],
     "pagination": {
@@ -561,7 +561,7 @@ Authorization: Bearer <access_token>
     "content": "你好，想和你聊聊关于白鹭的事",
     "image": null,
     "read": false,
-    "createdAt": "2026-02-20T12:00:00Z"
+    "createdAt": "2025-06-15T12:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -607,7 +607,7 @@ Authorization: Bearer <access_token>
         "content": "你好，想和你聊聊关于白鹭的事",
         "image": null,
         "read": false,
-        "createdAt": "2026-02-20T12:00:00Z"
+        "createdAt": "2025-06-15T12:00:00Z"
       }
     ],
     "pagination": {
@@ -658,8 +658,8 @@ Authorization: Bearer <access_token>
     "content": "你好，想和你聊聊关于白鹭的事",
     "image": null,
     "read": true,
-    "createdAt": "2026-02-20T12:00:00Z",
-    "readAt": "2026-02-20T12:05:00Z"
+    "createdAt": "2025-06-15T12:00:00Z",
+    "readAt": "2025-06-15T12:05:00Z"
   },
   "timestamp": 1708387200
 }
@@ -703,7 +703,7 @@ Authorization: Bearer <access_token>
     "toUserId": "u_def456",
     "message": "我们在湖边聊过，加个好友吧",
     "status": "pending",
-    "createdAt": "2026-02-20T13:00:00Z"
+    "createdAt": "2025-06-15T13:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -746,7 +746,7 @@ Authorization: Bearer <access_token>
         "avatar": "https://cdn.heartlake.app/avatars/u_def456.jpg",
         "status": "accepted",
         "online": true,
-        "friendSince": "2026-02-20T14:00:00Z"
+        "friendSince": "2025-06-15T14:00:00Z"
       }
     ],
     "pagination": {
@@ -791,7 +791,7 @@ Authorization: Bearer <access_token>
     "fromUserId": "u_abc123",
     "toUserId": "u_def456",
     "status": "accepted",
-    "acceptedAt": "2026-02-20T14:00:00Z"
+    "acceptedAt": "2025-06-15T14:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -864,7 +864,7 @@ Authorization: Bearer <access_token>
     },
     "capabilities": ["sentiment_analysis", "content_moderation", "vector_search", "federated_learning"],
     "uptime": 86400,
-    "lastHealthCheck": "2026-02-20T09:55:00Z"
+    "lastHealthCheck": "2025-06-15T09:55:00Z"
   },
   "timestamp": 1708387200
 }
@@ -1050,7 +1050,7 @@ Authorization: Bearer <access_token>
     "trend": "improving",
     "trendDelta": 0.05,
     "hotTags": ["春天", "旅行", "美食"],
-    "updatedAt": "2026-02-20T10:00:00Z"
+    "updatedAt": "2025-06-15T10:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -1104,7 +1104,7 @@ Authorization: Bearer <access_token>
       "loss": 0.198,
       "accuracy": 0.928
     },
-    "nextRoundAt": "2026-02-20T12:00:00Z"
+    "nextRoundAt": "2025-06-15T12:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -1140,16 +1140,16 @@ Authorization: Bearer <access_token>
         "queryId": "q_001",
         "type": "sentiment_analysis",
         "epsilonCost": 0.12,
-        "timestamp": "2026-02-20T08:00:00Z"
+        "timestamp": "2025-06-15T08:00:00Z"
       },
       {
         "queryId": "q_002",
         "type": "federated_aggregate",
         "epsilonCost": 1.50,
-        "timestamp": "2026-02-20T09:30:00Z"
+        "timestamp": "2025-06-15T09:30:00Z"
       }
     ],
-    "resetAt": "2026-03-01T00:00:00Z"
+    "resetAt": "2025-03-01T00:00:00Z"
   },
   "timestamp": 1708387200
 }
@@ -1181,8 +1181,8 @@ Authorization: Bearer <access_token>
   "filters": {
     "tags": ["心情"],
     "dateRange": {
-      "from": "2026-02-01T00:00:00Z",
-      "to": "2026-02-20T23:59:59Z"
+      "from": "2025-02-01T00:00:00Z",
+      "to": "2025-06-15T23:59:59Z"
     }
   }
 }
@@ -1201,14 +1201,14 @@ Authorization: Bearer <access_token>
         "content": "今天在湖边看到了一只白鹭，心情很好",
         "similarity": 0.92,
         "authorName": "lakewalker",
-        "createdAt": "2026-02-20T10:30:00Z"
+        "createdAt": "2025-06-15T10:30:00Z"
       },
       {
         "stoneId": "s_abc456",
         "content": "傍晚沿着湖边慢跑，夕阳真美",
         "similarity": 0.87,
         "authorName": "sunrunner",
-        "createdAt": "2026-02-19T17:45:00Z"
+        "createdAt": "2025-02-19T17:45:00Z"
       }
     ],
     "totalFound": 2,
@@ -1240,7 +1240,7 @@ Authorization: Bearer <access_token>
 ```json
 {
   "username": "admin",
-  "password": "Admin@HeartLake2026"
+  "password": "Admin@HeartLake2025"
 }
 ```
 
@@ -1255,7 +1255,7 @@ Authorization: Bearer <access_token>
       "id": "a_root01",
       "username": "admin",
       "role": "super_admin",
-      "lastLoginAt": "2026-02-19T22:00:00Z"
+      "lastLoginAt": "2025-02-19T22:00:00Z"
     },
     "accessToken": "eyJhbGciOiJIUzI1NiIs..."
   },
@@ -1352,8 +1352,8 @@ Authorization: Bearer <access_token>
         "avatar": "https://cdn.heartlake.app/avatars/u_abc123.jpg",
         "status": "active",
         "stoneCount": 42,
-        "createdAt": "2026-01-15T08:00:00Z",
-        "lastActiveAt": "2026-02-20T09:30:00Z"
+        "createdAt": "2025-01-15T08:00:00Z",
+        "lastActiveAt": "2025-06-15T09:30:00Z"
       }
     ],
     "pagination": {
@@ -1409,7 +1409,7 @@ Authorization: Bearer <access_token>
     "status": "banned",
     "reason": "多次发布违规内容",
     "duration": "permanent",
-    "bannedAt": "2026-02-20T11:00:00Z",
+    "bannedAt": "2025-06-15T11:00:00Z",
     "bannedBy": "a_root01"
   },
   "timestamp": 1708387200
@@ -1462,7 +1462,7 @@ Authorization: Bearer <access_token>
           "approved": true,
           "overallRisk": "low"
         },
-        "createdAt": "2026-02-20T10:30:00Z"
+        "createdAt": "2025-06-15T10:30:00Z"
       }
     ],
     "pagination": {
@@ -1582,7 +1582,7 @@ Authorization: Bearer <access_token>
       "federatedLearning.roundIntervalHours",
       "resourceLimits.maxMemoryMb"
     ],
-    "appliedAt": "2026-02-20T11:30:00Z"
+    "appliedAt": "2025-06-15T11:30:00Z"
   },
   "timestamp": 1708387200
 }

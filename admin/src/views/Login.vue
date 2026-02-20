@@ -23,7 +23,7 @@
         </el-button>
       </el-form>
 
-      <div class="footer">&copy; 2026 HeartLake</div>
+      <div class="footer">&copy; 2025 HeartLake</div>
     </div>
   </div>
 </template>

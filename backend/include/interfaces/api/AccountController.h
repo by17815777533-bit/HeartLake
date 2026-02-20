@@ -2,8 +2,8 @@
  * @file AccountController.h
  * @brief 账号管理控制器 - 企业级账号功能
  * @author 白洋
- * @date 2026-02-08
- * @copyright Copyright (c) 2026 HeartLake. All rights reserved.
+ * @date 2025-02-08
+ * @copyright Copyright (c) 2025 HeartLake. All rights reserved.
  */
 
 #pragma once

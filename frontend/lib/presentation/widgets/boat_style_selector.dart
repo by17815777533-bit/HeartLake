@@ -1,6 +1,5 @@
 // @file boat_style_selector.dart
 // @brief 纸船样式选择器 - 温暖治愈风格
-// Created by 交互设计师
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

@@ -5,8 +5,7 @@
  * 实现 EdgeAIController.h 中声明的全部10个公开端点处理函数
  * 以及7个私有辅助方法。
  *
- * @author EdgeAI Team
- * @date 2026-02-20
+ * Created by 白洋
  */
 
 #include "interfaces/api/EdgeAIController.h"

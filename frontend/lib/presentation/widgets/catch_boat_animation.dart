@@ -1,6 +1,5 @@
 // @file catch_boat_animation.dart
 // @brief 捞纸船交互动画
-// Created by 交互设计师
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

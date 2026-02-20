@@ -1,7 +1,7 @@
 /**
  * @file RequestHandler.h
  * @brief 统一请求处理工具 - 消除 Controller 中重复的 try-catch 和 JSON 校验模式
- * Created by Claude Code
+ * Created by 白洋
  */
 
 #pragma once

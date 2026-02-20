@@ -680,7 +680,7 @@ heartlake/
 
 ```
 HeartLake 心湖 - 匿名情感社交平台
-Copyright (C) 2024-2026
+Copyright (C) 2024-2025
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -1366,7 +1366,7 @@ HeartLake 由一群热爱技术、关注心理健康的开发者共同打造。
 本项目采用 [AGPL-3.0](LICENSE) 许可证开源。
 
 ```
-Copyright (C) 2024-2026 HeartLake Contributors
+Copyright (C) 2024-2025 HeartLake Contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published

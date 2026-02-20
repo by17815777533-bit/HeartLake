@@ -1,7 +1,7 @@
 /**
  * @file ABTestService.cpp
  * @brief A/B测试框架实现
- * Created by Claude
+ * Created by 白洋
  */
 #include "infrastructure/abtest/ABTestService.h"
 #include <functional>

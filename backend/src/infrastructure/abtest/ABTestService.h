@@ -1,7 +1,7 @@
 /**
  * @file ABTestService.h
  * @brief A/B测试框架 - 支持功能灰度发布和用户分组实验
- * Created by Claude
+ * Created by 白洋
  */
 #pragma once
 

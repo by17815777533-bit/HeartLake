@@ -2,7 +2,7 @@
  * @file TransactionManager.h
  * @brief 事务管理器 - 确保数据库操作的ACID特性
  * @author 白洋
- * @date 2026-02-08
+ * @date 2025-02-08
  */
 
 #pragma once

@@ -12,7 +12,7 @@ void main() {
         'ripple_count': 5,
         'boat_count': 3,
         'tags': ['test', 'flutter'],
-        'created_at': '2026-02-09T10:00:00Z',
+        'created_at': '2025-02-09T10:00:00Z',
       };
 
       final stone = Stone.fromJson(json);
@@ -35,7 +35,7 @@ void main() {
         rippleCount: 5,
         boatCount: 3,
         tags: ['test'],
-        createdAt: DateTime.parse('2026-02-09T10:00:00Z'),
+        createdAt: DateTime.parse('2025-02-09T10:00:00Z'),
       );
 
       final json = stone.toJson();

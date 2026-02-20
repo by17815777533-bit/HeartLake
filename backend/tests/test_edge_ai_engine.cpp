@@ -1,7 +1,7 @@
 /**
  * @file test_edge_ai_engine.cpp
  * @brief EdgeAIEngine 完整单元测试
- * @date 2026-02-20
+ * @date 2025-02-20
  *
  * 覆盖八大子系统：
  * 1. 轻量级情感分析

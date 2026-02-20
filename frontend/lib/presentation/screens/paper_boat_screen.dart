@@ -1,6 +1,5 @@
 // @file paper_boat_screen.dart
 // @brief 漂流纸船主界面 - 放船/捞船/回应
-// Created by 交互设计师
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/paper_boat_service.dart';

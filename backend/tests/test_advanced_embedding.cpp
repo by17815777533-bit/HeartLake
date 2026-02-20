@@ -2,7 +2,7 @@
  * @file test_advanced_embedding.cpp
  * @brief AdvancedEmbeddingEngine 单元测试
  * @author 白洋
- * @date 2026-02-08
+ * @date 2025-02-08
  */
 
 #include <gtest/gtest.h>
