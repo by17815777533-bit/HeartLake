@@ -179,11 +179,19 @@ The engine tracks cumulative privacy budget consumption across queries and provi
 
 6. **HNSW Vector Search.** A complete Hierarchical Navigable Small World graph implementation for approximate nearest neighbor search with $O(\log n)$ query complexity. The implementation supports configurable parameters: $M = 16$ (maximum neighbors per layer), $M_{max0} = 32$ (maximum neighbors at layer 0), $ef_{construction} = 200$ (construction search width), and $ef_{search} = 50$ (query search width). The level generation follows the probabilistic formula $l = \lfloor -\ln(\text{uniform}(0,1)) \cdot m_L \rfloor$ where $m_L = 1/\ln(M)$.
 
-7. **INT8 Quantization Inference.** A model quantization pipeline that converts floating-point model weights to 8-bit integer representation for reduced memory footprint and accelerated inference on edge devices. The quantization follows the affine mapping:
+7. **INT8 Quantization Inference.** A model quantization pipeline that converts floating-point model weights to 8-bit integer representation for reduced memory footprint and accelerated inference on edge devices. The quantization employs symmetric quantization, which preserves the zero point at the origin and is particularly well-suited for weight distributions that are approximately symmetric around zero—a common property of neural network parameters [39]. The quantization scale is computed as:
 
-$$q = \text{round}\left(\frac{x - x_{min}}{x_{max} - x_{min}} \times 255\right)$$
+$$s = \frac{\max(|x|)}{127}$$
 
-with corresponding dequantization for inference output recovery.
+and the quantized representation is obtained via:
+
+$$q = \text{clamp}\left(\text{round}\left(\frac{x}{s}\right), -128, 127\right)$$
+
+Dequantization recovers the approximate floating-point value as $\hat{x} = q \cdot s$. For matrix multiplication, the engine employs INT32 accumulation to prevent overflow during dot product computation:
+
+$$C_{ij} = s_A \cdot s_B \cdot \sum_{k} q^A_{ik} \cdot q^B_{kj}$$
+
+where $s_A$ and $s_B$ are the quantization scales of the two input matrices. The implementation uses 4-way loop unrolling to exploit instruction-level parallelism, achieving near-native throughput on commodity hardware without requiring specialized SIMD intrinsics.
 
 8. **Edge Node Health Monitoring.** An adaptive load balancing system that maintains a registry of edge nodes with real-time health metrics including CPU usage, memory usage, latency, active connections, and failure rates. A composite health score is computed for each node, and the system implements circuit breaker patterns [42] with three states (CLOSED, OPEN, HALF_OPEN) for fault isolation and graceful degradation.
 
@@ -249,7 +257,25 @@ $$S_{temporal} = \exp(-\lambda \cdot \Delta t)$$
 
 where $\Delta t$ is the time difference in hours and $\lambda = 0.1$ is the decay rate parameter.
 
-**Dimension 4: Diversity Bonus ($S_{diversity}$).** A promotion factor that encourages diversity in recommended content by penalizing over-representation of any single mood category in the recommendation list. This prevents "echo chamber" effects where users in negative emotional states are exclusively shown negative content.
+**Dimension 4: Diversity Bonus ($S_{diversity}$).** A promotion factor that encourages diversity in recommended content by penalizing over-representation of any single mood category in the recommendation list. This prevents "echo chamber" effects where users in negative emotional states are exclusively shown negative content. The diversity score is computed as:
+
+$$S_{diversity} = \min\left(1.0,\ B_{base} \cdot 0.8^{n_{same}} + B_{comp}\right)$$
+
+where $B_{base}$ is a base bonus that depends on mood congruence:
+
+$$B_{base} = \begin{cases} 0.6 & \text{if } m_{source} \neq m_{candidate} \\ 0.3 & \text{if } m_{source} = m_{candidate} \end{cases}$$
+
+$n_{same}$ is the number of times the candidate's mood category has already appeared in the recommendation list (implementing a geometric decay that progressively penalizes repetition), and $B_{comp}$ is a complementary emotion bonus:
+
+$$B_{comp} = \begin{cases} 0.3 & \text{if } (m_{source}, m_{candidate}) \in \mathcal{C} \\ 0.0 & \text{otherwise} \end{cases}$$
+
+The complementary emotion set $\mathcal{C}$ is defined based on psychological research on emotion regulation through contrast exposure [31]: $\mathcal{C} = \{(\text{sad}, \text{hopeful}), (\text{anxious}, \text{calm}), (\text{angry}, \text{grateful}), (\text{confused}, \text{hopeful}), (\text{lonely}, \text{happy})\}$. This design draws on the principle that exposure to complementary (rather than merely similar) emotional content can facilitate adaptive emotion regulation [32].
+
+**DTW Fallback Mechanism.** When a candidate user lacks sufficient historical data to construct an emotion trajectory (i.e., fewer than 2 data points in the tracking window), the trajectory similarity dimension degrades gracefully to a point-wise emotion score comparison:
+
+$$S_{trajectory}^{fallback} = \exp\left(-|s_{user} - s_{candidate}|\right)$$
+
+where $s_{user}$ and $s_{candidate}$ are the most recent emotion scores. This ensures that new users are not excluded from resonance matching while still receiving emotionally relevant recommendations.
 
 ### 4.3 Dual-Memory RAG System
 
@@ -294,6 +320,32 @@ $$\Pr[\mathcal{M}(D) \in S] \leq e^{\varepsilon} \cdot \Pr[\mathcal{M}(D') \in S
 $$\varepsilon_{total} \leq \sum_{i=1}^{k} \varepsilon_i$$
 
 EdgeEmotion tracks $\varepsilon_{total}$ and reports privacy degradation levels to administrators, enabling informed decisions about query frequency and privacy budget allocation.
+
+**Implementation Details.** The Laplace noise is generated via the inverse cumulative distribution function (CDF) method. Given a uniform random variable $u \sim \text{Uniform}(0, 1)$, the Laplace-distributed sample is computed as:
+
+$$\text{Lap}(b) = -b \cdot \text{sgn}(u - 0.5) \cdot \ln(1 - 2|u - 0.5|)$$
+
+where $b = \Delta f / \varepsilon$ is the scale parameter. To avoid numerical instability at the distribution tails, the uniform sample is clamped to $[10^{-7}, 1 - 10^{-7}]$ before transformation.
+
+**Sensitivity Analysis.** The sensitivity $\Delta f$ depends on the query type:
+
+| Query Type | Sensitivity ($\Delta f$) | Rationale |
+|-----------|-------------------------|-----------|
+| Average emotion score | $2/n$ | Score range $[-1, 1]$, $n$ participants |
+| Mood distribution count | $1$ | Each user contributes to exactly one category |
+| Lake weather index | $2/n$ | Weighted average of community scores |
+
+**Privacy Budget Management.** The system maintains a global privacy budget counter $\varepsilon_{total}$ with a configurable maximum budget $\varepsilon_{max} = 10.0$. Budget accumulation is implemented using atomic compare-and-swap (CAS) operations to ensure thread safety under concurrent query execution:
+
+$$\varepsilon_{total} \leftarrow \varepsilon_{total} + \varepsilon_i \quad \text{(atomic CAS)}$$
+
+When the cumulative budget is exhausted ($\varepsilon_{total} \geq \varepsilon_{max}$), the mechanism enters a protective mode where queries return the original (unperturbed) aggregate values rather than failing—a design choice that prioritizes service availability while signaling to administrators that the privacy budget requires renewal. The system reports three privacy levels based on cumulative consumption: **Strong** ($\varepsilon_{total} < 10$), **Moderate** ($10 \leq \varepsilon_{total} < 50$), and **Weak** ($\varepsilon_{total} \geq 50$).
+
+**Vector Noise Injection.** For high-dimensional data such as emotion embeddings, the engine applies element-wise Laplace noise with a single budget charge for the entire vector:
+
+$$\tilde{v}_i = v_i + \text{Lap}\left(\frac{\Delta f}{\varepsilon}\right) \quad \forall i \in \{1, \ldots, d\}$$
+
+This approach leverages the parallel composition theorem [14]: when the noise is applied to disjoint dimensions of the data, the total privacy cost equals that of a single dimension rather than scaling linearly with dimensionality $d$.
 
 ### 5.2 Federated Learning with Gradient Clipping
 
