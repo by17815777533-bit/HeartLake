@@ -52,7 +52,7 @@
           <template #header>
             <div class="card-header">
               <span>性能指标</span>
-              <el-tag type="success" size="small">实时</el-tag>
+              <el-tag type="success" size="small">30s 刷新</el-tag>
             </div>
           </template>
           <div class="metrics-grid">
@@ -73,7 +73,7 @@
         <el-card shadow="hover" class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>社区情绪脉搏</span>
+              <span>情绪分析</span>
               <el-tag type="warning" size="small">30s 刷新</el-tag>
             </div>
           </template>
