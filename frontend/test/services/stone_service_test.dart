@@ -50,7 +50,7 @@ void main() {
       final response = ApiResponse<String>.success('data', 'OK');
 
       expect(response.success, true);
-      expect(response.code, 200);
+      expect(response.code, 0);
       expect(response.data, 'data');
     });
 
@@ -64,7 +64,7 @@ void main() {
 
     test('fromJson parses correctly', () {
       final json = {
-        'code': 200,
+        'code': 0,
         'message': 'Success',
         'data': {'name': 'test'},
       };
