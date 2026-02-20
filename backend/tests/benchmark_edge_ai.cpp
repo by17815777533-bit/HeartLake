@@ -197,3 +197,321 @@ TEST(BenchmarkEdgeAI, SentimentAggregation) {
               << " users in " << ms << "ms, " << (ITERS / ms * 1000) << " agg/sec" << std::endl;
     EXPECT_LT(ms, 5000.0);
 }
+
+// ============================================================================
+// 基准1: 情感分析准确率基准（50+中文标注样本）
+// ============================================================================
+
+struct SentimentSample {
+    std::string text;
+    std::string expectedMood;   // joy, sadness, anger, fear, surprise, neutral
+    float expectedPolarity;     // positive > 0, negative < 0, neutral ~ 0
+};
+
+// 50+标注中文情感样本
+static const std::vector<SentimentSample> kSentimentSamples = {
+    // ---- 正面情绪 (joy) ----
+    {"今天天气真好，心情特别愉快！", "joy", 1.0f},
+    {"收到了期待已久的礼物，太开心了", "joy", 1.0f},
+    {"终于通过了考试，努力没有白费", "joy", 1.0f},
+    {"和好朋友一起吃了顿大餐，幸福", "joy", 1.0f},
+    {"升职加薪了，感觉人生到达了巅峰", "joy", 1.0f},
+    {"宝宝今天第一次叫妈妈，感动得哭了", "joy", 1.0f},
+    {"旅行中遇到了绝美的风景，太棒了", "joy", 1.0f},
+    {"项目顺利上线，团队都很兴奋", "joy", 1.0f},
+    {"看了一部超好看的电影，强烈推荐", "joy", 1.0f},
+    {"春天来了，花都开了，真美好", "joy", 1.0f},
+    {"拿到了心仪公司的offer，激动", "joy", 1.0f},
+    {"孩子考了满分，作为家长很欣慰", "joy", 1.0f},
+
+    // ---- 负面情绪 (sadness) ----
+    {"今天被公司裁员了，不知道未来怎么办", "sadness", -1.0f},
+    {"和相处多年的朋友闹翻了，很难过", "sadness", -1.0f},
+    {"爷爷去世了，心里空落落的", "sadness", -1.0f},
+    {"考试又没通过，觉得自己好笨", "sadness", -1.0f},
+    {"一个人在异乡过年，特别想家", "sadness", -1.0f},
+    {"养了五年的猫走丢了，到处找不到", "sadness", -1.0f},
+    {"被最好的朋友背叛了，心如刀割", "sadness", -1.0f},
+    {"失恋了，每天都很难熬", "sadness", -1.0f},
+    {"看到流浪狗在雨中瑟瑟发抖，心疼", "sadness", -1.0f},
+    {"毕业了要和同学们分别，舍不得", "sadness", -1.0f},
+
+    // ---- 愤怒情绪 (anger) ----
+    {"这个商家太黑心了，卖假货还不退款", "anger", -1.0f},
+    {"排了两小时的队结果被告知没号了，气死", "anger", -1.0f},
+    {"邻居半夜放音乐吵得睡不着，忍无可忍", "anger", -1.0f},
+    {"快递员把我的包裹扔在雨里，太不负责了", "anger", -1.0f},
+    {"被人插队还理直气壮，素质太差了", "anger", -1.0f},
+    {"公司无故扣工资，这也太过分了吧", "anger", -1.0f},
+    {"外卖送错了还态度恶劣，真是服了", "anger", -1.0f},
+    {"遇到碰瓷的，简直无法无天", "anger", -1.0f},
+
+    // ---- 恐惧情绪 (fear) ----
+    {"地震了！楼在晃，好害怕", "fear", -1.0f},
+    {"深夜一个人走在小巷里，总觉得后面有人", "fear", -1.0f},
+    {"体检报告有异常，等复查结果好焦虑", "fear", -1.0f},
+    {"明天要上台演讲，紧张得睡不着", "fear", -1.0f},
+    {"听到楼道里有奇怪的声音，不敢出门", "fear", -1.0f},
+    {"孩子发高烧不退，急得不知所措", "fear", -1.0f},
+
+    // ---- 惊讶情绪 (surprise) ----
+    {"天哪，居然中了彩票！不敢相信", "surprise", 1.0f},
+    {"十年没见的老同学突然出现在面前", "surprise", 1.0f},
+    {"打开门发现朋友们准备了惊喜派对", "surprise", 1.0f},
+    {"没想到这家小店的菜这么好吃", "surprise", 1.0f},
+
+    // ---- 中性情绪 (neutral) ----
+    {"今天是星期三", "neutral", 0.0f},
+    {"北京到上海的高铁大约需要四个半小时", "neutral", 0.0f},
+    {"这本书一共有三百页", "neutral", 0.0f},
+    {"会议定在下午两点开始", "neutral", 0.0f},
+    {"超市里苹果五块钱一斤", "neutral", 0.0f},
+    {"明天的天气预报说多云转晴", "neutral", 0.0f},
+    {"公司在三楼，电梯在左边", "neutral", 0.0f},
+    {"这条路修了大概有两年了", "neutral", 0.0f},
+    {"图书馆周一到周五开放", "neutral", 0.0f},
+    {"手机电量还剩百分之五十", "neutral", 0.0f},
+};
+
+TEST_F(EdgeAIBenchmark, SentimentAccuracyBenchmark) {
+    int totalSamples = static_cast<int>(kSentimentSamples.size());
+    ASSERT_GE(totalSamples, 50) << "需要至少50个标注样本";
+
+    int polarityCorrect = 0;   // 极性正确（正/负/中性方向一致）
+    int moodCorrect = 0;       // 情绪类别完全匹配
+
+    // 按类别统计 TP/FP/FN
+    std::map<std::string, int> tp, fp, fn;
+    std::set<std::string> allMoods = {"joy", "sadness", "anger", "fear", "surprise", "neutral"};
+    for (auto& m : allMoods) { tp[m] = 0; fp[m] = 0; fn[m] = 0; }
+
+    for (const auto& sample : kSentimentSamples) {
+        auto result = engine->analyzeSentimentLocal(sample.text);
+
+        // 极性判断
+        bool polarityMatch = false;
+        if (sample.expectedPolarity > 0.1f && result.score > 0.0f) polarityMatch = true;
+        else if (sample.expectedPolarity < -0.1f && result.score < 0.0f) polarityMatch = true;
+        else if (std::abs(sample.expectedPolarity) <= 0.1f && std::abs(result.score) <= 0.5f) polarityMatch = true;
+        if (polarityMatch) ++polarityCorrect;
+
+        // 情绪类别判断
+        if (result.mood == sample.expectedMood) {
+            ++moodCorrect;
+            ++tp[sample.expectedMood];
+        } else {
+            ++fn[sample.expectedMood];
+            ++fp[result.mood];
+        }
+    }
+
+    // 计算总体指标
+    float accuracy = static_cast<float>(moodCorrect) / totalSamples;
+    float polarityAccuracy = static_cast<float>(polarityCorrect) / totalSamples;
+
+    // 计算宏平均 Precision / Recall / F1
+    float macroPrecision = 0.0f, macroRecall = 0.0f, macroF1 = 0.0f;
+    int validClasses = 0;
+    for (auto& m : allMoods) {
+        float p = (tp[m] + fp[m] > 0) ? static_cast<float>(tp[m]) / (tp[m] + fp[m]) : 0.0f;
+        float r = (tp[m] + fn[m] > 0) ? static_cast<float>(tp[m]) / (tp[m] + fn[m]) : 0.0f;
+        float f1 = (p + r > 0) ? 2.0f * p * r / (p + r) : 0.0f;
+
+        std::cout << "  [" << std::setw(10) << m << "] "
+                  << "Precision=" << std::fixed << std::setprecision(3) << p
+                  << " Recall=" << r << " F1=" << f1
+                  << " (TP=" << tp[m] << " FP=" << fp[m] << " FN=" << fn[m] << ")"
+                  << std::endl;
+
+        if (tp[m] + fp[m] + fn[m] > 0) {
+            macroPrecision += p;
+            macroRecall += r;
+            macroF1 += f1;
+            ++validClasses;
+        }
+    }
+    if (validClasses > 0) {
+        macroPrecision /= validClasses;
+        macroRecall /= validClasses;
+        macroF1 /= validClasses;
+    }
+
+    std::cout << "\n===== 情感分析准确率基准 =====" << std::endl;
+    std::cout << "  总样本数: " << totalSamples << std::endl;
+    std::cout << "  极性准确率: " << std::fixed << std::setprecision(3) << polarityAccuracy << std::endl;
+    std::cout << "  情绪分类准确率: " << accuracy << std::endl;
+    std::cout << "  宏平均 Precision: " << macroPrecision << std::endl;
+    std::cout << "  宏平均 Recall: " << macroRecall << std::endl;
+    std::cout << "  宏平均 F1: " << macroF1 << std::endl;
+
+    // 基线要求：极性准确率至少60%
+    EXPECT_GE(polarityAccuracy, 0.6f) << "极性准确率低于60%基线";
+}
+
+
+// ============================================================================
+// 基准2: 推理延迟基准（每项1000次迭代）
+// ============================================================================
+
+TEST_F(EdgeAIBenchmark, InferenceLatencyBenchmark) {
+    const int ITERATIONS = 1000;
+
+    // 预热
+    engine->analyzeSentimentLocal("预热文本");
+    engine->moderateTextLocal("预热文本");
+
+    // 准备HNSW数据
+    std::mt19937 rng(42);
+    const int DIM = 64;
+    for (int i = 0; i < 100; ++i) {
+        engine->hnswInsert("latency_vec_" + std::to_string(i), randomVector(DIM, rng));
+    }
+    auto queryVec = randomVector(DIM, rng);
+
+    // 准备量化数据
+    std::vector<float> quantData(256);
+    std::iota(quantData.begin(), quantData.end(), -128.0f);
+    std::vector<size_t> quantShape = {16, 16};
+
+    // 1. analyzeSentimentLocal 延迟
+    double sentimentLatency = measureLatencyUs([&]() {
+        engine->analyzeSentimentLocal("这是一段用于测试推理延迟的中文文本，包含一些情感词汇如开心、难过。");
+    }, ITERATIONS);
+
+    // 2. moderateTextLocal 延迟
+    double moderationLatency = measureLatencyUs([&]() {
+        engine->moderateTextLocal("这是一段用于测试审核延迟的普通文本内容。");
+    }, ITERATIONS);
+
+    // 3. hnswSearch 延迟
+    double hnswLatency = measureLatencyUs([&]() {
+        engine->hnswSearch(queryVec, 10);
+    }, ITERATIONS);
+
+    // 4. quantizeToInt8 延迟
+    double quantizeLatency = measureLatencyUs([&]() {
+        engine->quantizeToInt8(quantData, quantShape);
+    }, ITERATIONS);
+
+    std::cout << "\n===== 推理延迟基准 (" << ITERATIONS << " 次迭代) =====" << std::endl;
+    std::cout << "  analyzeSentimentLocal: " << std::fixed << std::setprecision(2)
+              << sentimentLatency << " us/op" << std::endl;
+    std::cout << "  moderateTextLocal:     " << moderationLatency << " us/op" << std::endl;
+    std::cout << "  hnswSearch (k=10):     " << hnswLatency << " us/op" << std::endl;
+    std::cout << "  quantizeToInt8 (256d): " << quantizeLatency << " us/op" << std::endl;
+
+    // 边缘推理延迟应在合理范围内（< 10ms = 10000us）
+    EXPECT_LT(sentimentLatency, 10000.0) << "情感分析延迟超过10ms";
+    EXPECT_LT(moderationLatency, 10000.0) << "文本审核延迟超过10ms";
+    EXPECT_LT(hnswLatency, 10000.0) << "HNSW搜索延迟超过10ms";
+    EXPECT_LT(quantizeLatency, 10000.0) << "量化延迟超过10ms";
+}
+
+
+// ============================================================================
+// 基准3: AC自动机审核基准（检出率+误报率）
+// ============================================================================
+
+TEST_F(EdgeAIBenchmark, ACAutomatonModerationBenchmark) {
+    // ---- 应被检出的敏感文本 ----
+    struct ModerationSample {
+        std::string text;
+        bool shouldBlock;  // true=应拦截, false=应放行
+    };
+
+    std::vector<ModerationSample> samples = {
+        // 应被拦截的敏感内容
+        {"杀人放火无恶不作", true},
+        {"我要炸掉这栋楼", true},
+        {"贩卖毒品月入百万", true},
+        {"色情网站免费看", true},
+        {"赌博平台稳赚不赔", true},
+        {"枪支弹药低价出售", true},
+        {"吸毒让人飘飘欲仙", true},
+        {"招嫖上门服务", true},
+        {"传销快速致富秘诀", true},
+        {"自杀方法大全", true},
+        {"恐怖袭击计划", true},
+        {"贩卖人口黑市交易", true},
+        {"制造炸弹教程", true},
+        {"洗钱通道安全可靠", true},
+        {"网络诈骗技巧分享", true},
+        {"黄赌毒一条龙服务", true},
+        {"暴力血腥杀戮现场", true},
+        {"非法集资高额回报", true},
+        {"偷拍偷窥设备出售", true},
+        {"代开发票增值税", true},
+
+        // 应放行的正常内容
+        {"今天天气真好，适合出去散步", false},
+        {"这道菜的做法是先把鸡蛋打散", false},
+        {"明天有一场重要的会议需要准备", false},
+        {"孩子们在公园里快乐地玩耍", false},
+        {"这本书讲述了一个感人的故事", false},
+        {"周末打算去图书馆看书学习", false},
+        {"新买的手机拍照效果很不错", false},
+        {"早上跑步五公里，感觉精神很好", false},
+        {"这家餐厅的服务态度非常好", false},
+        {"学习编程需要持之以恒的努力", false},
+        {"春天的花园里百花齐放", false},
+        {"音乐会的演出非常精彩", false},
+        {"志愿者们在社区做公益活动", false},
+        {"科学家发现了新的治疗方法", false},
+        {"老师耐心地给学生讲解题目", false},
+        {"家人一起包饺子过年很温馨", false},
+        {"这部纪录片拍得很有深度", false},
+        {"小区里新开了一家便利店", false},
+        {"坚持锻炼身体越来越健康了", false},
+        {"读万卷书行万里路增长见识", false},
+    };
+
+    int truePositive = 0;   // 正确拦截
+    int falsePositive = 0;  // 误报（正常文本被拦截）
+    int trueNegative = 0;   // 正确放行
+    int falseNegative = 0;  // 漏报（敏感文本未拦截）
+
+    int totalSensitive = 0;
+    int totalNormal = 0;
+
+    for (const auto& sample : samples) {
+        auto result = engine->moderateTextLocal(sample.text);
+        bool blocked = !result.passed;
+
+        if (sample.shouldBlock) {
+            ++totalSensitive;
+            if (blocked) ++truePositive;
+            else ++falseNegative;
+        } else {
+            ++totalNormal;
+            if (blocked) ++falsePositive;
+            else ++trueNegative;
+        }
+    }
+
+    float detectionRate = (totalSensitive > 0)
+        ? static_cast<float>(truePositive) / totalSensitive : 0.0f;
+    float falsePositiveRate = (totalNormal > 0)
+        ? static_cast<float>(falsePositive) / totalNormal : 0.0f;
+    float precision = (truePositive + falsePositive > 0)
+        ? static_cast<float>(truePositive) / (truePositive + falsePositive) : 0.0f;
+    float recall = detectionRate;
+    float f1 = (precision + recall > 0)
+        ? 2.0f * precision * recall / (precision + recall) : 0.0f;
+
+    std::cout << "\n===== AC自动机审核基准 =====" << std::endl;
+    std::cout << "  敏感样本数: " << totalSensitive << std::endl;
+    std::cout << "  正常样本数: " << totalNormal << std::endl;
+    std::cout << "  TP(正确拦截): " << truePositive << std::endl;
+    std::cout << "  FP(误报): " << falsePositive << std::endl;
+    std::cout << "  TN(正确放行): " << trueNegative << std::endl;
+    std::cout << "  FN(漏报): " << falseNegative << std::endl;
+    std::cout << "  检出率(Recall): " << std::fixed << std::setprecision(3) << detectionRate << std::endl;
+    std::cout << "  误报率(FPR): " << falsePositiveRate << std::endl;
+    std::cout << "  精确率(Precision): " << precision << std::endl;
+    std::cout << "  F1分数: " << f1 << std::endl;
+
+    // 基线要求
+    EXPECT_GE(detectionRate, 0.5f) << "敏感内容检出率低于50%";
+    EXPECT_LE(falsePositiveRate, 0.3f) << "正常内容误报率高于30%";
+}
+
