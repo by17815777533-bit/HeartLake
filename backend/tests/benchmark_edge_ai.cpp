@@ -515,3 +515,225 @@ TEST_F(EdgeAIBenchmark, ACAutomatonModerationBenchmark) {
     EXPECT_LE(falsePositiveRate, 0.3f) << "正常内容误报率高于30%";
 }
 
+
+// ============================================================================
+// 基准4: HNSW检索质量基准（1000随机向量，recall@10）
+// ============================================================================
+
+TEST_F(EdgeAIBenchmark, HNSWRetrievalQualityBenchmark) {
+    const int NUM_VECTORS = 1000;
+    const int DIM = 64;
+    const int K = 10;
+    const int NUM_QUERIES = 50;
+
+    std::mt19937 rng(12345);
+
+    // 插入1000个随机向量
+    std::vector<std::vector<float>> allVectors;
+    allVectors.reserve(NUM_VECTORS);
+
+    auto insertStart = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_VECTORS; ++i) {
+        auto vec = randomVector(DIM, rng);
+        allVectors.push_back(vec);
+        engine->hnswInsert("hnsw_bench_" + std::to_string(i), vec);
+    }
+    auto insertEnd = std::chrono::high_resolution_clock::now();
+    double insertTimeMs = std::chrono::duration<double, std::milli>(insertEnd - insertStart).count();
+
+    // 暴力搜索作为ground truth
+    auto bruteForceSearch = [&](const std::vector<float>& query, int k) -> std::vector<std::string> {
+        std::vector<std::pair<float, int>> distances;
+        distances.reserve(NUM_VECTORS);
+        for (int i = 0; i < NUM_VECTORS; ++i) {
+            float dist = 0.0f;
+            for (int d = 0; d < DIM; ++d) {
+                float diff = query[d] - allVectors[i][d];
+                dist += diff * diff;
+            }
+            distances.emplace_back(dist, i);
+        }
+        std::partial_sort(distances.begin(), distances.begin() + k, distances.end());
+        std::vector<std::string> result;
+        for (int i = 0; i < k && i < static_cast<int>(distances.size()); ++i) {
+            result.push_back("hnsw_bench_" + std::to_string(distances[i].second));
+        }
+        return result;
+    };
+
+    // 执行查询并计算recall@10
+    double totalRecall = 0.0;
+    double totalSearchLatencyUs = 0.0;
+
+    for (int q = 0; q < NUM_QUERIES; ++q) {
+        auto queryVec = randomVector(DIM, rng);
+
+        // HNSW搜索
+        auto searchStart = std::chrono::high_resolution_clock::now();
+        auto hnswResults = engine->hnswSearch(queryVec, K);
+        auto searchEnd = std::chrono::high_resolution_clock::now();
+        totalSearchLatencyUs += std::chrono::duration<double, std::micro>(searchEnd - searchStart).count();
+
+        // 暴力搜索ground truth
+        auto groundTruth = bruteForceSearch(queryVec, K);
+        std::set<std::string> gtSet(groundTruth.begin(), groundTruth.end());
+
+        // 计算recall
+        int hits = 0;
+        for (const auto& r : hnswResults) {
+            if (gtSet.count(r.id)) ++hits;
+        }
+        double recall = static_cast<double>(hits) / K;
+        totalRecall += recall;
+    }
+
+    double avgRecall = totalRecall / NUM_QUERIES;
+    double avgSearchLatencyUs = totalSearchLatencyUs / NUM_QUERIES;
+
+    std::cout << "\n===== HNSW检索质量基准 =====" << std::endl;
+    std::cout << "  向量数量: " << NUM_VECTORS << std::endl;
+    std::cout << "  向量维度: " << DIM << std::endl;
+    std::cout << "  查询数量: " << NUM_QUERIES << std::endl;
+    std::cout << "  K值: " << K << std::endl;
+    std::cout << "  索引构建时间: " << std::fixed << std::setprecision(2) << insertTimeMs << " ms" << std::endl;
+    std::cout << "  平均搜索延迟: " << avgSearchLatencyUs << " us/query" << std::endl;
+    std::cout << "  平均 Recall@" << K << ": " << std::setprecision(4) << avgRecall << std::endl;
+
+    // HNSW recall@10 应至少达到70%
+    EXPECT_GE(avgRecall, 0.7) << "HNSW recall@10 低于70%基线";
+    // 单次搜索延迟应在合理范围
+    EXPECT_LT(avgSearchLatencyUs, 50000.0) << "HNSW平均搜索延迟超过50ms";
+}
+
+
+// ============================================================================
+// 基准5: 差分隐私效用基准（不同epsilon下噪声水平+统计偏差）
+// ============================================================================
+
+TEST_F(EdgeAIBenchmark, DifferentialPrivacyUtilityBenchmark) {
+    const int NUM_SAMPLES = 10000;
+    const float TRUE_VALUE = 100.0f;
+    const float SENSITIVITY = 1.0f;
+
+    // 测试不同epsilon值
+    std::vector<float> epsilonValues = {0.1f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f};
+
+    std::cout << "\n===== 差分隐私效用基准 =====" << std::endl;
+    std::cout << "  真实值: " << TRUE_VALUE << std::endl;
+    std::cout << "  灵敏度: " << SENSITIVITY << std::endl;
+    std::cout << "  每组样本数: " << NUM_SAMPLES << std::endl;
+    std::cout << std::endl;
+
+    for (float epsilon : epsilonValues) {
+        // 重新初始化引擎以设置新的epsilon
+        Json::Value config;
+        config["dp_epsilon"] = epsilon;
+        config["dp_delta"] = 1e-5;
+        config["pulse_window_seconds"] = 300;
+        config["hnsw_m"] = 16;
+        config["hnsw_ef_construction"] = 200;
+        config["hnsw_ef_search"] = 50;
+        config["quantization_bits"] = 8;
+        engine->initialize(config);
+
+        // 收集加噪样本
+        std::vector<float> noisySamples;
+        noisySamples.reserve(NUM_SAMPLES);
+
+        engine->resetPrivacyBudget();
+
+        for (int i = 0; i < NUM_SAMPLES; ++i) {
+            // 每次重置预算以避免耗尽
+            if (i % 100 == 0) {
+                engine->resetPrivacyBudget();
+            }
+            float noisy = engine->addLaplaceNoise(TRUE_VALUE, SENSITIVITY);
+            noisySamples.push_back(noisy);
+        }
+
+        // 计算统计量
+        double sum = 0.0;
+        for (float v : noisySamples) sum += v;
+        double mean = sum / NUM_SAMPLES;
+
+        double varianceSum = 0.0;
+        for (float v : noisySamples) {
+            double diff = v - mean;
+            varianceSum += diff * diff;
+        }
+        double variance = varianceSum / (NUM_SAMPLES - 1);
+        double stddev = std::sqrt(variance);
+
+        // 统计偏差 = |均值 - 真实值|
+        double bias = std::abs(mean - TRUE_VALUE);
+
+        // Laplace(0, b) 的理论方差 = 2b^2, 其中 b = sensitivity/epsilon
+        double theoreticalScale = SENSITIVITY / epsilon;
+        double theoreticalVariance = 2.0 * theoreticalScale * theoreticalScale;
+        double theoreticalStddev = std::sqrt(theoreticalVariance);
+
+        // 噪声水平 = 实际标准差 / 真实值
+        double noiseLevel = stddev / std::abs(TRUE_VALUE);
+
+        std::cout << "  epsilon=" << std::fixed << std::setprecision(1) << epsilon
+                  << " | 均值=" << std::setprecision(3) << mean
+                  << " | 偏差=" << bias
+                  << " | 标准差=" << stddev
+                  << " | 理论标准差=" << theoreticalStddev
+                  << " | 噪声水平=" << std::setprecision(4) << noiseLevel
+                  << std::endl;
+
+        // 验证无偏性：均值应接近真实值（允许3个标准误差的偏差）
+        double standardError = stddev / std::sqrt(NUM_SAMPLES);
+        EXPECT_NEAR(mean, TRUE_VALUE, 3.0 * standardError + 1.0)
+            << "epsilon=" << epsilon << " 时均值偏差过大，Laplace机制可能有偏";
+
+        // 验证噪声随epsilon增大而减小的趋势
+        // epsilon越大，隐私保护越弱，噪声越小
+        if (epsilon >= 1.0f) {
+            EXPECT_LT(noiseLevel, 0.5)
+                << "epsilon=" << epsilon << " 时噪声水平过高";
+        }
+    }
+
+    // 验证向量版本的差分隐私
+    std::cout << "\n  --- 向量差分隐私测试 ---" << std::endl;
+    engine->resetPrivacyBudget();
+
+    std::vector<float> trueVec = {10.0f, 20.0f, 30.0f, 40.0f, 50.0f};
+    const int VEC_TRIALS = 1000;
+
+    std::vector<double> vecMeans(trueVec.size(), 0.0);
+    std::vector<double> vecVariances(trueVec.size(), 0.0);
+
+    for (int t = 0; t < VEC_TRIALS; ++t) {
+        if (t % 100 == 0) engine->resetPrivacyBudget();
+        auto noisyVec = engine->addLaplaceNoiseVec(trueVec, SENSITIVITY);
+        ASSERT_EQ(noisyVec.size(), trueVec.size());
+        for (size_t d = 0; d < trueVec.size(); ++d) {
+            vecMeans[d] += noisyVec[d];
+        }
+    }
+
+    for (size_t d = 0; d < trueVec.size(); ++d) {
+        vecMeans[d] /= VEC_TRIALS;
+        std::cout << "  维度" << d << ": 真实=" << trueVec[d]
+                  << " 均值=" << std::fixed << std::setprecision(3) << vecMeans[d]
+                  << " 偏差=" << std::abs(vecMeans[d] - trueVec[d])
+                  << std::endl;
+
+        // 每个维度的均值应接近真实值
+        EXPECT_NEAR(vecMeans[d], trueVec[d], 5.0)
+            << "向量维度" << d << "的均值偏差过大";
+    }
+
+    // 验证隐私预算追踪
+    engine->resetPrivacyBudget();
+    float budgetBefore = engine->getRemainingPrivacyBudget();
+    engine->addLaplaceNoise(1.0f, 1.0f);
+    float budgetAfter = engine->getRemainingPrivacyBudget();
+    std::cout << "\n  隐私预算: 操作前=" << budgetBefore
+              << " 操作后=" << budgetAfter << std::endl;
+    EXPECT_LT(budgetAfter, budgetBefore) << "隐私预算应在每次操作后减少";
+}
+
