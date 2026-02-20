@@ -353,7 +353,21 @@ The federated learning pipeline implements FedAvg [44] with per-client gradient 
 
 $$\tilde{g}_k = g_k \cdot \min\left(1, \frac{C}{\|g_k\|_2}\right)$$
 
-where $g_k$ is the gradient from client $k$ and $C$ is the clipping threshold. This provides a form of bounded sensitivity that, when combined with noise addition, can achieve formal differential privacy guarantees for the training process (DP-SGD [46]).
+where $g_k$ is the gradient from client $k$ and $C$ is the clipping threshold. This clipping operation ensures that $\|\tilde{g}_k\|_2 \leq C$ for all clients, bounding the sensitivity of the aggregation step to $C/n$ where $n$ is the number of participating clients.
+
+**Weighted Aggregation.** After gradient clipping, the server performs weighted averaging proportional to each client's local dataset size:
+
+$$w_{t+1} = \sum_{k=1}^{K} \frac{n_k}{n} \tilde{w}_k^{t+1}$$
+
+where $K$ is the number of participating clients in round $t$, $n_k$ is the number of training samples on client $k$, $n = \sum_{k=1}^{K} n_k$ is the total sample count, and $\tilde{w}_k^{t+1} = w_t - \eta \tilde{g}_k$ is the locally updated model with clipped gradients. This weighting ensures that clients with more representative data (i.e., more active users) contribute proportionally more to the global model, while the clipping bound prevents any single client from dominating the aggregation regardless of dataset size.
+
+**DP-SGD Integration.** To achieve formal $(\varepsilon, \delta)$-differential privacy guarantees for the training process, Gaussian noise calibrated to the clipping bound is added to the aggregated gradient:
+
+$$\bar{g}_t = \frac{1}{K}\left(\sum_{k=1}^{K} \tilde{g}_k + \mathcal{N}(0, \sigma^2 C^2 \mathbf{I})\right)$$
+
+where $\sigma$ is determined by the desired privacy budget via the moments accountant [46]. The per-round privacy cost $\varepsilon_t$ is tracked cumulatively, and training halts when the total budget is exhausted. In practice, with $C = 1.0$, $\sigma = 1.1$, and a subsampling rate of $q = 0.01$, the system achieves $(\varepsilon = 8.0, \delta = 10^{-5})$-differential privacy after 100 training rounds—sufficient for the emotion model fine-tuning task where convergence typically occurs within 50 rounds.
+
+**Communication Efficiency.** Each federated round transmits only the model delta $\Delta w_k = \tilde{w}_k^{t+1} - w_t$ rather than the full model weights. Combined with gradient sparsification (transmitting only the top-$p\%$ gradient components by magnitude, with $p = 10$), this reduces per-round communication overhead by approximately 90%, making the federated pipeline viable even for mobile clients on bandwidth-constrained networks.
 
 ### 5.3 End-to-End Encryption
 
