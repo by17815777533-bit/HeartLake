@@ -5,7 +5,7 @@
 <h1 align="center">HeartLake 心湖</h1>
 
 <p align="center">
-  <strong>匿名情感社交平台 · 边缘AI驱动 · 世界级安全架构</strong>
+  <strong>匿名情感社交平台 · 边缘AI驱动 · 安全架构</strong>
 </p>
 
 <p align="center">
@@ -108,7 +108,7 @@ Infrastructure（基础设施层） →  AI / Cache / Privacy / Vector / Realtim
 | 节点监控 | Health Monitor | AI引擎健康度实时监控 |
 | 熔断降级 | Circuit Breaker | 故障自动隔离与优雅降级 |
 
-### 4. 世界级安全架构
+### 4. 安全架构
 
 - PASETO v4 Token 认证（替代 JWT，无算法混淆攻击）
 - E2E 端到端加密（咨询会话全程加密）
