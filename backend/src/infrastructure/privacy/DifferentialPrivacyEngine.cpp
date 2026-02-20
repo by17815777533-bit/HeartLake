@@ -36,7 +36,7 @@ double DifferentialPrivacyEngine::laplaceSample(double scale) {
     double u = dist(rng_);
     // 避免 log(0)
     double absU = std::abs(u);
-    if (absU >= 0.5) absU = 0.4999999;
+    if (absU >= 0.5) absU = std::nextafter(0.5, 0.0);
     return -scale * (u > 0 ? 1.0 : -1.0) * std::log(1.0 - 2.0 * absU);
 }
 

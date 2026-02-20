@@ -29,7 +29,7 @@ class WebSocketManager {
   bool get isConnected => _isConnected;
 
   /// 连接 WebSocket
-  /// P0-1 修复：不在 URL 中传输 token，改为连接后通过首条消息认证
+  /// 通过 URL query 参数传递 token，后端在 handleNewConnection 中验证
   Future<bool> connect() async {
     if (_isConnected) return true;
 

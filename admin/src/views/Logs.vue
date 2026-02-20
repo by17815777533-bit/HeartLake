@@ -61,6 +61,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
+import { getErrorMessage } from '@/utils/errorHelper'
 
 const loading = ref(false)
 const logList = ref([])
@@ -94,7 +95,7 @@ const fetchLogs = async () => {
     pagination.total = res.data?.total || 0
   } catch (e) {
     console.error('获取操作日志失败:', e)
-    ElMessage.error('获取操作日志失败，请刷新重试')
+    ElMessage.error(getErrorMessage(e, '获取操作日志失败'))
     logList.value = []
   } finally {
     loading.value = false

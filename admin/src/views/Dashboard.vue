@@ -49,7 +49,7 @@
 
     <!-- 图表区 -->
     <el-row :gutter="20" class="charts-row">
-      <el-col :span="12">
+      <el-col :xs="24" :sm="24" :md="12">
         <el-card shadow="hover" class="chart-card">
           <template #header>
             <div class="card-header">
@@ -65,7 +65,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="12">
+      <el-col :xs="24" :sm="24" :md="12">
         <el-card shadow="hover" class="chart-card">
           <template #header>情绪分布</template>
           <v-chart :option="moodDistributionOption" autoresize style="height: 300px" />
