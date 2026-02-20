@@ -225,29 +225,29 @@ TEST_F(ValidatorTest, SanitizeHtml_PlainTextUnchanged) {
 // -------------------- checkSqlInjection --------------------
 
 TEST_F(ValidatorTest, SqlInjection_DetectsDropTable) {
-    auto result = Validator::checkSqlInjection("DROP TABLE users");
+    auto result = Validator::checkSqlInjection("DROP TABLE users", "input");
     EXPECT_FALSE(result.isValid);
 }
 
 TEST_F(ValidatorTest, SqlInjection_DetectsUnionSelect) {
-    auto result = Validator::checkSqlInjection("1 UNION SELECT * FROM users");
+    auto result = Validator::checkSqlInjection("1 UNION SELECT * FROM users", "input");
     EXPECT_FALSE(result.isValid);
 }
 
 TEST_F(ValidatorTest, SqlInjection_SafeInput_Valid) {
-    auto result = Validator::checkSqlInjection("hello world 123");
+    auto result = Validator::checkSqlInjection("hello world 123", "input");
     EXPECT_TRUE(result.isValid);
 }
 
 // -------------------- checkPathTraversal --------------------
 
 TEST_F(ValidatorTest, PathTraversal_DetectsDotDotSlash) {
-    auto result = Validator::checkPathTraversal("../../etc/passwd");
+    auto result = Validator::checkPathTraversal("../../etc/passwd", "path");
     EXPECT_FALSE(result.isValid);
 }
 
 TEST_F(ValidatorTest, PathTraversal_SafePath_Valid) {
-    auto result = Validator::checkPathTraversal("images/photo.jpg");
+    auto result = Validator::checkPathTraversal("images/photo.jpg", "path");
     EXPECT_TRUE(result.isValid);
 }
 

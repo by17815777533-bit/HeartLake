@@ -71,6 +71,8 @@ http.interceptors.response.use(
   }
 )
 
+export { http }
+
 export default {
   // Auth
   login: data => http.post('/admin/login', data),

@@ -62,7 +62,10 @@ PrivateEmotionStats DifferentialPrivacyEngine::aggregateWithPrivacy(double epsil
 
     try {
         auto db = drogon::app().getDbClient("default");
-
+        if (!db) {
+            // 无数据库连接，返回空统计
+            return stats;
+        }
         // 1) 查询时间窗口内的平均情绪分数和用户数
         auto avgResult = db->execSqlSync(
             "SELECT COUNT(DISTINCT user_id) AS user_count, "

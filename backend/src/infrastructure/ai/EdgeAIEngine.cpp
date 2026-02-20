@@ -70,6 +70,28 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     // 构建审核AC自动机
     buildModerationAC();
 
+    // 清空HNSW索引（重新初始化时需要）
+    {
+        std::unique_lock<std::shared_mutex> lock(hnswMutex_);
+        hnswNodes_.clear();
+        hnswIdMap_.clear();
+        hnswEntryPoint_ = -1;
+        hnswMaxLevel_ = 0;
+    }
+
+    // 清空情绪脉搏数据
+    {
+        std::unique_lock<std::shared_mutex> lock(pulseMutex_);
+        emotionWindow_.clear();
+        pulseHistory_.clear();
+    }
+
+    // 清空节点注册表
+    {
+        std::unique_lock<std::shared_mutex> lock(nodeMutex_);
+        nodeRegistry_.clear();
+    }
+
     initialized_ = true;
     LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully";
 }
@@ -431,12 +453,8 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
             intensifierMult = 1.0f;
             negated = false;
         } else {
-            // 非情感词，如果距离上一个修饰词超过2个token，重置
-            if (i > 0) {
-                // 修饰词作用范围有限
-                intensifierMult = 1.0f;
-                negated = false;
-            }
+            // 非情感词不立即重置修饰状态
+            // 让否定词和程度副词的作用范围延伸到下一个情感词
         }
     }
 
@@ -690,7 +708,7 @@ EdgeModerationResult EdgeAIEngine::moderateTextLocal(const std::string& text) {
                    [](unsigned char c) { return std::tolower(c); });
 
     // 阶段1: AC自动机快速多模式匹配
-    auto matches = moderationAC_.search(lowerText);
+    auto matches = moderationAC_.match(lowerText);
 
     if (matches.empty()) {
         result.passed = true;
@@ -1078,12 +1096,9 @@ void EdgeAIEngine::resetPrivacyBudget() {
 int EdgeAIEngine::randomLevel() {
     // 指数衰减的随机层级生成
     // P(level = l) = (1/M)^l * (1 - 1/M)
+    // 注意：调用者必须已持有 hnswMutex_
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    float r;
-    {
-        std::lock_guard<std::shared_mutex> lock(hnswMutex_);
-        r = dist(hnswRng_);
-    }
+    float r = dist(hnswRng_);
     int level = static_cast<int>(-std::log(r) * hnswLevelMult_);
     return std::max(0, level);
 }

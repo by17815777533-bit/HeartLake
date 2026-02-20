@@ -141,5 +141,6 @@ TEST_F(DifferentialPrivacyTest, LakeWeather_ReturnsValidStructure) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    _exit(ret);  // 跳过全局析构，避免drogon单例析构顺序导致的SEGFAULT
 }

@@ -138,7 +138,7 @@ ValidationResult Validator::url(const std::string& value, const std::string& fie
 
     // URL格式验证
     std::regex urlRegex(
-        R"(^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$)",
+        R"(^https?:\/\/[\w\-]+(\.[\w\-]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$)",
         std::regex::icase
     );
 
@@ -210,6 +210,10 @@ ValidationResult Validator::fileExtension(const std::string& filename,
     bool found = false;
     for (const auto& allowedExt : allowedExtensions) {
         std::string lowerAllowed = allowedExt;
+        // 去掉前导点号
+        if (!lowerAllowed.empty() && lowerAllowed[0] == '.') {
+            lowerAllowed = lowerAllowed.substr(1);
+        }
         std::transform(lowerAllowed.begin(), lowerAllowed.end(), lowerAllowed.begin(), ::tolower);
         if (ext == lowerAllowed) {
             found = true;

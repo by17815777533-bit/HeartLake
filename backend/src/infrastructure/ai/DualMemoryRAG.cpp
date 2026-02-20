@@ -70,8 +70,9 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
 
     try {
         auto db = drogon::app().getDbClient("default");
-
-        // 聚合30天情绪数据
+        if (!db) {
+            return;
+        }
         auto result = db->execSqlSync(
             "SELECT COUNT(*) as total_posts, "
             "AVG(emotion_score) as avg_score, "
@@ -282,6 +283,7 @@ Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
     }
 
     Json::Value insights;
+    insights["user_id"] = userId;
     const auto& lt = memoryCopy.longTerm;
 
     // 情绪画像
@@ -294,6 +296,7 @@ Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
     profile["consecutive_negative_days"] = lt.consecutiveNegativeDays;
     profile["last_active_date"] = lt.lastActiveDate;
     insights["profile"] = profile;
+    insights["long_term_profile"] = profile;
 
     // 趋势解读
     std::string trendDescription;
