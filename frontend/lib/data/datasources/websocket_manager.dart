@@ -125,6 +125,7 @@ class WebSocketManager {
 
   void _onError(error) {
     _isConnected = false;
+    _heartbeatTimer?.cancel();
     _emit('error', {'type': 'error', 'message': error.toString()});
     _scheduleReconnect();
   }
