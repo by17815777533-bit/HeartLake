@@ -1,0 +1,36 @@
+# Environment files (CRITICAL: contains API keys)
+**/.env
+!**/.env.example
+
+# Build artifacts
+build/
+dist/
+node_modules/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Uploads
+uploads/
+
+# Flutter
+frontend/.dart_tool/
+frontend/.packages
+frontend/build/
+
+# C++ build
+backend/build/
+backend/.cache/
+compile_commands.json

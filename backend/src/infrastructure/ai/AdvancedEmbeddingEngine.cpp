@@ -1,0 +1,515 @@
+/**
+ * @file AdvancedEmbeddingEngine.cpp
+ * @brief AdvancedEmbeddingEngine 模块实现
+ * Created by 王璐瑶
+ */
+
+#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include <drogon/drogon.h>
+#include <algorithm>
+#include <cmath>
+#include <numeric>
+#include <unordered_set>
+
+using namespace drogon;
+
+namespace heartlake {
+namespace ai {
+
+AdvancedEmbeddingEngine& AdvancedEmbeddingEngine::getInstance() {
+    static AdvancedEmbeddingEngine instance;
+    return instance;
+}
+
+void AdvancedEmbeddingEngine::initialize(size_t embeddingDim, size_t cacheSize) {
+    if (initialized_) {
+        LOG_WARN << "AdvancedEmbeddingEngine already initialized";
+        return;
+    }
+
+    embeddingDim_ = embeddingDim;
+    cacheSize_ = cacheSize;
+    embeddingCache_ = std::make_unique<LRUCache>(cacheSize);
+
+    LOG_INFO << "Initializing AdvancedEmbeddingEngine with embedding_dim=" << embeddingDim
+             << ", cache_size=" << cacheSize;
+
+    // 加载情感词典
+    loadSentimentLexicon();
+
+    // 从数据库加载历史数据进行训练（仅在应用运行时）
+    if (!app().isRunning()) {
+        LOG_INFO << "Drogon app not running, skipping database training data load";
+        initialized_ = true;
+        return;
+    }
+    try {
+        auto dbClient = app().getDbClient("default");
+        auto result = dbClient->execSqlSync(
+            "SELECT content FROM stones WHERE content IS NOT NULL AND LENGTH(content) > 10 "
+            "ORDER BY created_at DESC LIMIT 5000"
+        );
+
+        std::vector<std::string> corpus;
+        corpus.reserve(result.size());
+        for (const auto& row : result) {
+            corpus.push_back(row["content"].as<std::string>());
+        }
+
+        if (!corpus.empty()) {
+            LOG_INFO << "Training embedding model with " << corpus.size() << " documents";
+            trainFromCorpus(corpus);
+        } else {
+            LOG_WARN << "No training data found, using default IDF weights";
+        }
+    } catch (const std::exception& e) {
+        LOG_WARN << "Failed to load training data: " << e.what();
+    }
+
+    initialized_ = true;
+    LOG_INFO << "AdvancedEmbeddingEngine initialized successfully";
+}
+
+std::vector<std::string> AdvancedEmbeddingEngine::tokenize(const std::string& text) const {
+    std::vector<std::string> tokens;
+    std::string current;
+
+    for (size_t i = 0; i < text.length(); ++i) {
+        unsigned char c = text[i];
+
+        // 处理UTF-8中文字符（3字节）
+        // 正确的UTF-8三字节检测: 1110xxxx 10xxxxxx 10xxxxxx
+        if ((c & 0xF0) == 0xE0 && i + 2 < text.length()) {
+            unsigned char c2 = text[i + 1];
+            unsigned char c3 = text[i + 2];
+            // 验证后续字节是否为10xxxxxx格式
+            if ((c2 & 0xC0) == 0x80 && (c3 & 0xC0) == 0x80) {
+                current = text.substr(i, 3);
+                tokens.push_back(current);
+                current.clear();
+                i += 2;
+            }
+        }
+        // 处理ASCII字母数字
+        else if (std::isalnum(c)) {
+            current += c;
+        }
+        // 分词边界
+        else if (!current.empty()) {
+            tokens.push_back(current);
+            current.clear();
+        }
+    }
+
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
+
+    return tokens;
+}
+
+std::vector<std::string> AdvancedEmbeddingEngine::extractNGrams(
+    const std::vector<std::string>& tokens, int n
+) const {
+    std::vector<std::string> ngrams;
+    if (tokens.size() < static_cast<size_t>(n)) {
+        return ngrams;
+    }
+
+    for (size_t i = 0; i <= tokens.size() - n; ++i) {
+        std::string ngram;
+        for (int j = 0; j < n; ++j) {
+            if (j > 0) ngram += " ";
+            ngram += tokens[i + j];
+        }
+        ngrams.push_back(ngram);
+    }
+
+    return ngrams;
+}
+
+size_t AdvancedEmbeddingEngine::featureHash(const std::string& feature, size_t numBuckets) const {
+    // MurmurHash3风格的哈希函数
+    size_t hash = 0;
+    const size_t m = 0xc6a4a7935bd1e995ULL;
+    const int r = 47;
+
+    for (char c : feature) {
+        hash ^= static_cast<size_t>(c);
+        hash *= m;
+        hash ^= (hash >> r);
+    }
+
+    return hash % numBuckets;
+}
+
+std::vector<float> AdvancedEmbeddingEngine::extractTFIDFFeatures(
+    const std::vector<std::string>& tokens
+) const {
+    size_t tfidfDim = embeddingDim_ * 60 / 100; // 60%维度用于TF-IDF
+    std::vector<float> features(tfidfDim, 0.0f);
+
+    if (tokens.empty()) {
+        return features;
+    }
+
+    // 计算词频
+    std::unordered_map<std::string, int> termFreq;
+    for (const auto& token : tokens) {
+        termFreq[token]++;
+    }
+
+    // 计算TF-IDF并使用特征哈希
+    for (const auto& [word, freq] : termFreq) {
+        float tf = static_cast<float>(freq) / tokens.size();
+
+        // 获取IDF权重
+        float idf = 1.0f;
+        auto it = idfWeights_.find(word);
+        if (it != idfWeights_.end()) {
+            idf = it->second;
+        }
+
+        float tfidf = tf * idf;
+
+        // 特征哈希：将词映射到固定维度
+        size_t idx = featureHash(word, tfidfDim);
+        features[idx] += tfidf;
+    }
+
+    return features;
+}
+
+std::vector<float> AdvancedEmbeddingEngine::extractSentimentFeatures(
+    const std::vector<std::string>& tokens
+) const {
+    std::vector<float> features(15, 0.0f); // 15维情感特征
+
+    float positiveScore = 0.0f;
+    float negativeScore = 0.0f;
+    int matchCount = 0;
+
+    for (const auto& token : tokens) {
+        auto it = sentimentLexicon_.find(token);
+        if (it != sentimentLexicon_.end()) {
+            float score = it->second;
+            if (score > 0) {
+                positiveScore += score;
+            } else {
+                negativeScore += std::abs(score);
+            }
+            matchCount++;
+        }
+    }
+
+    if (matchCount > 0 && !tokens.empty()) {
+        features[0] = positiveScore / matchCount;                    // 平均正面分数
+        features[1] = negativeScore / matchCount;                    // 平均负面分数
+        features[2] = (positiveScore - negativeScore) / matchCount;  // 情感极性
+        features[3] = static_cast<float>(matchCount) / tokens.size(); // 情感词密度
+        features[4] = std::tanh(positiveScore);                      // 正面强度
+        features[5] = std::tanh(negativeScore);                      // 负面强度
+        features[6] = positiveScore > negativeScore ? 1.0f : 0.0f;   // 主导情感
+        features[7] = std::abs(positiveScore - negativeScore);       // 情感对比度
+    }
+
+    // 情感波动性
+    if (matchCount > 1) {
+        float meanScore = (positiveScore - negativeScore) / matchCount;
+        float variance = 0.0f;
+        for (const auto& token : tokens) {
+            auto it = sentimentLexicon_.find(token);
+            if (it != sentimentLexicon_.end()) {
+                float diff = it->second - meanScore;
+                variance += diff * diff;
+            }
+        }
+        features[8] = std::sqrt(variance / matchCount);
+    }
+
+    // 情感复杂度特征
+    features[9] = (positiveScore > 0 && negativeScore > 0) ?
+                  std::min(positiveScore, negativeScore) / std::max(positiveScore, negativeScore) : 0.0f;
+    features[10] = std::tanh(positiveScore + negativeScore);  // 总情感强度
+
+    return features;
+}
+
+std::vector<float> AdvancedEmbeddingEngine::extractStatisticalFeatures(
+    const std::vector<std::string>& tokens,
+    const std::string& text
+) const {
+    std::vector<float> features(15, 0.0f); // 15维统计特征
+
+    if (tokens.empty()) {
+        return features;
+    }
+
+    // 文本长度特征
+    features[0] = std::log1p(tokens.size()) / 10.0f;
+    features[1] = std::log1p(text.length()) / 100.0f;
+
+    // 词汇多样性
+    std::unordered_set<std::string> uniqueWords(tokens.begin(), tokens.end());
+    features[2] = static_cast<float>(uniqueWords.size()) / tokens.size();
+
+    // 平均词长
+    float avgWordLen = 0.0f;
+    for (const auto& token : tokens) {
+        avgWordLen += token.length();
+    }
+    features[3] = avgWordLen / tokens.size() / 10.0f;
+
+    // 词频分布熵
+    std::unordered_map<std::string, int> freq;
+    for (const auto& token : tokens) {
+        freq[token]++;
+    }
+    float entropy = 0.0f;
+    for (const auto& [word, count] : freq) {
+        float p = static_cast<float>(count) / tokens.size();
+        entropy -= p * std::log2(p + 1e-10f);
+    }
+    features[4] = entropy / 10.0f;
+
+    // 最高词频
+    int maxFreq = 0;
+    for (const auto& [word, count] : freq) {
+        maxFreq = std::max(maxFreq, count);
+    }
+    features[5] = static_cast<float>(maxFreq) / tokens.size();
+
+    // 单次词比例
+    int singletonCount = 0;
+    for (const auto& [word, count] : freq) {
+        if (count == 1) singletonCount++;
+    }
+    features[6] = static_cast<float>(singletonCount) / uniqueWords.size();
+
+    return features;
+}
+
+std::vector<float> AdvancedEmbeddingEngine::extractNGramFeatures(
+    const std::vector<std::string>& tokens
+) const {
+    size_t ngramDim = embeddingDim_ * 10 / 100; // 10%维度用于N-gram
+    std::vector<float> features(ngramDim, 0.0f);
+
+    // 提取2-gram和3-gram
+    auto bigrams = extractNGrams(tokens, 2);
+    auto trigrams = extractNGrams(tokens, 3);
+
+    // 使用特征哈希
+    for (const auto& bigram : bigrams) {
+        size_t idx = featureHash(bigram, ngramDim);
+        features[idx] += 1.0f;
+    }
+
+    for (const auto& trigram : trigrams) {
+        size_t idx = featureHash(trigram, ngramDim);
+        features[idx] += 0.5f; // 3-gram权重稍低
+    }
+
+    // 归一化
+    float sum = std::accumulate(features.begin(), features.end(), 0.0f);
+    if (sum > 0) {
+        for (auto& f : features) {
+            f /= sum;
+        }
+    }
+
+    return features;
+}
+
+std::vector<float> AdvancedEmbeddingEngine::combineFeatures(
+    const std::vector<float>& tfidf,
+    const std::vector<float>& sentiment,
+    const std::vector<float>& statistical,
+    const std::vector<float>& ngram
+) const {
+    std::vector<float> combined;
+    combined.reserve(embeddingDim_);
+
+    // 组合所有特征
+    combined.insert(combined.end(), tfidf.begin(), tfidf.end());
+    combined.insert(combined.end(), sentiment.begin(), sentiment.end());
+    combined.insert(combined.end(), statistical.begin(), statistical.end());
+    combined.insert(combined.end(), ngram.begin(), ngram.end());
+
+    // 确保维度正确
+    combined.resize(embeddingDim_, 0.0f);
+
+    return combined;
+}
+
+void AdvancedEmbeddingEngine::normalizeVector(std::vector<float>& vec) {
+    float norm = 0.0f;
+    for (float val : vec) {
+        norm += val * val;
+    }
+    norm = std::sqrt(norm);
+
+    if (norm > 1e-6f) {
+        for (float& val : vec) {
+            val /= norm;
+        }
+    }
+}
+
+std::vector<float> AdvancedEmbeddingEngine::generateEmbedding(const std::string& text) {
+    // 检查缓存
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex_);
+        std::vector<float> cached;
+        if (embeddingCache_->get(text, cached)) {
+            return cached;
+        }
+    }
+
+    // 分词
+    auto tokens = tokenize(text);
+    if (tokens.empty()) {
+        return std::vector<float>(embeddingDim_, 0.0f);
+    }
+
+    // 提取多层次特征
+    auto tfidfFeatures = extractTFIDFFeatures(tokens);
+    auto sentimentFeatures = extractSentimentFeatures(tokens);
+    auto statisticalFeatures = extractStatisticalFeatures(tokens, text);
+    auto ngramFeatures = extractNGramFeatures(tokens);
+
+    // 组合特征
+    auto embedding = combineFeatures(tfidfFeatures, sentimentFeatures,
+                                     statisticalFeatures, ngramFeatures);
+
+    // L2归一化
+    normalizeVector(embedding);
+
+    // 缓存结果
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex_);
+        embeddingCache_->put(text, embedding);
+    }
+
+    return embedding;
+}
+
+std::vector<std::vector<float>> AdvancedEmbeddingEngine::generateEmbeddingBatch(
+    const std::vector<std::string>& texts
+) {
+    std::vector<std::vector<float>> embeddings;
+    embeddings.reserve(texts.size());
+
+    for (const auto& text : texts) {
+        embeddings.push_back(generateEmbedding(text));
+    }
+
+    return embeddings;
+}
+
+float AdvancedEmbeddingEngine::cosineSimilarity(
+    const std::vector<float>& vec1,
+    const std::vector<float>& vec2
+) {
+    if (vec1.size() != vec2.size()) {
+        LOG_ERROR << "Vector size mismatch: " << vec1.size() << " vs " << vec2.size();
+        return 0.0f;
+    }
+
+    float dotProduct = 0.0f;
+    float norm1 = 0.0f;
+    float norm2 = 0.0f;
+
+    for (size_t i = 0; i < vec1.size(); ++i) {
+        dotProduct += vec1[i] * vec2[i];
+        norm1 += vec1[i] * vec1[i];
+        norm2 += vec2[i] * vec2[i];
+    }
+
+    float denominator = std::sqrt(norm1) * std::sqrt(norm2);
+    return denominator > 1e-6f ? dotProduct / denominator : 0.0f;
+}
+
+void AdvancedEmbeddingEngine::trainFromCorpus(const std::vector<std::string>& texts) {
+    LOG_INFO << "Training embedding model from " << texts.size() << " documents";
+
+    totalDocs_ = texts.size();
+    computeIDF(texts);
+
+    LOG_INFO << "Embedding model training completed, IDF weights: " << idfWeights_.size();
+}
+
+void AdvancedEmbeddingEngine::computeIDF(const std::vector<std::string>& texts) {
+    std::unordered_map<std::string, int> docFreq;
+
+    // 统计文档频率
+    for (const auto& text : texts) {
+        auto tokens = tokenize(text);
+        std::unordered_set<std::string> uniqueTokens(tokens.begin(), tokens.end());
+
+        for (const auto& token : uniqueTokens) {
+            docFreq[token]++;
+        }
+    }
+
+    // 计算IDF
+    idfWeights_.clear();
+    for (const auto& [word, df] : docFreq) {
+        if (df > 0) {
+            float idf = std::log(static_cast<float>(texts.size()) / df);
+            idfWeights_[word] = idf;
+        }
+    }
+
+    LOG_INFO << "Computed IDF weights for " << idfWeights_.size() << " words";
+}
+
+void AdvancedEmbeddingEngine::loadSentimentLexicon() {
+    // 加载扩展情感词典
+    sentimentLexicon_ = {
+        // 积极情感
+        {"开心", 0.8f}, {"快乐", 0.9f}, {"幸福", 1.0f}, {"喜悦", 0.9f},
+        {"高兴", 0.8f}, {"愉快", 0.7f}, {"满足", 0.6f}, {"感恩", 0.8f},
+        {"希望", 0.7f}, {"乐观", 0.8f}, {"美好", 0.7f}, {"温暖", 0.6f},
+        {"爱", 0.9f}, {"喜欢", 0.7f}, {"欣赏", 0.6f}, {"享受", 0.7f},
+        {"兴奋", 0.8f}, {"激动", 0.8f}, {"骄傲", 0.7f}, {"自豪", 0.8f},
+        {"放松", 0.6f}, {"平静", 0.5f}, {"安心", 0.6f}, {"舒服", 0.6f},
+
+        // 消极情感
+        {"难过", -0.7f}, {"伤心", -0.8f}, {"痛苦", -0.9f}, {"悲伤", -0.8f},
+        {"焦虑", -0.7f}, {"担心", -0.6f}, {"害怕", -0.7f}, {"恐惧", -0.8f},
+        {"愤怒", -0.8f}, {"生气", -0.7f}, {"失望", -0.6f}, {"沮丧", -0.7f},
+        {"孤独", -0.7f}, {"寂寞", -0.6f}, {"无助", -0.8f}, {"绝望", -1.0f},
+        {"讨厌", -0.7f}, {"厌恶", -0.8f}, {"烦躁", -0.6f}, {"郁闷", -0.7f},
+        {"压抑", -0.7f}, {"疲惫", -0.6f}, {"累", -0.5f}, {"困", -0.4f},
+        {"迷茫", -0.5f}, {"困惑", -0.4f}, {"纠结", -0.5f}, {"矛盾", -0.4f},
+
+        // 中性但重要的词
+        {"想", 0.0f}, {"觉得", 0.0f}, {"感觉", 0.0f}, {"可能", 0.0f},
+        {"也许", 0.0f}, {"或许", 0.0f}, {"好像", 0.0f}, {"似乎", 0.0f}
+    };
+
+    LOG_INFO << "Loaded sentiment lexicon with " << sentimentLexicon_.size() << " words";
+}
+
+void AdvancedEmbeddingEngine::clearCache() {
+    std::lock_guard<std::mutex> lock(cacheMutex_);
+    embeddingCache_->clear();
+    LOG_INFO << "Embedding cache cleared";
+}
+
+AdvancedEmbeddingEngine::CacheStats AdvancedEmbeddingEngine::getCacheStats() const {
+    std::lock_guard<std::mutex> lock(cacheMutex_);
+    CacheStats stats;
+    stats.hits = embeddingCache_->hits;
+    stats.misses = embeddingCache_->misses;
+    stats.size = embeddingCache_->cache.size();
+
+    size_t total = stats.hits + stats.misses;
+    stats.hitRate = total > 0 ? static_cast<float>(stats.hits) / total : 0.0f;
+
+    return stats;
+}
+
+} // namespace ai
+} // namespace heartlake

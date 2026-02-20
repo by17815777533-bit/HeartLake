@@ -1,0 +1,332 @@
+/**
+ * @file EmotionResonanceEngine.cpp
+ * @brief 情绪感知时序共鸣引擎实现
+ *
+ * 核心算法：
+ * ResonanceScore = α·SemanticSim + β·EmotionTrajectorySim + γ·TemporalDecay + δ·DiversityBonus
+ */
+
+#include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "infrastructure/services/ResonanceSearchService.h"
+#include <drogon/drogon.h>
+#include <algorithm>
+#include <numeric>
+#include <chrono>
+#include <sstream>
+#include <limits>
+#include <unordered_set>
+
+using namespace drogon;
+
+namespace heartlake::ai {
+
+EmotionResonanceEngine& EmotionResonanceEngine::getInstance() {
+    static EmotionResonanceEngine instance;
+    return instance;
+}
+
+// ===== DTW (Dynamic Time Warping) 情绪轨迹相似度 =====
+
+float EmotionResonanceEngine::trajectorySimDTW(
+    const std::vector<float>& traj1,
+    const std::vector<float>& traj2
+) {
+    if (traj1.empty() || traj2.empty()) return 0.0f;
+
+    const size_t n = traj1.size();
+    const size_t m = traj2.size();
+
+    // DTW距离矩阵
+    std::vector<std::vector<float>> dtw(n + 1, std::vector<float>(m + 1, std::numeric_limits<float>::max()));
+    dtw[0][0] = 0.0f;
+
+    for (size_t i = 1; i <= n; ++i) {
+        for (size_t j = 1; j <= m; ++j) {
+            float cost = std::abs(traj1[i - 1] - traj2[j - 1]);
+            dtw[i][j] = cost + std::min({dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1]});
+        }
+    }
+    // 归一化DTW距离到[0,1]相似度
+    float maxLen = static_cast<float>(std::max(n, m));
+    float normalizedDist = dtw[n][m] / maxLen;
+    // 距离越小相似度越高，使用高斯核转换
+    return std::exp(-normalizedDist * normalizedDist / 2.0f);
+}
+
+// ===== 时间衰减 =====
+
+float EmotionResonanceEngine::temporalDecay(const std::string& timestamp, float lambda) {
+    try {
+        // 解析ISO格式时间戳，计算距今小时数
+        auto now = std::chrono::system_clock::now();
+        auto nowTime = std::chrono::system_clock::to_time_t(now);
+
+        // 简化解析：从数据库时间戳提取
+        std::tm tm = {};
+        std::istringstream ss(timestamp);
+        ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+        if (ss.fail()) {
+            // 尝试另一种格式
+            ss.clear();
+            ss.str(timestamp);
+            ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
+            if (ss.fail()) return 0.5f;
+        }
+        auto stoneTime = std::mktime(&tm);
+        double hoursOld = std::difftime(nowTime, stoneTime) / 3600.0;
+        if (hoursOld < 0) hoursOld = 0;
+
+        // 指数衰减: decay = exp(-λ * Δt_hours)
+        return std::exp(-lambda * static_cast<float>(hoursOld));
+    } catch (...) {
+        return 0.5f;
+    }
+}
+
+// ===== 多样性奖励 =====
+
+float EmotionResonanceEngine::diversityBonus(
+    const std::string& currentMood,
+    const std::string& candidateMood,
+    const std::vector<std::string>& alreadyRecommended
+) {
+    // 基础分：不同情绪类型获得奖励
+    float bonus = (currentMood != candidateMood) ? 0.6f : 0.3f;
+
+    // 已推荐列表中该情绪出现次数越多，奖励越低（避免回音室）
+    int sameCount = 0;
+    for (const auto& mood : alreadyRecommended) {
+        if (mood == candidateMood) sameCount++;
+    }
+    // 衰减因子：每多一个相同情绪，奖励减少20%
+    float decayFactor = std::pow(0.8f, static_cast<float>(sameCount));
+    bonus *= decayFactor;
+
+    // 互补情绪额外奖励（心理学：互补情绪有治愈效果）
+    static const std::unordered_map<std::string, std::string> complementary = {
+        {"sad", "hopeful"}, {"hopeful", "sad"},
+        {"anxious", "calm"}, {"calm", "anxious"},
+        {"angry", "grateful"}, {"grateful", "angry"},
+        {"confused", "hopeful"}, {"lonely", "happy"}
+    };
+    auto it = complementary.find(currentMood);
+    if (it != complementary.end() && it->second == candidateMood) {
+        bonus += 0.3f;
+    }
+
+    return std::min(1.0f, bonus);
+}
+
+// ===== 生成共鸣原因 =====
+
+std::string EmotionResonanceEngine::generateResonanceReason(
+    const ResonanceResult& result,
+    const std::string& currentMood,
+    const std::string& candidateMood
+) {
+    // 根据主导维度生成不同的共鸣原因
+    float maxDim = std::max({result.semanticScore, result.trajectoryScore,
+                             result.temporalScore, result.diversityScore});
+
+    if (maxDim == result.trajectoryScore && result.trajectoryScore > 0.6f) {
+        // 情绪轨迹主导
+        if (currentMood == candidateMood) {
+            return "你们正经历着相似的情绪旅程，心灵在同一频率上共振";
+        }
+        return "你们的情绪轨迹有着奇妙的相似，也许能彼此理解";
+    }
+    if (maxDim == result.semanticScore && result.semanticScore > 0.7f) {
+        return "你们的心声如此相似，仿佛来自同一片星空";
+    }
+
+    if (maxDim == result.diversityScore && result.diversityScore > 0.5f) {
+        // 多样性主导 - 互补情绪
+        static const std::unordered_map<std::string, std::string> healingPhrases = {
+            {"sad", "这份温暖也许能照亮你心中的阴霾"},
+            {"anxious", "这份宁静也许能抚平你内心的波澜"},
+            {"angry", "这份柔软也许能融化你心中的坚冰"},
+            {"confused", "这份清明也许能为你指引方向"},
+            {"lonely", "这份陪伴也许能温暖你的孤独"}
+        };
+        auto phraseIt = healingPhrases.find(currentMood);
+        if (phraseIt != healingPhrases.end()) {
+            return phraseIt->second;
+        }
+        return "不同的视角，也许能带来意想不到的共鸣";
+    }
+
+    if (result.temporalScore > 0.8f) {
+        return "此刻，有人和你一样在湖边驻足";
+    }
+
+    // 综合共鸣
+    if (result.totalScore > 0.7f) {
+        return "冥冥之中，你们的心灵产生了深深的共鸣";
+    }
+    return "也许这颗石子能在你心中泛起涟漪";
+}
+
+// ===== 加载用户情绪轨迹 =====
+
+EmotionTrajectory EmotionResonanceEngine::loadTrajectory(const std::string& userId, int days) {
+    EmotionTrajectory traj;
+    traj.userId = userId;
+    traj.currentScore = 0.0f;
+    traj.currentMood = "neutral";
+
+    try {
+        auto db = app().getDbClient("default");
+
+        // 从emotion_tracking获取用户近N天的情绪分数序列
+        auto result = db->execSqlSync(
+            "SELECT score, created_at FROM emotion_tracking "
+            "WHERE user_id = $1 AND created_at > NOW() - make_interval(days => $2) "
+            "ORDER BY created_at ASC",
+            userId, days
+        );
+
+        for (const auto& row : result) {
+            float score = row["score"].as<float>();
+            traj.scores.push_back(score);
+        }
+
+        // 从user_emotion_profile获取最近的情绪类型序列
+        auto moodResult = db->execSqlSync(
+            "SELECT mood_type, avg_emotion_score FROM user_emotion_profile "
+            "WHERE user_id = $1 AND date >= CURRENT_DATE - make_interval(days => $2) "
+            "ORDER BY date ASC",
+            userId, days
+        );
+
+        for (const auto& row : moodResult) {
+            traj.moods.push_back(row["mood_type"].as<std::string>());
+        }
+
+        // 设置当前情绪
+        if (!traj.scores.empty()) {
+            traj.currentScore = traj.scores.back();
+        }
+        if (!traj.moods.empty()) {
+            traj.currentMood = traj.moods.back();
+        }
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "loadTrajectory failed for user " << userId << ": " << e.base().what();
+    }
+
+    return traj;
+}
+
+// ===== 核心：多维度共鸣推荐 =====
+
+std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
+    const std::string& userId,
+    const std::string& stoneId,
+    int limit
+) {
+    std::vector<ResonanceResult> results;
+
+    try {
+        auto db = app().getDbClient("default");
+
+        // 1. 获取源石头信息
+        auto stoneRow = db->execSqlSync(
+            "SELECT content, mood_type, emotion_score, created_at FROM stones "
+            "WHERE stone_id = $1 AND status = 'published'",
+            stoneId
+        );
+        if (stoneRow.empty()) return results;
+
+        std::string sourceContent = stoneRow[0]["content"].as<std::string>();
+        std::string sourceMood = stoneRow[0]["mood_type"].isNull()
+            ? "neutral" : stoneRow[0]["mood_type"].as<std::string>();
+
+        // 2. 加载当前用户的情绪轨迹
+        auto userTraj = loadTrajectory(userId);
+
+        // 3. 生成源石头的embedding用于语义相似度
+        auto& embEngine = AdvancedEmbeddingEngine::getInstance();
+        auto sourceEmb = embEngine.generateEmbedding(sourceContent);
+
+        // 4. 获取候选石头（排除自己的、已交互的）
+        auto candidates = db->execSqlSync(
+            "SELECT s.stone_id, s.user_id, s.content, s.mood_type, "
+            "s.emotion_score, s.created_at "
+            "FROM stones s "
+            "WHERE s.stone_id != $1 AND s.user_id != $2 "
+            "AND s.status = 'published' "
+            "AND s.created_at > NOW() - INTERVAL '30 days' "
+            "ORDER BY s.created_at DESC LIMIT $3",
+            stoneId, userId, limit * 5
+        );
+        // 已推荐的情绪列表（用于多样性计算）
+        std::vector<std::string> recommendedMoods;
+
+        // 5. 对每个候选计算四维共鸣分数
+        for (const auto& row : candidates) {
+            std::string candStoneId = row["stone_id"].as<std::string>();
+            std::string candUserId = row["user_id"].as<std::string>();
+            std::string candContent = row["content"].as<std::string>();
+            std::string candMood = row["mood_type"].isNull()
+                ? "neutral" : row["mood_type"].as<std::string>();
+            std::string candTimestamp = row["created_at"].as<std::string>();
+
+            ResonanceResult res;
+            res.stoneId = candStoneId;
+            res.userId = candUserId;
+
+            // 维度1: 语义相似度
+            auto candEmb = embEngine.generateEmbedding(candContent);
+            res.semanticScore = (!sourceEmb.empty() && !candEmb.empty())
+                ? AdvancedEmbeddingEngine::cosineSimilarity(sourceEmb, candEmb)
+                : 0.0f;
+
+            // 维度2: 情绪轨迹相似度 (DTW)
+            auto candTraj = loadTrajectory(candUserId);
+            if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
+                res.trajectoryScore = trajectorySimDTW(userTraj.scores, candTraj.scores);
+            } else {
+                // 无轨迹数据时退化为情绪分数差异
+                float scoreDiff = std::abs(userTraj.currentScore - candTraj.currentScore);
+                res.trajectoryScore = std::exp(-scoreDiff);
+            }
+
+            // 维度3: 时间衰减
+            res.temporalScore = temporalDecay(candTimestamp);
+
+            // 维度4: 多样性奖励
+            res.diversityScore = diversityBonus(sourceMood, candMood, recommendedMoods);
+            // 加权总分
+            res.totalScore = alpha * res.semanticScore
+                           + beta  * res.trajectoryScore
+                           + gamma * res.temporalScore
+                           + delta * res.diversityScore;
+
+            // 生成共鸣原因
+            res.resonanceReason = generateResonanceReason(res, sourceMood, candMood);
+
+            results.push_back(res);
+            recommendedMoods.push_back(candMood);
+        }
+
+        // 6. 按总分降序排序
+        std::sort(results.begin(), results.end(),
+            [](const ResonanceResult& a, const ResonanceResult& b) {
+                return a.totalScore > b.totalScore;
+            });
+
+        // 7. 截取top-K
+        if (static_cast<int>(results.size()) > limit) {
+            results.resize(limit);
+        }
+
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "EmotionResonanceEngine::findResonance DB error: " << e.base().what();
+    } catch (const std::exception& e) {
+        LOG_ERROR << "EmotionResonanceEngine::findResonance error: " << e.what();
+    }
+
+    return results;
+}
+
+} // namespace heartlake::ai

@@ -1,0 +1,187 @@
+/**
+ * @file EmotionTrackingService.cpp
+ * @brief 负重者监测系统实现
+ */
+
+#include "infrastructure/services/EmotionTrackingService.h"
+#include "infrastructure/services/VIPService.h"
+#include "infrastructure/services/WarmQuoteService.h"
+#include "infrastructure/services/NotificationPushService.h"
+#include "utils/IdentityShadowMap.h"
+#include <drogon/drogon.h>
+#include <chrono>
+
+namespace heartlake::infrastructure {
+
+EmotionTrackingService& EmotionTrackingService::getInstance() {
+    static EmotionTrackingService instance;
+    return instance;
+}
+
+EmotionTrackingService::~EmotionTrackingService() {
+    stop();
+}
+
+void EmotionTrackingService::start() {
+    if (running_) return;
+    running_ = true;
+    scanThread_ = std::make_unique<std::thread>(&EmotionTrackingService::scanLoop, this);
+    LOG_INFO << "EmotionTrackingService started";
+}
+
+void EmotionTrackingService::stop() {
+    if (!running_) return;
+    running_ = false;
+    cv_.notify_all();
+    if (scanThread_ && scanThread_->joinable()) {
+        scanThread_->join();
+    }
+    LOG_INFO << "EmotionTrackingService stopped";
+}
+
+void EmotionTrackingService::scanLoop() {
+    while (running_) {
+        scanOnce();
+        std::unique_lock<std::mutex> lock(cvMutex_);
+        cv_.wait_for(lock, std::chrono::minutes(SCAN_INTERVAL_MINUTES), [this]() {
+            return !running_.load();
+        });
+    }
+}
+
+void EmotionTrackingService::scanOnce() {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    auto db = drogon::app().getDbClient("default");
+
+    // 30天数据自动清理
+    try {
+        db->execSqlAsync("DELETE FROM emotion_tracking WHERE created_at < NOW() - INTERVAL '30 days'",
+            [](const drogon::orm::Result&) {}, [](const drogon::orm::DrogonDbException&) {});
+    } catch (...) {}
+
+    try {
+        // 使用 make_interval 参数化查询，避免 SQL 字符串拼接
+        auto result = db->execSqlSync(
+            "SELECT DISTINCT user_id FROM stones "
+            "WHERE created_at > NOW() - make_interval(hours => $1) "
+            "AND status = 'published'",
+            TRACKING_HOURS
+        );
+
+        for (const auto& row : result) {
+            std::string userId = row["user_id"].as<std::string>();
+            processUser(userId);
+        }
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "EmotionTrackingService scan failed: " << e.base().what();
+    }
+}
+
+void EmotionTrackingService::processUser(const std::string& userId) {
+    auto result = checkUserBurden(userId);
+    if (result.isExtremelyBurdened) {
+        triggerIntervention(result);
+    }
+}
+
+void EmotionTrackingService::recordEmotion(const std::string& userId, float score, const std::string& content) {
+    auto db = drogon::app().getDbClient("default");
+    try {
+        db->execSqlAsync(
+            "INSERT INTO emotion_tracking (user_id, score, content_hash, created_at) "
+            "VALUES ($1, $2, md5($3), NOW())",
+            [](const drogon::orm::Result&) {},
+            [](const drogon::orm::DrogonDbException&) {},
+            userId, score, content
+        );
+    } catch (...) {}
+}
+
+EmotionTrackingResult EmotionTrackingService::checkUserBurden(const std::string& userId) {
+    EmotionTrackingResult result;
+    result.userId = userId;
+    result.isExtremelyBurdened = false;
+
+    auto db = drogon::app().getDbClient("default");
+    try {
+        // 使用 make_interval 参数化查询，避免 SQL 字符串拼接
+        auto queryResult = db->execSqlSync(
+            "SELECT COUNT(*) as post_count, AVG(emotion_score) as avg_score "
+            "FROM stones WHERE user_id = $1 "
+            "AND created_at > NOW() - make_interval(hours => $2) "
+            "AND status = 'published' AND emotion_score < 0",
+            userId, TRACKING_HOURS
+        );
+
+        if (!queryResult.empty()) {
+            result.postCount72h = queryResult[0]["post_count"].as<int>();
+            result.avgNegativeScore = queryResult[0]["avg_score"].isNull() ? 0.0f : queryResult[0]["avg_score"].as<float>();
+
+            if (result.postCount72h >= MIN_POST_COUNT && result.avgNegativeScore <= EXTREME_BURDEN_THRESHOLD) {
+                result.isExtremelyBurdened = true;
+                result.triggerReason = "72小时内发布" + std::to_string(result.postCount72h) +
+                    "条负面内容，平均情绪分数: " + std::to_string(result.avgNegativeScore);
+            }
+        }
+    } catch (const drogon::orm::DrogonDbException& e) {
+        LOG_ERROR << "checkUserBurden failed: " << e.base().what();
+    }
+
+    return result;
+}
+
+void EmotionTrackingService::triggerIntervention(const EmotionTrackingResult& result) {
+    auto db = drogon::app().getDbClient("default");
+
+    // 检查72小时内是否已干预过
+    try {
+        auto check = db->execSqlSync(
+            "SELECT id FROM intervention_log WHERE user_id = $1 "
+            "AND created_at > NOW() - INTERVAL '72 hours'",
+            result.userId
+        );
+        if (!check.empty()) {
+            return; // 已干预，跳过
+        }
+    } catch (...) {}
+
+    LOG_WARN << "Extreme burden detected for user: " << result.userId << " - " << result.triggerReason;
+
+    // 记录干预
+    try {
+        db->execSqlSync(
+            "INSERT INTO intervention_log (user_id, reason, created_at) VALUES ($1, $2, NOW())",
+            result.userId, result.triggerReason
+        );
+    } catch (...) {}
+
+    // 自动发放灯（免费心理咨询权限）
+    services::VIPService::upgradeVIP(result.userId, 1, 7, "extreme_burden_lamp");
+
+    // 获取个性化暖心语录
+    auto warmMsg = WarmQuoteService::getInstance().getQuoteForBurden(result.avgNegativeScore);
+
+    // 推送暖心通知
+    auto& pushService = services::NotificationPushService::getInstance();
+    pushService.pushSystemNotice(
+        result.userId,
+        warmMsg.title,
+        warmMsg.content + " " + warmMsg.vipGuide
+    );
+
+    std::function<void(const EmotionTrackingResult&)> callback;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        callback = triggerCallback_;
+    }
+    if (callback) {
+        callback(result);
+    }
+}
+
+void EmotionTrackingService::setTriggerCallback(std::function<void(const EmotionTrackingResult&)> callback) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    triggerCallback_ = std::move(callback);
+}
+
+} // namespace heartlake::infrastructure

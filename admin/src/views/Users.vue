@@ -1,0 +1,301 @@
+<!--
+  @file Users.vue
+  @brief Users 组件
+  Created by 林子怡
+-->
+
+<template>
+  <div class="users-page">
+    <!-- 搜索筛选 -->
+    <el-card shadow="never" class="filter-card">
+      <el-form :model="filters" inline>
+        <el-form-item label="用户ID">
+          <el-input v-model="filters.userId" placeholder="请输入用户ID" clearable />
+        </el-form-item>
+        <el-form-item label="昵称">
+          <el-input v-model="filters.nickname" placeholder="请输入昵称" clearable />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filters.status" placeholder="全部" clearable>
+            <el-option label="正常" value="active" />
+            <el-option label="已封禁" value="banned" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 用户列表 -->
+    <el-card shadow="never">
+      <el-table
+        v-loading="loading"
+        :data="users"
+        stripe
+        style="width: 100%"
+      >
+        <el-table-column prop="user_id" label="用户ID" width="180" />
+        <el-table-column prop="nickname" label="昵称" width="150" />
+        <el-table-column prop="username" label="账号" width="120" />
+        <el-table-column label="统计" width="220">
+          <template #default="{ row }">
+            <div class="user-stats">
+              <span class="stat-item"><i class="stat-dot stone"></i>投石 {{ row.stones_count || 0 }}</span>
+              <span class="stat-item"><i class="stat-dot boat"></i>纸船 {{ row.boat_count || 0 }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
+              {{ row.status === 'active' ? '正常' : '已封禁' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="注册时间" width="180" />
+        <el-table-column prop="last_active_at" label="最后活跃" width="180" />
+        <el-table-column label="操作" fixed="right" width="180">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleViewDetail(row)">
+              详情
+            </el-button>
+            <el-button
+              v-if="row.status === 'active'"
+              type="danger"
+              link
+              @click="handleBan(row)"
+            >
+              封禁
+            </el-button>
+            <el-button
+              v-else
+              type="success"
+              link
+              @click="handleUnban(row)"
+            >
+              解封
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
+
+    <!-- 用户详情弹窗 -->
+    <el-dialog
+      v-model="detailVisible"
+      title="用户详情"
+      width="600px"
+    >
+      <el-descriptions :column="2" border v-if="currentUser">
+        <el-descriptions-item label="用户ID">{{ currentUser.user_id }}</el-descriptions-item>
+        <el-descriptions-item label="昵称">{{ currentUser.nickname }}</el-descriptions-item>
+        <el-descriptions-item label="账号">{{ currentUser.username }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="currentUser.status === 'active' ? 'success' : 'danger'">
+            {{ currentUser.status === 'active' ? '正常' : '已封禁' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="投石数">{{ currentUser.stones_count }}</el-descriptions-item>
+        <el-descriptions-item label="纸船数">{{ currentUser.boat_count }}</el-descriptions-item>
+        <el-descriptions-item label="注册时间">{{ currentUser.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="最后活跃">{{ currentUser.last_active_at }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import api from '@/api'
+import { getErrorMessage } from '@/utils/errorHelper'
+
+const loading = ref(false)
+const users = ref([])
+const detailVisible = ref(false)
+const currentUser = ref(null)
+
+const filters = reactive({
+  userId: '',
+  nickname: '',
+  status: '',
+})
+
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+})
+
+// 获取用户列表
+const fetchUsers = async () => {
+  loading.value = true
+  try {
+    // M-8: 构建搜索参数，将 nickname 作为 search 传递给后端
+    const params = {
+      page: pagination.page,
+      page_size: pagination.pageSize,
+    }
+    if (filters.userId) params.user_id = filters.userId
+    if (filters.nickname) params.search = filters.nickname
+    if (filters.status) params.status = filters.status
+
+    const res = await api.getUsers(params)
+    // 兼容后端两种响应格式: {data: {users, total}} 或 {users, total}
+    const resData = res.data?.data || res.data || {}
+    users.value = resData.users || []
+    pagination.total = resData.total || 0
+  } catch (e) {
+    console.error('获取用户列表失败:', e)
+    users.value = []
+    pagination.total = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+// 搜索（带输入校验）
+const handleSearch = () => {
+  // 清理输入：去除首尾空格
+  filters.userId = filters.userId.trim()
+  filters.nickname = filters.nickname.trim()
+  // 长度校验
+  if (filters.userId.length > 64) {
+    ElMessage.warning('用户ID过长，请检查输入')
+    return
+  }
+  if (filters.nickname.length > 50) {
+    ElMessage.warning('昵称过长，请检查输入')
+    return
+  }
+  pagination.page = 1
+  fetchUsers()
+}
+
+// 重置
+const handleReset = () => {
+  filters.userId = ''
+  filters.nickname = ''
+  filters.status = ''
+  pagination.page = 1
+  fetchUsers()
+}
+
+// 查看详情
+const handleViewDetail = (row) => {
+  currentUser.value = row
+  detailVisible.value = true
+}
+
+// 封禁用户
+const handleBan = async (row) => {
+  const { value: reason } = await ElMessageBox.prompt('请输入封禁原因', '封禁用户', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '请输入封禁原因',
+  }).catch(() => ({ value: null }))
+
+  if (!reason) return
+
+  try {
+    await api.banUser(row.user_id, reason)
+    ElMessage.success('封禁成功')
+    fetchUsers()
+  } catch (e) {
+    // H-3: 使用统一错误处理
+    ElMessage.error(getErrorMessage(e, '封禁失败'))
+  }
+}
+
+// 解封用户
+const handleUnban = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要解封该用户吗？', '解封用户', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return // 用户取消
+  }
+
+  try {
+    await api.unbanUser(row.user_id)
+    ElMessage.success('解封成功')
+    fetchUsers()
+  } catch (e) {
+    // H-3: 使用统一错误处理
+    ElMessage.error(getErrorMessage(e, '解封失败'))
+  }
+}
+
+// 分页
+const handleSizeChange = (size) => {
+  pagination.pageSize = size
+  fetchUsers()
+}
+
+const handleCurrentChange = (page) => {
+  pagination.page = page
+  fetchUsers()
+}
+
+onMounted(() => {
+  fetchUsers()
+})
+</script>
+
+<style lang="scss" scoped>
+.users-page {
+  .filter-card {
+    margin-bottom: 20px;
+  }
+
+  .user-stats {
+    display: flex;
+    gap: 16px;
+    .stat-item {
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      color: #5D4037;
+      .stat-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+        &.stone { background: #E07A5F; }
+        &.boat { background: #81B29A; }
+      }
+    }
+  }
+
+  .pagination-wrapper {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+</style>

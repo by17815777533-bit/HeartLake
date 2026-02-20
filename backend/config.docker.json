@@ -1,0 +1,37 @@
+{
+    "app": {
+        "session": {
+            "timeout": 1200
+        },
+        "log": {
+            "log_path": "./logs",
+            "logfile_base_name": "heartlake",
+            "log_size_limit": 104857600,
+            "max_files": 10,
+            "log_level": "INFO"
+        }
+    },
+    "db_clients": [
+        {
+            "name": "default",
+            "rdbms": "postgresql",
+            "host": "postgres",
+            "port": 5432,
+            "dbname": "heartlake",
+            "user": "postgres",
+            "passwd": "",
+            "is_fast": false,
+            "connection_number": 30,
+            "timeout": 30
+        }
+    ],
+    "redis_clients": [
+        {
+            "name": "default",
+            "host": "redis",
+            "port": 6379,
+            "passwd": "",
+            "connection_number": 30
+        }
+    ]
+}
