@@ -197,13 +197,12 @@ class ApiClient {
   /// 处理未授权错误 - 尝试刷新Token
   Future<bool> _handleUnauthorized() async {
     if (_isRefreshing) return false;
+    _isRefreshing = true;
 
     // 如果没有设置刷新回调，尝试使用内置刷新逻辑
     if (_tokenRefreshCallback == null) {
       return _tryBuiltinTokenRefresh();
     }
-
-    _isRefreshing = true;
     try {
       _refreshToken ??= await StorageUtil.getRefreshToken();
       final newToken = await _tokenRefreshCallback!(_refreshToken);
@@ -227,9 +226,10 @@ class ApiClient {
       clearToken();
       return false;
     }
-    _isRefreshing = true;
     try {
-      final response = await _dio.post('/auth/refresh');
+      _refreshToken ??= await StorageUtil.getRefreshToken();
+      final response = await _dio.post('/auth/refresh',
+          data: {'refresh_token': _refreshToken});
       final data = response.data;
       if (data is Map<String, dynamic> &&
           data['code'] == 0 &&

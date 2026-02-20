@@ -10,6 +10,7 @@ let ws = null
 let reconnectTimer = null
 let reconnectAttempts = 0
 let heartbeatTimer = null
+let lastPongTime = Date.now()
 const MAX_RECONNECT_ATTEMPTS = 10
 const RECONNECT_BASE_INTERVAL = 1000 // 基础重连间隔1秒，指数退避
 const HEARTBEAT_INTERVAL = 30000 // 30秒心跳间隔
@@ -32,6 +33,12 @@ function startHeartbeat() {
   stopHeartbeat()
   heartbeatTimer = setInterval(() => {
     if (ws && ws.readyState === WebSocket.OPEN) {
+      // 检测 pong 超时：超过2个心跳周期未收到 pong，判定连接已死
+      if (Date.now() - lastPongTime > HEARTBEAT_INTERVAL * 2) {
+        console.warn('WebSocket pong 超时，强制重连')
+        ws.close(4000, 'pong timeout')
+        return
+      }
       ws.send(JSON.stringify({ type: 'ping' }))
     }
   }, HEARTBEAT_INTERVAL)
@@ -64,6 +71,7 @@ export default {
       // 连接建立后通过消息发送 token 认证
       ws.send(JSON.stringify({ type: 'auth', token }))
       reconnectAttempts = 0
+      lastPongTime = Date.now()
       // M-2: 启动心跳保活
       startHeartbeat()
     }
@@ -71,6 +79,10 @@ export default {
     ws.onmessage = e => {
       try {
         const { type, data } = JSON.parse(e.data)
+        // 收到 pong 时更新时间戳（心跳存活检测用）
+        if (type === 'pong') {
+          lastPongTime = Date.now()
+        }
         // M-3: 消息类型白名单校验
         if (!ALLOWED_TYPES.has(type)) {
           console.warn('收到未知 WebSocket 消息类型:', type)
