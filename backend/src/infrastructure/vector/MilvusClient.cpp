@@ -10,6 +10,22 @@
 
 namespace heartlake::infrastructure {
 
+// 转义 Milvus filter 中的特殊字符，防止注入
+static std::string escapeFilterValue(const std::string& value) {
+    std::string escaped;
+    escaped.reserve(value.size());
+    for (char c : value) {
+        if (c == '"' || c == '\\') {
+            escaped += '\\';
+        }
+        // 拒绝控制字符
+        if (c >= 0x20) {
+            escaped += c;
+        }
+    }
+    return escaped;
+}
+
 MilvusClient& MilvusClient::getInstance() {
     static MilvusClient instance;
     return instance;
@@ -168,7 +184,7 @@ std::vector<VectorSearchResult> MilvusClient::search(const std::string& collecti
 bool MilvusClient::remove(const std::string& collection, const std::string& id) {
     Json::Value body;
     body["collectionName"] = collection;
-    body["filter"] = "id == \"" + id + "\"";
+    body["filter"] = "id == \"" + escapeFilterValue(id) + "\"";
     auto result = httpRequest("/v2/vectordb/entities/delete", "POST", body);
     return result.isMember("code") && result["code"].asInt() == 0;
 }
@@ -177,7 +193,7 @@ bool MilvusClient::removeBatch(const std::string& collection, const std::vector<
     std::string filter = "id in [";
     for (size_t i = 0; i < ids.size(); ++i) {
         if (i > 0) filter += ",";
-        filter += "\"" + ids[i] + "\"";
+        filter += "\"" + escapeFilterValue(ids[i]) + "\"";
     }
     filter += "]";
 

@@ -10,6 +10,7 @@
 #include <functional>
 #include <mutex>
 #include <string>
+#include <type_traits>
 
 namespace heartlake::utils {
 
@@ -26,13 +27,23 @@ public:
             throw std::runtime_error("Circuit breaker is OPEN");
         }
 
-        try {
-            auto result = func();
-            onSuccess();
-            return result;
-        } catch (...) {
-            onFailure();
-            throw;
+        if constexpr (std::is_void_v<decltype(func())>) {
+            try {
+                func();
+                onSuccess();
+            } catch (...) {
+                onFailure();
+                throw;
+            }
+        } else {
+            try {
+                auto result = func();
+                onSuccess();
+                return result;
+            } catch (...) {
+                onFailure();
+                throw;
+            }
         }
     }
 
