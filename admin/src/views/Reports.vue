@@ -192,6 +192,8 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .reports-page {
+  padding: 20px;
+
   .filter-card {
     margin-bottom: 16px;
   }
@@ -203,22 +205,177 @@ onMounted(() => {
   }
 
   .handled-text {
-    color: var(--m3-outline);
+    color: #7A6F63;
     font-size: 14px;
   }
 
+  // 卡片毛玻璃
+  :deep(.el-card) {
+    background: rgba(26, 26, 62, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(242, 204, 143, 0.08);
+    border-radius: 16px;
+  }
+
+  // 表单标签
+  :deep(.el-form-item__label) {
+    color: #B8A99A;
+  }
+
+  // 输入框 & 选择器
+  :deep(.el-input__wrapper),
+  :deep(.el-select__wrapper) {
+    background: rgba(20, 20, 50, 0.6);
+    border: 1px solid rgba(242, 204, 143, 0.12);
+    border-radius: 8px;
+    box-shadow: none;
+
+    &:hover,
+    &.is-focus {
+      border-color: rgba(242, 204, 143, 0.3);
+      box-shadow: 0 0 0 1px rgba(242, 204, 143, 0.1);
+    }
+  }
+
+  :deep(.el-input__inner) {
+    color: #F0E6D3;
+
+    &::placeholder {
+      color: #7A6F63;
+    }
+  }
+
+  // 主按钮金色渐变
+  :deep(.el-button--primary) {
+    background: linear-gradient(135deg, #F2CC8F, #E8A87C);
+    border: none;
+    color: #1a1a3e;
+    font-weight: 600;
+    border-radius: 8px;
+
+    &:hover {
+      background: linear-gradient(135deg, #f5d9a8, #edb78f);
+    }
+  }
+
+  // 默认按钮
+  :deep(.el-button--default) {
+    background: rgba(242, 204, 143, 0.08);
+    border: 1px solid rgba(242, 204, 143, 0.15);
+    color: #B8A99A;
+    border-radius: 8px;
+
+    &:hover {
+      border-color: rgba(242, 204, 143, 0.3);
+      color: #F2CC8F;
+    }
+  }
+
+  // Link 按钮
   :deep(.el-button.is-link) {
     &.el-button--success {
-      color: var(--m3-success);
+      color: #81B29A;
+
       &:hover {
-        opacity: 0.8;
+        color: #a3c9b5;
       }
     }
+
     &.el-button--info {
-      color: var(--m3-on-surface-variant);
+      color: #B8A99A;
+
       &:hover {
-        color: var(--m3-on-surface);
+        color: #F0E6D3;
       }
+    }
+  }
+
+  // 表格暗色主题
+  :deep(.el-table) {
+    background: transparent;
+    --el-table-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    --el-table-header-bg-color: rgba(26, 26, 62, 0.5);
+    --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
+    --el-table-border-color: rgba(242, 204, 143, 0.06);
+
+    th {
+      color: #B8A99A !important;
+    }
+
+    td {
+      color: #F0E6D3;
+      border-bottom-color: rgba(242, 204, 143, 0.06);
+    }
+
+    .el-table__row--striped td.el-table__cell {
+      background: rgba(242, 204, 143, 0.02);
+    }
+  }
+
+  // Tag 样式
+  :deep(.el-tag) {
+    border: none;
+
+    &--warning {
+      background: rgba(242, 204, 143, 0.15);
+      color: #F2CC8F;
+    }
+
+    &--success {
+      background: rgba(129, 178, 154, 0.15);
+      color: #81B29A;
+    }
+
+    &--info {
+      background: rgba(184, 169, 154, 0.15);
+      color: #B8A99A;
+    }
+  }
+
+  // Loading 遮罩
+  :deep(.el-loading-mask) {
+    background: rgba(20, 20, 50, 0.6);
+  }
+
+  // 分页
+  :deep(.el-pagination) {
+    --el-pagination-bg-color: transparent;
+    --el-pagination-hover-color: #F2CC8F;
+    --el-pagination-text-color: #B8A99A;
+
+    .el-pager li {
+      background: transparent;
+      color: #B8A99A;
+
+      &.is-active {
+        background: linear-gradient(135deg, #F2CC8F, #E8A87C);
+        color: #1a1a3e;
+        border-radius: 6px;
+        font-weight: 600;
+      }
+
+      &:hover:not(.is-active) {
+        color: #F2CC8F;
+      }
+    }
+
+    button {
+      background: transparent;
+      color: #B8A99A;
+
+      &:hover {
+        color: #F2CC8F;
+      }
+    }
+
+    .el-pagination__sizes .el-select__wrapper {
+      background: rgba(20, 20, 50, 0.6);
+      border: 1px solid rgba(242, 204, 143, 0.12);
+    }
+
+    .el-pagination__total {
+      color: #7A6F63;
     }
   }
 }

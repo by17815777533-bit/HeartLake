@@ -125,7 +125,7 @@
               <el-progress
                 :percentage="federated.aggregationProgress"
                 :stroke-width="12"
-                :color="'#4285F4'"
+                :color="'#1565C0'"
                 striped
                 striped-flow
               />
@@ -230,12 +230,12 @@
             <el-table-column label="负载" width="100">
               <template #default="{ row }">
                 <el-progress :percentage="row.load" :stroke-width="6" :show-text="true"
-                  :color="row.load > 80 ? '#EA4335' : row.load > 50 ? '#FBBC04' : '#34A853'" />
+                  :color="row.load > 80 ? '#C62828' : row.load > 50 ? '#E65100' : '#2E7D32'" />
               </template>
             </el-table-column>
             <el-table-column label="延迟" width="80">
               <template #default="{ row }">
-                <span :style="{ color: row.latency > 100 ? '#EA4335' : row.latency > 50 ? '#FBBC04' : '#34A853' }">
+                <span :style="{ color: row.latency > 100 ? '#C62828' : row.latency > 50 ? '#E65100' : '#2E7D32' }">
                   {{ row.latency }}ms
                 </span>
               </template>
@@ -349,7 +349,7 @@
                 <span class="result-label">情感得分</span>
                 <el-progress
                   :percentage="Math.round(sentimentTool.result.score * 100)"
-                  :color="sentimentTool.result.score >= 0.6 ? '#34A853' : sentimentTool.result.score >= 0.4 ? '#FBBC04' : '#EA4335'"
+                  :color="sentimentTool.result.score >= 0.6 ? '#2E7D32' : sentimentTool.result.score >= 0.4 ? '#E65100' : '#C62828'"
                   :stroke-width="12"
                 />
               </div>
@@ -459,25 +459,25 @@ const performanceMetrics = computed(() => [
     label: '推理延迟',
     value: `${engineStatus.avgLatency}ms`,
     percent: Math.min(100, (engineStatus.avgLatency / 200) * 100),
-    color: engineStatus.avgLatency < 50 ? '#34A853' : engineStatus.avgLatency < 100 ? '#FBBC04' : '#EA4335',
+    color: engineStatus.avgLatency < 50 ? '#2E7D32' : engineStatus.avgLatency < 100 ? '#E65100' : '#C62828',
   },
   {
     label: '缓存命中率',
     value: `${engineStatus.cacheHitRate}%`,
     percent: engineStatus.cacheHitRate,
-    color: engineStatus.cacheHitRate > 80 ? '#34A853' : engineStatus.cacheHitRate > 50 ? '#FBBC04' : '#EA4335',
+    color: engineStatus.cacheHitRate > 80 ? '#2E7D32' : engineStatus.cacheHitRate > 50 ? '#E65100' : '#C62828',
   },
   {
     label: '吞吐量',
     value: `${engineStatus.throughput} req/s`,
     percent: Math.min(100, (engineStatus.throughput / 500) * 100),
-    color: '#4285F4',
+    color: '#1565C0',
   },
   {
     label: '推理次数',
     value: engineStatus.inferenceCount.toLocaleString(),
     percent: Math.min(100, (engineStatus.inferenceCount / 10000) * 100),
-    color: '#1A73E8',
+    color: '#545F71',
   },
 ])
 
@@ -486,25 +486,25 @@ const statusCards = computed(() => [
   {
     title: '引擎状态',
     value: engineStatus.enabled ? '运行中' : '已停止',
-    color: engineStatus.enabled ? '#34A853' : '#EA4335',
+    color: engineStatus.enabled ? '#2E7D32' : '#C62828',
     icon: Cpu,
   },
   {
     title: '模块加载',
     value: `${engineStatus.modulesLoaded}/${engineStatus.totalModules}`,
-    color: '#4285F4',
+    color: '#1565C0',
     icon: Monitor,
   },
   {
     title: '运行时间',
     value: engineStatus.uptime,
-    color: '#FBBC04',
+    color: '#E65100',
     icon: Stopwatch,
   },
   {
     title: '活跃节点',
     value: engineStatus.activeNodes,
-    color: '#1A73E8',
+    color: '#545F71',
     icon: Connection,
   },
 ])
@@ -746,7 +746,7 @@ async function loadPrivacyBudget() {
       queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? 0,
     })
     if (Array.isArray(p.allocation)) {
-      const colors = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#9AA0A6', '#1A73E8']
+      const colors = ['#1565C0', '#2E7D32', '#E65100', '#C62828', '#545F71', '#6E5676']
       privacy.allocation = p.allocation.map((a, i) => ({
         value: a.value ?? a.epsilon,
         name: a.name ?? a.label,
