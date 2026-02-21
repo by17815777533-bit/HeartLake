@@ -358,6 +358,29 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
             BroadcastWebSocketController::broadcast(broadcastMsg);
         }
 
+        // 自动建立临时好友关系（纸船互动触发，24小时有效）
+        if (user_id != stone_owner_id) {
+            auto tempFriendId = drogon::utils::getUuid();
+            auto expiresAt = trantor::Date::date().after(24 * 3600);
+            // 确保 user_id_1 < user_id_2 以满足唯一约束的一致性
+            std::string uid1 = std::min(user_id, stone_owner_id);
+            std::string uid2 = std::max(user_id, stone_owner_id);
+            dbClient->execSqlAsync(
+                "INSERT INTO temp_friends (temp_friend_id, user_id_1, user_id_2, source, source_id, status, expires_at) "
+                "VALUES ($1, $2, $3, 'boat', $4, 'active', $5) "
+                "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
+                "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at), "
+                "status = 'active'",
+                [](const drogon::orm::Result &) {
+                    LOG_DEBUG << "Temp friendship created/refreshed via boat reply to stone";
+                },
+                [](const drogon::orm::DrogonDbException &e) {
+                    LOG_ERROR << "Failed to create temp friendship: " << e.base().what();
+                },
+                tempFriendId, uid1, uid2, boat_id, expiresAt.toDbStringLocal()
+            );
+        }
+
         callback(ResponseUtil::success(data, "纸船已放置"));
 
     } catch (const drogon::orm::DrogonDbException &e) {
@@ -516,6 +539,29 @@ void PaperBoatController::respondToBoat(const HttpRequestPtr &req,
             },
             notif_id, boat_owner_id, reply_boat_id
         );
+
+        // 自动建立临时好友关系（纸船回应触发，24小时有效）
+        if (user_id != boat_owner_id) {
+            auto tempFriendId = drogon::utils::getUuid();
+            auto expiresAt = trantor::Date::date().after(24 * 3600);
+            // 确保 user_id_1 < user_id_2 以满足唯一约束的一致性
+            std::string uid1 = std::min(user_id, boat_owner_id);
+            std::string uid2 = std::max(user_id, boat_owner_id);
+            dbClient->execSqlAsync(
+                "INSERT INTO temp_friends (temp_friend_id, user_id_1, user_id_2, source, source_id, status, expires_at) "
+                "VALUES ($1, $2, $3, 'boat', $4, 'active', $5) "
+                "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
+                "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at), "
+                "status = 'active'",
+                [](const drogon::orm::Result &) {
+                    LOG_DEBUG << "Temp friendship created/refreshed via boat response";
+                },
+                [](const drogon::orm::DrogonDbException &e) {
+                    LOG_ERROR << "Failed to create temp friendship: " << e.base().what();
+                },
+                tempFriendId, uid1, uid2, reply_boat_id, expiresAt.toDbStringLocal()
+            );
+        }
 
         Json::Value data;
         data["reply_boat_id"] = reply_boat_id;

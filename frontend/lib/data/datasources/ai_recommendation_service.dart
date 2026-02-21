@@ -17,12 +17,13 @@ class AIRecommendationService extends BaseService {
   @override
   String get serviceName => 'AIRecommendation';
 
-  /// 获取相似石头推荐 (基于 HNSW 向量语义搜索)
+  /// 获取相似石头推荐 (基于 HNSW 向量相似度)
+  ///
+  /// 后端路由: GET /api/recommendations/similar-stones/{stoneId}
+  /// 来源: VectorSearchController
   Future<List<Map<String, dynamic>>> getSimilarStones(String stoneId, {int limit = 5}) async {
-    final resp = await post<dynamic>('/vector-search/similar', data: {
-      'stone_id': stoneId,
-      'limit': limit,
-    });
+    final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
+        queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
       return _extractList(resp.data);
     }
