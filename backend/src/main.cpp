@@ -14,6 +14,14 @@
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "infrastructure/ai/ImageModerationEngine.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
+#include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "infrastructure/ai/RecommendationEngine.h"
+#include "infrastructure/ai/DualMemoryRAG.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
+#include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "infrastructure/ai/RecommendationEngine.h"
+#include "infrastructure/ai/DualMemoryRAG.h"
 #include "middleware/RateLimiter.h"
 #include "utils/ContentFilter.h"
 #include "infrastructure/services/FriendshipTTLEngine.h"
@@ -359,6 +367,30 @@ int main(int argc, char *argv[]) {
             // 初始化图片审核引擎
             LOG_INFO << "Initializing Image Moderation Engine...";
             heartlake::ai::ImageModerationEngine::getInstance().initialize();
+
+            // 初始化边缘AI引擎（情感分析、内容审核、HNSW、联邦学习、差分隐私）
+            LOG_INFO << "Initializing Edge AI Engine...";
+            Json::Value edgeAIConfig;
+            edgeAIConfig["enabled"] = true;
+            edgeAIConfig["hnsw_m"] = 16;
+            edgeAIConfig["hnsw_ef_construction"] = 200;
+            edgeAIConfig["hnsw_ef_search"] = 50;
+            edgeAIConfig["dp_epsilon"] = 1.0;
+            edgeAIConfig["dp_delta"] = 1e-5;
+            edgeAIConfig["dp_max_budget"] = 10.0;
+            heartlake::ai::EdgeAIEngine::getInstance().initialize(edgeAIConfig);
+
+            // 预热情感共鸣引擎（单例懒加载）
+            LOG_INFO << "Initializing Emotion Resonance Engine...";
+            heartlake::ai::EmotionResonanceEngine::getInstance();
+
+            // 初始化推荐引擎
+            LOG_INFO << "Initializing Recommendation Engine...";
+            heartlake::ai::RecommendationEngine::getInstance().initialize(32);
+
+            // 预热双记忆RAG（单例懒加载）
+            LOG_INFO << "Initializing Dual Memory RAG...";
+            heartlake::ai::DualMemoryRAG::getInstance();
 
             // 初始化限流器
             LOG_INFO << "Initializing Rate Limiter...";
