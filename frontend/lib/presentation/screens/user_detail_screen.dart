@@ -31,7 +31,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final response = await _apiClient.get('/users/${widget.userId}/profile');
+      final response = await _apiClient.get('/users/${widget.userId}');
       if (response.statusCode == 200 && response.data['code'] == 0 && mounted) {
         setState(() {
           _user = response.data['data'];

@@ -9,17 +9,17 @@ class PsychSupportService extends BaseService {
   String get serviceName => 'PsychSupport';
 
   Future<Map<String, dynamic>> getHotlines() async {
-    final response = await get('/psych-support/hotlines');
+    final response = await get('/safe-harbor/hotlines');
     return toMap(response);
   }
 
   Future<Map<String, dynamic>> getTools() async {
-    final response = await get('/psych-support/tools');
+    final response = await get('/safe-harbor/tools');
     return toMap(response);
   }
 
   Future<Map<String, dynamic>> getPrompt() async {
-    final response = await get('/psych-support/prompt');
+    final response = await get('/safe-harbor/prompt');
     return toMap(response);
   }
 }
