@@ -1,16 +1,12 @@
 // @file auth_screen.dart
-// @brief 登录注册界面 - 光遇 Sky: Children of the Light 视觉设计语言
+// @brief 登录注册界面
 // Created by 林子怡
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:heart_lake/data/datasources/auth_service.dart';
-import 'package:heart_lake/presentation/widgets/sky_scaffold.dart';
-import 'package:heart_lake/presentation/widgets/sky_input.dart';
-import 'package:heart_lake/presentation/widgets/sky_button.dart';
-import 'package:heart_lake/presentation/widgets/sky_glass_card.dart';
+import 'package:heart_lake/presentation/widgets/water_background.dart';
 import 'package:heart_lake/utils/app_theme.dart';
-import 'package:heart_lake/utils/animation_utils.dart';
 import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -41,7 +37,7 @@ class _AuthScreenState extends State<AuthScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   int _countdown = 0;
-  bool _useEmailLogin = false;
+  bool _useEmailLogin = false; // 切换登录方式
   // P2-6 修复：使用 Timer.periodic 替代 for 循环 + Future.delayed
   Timer? _countdownTimer;
 
@@ -214,104 +210,81 @@ class _AuthScreenState extends State<AuthScreen>
 
   void _navigateToHome() {
     Navigator.of(context).pushReplacement(
-      SkyPageRoute(page: const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
     );
   }
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(color: AppTheme.darkTextPrimary),
-        ),
-        backgroundColor: AppTheme.lightStone,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppTheme.primaryColor),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: true,
+    return Scaffold(
       body: Stack(
         children: [
+          const Positioned.fill(child: WaterBackground()),
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
                   const SizedBox(height: 40),
-
-                  // Logo - 金色光晕圆形容器 + water_drop 图标
+                  // Logo
                   Container(
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryLightColor.withValues(alpha: 0.15),
+                      color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.primaryLightColor.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryLightColor.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
+                          color: Colors.white.withOpacity(0.5), width: 2),
                     ),
-                    child: const Icon(
-                      Icons.water_drop,
-                      size: 50,
-                      color: AppTheme.primaryLightColor,
-                    ),
+                    child: const Icon(Icons.water_drop,
+                        size: 50, color: Colors.white),
                   ),
                   const SizedBox(height: 16),
-
-                  // "心湖" 标题 - ShaderMask 金色渐变文字
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: AppTheme.warmGradient,
-                    ).createShader(bounds),
-                    child: const Text(
-                      '心湖',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 4,
-                      ),
+                  const Text(
+                    '心湖',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 4,
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // 副标题
-                  const Text(
+                  Text(
                     '把石头投入湖中',
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textSecondary,
+                      color: Colors.white.withOpacity(0.8),
                     ),
                   ),
                   const SizedBox(height: 40),
 
-                  // 表单卡片 - 毛玻璃
-                  SkyGlassCard(
-                    enableGlow: false,
-                    borderRadius: 24,
-                    padding: EdgeInsets.zero,
+                  // 表单卡片
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
                     child: Column(
                       children: [
                         // Tab 切换
                         TabBar(
                           controller: _tabController,
-                          indicatorColor: AppTheme.primaryLightColor,
-                          labelColor: AppTheme.primaryLightColor,
+                          indicatorColor: AppTheme.primaryColor,
+                          labelColor: AppTheme.primaryColor,
                           unselectedLabelColor: AppTheme.textSecondary,
                           tabs: const [
                             Tab(text: '登录'),
@@ -319,10 +292,7 @@ class _AuthScreenState extends State<AuthScreen>
                           ],
                         ),
                         ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            minHeight: 380,
-                            maxHeight: 420,
-                          ),
+                          constraints: const BoxConstraints(minHeight: 380, maxHeight: 420),
                           child: TabBarView(
                             controller: _tabController,
                             children: [
@@ -340,27 +310,20 @@ class _AuthScreenState extends State<AuthScreen>
                   // 匿名登录按钮
                   TextButton.icon(
                     onPressed: _isLoading ? null : _handleAnonymousLogin,
-                    icon: const Icon(
-                      Icons.visibility_off,
-                      color: AppTheme.textSecondary,
-                    ),
+                    icon:
+                        const Icon(Icons.visibility_off, color: Colors.white70),
                     label: const Text(
                       '匿名漫游心湖',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
                     ),
                   ),
 
                   const SizedBox(height: 16),
-
-                  // 底部提示文字
                   Text(
                     '匿名用户数据将在24小时后消失',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                      color: Colors.white.withOpacity(0.5),
                     ),
                   ),
                 ],
@@ -371,11 +334,9 @@ class _AuthScreenState extends State<AuthScreen>
           // Loading 遮罩
           if (_isLoading)
             Container(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.black.withOpacity(0.3),
               child: const Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryLightColor,
-                ),
+                child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
         ],
@@ -398,7 +359,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = false);
                 },
-                selectedColor: AppTheme.primaryLightColor.withValues(alpha: 0.3),
+                selectedColor: AppTheme.primaryColor.withOpacity(0.3),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
@@ -407,42 +368,64 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = true);
                 },
-                selectedColor: AppTheme.primaryLightColor.withValues(alpha: 0.3),
+                selectedColor: AppTheme.primaryColor.withOpacity(0.3),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          SkyInput(
+          TextField(
             controller: _loginUsernameController,
-            labelText: _useEmailLogin ? '邮箱地址' : '用户名 (8位数字)',
-            hintText: _useEmailLogin ? '请输入有效的邮箱地址' : '请输入8位数字用户名',
-            prefixIcon: Icon(
-              _useEmailLogin ? Icons.email_outlined : Icons.person_outline,
+            decoration: InputDecoration(
+              labelText: _useEmailLogin ? '邮箱地址' : '用户名 (8位数字)',
+              labelStyle: const TextStyle(color: AppTheme.textPrimary),
+              prefixIcon: Icon(
+                  _useEmailLogin ? Icons.email_outlined : Icons.person_outline),
+              filled: true,
+              fillColor: Colors.white,
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              hintText: _useEmailLogin ? '请输入有效的邮箱地址' : '请输入8位数字用户名',
             ),
+            style: const TextStyle(color: AppTheme.textPrimary),
             keyboardType: _useEmailLogin
                 ? TextInputType.emailAddress
                 : TextInputType.number,
           ),
           const SizedBox(height: 16),
-          SkyInput(
+          TextField(
             controller: _loginPasswordController,
             obscureText: _obscurePassword,
-            labelText: '密码',
-            prefixIcon: const Icon(Icons.lock_outline),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            decoration: InputDecoration(
+              labelText: '密码',
+              labelStyle: const TextStyle(color: AppTheme.textPrimary),
+              prefixIcon: const Icon(Icons.lock_outline),
+              filled: true,
+              fillColor: Colors.white,
+              suffixIcon: IconButton(
+                icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
+            style: const TextStyle(color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 24),
-          SkyButton(
-            label: '登录',
-            onPressed: _isLoading ? null : _handleLogin,
-            isLoading: _isLoading,
+          SizedBox(
             width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _handleLogin,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('登录', style: TextStyle(fontSize: 16)),
+            ),
           ),
         ],
       ),
@@ -466,31 +449,61 @@ class _AuthScreenState extends State<AuthScreen>
             const SizedBox(height: 16),
 
             // 邮箱输入框（必填）
-            SkyInput(
+            TextField(
               controller: _registerEmailController,
-              labelText: '邮箱地址 *',
-              hintText: '请输入有效的邮箱地址',
-              prefixIcon: const Icon(Icons.email_outlined),
+              decoration: InputDecoration(
+                labelText: '邮箱地址 *',
+                labelStyle: const TextStyle(color: AppTheme.textPrimary),
+                prefixIcon: const Icon(Icons.email_outlined),
+                filled: true,
+                fillColor: Colors.white,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: '请输入有效的邮箱地址',
+              ),
+              style: const TextStyle(color: AppTheme.textPrimary),
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
 
-            SkyInput(
+            TextField(
               controller: _registerNicknameController,
-              labelText: '昵称 (选填)',
-              prefixIcon: const Icon(Icons.badge_outlined),
+              decoration: InputDecoration(
+                labelText: '昵称 (选填)',
+                labelStyle: const TextStyle(color: AppTheme.textPrimary),
+                prefixIcon: const Icon(Icons.badge_outlined),
+                filled: true,
+                fillColor: Colors.white,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              style: const TextStyle(color: AppTheme.textPrimary),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   flex: 2,
-                  child: SkyInput(
+                  child: TextField(
                     controller: _registerVerificationCodeController,
-                    labelText: '验证码',
-                    prefixIcon: const Icon(Icons.verified_outlined),
+                    decoration: InputDecoration(
+                      labelText: '验证码',
+                      labelStyle: const TextStyle(color: AppTheme.textPrimary),
+                      prefixIcon: const Icon(Icons.verified_outlined),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    style: const TextStyle(color: AppTheme.textPrimary),
                     keyboardType: TextInputType.number,
                     maxLength: 6,
+                    buildCounter: (context,
+                        {required currentLength,
+                        required isFocused,
+                        maxLength}) {
+                      return null; // 隐藏字符计数
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -501,14 +514,12 @@ class _AuthScreenState extends State<AuthScreen>
                         ? null
                         : () async {
                             // 邮箱验证码
-                            final email =
-                                _registerEmailController.text.trim();
+                            final email = _registerEmailController.text.trim();
 
                             // 严格验证邮箱格式
-                            final emailRegex = RegExp(
-                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                            if (email.isEmpty ||
-                                !emailRegex.hasMatch(email)) {
+                            final emailRegex =
+                                RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            if (email.isEmpty || !emailRegex.hasMatch(email)) {
                               _showSnackBar('请输入有效的邮箱地址');
                               return;
                             }
@@ -521,8 +532,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 // P2-6: 使用 Timer.periodic 倒计时
                                 _startCountdown();
                               } else {
-                                _showSnackBar(
-                                    result['message'] ?? '发送失败');
+                                _showSnackBar(result['message'] ?? '发送失败');
                                 return;
                               }
                             } catch (e) {
@@ -531,12 +541,11 @@ class _AuthScreenState extends State<AuthScreen>
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryLightColor,
-                      foregroundColor: AppTheme.backgroundColor,
+                      backgroundColor: AppTheme.borderCyan,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(
                       _countdown > 0 ? '$_countdown秒' : '发送',
@@ -547,41 +556,63 @@ class _AuthScreenState extends State<AuthScreen>
               ],
             ),
             const SizedBox(height: 12),
-            SkyInput(
+            TextField(
               controller: _registerPasswordController,
               obscureText: _obscurePassword,
-              labelText: '密码 (至少6个字符)',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              decoration: InputDecoration(
+                labelText: '密码 (至少6个字符)',
+                labelStyle: const TextStyle(color: AppTheme.textPrimary),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_off
+                      : Icons.visibility),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+                filled: true,
+                fillColor: Colors.white,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              style: const TextStyle(color: AppTheme.textPrimary),
             ),
             const SizedBox(height: 12),
-            SkyInput(
+            TextField(
               controller: _registerConfirmPasswordController,
               obscureText: _obscureConfirmPassword,
-              labelText: '确认密码',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureConfirmPassword
+              decoration: InputDecoration(
+                labelText: '确认密码',
+                labelStyle: const TextStyle(color: AppTheme.textPrimary),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureConfirmPassword
                       ? Icons.visibility_off
-                      : Icons.visibility,
+                      : Icons.visibility),
+                  onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
                 ),
-                onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                filled: true,
+                fillColor: Colors.white,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              style: const TextStyle(color: AppTheme.textPrimary),
             ),
             const SizedBox(height: 16),
-            SkyButton(
-              label: '注册',
-              onPressed: _isLoading ? null : _handleRegister,
-              isLoading: _isLoading,
+            SizedBox(
               width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleRegister,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.borderCyan,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('注册', style: TextStyle(fontSize: 16)),
+              ),
             ),
           ],
         ),
