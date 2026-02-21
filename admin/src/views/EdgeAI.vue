@@ -892,40 +892,8 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 /* ============================================
-   Sky: Children of the Light — 光遇视觉主题
+   Material Design 3 主题
    ============================================ */
-
-// 光遇色彩系统
-$gold: #F2CC8F;
-$amber: #E8A87C;
-$sunset: #E07A5F;
-$twilight: #7B68AE;
-$starry: #141432;
-$card-bg: rgba(26, 26, 62, 0.7);
-$card-border: rgba(242, 204, 143, 0.1);
-$text-primary: #F0E6D3;
-$text-secondary: #B8A99A;
-$glass-blur: blur(16px);
-
-// 通用毛玻璃 mixin
-@mixin glass-card {
-  background: $card-bg;
-  backdrop-filter: $glass-blur;
-  -webkit-backdrop-filter: $glass-blur;
-  border: 1px solid $card-border;
-  border-radius: 16px;
-}
-
-@mixin gold-gradient-text {
-  background: linear-gradient(135deg, $gold, $amber, $sunset);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-@mixin glow($color: $gold, $size: 20px) {
-  box-shadow: 0 0 $size rgba($color, 0.15);
-}
 
 // ==========================================
 // 根容器
@@ -933,31 +901,9 @@ $glass-blur: blur(16px);
 .edge-ai {
   min-height: 100vh;
   padding: 24px;
-  background: linear-gradient(160deg, #0a0a23 0%, $starry 40%, #1a1a4e 70%, #0d0d2b 100%);
-  color: $text-primary;
+  background: var(--m3-surface);
+  color: var(--m3-on-surface);
   font-family: 'Inter', 'PingFang SC', sans-serif;
-
-  // 星空粒子背景
-  &::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      radial-gradient(1px 1px at 10% 20%, rgba($gold, 0.4) 0%, transparent 100%),
-      radial-gradient(1px 1px at 30% 60%, rgba($amber, 0.3) 0%, transparent 100%),
-      radial-gradient(1.5px 1.5px at 50% 10%, rgba($gold, 0.5) 0%, transparent 100%),
-      radial-gradient(1px 1px at 70% 40%, rgba($twilight, 0.3) 0%, transparent 100%),
-      radial-gradient(1px 1px at 90% 80%, rgba($gold, 0.35) 0%, transparent 100%),
-      radial-gradient(1.5px 1.5px at 20% 90%, rgba($amber, 0.4) 0%, transparent 100%),
-      radial-gradient(1px 1px at 80% 15%, rgba($gold, 0.3) 0%, transparent 100%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  > * {
-    position: relative;
-    z-index: 1;
-  }
 }
 
 // ==========================================
@@ -970,14 +916,14 @@ $glass-blur: blur(16px);
     h1 {
       font-size: 28px;
       font-weight: 700;
-      @include gold-gradient-text;
+      color: var(--m3-primary);
       margin-bottom: 6px;
       letter-spacing: 1px;
     }
 
     .welcome-sub {
       font-size: 14px;
-      color: $text-secondary;
+      color: var(--m3-on-surface-variant);
       letter-spacing: 0.5px;
     }
   }
@@ -989,7 +935,7 @@ $glass-blur: blur(16px);
 
     .update-time {
       font-size: 12px;
-      color: $text-secondary;
+      color: var(--m3-on-surface-variant);
       opacity: 0.7;
     }
   }
@@ -1005,20 +951,21 @@ $glass-blur: blur(16px);
   margin-bottom: 24px;
 
   .tech-badge {
-    @include glass-card;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    border-radius: 20px;
+    background: var(--m3-surface-container);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-full);
     font-size: 12px;
-    color: $text-primary;
-    transition: all 0.3s ease;
+    color: var(--m3-on-surface);
+    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
     cursor: default;
 
     &:hover {
-      border-color: rgba($gold, 0.3);
-      @include glow($gold, 12px);
+      background: var(--m3-surface-container-high);
+      border-color: var(--m3-primary);
       transform: translateY(-1px);
     }
 
@@ -1043,32 +990,18 @@ $glass-blur: blur(16px);
   margin-bottom: 24px;
 
   .stat-card {
-    @include glass-card;
+    background: var(--m3-surface-container);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-large);
     padding: 20px;
-    transition: all 0.35s ease;
+    transition: all var(--m3-motion-duration-medium2) var(--m3-motion-easing-standard);
     overflow: hidden;
     position: relative;
 
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, $gold, transparent);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
     &:hover {
       transform: translateY(-3px);
-      @include glow($gold, 24px);
-      border-color: rgba($gold, 0.25);
-
-      &::after {
-        opacity: 1;
-      }
+      box-shadow: var(--m3-elevation-2);
+      border-color: var(--m3-primary);
     }
 
     .stat-content {
@@ -1081,13 +1014,13 @@ $glass-blur: blur(16px);
       .stat-value {
         font-size: 28px;
         font-weight: 700;
-        @include gold-gradient-text;
+        color: var(--m3-primary);
         line-height: 1.2;
       }
 
       .stat-title {
         font-size: 13px;
-        color: $text-secondary;
+        color: var(--m3-on-surface-variant);
         margin-top: 4px;
       }
     }
@@ -1095,7 +1028,6 @@ $glass-blur: blur(16px);
     .stat-icon {
       font-size: 36px;
       opacity: 0.6;
-      filter: grayscale(0.2);
     }
   }
 }

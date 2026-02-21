@@ -327,13 +327,13 @@ const chartRange = ref(7)
 const moodTrendRange = ref(7)
 const trendingTopics = ref([])
 
-// 活跃时段图表配置 - Google 风格
+// 活跃时段图表配置 - Material Design 3 风格
 const activeTimeOption = ref({
-  tooltip: { trigger: 'axis', backgroundColor: '#fff', borderColor: '#dadce0', textStyle: { color: '#202124' } },
+  tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
   grid: { left: 50, right: 20, top: 20, bottom: 30 },
-  xAxis: { type: 'category', data: Array.from({ length: 24 }, (_, i) => `${i}:00`), axisLine: { lineStyle: { color: '#dadce0' } }, axisLabel: { color: '#5f6368' } },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f3f4', type: 'dashed' } }, axisLabel: { color: '#5f6368' } },
-  series: [{ type: 'bar', data: [], itemStyle: { color: '#34A853', borderRadius: [2, 2, 0, 0] } }]
+  xAxis: { type: 'category', data: Array.from({ length: 24 }, (_, i) => `${i}:00`), axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
+  series: [{ type: 'bar', data: [], itemStyle: { color: '#2E7D32', borderRadius: [2, 2, 0, 0] } }]
 })
 
 // 隐私保护统计
@@ -348,22 +348,22 @@ const privacyBudgetPercent = computed(() => {
   return Math.min((privacyStats.epsilonUsed / privacyStats.epsilonTotal) * 100, 100)
 })
 const privacyBudgetColor = computed(() => {
-  if (privacyBudgetPercent.value < 50) return '#34A853'
-  if (privacyBudgetPercent.value < 80) return '#FBBC04'
-  return '#EA4335'
+  if (privacyBudgetPercent.value < 50) return '#2E7D32'
+  if (privacyBudgetPercent.value < 80) return '#E65100'
+  return '#BA1A1A'
 })
 
-// AI 情绪趋势图表
+// AI 情绪趋势图表 - Material Design 3 风格
 const emotionTrendsOption = ref({
-  tooltip: { trigger: 'axis', backgroundColor: '#fff', borderColor: '#dadce0', textStyle: { color: '#202124' } },
-  legend: { data: ['积极', '中性', '消极'], bottom: 0, textStyle: { color: '#5f6368' } },
+  tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
+  legend: { data: ['积极', '中性', '消极'], bottom: 0, textStyle: { color: '#44474E' } },
   grid: { left: 50, right: 20, top: 20, bottom: 40 },
-  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#dadce0' } }, axisLabel: { color: '#5f6368' } },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f3f4', type: 'dashed' } }, axisLabel: { color: '#5f6368' } },
+  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
   series: [
-    { name: '积极', type: 'line', smooth: true, data: [], lineStyle: { color: '#34A853' }, itemStyle: { color: '#34A853' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(52,168,83,0.25)' }, { offset: 1, color: 'rgba(52,168,83,0.02)' }] } } },
-    { name: '中性', type: 'line', smooth: true, data: [], lineStyle: { color: '#FBBC04' }, itemStyle: { color: '#FBBC04' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(251,188,4,0.25)' }, { offset: 1, color: 'rgba(251,188,4,0.02)' }] } } },
-    { name: '消极', type: 'line', smooth: true, data: [], lineStyle: { color: '#EA4335' }, itemStyle: { color: '#EA4335' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(234,67,53,0.25)' }, { offset: 1, color: 'rgba(234,67,53,0.02)' }] } } },
+    { name: '积极', type: 'line', smooth: true, data: [], lineStyle: { color: '#2E7D32' }, itemStyle: { color: '#2E7D32' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(46,125,50,0.25)' }, { offset: 1, color: 'rgba(46,125,50,0.02)' }] } } },
+    { name: '中性', type: 'line', smooth: true, data: [], lineStyle: { color: '#E65100' }, itemStyle: { color: '#E65100' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(230,81,0,0.25)' }, { offset: 1, color: 'rgba(230,81,0,0.02)' }] } } },
+    { name: '消极', type: 'line', smooth: true, data: [], lineStyle: { color: '#BA1A1A' }, itemStyle: { color: '#BA1A1A' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(186,26,26,0.25)' }, { offset: 1, color: 'rgba(186,26,26,0.02)' }] } } },
   ]
 })
 
@@ -381,10 +381,10 @@ const resonanceStats = reactive({
 // 湖面天气可视化 - 基于情绪温度映射
 const lakeWeather = computed(() => {
   const temp = emotionPulseOption.value.series[0].data[0]?.value ?? 50
-  if (temp > 60) return { icon: '\u2600\uFE0F', label: '晴朗', desc: '社区积极', color: '#FBBC04', bg: 'linear-gradient(135deg, #FFF9C4 0%, #FFE082 100%)' }
-  if (temp > 30) return { icon: '\u26C5', label: '多云', desc: '社区平稳', color: '#9AA0A6', bg: 'linear-gradient(135deg, #ECEFF1 0%, #CFD8DC 100%)' }
-  if (temp > 10) return { icon: '\uD83C\uDF27\uFE0F', label: '小雨', desc: '社区低落', color: '#4285F4', bg: 'linear-gradient(135deg, #E3F2FD 0%, #90CAF9 100%)' }
-  return { icon: '\u26C8\uFE0F', label: '暴风雨', desc: '社区消极', color: '#EA4335', bg: 'linear-gradient(135deg, #FFEBEE 0%, #EF9A9A 100%)' }
+  if (temp > 60) return { icon: '\u2600\uFE0F', label: '晴朗', desc: '社区积极', color: '#E65100', bg: 'linear-gradient(135deg, #FFF3E0 0%, #FFB74D 100%)' }
+  if (temp > 30) return { icon: '\u26C5', label: '多云', desc: '社区平稳', color: '#44474E', bg: 'linear-gradient(135deg, #ECEFF1 0%, #B0BEC5 100%)' }
+  if (temp > 10) return { icon: '\uD83C\uDF27\uFE0F', label: '小雨', desc: '社区低落', color: '#1565C0', bg: 'linear-gradient(135deg, #E3F2FD 0%, #64B5F6 100%)' }
+  return { icon: '\u26C8\uFE0F', label: '暴风雨', desc: '社区消极', color: '#BA1A1A', bg: 'linear-gradient(135deg, #FFEBEE 0%, #E57373 100%)' }
 })
 
 const lakeWeatherTemp = computed(() => emotionPulseOption.value.series[0].data[0]?.value ?? 50)
@@ -464,30 +464,30 @@ const stats = reactive({
   pendingReports: 0,
 })
 
-// 统计卡片 - Google 配色
+// 统计卡片 - Material Design 3 配色
 const statsCards = computed(() => [
-  { title: '总用户数', value: stats.totalUsers, color: '#4285F4', icon: 'User' },
-  { title: '今日投石', value: stats.todayStones, color: '#34A853', icon: 'Edit' },
-  { title: '在线人数', value: stats.onlineCount, color: '#1A73E8', icon: 'Connection' },
-  { title: '待处理举报', value: stats.pendingReports, color: '#FBBC04', icon: 'Warning' },
+  { title: '总用户数', value: stats.totalUsers, color: '#1565C0', icon: 'User' },
+  { title: '今日投石', value: stats.todayStones, color: '#2E7D32', icon: 'Edit' },
+  { title: '在线人数', value: stats.onlineCount, color: '#6E5676', icon: 'Connection' },
+  { title: '待处理举报', value: stats.pendingReports, color: '#E65100', icon: 'Warning' },
 ])
 
-// 用户增长图表配置 - Google 风格
+// 用户增长图表配置 - Material Design 3 风格
 const userGrowthOption = ref({
   tooltip: {
     trigger: 'axis',
-    backgroundColor: '#fff',
-    borderColor: '#dadce0',
-    textStyle: { color: '#202124' },
+    backgroundColor: '#2B2B2F',
+    borderColor: '#44474E',
+    textStyle: { color: '#E3E2E6' },
     formatter: (params) => {
       const p = params[0]
       const name = String(p.name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))
-      return `<div style="font-weight:500">${name}</div><div style="color:#1A73E8">新增 ${Number(p.value)} 人</div>`
+      return `<div style="font-weight:500">${name}</div><div style="color:#A8C8FF">新增 ${Number(p.value)} 人</div>`
     }
   },
   grid: { left: 50, right: 20, top: 20, bottom: 30 },
-  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#dadce0' } }, axisLabel: { color: '#5f6368' } },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f3f4', type: 'dashed' } }, axisLabel: { color: '#5f6368' } },
+  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
   series: [{
     name: '新增用户',
     type: 'line',
@@ -495,60 +495,60 @@ const userGrowthOption = ref({
     symbol: 'circle',
     symbolSize: 6,
     data: [],
-    areaStyle: { opacity: 0.1, color: '#4285F4' },
-    itemStyle: { color: '#4285F4', borderWidth: 2, borderColor: '#fff' },
-    lineStyle: { color: '#4285F4', width: 2 },
+    areaStyle: { opacity: 0.2, color: '#1565C0' },
+    itemStyle: { color: '#1565C0', borderWidth: 2, borderColor: '#fff' },
+    lineStyle: { color: '#1565C0', width: 2 },
   }],
 })
 
-// Google 配色
-const moodColors = ['#4285F4', '#34A853', '#EA4335', '#FBBC04', '#9AA0A6']
+// Material Design 3 配色
+const moodColors = ['#1565C0', '#2E7D32', '#BA1A1A', '#E65100', '#44474E']
 const moodNames = ['开心', '平静', '难过', '焦虑', '其他']
 const moodGradients = [
-  { start: '#4285F4', end: '#1A73E8' },
-  { start: '#34A853', end: '#1E8E3E' },
-  { start: '#EA4335', end: '#C5221F' },
-  { start: '#FBBC04', end: '#F9AB00' },
-  { start: '#9AA0A6', end: '#80868B' },
+  { start: '#1565C0', end: '#0D47A1' },
+  { start: '#2E7D32', end: '#1B5E20' },
+  { start: '#BA1A1A', end: '#8B0000' },
+  { start: '#E65100', end: '#BF360C' },
+  { start: '#44474E', end: '#2B2B2F' },
 ]
 
-// 情绪趋势图表配置 - Google 风格
+// 情绪趋势图表配置 - Material Design 3 风格
 const moodTrendOption = ref({
   tooltip: {
     trigger: 'axis',
-    backgroundColor: '#fff',
-    borderColor: '#dadce0',
+    backgroundColor: '#2B2B2F',
+    borderColor: '#44474E',
     borderRadius: 4,
     padding: [8, 12],
-    textStyle: { color: '#202124' }
+    textStyle: { color: '#E3E2E6' }
   },
-  legend: { bottom: 0, itemGap: 16, textStyle: { color: '#5f6368', fontSize: 12 } },
+  legend: { bottom: 0, itemGap: 16, textStyle: { color: '#44474E', fontSize: 12 } },
   grid: { left: 50, right: 20, top: 20, bottom: 50 },
-  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#dadce0' } }, axisLabel: { color: '#5f6368' } },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f3f4', type: 'dashed' } }, axisLabel: { color: '#5f6368' } },
+  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
   series: moodNames.map((name, i) => ({
     name, type: 'line', smooth: 0.3, symbol: 'circle', symbolSize: 5, data: [],
     itemStyle: { color: moodColors[i], borderWidth: 2, borderColor: '#fff' },
     lineStyle: { width: 2 },
-    areaStyle: { opacity: 0.05, color: moodColors[i] }
+    areaStyle: { opacity: 0.1, color: moodColors[i] }
   }))
 })
 
-// 情绪分布图表配置 - Google 风格
+// 情绪分布图表配置 - Material Design 3 风格
 const moodDistributionOption = ref({
   tooltip: {
     trigger: 'item',
-    backgroundColor: '#fff',
-    borderColor: '#dadce0',
+    backgroundColor: '#2B2B2F',
+    borderColor: '#44474E',
     borderRadius: 4,
     padding: [8, 12],
-    textStyle: { color: '#202124' },
+    textStyle: { color: '#E3E2E6' },
     formatter: (p) => {
       const name = String(p.name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))
-      return `<div style="font-weight:500">${p.marker} ${name}</div><div style="color:#5f6368">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
+      return `<div style="font-weight:500">${p.marker} ${name}</div><div style="color:#BCC7DC">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
     }
   },
-  legend: { bottom: 0, itemGap: 16, textStyle: { color: '#5f6368', fontSize: 12 } },
+  legend: { bottom: 0, itemGap: 16, textStyle: { color: '#44474E', fontSize: 12 } },
   series: [{
     type: 'pie',
     radius: ['45%', '70%'],
@@ -556,8 +556,8 @@ const moodDistributionOption = ref({
     itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
     label: { show: false },
     emphasis: {
-      label: { show: true, fontSize: 14, fontWeight: '500', color: '#202124' },
-      itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.1)' }
+      label: { show: true, fontSize: 14, fontWeight: '500', color: '#1C1B1F' },
+      itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' }
     },
     data: moodNames.map((name, i) => ({
       value: [30, 25, 20, 15, 10][i],

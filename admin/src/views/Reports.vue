@@ -192,171 +192,33 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .reports-page {
-  // filter-card
   .filter-card {
     margin-bottom: 16px;
-    background: rgba(26, 26, 62, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.08);
-    border-radius: 16px;
   }
 
-  // el-card
-  :deep(.el-card) {
-    background: rgba(26, 26, 62, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.08);
-    border-radius: 16px;
-  }
-
-  // el-form 筛选栏
-  :deep(.el-form-item__label) {
-    color: #B8A99A;
-  }
-
-  :deep(.el-input__wrapper),
-  :deep(.el-select__wrapper) {
-    background: rgba(20, 20, 50, 0.6);
-    border: 1px solid rgba(242, 204, 143, 0.12);
-    border-radius: 8px;
-    box-shadow: none;
-    color: #F0E6D3;
-
-    &:hover,
-    &.is-focus {
-      border-color: rgba(242, 204, 143, 0.3);
-      box-shadow: 0 0 0 1px rgba(242, 204, 143, 0.1);
-    }
-  }
-
-  :deep(.el-input__inner) {
-    color: #F0E6D3;
-
-    &::placeholder {
-      color: #7A6F63;
-    }
-  }
-
-  :deep(.el-select__placeholder) {
-    color: #7A6F63;
-  }
-
-  :deep(.el-select__selected-item span) {
-    color: #F0E6D3;
-  }
-
-  // 按钮
-  :deep(.el-button--primary) {
-    background: linear-gradient(135deg, #F2CC8F, #E8A87C);
-    border: none;
-    color: #1a1a3e;
-    font-weight: 600;
-    border-radius: 8px;
-
-    &:hover {
-      background: linear-gradient(135deg, #f5d9a8, #edb78f);
-    }
-  }
-
-  :deep(.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--info):not(.el-button--danger)) {
-    background: rgba(242, 204, 143, 0.08);
-    border: 1px solid rgba(242, 204, 143, 0.15);
-    color: #B8A99A;
-    border-radius: 8px;
-
-    &:hover {
-      border-color: rgba(242, 204, 143, 0.3);
-      color: #F2CC8F;
-    }
-  }
-
-  // el-table
-  :deep(.el-table) {
-    background: transparent;
-    --el-table-bg-color: transparent;
-    --el-table-tr-bg-color: transparent;
-    --el-table-header-bg-color: rgba(26, 26, 62, 0.5);
-    --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
-    --el-table-border-color: rgba(242, 204, 143, 0.06);
-
-    th {
-      color: #B8A99A !important;
-      font-weight: 500;
-    }
-
-    td {
-      color: #F0E6D3;
-      border-bottom-color: rgba(242, 204, 143, 0.06);
-    }
-
-    // 去掉 stripe 的默认灰色背景
-    .el-table__row--striped td.el-table__cell {
-      background: rgba(242, 204, 143, 0.02);
-    }
-  }
-
-  // loading 遮罩
-  :deep(.el-loading-mask) {
-    background: rgba(20, 20, 50, 0.6);
-  }
-
-  // pagination
   .pagination-wrapper {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
   }
 
-  :deep(.el-pagination) {
-    --el-pagination-bg-color: transparent;
-    --el-pagination-button-bg-color: rgba(26, 26, 62, 0.5);
-    --el-pagination-hover-color: #F2CC8F;
-    --el-pagination-text-color: #B8A99A;
-    --el-pagination-button-color: #B8A99A;
-    --el-pagination-button-disabled-color: #7A6F63;
-    --el-pagination-button-disabled-bg-color: transparent;
-
-    .el-pager li {
-      background: rgba(26, 26, 62, 0.5);
-      color: #B8A99A;
-      border-radius: 6px;
-
-      &.is-active {
-        background: linear-gradient(135deg, #F2CC8F, #E8A87C);
-        color: #1a1a3e;
-        font-weight: 600;
-      }
-    }
-
-    button {
-      background: rgba(26, 26, 62, 0.5);
-      color: #B8A99A;
-      border-radius: 6px;
-    }
-
-    .el-pagination__total,
-    .el-pagination__sizes .el-select__wrapper {
-      color: #B8A99A;
-    }
-  }
-
-  // 举报类型 tag 保持原有颜色映射（template 中已内联 color）
-
-  // handled-text
   .handled-text {
-    color: #7A6F63;
+    color: var(--m3-outline);
     font-size: 14px;
   }
 
-  // link 按钮
   :deep(.el-button.is-link) {
     &.el-button--success {
-      color: #81B29A;
-      &:hover { color: #9ecab5; }
+      color: var(--m3-success);
+      &:hover {
+        opacity: 0.8;
+      }
     }
     &.el-button--info {
-      color: #B8A99A;
-      &:hover { color: #F0E6D3; }
+      color: var(--m3-on-surface-variant);
+      &:hover {
+        color: var(--m3-on-surface);
+      }
     }
   }
 }

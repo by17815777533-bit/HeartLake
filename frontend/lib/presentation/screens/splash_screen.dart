@@ -1,5 +1,5 @@
 // @file splash_screen.dart
-// @brief 启动页面 - 光遇 Sky 视觉风格
+// @brief 启动页面 - Material Design 3 风格
 // Created by 林子怡
 
 import 'package:flutter/foundation.dart';
@@ -8,9 +8,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'home_screen.dart';
-import '../widgets/journey_effects/glow_particles.dart';
-import '../../utils/app_theme.dart';
 import '../../utils/animation_utils.dart';
+import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -102,24 +101,61 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final glowColor = isDark ? AppTheme.candleGlow : AppTheme.primaryColor;
+
     return Scaffold(
       body: Stack(
         children: [
-          // 全屏星空渐变背景
           Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: AppTheme.nightGradient,
+                  colors: isDark
+                      ? AppTheme.nightGradient
+                      : const [
+                          Color(0xFFFFF9F3),
+                          Color(0xFFFFEEDC),
+                          Color(0xFFEAF1FF),
+                        ],
                 ),
               ),
             ),
           ),
-          // 粒子效果层
-          const Positioned.fill(child: GlowParticles()),
-          // 主内容
+          Positioned(
+            top: -120,
+            left: -60,
+            child: _buildOrb(
+              size: 280,
+              color: glowColor.withValues(alpha: isDark ? 0.2 : 0.24),
+            ),
+          ),
+          Positioned(
+            right: -70,
+            top: -90,
+            child: _buildOrb(
+              size: 220,
+              color: (isDark ? AppTheme.spiritBlue : AppTheme.secondaryColor)
+                  .withValues(alpha: isDark ? 0.18 : 0.16),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Stack(
+                children: const [
+                  _StarPoint(alignment: Alignment(-0.82, -0.72), size: 3),
+                  _StarPoint(alignment: Alignment(-0.2, -0.86), size: 2),
+                  _StarPoint(alignment: Alignment(0.56, -0.7), size: 3),
+                  _StarPoint(alignment: Alignment(0.84, -0.5), size: 2),
+                  _StarPoint(alignment: Alignment(-0.7, -0.16), size: 2),
+                  _StarPoint(alignment: Alignment(0.28, -0.28), size: 2),
+                  _StarPoint(alignment: Alignment(0.74, 0.04), size: 3),
+                ],
+              ),
+            ),
+          ),
           Center(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -128,71 +164,73 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 心形 Logo - 金色光晕效果
                     Container(
-                      width: 120,
-                      height: 120,
+                      width: 128,
+                      height: 128,
                       decoration: BoxDecoration(
-                        color: AppTheme.nightDeep.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: isDark ? 0.2 : 0.85),
+                            Colors.white.withValues(alpha: isDark ? 0.06 : 0.48),
+                          ],
+                        ),
                         border: Border.all(
-                          color: AppTheme.candleGlow.withValues(alpha: 0.7),
-                          width: 2,
+                          color: glowColor.withValues(alpha: isDark ? 0.38 : 0.26),
+                          width: 1.6,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.4),
-                            blurRadius: 30,
-                            spreadRadius: 8,
-                          ),
-                          BoxShadow(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.15),
-                            blurRadius: 60,
-                            spreadRadius: 20,
+                            color: glowColor.withValues(alpha: isDark ? 0.2 : 0.24),
+                            blurRadius: 36,
+                            spreadRadius: 2,
                           ),
                         ],
                       ),
                       child: Icon(
                         Icons.water_drop,
-                        size: 60,
-                        color: AppTheme.candleGlow.withValues(alpha: 0.9),
+                        size: 64,
+                        color: isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor,
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    // "心湖" 金色渐变文字
+                    const SizedBox(height: 30),
                     ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: AppTheme.warmGradient,
-                      ).createShader(bounds),
+                      shaderCallback: (rect) {
+                        return const LinearGradient(
+                          colors: AppTheme.warmGradient,
+                        ).createShader(rect);
+                      },
                       child: const Text(
                         '心湖',
                         style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 50,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
                           letterSpacing: 4,
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // 副标题
-                    const Text(
-                      'Sky · HeartLake',
+                    Text(
+                      'HeartLake · Sky Mood',
                       style: TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.darkTextSecondary,
-                        letterSpacing: 6,
+                        fontSize: 14,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary.withValues(alpha: 0.9)
+                            : AppTheme.textSecondary.withValues(alpha: 0.85),
+                        letterSpacing: 3.5,
                       ),
                     ),
-                    const SizedBox(height: 60),
-                    // 金色加载指示器
+                    const SizedBox(height: 56),
                     SizedBox(
-                      width: 32,
-                      height: 32,
+                      width: 34,
+                      height: 34,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.candleGlow.withValues(alpha: 0.8),
+                          isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor,
                         ),
                       ),
                     ),
@@ -202,6 +240,56 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOrb({
+    required double size,
+    required Color color,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
+      ),
+    );
+  }
+}
+
+class _StarPoint extends StatelessWidget {
+  final Alignment alignment;
+  final double size;
+
+  const _StarPoint({
+    required this.alignment,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? AppTheme.peachPink : AppTheme.primaryColor;
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: isDark ? 0.5 : 0.35),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: isDark ? 0.48 : 0.3),
+              blurRadius: 8,
+              spreadRadius: 0.3,
+            ),
+          ],
+        ),
       ),
     );
   }

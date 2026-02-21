@@ -3,7 +3,6 @@
 // Created by 林子怡
 
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
@@ -32,12 +31,9 @@ class StoneCard extends StatefulWidget {
 }
 
 class _StoneCardState extends State<StoneCard>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  // 光晕脉动控制器
-  AnimationController? _glowCtrl;
-  Animation<double>? _glowPulse;
   final InteractionService _interactionService = InteractionService();
   bool _hasRippled = false;
   int _localRipplesCount = 0;

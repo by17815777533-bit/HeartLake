@@ -271,40 +271,6 @@ onMounted(() => {
 .users-page {
   .filter-card {
     margin-bottom: 16px;
-    background: rgba(26, 26, 62, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.08);
-    border-radius: 16px;
-
-    :deep(.el-card__body) {
-      padding: 16px 20px;
-    }
-  }
-
-  :deep(.el-card) {
-    background: rgba(26, 26, 62, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.08);
-    border-radius: 16px;
-  }
-
-  :deep(.el-table) {
-    background: transparent;
-    --el-table-bg-color: transparent;
-    --el-table-tr-bg-color: transparent;
-    --el-table-header-bg-color: rgba(26, 26, 62, 0.5);
-    --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
-    --el-table-border-color: rgba(242, 204, 143, 0.06);
-
-    th {
-      color: #B8A99A !important;
-      font-weight: 500;
-    }
-
-    td {
-      color: #F0E6D3;
-      border-bottom-color: rgba(242, 204, 143, 0.06);
-    }
   }
 
   .user-stats {
@@ -315,7 +281,7 @@ onMounted(() => {
       display: flex;
       align-items: center;
       font-size: 13px;
-      color: #B8A99A;
+      color: var(--m3-on-surface-variant);
 
       .stat-dot {
         width: 8px;
@@ -324,11 +290,11 @@ onMounted(() => {
         margin-right: 6px;
 
         &.stone {
-          background: #E07A5F;
+          background: var(--m3-error);
         }
 
         &.boat {
-          background: #81B29A;
+          background: var(--m3-success);
         }
       }
     }

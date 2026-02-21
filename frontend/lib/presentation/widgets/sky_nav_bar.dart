@@ -1,8 +1,7 @@
-// @file sky_nav_bar.dart
-// @brief 光遇风格底部导航栏 - 毛玻璃 + 暖色选中指示 + 柔光图标
-
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../../utils/app_theme.dart';
 
 class SkyNavBar extends StatelessWidget {
@@ -15,99 +14,107 @@ class SkyNavBar extends StatelessWidget {
     required this.onDestinationSelected,
   });
 
-  static const _items = [
-    _NavItem(icon: Icons.water_outlined, activeIcon: Icons.water, label: '观湖'),
-    _NavItem(icon: Icons.explore_outlined, activeIcon: Icons.explore, label: '湖底'),
-    _NavItem(icon: Icons.add_circle_outline, activeIcon: Icons.add_circle, label: '投石'),
-    _NavItem(icon: Icons.people_outline, activeIcon: Icons.people, label: '好友'),
-    _NavItem(icon: Icons.blur_on_outlined, activeIcon: Icons.blur_on, label: '倒影'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.nightSurface.withValues(alpha: 0.85)
-                : Colors.white.withValues(alpha: 0.75),
-            border: Border(
-              top: BorderSide(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : AppTheme.peachPink.withValues(alpha: 0.15),
-              ),
-            ),
-          ),
-          padding: EdgeInsets.only(bottom: bottomPadding, top: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final item = _items[i];
-              final selected = i == selectedIndex;
-              return _buildItem(item, selected, i, isDark);
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildItem(_NavItem item, bool selected, int index, bool isDark) {
-    final color = selected
-        ? AppTheme.warmOrange
-        : (isDark ? Colors.white.withValues(alpha: 0.5) : AppTheme.textTertiary);
-
-    return GestureDetector(
-      onTap: () => onDestinationSelected(index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: selected
-                    ? AppTheme.warmOrange.withValues(alpha: isDark ? 0.15 : 0.1)
-                    : Colors.transparent,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isDark
+                      ? [
+                          AppTheme.nightSurface.withValues(alpha: 0.86),
+                          AppTheme.darkBlue.withValues(alpha: 0.72),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.9),
+                          const Color(0xFFFFF3E9).withValues(alpha: 0.78),
+                        ],
+                ),
+                border: Border.all(
+                  color: (isDark ? AppTheme.candleGlow : AppTheme.primaryColor)
+                      .withValues(alpha: isDark ? 0.2 : 0.16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Icon(
-                selected ? item.activeIcon : item.icon,
-                color: color,
-                size: 24,
-                shadows: selected ? [
-                  Shadow(color: AppTheme.warmOrange.withValues(alpha: 0.4), blurRadius: 8),
-                ] : null,
+              child: NavigationBarTheme(
+                data: NavigationBarThemeData(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  indicatorColor: AppTheme.primaryColor.withValues(alpha: 0.18),
+                  iconTheme: WidgetStateProperty.resolveWith((states) {
+                    final selected = states.contains(WidgetState.selected);
+                    return IconThemeData(
+                      color: selected
+                          ? (isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor)
+                          : (isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
+                    );
+                  }),
+                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                    final selected = states.contains(WidgetState.selected);
+                    return TextStyle(
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected
+                          ? (isDark ? AppTheme.candleGlow : AppTheme.textPrimary)
+                          : (isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
+                    );
+                  }),
+                ),
+                child: NavigationBar(
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: onDestinationSelected,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  height: 72,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.water_outlined),
+                      selectedIcon: Icon(Icons.water),
+                      label: '观湖',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.explore_outlined),
+                      selectedIcon: Icon(Icons.explore),
+                      label: '湖底',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.add_circle_outline),
+                      selectedIcon: Icon(Icons.add_circle),
+                      label: '投石',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.people_outline),
+                      selectedIcon: Icon(Icons.people),
+                      label: '好友',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.blur_on_outlined),
+                      selectedIcon: Icon(Icons.blur_on),
+                      label: '倒影',
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 2),
-            Text(item.label,
-              style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _NavItem {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  const _NavItem({required this.icon, required this.activeIcon, required this.label});
 }

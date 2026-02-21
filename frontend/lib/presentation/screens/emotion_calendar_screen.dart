@@ -216,9 +216,17 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                       const SizedBox(height: 8),
                       _buildWeekdayHeader(),
                       _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 300,
-                              child: Center(child: WarmLoadingIndicator(messages: ['正在加载你的心情轨迹...', '回顾这段时间的情绪变化...', '每一天都值得被记录...'])),
+                              child: Center(
+                                child: WarmLoadingIndicator(
+                                  messages: [
+                                    '正在加载你的心情轨迹...',
+                                    '回顾这段时间的情绪变化...',
+                                    '每一天都值得被记录...',
+                                  ],
+                                ),
+                              ),
                             )
                           : SizedBox(
                               height: 300,

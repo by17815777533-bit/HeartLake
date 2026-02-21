@@ -248,35 +248,22 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 /* ============================================
-   光遇 (Sky: Children of the Light) 主题
-   温暖金色 + 星空深蓝 + 毛玻璃 + 星光粒子
+   Material Design 3 主题
    ============================================ */
 
-/* 星光闪烁动画 */
-@keyframes twinkle {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-@keyframes twinkle-slow {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.7; }
-}
-
-@keyframes loading-slide {
-  0% { transform: translateX(-100%); width: 30%; }
-  50% { width: 60%; }
-  100% { transform: translateX(400%); width: 30%; }
-}
-
-@keyframes logo-glow {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(242, 204, 143, 0.4)); }
-  50% { filter: drop-shadow(0 0 14px rgba(242, 204, 143, 0.7)); }
-}
-
-@keyframes float-gentle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+@keyframes loading-progress {
+  0% {
+    width: 0%;
+    margin-left: 0%;
+  }
+  50% {
+    width: 60%;
+    margin-left: 20%;
+  }
+  100% {
+    width: 0%;
+    margin-left: 100%;
+  }
 }
 
 /* 全局加载进度条 */

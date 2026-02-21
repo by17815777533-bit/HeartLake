@@ -34,6 +34,8 @@ class SkyButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
         gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: disabled
               ? colors.map((c) => c.withValues(alpha: 0.4)).toList()
               : colors,
@@ -41,8 +43,8 @@ class SkyButton extends StatelessWidget {
         boxShadow: disabled ? null : [
           BoxShadow(
             color: colors.first.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

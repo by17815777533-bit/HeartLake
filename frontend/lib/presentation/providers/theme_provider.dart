@@ -1,12 +1,11 @@
 // @file theme_provider.dart
-// @brief 主题状态管理
-// Created by 林子怡
+// @brief M3 主题状态管理
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.dark; // 默认暗色模式（光遇星空）
+  ThemeMode _themeMode = ThemeMode.light; // 默认亮色模式（M3）
 
   ThemeMode get themeMode => _themeMode;
 
@@ -16,7 +15,7 @@ class ThemeProvider with ChangeNotifier {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool('isDarkMode') ?? true;
+    final isDark = prefs.getBool('isDarkMode') ?? false;
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
   }

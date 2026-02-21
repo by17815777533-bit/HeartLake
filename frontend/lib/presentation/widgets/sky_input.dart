@@ -2,7 +2,6 @@
 // @brief 光遇风格发光输入框 - 半透明背景 + 聚焦暖色光晕
 
 import 'package:flutter/material.dart';
-import '../../utils/app_theme.dart';
 
 class SkyInput extends StatefulWidget {
   final String? hintText;
@@ -63,6 +62,7 @@ class _SkyInputState extends State<SkyInput> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnimatedContainer(
@@ -71,7 +71,7 @@ class _SkyInputState extends State<SkyInput> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: _hasFocus ? [
           BoxShadow(
-            color: AppTheme.warmOrange.withValues(alpha: 0.2),
+            color: colorScheme.primary.withValues(alpha: 0.2),
             blurRadius: 16,
             spreadRadius: 1,
           ),
@@ -88,7 +88,7 @@ class _SkyInputState extends State<SkyInput> {
         keyboardType: widget.keyboardType,
         autofocus: widget.autofocus,
         style: TextStyle(
-          color: isDark ? Colors.white.withValues(alpha: 0.9) : AppTheme.textPrimary,
+          color: isDark ? Colors.white.withValues(alpha: 0.9) : colorScheme.onSurface,
           fontSize: 15,
         ),
         decoration: InputDecoration(
@@ -110,12 +110,15 @@ class _SkyInputState extends State<SkyInput> {
             borderSide: BorderSide(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.1)
-                  : AppTheme.peachPink.withValues(alpha: 0.2),
+                  : colorScheme.outline.withValues(alpha: 0.2),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.warmOrange, width: 1.5),
+            borderSide: BorderSide(
+              color: colorScheme.primary.withValues(alpha: 0.85),
+              width: 1.5,
+            ),
           ),
         ),
       ),

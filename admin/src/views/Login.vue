@@ -6,15 +6,11 @@
 
 <template>
   <div class="login-page">
-    <!-- 星星层 -->
-    <div class="stars"></div>
-    <div class="stars stars--secondary"></div>
-
     <div class="login-card">
       <div class="logo-area">
         <img src="@/assets/logo.svg" alt="HeartLake" class="logo-icon" />
         <h1 class="title">心湖管理后台</h1>
-        <p class="subtitle">Sky Admin Console</p>
+        <p class="subtitle">HeartLake Admin Console</p>
       </div>
 
       <el-form ref="formRef" :model="form" :rules="rules" class="login-form">
@@ -87,231 +83,125 @@ const handleLogin = async () => {
 }
 </script>
 
-<style lang="scss" scoped>
-/* ===== 星星生成函数 ===== */
-@function generate-stars($count) {
-  $result: '';
-  @for $i from 1 through $count {
-    $x: random(2000);
-    $y: random(2000);
-    @if $i == 1 {
-      $result: '#{$x}px #{$y}px #fff';
-    } @else {
-      $result: '#{$result}, #{$x}px #{$y}px #fff';
-    }
-  }
-  @return unquote($result);
-}
-
-/* ===== 动画 ===== */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-@keyframes twinkle-alt {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 0.2; }
-}
-
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(242, 204, 143, 0.15); }
-  50% { box-shadow: 0 0 40px rgba(242, 204, 143, 0.25); }
-}
-
-/* ===== 页面背景 ===== */
+<style scoped lang="scss">
+/* ===== 页面容器 ===== */
 .login-page {
+  position: relative;
   width: 100%;
   height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #0A0A1A 0%, #2D1B69 40%, #E07A5F 75%, #F2CC8F 100%);
-  position: relative;
   overflow: hidden;
-}
-
-/* ===== 星星层 ===== */
-.stars {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    border-radius: 50%;
-  }
-
-  &::before {
-    width: 1px;
-    height: 1px;
-    box-shadow: generate-stars(120);
-    animation: twinkle 4s ease-in-out infinite;
-  }
-
-  &::after {
-    width: 2px;
-    height: 2px;
-    box-shadow: generate-stars(60);
-    animation: twinkle 6s ease-in-out infinite 1s;
-  }
-}
-
-.stars--secondary {
-  &::before {
-    width: 1.5px;
-    height: 1.5px;
-    box-shadow: generate-stars(80);
-    animation: twinkle-alt 5s ease-in-out infinite 0.5s;
-  }
-
-  &::after {
-    width: 1px;
-    height: 1px;
-    box-shadow: generate-stars(100);
-    animation: twinkle-alt 7s ease-in-out infinite 2s;
-  }
+  background: var(--m3-surface);
 }
 
 /* ===== 登录卡片 ===== */
 .login-card {
-  width: 420px;
-  padding: 48px;
-  background: rgba(20, 20, 50, 0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(242, 204, 143, 0.15);
-  border-radius: 24px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 60px rgba(242, 204, 143, 0.08);
   position: relative;
-  z-index: 1;
-  animation: fadeInUp 0.8s ease-out, glow-pulse 4s ease-in-out infinite 0.8s;
+  z-index: 10;
+  width: 420px;
+  padding: 48px 40px;
+  background: var(--m3-surface-container);
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: var(--m3-shape-xl);
+  box-shadow: var(--m3-elevation-3);
 }
 
 /* ===== Logo 区域 ===== */
 .logo-area {
   text-align: center;
-  margin-bottom: 36px;
-}
+  margin-bottom: 40px;
 
-.logo-icon {
-  width: 56px;
-  height: 56px;
-  margin-bottom: 16px;
-  filter: drop-shadow(0 0 12px rgba(242, 204, 143, 0.4));
-}
+  .logo-icon {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 20px;
+  }
 
-.title {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  margin: 0 0 8px;
-  background: linear-gradient(135deg, #F2CC8F 0%, #E8A87C 50%, #F2CC8F 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+  .title {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--m3-primary);
+    margin: 0 0 8px 0;
+    letter-spacing: 0.5px;
+  }
 
-.subtitle {
-  font-size: 13px;
-  color: rgba(242, 204, 143, 0.5);
-  letter-spacing: 3px;
-  margin: 0;
-  font-weight: 300;
+  .subtitle {
+    font-size: 13px;
+    color: var(--m3-on-surface-variant);
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
 }
 
 /* ===== 表单 ===== */
 .login-form {
   :deep(.el-form-item) {
-    margin-bottom: 20px;
-  }
+    margin-bottom: 24px;
 
-  :deep(.el-input__wrapper) {
-    background: rgba(10, 10, 26, 0.5);
-    border-radius: 12px;
-    box-shadow: none;
-    border: 1px solid rgba(242, 204, 143, 0.15);
-    padding: 4px 16px;
-    transition: all 0.3s ease;
+    .el-input__wrapper {
+      background: var(--m3-surface);
+      border: 1px solid var(--m3-outline);
+      box-shadow: none;
+      transition: all 0.3s ease;
 
-    &:hover {
-      border-color: rgba(242, 204, 143, 0.3);
+      &:hover {
+        border-color: var(--m3-on-surface);
+        background: var(--m3-surface-container-highest);
+      }
+
+      &.is-focus {
+        border-color: var(--m3-primary);
+        background: var(--m3-surface-container-highest);
+        box-shadow: 0 0 0 1px var(--m3-primary);
+      }
     }
 
-    &.is-focus {
-      border-color: rgba(242, 204, 143, 0.5);
-      box-shadow: 0 0 16px rgba(242, 204, 143, 0.12);
+    .el-input__inner {
+      color: var(--m3-on-surface);
+      font-size: 15px;
+
+      &::placeholder {
+        color: var(--m3-outline);
+      }
     }
-  }
 
-  :deep(.el-input__inner) {
-    color: #F0E6D3;
-    font-size: 15px;
-    height: 40px;
-
-    &::placeholder {
-      color: #7A6F63;
-    }
-  }
-
-  // 密码眼睛图标
-  :deep(.el-input__suffix) {
-    color: #7A6F63;
-
-    .el-input__icon {
-      color: #7A6F63;
+    .el-input__suffix {
+      .el-icon {
+        color: var(--m3-on-surface-variant);
+      }
     }
   }
 
-  // 表单验证错误信息
   :deep(.el-form-item__error) {
-    color: #E07A5F;
+    color: var(--m3-error);
   }
 
   .login-btn {
     width: 100%;
-    margin-top: 8px;
     height: 48px;
-    border: none;
-    border-radius: 12px;
+    margin-top: 12px;
     font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 4px;
-    color: #1A0A00;
-    background: linear-gradient(135deg, #F2CC8F 0%, #E8A87C 50%, #E07A5F 100%);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    border: none;
+    border-radius: var(--m3-shape-large);
+    background: var(--m3-primary);
+    color: var(--m3-on-primary);
     transition: all 0.3s ease;
 
     &:hover,
     &:focus {
-      background: linear-gradient(135deg, #F5D9A8 0%, #EDBA93 50%, #E8907A 100%);
-      box-shadow: 0 4px 24px rgba(242, 204, 143, 0.35);
+      background: var(--m3-primary);
+      box-shadow: var(--m3-elevation-2);
       transform: translateY(-1px);
+      opacity: 0.92;
     }
 
     &:active {
       transform: translateY(0);
-      box-shadow: 0 2px 12px rgba(242, 204, 143, 0.25);
+      box-shadow: var(--m3-elevation-1);
     }
 
     &.is-loading {
@@ -325,8 +215,8 @@ const handleLogin = async () => {
   text-align: center;
   margin-top: 28px;
   font-size: 12px;
-  color: #7A6F63;
-  letter-spacing: 1px;
+  color: var(--m3-outline);
+  letter-spacing: 0.5px;
 }
 
 /* ===== 响应式 ===== */
@@ -334,7 +224,7 @@ const handleLogin = async () => {
   .login-card {
     width: calc(100% - 32px);
     padding: 36px 28px;
-    border-radius: 20px;
+    border-radius: var(--m3-shape-large);
   }
 }
 </style>
