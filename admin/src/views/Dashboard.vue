@@ -313,6 +313,23 @@ const privacyBudgetColor = computed(() => {
   return '#EA4335'
 })
 
+// AI 情绪趋势图表
+const emotionTrendsOption = ref({
+  tooltip: { trigger: 'axis', backgroundColor: '#fff', borderColor: '#dadce0', textStyle: { color: '#202124' } },
+  legend: { data: ['积极', '中性', '消极'], bottom: 0, textStyle: { color: '#5f6368' } },
+  grid: { left: 50, right: 20, top: 20, bottom: 40 },
+  xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#dadce0' } }, axisLabel: { color: '#5f6368' } },
+  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f3f4', type: 'dashed' } }, axisLabel: { color: '#5f6368' } },
+  series: [
+    { name: '积极', type: 'line', smooth: true, data: [], lineStyle: { color: '#34A853' }, itemStyle: { color: '#34A853' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(52,168,83,0.25)' }, { offset: 1, color: 'rgba(52,168,83,0.02)' }] } } },
+    { name: '中性', type: 'line', smooth: true, data: [], lineStyle: { color: '#FBBC04' }, itemStyle: { color: '#FBBC04' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(251,188,4,0.25)' }, { offset: 1, color: 'rgba(251,188,4,0.02)' }] } } },
+    { name: '消极', type: 'line', smooth: true, data: [], lineStyle: { color: '#EA4335' }, itemStyle: { color: '#EA4335' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(234,67,53,0.25)' }, { offset: 1, color: 'rgba(234,67,53,0.02)' }] } } },
+  ]
+})
+
+// AI 热门推荐内容
+const aiTrendingContent = ref([])
+
 // 情绪共鸣统计
 const resonanceStats = reactive({
   todayMatches: 0,
@@ -660,6 +677,35 @@ const loadEmotionPulse = async () => {
   }
 }
 
+// 加载 AI 情绪趋势
+const loadEmotionTrends = async () => {
+  try {
+    const res = await api.getEmotionTrends()
+    const d = res.data?.data || res.data
+    const list = Array.isArray(d) ? d : (d?.list || [])
+    if (list.length) {
+      const dates = list.map(item => item.date || item.day)
+      emotionTrendsOption.value.xAxis.data = dates
+      emotionTrendsOption.value.series[0].data = list.map(item => item.positive ?? item.pos ?? 0)
+      emotionTrendsOption.value.series[1].data = list.map(item => item.neutral ?? item.neu ?? 0)
+      emotionTrendsOption.value.series[2].data = list.map(item => item.negative ?? item.neg ?? 0)
+    }
+  } catch (e) {
+    console.warn('加载情绪趋势失败:', e.message)
+  }
+}
+
+// 加载 AI 热门推荐内容
+const loadAITrendingContent = async () => {
+  try {
+    const res = await api.getTrendingContent()
+    const d = res.data?.data || res.data
+    aiTrendingContent.value = Array.isArray(d) ? d.slice(0, 10) : (d?.list || []).slice(0, 10)
+  } catch (e) {
+    console.warn('加载AI热门内容失败:', e.message)
+  }
+}
+
 let pulseTimer = null
 const exportData = () => {
   const data = {
@@ -681,7 +727,7 @@ const exportData = () => {
 // 刷新所有数据
 const refreshData = async () => {
   loading.value = true
-  await Promise.allSettled([loadStats(), loadGrowthData(), loadMoodDistribution(), loadMoodTrend(), loadTrendingTopics(), loadActiveTimeStats(), loadPrivacyStats(), loadResonanceStats(), loadEmotionPulse()])
+  await Promise.allSettled([loadStats(), loadGrowthData(), loadMoodDistribution(), loadMoodTrend(), loadTrendingTopics(), loadActiveTimeStats(), loadPrivacyStats(), loadResonanceStats(), loadEmotionPulse(), loadEmotionTrends(), loadAITrendingContent()])
   lastUpdateTime.value = dayjs().format('HH:mm:ss')
   loading.value = false
 }
