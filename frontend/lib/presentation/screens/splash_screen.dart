@@ -1,5 +1,5 @@
 // @file splash_screen.dart
-// @brief 启动页面
+// @brief 启动页面 - 光遇 Sky 视觉风格
 // Created by 林子怡
 
 import 'package:flutter/foundation.dart';
@@ -8,9 +8,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'home_screen.dart';
-import '../widgets/water_background.dart';
 import '../widgets/journey_effects/glow_particles.dart';
-import '../widgets/journey_effects/pulse_ring.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/animation_utils.dart';
 import '../../data/datasources/auth_service.dart';
@@ -26,6 +24,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
   final AuthService _authService = AuthService();
 
   @override
@@ -39,6 +38,10 @@ class _SplashScreenState extends State<SplashScreen>
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
     _controller.forward();
@@ -102,65 +105,99 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: WaterBackground()),
+          // 全屏星空渐变背景
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: AppTheme.nightGradient,
+                ),
+              ),
+            ),
+          ),
+          // 粒子效果层
           const Positioned.fill(child: GlowParticles()),
+          // 主内容
           Center(
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 心形 Logo - 金色光晕效果
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: AppTheme.nightDeep.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.5), width: 2),
+                          color: AppTheme.candleGlow.withValues(alpha: 0.7),
+                          width: 2,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          )
-                        ]),
-                    child: const Icon(
-                      Icons.water_drop,
-                      size: 60,
-                      color: Colors.white,
+                            color: AppTheme.candleGlow.withValues(alpha: 0.4),
+                            blurRadius: 30,
+                            spreadRadius: 8,
+                          ),
+                          BoxShadow(
+                            color: AppTheme.candleGlow.withValues(alpha: 0.15),
+                            blurRadius: 60,
+                            spreadRadius: 20,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.water_drop,
+                        size: 60,
+                        color: AppTheme.candleGlow.withValues(alpha: 0.9),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    '心湖',
-                    style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 4,
-                        shadows: [
-                          Shadow(
-                              color: AppTheme.candleGlow.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5))
-                        ]),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Heart Lake',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                      letterSpacing: 6,
+                    const SizedBox(height: 32),
+                    // "心湖" 金色渐变文字
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: AppTheme.warmGradient,
+                      ).createShader(bounds),
+                      child: const Text(
+                        '心湖',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 4,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 60),
-                  const PulseRing(
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    // 副标题
+                    const Text(
+                      'Sky · HeartLake',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.darkTextSecondary,
+                        letterSpacing: 6,
+                      ),
+                    ),
+                    const SizedBox(height: 60),
+                    // 金色加载指示器
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.candleGlow.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
