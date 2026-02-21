@@ -106,46 +106,6 @@ public:
     }
 
     /**
-     * @brief 推送临时好友即将过期通知
-     */
-    void pushTempFriendExpiringNotification(const std::string& userId,
-                                            const std::string& friendId,
-                                            const std::string& friendNickname,
-                                            int minutesLeft) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = userId;
-        notification.type = NotificationType::TEMP_FRIEND_EXPIRING;
-        notification.title = "临时好友即将过期";
-        notification.content = "与 " + friendNickname + " 的临时好友关系还有 " +
-                              std::to_string(minutesLeft) + " 分钟过期";
-        notification.relatedId = friendId;
-        notification.timestamp = std::time(nullptr);
-        notification.extraData["minutes_left"] = minutesLeft;
-
-        pushToUser(userId, notification);
-    }
-
-    /**
-     * @brief 推送新消息通知
-     */
-    void pushNewMessageNotification(const std::string& receiverId,
-                                    const std::string& senderId,
-                                    const std::string& senderNickname,
-                                    const std::string& messagePreview) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = receiverId;
-        notification.type = NotificationType::NEW_MESSAGE;
-        notification.title = "新消息";
-        notification.content = senderNickname + ": " + messagePreview.substr(0, 30);
-        notification.relatedId = senderId;
-        notification.timestamp = std::time(nullptr);
-
-        pushToUser(receiverId, notification);
-    }
-
-    /**
      * @brief 推送系统通知
      */
     void pushSystemNotice(const std::string& userId,
