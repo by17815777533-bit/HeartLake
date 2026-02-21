@@ -46,6 +46,7 @@ class LakeScreenState extends State<LakeScreen> {
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _disconnectedListener;
+  late void Function(Map<String, dynamic>) _reconnectedListener;
 
   @override
   void initState() {
@@ -125,6 +126,13 @@ class LakeScreenState extends State<LakeScreen> {
       if (kDebugMode) { debugPrint('WebSocket disconnected, will auto-reconnect'); }
     };
     _wsManager.on('disconnected', _disconnectedListener);
+
+    // 监听重连成功，刷新石头列表
+    _reconnectedListener = (data) {
+      if (kDebugMode) { debugPrint('🔄 [LakeScreen] WebSocket reconnected, refreshing stones'); }
+      _loadStones(refresh: true);
+    };
+    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   // 处理纸船更新
@@ -273,6 +281,7 @@ class LakeScreenState extends State<LakeScreen> {
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('ripple_deleted', _rippleDeletedListener);
     _wsManager.off('disconnected', _disconnectedListener);
+    _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
 

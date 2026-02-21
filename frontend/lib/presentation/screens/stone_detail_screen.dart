@@ -42,6 +42,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
+  late void Function(Map<String, dynamic>) _reconnectedListener;
 
   // 当前用户ID（用于过滤自己触发的WebSocket更新）
   String? _currentUserId;
@@ -184,6 +185,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager.on('boat_update', _boatListener);
     _wsManager.on('boat_deleted', _boatDeletedListener);
     _wsManager.on('stone_deleted', _stoneDeletedListener);
+
+    // 监听重连成功，刷新数据
+    _reconnectedListener = (data) {
+      if (mounted) {
+        _loadBoats();
+      }
+    };
+    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   void _removeWebSocketListener() {
@@ -193,6 +202,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager.off('boat_update', _boatListener);
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
+    _wsManager.off('reconnected', _reconnectedListener);
   }
 
   @override
