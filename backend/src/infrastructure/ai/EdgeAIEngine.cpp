@@ -50,7 +50,7 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     hnswMMax0_ = config.get("hnsw_mmax0", 32).asInt();
     hnswEfConstruction_ = config.get("hnsw_ef_construction", 200).asInt();
     hnswEfSearch_ = config.get("hnsw_ef_search", 50).asInt();
-    hnswLevelMult_ = 1.0f / std::log(static_cast<float>(hnswM_));
+    hnswLevelMult_ = 1.0f / std::log(std::max(2.0f, static_cast<float>(hnswM_)));
     hnswRng_.seed(std::random_device{}());
 
     // 差分隐私配置
@@ -972,6 +972,10 @@ FederatedModelParams EdgeAIEngine::aggregateFedAvg() {
     for (const auto& model : localModels_) {
         totalSamples += model.sampleCount;
     }
+    if (totalSamples == 0) {
+        LOG_WARN << "[EdgeAI] Total samples is 0, using equal weights";
+        totalSamples = localModels_.size();  // 等权重回退
+    }
 
     if (totalSamples == 0) {
         LOG_WARN << "[EdgeAI] Total sample count is zero, cannot aggregate";
@@ -1086,6 +1090,7 @@ float EdgeAIEngine::addLaplaceNoise(float value, float sensitivity) {
 
     // 使用配置的epsilon，但不超过剩余预算
     float epsilon = std::min(dpConfig_.epsilon, remaining);
+    if (epsilon < 1e-10f) epsilon = 1e-10f;  // 防止除零
 
     // Laplace噪声尺度: b = Δf / ε
     float scale = sensitivity / epsilon;
@@ -1109,6 +1114,7 @@ std::vector<float> EdgeAIEngine::addLaplaceNoiseVec(const std::vector<float>& va
     }
 
     float epsilon = std::min(dpConfig_.epsilon, remaining);
+    if (epsilon < 1e-10f) epsilon = 1e-10f;  // 防止除零
     float scale = sensitivity / epsilon;
 
     std::vector<float> result(values.size());
