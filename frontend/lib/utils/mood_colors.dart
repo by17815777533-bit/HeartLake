@@ -1,5 +1,5 @@
 // @file mood_colors.dart
-// @brief 情绪色彩映射系统 - Material Design 3 风格
+// @brief 情绪色彩映射系统 - 光遇温馨风格
 // Created by 王璐瑶
 
 library;
@@ -72,123 +72,123 @@ class MoodColorConfig {
 class MoodColors {
   MoodColors._();
 
-  /// 情绪色彩映射表 - M3 色彩体系
+  /// 情绪色彩映射表 - 光遇暖色体系
   static const Map<MoodType, MoodColorConfig> _colorConfigs = {
-    // 开心 - M3 暖橙色调，明亮愉悦
+    // 开心 - 烛光金
     MoodType.happy: MoodColorConfig(
-      primary: Color(0xFFFFB74D),
-      gradientStart: Color(0xFFFFF8E1),
-      gradientEnd: Color(0xFFFFE0B2),
-      lakeColor: Color(0xFFF57C00),
-      rippleColor: Color(0xFFFFB74D),
-      textColor: Color(0xFFE65100),
-      iconColor: Color(0xFFF57C00),
-      cardColor: Color(0xFFFFF3E0),
+      primary: Color(0xFFF2CC8F),
+      gradientStart: Color(0xFFFFF9ED),
+      gradientEnd: Color(0xFFFFE8C7),
+      lakeColor: Color(0xFFE8A87C),
+      rippleColor: Color(0xFFF2CC8F),
+      textColor: Color(0xFF6A4B21),
+      iconColor: Color(0xFFD08D53),
+      cardColor: Color(0xFFFFF5E8),
       name: '开心',
       description: '阳光灿烂的心情',
       icon: Icons.sentiment_very_satisfied,
     ),
 
-    // 平静 - M3 主色蓝，沉稳安宁
+    // 平静 - 晨岛湖蓝
     MoodType.calm: MoodColorConfig(
-      primary: Color(0xFF42A5F5),
-      gradientStart: Color(0xFFE3F2FD),
-      gradientEnd: Color(0xFFBBDEFB),
-      lakeColor: Color(0xFF1565C0),
-      rippleColor: Color(0xFF42A5F5),
-      textColor: Color(0xFF0D47A1),
-      iconColor: Color(0xFF1565C0),
-      cardColor: Color(0xFFE3F2FD),
+      primary: Color(0xFF7BA3C4),
+      gradientStart: Color(0xFFEFF6FC),
+      gradientEnd: Color(0xFFD8E8F6),
+      lakeColor: Color(0xFF5A83A4),
+      rippleColor: Color(0xFF7BA3C4),
+      textColor: Color(0xFF2D4863),
+      iconColor: Color(0xFF4A7394),
+      cardColor: Color(0xFFF1F7FC),
       name: '平静',
       description: '内心安宁',
       icon: Icons.spa,
     ),
 
-    // 悲伤 - M3 蓝灰色调，低沉内敛
+    // 悲伤 - 雨林蓝灰
     MoodType.sad: MoodColorConfig(
-      primary: Color(0xFF78909C),
-      gradientStart: Color(0xFFECEFF1),
-      gradientEnd: Color(0xFFCFD8DC),
-      lakeColor: Color(0xFF455A64),
-      rippleColor: Color(0xFF78909C),
-      textColor: Color(0xFF263238),
-      iconColor: Color(0xFF455A64),
-      cardColor: Color(0xFFECEFF1),
+      primary: Color(0xFF6B7A8E),
+      gradientStart: Color(0xFFE8ECF1),
+      gradientEnd: Color(0xFFC9D3DF),
+      lakeColor: Color(0xFF4A5568),
+      rippleColor: Color(0xFF6B7A8E),
+      textColor: Color(0xFF2D3748),
+      iconColor: Color(0xFF4A5568),
+      cardColor: Color(0xFFEFF3F8),
       name: '悲伤',
       description: '需要温暖的陪伴',
       icon: Icons.sentiment_dissatisfied,
     ),
 
-    // 焦虑 - M3 紫色调，微妙不安
+    // 焦虑 - 暮土淡紫
     MoodType.anxious: MoodColorConfig(
-      primary: Color(0xFFAB47BC),
-      gradientStart: Color(0xFFF3E5F5),
-      gradientEnd: Color(0xFFE1BEE7),
-      lakeColor: Color(0xFF7B1FA2),
-      rippleColor: Color(0xFFAB47BC),
-      textColor: Color(0xFF4A148C),
-      iconColor: Color(0xFF7B1FA2),
-      cardColor: Color(0xFFF3E5F5),
+      primary: Color(0xFF9B7EBE),
+      gradientStart: Color(0xFFF5EEF9),
+      gradientEnd: Color(0xFFE1D0EF),
+      lakeColor: Color(0xFF7B68AE),
+      rippleColor: Color(0xFF9B7EBE),
+      textColor: Color(0xFF4A3A64),
+      iconColor: Color(0xFF7B68AE),
+      cardColor: Color(0xFFF7F0FB),
       name: '焦虑',
       description: '心中有些许不安',
       icon: Icons.psychology,
     ),
 
-    // 愤怒 - M3 红色调，强烈鲜明
+    // 愤怒 - 日落赤橙
     MoodType.angry: MoodColorConfig(
-      primary: Color(0xFFEF5350),
-      gradientStart: Color(0xFFFFEBEE),
-      gradientEnd: Color(0xFFFFCDD2),
-      lakeColor: Color(0xFFC62828),
-      rippleColor: Color(0xFFEF5350),
-      textColor: Color(0xFFB71C1C),
-      iconColor: Color(0xFFC62828),
-      cardColor: Color(0xFFFFEBEE),
+      primary: Color(0xFFE07A5F),
+      gradientStart: Color(0xFFFFF1ED),
+      gradientEnd: Color(0xFFFFD8CF),
+      lakeColor: Color(0xFFCC5A3F),
+      rippleColor: Color(0xFFE07A5F),
+      textColor: Color(0xFF7E2F1E),
+      iconColor: Color(0xFFCC5A3F),
+      cardColor: Color(0xFFFFF4F0),
       name: '愤怒',
       description: '需要释放的情绪',
       icon: Icons.sentiment_very_dissatisfied,
     ),
 
-    // 惊喜 - M3 青绿色调，清新活力
+    // 惊喜 - 星光青绿
     MoodType.surprised: MoodColorConfig(
-      primary: Color(0xFF26A69A),
-      gradientStart: Color(0xFFE0F2F1),
-      gradientEnd: Color(0xFFB2DFDB),
-      lakeColor: Color(0xFF00796B),
-      rippleColor: Color(0xFF26A69A),
-      textColor: Color(0xFF004D40),
-      iconColor: Color(0xFF00796B),
-      cardColor: Color(0xFFE0F2F1),
+      primary: Color(0xFF7BC9D6),
+      gradientStart: Color(0xFFEAF9FB),
+      gradientEnd: Color(0xFFD3F0F5),
+      lakeColor: Color(0xFF4EA7B7),
+      rippleColor: Color(0xFF7BC9D6),
+      textColor: Color(0xFF2A5E67),
+      iconColor: Color(0xFF4EA7B7),
+      cardColor: Color(0xFFEFFBFD),
       name: '惊喜',
       description: '意外的喜悦',
       icon: Icons.celebration,
     ),
 
-    // 迷茫 - M3 深紫色调，朦胧迷离
+    // 迷茫 - 禁阁雾紫
     MoodType.confused: MoodColorConfig(
-      primary: Color(0xFF7E57C2),
-      gradientStart: Color(0xFFEDE7F6),
-      gradientEnd: Color(0xFFD1C4E9),
-      lakeColor: Color(0xFF512DA8),
-      rippleColor: Color(0xFF7E57C2),
-      textColor: Color(0xFF311B92),
-      iconColor: Color(0xFF512DA8),
-      cardColor: Color(0xFFEDE7F6),
+      primary: Color(0xFF8E8EBE),
+      gradientStart: Color(0xFFF0F0F8),
+      gradientEnd: Color(0xFFDADAF0),
+      lakeColor: Color(0xFF6E6E9E),
+      rippleColor: Color(0xFF8E8EBE),
+      textColor: Color(0xFF3C3C66),
+      iconColor: Color(0xFF6E6E9E),
+      cardColor: Color(0xFFF4F4FA),
       name: '迷茫',
       description: '寻找方向中',
       icon: Icons.help_outline,
     ),
 
-    // 中性 - M3 主色蓝，平和稳定
+    // 中性 - 柔和湖蓝
     MoodType.neutral: MoodColorConfig(
-      primary: Color(0xFF1565C0),
-      gradientStart: Color(0xFFE3F2FD),
-      gradientEnd: Color(0xFFBBDEFB),
-      lakeColor: Color(0xFF0D47A1),
-      rippleColor: Color(0xFF1565C0),
-      textColor: Color(0xFF0D47A1),
-      iconColor: Color(0xFF1565C0),
-      cardColor: Color(0xFFE3F2FD),
+      primary: Color(0xFF7BA3C4),
+      gradientStart: Color(0xFFF5F8FC),
+      gradientEnd: Color(0xFFE4ECF6),
+      lakeColor: Color(0xFF6B93B4),
+      rippleColor: Color(0xFF7BA3C4),
+      textColor: Color(0xFF2B4A68),
+      iconColor: Color(0xFF5A83A4),
+      cardColor: Color(0xFFF7FAFD),
       name: '中性',
       description: '平常的一天',
       icon: Icons.sentiment_neutral,

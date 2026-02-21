@@ -389,17 +389,17 @@ const lakeWeather = computed(() => {
 
 const lakeWeatherTemp = computed(() => emotionPulseOption.value.series[0].data[0]?.value ?? 50)
 
-// 湖面天气心情分布饼图
+// 湖面天气心情分布饼图 - Material Design 3 风格
 const weatherMoodPieOption = computed(() => {
   const moodData = moodDistributionOption.value.series[0].data
   return {
     tooltip: {
       trigger: 'item',
-      backgroundColor: '#fff',
-      borderColor: '#dadce0',
+      backgroundColor: '#2B2B2F',
+      borderColor: '#44474E',
       borderRadius: 4,
       padding: [6, 10],
-      textStyle: { color: '#202124', fontSize: 12 },
+      textStyle: { color: '#E3E2E6', fontSize: 12 },
       formatter: (p) => {
         const name = String(p.name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))
         return `${p.marker} ${name}: ${Number(p.percent).toFixed(1)}%`
@@ -412,8 +412,8 @@ const weatherMoodPieOption = computed(() => {
       itemStyle: { borderRadius: 3, borderColor: '#fff', borderWidth: 1 },
       label: { show: false },
       emphasis: {
-        label: { show: true, fontSize: 11, fontWeight: '500', color: '#202124' },
-        itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.08)' }
+        label: { show: true, fontSize: 11, fontWeight: '500', color: '#1C1B1F' },
+        itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' }
       },
       data: moodData.length ? moodData : moodNames.map((name, i) => ({
         value: [30, 25, 20, 15, 10][i],
@@ -424,7 +424,7 @@ const weatherMoodPieOption = computed(() => {
   }
 })
 
-// 湖面情绪温度 - 仪表盘
+// 湖面情绪温度 - 仪表盘 - Material Design 3 风格
 const emotionPulseOption = ref({
   series: [{
     type: 'gauge',
@@ -439,18 +439,18 @@ const emotionPulseOption = ref({
       lineStyle: {
         width: 16,
         color: [
-          [0.3, '#4285F4'],
-          [0.5, '#34A853'],
-          [0.7, '#FBBC04'],
-          [1, '#EA4335'],
+          [0.3, '#1565C0'],
+          [0.5, '#2E7D32'],
+          [0.7, '#E65100'],
+          [1, '#BA1A1A'],
         ]
       }
     },
     pointer: { icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z', length: '55%', width: 8, offsetCenter: [0, '-10%'], itemStyle: { color: 'auto' } },
     axisTick: { length: 6, lineStyle: { color: 'auto', width: 1 } },
     splitLine: { length: 12, lineStyle: { color: 'auto', width: 2 } },
-    axisLabel: { color: '#5f6368', fontSize: 10, distance: -40 },
-    title: { offsetCenter: [0, '20%'], fontSize: 14, color: '#5f6368' },
+    axisLabel: { color: '#44474E', fontSize: 10, distance: -40 },
+    title: { offsetCenter: [0, '20%'], fontSize: 14, color: '#44474E' },
     detail: { fontSize: 28, offsetCenter: [0, '45%'], valueAnimation: true, color: 'auto', formatter: '{value}°' },
     data: [{ value: 50, name: '情绪温度' }]
   }]
