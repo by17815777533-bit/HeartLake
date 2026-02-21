@@ -206,4 +206,115 @@ class _GuardianScreenState extends State<GuardianScreen>
                                       ? AppTheme.candleGlow
                                       : AppTheme.darkTextSecondary,
                                 ),
-// PLACEHOLDER_BUILD_CONT
+                                const SizedBox(height: 12),
+                                Text(
+                                  _stats!['is_guardian'] == true ? '你是一位点灯人' : '成为点灯人',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.darkTextPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  '用温暖的涟漪，照亮他人的心湖',
+                                  style: TextStyle(color: AppTheme.darkTextSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              _StatCard(label: '共鸣点数', value: '${_stats!['resonance_points'] ?? 0}'),
+                              const SizedBox(width: 12),
+                              _StatCard(label: '优质涟漪', value: '${_stats!['quality_ripples'] ?? 0}'),
+                              const SizedBox(width: 12),
+                              _StatCard(label: '温暖纸船', value: '${_stats!['warm_boats'] ?? 0}'),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          // 灯火转赠按钮
+                          if (_stats!['is_guardian'] == true)
+                            ElevatedButton.icon(
+                              onPressed: _showTransferDialog,
+                              icon: const Icon(Icons.volunteer_activism),
+                              label: const Text('转赠灯火'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.warmOrange,
+                                foregroundColor: AppTheme.nightDeep,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          // 湖神入口
+                          SkyGlassCard(
+                            glowColor: AppTheme.spiritBlue,
+                            padding: EdgeInsets.zero,
+                            child: ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.spiritBlue.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.auto_awesome, color: AppTheme.candleGlow),
+                              ),
+                              title: const Text(
+                                '与湖神对话',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.darkTextPrimary,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                '倾诉心事，获得温暖陪伴',
+                                style: TextStyle(color: AppTheme.darkTextSecondary),
+                              ),
+                              trailing: const Icon(Icons.chevron_right, color: AppTheme.darkTextSecondary),
+                              onTap: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatCard({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: SkyGlassCard(
+        glowColor: AppTheme.candleGlow,
+        borderRadius: 16,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.candleGlow,
+                shadows: [
+                  Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.4), blurRadius: 6),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkTextSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
