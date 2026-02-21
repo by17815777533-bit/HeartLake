@@ -39,6 +39,9 @@ public:
   ADD_METHOD_TO(UserController::getEmotionCalendar,
                 "/api/users/my/emotion-calendar", Get);
 
+  ADD_METHOD_TO(UserController::getEmotionHeatmap,
+                "/api/users/my/emotion-heatmap", Get);
+
   ADD_METHOD_TO(UserController::updateNickname, "/api/users/my/nickname",
                 Put);
 
@@ -97,6 +100,10 @@ public:
   void
   getEmotionCalendar(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
+
+  void
+  getEmotionHeatmap(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &&callback);
 
   void updateNickname(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback);

@@ -36,6 +36,8 @@ public:
     
     ADD_METHOD_TO(InteractionController::markAllNotificationsRead, "/api/notifications/read-all", Post);
 
+    ADD_METHOD_TO(InteractionController::getUnreadCount, "/api/notifications/unread-count", Get);
+
     ADD_METHOD_TO(InteractionController::createConnectionForStone, "/api/stones/{1}/connections", Post);
 
     ADD_METHOD_TO(InteractionController::createConnection, "/api/connections", Post);
@@ -77,6 +79,9 @@ public:
     
     void markAllNotificationsRead(const HttpRequestPtr &req,
                                  std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void getUnreadCount(const HttpRequestPtr &req,
+                       std::function<void(const HttpResponsePtr &)> &&callback);
 
     void createConnectionForStone(const HttpRequestPtr &req,
                                  std::function<void(const HttpResponsePtr &)> &&callback,

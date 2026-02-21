@@ -40,18 +40,13 @@ class NotificationService extends BaseService {
 
   /// 获取未读通知数量
   Future<Map<String, dynamic>> getUnreadCount() async {
-    final response = await get('/notifications', queryParameters: {
-      'page': 1,
-      'page_size': 1,
-    });
+    final response = await get('/notifications/unread-count');
     if (!response.success) return toMap(response);
 
     final data = response.data;
     int unreadCount = 0;
     if (data is Map) {
       unreadCount = data['unread_count'] ?? 0;
-    } else if (data is List) {
-      unreadCount = data.where((n) => n['is_read'] != true).length;
     }
     return {'success': true, 'unread_count': unreadCount};
   }

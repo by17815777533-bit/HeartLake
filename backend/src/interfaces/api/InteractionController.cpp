@@ -383,6 +383,38 @@ void InteractionController::markAllNotificationsRead(
     }
 }
 
+void InteractionController::getUnreadCount(
+    const HttpRequestPtr& req,
+    std::function<void(const HttpResponsePtr&)>&& callback
+) {
+    try {
+        std::string userId = extractUserId(req);
+
+        auto dbClient = drogon::app().getDbClient("default");
+        auto result = dbClient->execSqlSync(
+            "SELECT COUNT(*) as unread_count FROM notifications "
+            "WHERE user_id = $1 AND is_read = false",
+            userId);
+
+        int unreadCount = 0;
+        if (!result.empty()) {
+            unreadCount = result[0]["unread_count"].as<int>();
+        }
+
+        Json::Value response;
+        response["unread_count"] = unreadCount;
+
+        callback(ResponseUtil::success(response));
+
+    } catch (const std::runtime_error& e) {
+        LOG_ERROR << "Error in getUnreadCount: " << e.what();
+        callback(ResponseUtil::error(401, e.what()));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Unexpected error in getUnreadCount: " << e.what();
+        callback(ResponseUtil::internalError("获取未读数量失败"));
+    }
+}
+
 // ==================== 连接相关 ====================
 
 void InteractionController::createConnectionForStone(

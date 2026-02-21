@@ -623,6 +623,78 @@ void UserController::getEmotionCalendar(
     callback(ResponseUtil::internalError());
   }
 }
+
+void UserController::getEmotionHeatmap(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  try {
+    std::string user_id = extractUserIdSafe(req);
+    if (user_id.empty()) {
+      callback(ResponseUtil::unauthorized("未登录"));
+      return;
+    }
+
+    auto dbClient = drogon::app().getDbClient("default");
+
+    // 获取过去90天的情绪数据，生成热力图
+    auto result = dbClient->execSqlSync(
+        "SELECT DATE(created_at) as date, "
+        "       stone_color, "
+        "       COUNT(*) as count "
+        "FROM stones "
+        "WHERE user_id = $1 "
+        "  AND status = 'published' "
+        "  AND created_at >= CURRENT_DATE - INTERVAL '90 days' "
+        "GROUP BY DATE(created_at), stone_color "
+        "ORDER BY date DESC, count DESC",
+        user_id);
+
+    // 情绪颜色到分数的映射
+    auto colorToScore = [](const std::string& color) -> double {
+      if (color == "warm" || color == "pink" || color == "orange") return 0.8;
+      if (color == "blue" || color == "cyan") return 0.5;
+      if (color == "green" || color == "lime") return 0.6;
+      if (color == "purple" || color == "violet") return 0.4;
+      if (color == "gray" || color == "dark") return 0.2;
+      if (color == "red") return 0.3;
+      return 0.5;
+    };
+
+    Json::Value days(Json::objectValue);
+    std::map<std::string, std::pair<double, int>> dateScores; // date -> (totalScore, count)
+
+    for (const auto &row : result) {
+      std::string date = row["date"].as<std::string>();
+      std::string color = row["stone_color"].as<std::string>();
+      int count = row["count"].as<int>();
+
+      double score = colorToScore(color);
+      dateScores[date].first += score * count;
+      dateScores[date].second += count;
+    }
+
+    for (auto &pair : dateScores) {
+      Json::Value dayData;
+      double avgScore = pair.second.second > 0 ? pair.second.first / pair.second.second : 0.5;
+      dayData["score"] = avgScore;
+      dayData["count"] = pair.second.second;
+      days[pair.first] = dayData;
+    }
+
+    Json::Value response;
+    response["days"] = days;
+
+    callback(ResponseUtil::success(response));
+
+  } catch (const drogon::orm::DrogonDbException &e) {
+    LOG_ERROR << "Database error in getEmotionHeatmap: " << e.base().what();
+    callback(ResponseUtil::internalError("数据库错误"));
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error in getEmotionHeatmap: " << e.what();
+    callback(ResponseUtil::internalError());
+  }
+}
+
 void UserController::updateNickname(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
