@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/recommendation_service.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card.dart';
@@ -16,7 +16,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
-  final ApiClient _apiClient = ApiClient();
+  final RecommendationService _recService = RecommendationService();
   final AIRecommendationService _aiService = AIRecommendationService();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
@@ -48,13 +48,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   Future<void> _loadTrending() async {
     setState(() => _isLoading = true);
     try {
-      final result = await _apiClient.get('/recommendations/trending');
-      final body = result.data as Map<String, dynamic>? ?? {};
-      if (body['success'] == true) {
-        final data = body['data'];
-        final items = (data is List ? data : data?['trending_stones'] ?? data?['items'] ?? data?['stones'] ?? []) as List;
-        setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
-      }
+      final items = await _recService.getTrending();
+      setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -70,13 +65,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     if (query.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final result = await _apiClient.post('/recommendations/search', data: {'query': query});
-      final body = result.data as Map<String, dynamic>? ?? {};
-      if (body['success'] == true) {
-        final data = body['data'];
-        final items = (data is List ? data : data?['results'] ?? data?['stones'] ?? data?['items'] ?? []) as List;
-        setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
-      }
+      final items = await _recService.search(query);
+      setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,13 +84,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       _selectedMood = mood;
     });
     try {
-      final result = await _apiClient.get('/recommendations/discover/$mood');
-      final body = result.data as Map<String, dynamic>? ?? {};
-      if (body['success'] == true) {
-        final data = body['data'];
-        final items = (data is List ? data : data?['stones'] ?? data?['items'] ?? []) as List;
-        setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
-      }
+      final items = await _recService.discoverByMood(mood);
+      setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

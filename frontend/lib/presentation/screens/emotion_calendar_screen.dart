@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import '../../data/datasources/api_client.dart';
+import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../widgets/shimmer_loading.dart';
@@ -25,6 +26,7 @@ class EmotionCalendarScreen extends StatefulWidget {
 
 class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with SingleTickerProviderStateMixin {
   final ApiClient _apiClient = ApiClient();
+  final AIRecommendationService _aiService = AIRecommendationService();
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;
@@ -32,6 +34,8 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   Map<String, dynamic>? _cachedStats;
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
+  Map<String, dynamic> _emotionTrends = {};
+  bool _trendsLoading = false;
 
   @override
   void initState() {
