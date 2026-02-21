@@ -108,6 +108,15 @@ void FriendController::acceptFriendRequest(
     drogon::async_run([service, currentUserId, userId, callback]() -> drogon::Task<void> {
         try {
             auto result = co_await service->acceptFriendRequestAsync(currentUserId, userId);
+
+            // 广播好友接受事件给请求发起者
+            Json::Value broadcastMsg;
+            broadcastMsg["type"] = "friend_accepted";
+            broadcastMsg["friendship_id"] = result.isMember("friendship_id") ? result["friendship_id"].asString() : userId;
+            broadcastMsg["from_user_id"] = currentUserId;
+            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::sendToUser(userId, broadcastMsg);
+
             callback(ResponseUtil::success(result, "已接受好友请求"));
         } catch (const std::runtime_error& e) {
             LOG_ERROR << "Error in acceptFriendRequest: " << e.what();

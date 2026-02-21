@@ -431,6 +431,16 @@ void InteractionController::upgradeConnectionToFriend(
         auto service = getInteractionService();
         auto result = service->upgradeConnectionToFriend(connectionId, userId);
 
+        // 广播好友升级事件
+        if (result.isMember("friend_id")) {
+            Json::Value broadcastMsg;
+            broadcastMsg["type"] = "friend_accepted";
+            broadcastMsg["friendship_id"] = result["friendship_id"].asString();
+            broadcastMsg["from_user_id"] = userId;
+            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::sendToUser(result["friend_id"].asString(), broadcastMsg);
+        }
+
         callback(ResponseUtil::success(result, "升级为好友成功"));
 
     } catch (const std::runtime_error& e) {

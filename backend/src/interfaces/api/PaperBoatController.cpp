@@ -172,6 +172,31 @@ void PaperBoatController::sendBoat(const HttpRequestPtr &req,
         data["status"] = "drifting";
         data["created_at"] = static_cast<Json::Int64>(time(nullptr));
 
+        // 广播 new_boat 事件，让前端实时收到新纸船通知
+        {
+            Json::Value broadcastMsg;
+            broadcastMsg["type"] = "new_boat";
+            broadcastMsg["boat_id"] = boat_id;
+            broadcastMsg["drift_mode"] = drift_mode;
+            broadcastMsg["sender_id"] = user_id;
+            broadcastMsg["mood"] = mood;
+            broadcastMsg["boat_style"] = boat_style;
+            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::broadcast(broadcastMsg);
+        }
+
+        // 定向漂流时，额外通知接收者
+        if (drift_mode == "directed" && !receiver_id.empty()) {
+            Json::Value directMsg;
+            directMsg["type"] = "new_boat";
+            directMsg["boat_id"] = boat_id;
+            directMsg["drift_mode"] = "directed";
+            directMsg["sender_id"] = user_id;
+            directMsg["content_preview"] = content.size() > 20 ? content.substr(0, 20) + "..." : content;
+            directMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::sendToUser(receiver_id, directMsg);
+        }
+
         callback(ResponseUtil::success(data, "纸船已放入水中"));
 
     } catch (const drogon::orm::DrogonDbException &e) {

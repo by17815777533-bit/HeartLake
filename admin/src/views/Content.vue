@@ -144,16 +144,17 @@ const fetchContent = async () => {
     }
     // 根据类型筛选调用不同 API，或传递 type 参数
     const res = await api.getStones({ ...params, type: filters.type || undefined })
-    // 转换字段名以匹配模板
-    contentList.value = (res.data?.list || []).map(item => ({
+    // 兼容后端两种响应格式: {data: {stones, total}} 或 {stones, total}
+    const resData = res.data?.data || res.data || {}
+    contentList.value = (resData.stones || resData.list || []).map(item => ({
       id: item.stone_id || item.boat_id || item.id,
       type: item.type || 'stone',
       content: item.content,
-      user: { nickname: item.author_nickname },
+      user: { nickname: item.author_nickname || item.nickname },
       status: item.status,
       created_at: item.created_at,
     }))
-    pagination.total = res.data?.total || 0
+    pagination.total = resData.total || 0
   } catch (e) {
     console.error('获取内容列表失败:', e)
     contentList.value = []

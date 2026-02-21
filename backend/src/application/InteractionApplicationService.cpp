@@ -53,10 +53,10 @@ Json::Value InteractionApplicationService::createRipple(
         }
 
         // 发布事件
-        auto event = std::make_shared<core::events::RippleCreatedEvent>();
-        event->rippleId = rippleId;
-        event->stoneId = stoneId;
-        event->userId = userId;
+        core::events::RippleCreatedEvent event;
+        event.rippleId = rippleId;
+        event.stoneId = stoneId;
+        event.userId = userId;
         eventBus_->publish(event);
 
         // 查询最新计数返回给前端
@@ -194,11 +194,11 @@ Json::Value InteractionApplicationService::sendBoat(
         );
 
         // 3. 发布事件
-        auto event = std::make_shared<core::events::BoatSentEvent>();
-        event->boatId = boatId;
-        event->stoneId = stoneId;
-        event->senderId = senderId;
-        event->content = message;
+        core::events::BoatSentEvent event;
+        event.boatId = boatId;
+        event.stoneId = stoneId;
+        event.senderId = senderId;
+        event.content = message;
 
         eventBus_->publish(event);
 

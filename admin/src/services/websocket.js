@@ -26,6 +26,18 @@ const ALLOWED_TYPES = new Set([
   'pong',
   'auth_success',
   'auth_fail',
+  'new_stone',
+  'ripple_update',
+  'ripple_deleted',
+  'boat_update',
+  'boat_deleted',
+  'new_boat',
+  'stone_deleted',
+  'friend_accepted',
+  'friend_removed',
+  'friend_request',
+  'new_notification',
+  'ping',
 ])
 
 // M-2: 启动心跳定时器
@@ -63,13 +75,11 @@ export default {
     const token = appStore.getToken()
     if (!token) return
 
-    // C-1: 不再通过 URL 传输 token，改为连接后发送认证消息
+    // 通过 URL query 参数传递 token，匹配后端 BroadcastWebSocketController 路径
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws`)
+    ws = new WebSocket(`${protocol}//${location.host}/ws/broadcast?token=${encodeURIComponent(token)}`)
 
     ws.onopen = () => {
-      // 连接建立后通过消息发送 token 认证
-      ws.send(JSON.stringify({ type: 'auth', token }))
       reconnectAttempts = 0
       lastPongTime = Date.now()
       // M-2: 启动心跳保活

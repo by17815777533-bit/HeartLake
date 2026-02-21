@@ -128,7 +128,8 @@ class _FriendsScreenState extends State<FriendsScreen>
       final result = await _friendService.getPendingRequests();
       if (result['success'] && mounted) {
         setState(() {
-          _pendingCount = result['total'] ?? 0;
+          final requests = result['requests'];
+          _pendingCount = requests is List ? requests.length : 0;
         });
       }
     } catch (_) {}

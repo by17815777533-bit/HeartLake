@@ -419,8 +419,9 @@ const loadStats = async () => {
       api.getDashboardStats().catch(() => ({ data: null })),
       api.getRealtimeStats().catch(() => ({ data: null }))
     ])
-    const d = dashRes.data || {}
-    const r = realtimeRes.data || {}
+    // 兼容后端响应格式: axios res.data 是 {code, data: {...}}，实际数据在 .data.data
+    const d = dashRes.data?.data || dashRes.data || {}
+    const r = realtimeRes.data?.data || realtimeRes.data || {}
     stats.totalUsers = r.total_users ?? d.total_users ?? 0
     stats.todayStones = d.today_stones ?? r.today_stones ?? 0
     stats.onlineCount = r.online_users ?? 0
@@ -435,7 +436,8 @@ const loadStats = async () => {
 const loadGrowthData = async () => {
   try {
     const res = await api.getUserGrowthStats(chartRange.value)
-    const list = Array.isArray(res.data) ? res.data : (res.data?.list || [])
+    const raw = res.data?.data || res.data
+    const list = Array.isArray(raw) ? raw : (raw?.list || [])
     if (list.length) {
       const dates = list.map(item => item.date)
       const values = list.map(item => item.count)
@@ -453,7 +455,8 @@ const loadGrowthData = async () => {
 const loadMoodDistribution = async () => {
   try {
     const res = await api.getMoodDistribution()
-    const list = Array.isArray(res.data) ? res.data : (res.data?.list || [])
+    const raw = res.data?.data || res.data
+    const list = Array.isArray(raw) ? raw : (raw?.list || [])
     if (list.length) {
       moodDistributionOption.value.series[0].data = list.map((item, i) => ({
         name: item.mood_type || item.mood,
@@ -471,12 +474,14 @@ const loadMoodDistribution = async () => {
 const loadMoodTrend = async () => {
   try {
     const res = await api.getMoodTrend?.(moodTrendRange.value) || { data: null }
-    if (res.data?.list) {
-      const dates = [...new Set(res.data.list.map(item => item.date))].sort()
+    const trendData = res.data?.data || res.data
+    const trendList = trendData?.list || (Array.isArray(trendData) ? trendData : [])
+    if (trendList.length) {
+      const dates = [...new Set(trendList.map(item => item.date))].sort()
       moodTrendOption.value.xAxis.data = dates
       moodNames.forEach((mood, i) => {
         moodTrendOption.value.series[i].data = dates.map(date => {
-          const item = res.data.list.find(d => d.date === date && d.mood === mood)
+          const item = trendList.find(d => d.date === date && d.mood === mood)
           return item?.count || 0
         })
       })
@@ -491,7 +496,8 @@ const loadMoodTrend = async () => {
 const loadTrendingTopics = async () => {
   try {
     const res = await api.getTrendingTopics?.() || { data: null }
-    if (res.data) trendingTopics.value = Array.isArray(res.data) ? res.data : (res.data.list || [])
+    const topicData = res.data?.data || res.data
+    if (topicData) trendingTopics.value = Array.isArray(topicData) ? topicData : (topicData.list || [])
   } catch (e) {
     console.warn('加载热门话题失败:', e.message)
     ElMessage.error('加载热门话题失败，请稍后重试')
@@ -502,7 +508,8 @@ const loadTrendingTopics = async () => {
 const loadActiveTimeStats = async () => {
   try {
     const res = await api.getActiveTimeStats?.() || { data: null }
-    if (res.data) activeTimeOption.value.series[0].data = (Array.isArray(res.data) ? res.data : res.data.list || []).map(item => item.count)
+    const timeData = res.data?.data || res.data
+    if (timeData) activeTimeOption.value.series[0].data = (Array.isArray(timeData) ? timeData : timeData.list || []).map(item => item.count)
   } catch (e) {
     console.warn('加载活跃时段失败:', e.message)
     ElMessage.error('加载活跃时段失败，请稍后重试')
@@ -514,7 +521,7 @@ const loadPrivacyStats = async () => {
   privacyLoading.value = true
   try {
     const res = await api.getPrivacyStats()
-    const d = res.data || {}
+    const d = res.data?.data || res.data || {}
     privacyStats.queryCount = d.query_count ?? 0
     privacyStats.epsilonUsed = d.epsilon_used ?? 0
     privacyStats.epsilonTotal = d.epsilon_total ?? 1.0
@@ -531,7 +538,7 @@ const loadResonanceStats = async () => {
   resonanceLoading.value = true
   try {
     const res = await api.getResonanceStats()
-    const d = res.data || {}
+    const d = res.data?.data || res.data || {}
     resonanceStats.todayMatches = d.today_matches ?? 0
     resonanceStats.avgScore = d.avg_score ?? 0
     resonanceStats.topMood = d.top_mood ?? ''
@@ -547,7 +554,7 @@ const loadResonanceStats = async () => {
 const loadEmotionPulse = async () => {
   try {
     const res = await api.getEmotionPulse()
-    const d = res.data || {}
+    const d = res.data?.data || res.data || {}
     const temp = d.temperature ?? 50
     emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
   } catch (e) {
