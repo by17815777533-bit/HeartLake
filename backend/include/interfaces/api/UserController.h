@@ -74,6 +74,8 @@ public:
 
   ADD_METHOD_TO(UserController::refreshToken, "/api/auth/refresh", Post);
 
+  ADD_METHOD_TO(UserController::recoverWithKey, "/api/auth/recover", Post);
+
   METHOD_LIST_END
 
   void anonymousLogin(const HttpRequestPtr &req,
@@ -139,6 +141,9 @@ public:
 
   void refreshToken(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
+
+  void recoverWithKey(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
 };
 
 } // namespace controllers

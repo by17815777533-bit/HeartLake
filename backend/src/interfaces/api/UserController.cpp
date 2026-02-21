@@ -9,6 +9,7 @@
 #include "infrastructure/services/VerificationService.h"
 #include "utils/IdGenerator.h"
 #include "utils/PasetoUtil.h"
+#include "utils/RecoveryKeyGenerator.h"
 #include "utils/PasswordUtil.h"
 #include "utils/ResponseUtil.h"
 #include "utils/StructuredLogger.h"
@@ -379,9 +380,26 @@ void UserController::anonymousLogin(
                             "VALUES ($1, $2, $3, $4, true, 'active', NOW(), NOW())",
                             user_id, user_id, nickname, device_id);
 
+      // 生成恢复关键词，哈希后存入数据库，明文仅此次返回
+      auto recoveryKey = RecoveryKeyGenerator::generate();
+      auto recoveryKeyHash = RecoveryKeyGenerator::hash(recoveryKey);
+
+      // 确保 recovery_key_hash 列存在（首次部署时自动添加）
+      try {
+          dbClient->execSqlSync(
+              "ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_key_hash VARCHAR(64)");
+      } catch (...) {
+          // 列已存在或不支持 IF NOT EXISTS，忽略
+      }
+
+      dbClient->execSqlSync(
+          "UPDATE users SET recovery_key_hash = $1 WHERE user_id = $2",
+          recoveryKeyHash, user_id);
+
       responseData["user_id"] = user_id;
       responseData["nickname"] = nickname;
       responseData["is_anonymous"] = true;
+      responseData["recovery_key"] = recoveryKey;
     }
 
     // 生成 PASETO Token
@@ -1465,6 +1483,73 @@ void UserController::updateProfile(const HttpRequestPtr &req,
         callback(ResponseUtil::internalError("数据库错误"));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in updateProfile: " << e.what();
+        callback(ResponseUtil::internalError());
+    }
+}
+
+void UserController::recoverWithKey(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto json = req->getJsonObject();
+        if (!json) {
+            callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
+            return;
+        }
+
+        if (!json->isMember("recovery_key") || (*json)["recovery_key"].asString().empty()) {
+            callback(ResponseUtil::badRequest("请提供恢复关键词"));
+            return;
+        }
+
+        auto recoveryKey = (*json)["recovery_key"].asString();
+        auto keyHash = RecoveryKeyGenerator::hash(recoveryKey);
+
+        auto dbClient = drogon::app().getDbClient("default");
+
+        auto result = dbClient->execSqlSync(
+            "SELECT user_id, nickname, is_anonymous FROM users "
+            "WHERE recovery_key_hash = $1 AND status = 'active'",
+            keyHash);
+
+        if (result.empty()) {
+            LOG_WARN << "Recovery attempt with invalid key, hash: " << keyHash.substr(0, 8) << "...";
+            callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
+            return;
+        }
+
+        auto row = result[0];
+        auto userId = row["user_id"].as<std::string>();
+        auto nickname = row["nickname"].as<std::string>();
+        auto isAnonymous = row["is_anonymous"].as<bool>();
+
+        // 更新最后活跃时间
+        dbClient->execSqlSync(
+            "UPDATE users SET last_active_at = NOW() WHERE user_id = $1",
+            userId);
+
+        // 生成 PASETO Token
+        std::string key = PasetoUtil::getKey();
+        int expire_hours = isAnonymous ? 24 : 168;
+
+        std::string token = PasetoUtil::generateToken(userId, key, expire_hours);
+
+        Json::Value responseData;
+        responseData["user_id"] = userId;
+        responseData["nickname"] = nickname;
+        responseData["is_anonymous"] = isAnonymous;
+        responseData["token"] = token;
+        responseData["expires_at"] =
+            static_cast<Json::Int64>(time(nullptr) + expire_hours * 3600);
+
+        LOG_INFO << "Account recovered successfully for user: " << userId;
+        callback(ResponseUtil::success(responseData, "账号恢复成功"));
+
+    } catch (const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Database error in recoverWithKey: " << e.base().what();
+        callback(ResponseUtil::internalError("恢复失败，请稍后重试"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "Error in recoverWithKey: " << e.what();
         callback(ResponseUtil::internalError());
     }
 }
