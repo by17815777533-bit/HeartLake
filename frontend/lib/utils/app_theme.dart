@@ -37,6 +37,10 @@ class AppTheme {
   static const Color mediumStone = Color(0xFFFFE082);
   static const Color heavyStone = Color(0xFFFFB300);
 
+  // VIP灯火色
+  static const Color vipGold = Color(0xFFFFD54F);
+  static const Color vipGoldDark = Color(0xFFFF8F00);
+
   // 风格别名（向后兼容）
   static const Color warmOrange = Color(0xFFFF8A65);
   static const Color peachPink = Color(0xFFFFAB91);

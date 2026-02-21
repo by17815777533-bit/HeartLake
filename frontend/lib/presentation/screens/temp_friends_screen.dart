@@ -99,14 +99,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       final diff = expiryTime.difference(now);
 
       if (diff.isNegative) {
-        return Colors.red;
+        return AppTheme.errorColor;
       } else if (diff.inHours < 1) {
-        return Colors.orange;
+        return AppTheme.warningColor;
       } else {
-        return Colors.green;
+        return AppTheme.successColor;
       }
     } catch (e) {
-      return Colors.grey;
+      return AppTheme.textTertiary;
     }
   }
 
@@ -138,7 +138,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['success'] ? '升级成功！' : result['message']),
-              backgroundColor: result['success'] ? Colors.green : Colors.red,
+              backgroundColor: result['success'] ? AppTheme.successColor : AppTheme.errorColor,
             ),
           );
 
@@ -149,7 +149,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: AppTheme.errorColor),
           );
         }
       }
@@ -169,7 +169,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
             child: const Text('删除'),
           ),
         ],
@@ -184,7 +184,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['success'] ? '删除成功' : result['message']),
-              backgroundColor: result['success'] ? Colors.green : Colors.red,
+              backgroundColor: result['success'] ? AppTheme.successColor : AppTheme.errorColor,
             ),
           );
 
@@ -195,7 +195,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: AppTheme.errorColor),
           );
         }
       }
@@ -303,7 +303,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                       '通过互动自动建立，24小时有效期',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: Colors.grey,
+                                        color: AppTheme.textTertiary,
                                       ),
                                     ),
                                   ],
@@ -405,7 +405,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isExpired ? Colors.grey.withValues(alpha: 0.3) : AppTheme.skyBlue.withValues(alpha: 0.3),
+            color: isExpired ? AppTheme.textTertiary.withValues(alpha: 0.3) : AppTheme.skyBlue.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -415,10 +415,10 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: isExpired ? Colors.grey.withValues(alpha: 0.2) : AppTheme.skyBlue.withValues(alpha: 0.2),
+                backgroundColor: isExpired ? AppTheme.textTertiary.withValues(alpha: 0.2) : AppTheme.skyBlue.withValues(alpha: 0.2),
                 child: Text(
                   (tempFriend['friend_nickname']?.isNotEmpty == true) ? tempFriend['friend_nickname'].substring(0, 1) : '?',
-                  style: TextStyle(color: isExpired ? Colors.grey : AppTheme.skyBlue, fontWeight: FontWeight.bold, fontSize: 20),
+                  style: TextStyle(color: isExpired ? AppTheme.textTertiary : AppTheme.skyBlue, fontWeight: FontWeight.bold, fontSize: 20),
                 ),
               ),
               if (!isExpired && !isUpgraded)
@@ -435,12 +435,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ),
           title: Row(
             children: [
-              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? Colors.grey : AppTheme.darkBlue))),
+              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? AppTheme.textTertiary : AppTheme.darkBlue))),
               if (isUpgraded)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: const Text('已升级', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(color: AppTheme.successColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                  child: const Text('已升级', style: TextStyle(fontSize: 11, color: AppTheme.successColor, fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -464,8 +464,8 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                   icon: const Icon(Icons.more_vert),
                   itemBuilder: (context) => [
                     const PopupMenuItem(value: 'chat', child: Row(children: [Icon(Icons.chat, size: 20), SizedBox(width: 8), Text('私聊')])),
-                    const PopupMenuItem(value: 'upgrade', child: Row(children: [Icon(Icons.upgrade, color: Colors.green, size: 20), SizedBox(width: 8), Text('升级为永久好友', style: TextStyle(color: Colors.green))])),
-                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('删除', style: TextStyle(color: Colors.red))])),
+                    const PopupMenuItem(value: 'upgrade', child: Row(children: [Icon(Icons.upgrade, color: AppTheme.successColor, size: 20), SizedBox(width: 8), Text('升级为永久好友', style: TextStyle(color: AppTheme.successColor))])),
+                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: AppTheme.errorColor, size: 20), SizedBox(width: 8), Text('删除', style: TextStyle(color: AppTheme.errorColor))])),
                   ],
                   onSelected: (value) {
                     switch (value) {

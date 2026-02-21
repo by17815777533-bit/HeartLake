@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/vip_service.dart';
+import '../../utils/app_theme.dart';
 
 class VIPScreen extends StatefulWidget {
   const VIPScreen({super.key});
@@ -131,12 +132,12 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF1A237E).withValues(alpha: 0.9), const Color(0xFF0D1B2A)],
+            colors: [AppTheme.lakeDeep.withValues(alpha: 0.9), AppTheme.nightDeep],
           ),
         ),
         child: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD54F)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.vipGold))
               : RefreshIndicator(
                   onRefresh: _refreshAll,
                   child: ListView(
@@ -182,14 +183,14 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _hasLight
-                  ? [const Color(0xFFFF8F00), const Color(0xFFFFD54F)]
+                  ? [AppTheme.vipGoldDark, AppTheme.vipGold]
                   : [const Color(0xFF37474F), const Color(0xFF546E7A)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: _hasLight
-                ? [BoxShadow(color: const Color(0xFFFFD54F).withValues(alpha: glowOpacity), blurRadius: 30, spreadRadius: 5)]
+                ? [BoxShadow(color: AppTheme.vipGold.withValues(alpha: glowOpacity), blurRadius: 30, spreadRadius: 5)]
                 : null,
           ),
           child: Column(
@@ -234,7 +235,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           const Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 32),
-              child: CircularProgressIndicator(color: Color(0xFFFFD54F), strokeWidth: 2),
+              child: CircularProgressIndicator(color: AppTheme.vipGold, strokeWidth: 2),
             ),
           )
         else
@@ -268,7 +269,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
                     if (_hasLight)
                       const Padding(
                         padding: EdgeInsets.only(top: 4),
-                        child: Icon(Icons.check_circle, color: Color(0xFFFFD54F), size: 16),
+                        child: Icon(Icons.check_circle, color: AppTheme.vipGold, size: 16),
                       ),
                   ],
                 ),
@@ -285,11 +286,11 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.vipGold.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
-          const Icon(Icons.favorite, color: Color(0xFFFFD54F), size: 32),
+          const Icon(Icons.favorite, color: AppTheme.vipGold, size: 32),
           const SizedBox(height: 12),
           const Text('灯关怀计划', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 8),
@@ -318,15 +319,15 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+        color: AppTheme.vipGold.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFFFFD54F)),
+          Icon(icon, size: 14, color: AppTheme.vipGold),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFFFFD54F))),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.vipGold)),
         ],
       ),
     );

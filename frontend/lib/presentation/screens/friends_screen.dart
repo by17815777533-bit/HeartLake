@@ -423,7 +423,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 }
               }
             },
-            child: const Text('确定', style: TextStyle(color: Colors.red)),
+            child: const Text('确定', style: TextStyle(color: AppTheme.errorColor)),
           ),
         ],
       ),

@@ -365,7 +365,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
                       const SizedBox(width: 8),
                       Text(
                         '来自 ${boat.senderNickname ?? "匿名旅人"}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                       ),
                     ],
                   ),

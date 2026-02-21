@@ -47,7 +47,7 @@ class HelpScreen extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blue.shade50, Colors.cyan.shade50],
+                    colors: [AppTheme.cloudPink, AppTheme.skyBlue.withValues(alpha: 0.1)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -88,7 +88,7 @@ class HelpScreen extends StatelessWidget {
         title: Text(question, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
-          Text(answer, style: TextStyle(color: Colors.grey[600], height: 1.5)),
+          Text(answer, style: const TextStyle(color: AppTheme.textSecondary, height: 1.5)),
         ],
       ),
     );
@@ -104,7 +104,7 @@ class HelpScreen extends StatelessWidget {
       ),
       child: ListTile(
         leading: Icon(icon, color: AppTheme.skyBlue, size: 22),
-        title: Text(text, style: TextStyle(color: Colors.grey[700], fontSize: 14, height: 1.5)),
+        title: Text(text, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14, height: 1.5)),
       ),
     );
   }
