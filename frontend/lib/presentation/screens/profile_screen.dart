@@ -29,6 +29,7 @@ import 'my_ripples_screen.dart';
 import 'paper_boat_screen.dart';
 import 'emotion_trends_screen.dart';
 import 'received_boats_screen.dart';
+import 'consultation_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -537,6 +538,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: const Text('心理支持与自助资源', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SafeHarborScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.psychology, color: AppTheme.skyBlue),
+                        title: const Text('心理咨询'),
+                        subtitle: const Text('预约专业咨询师', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultationScreen())),
                       ),
                     ],
                   ),
