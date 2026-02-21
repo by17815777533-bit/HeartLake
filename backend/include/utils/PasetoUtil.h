@@ -20,6 +20,7 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <memory>
 #include <mutex>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -180,22 +181,27 @@ private:
         unsigned char nonce[NONCE_SIZE];
         RAND_bytes(nonce, NONCE_SIZE);
 
-        // ChaCha20-Poly1305 (AEAD加密)
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        // ChaCha20-Poly1305 (AEAD加密) - 使用unique_ptr确保异常安全
+        struct CtxDeleter { void operator()(EVP_CIPHER_CTX* p) { EVP_CIPHER_CTX_free(p); } };
+        std::unique_ptr<EVP_CIPHER_CTX, CtxDeleter> ctx(EVP_CIPHER_CTX_new());
+        if (!ctx) throw std::runtime_error("Failed to create cipher context");
+
         std::vector<unsigned char> ciphertext(plaintext.size() + TAG_SIZE);
         int len, ciphertext_len;
 
-        EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr,
-                          reinterpret_cast<const unsigned char*>(key.data()), nonce);
-        EVP_EncryptUpdate(ctx, ciphertext.data(), &len,
-                         reinterpret_cast<const unsigned char*>(plaintext.data()), plaintext.size());
+        if (!EVP_EncryptInit_ex(ctx.get(), EVP_chacha20_poly1305(), nullptr,
+                          reinterpret_cast<const unsigned char*>(key.data()), nonce))
+            throw std::runtime_error("EncryptInit failed");
+        if (!EVP_EncryptUpdate(ctx.get(), ciphertext.data(), &len,
+                         reinterpret_cast<const unsigned char*>(plaintext.data()), plaintext.size()))
+            throw std::runtime_error("EncryptUpdate failed");
         ciphertext_len = len;
-        EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
+        if (!EVP_EncryptFinal_ex(ctx.get(), ciphertext.data() + len, &len))
+            throw std::runtime_error("EncryptFinal failed");
         ciphertext_len += len;
 
         unsigned char tag[TAG_SIZE];
-        EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, TAG_SIZE, tag);
-        EVP_CIPHER_CTX_free(ctx);
+        EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_GET_TAG, TAG_SIZE, tag);
 
         // 组合: nonce + ciphertext + tag
         std::string result(reinterpret_cast<char*>(nonce), NONCE_SIZE);
@@ -216,23 +222,26 @@ private:
         const unsigned char* ciphertext = reinterpret_cast<const unsigned char*>(data.data() + NONCE_SIZE);
         const unsigned char* tag = reinterpret_cast<const unsigned char*>(data.data() + data.size() - TAG_SIZE);
 
-        EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+        struct CtxDeleter { void operator()(EVP_CIPHER_CTX* p) { EVP_CIPHER_CTX_free(p); } };
+        std::unique_ptr<EVP_CIPHER_CTX, CtxDeleter> ctx(EVP_CIPHER_CTX_new());
+        if (!ctx) throw std::runtime_error("Failed to create cipher context");
+
         std::vector<unsigned char> plaintext(ciphertext_len);
         int len, plaintext_len;
 
-        EVP_DecryptInit_ex(ctx, EVP_chacha20_poly1305(), nullptr,
-                          reinterpret_cast<const unsigned char*>(key.data()), nonce);
-        EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext, ciphertext_len);
+        if (!EVP_DecryptInit_ex(ctx.get(), EVP_chacha20_poly1305(), nullptr,
+                          reinterpret_cast<const unsigned char*>(key.data()), nonce))
+            throw std::runtime_error("DecryptInit failed");
+        if (!EVP_DecryptUpdate(ctx.get(), plaintext.data(), &len, ciphertext, ciphertext_len))
+            throw std::runtime_error("DecryptUpdate failed");
         plaintext_len = len;
 
-        EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, TAG_SIZE, const_cast<unsigned char*>(tag));
+        EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_TAG, TAG_SIZE, const_cast<unsigned char*>(tag));
 
-        if (EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len) <= 0) {
-            EVP_CIPHER_CTX_free(ctx);
+        if (EVP_DecryptFinal_ex(ctx.get(), plaintext.data() + len, &len) <= 0) {
             throw std::runtime_error("Token verification failed");
         }
         plaintext_len += len;
-        EVP_CIPHER_CTX_free(ctx);
 
         return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext_len);
     }
