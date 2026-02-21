@@ -93,7 +93,7 @@ void VectorSearchController::getSimilarStones(
                 "1 - (s.embedding <=> (SELECT embedding FROM stones WHERE stone_id = $1)) as similarity "
                 "FROM stones s "
                 "LEFT JOIN users u ON s.user_id = u.user_id "
-                "WHERE s.status = 'published' AND s.stone_id != $1 "
+                "WHERE s.status = 'published' AND s.deleted_at IS NULL AND s.stone_id != $1 "
                 "AND s.embedding IS NOT NULL "
                 "ORDER BY s.embedding <=> (SELECT embedding FROM stones WHERE stone_id = $1) "
                 "LIMIT 10",
