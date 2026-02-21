@@ -13,6 +13,7 @@
 
 #include <drogon/drogon.h>
 #include <json/json.h>
+#include <algorithm>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -531,18 +532,56 @@ Json::Value EdgeAIController::collectSubsystemHealth() {
 
 Json::Value EdgeAIController::collectCacheMetrics() {
     Json::Value metrics;
-    metrics["hit_rate"] = 0.0;
-    metrics["miss_rate"] = 0.0;
-    metrics["total_queries"] = 0;
-    metrics["cache_size"] = 0;
+    auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+    auto hnswStats = engine.getHNSWStats();
+
+    auto totalSearches = hnswStats["total_searches"].asUInt64();
+    auto totalNodes = hnswStats["total_nodes"].asUInt64();
+
+    metrics["total_queries"] = static_cast<Json::UInt64>(totalSearches);
+    metrics["cache_size"] = static_cast<Json::UInt64>(totalNodes);
+
+    if (totalSearches > 0 && totalNodes > 0) {
+        // 有索引数据且有搜索请求时，视为缓存命中
+        double hitRate = std::min(1.0, static_cast<double>(totalNodes) / static_cast<double>(totalSearches));
+        metrics["hit_rate"] = hitRate;
+        metrics["miss_rate"] = 1.0 - hitRate;
+    } else {
+        metrics["hit_rate"] = 0.0;
+        metrics["miss_rate"] = totalSearches > 0 ? 1.0 : 0.0;
+    }
+
     return metrics;
 }
 
 Json::Value EdgeAIController::collectEmbeddingMetrics() {
     Json::Value metrics;
-    metrics["total_requests"] = 0;
-    metrics["avg_latency_ms"] = 0.0;
-    metrics["throughput_per_sec"] = 0.0;
+    auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+    auto stats = engine.getEngineStats();
+    auto hnswStats = engine.getHNSWStats();
+
+    // 嵌入请求 = HNSW插入(节点数) + HNSW搜索(搜索数)
+    auto totalNodes = hnswStats["total_nodes"].asUInt64();
+    auto totalSearches = hnswStats["total_searches"].asUInt64();
+    auto totalRequests = totalNodes + totalSearches;
+
+    metrics["total_requests"] = static_cast<Json::UInt64>(totalRequests);
+    metrics["vector_dimension"] = static_cast<Json::UInt64>(engine.getHNSWVectorDimension());
+    metrics["index_size"] = static_cast<Json::UInt64>(totalNodes);
+
+    // 吞吐量：基于调用总量的近似值
+    auto allCalls = stats["call_counts"];
+    auto totalOps = allCalls["sentiment_analysis"].asUInt64()
+                  + allCalls["text_moderation"].asUInt64()
+                  + allCalls["hnsw_searches"].asUInt64()
+                  + allCalls["quantized_ops"].asUInt64();
+
+    if (totalOps > 0 && totalRequests > 0) {
+        metrics["throughput_per_sec"] = static_cast<double>(totalRequests) / static_cast<double>(totalOps) * 100.0;
+    } else {
+        metrics["throughput_per_sec"] = 0.0;
+    }
+
     return metrics;
 }
 

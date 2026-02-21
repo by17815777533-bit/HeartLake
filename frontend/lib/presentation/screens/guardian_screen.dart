@@ -121,7 +121,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                         padding: const EdgeInsets.all(16),
                         children: [
                           Card(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: Padding(
                               padding: const EdgeInsets.all(20),
@@ -170,12 +170,12 @@ class _GuardianScreenState extends State<GuardianScreen>
                           const SizedBox(height: 16),
                           // 湖神入口
                           Card(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: ListTile(
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: AppTheme.skyBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                decoration: BoxDecoration(color: AppTheme.skyBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                                 child: const Icon(Icons.auto_awesome, color: AppTheme.skyBlue),
                               ),
                               title: const Text('与湖神对话', style: TextStyle(fontWeight: FontWeight.bold)),

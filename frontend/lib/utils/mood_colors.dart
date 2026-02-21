@@ -219,6 +219,7 @@ class MoodColors {
       case '悲伤':
       case '难过':
       case '伤心':
+      case '忧伤':
         return MoodType.sad;
       case 'anxious':
       case '焦虑':
@@ -282,9 +283,9 @@ class MoodColors {
       colors: [
         config.gradientStart,
         config.gradientEnd,
-        config.lakeColor.withOpacity(0.6),
+        config.lakeColor.withValues(alpha: 0.6),
         config.lakeColor,
-        config.lakeColor.withOpacity(0.8),
+        config.lakeColor.withValues(alpha: 0.8),
       ],
       stops: const [0.0, 0.35, 0.45, 0.7, 1.0],
     );

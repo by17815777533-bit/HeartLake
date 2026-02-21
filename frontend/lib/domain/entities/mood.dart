@@ -46,13 +46,13 @@ class MoodConfig {
   LinearGradient get gradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [primaryColor.withOpacity(0.8), primaryColor.withOpacity(0.4)],
+        colors: [primaryColor.withValues(alpha: 0.8), primaryColor.withValues(alpha: 0.4)],
       );
 
   BoxDecoration get glowDecoration => BoxDecoration(
         boxShadow: [
-          BoxShadow(color: glowColor.withOpacity(0.6), blurRadius: 20, spreadRadius: 5),
-          BoxShadow(color: glowColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 10),
+          BoxShadow(color: glowColor.withValues(alpha: 0.6), blurRadius: 20, spreadRadius: 5),
+          BoxShadow(color: glowColor.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: 10),
         ],
       );
 }

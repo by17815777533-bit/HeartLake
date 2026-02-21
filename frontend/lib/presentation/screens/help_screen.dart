@@ -17,7 +17,7 @@ class HelpScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.05), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.05), Colors.white],
           ),
         ),
         child: ListView(
@@ -70,7 +70,7 @@ class HelpScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)],
       ),
       child: ExpansionTile(
         title: Text(question, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),

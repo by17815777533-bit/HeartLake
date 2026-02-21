@@ -379,7 +379,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // 个人信息卡片
                 Card(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -391,7 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 45,
-                                backgroundColor: AppTheme.skyBlue.withOpacity(0.3),
+                                backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.3),
                                 backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty) ? NetworkImage(_avatarUrl!) : null,
                                 child: _avatarUrl == null
                                     ? const Icon(Icons.person, size: 45, color: Colors.white)
@@ -605,11 +605,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
     final card = Card(
-      color: Colors.white.withOpacity(0.9),
+      color: Colors.white.withValues(alpha: 0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: AppTheme.skyBlue.withOpacity(0.3),
+          color: AppTheme.skyBlue.withValues(alpha: 0.3),
           width: 2,
         ),
       ),

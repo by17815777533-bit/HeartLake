@@ -414,7 +414,7 @@ class LakeScreenState extends State<LakeScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.cyan.withOpacity(0.4),
+                  color: Colors.cyan.withValues(alpha: 0.4),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -493,7 +493,7 @@ class LakeScreenState extends State<LakeScreen> {
             child: IgnorePointer(
               child: FloatingParticles(
                 count: 12,
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
               ),
             ),
           ),

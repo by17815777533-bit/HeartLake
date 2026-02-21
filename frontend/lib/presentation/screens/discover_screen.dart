@@ -43,8 +43,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     setState(() => _isLoading = true);
     try {
       final result = await _apiClient.get('/recommendations/trending');
-      if (result['success'] == true) {
-        final data = result['data'];
+      final body = result.data as Map<String, dynamic>? ?? {};
+      if (body['success'] == true) {
+        final data = body['data'];
         final items = (data is List ? data : data?['trending_stones'] ?? data?['items'] ?? data?['stones'] ?? []) as List;
         setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
       }
@@ -63,9 +64,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     if (query.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final result = await _apiClient.post('/recommendations/search', {'query': query});
-      if (result['success'] == true) {
-        final data = result['data'];
+      final result = await _apiClient.post('/recommendations/search', data: {'query': query});
+      final body = result.data as Map<String, dynamic>? ?? {};
+      if (body['success'] == true) {
+        final data = body['data'];
         final items = (data is List ? data : data?['results'] ?? data?['stones'] ?? data?['items'] ?? []) as List;
         setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
       }
@@ -87,8 +89,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     });
     try {
       final result = await _apiClient.get('/recommendations/discover/$mood');
-      if (result['success'] == true) {
-        final data = result['data'];
+      final body = result.data as Map<String, dynamic>? ?? {};
+      if (body['success'] == true) {
+        final data = body['data'];
         final items = (data is List ? data : data?['stones'] ?? data?['items'] ?? []) as List;
         setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
       }
@@ -156,7 +159,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
             controller: _searchController,
             hintText: '搜索石头...',
             elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all(Colors.white.withOpacity(0.9)),
+            backgroundColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.9)),
             trailing: [
               IconButton(
                 icon: const Icon(Icons.search),
@@ -185,8 +188,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
               return ChoiceChip(
                 label: Text(mood),
                 selected: isSelected,
-                selectedColor: color.withOpacity(0.8),
-                backgroundColor: color.withOpacity(0.3),
+                selectedColor: color.withValues(alpha: 0.8),
+                backgroundColor: color.withValues(alpha: 0.3),
                 onSelected: (_) => _discoverByMood(mood),
               );
             }).toList(),
@@ -199,16 +202,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
   Widget _buildStoneList() {
     if (_isLoading) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在探索心湖深处...', style: TextStyle(color: Colors.white.withOpacity(0.8)))]));
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在探索心湖深处...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))]));
     }
     if (_stones.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.explore_off, size: 64, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.explore_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('暂无内容，试试搜索或按心情发现', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+            Text('暂无内容，试试搜索或按心情发现', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
           ],
         ),
       );

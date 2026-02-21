@@ -66,7 +66,7 @@ class _PublishScreenState extends State<PublishScreen> {
                         color: Colors.white,
                         shadows: [
                           Shadow(
-                              color: AppTheme.heavyStone.withOpacity(0.4),
+                              color: AppTheme.heavyStone.withValues(alpha: 0.4),
                               offset: const Offset(0, 2),
                               blurRadius: 4)
                         ]),
@@ -85,7 +85,7 @@ class _PublishScreenState extends State<PublishScreen> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
                         color: MoodColors.getConfig(_selectedMood).primary,
@@ -93,7 +93,7 @@ class _PublishScreenState extends State<PublishScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.skyBlue.withOpacity(0.15),
+                          color: AppTheme.skyBlue.withValues(alpha: 0.15),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         )
@@ -149,11 +149,11 @@ class _PublishScreenState extends State<PublishScreen> {
                                 MoodColors.getConfig(_selectedMood);
                             Color activeColor;
                             if (entry.key == 'light') {
-                              activeColor = moodConfig.primary.withOpacity(0.3);
+                              activeColor = moodConfig.primary.withValues(alpha: 0.3);
                             } else if (entry.key == 'medium') {
-                              activeColor = moodConfig.primary.withOpacity(0.6);
+                              activeColor = moodConfig.primary.withValues(alpha: 0.6);
                             } else {
-                              activeColor = moodConfig.primary.withOpacity(0.9);
+                              activeColor = moodConfig.primary.withValues(alpha: 0.9);
                             }
 
                             return Expanded(
@@ -362,9 +362,9 @@ class _PublishScreenState extends State<PublishScreen> {
 
     // 将颜色转换为十六进制字符串（确保格式正确）
     String colorToHex(Color color) {
-      final r = color.red.toRadixString(16).padLeft(2, '0').toUpperCase();
-      final g = color.green.toRadixString(16).padLeft(2, '0').toUpperCase();
-      final b = color.blue.toRadixString(16).padLeft(2, '0').toUpperCase();
+      final r = color.r.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
+      final g = color.g.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
+      final b = color.b.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
       return '#$r$g$b';
     }
 
@@ -432,11 +432,11 @@ class _PublishButtonState extends State<_PublishButton> with SingleTickerProvide
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [widget.moodConfig.primary, widget.moodConfig.primary.withOpacity(0.8)],
+              colors: [widget.moodConfig.primary, widget.moodConfig.primary.withValues(alpha: 0.8)],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: widget.moodConfig.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+              BoxShadow(color: widget.moodConfig.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
             ],
           ),
           child: Center(

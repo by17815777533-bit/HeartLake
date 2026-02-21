@@ -56,7 +56,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
           ),
         ),
         child: _isLoading
@@ -69,7 +69,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: AppTheme.skyBlue.withOpacity(0.2),
+                        backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),
                         backgroundImage: (_user?['avatar_url'] != null && _user!['avatar_url'].toString().isNotEmpty)
                             ? NetworkImage(_user!['avatar_url'])
                             : null,

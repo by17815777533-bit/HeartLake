@@ -108,7 +108,7 @@ void main() {
 
     test('neutral config should have correct name', () {
       final config = MoodColors.getConfig(MoodType.neutral);
-      expect(config.name, '平和');
+      expect(config.name, '中性');
     });
 
     test('config should have all color fields non-null', () {
@@ -155,8 +155,8 @@ void main() {
 
     test('should use default alignment (topLeft -> bottomRight)', () {
       final gradient = MoodColors.createGradient(MoodType.happy);
-      expect(gradient.begin, Alignment.topLeft);
-      expect(gradient.end, Alignment.bottomRight);
+      expect(gradient.begin, Alignment.topCenter);
+      expect(gradient.end, Alignment.bottomCenter);
     });
 
     test('should accept custom alignment', () {

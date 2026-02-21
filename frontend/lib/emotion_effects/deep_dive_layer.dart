@@ -157,7 +157,7 @@ class _DepthIndicator extends StatelessWidget {
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.3),
+        color: color.withValues(alpha: 0.3),
         shape: BoxShape.circle,
       ),
       child: Icon(icon, size: 14, color: color),
@@ -197,7 +197,7 @@ class _DeepSeaFogPainter extends CustomPainter {
 
   void _drawLightSpots(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.15 - progress * 0.1)
+      ..color = Colors.white.withValues(alpha: 0.15 - progress * 0.1)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
 
     // 几个柔和的光斑
@@ -208,7 +208,7 @@ class _DeepSeaFogPainter extends CustomPainter {
 
   void _drawBubbles(Canvas canvas, Size size) {
     final bubblePaint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 

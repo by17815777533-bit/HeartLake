@@ -90,9 +90,9 @@ class _MoodWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final phase = animationValue * _twoPi;
-    _drawWave(canvas, size, 0.40, 12, phase * 0.8, lakeColor.withOpacity(0.2));
-    _drawWave(canvas, size, 0.45, 18, phase * 0.6, lakeColor.withOpacity(0.3));
-    _drawWave(canvas, size, 0.50, 24, phase * 0.4, lakeColor.withOpacity(0.4));
+    _drawWave(canvas, size, 0.40, 12, phase * 0.8, lakeColor.withValues(alpha: 0.2));
+    _drawWave(canvas, size, 0.45, 18, phase * 0.6, lakeColor.withValues(alpha: 0.3));
+    _drawWave(canvas, size, 0.50, 24, phase * 0.4, lakeColor.withValues(alpha: 0.4));
   }
 
   void _drawWave(Canvas canvas, Size size, double heightPercent,
@@ -144,12 +144,12 @@ class MoodCardDecoration extends StatelessWidget {
         color: config.cardColor,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: config.primary.withOpacity(0.3),
+          color: config.primary.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: config.primary.withOpacity(0.1),
+            color: config.primary.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

@@ -57,7 +57,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF1A237E).withOpacity(0.9), const Color(0xFF0D1B2A)],
+            colors: [const Color(0xFF1A237E).withValues(alpha: 0.9), const Color(0xFF0D1B2A)],
           ),
         ),
         child: SafeArea(
@@ -115,7 +115,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: _hasLight
-                ? [BoxShadow(color: const Color(0xFFFFD54F).withOpacity(glowOpacity), blurRadius: 30, spreadRadius: 5)]
+                ? [BoxShadow(color: const Color(0xFFFFD54F).withValues(alpha: glowOpacity), blurRadius: 30, spreadRadius: 5)]
                 : null,
           ),
           child: Column(
@@ -135,7 +135,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('灯火将燃 $_daysLeft 天', style: const TextStyle(color: Colors.white, fontSize: 14)),
@@ -177,9 +177,9 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
             return Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: p.color.withOpacity(0.3)),
+                border: Border.all(color: p.color.withValues(alpha: 0.3)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -188,7 +188,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
                   const SizedBox(height: 8),
                   Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text(p.desc, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10), textAlign: TextAlign.center),
+                  Text(p.desc, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10), textAlign: TextAlign.center),
                   if (_hasLight)
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
@@ -207,9 +207,9 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -219,7 +219,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           const SizedBox(height: 8),
           Text(
             '灯完全免费！当系统感知到您需要温暖时，将自动为您点亮灯，照亮前行的路',
-            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -242,7 +242,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFD54F).withOpacity(0.15),
+        color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

@@ -190,7 +190,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
           ),
         ),
         child: SafeArea(
@@ -265,7 +265,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -301,7 +301,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.skyBlue.withOpacity(0.8), AppTheme.skyBlue]),
+        gradient: LinearGradient(colors: [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue]),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -322,7 +322,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         Icon(icon, color: Colors.white, size: 20),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
       ],
     );
   }
@@ -395,8 +395,8 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
               color: Colors.transparent,
               child: InkWell(
                 onTap: hasData ? () { HapticFeedback.lightImpact(); _showDayDetail(day, emotion); } : null,
-                splashColor: rippleColor.withOpacity(0.4),
-                highlightColor: rippleColor.withOpacity(0.2),
+                splashColor: rippleColor.withValues(alpha: 0.4),
+                highlightColor: rippleColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
                 child: Ink(
                   decoration: BoxDecoration(
@@ -404,13 +404,13 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                     color: hasData ? null : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(10),
                     border: isToday ? Border.all(color: AppTheme.skyBlue, width: 2) : null,
-                    boxShadow: hasData ? [BoxShadow(color: config.primary.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
+                    boxShadow: hasData ? [BoxShadow(color: config.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Text('$day', style: TextStyle(color: hasData ? config.textColor : Colors.grey.shade400, fontWeight: isToday ? FontWeight.bold : FontWeight.w500, fontSize: 14)),
-                      if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withOpacity(0.7))),
+                      if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withValues(alpha: 0.7))),
                     ],
                   ),
                 ),
@@ -440,7 +440,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: config.textColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2))),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: config.textColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             Icon(config.icon, size: 48, color: config.iconColor),
             const SizedBox(height: 12),
@@ -448,7 +448,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
             const SizedBox(height: 8),
             Text(config.name, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: config.primary)),
             const SizedBox(height: 4),
-            Text(config.description, style: TextStyle(fontSize: 14, color: config.textColor.withOpacity(0.7))),
+            Text(config.description, style: TextStyle(fontSize: 14, color: config.textColor.withValues(alpha: 0.7))),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -484,7 +484,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: AppTheme.secondaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: AppTheme.secondaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

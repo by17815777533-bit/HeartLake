@@ -70,9 +70,9 @@ class _WaterPainter extends CustomPainter {
       canvas.drawRect(rect, bgPaint);
 
       // 深色模式水波纹 - 发光效果
-      _drawWave(canvas, size, 0.42, 12.0, 0.8, const Color(0xFF4FC3F7).withOpacity(0.15));
-      _drawWave(canvas, size, 0.46, 18.0, 0.6, const Color(0xFF29B6F6).withOpacity(0.12));
-      _drawWave(canvas, size, 0.52, 24.0, 0.4, const Color(0xFF03A9F4).withOpacity(0.1));
+      _drawWave(canvas, size, 0.42, 12.0, 0.8, const Color(0xFF4FC3F7).withValues(alpha: 0.15));
+      _drawWave(canvas, size, 0.46, 18.0, 0.6, const Color(0xFF29B6F6).withValues(alpha: 0.12));
+      _drawWave(canvas, size, 0.52, 24.0, 0.4, const Color(0xFF03A9F4).withValues(alpha: 0.1));
 
       // 月光涟漪
       _drawMoonRipple(canvas, size);
@@ -87,9 +87,9 @@ class _WaterPainter extends CustomPainter {
         ).createShader(rect);
       canvas.drawRect(rect, bgPaint);
 
-      _drawWave(canvas, size, 0.42, 10.0, 0.9, const Color(0xFFB3E5FC).withOpacity(0.5));
-      _drawWave(canvas, size, 0.45, 16.0, 0.7, AppTheme.lakeSurface.withOpacity(0.4));
-      _drawWave(canvas, size, 0.50, 22.0, 0.5, AppTheme.lakeMiddle.withOpacity(0.3));
+      _drawWave(canvas, size, 0.42, 10.0, 0.9, const Color(0xFFB3E5FC).withValues(alpha: 0.5));
+      _drawWave(canvas, size, 0.45, 16.0, 0.7, AppTheme.lakeSurface.withValues(alpha: 0.4));
+      _drawWave(canvas, size, 0.50, 22.0, 0.5, AppTheme.lakeMiddle.withValues(alpha: 0.3));
     }
   }
 
@@ -99,7 +99,7 @@ class _WaterPainter extends CustomPainter {
       final progress = (animationValue + i * 0.33) % 1.0;
       final radius = 20 + progress * 60;
       final opacity = (1 - progress) * 0.15;
-      canvas.drawCircle(center, radius, Paint()..color = const Color(0xFF90CAF9).withOpacity(opacity)..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      canvas.drawCircle(center, radius, Paint()..color = const Color(0xFF90CAF9).withValues(alpha: opacity)..style = PaintingStyle.stroke..strokeWidth = 1.5);
     }
   }
 

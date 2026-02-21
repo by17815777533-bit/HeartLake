@@ -83,7 +83,7 @@ class _CatchBoatAnimationState extends State<CatchBoatAnimation>
             child: Icon(
               Icons.sailing,
               size: 80,
-              color: AppTheme.primaryColor.withOpacity(0.85),
+              color: AppTheme.primaryColor.withValues(alpha: 0.85),
             ),
           ),
         ),
@@ -108,7 +108,7 @@ class _CatchBoatAnimationState extends State<CatchBoatAnimation>
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.4),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.4),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -177,8 +177,8 @@ class _WavePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          AppTheme.lakeSurface.withOpacity(0.3),
-          AppTheme.lakeMiddle.withOpacity(0.2),
+          AppTheme.lakeSurface.withValues(alpha: 0.3),
+          AppTheme.lakeMiddle.withValues(alpha: 0.2),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 

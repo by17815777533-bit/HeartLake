@@ -152,12 +152,12 @@ class _MoodItemState extends State<_MoodItem>
                   boxShadow: widget.isSelected
                       ? [
                           BoxShadow(
-                            color: widget.config.glowColor.withOpacity(0.4),
+                            color: widget.config.glowColor.withValues(alpha: 0.4),
                             blurRadius: 10,
                             spreadRadius: 2,
                           ),
                           BoxShadow(
-                            color: widget.config.glowColor.withOpacity(0.15),
+                            color: widget.config.glowColor.withValues(alpha: 0.15),
                             blurRadius: 20,
                             spreadRadius: 4,
                           ),
@@ -302,10 +302,10 @@ class MoodIndicator extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [config.primaryColor.withOpacity(0.8), config.primaryColor],
+              colors: [config.primaryColor.withValues(alpha: 0.8), config.primaryColor],
             ),
             boxShadow: [
-              BoxShadow(color: config.primaryColor.withOpacity(0.4), blurRadius: 8, spreadRadius: 2),
+              BoxShadow(color: config.primaryColor.withValues(alpha: 0.4), blurRadius: 8, spreadRadius: 2),
             ],
           ),
           child: Icon(config.icon, color: Colors.white, size: size * 0.45),
@@ -344,7 +344,7 @@ class MoodBadge extends StatelessWidget {
         boxShadow: showGlow
             ? [
                 BoxShadow(
-                  color: config.glowColor.withOpacity(0.5),
+                  color: config.glowColor.withValues(alpha: 0.5),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),

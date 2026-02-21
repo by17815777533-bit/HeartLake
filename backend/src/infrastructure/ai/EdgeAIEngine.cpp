@@ -1457,6 +1457,12 @@ Json::Value EdgeAIEngine::getHNSWStats() const {
     return stats;
 }
 
+size_t EdgeAIEngine::getHNSWVectorDimension() const {
+    std::shared_lock<std::shared_mutex> lock(hnswMutex_);
+    if (hnswNodes_.empty()) return 0;
+    return hnswNodes_.front().vector.size();
+}
+
 // ============================================================================
 // 子系统7: 模型量化推理
 // ============================================================================

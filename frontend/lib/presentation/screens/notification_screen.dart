@@ -228,7 +228,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.08), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.08), Colors.white],
           ),
         ),
         child: RefreshIndicator(
@@ -273,7 +273,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         color:
-                            isRead ? null : AppTheme.skyBlue.withOpacity(0.05),
+                            isRead ? null : AppTheme.skyBlue.withValues(alpha: 0.05),
                         child: ListTile(
                           leading: Container(
                             width: 40,
@@ -281,7 +281,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             decoration: BoxDecoration(
                               color: isRead
                                   ? Colors.grey[200]
-                                  : AppTheme.skyBlue.withOpacity(0.2),
+                                  : AppTheme.skyBlue.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Center(
