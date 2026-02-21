@@ -4,16 +4,19 @@
 
 1. [概述](#1-概述)
 2. [系统架构](#2-系统架构)
-3. [AC自动机多模式匹配](#3-ac自动机多模式匹配)
-4. [HNSW向量搜索](#4-hnsw向量搜索)
-5. [差分隐私Laplace机制](#5-差分隐私laplace机制)
-6. [联邦学习FedAvg](#6-联邦学习fedavg)
-7. [情绪脉搏](#7-情绪脉搏)
-8. [INT8量化](#8-int8量化)
-9. [节点监控](#9-节点监控)
-10. [熔断降级](#10-熔断降级)
-11. [云端协同](#11-云端协同)
-12. [未来演进](#12-未来演进)
+3. [三层情感融合分析](#3-三层情感融合分析)
+4. [AC自动机内容审核](#4-ac自动机内容审核)
+5. [五因子心理风险评估](#5-五因子心理风险评估)
+6. [HNSW向量搜索](#6-hnsw向量搜索)
+7. [差分隐私Laplace机制](#7-差分隐私laplace机制)
+8. [联邦学习FedAvg](#8-联邦学习fedavg)
+9. [情绪脉搏追踪](#9-情绪脉搏追踪)
+10. [INT8量化推理](#10-int8量化推理)
+11. [熔断器状态机](#11-熔断器状态机)
+12. [情绪共鸣引擎](#12-情绪共鸣引擎)
+13. [节点监控](#13-节点监控)
+14. [云端协同](#14-云端协同)
+15. [未来演进](#15-未来演进)
 
 ---
 
@@ -44,6 +47,19 @@
 - 支持完全离线运行
 - 隐私数据零泄露
 
+### 1.3 八大子系统总览
+
+| 子系统 | 核心算法 | 时间复杂度 | 代码位置 |
+|-------|---------|-----------|---------|
+| 三层情感融合 | 规则+词典+统计集成 | O(n) | EdgeAIEngine.cpp:395-590 |
+| AC自动机审核 | Aho-Corasick多模式匹配 | O(n+m+z) | EdgeAIEngine.cpp:596-789 |
+| 五因子风险评估 | 加权多因子评分 | O(n*k) | PsychologicalRiskAssessment.cpp |
+| HNSW向量搜索 | 分层可导航小世界图 | O(log n) | EdgeAIEngine.cpp:100-393 |
+| 差分隐私 | Laplace机制+原子预算 | O(1) | EdgeAIEngine.cpp:1057-1099 |
+| 联邦学习 | FedAvg加权聚合 | O(K*d) | EdgeAIEngine.cpp:955-1019 |
+| 情绪脉搏 | 滑动窗口+线性回归 | O(w) | EdgeAIEngine.cpp:824-941 |
+| INT8量化 | 对称量化+INT32累加 | O(n) | EdgeAIEngine.cpp:1100+ |
+
 ---
 
 ## 2. 系统架构
@@ -51,560 +67,1191 @@
 ### 2.1 整体架构图
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        云端协同层 (Cloud)                        │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────┐  ┌───────────┐  │
-│  │ 模型仓库  │  │ 联邦聚合服务  │  │ 监控大盘   │  │ A/B实验   │  │
-│  └─────┬────┘  └──────┬───────┘  └─────┬─────┘  └─────┬─────┘  │
-└────────┼──────────────┼────────────────┼──────────────┼────────┘
-         │   加密梯度    │    健康心跳     │   实验配置   │
-    ─ ─ ─┼─ ─ ─ ─ ─ ─ ─┼─ ─ ─ ─ ─ ─ ─ ─┼─ ─ ─ ─ ─ ─ ─┼─ ─ ─ ─
-         │              │                │              │
-┌────────┼──────────────┼────────────────┼──────────────┼────────┐
-│        ▼              ▼                ▼              ▼        │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    边缘网关 (Edge Gateway)                │   │
-│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐  ┌──────────┐  │   │
-│  │  │ 熔断器   │  │ 限流器    │  │ 路由器   │  │ TLS终结  │  │   │
-│  │  └─────────┘  └──────────┘  └─────────┘  └──────────┘  │   │
-│  └─────────────────────┬───────────────────────────────────┘   │
-│                        │                                       │
-│  ┌─────────────────────▼───────────────────────────────────┐   │
-│  │                  AI推理引擎 (Inference Engine)             │   │
-│  │                                                         │   │
-│  │  ┌──────────┐  ┌───────────┐  ┌──────────┐             │   │
-│  │  │ AC自动机  │  │ HNSW索引   │  │ INT8推理  │             │   │
-│  │  │ 文本匹配  │  │ 向量搜索   │  │ 模型执行  │             │   │
-│  │  └──────────┘  └───────────┘  └──────────┘             │   │
-│  │                                                         │   │
-│  │  ┌──────────┐  ┌───────────┐  ┌──────────┐             │   │
-│  │  │ 情绪脉搏  │  │ 差分隐私   │  │ 联邦学习  │             │   │
-│  │  │ 实时分析  │  │ 噪声注入   │  │ 本地训练  │             │   │
-│  │  └──────────┘  └───────────┘  └──────────┘             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  节点监控 (Node Monitor)                   │   │
-│  │  CPU | 内存 | 推理延迟 | 模型版本 | 健康评分              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                        边缘节点 (Edge Node)                     │
-└─────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+|                        云端协同层 (Cloud)                           |
+|  +----------+  +--------------+  +-----------+  +-----------+     |
+|  | 模型仓库  |  | 联邦聚合服务  |  | 监控大盘   |  | A/B实验    |     |
+|  +-----+----+  +------+-------+  +-----+-----+  +-----+-----+     |
++--------|--------------|--------------|--------------|--------------+
+         |   加密梯度    |    健康心跳   |   实验配置    |
+  -------+----------- --+--- ----------+--- ----------+--------
+         |              |              |              |
++--------|--------------|--------------|--------------|--------------+
+|        v              v              v              v              |
+|  +-------------------------------------------------------------+ |
+|  |                    边缘网关 (Edge Gateway)                     | |
+|  |  +---------+  +----------+  +---------+  +----------+       | |
+|  |  | 熔断器   |  | 限流器    |  | 路由器   |  | TLS终结   |       | |
+|  |  +---------+  +----------+  +---------+  +----------+       | |
+|  +-----------------------------+-------------------------------+ |
+|                                |                                  |
+|  +-----------------------------v-------------------------------+ |
+|  |                  AI推理引擎 (Inference Engine)                 | |
+|  |                                                             | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  |  | 三层情感分析 |  | AC自动机审核 |  | 五因子风险  |            | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  |                                                             | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  |  | HNSW索引   |  | INT8量化推理 |  | 情绪共鸣    |            | |
+|  |  | 向量搜索   |  | 模型执行    |  | 引擎       |            | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  +-----------------------------+-------------------------------+ |
+|                                |                                  |
+|  +-----------------------------v-------------------------------+ |
+|  |                  隐私保护层 (Privacy Layer)                    | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  |  | 差分隐私    |  | 联邦学习     |  | 安全聚合   |            | |
+|  |  | Laplace    |  | FedAvg      |  | SecAgg    |            | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  +-----------------------------+-------------------------------+ |
+|                                |                                  |
+|  +-----------------------------v-------------------------------+ |
+|  |                  运维监控层 (Ops Layer)                        | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  |  | 情绪脉搏    |  | 节点监控     |  | 云端同步   |            | |
+|  |  | 追踪       |  | 健康检查    |  | 离线缓存   |            | |
+|  |  +------------+  +-------------+  +------------+            | |
+|  +-------------------------------------------------------------+ |
++-------------------------------------------------------------------+
 ```
 
 ### 2.2 数据流
 
 ```
-用户输入 ──► 边缘网关 ──► 熔断检查 ──► AC自动机(关键词) ──┐
-                                                        ├──► 融合决策 ──► 响应
-            INT8模型推理 ◄── HNSW检索 ◄── 向量编码 ◄────┘
-                │
-                ▼
-           情绪脉搏更新 ──► 差分隐私加噪 ──► 联邦梯度上传
+用户输入 --> 三层情感分析 --> AC自动机审核 --> 五因子风险评估
+                |                                    |
+                v                                    v
+          情绪脉搏追踪                          风险等级判定
+                |                                    |
+                v                                    v
+          HNSW向量搜索 <-- INT8量化推理      情绪共鸣引擎
+                |                                    |
+                v                                    v
+          推荐结果 <----- 熔断器保护 -----> 共鸣推荐结果
+                |
+                v
+          差分隐私加噪 --> 联邦学习上传 --> 云端聚合
 ```
 
 ---
 
-## 3. AC自动机多模式匹配
+## 3. 三层情感融合分析
 
-### 3.1 算法原理
+三层情感融合分析是HeartLake情感理解的核心，采用规则层、词典层、统计层三路并行分析，最终加权融合得到综合情感分数。
 
-AC自动机（Aho-Corasick）用于在输入文本中同时匹配多个模式串，是边缘AI引擎中关键词检测的核心组件。
+**代码位置**: `backend/src/infrastructure/ai/EdgeAIEngine.cpp:395-590`
 
-**三大核心函数：**
-
-- `goto(state, char)` — 状态转移函数，沿Trie树前进
-- `failure(state)` — 失败回退函数，匹配失败时跳转到最长后缀状态
-- `output(state)` — 输出函数，记录当前状态对应的所有匹配模式
-
-### 3.2 时间复杂度
+### 3.1 架构概览
 
 ```
-构建阶段: O(m)    — m 为所有模式串总长度
-匹配阶段: O(n+z)  — n 为文本长度, z 为匹配次数
-
-总复杂度: O(n + m + z)
+输入文本
+  |
+  +---> [规则层] 表情符号/标点/大写检测 ---> 权重 0.25
+  |
+  +---> [词典层] 情感词典匹配+否定/强化 ---> 权重 0.50
+  |
+  +---> [统计层] 5维特征统计分类       ---> 权重 0.25
+  |
+  v
+加权融合: finalScore = 0.25*rule + 0.50*lexicon + 0.25*statistical
+  |
+  v
+scoresToMood() 映射为情绪类别
 ```
 
-### 3.3 构建过程
+### 3.2 规则层 (Rule-based Sentiment)
 
+基于手工规则检测文本中的情感信号：
+
+- **颜文字/Emoji检测**: 识别 `:)`, `:(`, `XD`, `T_T` 等模式，直接映射为正/负情感分数
+- **标点模式**: 多个感叹号 `!!!` 增强情感强度，多个问号 `???` 表示困惑/质疑
+- **全大写检测**: 全大写文本情感强度乘以 1.5 倍（表示强烈情绪）
+
+**算法伪代码**:
 ```
-步骤1: 构建Trie树 (goto函数)
-
-    模式集合: {"he", "she", "his", "hers"}
-
-         root
-        / | \
-       h  s   (其他字符 → root)
-       |  |
-       e  h
-       |  |
-       r  e
-       |
-       s
-
-步骤2: 构建failure指针 (BFS遍历)
-
-    failure(root) = root
-    对于深度1的节点: failure = root
-    对于更深节点: 沿父节点failure链查找
-
-    示例:
-    failure("sh")  → "h"   (root→h 是 "sh" 的最长真后缀)
-    failure("she") → "he"  ("he" 是 "she" 的最长真后缀)
-
-步骤3: 合并output函数
-
-    output(state) = 自身模式 ∪ output(failure(state))
-    output("she") = {"she"} ∪ output("he") = {"she", "he"}
+function ruleSentiment(text):
+    score = 0.0
+    // 颜文字检测
+    for pattern in POSITIVE_KAOMOJI:
+        if text contains pattern: score += 0.3
+    for pattern in NEGATIVE_KAOMOJI:
+        if text contains pattern: score -= 0.3
+    // 标点模式
+    exclamation_count = count('!' in text)
+    if exclamation_count >= 3: score *= 1.2
+    // 全大写放大
+    if text is ALL_CAPS: score *= 1.5
+    return clamp(score, -1.0, 1.0)
 ```
 
-### 3.4 应用场景
+**复杂度**: O(n)，n为文本长度
 
-- 敏感词实时过滤（毫秒级响应）
-- 情感关键词提取（多情感标签并行匹配）
-- 意图识别辅助（关键词触发快速路径，绕过重模型推理）
+### 3.3 词典层 (Lexicon-based Sentiment)
+
+基于情感词典进行精细化情感分析，支持否定词和强化词处理：
+
+- **情感词典匹配**: 正面词(+score)和负面词(-score)
+- **否定词处理**: 检测到否定词时，后续情感词分数乘以 -0.75（非简单取反，保留部分原始语义）
+- **强化词处理**: "非常"、"极其"等强化词放大后续情感词的分数
+- **归一化**: `score = totalScore / sqrt(matchedCount)`，使用平方根归一化避免长文本偏差
+
+**算法伪代码**:
+```
+function lexiconSentiment(text):
+    tokens = tokenize(text)
+    totalScore = 0.0
+    matchedCount = 0
+    negation = false
+    for token in tokens:
+        if token in NEGATION_WORDS:
+            negation = true
+            continue
+        if token in INTENSIFIERS:
+            intensify = INTENSIFIERS[token]
+            continue
+        if token in SENTIMENT_LEXICON:
+            wordScore = SENTIMENT_LEXICON[token] * intensify
+            if negation:
+                wordScore *= -0.75
+                negation = false
+            totalScore += wordScore
+            matchedCount++
+            intensify = 1.0
+    if matchedCount == 0: return 0.0
+    return totalScore / sqrt(matchedCount)
+```
+
+**复杂度**: O(n)，n为token数量
+
+### 3.4 统计层 (Statistical Sentiment)
+
+基于5维文本统计特征进行分类：
+
+| 特征 | 说明 | 计算方式 |
+|-----|------|---------|
+| TTR | 词汇丰富度 | unique_words / total_words |
+| 平均词长 | 用词复杂度 | total_chars / total_words |
+| 文本长度 | 表达充分度 | min(char_count / 500.0, 1.0) |
+| 正负比 | 情感倾向 | positive_count / (negative_count + 1) |
+| 重复字符 | 情绪强度 | repeated_char_sequences / total_chars |
+
+**算法伪代码**:
+```
+function statisticalSentiment(text):
+    features = [TTR, avgWordLen, textLen, posNegRatio, repeatChars]
+    // 简单线性分类器
+    weights = trained_weights  // 预训练权重
+    score = dot(features, weights) + bias
+    return tanh(score)  // 映射到[-1, 1]
+```
+
+**复杂度**: O(n)，n为文本长度
+
+### 3.5 融合与情绪映射
+
+三层分数加权融合后，通过阈值映射为情绪类别：
+
+```
+function scoresToMood(score):
+    if score > 0.6:  return "joy"
+    if score > 0.2:  return "surprise"
+    if score > -0.2: return "neutral"
+    if score > -0.5: return "sadness"
+    if score > -0.7: return "fear"
+    return "anger"
+```
+
+**关键参数**:
+
+| 参数 | 值 | 说明 |
+|-----|---|------|
+| wRule | 0.25 | 规则层权重 |
+| wLexicon | 0.50 | 词典层权重（主导） |
+| wStatistical | 0.25 | 统计层权重 |
+| 否定系数 | -0.75 | 否定词对情感分数的翻转系数 |
+| 大写放大 | 1.5x | 全大写文本的情感强度放大倍数 |
 
 ---
 
-## 4. HNSW向量搜索
+## 4. AC自动机内容审核
+
+基于Aho-Corasick多模式匹配算法实现高效内容审核，支持中英文敏感词同时检测。
+
+**代码位置**: `backend/src/infrastructure/ai/EdgeAIEngine.cpp:596-789`
 
 ### 4.1 算法原理
 
-HNSW（Hierarchical Navigable Small World）是一种基于分层图的近似最近邻搜索算法，用于在边缘设备上实现高效的语义检索。
+AC自动机在Trie树基础上增加失败指针（failure link），实现一次扫描同时匹配所有模式串，避免逐词匹配的O(n*k)复杂度。
 
-### 4.2 分层图结构
+### 4.2 四类敏感词分类
 
-```
-Layer 2 (最稀疏):    A ─────────────────── D
-                     │                     │
-Layer 1 (中等密度):   A ──── B ──── C ──── D ──── E
-                     │      │      │      │      │
-Layer 0 (最密集):    A ─ B ─ C ─ D ─ E ─ F ─ G ─ H ─ I
+| 类别ID | 类别名称 | 说明 | 风险权重 |
+|-------|---------|------|---------|
+| 1 | self_harm | 自伤/自杀相关 | 最高，触发1.2x风险乘数 |
+| 2 | violence | 暴力相关 | 高 |
+| 3 | sexual | 色情相关 | 高 |
+| 0 | general_profanity | 一般脏话 | 中 |
 
-节点插入层级由概率决定:
-  P(level = l) = (1/mL)^l * (1 - 1/mL)
-  其中 mL = 1/ln(M), M 为每层最大连接数
-```
-
-### 4.3 搜索过程
+### 4.3 构建过程
 
 ```
-输入: 查询向量 q, 返回 K 个最近邻
-
-1. 从最高层的入口点 ep 开始
-2. 在当前层贪心搜索，找到距离 q 最近的节点
-3. 将该节点作为下一层的入口点，下降一层
-4. 在 Layer 0 执行 beam search (ef 个候选)
-5. 返回 Top-K 结果
-
-时间复杂度: O(log n)  — n 为向量总数
-空间复杂度: O(n * M)  — M 为平均连接数
+function buildModerationAC():
+    trie = new AhoCorasick()
+    // 插入四类中英文敏感词
+    for category in [self_harm, violence, sexual, profanity]:
+        for word in category.chinese_patterns:
+            trie.insert(word, category.id)
+        for word in category.english_patterns:
+            trie.insert(word, category.id)
+    trie.buildFailureLinks()  // BFS构建失败指针
+    return trie
 ```
 
-### 4.4 边缘优化策略
+### 4.4 语义风险分析
 
-- 向量维度压缩：768维 → 128维（PCA降维）
-- 乘积量化（PQ）：128维 → 16个子空间 × 8bit = 16字节/向量
-- 内存映射（mmap）：索引文件按需加载，减少常驻内存
+匹配到敏感词后，进行语义级别的风险评估：
+
+```
+function semanticRiskAnalysis(text, matches):
+    riskScore = 0.0
+    for match in matches:
+        baseRisk = CATEGORY_RISK[match.category]
+        // 自伤类别额外加权
+        if match.category == SELF_HARM:
+            baseRisk *= 1.2
+        // 上下文分析：否定语境降低风险
+        if hasNegationContext(text, match.position):
+            baseRisk *= 0.5
+        riskScore = max(riskScore, baseRisk)
+    return riskScore
+```
+
+### 4.5 风险等级判定
+
+| 等级 | 分数范围 | 处理策略 |
+|-----|---------|---------|
+| SAFE | 0 - 0.3 | 正常通过 |
+| WARNING | 0.3 - 0.6 | 标记审核 |
+| DANGEROUS | 0.6 - 0.8 | 拦截+人工复审 |
+| CRITICAL | 0.8 - 1.0 | 立即拦截+告警 |
+
+**复杂度分析**:
+- 构建: O(m)，m为所有模式串总长度
+- 匹配: O(n + z)，n为文本长度，z为匹配数量
+- 空间: O(m * sigma)，sigma为字符集大小
 
 ---
 
-## 5. 差分隐私Laplace机制
+## 5. 五因子心理风险评估
 
-### 5.1 定义
+基于心理学研究的五因子模型，对用户文本进行多维度心理风险评估，用于识别潜在的心理危机。
 
-差分隐私保证：对于任意相邻数据集 D 和 D'（仅差一条记录），机制 M 满足：
+**代码位置**: `backend/src/utils/PsychologicalRiskAssessment.cpp`
 
-```
-P[M(D) ∈ S] ≤ e^ε · P[M(D') ∈ S] + δ
-```
+### 5.1 五因子模型
 
-其中：
-- `ε` (epsilon)：隐私预算，越小隐私保护越强，通常取 0.1 ~ 1.0
-- `δ` (delta)：松弛参数，允许极小概率的隐私泄露，通常取 1/n²
+| 因子 | 权重 | 说明 |
+|-----|------|------|
+| selfHarmIntent | 0.9 | 自伤意图检测，权重最高 |
+| hopelessness | 0.6 | 绝望感评估 |
+| temporalUrgency | 0.5 | 时间紧迫性（"现在就"、"马上"） |
+| linguisticMarkers | 0.3 | 语言学标记（第一人称过度使用等） |
+| socialIsolation | 0.1 | 社交孤立信号（"没人理解"、"独自一人"） |
 
-### 5.2 Laplace机制
-
-对于查询函数 f 的全局敏感度 Δf：
-
-```
-Δf = max |f(D) - f(D')|    (对所有相邻数据集 D, D')
-         D,D'
-
-Laplace噪声:
-  M(D) = f(D) + Lap(Δf / ε)
-
-其中 Lap(b) 的概率密度函数:
-  p(x) = (1/2b) · e^(-|x|/b)
-  b = Δf / ε
-```
-
-### 5.3 组合定理
+### 5.2 评估算法
 
 ```
-顺序组合 (Sequential Composition):
-  k 次查询的总隐私预算 = ε₁ + ε₂ + ... + εₖ
+function assessPsychologicalRisk(text):
+    factors = {}
+    // 各因子独立评估
+    factors.selfHarmIntent = detectSelfHarmKeywords(text)      // 中文关键词匹配
+    factors.hopelessness = detectHopelessnessPatterns(text)     // 绝望表达模式
+    factors.temporalUrgency = detectTemporalUrgency(text)      // 时间紧迫词汇
+    factors.linguisticMarkers = analyzeLinguisticPatterns(text) // 语言学特征
+    factors.socialIsolation = detectIsolationSignals(text)      // 社交孤立信号
 
-并行组合 (Parallel Composition):
-  对不相交子集的查询，总隐私预算 = max(ε₁, ε₂, ..., εₖ)
+    // 加权求和
+    weights = [0.9, 0.6, 0.5, 0.3, 0.1]
+    totalRisk = sum(weight_i * factor_i) / sum(weight_i)
 
-高级组合 (Advanced Composition):
-  k 次 ε-DP 查询的总预算 ≤ ε√(2k·ln(1/δ')) + kε(e^ε - 1)
+    // 风险等级映射
+    level = mapRiskLevel(totalRisk)
+    return {totalRisk, level, factors}
 ```
 
-### 5.4 在边缘AI中的应用
+### 5.3 风险等级
 
-- 情绪统计聚合：对情绪分布直方图添加Laplace噪声后上报
-- 梯度扰动：联邦学习中对本地梯度添加噪声再上传
-- 隐私预算管理：每个用户每天分配固定 ε 预算，耗尽后停止数据收集
+| 等级 | 分数范围 | 响应策略 |
+|-----|---------|---------|
+| NONE | 0 | 无风险 |
+| LOW | 0 - 0.3 | 正常服务 |
+| MEDIUM | 0.3 - 0.6 | 温和关怀提示 |
+| HIGH | 0.6 - 0.8 | 推送专业资源 |
+| CRITICAL | 0.8 - 1.0 | 紧急干预+危机热线 |
+
+### 5.4 关键词检测
+
+每个因子维护独立的中文关键词集合，例如：
+
+- **selfHarmIntent**: 包含自伤、自杀相关的中文表达模式
+- **hopelessness**: "没有希望"、"活着没意思"等绝望表达
+- **temporalUrgency**: "现在就"、"今晚"、"马上"等时间紧迫词
+- **socialIsolation**: "没人理解我"、"独自一人"、"被抛弃"等孤立表达
+
+**复杂度**: O(n * k)，n为文本长度，k为关键词总数
 
 ---
 
-## 6. 联邦学习FedAvg
+## 6. HNSW向量搜索
 
-### 6.1 算法流程
+HNSW（Hierarchical Navigable Small World）是一种基于分层可导航小世界图的近似最近邻搜索算法，用于高维向量的快速相似度检索。
 
-```
-FedAvg 算法:
+**代码位置**: `backend/src/infrastructure/ai/EdgeAIEngine.cpp:100-393`
 
-输入: K 个客户端, 学习率 η, 本地轮次 E, 批大小 B
+### 6.1 核心参数
 
-服务端:
-  1. 初始化全局模型 w₀
-  2. for 每轮 t = 1, 2, ..., T:
-     a. 随机选择客户端子集 Sₜ (比例 C)
-     b. 将 wₜ 广播给 Sₜ 中的客户端
-     c. 收集各客户端更新 {wₜ₊₁ᵏ}
-     d. 加权平均:
-        wₜ₊₁ = Σₖ (nₖ/n) · wₜ₊₁ᵏ
-        其中 nₖ 为客户端 k 的样本数, n = Σnₖ
+| 参数 | 值 | 说明 |
+|-----|---|------|
+| M | 16 | 每层最大连接数 |
+| MMax0 | 32 | 第0层最大连接数（底层加倍） |
+| efConstruction | 200 | 构建时搜索宽度 |
+| efSearch | 50 | 查询时搜索宽度 |
+| levelMult | 1/ln(M) = 1/ln(16) | 层级概率乘数 |
 
-客户端 k:
-  1. 接收全局模型 wₜ
-  2. for 本地轮次 e = 1, ..., E:
-     for 每个 mini-batch b ∈ Bₖ:
-       w ← w - η · ∇L(w; b)
-  3. 上传更新后的 wₜ₊₁ᵏ
-```
+### 6.2 层级分配
 
-### 6.2 梯度裁剪
-
-防止单个客户端对全局模型产生过大影响：
+节点的最大层级通过随机概率分配：
 
 ```
-梯度裁剪 (Gradient Clipping):
-
-  gₖ = wₜ₊₁ᵏ - wₜ                    // 客户端 k 的伪梯度
-  g̃ₖ = gₖ · min(1, C / ‖gₖ‖₂)       // 裁剪到范数 C
-
-  裁剪阈值 C 的选择:
-    - 过小: 收敛速度慢，模型欠拟合
-    - 过大: 无法有效限制异常客户端
-    - 经验值: C = median(‖g₁‖, ‖g₂‖, ..., ‖gₖ‖)
+function randomLevel():
+    level = 0
+    while random() < 1.0/ln(M) and level < MAX_LEVEL:
+        level++
+    return level
 ```
 
-### 6.3 安全聚合
+这保证了层级呈指数递减分布，高层节点稀疏，底层节点密集。
+
+### 6.3 插入算法
 
 ```
-安全聚合协议 (Secure Aggregation):
+function insert(node, embedding):
+    level = randomLevel()
+    node.level = level
+    node.embedding = embedding
 
-  1. 每对客户端 (i,j) 协商随机掩码 mᵢⱼ
-  2. 客户端 i 上传: g̃ᵢ + Σⱼ mᵢⱼ    (mᵢⱼ = -mⱼᵢ)
-  3. 服务端求和时掩码自动抵消:
-     Σᵢ (g̃ᵢ + Σⱼ mᵢⱼ) = Σᵢ g̃ᵢ
+    if graph is empty:
+        entryPoint = node
+        return
 
-  效果: 服务端只能看到聚合梯度，无法还原单个客户端的梯度
+    current = entryPoint
+    // 从最高层贪心下降到 level+1
+    for l = maxLevel downto level+1:
+        current = greedySearch(current, embedding, l)
+
+    // 从 level 层到第0层，搜索并建立连接
+    for l = level downto 0:
+        neighbors = searchLayer(current, embedding, efConstruction, l)
+        // 选择最近的M个邻居（第0层选MMax0个）
+        maxConn = (l == 0) ? MMax0 : M
+        selected = selectNeighbors(neighbors, maxConn)
+        // 双向连接
+        for neighbor in selected:
+            connect(node, neighbor, l)
+            connect(neighbor, node, l)
+            // 如果邻居连接数超限，裁剪最远的
+            if degree(neighbor, l) > maxConn:
+                pruneConnections(neighbor, maxConn, l)
 ```
+
+### 6.4 搜索算法
+
+```
+function search(query, K, efSearch):
+    current = entryPoint
+    // 从最高层贪心下降到第1层
+    for l = maxLevel downto 1:
+        current = greedySearch(current, query, l)
+    // 在第0层进行beam search
+    candidates = searchLayer(current, query, efSearch, 0)
+    return topK(candidates, K)
+```
+
+### 6.5 复杂度分析
+
+| 操作 | 时间复杂度 | 说明 |
+|-----|-----------|------|
+| 插入 | O(log n * M * efConstruction) | 每层搜索+连接 |
+| 搜索 | O(log n * efSearch) | 分层贪心+底层beam |
+| 空间 | O(n * M * L) | n节点，M连接，L平均层数 |
+
+其中 L = O(log n)，因此搜索复杂度近似 O(log^2 n)。
+
+### 6.6 关键参数
+
+| 参数 | 默认值 | 含义 |
+|-----|-------|------|
+| M | 16 | 每层最大连接数 |
+| MMax0 | 32 | 第0层最大连接数（2*M） |
+| efConstruction | 200 | 构建时搜索宽度 |
+| efSearch | 50 | 查询时搜索宽度 |
+| levelMult | 1/ln(M) ≈ 0.3607 | 层级概率乘数 |
+| 距离度量 | 余弦距离 | 1 - cosineSimilarity |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp:100-393`，`backend/include/infrastructure/ai/EdgeAIEngine.h`（HNSWNode, VectorSearchResult 结构体）
 
 ---
 
-## 7. 情绪脉搏
+## 7. 差分隐私Laplace机制
 
-### 7.1 滑动窗口统计
+### 7.1 设计动机
 
-情绪脉搏模块对用户的实时情绪状态进行连续追踪，采用滑动窗口机制：
+联邦学习中，即使只上传模型梯度而非原始数据，攻击者仍可通过梯度反演（gradient inversion）推断训练数据。差分隐私通过向梯度添加校准噪声，提供数学可证明的隐私保障。
 
-```
-窗口参数:
-  - 窗口大小 W = 20 (最近20次交互)
-  - 滑动步长 S = 1  (每次交互更新)
+### 7.2 核心算法
 
-情绪向量:
-  e(t) = [joy, sadness, anger, fear, surprise, neutral]
-  其中 Σ eᵢ(t) = 1 (概率分布)
-
-滑动窗口均值:
-  E_avg(t) = (1/W) · Σᵢ₌ₜ₋ᵥ₊₁ᵗ e(i)
-
-指数加权移动平均 (EWMA):
-  E_ewma(t) = α · e(t) + (1-α) · E_ewma(t-1)
-  α = 0.3 (近期权重更高)
-```
-
-### 7.2 情绪波动检测
+Laplace机制通过逆CDF采样生成噪声：
 
 ```
-波动度 (Volatility):
-  V(t) = std(e(t-W+1), ..., e(t))
-
-情绪突变检测:
-  if ‖e(t) - E_ewma(t-1)‖₂ > θ_alert:
-      触发情绪突变告警
-  θ_alert = 0.5 (可配置阈值)
-
-情绪趋势:
-  trend(t) = E_ewma(t) - E_ewma(t - W)
-  trend > 0: 情绪改善
-  trend < 0: 情绪恶化
+X = -b * sign(U - 0.5) * ln(1 - 2|U - 0.5|)
 ```
 
-### 7.3 应用
+其中 b = sensitivity / epsilon，U ~ Uniform(0, 1)。
 
-- 自适应对话策略：情绪低落时切换为安慰模式
-- 危机干预：检测到持续负面情绪时触发预警
-- 个性化推荐：根据情绪状态调整内容推荐
+### 7.3 实现伪代码
+
+```
+function sampleLaplace(sensitivity, epsilon, currentBudget, maxBudget):
+    // 原子CAS预算检查
+    loop:
+        current = atomicLoad(currentBudget)
+        if current + epsilon > maxBudget:
+            return 0.0  // 预算耗尽，返回零噪声
+        if atomicCAS(currentBudget, current, current + epsilon):
+            break
+
+    // Laplace采样（逆CDF方法）
+    b = sensitivity / epsilon
+    U = uniformRandom(0, 1)
+    noise = -b * sign(U - 0.5) * ln(1 - 2 * |U - 0.5|)
+    return noise
+```
+
+### 7.4 预算管理
+
+采用原子CAS（Compare-And-Swap）操作实现无锁预算追踪：
+
+- `privacyBudgetUsed_`：原子变量，记录已消耗的隐私预算
+- `maxBudget`：DPConfig中配置的最大预算上限
+- 每次采样消耗 epsilon 预算，预算耗尽后返回零噪声（静默降级）
+
+### 7.5 关键参数
+
+| 参数 | 默认值 | 含义 |
+|-----|-------|------|
+| epsilon | 1.0 | 隐私预算单次消耗 |
+| maxBudget | 10.0 | 总隐私预算上限 |
+| sensitivity | 1.0 | 查询敏感度 |
+| noiseScale | sensitivity/epsilon | Laplace分布尺度参数 |
+
+### 7.6 复杂度分析
+
+| 操作 | 复杂度 | 说明 |
+|-----|-------|------|
+| 单次采样 | O(1) | 逆CDF计算 |
+| 预算检查 | O(1) 均摊 | 原子CAS，极少重试 |
+| 空间 | O(1) | 仅存储预算计数器 |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp:1057-1099`
 
 ---
 
-## 8. INT8量化
+## 8. 联邦学习FedAvg
 
-### 8.1 量化公式
+### 8.1 设计动机
 
-将浮点权重映射到8位整数：
+用户情感模型需要持续学习以适应个体差异，但原始情感数据不能离开设备。联邦学习允许多个设备协作训练共享模型，仅交换模型参数（梯度），原始数据始终留在本地。
 
-```
-量化 (Quantization):
-  q = round(x / scale) + zero_point
+### 8.2 核心算法
 
-反量化 (Dequantization):
-  x̂ = (q - zero_point) × scale
-
-参数计算:
-  scale = (x_max - x_min) / (2⁸ - 1)
-        = (x_max - x_min) / 255
-
-  zero_point = round(-x_min / scale)
-```
-
-### 8.2 对称量化 vs 非对称量化
+FedAvg（Federated Averaging）加权聚合公式：
 
 ```
-对称量化 (Symmetric):
-  scale = max(|x_max|, |x_min|) / 127
-  zero_point = 0
-  q = round(x / scale)
-  范围: [-127, 127]
-
-非对称量化 (Asymmetric):
-  scale = (x_max - x_min) / 255
-  zero_point = round(-x_min / scale)
-  q = round(x / scale) + zero_point
-  范围: [0, 255]
+w_global = Sum(n_k / n) * w_k
 ```
 
-### 8.3 量化感知训练 (QAT)
+其中 n_k 为第k个客户端的样本数，n = Sum(n_k) 为总样本数。
+
+### 8.3 实现伪代码
 
 ```
-前向传播: 使用伪量化 (Fake Quantization)
-  x̂ = dequant(quant(x))
-  模拟量化误差，但保持浮点梯度
+function aggregateFedAvg(clientUpdates[]):
+    if clientUpdates is empty:
+        return currentGlobalModel
 
-反向传播: 直通估计器 (Straight-Through Estimator)
-  ∂L/∂x ≈ ∂L/∂x̂   (当 x_min ≤ x ≤ x_max)
-  ∂L/∂x = 0         (当 x 超出量化范围)
+    // 计算总样本数
+    totalSamples = 0
+    for each update in clientUpdates:
+        totalSamples += update.sampleCount
+
+    // 加权平均聚合
+    globalWeights = zeros(modelDimension)
+    for each update in clientUpdates:
+        weight = update.sampleCount / totalSamples
+        for i in 0..modelDimension:
+            globalWeights[i] += weight * update.weights[i]
+
+    // 可选：添加差分隐私噪声
+    if dpEnabled:
+        for i in 0..modelDimension:
+            globalWeights[i] += sampleLaplace(sensitivity, epsilon)
+
+    // 更新全局模型版本号
+    globalModelVersion++
+    return globalWeights
 ```
 
-### 8.4 边缘部署效果
+### 8.4 关键参数
 
-| 指标       | FP32    | INT8    | 提升     |
-|-----------|---------|---------|---------|
-| 模型大小   | 80MB    | 20MB    | 4x 压缩  |
-| 推理延迟   | 45ms    | 12ms    | 3.75x   |
-| 内存占用   | 320MB   | 85MB    | 3.76x   |
-| 精度损失   | —       | < 1%    | 可接受   |
+| 参数 | 含义 |
+|-----|------|
+| clientUpdates | 各客户端上传的模型参数和样本数 |
+| sampleCount | 单客户端本地训练样本数 |
+| modelVersion | 全局模型版本号，单调递增 |
+| dpEnabled | 是否在聚合后添加差分隐私噪声 |
+
+### 8.5 复杂度分析
+
+| 操作 | 复杂度 | 说明 |
+|-----|-------|------|
+| 聚合 | O(K * d) | K个客户端，d维模型参数 |
+| 空间 | O(d) | 全局模型参数存储 |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp:955-1019`
 
 ---
 
-## 9. 节点监控
+## 9. 情绪脉搏追踪
 
-### 9.1 健康评分公式
+### 9.1 设计动机
 
-每个边缘节点的健康评分由多维指标加权计算：
+单次情感分析只能捕捉瞬时情绪，无法反映用户情绪的变化趋势。情绪脉搏系统通过滑动窗口持续追踪情绪时序数据，计算趋势、波动性和稳定性指标，为心理健康预警提供数据支撑。
 
-```
-健康评分 H ∈ [0, 100]:
+### 9.2 核心机制
 
-H = w₁·S_cpu + w₂·S_mem + w₃·S_latency + w₄·S_error + w₅·S_model
+- 滑动窗口：固定300秒时间窗口，最多保留100条历史记录
+- 趋势计算：线性回归斜率（最小二乘法）
+- 波动性：窗口内情绪分数的标准差
+- 快照机制：每累积10个样本自动生成一次快照
 
-各维度评分 (归一化到 0-100):
-
-  S_cpu     = max(0, 100 - cpu_usage)
-  S_mem     = max(0, 100 - mem_usage)
-  S_latency = max(0, 100 - (p99_latency / target_latency) × 100)
-  S_error   = max(0, 100 - error_rate × 1000)
-  S_model   = 100 if model_version == latest else 50
-
-权重 (总和为1):
-  w₁ = 0.20  (CPU)
-  w₂ = 0.15  (内存)
-  w₃ = 0.30  (延迟，最重要)
-  w₄ = 0.25  (错误率)
-  w₅ = 0.10  (模型版本)
-```
-
-### 9.2 告警阈值
+### 9.3 实现伪代码
 
 ```
-健康等级:
-  H ≥ 80:  健康 (Green)   — 正常服务
-  60 ≤ H < 80: 警告 (Yellow) — 发出告警，准备扩容
-  40 ≤ H < 60: 危险 (Orange) — 触发降级策略
-  H < 40:  严重 (Red)     — 触发熔断，流量切走
+struct EmotionPulse:
+    currentScore: float       // 当前情绪分数
+    trend: float             // 趋势斜率（正=好转，负=恶化）
+    volatility: float        // 波动性（标准差）
+    stability: float         // 稳定性 = 1 / (1 + volatility)
+    dominantMood: string     // 窗口内主导情绪
+    windowSize: int          // 当前窗口样本数
+    snapshotCount: int       // 已生成快照数
+
+function updatePulse(newScore, timestamp):
+    // 1. 清理过期数据（超出300秒窗口）
+    removeExpired(history, timestamp - 300s)
+
+    // 2. 添加新数据点
+    history.push({score: newScore, time: timestamp})
+    if history.size > 100:
+        history.removeOldest()
+
+    // 3. 计算趋势（线性回归斜率）
+    if history.size >= 3:
+        trend = linearRegressionSlope(history)
+
+    // 4. 计算波动性（标准差）
+    volatility = stddev(history.scores)
+    stability = 1.0 / (1.0 + volatility)
+
+    // 5. 统计主导情绪
+    dominantMood = mostFrequent(history.moods)
+
+    // 6. 快照机制
+    samplesSinceSnapshot++
+    if samplesSinceSnapshot >= 10:
+        saveSnapshot(currentPulse)
+        samplesSinceSnapshot = 0
+
+function linearRegressionSlope(points):
+    n = points.size
+    sumX = sumY = sumXY = sumX2 = 0
+    for i, point in enumerate(points):
+        x = i  // 使用索引作为时间序列
+        y = point.score
+        sumX += x; sumY += y
+        sumXY += x * y; sumX2 += x * x
+    denominator = n * sumX2 - sumX * sumX
+    if denominator == 0: return 0
+    return (n * sumXY - sumX * sumY) / denominator
 ```
 
-### 9.3 监控指标采集
+### 9.4 情绪分数到情绪类型映射
 
 ```
-采集频率:
-  - CPU/内存:    每 5s 采集
-  - 推理延迟:    每次请求实时记录
-  - 错误率:      每 10s 滑动窗口统计
-  - 模型版本:    每 60s 检查一次
-
-上报策略:
-  - 正常状态: 每 30s 上报一次心跳
-  - 异常状态: 立即上报 + 每 5s 上报
+function scoresToMood(score):
+    if score > 0.6:  return "joy"
+    if score > 0.2:  return "surprise"
+    if score > -0.2: return "neutral"
+    if score > -0.5: return "sadness"
+    if score > -0.7: return "fear"
+    return "anger"
 ```
+
+### 9.5 关键参数
+
+| 参数 | 默认值 | 含义 |
+|-----|-------|------|
+| windowDuration | 300秒 | 滑动窗口时间跨度 |
+| maxHistory | 100 | 最大历史记录数 |
+| snapshotInterval | 10 | 每N个样本生成快照 |
+| minSamplesForTrend | 3 | 计算趋势所需最少样本数 |
+
+### 9.6 复杂度分析
+
+| 操作 | 复杂度 | 说明 |
+|-----|-------|------|
+| 更新 | O(w) | w为窗口大小，需遍历计算统计量 |
+| 快照 | O(1) | 固定大小数据拷贝 |
+| 空间 | O(w) | 滑动窗口存储 |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp:824-941`
 
 ---
 
-## 10. 熔断降级
+## 10. INT8量化推理
 
-### 10.1 状态机
+### 10.1 设计动机
 
-```
-熔断器三态状态机:
+边缘设备内存和算力有限，FP32模型体积大、推理慢。INT8对称量化将模型体积压缩至1/4，同时利用整数运算加速推理，在精度损失可控的前提下大幅提升端侧性能。
 
-  ┌──────────┐    失败率 > 阈值    ┌──────────┐
-  │  CLOSED  │ ──────────────────► │   OPEN   │
-  │ (正常放行) │                    │ (全部拒绝) │
-  └──────────┘                    └────┬─────┘
-       ▲                               │
-       │                          超时时间到
-       │  连续成功 ≥ N                  │
-       │                               ▼
-       │                        ┌───────────┐
-       └─────────────────────── │ HALF-OPEN │
-                                │ (试探放行)  │
-                                └───────────┘
+### 10.2 核心算法
 
-状态转换条件:
-  CLOSED → OPEN:
-    滑动窗口内失败率 > 50% 且请求数 > 20
-
-  OPEN → HALF-OPEN:
-    熔断持续时间 > 30s (指数退避: 30s, 60s, 120s, ...)
-
-  HALF-OPEN → CLOSED:
-    连续 5 次试探请求成功
-
-  HALF-OPEN → OPEN:
-    任意 1 次试探请求失败
-```
-
-### 10.2 降级策略
+对称量化公式：
 
 ```
-降级层级 (由轻到重):
-
-Level 0 - 正常模式:
-  完整AI推理 + HNSW检索 + 情绪分析
-
-Level 1 - 轻度降级:
-  关闭HNSW检索，使用AC自动机关键词匹配替代
-  延迟: 50ms → 5ms
-
-Level 2 - 中度降级:
-  关闭AI推理，使用规则引擎 + 模板回复
-  延迟: 50ms → 1ms
-
-Level 3 - 重度降级:
-  返回预设兜底回复
-  延迟: < 1ms
-
-触发条件:
-  Level 0 → 1: 推理延迟 P99 > 100ms
-  Level 1 → 2: CPU > 90% 或 内存 > 95%
-  Level 2 → 3: 熔断器 OPEN 状态
+scale = max(|x|) / 127
+x_quantized = round(x / scale)        // FP32 -> INT8
+x_dequantized = x_quantized * scale   // INT8 -> FP32
 ```
+
+量化矩阵乘法使用INT32累加防止溢出：
+
+```
+C_int32[i][j] = Sum(A_int8[i][k] * B_int8[k][j])  // INT32累加
+C_fp32[i][j] = C_int32[i][j] * scaleA * scaleB     // 反量化
+```
+
+### 10.3 实现伪代码
+
+```
+function quantize(floatData[]):
+    // 计算对称量化scale
+    maxAbs = 0
+    for x in floatData:
+        maxAbs = max(maxAbs, |x|)
+    scale = maxAbs / 127.0
+    if scale == 0: scale = 1.0
+
+    // 量化为INT8
+    quantized = new int8[floatData.size]
+    for i in 0..floatData.size:
+        val = round(floatData[i] / scale)
+        quantized[i] = clamp(val, -128, 127)
+    return QuantizedTensor{quantized, scale}
+
+function quantizedDotProduct(a: QuantizedTensor, b: QuantizedTensor):
+    // INT32累加，4路展开优化
+    acc = 0  // int32
+    i = 0
+    // 4-way unrolling
+    while i + 4 <= length:
+        acc += a.data[i]   * b.data[i]
+              + a.data[i+1] * b.data[i+1]
+              + a.data[i+2] * b.data[i+2]
+              + a.data[i+3] * b.data[i+3]
+        i += 4
+    // 处理剩余元素
+    while i < length:
+        acc += a.data[i] * b.data[i]
+        i++
+    // 反量化回FP32
+    return acc * a.scale * b.scale
+```
+
+### 10.4 关键参数
+
+| 参数 | 值 | 含义 |
+|-----|---|------|
+| 量化位宽 | 8-bit | INT8对称量化 |
+| 量化范围 | [-128, 127] | 有符号8位整数 |
+| 累加精度 | INT32 | 防止中间结果溢出 |
+| 展开因子 | 4 | 循环展开优化 |
+
+### 10.5 复杂度分析
+
+| 操作 | 复杂度 | 说明 |
+|-----|-------|------|
+| 量化 | O(n) | 遍历所有元素 |
+| 点积 | O(n) | 4路展开常数优化 |
+| 空间 | O(n) | INT8存储，为FP32的1/4 |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp:1100+`，`backend/include/infrastructure/ai/EdgeAIEngine.h`（QuantizedTensor 结构体）
 
 ---
 
-## 11. 云端协同
+## 11. 熔断器状态机（CircuitBreaker）
 
-### 11.1 协同模式
+### 11.1 设计动机
 
-```
-模式1: 模型分发 (Cloud → Edge)
-  ┌───────┐   模型增量包   ┌───────┐
-  │ Cloud │ ─────────────► │ Edge  │
-  └───────┘   (差量更新)    └───────┘
-  - 全量更新: 新版本发布时
-  - 增量更新: 仅传输变化的层权重 (delta compression)
-  - 灰度发布: 按节点百分比逐步推送
+边缘AI推理依赖多个子系统（embedding生成、向量搜索、情绪分析等），任何子系统的持续故障都可能导致级联失败。熔断器模式通过快速失败（fail-fast）机制，在检测到下游服务异常时主动切断调用链，保护系统整体可用性，并在故障恢复后自动重新接入。
 
-模式2: 联邦梯度上传 (Edge → Cloud)
-  ┌───────┐   加密梯度     ┌───────┐
-  │ Edge  │ ─────────────► │ Cloud │
-  └───────┘   (DP加噪后)   └───────┘
-  - 上传频率: 每 1000 次本地推理后
-  - 压缩: 梯度稀疏化 (Top-K) + 量化
-  - 加密: TLS 1.3 + 安全聚合协议
-
-模式3: 配置下发 (Cloud → Edge)
-  - 熔断阈值、降级策略、特征开关
-  - 实时生效，无需重启
-```
-
-### 11.2 离线容灾
+### 11.2 状态机模型
 
 ```
-离线策略:
-  1. 本地模型持续服务，不受云端影响
-  2. 梯度缓存到本地队列，恢复连接后批量上传
-  3. 配置使用本地缓存版本
-  4. 监控数据本地持久化，恢复后补报
-
-重连策略:
-  - 指数退避: 1s, 2s, 4s, 8s, ..., 最大 300s
-  - 心跳检测: 每 10s 尝试 ping 云端
-  - 优先级恢复: 配置同步 > 模型更新 > 梯度上传
+                    失败次数 >= threshold
+    CLOSED ──────────────────────────────> OPEN
+      ^                                     |
+      |                                     |
+      | 探测成功                    超时(resetTimeoutMs)
+      |                                     |
+      └──────────── HALF_OPEN <─────────────┘
+                       |
+                       | 探测失败
+                       └──────> OPEN
 ```
+
+三态转换规则：
+
+| 当前状态 | 事件 | 目标状态 | 动作 |
+|---------|------|---------|------|
+| CLOSED | 失败次数 >= failureThreshold | OPEN | 拒绝所有请求 |
+| OPEN | 经过 resetTimeoutMs 毫秒 | HALF_OPEN | 允许一个探测请求 |
+| HALF_OPEN | 探测请求成功 | CLOSED | 重置失败计数，恢复正常 |
+| HALF_OPEN | 探测请求失败 | OPEN | 重新计时 |
+
+### 11.3 实现伪代码
+
+```
+class CircuitBreaker:
+    state = CLOSED
+    failureCount = 0
+    failureThreshold = 5
+    resetTimeoutMs = 30000
+    lastFailureTime = 0
+
+    function execute(func):
+        if not allowRequest():
+            throw "Circuit breaker is OPEN"
+
+        try:
+            result = func()
+            onSuccess()
+            return result
+        catch:
+            onFailure()
+            rethrow
+
+    function allowRequest():
+        lock(mutex)
+        if state == CLOSED:
+            return true
+        if state == OPEN:
+            if now() - lastFailureTime > resetTimeoutMs:
+                state = HALF_OPEN
+                return true
+            return false
+        // HALF_OPEN: 允许探测
+        return true
+
+    function onSuccess():
+        lock(mutex)
+        if state == HALF_OPEN:
+            state = CLOSED
+            failureCount = 0
+
+    function onFailure():
+        lock(mutex)
+        failureCount++
+        lastFailureTime = now()
+        if failureCount >= failureThreshold:
+            state = OPEN
+```
+
+### 11.4 关键参数
+
+| 参数 | 默认值 | 含义 |
+|-----|-------|------|
+| failureThreshold | 5 | 触发熔断的连续失败次数 |
+| resetTimeoutMs | 30000 | OPEN状态超时时间（毫秒） |
+| 并发控制 | std::mutex | 保护状态转换的线程安全 |
+
+### 11.5 设计要点
+
+- 使用 `mutable std::mutex` 保证 `getState()` const方法也能加锁
+- `execute()` 模板方法通过 `if constexpr` 区分 void 和非 void 返回类型
+- 失败计数采用简单累加策略（非滑动窗口），适合边缘设备低开销场景
+- `reset()` 方法提供手动恢复能力，用于运维干预
+
+代码位置：`backend/include/utils/CircuitBreaker.h`
 
 ---
 
-## 12. 未来演进
+## 12. 情绪感知时序共鸣引擎（EmotionResonanceEngine）
 
-### 12.1 短期规划 (3-6个月)
+### 12.1 设计动机
 
-- **WebAssembly推理运行时**：将INT8推理引擎编译为WASM，支持浏览器端运行
-- **模型蒸馏管线**：自动将云端大模型蒸馏为边缘小模型
-- **多模态支持**：增加语音情绪识别（MFCC特征 + 轻量CNN）
+传统内容推荐基于内容相似度或协同过滤，忽略了用户的情绪状态变化。HeartLake的"石头"（匿名心事）具有强烈的情绪属性，因此推荐算法需要理解用户的情绪轨迹，将处于相似情绪旅程中的用户连接起来，同时避免"回音室效应"（只推荐相同情绪的内容）。
 
-### 12.2 中期规划 (6-12个月)
+### 12.2 四维共鸣公式
 
-- **边缘集群协同**：多个边缘节点组成P2P网络，共享推理负载
-- **自适应量化**：根据设备算力动态选择INT8/INT4/二值化
-- **因果推理引擎**：从相关性分析升级为因果关系建模
+```
+ResonanceScore = alpha * SemanticSim + beta * EmotionTrajectorySim
+               + gamma * TemporalDecay + delta * DiversityBonus
+```
 
-### 12.3 长期愿景 (12个月+)
+| 维度 | 权重 | 含义 |
+|-----|------|------|
+| SemanticSim (alpha) | 0.30 | 文本语义相似度（余弦距离） |
+| EmotionTrajectorySim (beta) | 0.35 | 情绪轨迹DTW相似度 |
+| TemporalDecay (gamma) | 0.20 | 时间新鲜度衰减 |
+| DiversityBonus (delta) | 0.15 | 多样性奖励（反回音室） |
 
-- **端侧大模型**：随硬件发展，在边缘设备运行7B+参数模型
-- **神经形态计算**：探索SNN（脉冲神经网络）在超低功耗场景的应用
-- **同态加密推理**：在加密数据上直接执行推理，实现零知识隐私保护
+权重约束：alpha + beta + gamma + delta = 1.0
+
+### 12.3 DTW情绪轨迹相似度
+
+Dynamic Time Warping（动态时间规整）用于比较两个不等长的情绪分数序列，找到最优对齐路径。
+
+```
+function trajectorySimDTW(traj1[1..n], traj2[1..m]):
+    // 初始化DTW距离矩阵
+    dtw[0..n][0..m] = INF
+    dtw[0][0] = 0
+
+    for i = 1 to n:
+        for j = 1 to m:
+            cost = |traj1[i] - traj2[j]|
+            dtw[i][j] = cost + min(dtw[i-1][j],
+                                    dtw[i][j-1],
+                                    dtw[i-1][j-1])
+
+    // 归一化 + 高斯核转换
+    normalizedDist = dtw[n][m] / max(n, m)
+    similarity = exp(-normalizedDist^2 / 2)
+    return similarity
+```
+
+高斯核 `exp(-d^2/2)` 将距离映射到 [0, 1] 相似度空间，距离越小相似度越高。
+
+复杂度：O(n * m) 时间，O(n * m) 空间。
+
+### 12.4 时间衰减
+
+指数衰减函数，使新发布的石头获得更高权重：
+
+```
+temporalDecay(timestamp) = exp(-lambda * deltaHours)
+```
+
+其中 lambda = 0.1（默认），deltaHours 为石头发布距今的小时数。
+
+| deltaHours | 衰减值 |
+|-----------|-------|
+| 0 | 1.000 |
+| 1 | 0.905 |
+| 6 | 0.549 |
+| 24 | 0.091 |
+| 72 | 0.001 |
+
+支持两种时间戳格式解析：`%Y-%m-%d %H:%M:%S` 和 `%Y-%m-%dT%H:%M:%S`。
+
+### 12.5 多样性奖励
+
+多样性奖励机制通过三层策略避免推荐结果的情绪单一化：
+
+```
+function diversityBonus(currentMood, candidateMood, alreadyRecommended):
+    // 层1: 基础分 - 不同情绪类型获得更高基础分
+    bonus = (currentMood != candidateMood) ? 0.6 : 0.3
+
+    // 层2: 重复衰减 - 已推荐列表中相同情绪越多，奖励越低
+    sameCount = count(candidateMood in alreadyRecommended)
+    bonus *= 0.8 ^ sameCount
+
+    // 层3: 互补情绪额外奖励（心理学治愈效果）
+    complementaryPairs = {
+        sad <-> hopeful,
+        anxious <-> calm,
+        angry <-> grateful,
+        confused -> hopeful,
+        lonely -> happy
+    }
+    if (currentMood, candidateMood) in complementaryPairs:
+        bonus += 0.3
+
+    return min(1.0, bonus)
+```
+
+### 12.6 共鸣原因生成
+
+根据四维分数中的主导维度，生成人类可读的共鸣原因文本：
+
+| 主导维度 | 条件 | 示例文本 |
+|---------|------|---------|
+| trajectoryScore > 0.6 | 相同情绪 | "你们正经历着相似的情绪旅程，心灵在同一频率上共振" |
+| semanticScore > 0.7 | - | "你们的心声如此相似，仿佛来自同一片星空" |
+| diversityScore > 0.5 | 互补情绪 | 根据currentMood查表（如sad: "这份温暖也许能照亮你心中的阴霾"） |
+| temporalScore > 0.8 | - | "此刻，有人和你一样在湖边驻足" |
+| totalScore > 0.7 | 综合 | "冥冥之中，你们的心灵产生了深深的共鸣" |
+
+### 12.7 推荐流程
+
+```
+function findResonance(userId, stoneId, limit=10):
+    // 1. 获取源石头信息
+    source = db.query("SELECT ... FROM stones WHERE stone_id = ?", stoneId)
+
+    // 2. 加载当前用户近7天情绪轨迹
+    userTraj = loadTrajectory(userId, days=7)
+
+    // 3. 生成源石头的embedding向量
+    sourceEmb = embeddingEngine.generateEmbedding(source.content)
+
+    // 4. 获取候选石头（排除自己的、近30天、limit*5条）
+    candidates = db.query("SELECT ... FROM stones WHERE ...")
+
+    // 5. 对每个候选计算四维分数
+    for each candidate in candidates:
+        semantic  = cosineSimilarity(sourceEmb, candidateEmb)
+        trajectory = trajectorySimDTW(userTraj.scores, candTraj.scores)
+        temporal  = temporalDecay(candidate.created_at)
+        diversity = diversityBonus(sourceMood, candMood, recommendedMoods)
+
+        total = alpha*semantic + beta*trajectory
+              + gamma*temporal + delta*diversity
+
+        result.resonanceReason = generateResonanceReason(...)
+
+    // 6. 按总分降序排序，截取top-K
+    sort(results, by=totalScore, desc)
+    return results[0..limit]
+```
+
+### 12.8 复杂度分析
+
+| 操作 | 复杂度 | 说明 |
+|-----|-------|------|
+| DTW计算 | O(n * m) | n, m为两用户的情绪序列长度 |
+| Embedding生成 | O(d) | d为embedding维度 |
+| 余弦相似度 | O(d) | 向量点积 |
+| 单次推荐 | O(C * (n*m + d)) | C为候选数量 |
+
+代码位置：`backend/src/infrastructure/ai/EmotionResonanceEngine.cpp`，`backend/include/infrastructure/ai/EmotionResonanceEngine.h`
 
 ---
 
-> 文档版本: v1.0
-> 最后更新: 2025-06-15
-> 维护: jokerbai
+## 13. 节点健康监控
+
+### 13.1 设计动机
+
+边缘AI引擎运行在资源受限的环境中，需要实时监控各子系统的健康状态，以便在异常时触发降级策略或告警。监控系统采集CPU、内存、推理延迟等指标，并通过滑动窗口聚合提供趋势判断能力。
+
+### 13.2 监控指标
+
+EdgeAIEngine通过 `getHealthStatus()` 方法汇报以下指标：
+
+| 指标 | 类型 | 含义 |
+|-----|------|------|
+| initialized | bool | 引擎是否完成初始化 |
+| model_loaded | bool | 模型文件是否加载成功 |
+| embedding_dimension | int | 当前embedding维度 |
+| vocab_size | int | 词汇表大小 |
+| hnsw_node_count | int | HNSW索引中的节点数量 |
+| privacy_budget_used | float | 已消耗的差分隐私预算 |
+| privacy_budget_max | float | 最大隐私预算 |
+| emotion_pulse.window_size | int | 情绪脉搏窗口当前样本数 |
+| emotion_pulse.current_avg | float | 当前窗口平均情绪分 |
+| federated.total_rounds | int | 联邦学习已完成轮次 |
+| federated.active_nodes | int | 活跃参与节点数 |
+
+### 13.3 健康检查流程
+
+```
+function getHealthStatus():
+    status = {}
+    status.initialized = isInitialized()
+    status.model_loaded = (embeddingDim > 0)
+    status.embedding_dimension = embeddingDim
+    status.vocab_size = vocabulary.size()
+
+    // HNSW索引状态
+    lock(hnswMutex)
+    status.hnsw_node_count = hnswNodes.size()
+
+    // 隐私预算状态
+    status.privacy_budget_used = privacyBudgetUsed.load()
+    status.privacy_budget_max = dpConfig.maxBudget
+
+    // 情绪脉搏状态
+    lock(pulseMutex)
+    status.emotion_pulse.window_size = pulseWindow.size()
+    status.emotion_pulse.current_avg = computeWindowAverage()
+
+    // 联邦学习状态
+    status.federated.total_rounds = federatedRounds
+    status.federated.active_nodes = activeNodes.size()
+
+    return status
+```
+
+### 13.4 降级策略
+
+当监控检测到异常时，系统按以下优先级降级：
+
+| 级别 | 条件 | 降级动作 |
+|-----|------|---------|
+| L1 | 模型未加载 | 跳过embedding生成，使用纯规则引擎 |
+| L2 | HNSW索引为空 | 向量搜索退化为全量扫描 |
+| L3 | 隐私预算耗尽 | 停止添加噪声，静默降级 |
+| L4 | 熔断器OPEN | 快速失败，返回缓存结果 |
+
+代码位置：`backend/src/infrastructure/ai/EdgeAIEngine.cpp`（getHealthStatus方法）
+
+---
+
+## 14. 云端同步协议
+
+### 14.1 设计动机
+
+边缘AI引擎在本地完成推理和学习后，需要将联邦学习的模型更新同步到云端进行聚合，同时从云端拉取全局模型更新。同步协议需要处理网络不稳定、断点续传、冲突解决等问题。
+
+### 14.2 同步流程
+
+```
+边缘节点                              云端服务器
+   |                                     |
+   |  1. 上传本地模型更新(加噪声)         |
+   |  ─────────────────────────────────> |
+   |                                     |
+   |                          2. FedAvg聚合
+   |                                     |
+   |  3. 下发全局模型更新                 |
+   | <───────────────────────────────── |
+   |                                     |
+   |  4. 本地模型替换                     |
+   |                                     |
+```
+
+### 14.3 同步策略
+
+| 策略 | 说明 |
+|-----|------|
+| 增量同步 | 仅上传模型参数的差值（delta），减少带宽消耗 |
+| 压缩传输 | 对梯度进行稀疏化和量化后传输 |
+| 断点续传 | 记录同步进度，网络恢复后从断点继续 |
+| 冲突解决 | 云端以FedAvg加权平均方式合并多节点更新 |
+
+### 14.4 隐私保护
+
+同步过程中的隐私保护措施：
+
+- 上传前对模型更新添加Laplace噪声（见第7节）
+- 传输层使用TLS加密
+- 云端仅接收聚合后的模型参数，无法反推单个用户数据
+- 差分隐私预算在本地严格管控，云端无法要求超额消耗
+
+---
+
+## 15. 未来演进方向
+
+### 15.1 算法优化
+
+| 方向 | 当前状态 | 演进目标 |
+|-----|---------|---------|
+| DTW加速 | O(n*m) 全矩阵 | FastDTW O(n) 近似算法 |
+| HNSW | 内存索引 | 支持磁盘映射（mmap），突破内存限制 |
+| 量化 | INT8对称 | INT4/混合精度量化 |
+| 隐私 | Laplace机制 | Gaussian机制 + Renyi DP组合定理 |
+
+### 15.2 架构演进
+
+| 方向 | 说明 |
+|-----|------|
+| ONNX Runtime集成 | 替代手工推理，支持更多模型格式 |
+| WebAssembly部署 | 将AI引擎编译为WASM，支持浏览器端推理 |
+| 模型热更新 | 支持不停机更新模型文件 |
+| 多模态扩展 | 支持图片情绪识别（表情、色彩分析） |
+
+### 15.3 性能目标
+
+| 指标 | 当前 | 目标 |
+|-----|------|------|
+| 单次情绪分析延迟 | < 10ms | < 5ms |
+| Embedding生成 | < 50ms | < 20ms |
+| HNSW搜索（10K节点） | < 5ms | < 2ms |
+| 内存占用 | ~50MB | < 30MB |
+
+---
+
+## 附录A：系统架构总览
+
+```
++─────────────────────────────────────────────────────────────────+
+|                     HeartLake EdgeAI Engine                      |
++─────────────────────────────────────────────────────────────────+
+|                                                                  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|  | 三层情感分析  |  | AC自动机     |  | 五因子心理风险评估    |  |
+|  | (规则+词典    |  | 内容审核     |  | (selfHarmIntent      |  |
+|  |  +统计融合)   |  | (4类模式)    |  |  +hopelessness+...)  |  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|                                                                  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|  | HNSW向量搜索 |  | INT8量化推理 |  | 情绪脉搏追踪          |  |
+|  | (M=16,       |  | (对称量化    |  | (滑动窗口300s        |  |
+|  |  多层图)     |  |  +4路展开)   |  |  +快照机制)          |  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|                                                                  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|  | Laplace      |  | FedAvg       |  | 情绪共鸣引擎          |  |
+|  | 差分隐私     |  | 联邦学习     |  | (DTW+语义+时间+多样性)|  |
+|  | (原子CAS)    |  | (加权聚合)   |  |                       |  |
+|  +──────────────+  +──────────────+  +───────────────────────+  |
+|                                                                  |
+|  +──────────────────────────────────────────────────────────+   |
+|  |              CircuitBreaker 熔断器保护层                  |   |
+|  |         (CLOSED / OPEN / HALF_OPEN 三态自愈)             |   |
+|  +──────────────────────────────────────────────────────────+   |
+|                                                                  |
++─────────────────────────────────────────────────────────────────+
+```
+
+## 附录B：代码文件索引
+
+| 文件路径 | 内容 |
+|---------|------|
+| `backend/include/infrastructure/ai/EdgeAIEngine.h` | 引擎头文件，所有结构体定义 |
+| `backend/src/infrastructure/ai/EdgeAIEngine.cpp` | 引擎实现（8大子系统） |
+| `backend/include/infrastructure/ai/EmotionResonanceEngine.h` | 共鸣引擎头文件 |
+| `backend/src/infrastructure/ai/EmotionResonanceEngine.cpp` | 共鸣引擎实现（DTW、时间衰减、多样性） |
+| `backend/include/infrastructure/ai/AdvancedEmbeddingEngine.h` | Embedding引擎头文件 |
+| `backend/src/infrastructure/ai/AdvancedEmbeddingEngine.cpp` | Embedding生成与余弦相似度 |
+| `backend/include/utils/CircuitBreaker.h` | 熔断器（header-only） |
+| `backend/src/utils/PsychologicalRiskAssessment.cpp` | 五因子心理风险评估 |
+| `backend/include/utils/PsychologicalRiskAssessment.h` | 风险评估头文件 |
+| `backend/include/infrastructure/services/ResonanceSearchService.h` | 共鸣搜索服务 |
+
+---
+
+*本文档基于 HeartLake 项目实际代码编写，所有算法描述、参数值、复杂度分析均与源码一致。最后更新：2026-02-21*
