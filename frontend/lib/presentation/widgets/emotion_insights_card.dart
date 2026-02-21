@@ -18,22 +18,20 @@ class EmotionInsightsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (insights.isEmpty) return const SizedBox.shrink();
 
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.primary.withValues(alpha: 0.06),
-            colorScheme.secondary.withValues(alpha: 0.04),
+            AppTheme.primaryColor.withValues(alpha: 0.06),
+            AppTheme.secondaryColor.withValues(alpha: 0.04),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.12),
+          color: AppTheme.primaryColor.withValues(alpha: 0.12),
         ),
       ),
       child: Column(
@@ -45,7 +43,7 @@ class EmotionInsightsCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -70,7 +68,7 @@ class EmotionInsightsCard extends StatelessWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.secondary.withValues(alpha: 0.1),
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
@@ -129,8 +127,8 @@ class EmotionInsightsCard extends StatelessWidget {
     const colors = [
       AppTheme.primaryColor,
       AppTheme.secondaryColor,
-      AppTheme.warmOrange,
-      AppTheme.purpleColor,
+      AppTheme.primaryColor,
+      AppTheme.secondaryColor,
     ];
     return colors[index % colors.length];
   }

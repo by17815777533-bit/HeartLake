@@ -648,6 +648,13 @@ const vectorSearch = reactive({
   searching: false,
   results: [],
 })
+const vectorSearched = ref(false)
+const vectorQuery = computed({
+  get: () => vectorSearch.query,
+  set: (value) => { vectorSearch.query = value },
+})
+const vectorSearching = computed(() => vectorSearch.searching)
+const vectorResults = computed(() => vectorSearch.results)
 
 // 边缘节点
 const edgeNodes = ref([])
@@ -707,11 +714,22 @@ async function loadEmotionPulse() {
   try {
     const { data } = await api.getEmotionPulse()
     const ep = data.data || data
-    emotionPulse.temperature = ep.temperature ?? ep.value ?? 50
-    emotionPulse.trend = ep.trend ?? 'stable'
+    const avgScore = ep.avg_score ?? ep.avgScore ?? ep.temperature ?? ep.value ?? 0
+    const normalizedTemp = avgScore <= 1 && avgScore >= -1
+      ? Math.round((avgScore + 1) * 50)
+      : Math.round(avgScore)
+    emotionPulse.temperature = Math.max(0, Math.min(100, normalizedTemp))
+    emotionPulse.trend = ep.dominant_mood ?? ep.dominantMood ?? ep.trend ?? 'stable'
     if (Array.isArray(ep.history)) {
       emotionPulse.history = ep.history.map(h => h.value ?? h)
       emotionPulse.timestamps = ep.history.map(h => h.time ?? h.timestamp ?? '')
+    } else if (ep.mood_distribution && typeof ep.mood_distribution === 'object') {
+      const values = Object.values(ep.mood_distribution).map(v => Number(v) || 0)
+      const sum = values.reduce((acc, curr) => acc + curr, 0)
+      if (sum > 0) {
+        emotionPulse.history = values.map(v => Math.round((v / sum) * 100))
+      }
+      emotionPulse.timestamps = Object.keys(ep.mood_distribution)
     }
   } catch { /* 静默 */ }
 }
@@ -737,13 +755,19 @@ async function loadPrivacyBudget() {
   try {
     const { data } = await api.getPrivacyBudget()
     const p = data.data || data
+    const epsilonTotal = Number(p.epsilonTotal ?? p.epsilon_total ?? p.total_budget ?? 10) || 10
+    const epsilonUsed = Number(p.epsilonUsed ?? p.epsilon_used ?? p.consumed ?? 0) || 0
+    const epsilonPercentRaw = p.epsilonPercent ?? p.epsilon_percent ?? p.utilization_percent
+    const epsilonPercent = epsilonPercentRaw != null
+      ? Number(epsilonPercentRaw) || 0
+      : Math.min(100, Math.max(0, (epsilonUsed / epsilonTotal) * 100))
     Object.assign(privacy, {
-      epsilonUsed: p.epsilonUsed ?? p.epsilon_used ?? 0,
-      epsilonTotal: p.epsilonTotal ?? p.epsilon_total ?? 10,
-      epsilonPercent: p.epsilonPercent ?? p.epsilon_percent ?? 0,
+      epsilonUsed,
+      epsilonTotal,
+      epsilonPercent: Number(epsilonPercent.toFixed(2)),
       deltaValue: p.deltaValue ?? p.delta_value ?? '1e-5',
       noiseLevel: p.noiseLevel ?? p.noise_level ?? 'medium',
-      queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? 0,
+      queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? p.query_count ?? 0,
     })
     if (Array.isArray(p.allocation)) {
       const colors = ['#1565C0', '#2E7D32', '#E65100', '#C62828', '#545F71', '#6E5676']
@@ -812,7 +836,7 @@ async function doContentModeration() {
     const { data } = await api.moderateText(moderationTool.text)
     const r = data.data || data
     moderationTool.result = {
-      pass: r.pass ?? r.approved ?? true,
+      pass: r.pass ?? r.passed ?? r.approved ?? true,
       risk: r.risk ?? r.risk_level ?? 'low',
       reason: r.reason ?? r.reject_reason ?? '',
     }
@@ -825,14 +849,24 @@ async function doContentModeration() {
 
 async function doVectorSearch() {
   if (!vectorSearch.query.trim()) return
+  vectorSearched.value = false
   vectorSearch.searching = true
   try {
-    const { data } = await api.edgeAIVectorSearch({ text: vectorSearch.query })
+    const { data } = await api.edgeAIVectorSearch({
+      query: vectorSearch.query,
+      topK: 10,
+    })
     const r = data.data || data
-    vectorSearch.results = Array.isArray(r) ? r : (r.results ?? [])
+    const raw = Array.isArray(r) ? r : (r.results ?? [])
+    vectorSearch.results = raw.map((item) => ({
+      ...item,
+      score: Number(item.score ?? item.similarity ?? 0),
+      content: item.content ?? item.text ?? item.id ?? '未知内容',
+    }))
   } catch {
     vectorSearch.results = []
   } finally {
+    vectorSearched.value = true
     vectorSearch.searching = false
   }
 }

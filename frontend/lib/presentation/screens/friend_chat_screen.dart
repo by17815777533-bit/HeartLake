@@ -72,7 +72,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('加载消息失败，请下拉重试'),
-            backgroundColor: AppTheme.warmOrange,
+            backgroundColor: AppTheme.primaryColor,
           ),
         );
       }
@@ -119,7 +119,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? '发送失败'),
-              backgroundColor: AppTheme.warmOrange,
+              backgroundColor: AppTheme.primaryColor,
             ),
           );
         }
@@ -131,7 +131,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('网络异常，请稍后再试'),
-            backgroundColor: AppTheme.warmOrange,
+            backgroundColor: AppTheme.primaryColor,
           ),
         );
       }
@@ -146,16 +146,16 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         title: Text(
           widget.friendName ?? '聊天',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             shadows: [
-              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.6), blurRadius: 12),
+              Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.6), blurRadius: 12),
             ],
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
       ),
       body: SafeArea(
         child: Column(
@@ -196,7 +196,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.warmOrange, AppTheme.peachPink],
+                    colors: [AppTheme.primaryColor, AppTheme.primaryLightColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

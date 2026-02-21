@@ -98,7 +98,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             _loading
                 ? Center(
                     child: CircularProgressIndicator(
-                      color: AppTheme.candleGlow,
+                      color: AppTheme.primaryLightColor,
                       strokeWidth: 2,
                     ),
                   )
@@ -145,7 +145,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.shield_outlined, size: 14, color: AppTheme.spiritBlue),
+          Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
           const SizedBox(width: 6),
           Text(
             '差分隐私保护中',
@@ -160,7 +160,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             'ε ${percent.toStringAsFixed(0)}%',
             style: TextStyle(
               fontSize: 11,
-              color: AppTheme.spiritBlue.withValues(alpha: 0.8),
+              color: AppTheme.secondaryColor.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -270,7 +270,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             child: SkyGlassCard(
               borderRadius: 14,
               enableGlow: true,
-              glowColor: AppTheme.peachPink,
+              glowColor: AppTheme.primaryLightColor,
               padding: const EdgeInsets.all(14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,7 +278,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                   Icon(
                     Icons.auto_awesome,
                     size: 14,
-                    color: AppTheme.candleGlow.withValues(alpha: 0.7),
+                    color: AppTheme.primaryLightColor.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

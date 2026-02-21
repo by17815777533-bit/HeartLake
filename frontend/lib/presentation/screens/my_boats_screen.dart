@@ -132,7 +132,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.peachPink),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryLightColor),
             child: const Text('删除'),
           ),
         ],
@@ -149,7 +149,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('已轻轻放下'),
-            backgroundColor: AppTheme.skyBlue,
+            backgroundColor: AppTheme.backgroundColor,
           ),
         );
       } else {

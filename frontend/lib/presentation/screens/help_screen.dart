@@ -81,6 +81,6 @@ class HelpScreen extends StatelessWidget {
   }
 
   void _showContactInfo(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.warmOrange));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.primaryColor));
   }
 }

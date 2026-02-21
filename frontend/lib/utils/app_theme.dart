@@ -83,6 +83,24 @@ class AppTheme {
     Color(0xFF2D3A66),
   ];
 
+  // 兼容层：为仍在迁移中的页面提供一个可用的全局配色对象。
+  // 后续页面应优先使用 Theme.of(context).colorScheme。
+  static const ColorScheme fallbackColorScheme = ColorScheme.light(
+    primary: primaryColor,
+    onPrimary: Color(0xFFFFFFFF),
+    secondary: secondaryColor,
+    onSecondary: Color(0xFFFFFFFF),
+    tertiary: accentColor,
+    onTertiary: Color(0xFF2A1808),
+    error: errorColor,
+    onError: Color(0xFFFFFFFF),
+    surface: backgroundColor,
+    onSurface: textPrimary,
+    surfaceContainerHighest: Color(0xFFF7ECE0),
+    onSurfaceVariant: textSecondary,
+    outline: Color(0xFFD7C2AE),
+  );
+
   static final ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
@@ -271,3 +289,6 @@ class AppTheme {
     ),
   );
 }
+
+// 兼容旧页面中的 `colorScheme.*` 直接访问，避免迁移阶段大面积编译失败。
+const ColorScheme colorScheme = AppTheme.fallbackColorScheme;

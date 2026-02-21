@@ -111,14 +111,14 @@ describe('EdgeAI API', () => {
 
   describe('引擎状态', () => {
     it('应正确获取引擎状态', async () => {
-      mock.onGet('/edge-ai/status').reply(200, statusData)
+      mock.onGet('/admin/edge-ai/status').reply(200, statusData)
       const res = await api.getEdgeAIStatus()
       expect(res.data.data.engine_version).toBe('1.0.0')
       expect(res.data.data.nodes).toHaveLength(2)
     })
 
     it('应包含子系统状态', async () => {
-      mock.onGet('/edge-ai/status').reply(200, statusData)
+      mock.onGet('/admin/edge-ai/status').reply(200, statusData)
       const res = await api.getEdgeAIStatus()
       const subs = res.data.data.subsystems
       expect(subs.emotion.status).toBe('running')
@@ -126,14 +126,14 @@ describe('EdgeAI API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/edge-ai/status').reply(500)
+      mock.onGet('/admin/edge-ai/status').reply(500)
       await expect(api.getEdgeAIStatus()).rejects.toThrow()
     })
   })
 
   describe('性能指标', () => {
     it('应正确获取性能指标', async () => {
-      mock.onGet('/edge-ai/metrics').reply(200, metricsData)
+      mock.onGet('/admin/edge-ai/metrics').reply(200, metricsData)
       const res = await api.getEdgeAIMetrics()
       expect(res.data.data.inference_count).toBe(12345)
       expect(res.data.data.avg_latency_ms).toBe(15.3)
@@ -141,14 +141,14 @@ describe('EdgeAI API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/edge-ai/metrics').reply(500)
+      mock.onGet('/admin/edge-ai/metrics').reply(500)
       await expect(api.getEdgeAIMetrics()).rejects.toThrow()
     })
   })
 
   describe('情绪脉搏', () => {
     it('应正确获取脉搏数据', async () => {
-      mock.onGet('/edge-ai/emotion-pulse').reply(200, pulseData)
+      mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, pulseData)
       const res = await api.getEmotionPulse()
       expect(res.data.data.avgScore).toBe(0.65)
       expect(res.data.data.trend).toBe('stable')
@@ -156,14 +156,14 @@ describe('EdgeAI API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/edge-ai/emotion-pulse').reply(500)
+      mock.onGet('/admin/edge-ai/emotion-pulse').reply(500)
       await expect(api.getEmotionPulse()).rejects.toThrow()
     })
   })
 
   describe('隐私预算', () => {
     it('应正确获取隐私预算', async () => {
-      mock.onGet('/edge-ai/privacy-budget').reply(200, privacyBudgetData)
+      mock.onGet('/admin/edge-ai/privacy-budget').reply(200, privacyBudgetData)
       const res = await api.getPrivacyBudget()
       expect(res.data.data.epsilon_used).toBe(3.5)
       expect(res.data.data.epsilon_total).toBe(10.0)
@@ -171,14 +171,14 @@ describe('EdgeAI API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/edge-ai/privacy-budget').reply(500)
+      mock.onGet('/admin/edge-ai/privacy-budget').reply(500)
       await expect(api.getPrivacyBudget()).rejects.toThrow()
     })
   })
 
   describe('联邦聚合', () => {
     it('应正确触发联邦聚合', async () => {
-      mock.onPost('/edge-ai/federated/aggregate').reply(200, aggregationResult)
+      mock.onPost('/admin/edge-ai/federated/aggregate').reply(200, aggregationResult)
       const payload = { min_clients: 3, target_rounds: 1 }
       const res = await api.triggerFederatedAggregation(payload)
       expect(res.data.data.status).toBe('completed')
@@ -186,7 +186,7 @@ describe('EdgeAI API', () => {
     })
 
     it('应传递聚合参数', async () => {
-      mock.onPost('/edge-ai/federated/aggregate').reply(200, aggregationResult)
+      mock.onPost('/admin/edge-ai/federated/aggregate').reply(200, aggregationResult)
       const payload = { min_clients: 5, target_rounds: 3 }
       await api.triggerFederatedAggregation(payload)
       const body = JSON.parse(mock.history.post[0].data)
@@ -195,31 +195,31 @@ describe('EdgeAI API', () => {
     })
 
     it('聚合失败应抛出异常', async () => {
-      mock.onPost('/edge-ai/federated/aggregate').reply(500)
+      mock.onPost('/admin/edge-ai/federated/aggregate').reply(500)
       await expect(api.triggerFederatedAggregation({})).rejects.toThrow()
     })
   })
 
   describe('向量搜索', () => {
     it('应正确执行向量搜索', async () => {
-      mock.onPost('/edge-ai/vector-search').reply(200, vectorSearchResult)
-      const payload = { query: '温暖的故事', top_k: 10 }
+      mock.onPost('/admin/edge-ai/vector-search').reply(200, vectorSearchResult)
+      const payload = { query: '温暖的故事', topK: 10 }
       const res = await api.edgeAIVectorSearch(payload)
       expect(res.data.data.results).toHaveLength(2)
       expect(res.data.data.results[0].score).toBe(0.95)
     })
 
     it('应传递搜索参数', async () => {
-      mock.onPost('/edge-ai/vector-search').reply(200, vectorSearchResult)
-      const payload = { query: '测试查询', top_k: 5, threshold: 0.8 }
+      mock.onPost('/admin/edge-ai/vector-search').reply(200, vectorSearchResult)
+      const payload = { query: '测试查询', topK: 5, threshold: 0.8 }
       await api.edgeAIVectorSearch(payload)
       const body = JSON.parse(mock.history.post[0].data)
       expect(body.query).toBe('测试查询')
-      expect(body.top_k).toBe(5)
+      expect(body.topK).toBe(5)
     })
 
     it('搜索失败应抛出异常', async () => {
-      mock.onPost('/edge-ai/vector-search').reply(500)
+      mock.onPost('/admin/edge-ai/vector-search').reply(500)
       await expect(api.edgeAIVectorSearch({})).rejects.toThrow()
     })
   })
@@ -260,10 +260,10 @@ describe('EdgeAI API', () => {
 
   describe('数据完整性', () => {
     it('所有 EdgeAI 接口应能并发调用', async () => {
-      mock.onGet('/edge-ai/status').reply(200, statusData)
-      mock.onGet('/edge-ai/metrics').reply(200, metricsData)
-      mock.onGet('/edge-ai/emotion-pulse').reply(200, pulseData)
-      mock.onGet('/edge-ai/privacy-budget').reply(200, privacyBudgetData)
+      mock.onGet('/admin/edge-ai/status').reply(200, statusData)
+      mock.onGet('/admin/edge-ai/metrics').reply(200, metricsData)
+      mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, pulseData)
+      mock.onGet('/admin/edge-ai/privacy-budget').reply(200, privacyBudgetData)
       mock.onGet('/admin/edge-ai/config').reply(200, configData)
 
       const results = await Promise.all([

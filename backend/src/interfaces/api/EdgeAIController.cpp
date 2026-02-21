@@ -301,17 +301,30 @@ void EdgeAIController::vectorSearch(
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto jsonPtr = req->getJsonObject();
-        if (!jsonPtr || !jsonPtr->isMember("query")) {
-            callback(ResponseUtil::badRequest("缺少必填参数: query"));
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
             return;
         }
 
-        auto query = (*jsonPtr)["query"].asString();
-        int topK = (*jsonPtr).get("topK", 10).asInt();
+        std::string query;
+        if (jsonPtr->isMember("query")) {
+            query = (*jsonPtr)["query"].asString();
+        } else if (jsonPtr->isMember("text")) {
+            // 兼容历史字段名 text
+            query = (*jsonPtr)["text"].asString();
+        }
+
+        int topK = 10;
+        if (jsonPtr->isMember("topK")) {
+            topK = (*jsonPtr)["topK"].asInt();
+        } else if (jsonPtr->isMember("top_k")) {
+            // 兼容 snake_case 字段
+            topK = (*jsonPtr)["top_k"].asInt();
+        }
         double threshold = (*jsonPtr).get("threshold", 0.0).asDouble();
 
         if (query.empty() || query.size() > 5000) {
-            callback(ResponseUtil::badRequest("query长度必须在1-5000之间"));
+            callback(ResponseUtil::badRequest("query/text长度必须在1-5000之间"));
             return;
         }
         if (topK < 1 || topK > 100) {

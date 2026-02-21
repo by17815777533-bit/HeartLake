@@ -136,7 +136,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppTheme.warmOrange,
+          indicatorColor: AppTheme.primaryColor,
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withValues(alpha: 0.5),
@@ -295,7 +295,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const CircularProgressIndicator(
-              color: AppTheme.warmOrange, strokeWidth: 2),
+              color: AppTheme.primaryColor, strokeWidth: 2),
           const SizedBox(height: 16),
           Text('正在寻找共鸣之声...',
               style: TextStyle(
@@ -345,7 +345,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [
                           moodConfig.primary.withValues(alpha: 0.3),
-                          AppTheme.warmOrange.withValues(alpha: 0.2),
+                          AppTheme.primaryColor.withValues(alpha: 0.2),
                         ]),
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -405,7 +405,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const CircularProgressIndicator(
-              color: AppTheme.warmOrange, strokeWidth: 2),
+              color: AppTheme.primaryColor, strokeWidth: 2),
           const SizedBox(height: 16),
           Text('星光正在为你汇聚...',
               style: TextStyle(

@@ -103,9 +103,9 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       if (diff.isNegative) {
         return AppTheme.errorColor;
       } else if (diff.inHours < 1) {
-        return AppTheme.warmOrange;
+        return AppTheme.primaryColor;
       } else {
-        return AppTheme.candleGlow;
+        return AppTheme.primaryLightColor;
       }
     } catch (e) {
       return Colors.white.withValues(alpha: 0.3);
@@ -117,7 +117,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.nightSurface,
+        backgroundColor: AppTheme.lightStone,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('升级为永久好友',
             style: TextStyle(color: Colors.white)),
@@ -132,7 +132,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('确定',
-                style: TextStyle(color: AppTheme.candleGlow)),
+                style: TextStyle(color: AppTheme.primaryLightColor)),
           ),
         ],
       ),
@@ -149,7 +149,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               content:
                   Text(result['success'] ? '升级成功！' : result['message']),
               backgroundColor:
-                  result['success'] ? AppTheme.candleGlow : AppTheme.errorColor,
+                  result['success'] ? AppTheme.primaryLightColor : AppTheme.errorColor,
             ),
           );
 
@@ -174,7 +174,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.nightSurface,
+        backgroundColor: AppTheme.lightStone,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('删除临时好友',
             style: TextStyle(color: Colors.white)),
@@ -206,7 +206,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               content:
                   Text(result['success'] ? '删除成功' : result['message']),
               backgroundColor:
-                  result['success'] ? AppTheme.candleGlow : AppTheme.errorColor,
+                  result['success'] ? AppTheme.primaryLightColor : AppTheme.errorColor,
             ),
           );
 
@@ -245,7 +245,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  backgroundColor: AppTheme.nightSurface,
+                  backgroundColor: AppTheme.lightStone,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
                   title: const Text('关于临时好友',
@@ -264,7 +264,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('知道了',
-                          style: TextStyle(color: AppTheme.candleGlow)),
+                          style: TextStyle(color: AppTheme.primaryLightColor)),
                     ),
                   ],
                 ),
@@ -275,11 +275,11 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       ),
       body: RefreshIndicator(
         onRefresh: _loadTempFriends,
-        color: AppTheme.warmOrange,
-        backgroundColor: AppTheme.nightSurface,
+        color: AppTheme.primaryColor,
+        backgroundColor: AppTheme.lightStone,
         child: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: AppTheme.warmOrange))
+                child: CircularProgressIndicator(color: AppTheme.primaryColor))
             : _tempFriends.isEmpty
                 ? ListView(
                     children: [
@@ -321,12 +321,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: SkyGlassCard(
-                            glowColor: AppTheme.spiritBlue,
+                            glowColor: AppTheme.secondaryColor,
                             enableGlow: false,
                             child: Row(
                               children: [
                                 Icon(Icons.info_outline,
-                                    color: AppTheme.spiritBlue, size: 20),
+                                    color: AppTheme.secondaryColor, size: 20),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -372,7 +372,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           enableGlow: !isExpired && !isUpgraded,
           glowColor: isExpired
               ? Colors.white.withValues(alpha: 0.1)
-              : AppTheme.spiritBlue,
+              : AppTheme.secondaryColor,
           onTap: !isExpired && !isUpgraded
               ? () => Navigator.push(
                   context,
@@ -390,7 +390,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                     radius: 24,
                     backgroundColor: isExpired
                         ? Colors.white.withValues(alpha: 0.1)
-                        : AppTheme.spiritBlue.withValues(alpha: 0.2),
+                        : AppTheme.secondaryColor.withValues(alpha: 0.2),
                     child: Text(
                       (tempFriend['friend_nickname']?.isNotEmpty == true)
                           ? tempFriend['friend_nickname'].substring(0, 1)
@@ -398,7 +398,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                       style: TextStyle(
                           color: isExpired
                               ? Colors.white.withValues(alpha: 0.3)
-                              : AppTheme.spiritBlue,
+                              : AppTheme.secondaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 20),
                     ),
@@ -413,7 +413,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                             color: _getExpiryColor(expiresAt),
                             shape: BoxShape.circle,
                             border: Border.all(
-                                color: AppTheme.nightSurface, width: 2)),
+                                color: AppTheme.lightStone, width: 2)),
                         child: const Icon(Icons.access_time,
                             color: Colors.white, size: 10),
                       ),
@@ -445,12 +445,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                                 color:
-                                    AppTheme.candleGlow.withValues(alpha: 0.15),
+                                    AppTheme.primaryLightColor.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12)),
                             child: const Text('已升级',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.candleGlow,
+                                    color: AppTheme.primaryLightColor,
                                     fontWeight: FontWeight.bold)),
                           ),
                       ],
@@ -487,7 +487,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                 PopupMenuButton(
                   icon: Icon(Icons.more_vert,
                       color: Colors.white.withValues(alpha: 0.6)),
-                  color: AppTheme.nightSurface,
+                  color: AppTheme.lightStone,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   itemBuilder: (context) => [
@@ -507,10 +507,10 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                         value: 'upgrade',
                         child: Row(children: [
                           const Icon(Icons.upgrade,
-                              color: AppTheme.candleGlow, size: 20),
+                              color: AppTheme.primaryLightColor, size: 20),
                           const SizedBox(width: 8),
                           const Text('升级为永久好友',
-                              style: TextStyle(color: AppTheme.candleGlow)),
+                              style: TextStyle(color: AppTheme.primaryLightColor)),
                         ])),
                     PopupMenuItem(
                         value: 'delete',

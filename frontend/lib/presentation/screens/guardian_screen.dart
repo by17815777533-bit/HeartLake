@@ -55,19 +55,20 @@ class _GuardianScreenState extends State<GuardianScreen>
   }
 
   Future<void> _showTransferDialog() async {
+    final colorScheme = Theme.of(context).colorScheme;
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.nightSurface,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           '转赠灯火',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryColor,
             fontWeight: FontWeight.bold,
             shadows: [
-              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.5), blurRadius: 8),
+              Shadow(color: AppTheme.primaryColor.withValues(alpha: 0.5), blurRadius: 8),
             ],
           ),
         ),
@@ -75,7 +76,7 @@ class _GuardianScreenState extends State<GuardianScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('将你的温暖传递给需要的人',
-                style: TextStyle(color: AppTheme.darkTextSecondary)),
+                style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -84,14 +85,14 @@ class _GuardianScreenState extends State<GuardianScreen>
                 labelText: '对方ID',
                 labelStyle: const TextStyle(color: AppTheme.darkTextSecondary),
                 filled: true,
-                fillColor: AppTheme.nightDeep,
+                fillColor: AppTheme.lightStone,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.candleGlow.withValues(alpha: 0.3)),
+                  borderSide: BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.3)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.candleGlow.withValues(alpha: 0.2)),
+                  borderSide: BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.2)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -109,8 +110,8 @@ class _GuardianScreenState extends State<GuardianScreen>
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.warmOrange,
-              foregroundColor: AppTheme.nightDeep,
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: AppTheme.backgroundColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('转赠', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -131,8 +132,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                 style: const TextStyle(color: AppTheme.darkTextPrimary),
               ),
               backgroundColor: success
-                  ? AppTheme.nightSurface
-                  : AppTheme.warmPink.withValues(alpha: 0.9),
+                  ? AppTheme.lightStone
+                  : AppTheme.errorColor.withValues(alpha: 0.9),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -144,8 +145,8 @@ class _GuardianScreenState extends State<GuardianScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('网络异常，请稍后再试',
-                  style: TextStyle(color: AppTheme.darkTextPrimary)),
-              backgroundColor: AppTheme.nightSurface,
+                  style: TextStyle(color: AppTheme.textPrimary)),
+              backgroundColor: AppTheme.lightStone,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -164,17 +165,17 @@ class _GuardianScreenState extends State<GuardianScreen>
         title: Text(
           '点灯人',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             shadows: [
-              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.6), blurRadius: 12),
+              Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.6), blurRadius: 12),
             ],
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
       ),
       body: SafeArea(
         child: _loading
@@ -191,8 +192,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                           // 主卡片 - 点灯人状态
                           SkyGlassCard(
                             glowColor: _stats!['is_guardian'] == true
-                                ? AppTheme.candleGlow
-                                : AppTheme.spiritBlue,
+                                ? AppTheme.primaryLightColor
+                                : AppTheme.secondaryColor,
                             padding: const EdgeInsets.all(20),
                             child: Column(
                               children: [
@@ -202,8 +203,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                                       : Icons.local_fire_department_outlined,
                                   size: 64,
                                   color: _stats!['is_guardian'] == true
-                                      ? AppTheme.candleGlow
-                                      : AppTheme.darkTextSecondary,
+                                      ? AppTheme.primaryLightColor
+                                      : AppTheme.textSecondary,
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
@@ -211,13 +212,13 @@ class _GuardianScreenState extends State<GuardianScreen>
                                   style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: AppTheme.darkTextPrimary,
+                                    color: AppTheme.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
                                   '用温暖的涟漪，照亮他人的心湖',
-                                  style: TextStyle(color: AppTheme.darkTextSecondary),
+                                  style: TextStyle(color: AppTheme.textSecondary),
                                 ),
                               ],
                             ),
@@ -240,8 +241,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                               icon: const Icon(Icons.volunteer_activism),
                               label: const Text('转赠灯火'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.warmOrange,
-                                foregroundColor: AppTheme.nightDeep,
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: AppTheme.backgroundColor,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
@@ -249,13 +250,13 @@ class _GuardianScreenState extends State<GuardianScreen>
                           const SizedBox(height: 16),
                           // 湖神入口
                           SkyGlassCard(
-                            glowColor: AppTheme.spiritBlue,
+                            glowColor: AppTheme.secondaryColor,
                             padding: EdgeInsets.zero,
                             child: ListTile(
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.spiritBlue.withValues(alpha: 0.2),
+                                  color: AppTheme.secondaryColor.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(Icons.auto_awesome, color: AppTheme.candleGlow),
@@ -264,12 +265,12 @@ class _GuardianScreenState extends State<GuardianScreen>
                                 '与湖神对话',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.darkTextPrimary,
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               subtitle: const Text(
                                 '倾诉心事，获得温暖陪伴',
-                                style: TextStyle(color: AppTheme.darkTextSecondary),
+                                style: TextStyle(color: AppTheme.textSecondary),
                               ),
                               trailing: const Icon(Icons.chevron_right, color: AppTheme.darkTextSecondary),
                               onTap: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
@@ -293,7 +294,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: SkyGlassCard(
-        glowColor: AppTheme.candleGlow,
+        glowColor: AppTheme.primaryLightColor,
         borderRadius: 16,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         child: Column(
@@ -303,9 +304,9 @@ class _StatCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.candleGlow,
+                color: AppTheme.primaryLightColor,
                 shadows: [
-                  Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.4), blurRadius: 6),
+                  Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.4), blurRadius: 6),
                 ],
               ),
             ),

@@ -55,11 +55,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         title: Text(
           widget.nickname ?? '用户详情',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             shadows: [
               Shadow(
-                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
                 blurRadius: 12,
               ),
             ],
@@ -68,7 +68,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
       ),
       body: SafeArea(
         child: _isLoading
@@ -77,7 +77,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 ? Center(
                     child: Text(
                       '用户不存在',
-                      style: TextStyle(color: AppTheme.darkTextSecondary),
+                      style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   )
                 : SingleChildScrollView(
@@ -86,7 +86,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: AppTheme.warmOrange.withValues(alpha: 0.2),
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                         backgroundImage: (_user?['avatar_url'] != null && _user!['avatar_url'].toString().isNotEmpty)
                             ? NetworkImage(_user!['avatar_url'])
                             : null,

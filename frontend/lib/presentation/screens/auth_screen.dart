@@ -225,7 +225,7 @@ class _AuthScreenState extends State<AuthScreen>
           message,
           style: const TextStyle(color: AppTheme.darkTextPrimary),
         ),
-        backgroundColor: AppTheme.nightSurface,
+        backgroundColor: AppTheme.lightStone,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -251,15 +251,15 @@ class _AuthScreenState extends State<AuthScreen>
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: AppTheme.candleGlow.withValues(alpha: 0.15),
+                      color: AppTheme.primaryLightColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.candleGlow.withValues(alpha: 0.5),
+                        color: AppTheme.primaryLightColor.withValues(alpha: 0.5),
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.candleGlow.withValues(alpha: 0.3),
+                          color: AppTheme.primaryLightColor.withValues(alpha: 0.3),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
@@ -268,7 +268,7 @@ class _AuthScreenState extends State<AuthScreen>
                     child: const Icon(
                       Icons.water_drop,
                       size: 50,
-                      color: AppTheme.candleGlow,
+                      color: AppTheme.primaryLightColor,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -295,7 +295,7 @@ class _AuthScreenState extends State<AuthScreen>
                     '把石头投入湖中',
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.darkTextSecondary,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -310,9 +310,9 @@ class _AuthScreenState extends State<AuthScreen>
                         // Tab 切换
                         TabBar(
                           controller: _tabController,
-                          indicatorColor: AppTheme.candleGlow,
-                          labelColor: AppTheme.candleGlow,
-                          unselectedLabelColor: AppTheme.darkTextSecondary,
+                          indicatorColor: AppTheme.primaryLightColor,
+                          labelColor: AppTheme.primaryLightColor,
+                          unselectedLabelColor: AppTheme.textSecondary,
                           tabs: const [
                             Tab(text: '登录'),
                             Tab(text: '注册'),
@@ -342,12 +342,12 @@ class _AuthScreenState extends State<AuthScreen>
                     onPressed: _isLoading ? null : _handleAnonymousLogin,
                     icon: const Icon(
                       Icons.visibility_off,
-                      color: AppTheme.darkTextSecondary,
+                      color: AppTheme.textSecondary,
                     ),
                     label: const Text(
                       '匿名漫游心湖',
                       style: TextStyle(
-                        color: AppTheme.darkTextSecondary,
+                        color: AppTheme.textSecondary,
                         fontSize: 16,
                       ),
                     ),
@@ -360,7 +360,7 @@ class _AuthScreenState extends State<AuthScreen>
                     '匿名用户数据将在24小时后消失',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.darkTextSecondary.withValues(alpha: 0.5),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -374,7 +374,7 @@ class _AuthScreenState extends State<AuthScreen>
               color: Colors.black.withValues(alpha: 0.3),
               child: const Center(
                 child: CircularProgressIndicator(
-                  color: AppTheme.candleGlow,
+                  color: AppTheme.primaryLightColor,
                 ),
               ),
             ),
@@ -398,7 +398,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = false);
                 },
-                selectedColor: AppTheme.candleGlow.withValues(alpha: 0.3),
+                selectedColor: AppTheme.primaryLightColor.withValues(alpha: 0.3),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
@@ -407,7 +407,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = true);
                 },
-                selectedColor: AppTheme.candleGlow.withValues(alpha: 0.3),
+                selectedColor: AppTheme.primaryLightColor.withValues(alpha: 0.3),
               ),
             ],
           ),
@@ -460,7 +460,7 @@ class _AuthScreenState extends State<AuthScreen>
               '请使用邮箱注册账号',
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.darkTextSecondary,
+                color: AppTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -531,8 +531,8 @@ class _AuthScreenState extends State<AuthScreen>
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.candleGlow,
-                      foregroundColor: AppTheme.nightDeep,
+                      backgroundColor: AppTheme.primaryLightColor,
+                      foregroundColor: AppTheme.backgroundColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

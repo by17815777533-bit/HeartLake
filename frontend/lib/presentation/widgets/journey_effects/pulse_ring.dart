@@ -8,7 +8,7 @@ class PulseRing extends StatefulWidget {
 
   const PulseRing({
     super.key,
-    this.color = AppTheme.warmOrange,
+    this.color = AppTheme.primaryColor,
     this.size = 120,
     this.ringCount = 3,
   });

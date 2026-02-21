@@ -94,7 +94,7 @@ class _SkyBackdrop extends StatelessWidget {
           top: -120,
           left: -90,
           child: _SoftOrb(
-            color: (isDark ? AppTheme.peachPink : AppTheme.primaryColor)
+            color: (isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor)
                 .withValues(alpha: isDark ? 0.16 : 0.18),
             size: 300,
           ),
@@ -103,7 +103,7 @@ class _SkyBackdrop extends StatelessWidget {
           top: -80,
           right: -70,
           child: _SoftOrb(
-            color: (isDark ? AppTheme.spiritBlue : AppTheme.secondaryColor)
+            color: (isDark ? AppTheme.secondaryColor : AppTheme.secondaryColor)
                 .withValues(alpha: isDark ? 0.14 : 0.16),
             size: 240,
           ),
@@ -182,7 +182,7 @@ class _ParticleLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isDark ? AppTheme.candleGlow : AppTheme.primaryColor;
+    final color = isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor;
 
     return IgnorePointer(
       child: Stack(
@@ -247,7 +247,7 @@ class _WaterLayer extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(2),
-              color: (isDark ? AppTheme.candleGlow : AppTheme.primaryColor)
+              color: (isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor)
                   .withValues(alpha: 0.28),
             ),
           ),

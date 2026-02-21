@@ -76,17 +76,17 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
         title: Text(
           '为你而来',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w300,
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             letterSpacing: 3,
             shadows: [
               Shadow(
-                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
                 blurRadius: 12,
               ),
             ],
@@ -96,7 +96,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         actions: [
           IconButton(
             icon: Icon(Icons.refresh,
-                color: AppTheme.darkTextSecondary.withValues(alpha: 0.6),
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
                 size: 20),
             onPressed: () {
               setState(() => _loading = true);
@@ -149,13 +149,13 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppTheme.warmOrange.withValues(alpha: 0.4),
-                        AppTheme.warmOrange.withValues(alpha: 0.0),
+                        AppTheme.primaryColor.withValues(alpha: 0.4),
+                        AppTheme.primaryColor.withValues(alpha: 0.0),
                       ],
                     ),
                   ),
                   child: Icon(Icons.auto_awesome,
-                      color: AppTheme.candleGlow, size: 24),
+                      color: AppTheme.primaryLightColor, size: 24),
                 ),
               );
             },
@@ -164,7 +164,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           Text(
             '正在寻找共鸣...',
             style: TextStyle(
-              color: AppTheme.darkTextSecondary.withValues(alpha: 0.7),
+              color: AppTheme.textSecondary.withValues(alpha: 0.7),
               fontSize: 13,
               letterSpacing: 2,
             ),
@@ -182,7 +182,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         const SizedBox(height: 12),
         if (_personalizedStones.isNotEmpty) ...[
           _buildSectionTitle(
-              '心灵共振', Icons.favorite_border, AppTheme.peachPink),
+              '心灵共振', Icons.favorite_border, AppTheme.primaryLightColor),
           const SizedBox(height: 12),
           ..._personalizedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key),
@@ -191,7 +191,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         const SizedBox(height: 24),
         if (_advancedStones.isNotEmpty) ...[
           _buildSectionTitle(
-              '深层共鸣', Icons.auto_awesome, AppTheme.candleGlow),
+              '深层共鸣', Icons.auto_awesome, AppTheme.primaryLightColor),
           const SizedBox(height: 12),
           ..._advancedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key + 100),
@@ -214,7 +214,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w300,
-            color: AppTheme.darkTextPrimary.withValues(alpha: 0.8),
+            color: AppTheme.textPrimary.withValues(alpha: 0.8),
             letterSpacing: 2,
           ),
         ),
@@ -288,7 +288,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                                   : stone.content,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: AppTheme.darkTextPrimary
+                                color: AppTheme.textPrimary
                                     .withValues(alpha: 0.85),
                                 height: 1.5,
                               ),
@@ -298,28 +298,28 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                               children: [
                                 Icon(Icons.water_drop,
                                     size: 12,
-                                    color: AppTheme.darkTextSecondary
+                                    color: AppTheme.textSecondary
                                         .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.rippleCount}涟漪',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.darkTextSecondary
+                                    color: AppTheme.textSecondary
                                         .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Icon(Icons.sailing,
                                     size: 12,
-                                    color: AppTheme.darkTextSecondary
+                                    color: AppTheme.textSecondary
                                         .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.boatCount}纸船',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.darkTextSecondary
+                                    color: AppTheme.textSecondary
                                         .withValues(alpha: 0.6),
                                   ),
                                 ),
@@ -332,7 +332,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       Icon(
                         Icons.arrow_forward_ios,
                         size: 14,
-                        color: AppTheme.darkTextSecondary
+                        color: AppTheme.textSecondary
                             .withValues(alpha: 0.3),
                       ),
                     ],
@@ -356,12 +356,12 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           children: [
             Icon(Icons.explore,
                 size: 48,
-                color: AppTheme.darkTextPrimary.withValues(alpha: 0.3)),
+                color: AppTheme.textPrimary.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
               '投出更多石头，发现更多共鸣',
               style: TextStyle(
-                color: AppTheme.darkTextSecondary.withValues(alpha: 0.7),
+                color: AppTheme.textSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
                 letterSpacing: 1,
               ),
@@ -400,7 +400,7 @@ class _FloatingLightsPainter extends CustomPainter {
         Offset(x, y),
         radius,
         Paint()
-          ..color = AppTheme.candleGlow.withValues(alpha: alpha)
+          ..color = AppTheme.primaryLightColor.withValues(alpha: alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
     }

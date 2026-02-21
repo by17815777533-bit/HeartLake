@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/stone.dart';
-import '../../data/datasources/api_client.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
+import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../widgets/stone_card.dart';
 import '../widgets/sky_scaffold.dart';
@@ -31,7 +31,7 @@ class LakeScreen extends StatefulWidget {
 }
 
 class LakeScreenState extends State<LakeScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final StoneService _stoneService = StoneService();
   final AIRecommendationService _aiService = AIRecommendationService();
   List<Stone> _stones = [];
   bool _isLoading = false;
@@ -64,11 +64,6 @@ class LakeScreenState extends State<LakeScreen> {
     _scrollController.addListener(_onScroll);
     _initWebSocket();
     _loadNotificationCount();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
   }
 
   // 加载通知未读数
@@ -208,7 +203,7 @@ class LakeScreenState extends State<LakeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('有新的心事漂来了...'),
-            backgroundColor: AppTheme.skyBlue,
+            backgroundColor: AppTheme.backgroundColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -216,7 +211,7 @@ class LakeScreenState extends State<LakeScreen> {
             duration: const Duration(seconds: 2),
             action: SnackBarAction(
               label: '查看',
-              textColor: AppTheme.candleGlow,
+              textColor: AppTheme.primaryLightColor,
               onPressed: () {
                 _scrollController.animateTo(
                   0,
@@ -269,21 +264,24 @@ class LakeScreenState extends State<LakeScreen> {
 
     try {
       final nextPage = _currentPage + 1;
-      final response = await _apiClient.get('/api/v1/stones', queryParameters: {
-        'page': nextPage.toString(),
-        'page_size': '10',
-      });
+      final result = await _stoneService.getStones(page: nextPage, pageSize: 10);
 
       if (!mounted) return;
 
-      final data = response.data is Map ? response.data as Map<String, dynamic> : <String, dynamic>{};
-      final List<dynamic> stonesJson = data['stones'] ?? [];
-      final newStones = stonesJson.map((json) => Stone.fromJson(json)).toList();
+      if (result['success'] != true) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+        return;
+      }
+
+      final newStones = (result['stones'] as List<Stone>? ?? <Stone>[]);
+      final pagination = (result['pagination'] as Map<String, dynamic>? ?? <String, dynamic>{});
 
       setState(() {
         _stones.addAll(newStones);
         _currentPage = nextPage;
-        _hasMore = newStones.length >= 10;
+        _hasMore = pagination['has_more'] == true;
         _isLoadingMore = false;
       });
     } catch (e) {
@@ -308,16 +306,21 @@ class LakeScreenState extends State<LakeScreen> {
     });
 
     try {
-      final response = await _apiClient.get('/api/v1/stones', queryParameters: {
-        'page': refresh ? '1' : _currentPage.toString(),
-        'page_size': '10',
-      });
+      final page = refresh ? 1 : _currentPage;
+      final result = await _stoneService.getStones(page: page, pageSize: 10);
 
       if (!mounted) return;
 
-      final data = response.data is Map ? response.data as Map<String, dynamic> : <String, dynamic>{};
-      final List<dynamic> stonesJson = data['stones'] ?? [];
-      final stones = stonesJson.map((json) => Stone.fromJson(json)).toList();
+      if (result['success'] != true) {
+        setState(() {
+          _errorMessage = result['message']?.toString() ?? '加载湖面失败';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final stones = (result['stones'] as List<Stone>? ?? <Stone>[]);
+      final pagination = (result['pagination'] as Map<String, dynamic>? ?? <String, dynamic>{});
 
       setState(() {
         if (refresh) {
@@ -325,7 +328,7 @@ class LakeScreenState extends State<LakeScreen> {
         } else {
           _stones.addAll(stones);
         }
-        _hasMore = stones.length >= 10;
+        _hasMore = pagination['has_more'] == true;
         _isLoading = false;
       });
     } catch (e) {
@@ -366,7 +369,7 @@ class LakeScreenState extends State<LakeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
         leading: IconButton(
           icon: Container(
             width: 36,
@@ -374,11 +377,11 @@ class LakeScreenState extends State<LakeScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const LinearGradient(
-                colors: [AppTheme.candleGlow, AppTheme.warmOrange],
+                colors: [AppTheme.primaryLightColor, AppTheme.primaryColor],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.candleGlow.withValues(alpha: 0.4),
+                  color: AppTheme.primaryLightColor.withValues(alpha: 0.4),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -418,9 +421,9 @@ class LakeScreenState extends State<LakeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppTheme.warmPink,
+                          color: AppTheme.errorColor,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.nightDeep, width: 1.5),
+                          border: Border.all(color: AppTheme.backgroundColor, width: 1.5),
                         ),
                         constraints: const BoxConstraints(
                           minWidth: 16,
@@ -431,7 +434,7 @@ class LakeScreenState extends State<LakeScreen> {
                               ? '99+'
                               : notificationProvider.unreadCount.toString(),
                           style: const TextStyle(
-                            color: AppTheme.darkTextPrimary,
+                            color: AppTheme.textPrimary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -477,8 +480,8 @@ class LakeScreenState extends State<LakeScreen> {
     // 4. 有数据，显示列表（带下拉刷新）
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppTheme.candleGlow,
-      backgroundColor: AppTheme.nightSurface,
+      color: AppTheme.primaryLightColor,
+      backgroundColor: AppTheme.lightStone,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.only(
@@ -506,7 +509,7 @@ class LakeScreenState extends State<LakeScreen> {
                 ? const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(
-                        child: CircularProgressIndicator(color: AppTheme.candleGlow)),
+                        child: CircularProgressIndicator(color: AppTheme.primaryLightColor)),
                   )
                 : const SizedBox(height: 50);
           }
@@ -552,7 +555,7 @@ class LakeScreenState extends State<LakeScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.candleGlow,
+                  color: AppTheme.primaryLightColor,
                   letterSpacing: 1,
                 ),
               ),
@@ -566,7 +569,7 @@ class LakeScreenState extends State<LakeScreen> {
                   '查看更多',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.darkTextSecondary,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
@@ -596,10 +599,10 @@ class LakeScreenState extends State<LakeScreen> {
                     width: 140,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.nightSurface.withValues(alpha: 0.5),
+                      color: AppTheme.lightStone.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: AppTheme.candleGlow.withValues(alpha: 0.1),
+                        color: AppTheme.primaryLightColor.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -611,7 +614,7 @@ class LakeScreenState extends State<LakeScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: AppTheme.darkTextPrimary,
+                            color: AppTheme.textPrimary,
                             height: 1.4,
                           ),
                         ),
@@ -620,13 +623,13 @@ class LakeScreenState extends State<LakeScreen> {
                           children: [
                             const Icon(Icons.favorite_border,
                                 size: 12,
-                                color: AppTheme.darkTextSecondary),
+                                color: AppTheme.textSecondary),
                             const SizedBox(width: 4),
                             Text(
                               '${item['score']?.toStringAsFixed(0) ?? '0'}%匹配',
                               style: const TextStyle(
                                 fontSize: 10,
-                                color: AppTheme.darkTextSecondary,
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ],
@@ -652,18 +655,18 @@ class LakeScreenState extends State<LakeScreen> {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.bubble_chart, size: 16, color: AppTheme.candleGlow),
+                Icon(Icons.bubble_chart, size: 16, color: AppTheme.primaryLightColor),
                 SizedBox(width: 6),
                 Text(
                   '情绪星图',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.darkTextSecondary,
+                    color: AppTheme.textSecondary,
                     letterSpacing: 0.5,
                   ),
                 ),
                 SizedBox(width: 4),
-                Icon(Icons.arrow_forward_ios, size: 10, color: AppTheme.darkTextSecondary),
+                Icon(Icons.arrow_forward_ios, size: 10, color: AppTheme.textSecondary),
               ],
             ),
           ),

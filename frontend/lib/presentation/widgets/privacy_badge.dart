@@ -107,7 +107,7 @@ class PrivacyBadge extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: AppTheme.primaryColor,
             ),
             child: const Text('我知道了'),
           ),

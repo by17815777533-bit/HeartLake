@@ -9,6 +9,7 @@ import 'publish_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/sky_nav_bar.dart';
+import '../../utils/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,9 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerHighest,
+      backgroundColor: AppTheme.lightStone,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),

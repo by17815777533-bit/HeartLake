@@ -200,8 +200,8 @@ class _FriendsScreenState extends State<FriendsScreen>
               await _loadFriends();
               await _loadPendingCount();
             },
-            color: AppTheme.warmOrange,
-            backgroundColor: AppTheme.nightSurface,
+            color: AppTheme.primaryColor,
+            backgroundColor: AppTheme.lightStone,
             child: ListView(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
@@ -222,7 +222,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   },
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.warmOrange.withValues(alpha: 0.2),
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                       child: const Icon(Icons.timer, color: AppTheme.warmOrange),
                     ),
                     title: const Text('临时好友',
@@ -247,9 +247,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                       children: [
                         CircleAvatar(
                           backgroundColor:
-                              AppTheme.spiritBlue.withValues(alpha: 0.2),
+                              AppTheme.secondaryColor.withValues(alpha: 0.2),
                           child: const Icon(Icons.person_add,
-                              color: AppTheme.spiritBlue),
+                              color: AppTheme.secondaryColor),
                         ),
                         if (_pendingCount > 0)
                           Positioned(
@@ -290,7 +290,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const CircularProgressIndicator(
-                              color: AppTheme.warmOrange),
+                              color: AppTheme.primaryColor),
                           const SizedBox(height: 16),
                           Text('正在寻找温暖的连接...',
                               style: TextStyle(
@@ -364,7 +364,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor:
-                                  AppTheme.spiritBlue.withValues(alpha: 0.2),
+                                  AppTheme.secondaryColor.withValues(alpha: 0.2),
                               child: Text(
                                 (friend['nickname']
                                             ?.toString()
@@ -375,7 +375,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                                         .substring(0, 1)
                                     : '?',
                                 style: const TextStyle(
-                                  color: AppTheme.spiritBlue,
+                                  color: AppTheme.secondaryColor,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -392,7 +392,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                               icon: Icon(Icons.more_vert,
                                   color:
                                       Colors.white.withValues(alpha: 0.7)),
-                              color: AppTheme.nightSurface,
+                              color: AppTheme.lightStone,
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
                                   value: 'detail',
@@ -466,7 +466,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.nightSurface,
+        backgroundColor: AppTheme.lightStone,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('删除好友',
             style: TextStyle(color: Colors.white)),
@@ -584,7 +584,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.warmOrange))
+              child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _requests.isEmpty
               ? Center(
                   child: Column(
@@ -628,11 +628,11 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                               children: [
                                 CircleAvatar(
                                   backgroundColor:
-                                      AppTheme.spiritBlue.withValues(alpha: 0.2),
+                                      AppTheme.secondaryColor.withValues(alpha: 0.2),
                                   child: Text(
                                     initial,
                                     style: const TextStyle(
-                                      color: AppTheme.spiritBlue,
+                                      color: AppTheme.secondaryColor,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

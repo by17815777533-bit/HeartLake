@@ -18,10 +18,6 @@
 #include "infrastructure/ai/EmotionResonanceEngine.h"
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/DualMemoryRAG.h"
-#include "infrastructure/ai/EdgeAIEngine.h"
-#include "infrastructure/ai/EmotionResonanceEngine.h"
-#include "infrastructure/ai/RecommendationEngine.h"
-#include "infrastructure/ai/DualMemoryRAG.h"
 #include "middleware/RateLimiter.h"
 #include "utils/ContentFilter.h"
 #include "infrastructure/services/FriendshipTTLEngine.h"
@@ -248,15 +244,17 @@ int main(int argc, char *argv[]) {
             // 只有明确列出的路径才跳过认证
             // VUL-17 修复：从白名单中移除 /metrics，需要认证才能访问
             static const std::vector<std::string> exactWhitelist = {
+                "/api/auth/anonymous",
                 "/api/auth/register",
                 "/api/auth/login",
-                "/api/auth/send-code",
-                "/api/auth/verify-code",
+                "/api/auth/verification-code",
+                "/api/auth/email/verification-code",
+                "/api/auth/register/email",
+                "/api/auth/login/email",
+                "/api/auth/reset-password/code",
                 "/api/auth/reset-password",
                 "/api/v1/auth/register",
                 "/api/v1/auth/login",
-                "/api/v1/auth/send-code",
-                "/api/v1/auth/verify-code",
                 "/api/v1/auth/reset-password",
                 "/api/health",
                 "/api/health/detailed",

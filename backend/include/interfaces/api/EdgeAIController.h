@@ -167,6 +167,70 @@ public:
     // ==================== 管理接口（需要 PASETO 令牌） ====================
 
     /**
+     * @brief 管理后台查询引擎状态
+     * @route GET /api/admin/edge-ai/status
+     */
+    ADD_METHOD_TO(EdgeAIController::getStatus,
+                  "/api/admin/edge-ai/status", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台查询性能指标
+     * @route GET /api/admin/edge-ai/metrics
+     */
+    ADD_METHOD_TO(EdgeAIController::getMetrics,
+                  "/api/admin/edge-ai/metrics", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台本地情感分析
+     * @route POST /api/admin/edge-ai/analyze
+     */
+    ADD_METHOD_TO(EdgeAIController::analyzeLocal,
+                  "/api/admin/edge-ai/analyze", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台本地内容审核
+     * @route POST /api/admin/edge-ai/moderate
+     */
+    ADD_METHOD_TO(EdgeAIController::moderateLocal,
+                  "/api/admin/edge-ai/moderate", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台社区情绪脉搏
+     * @route GET /api/admin/edge-ai/emotion-pulse
+     */
+    ADD_METHOD_TO(EdgeAIController::getEmotionPulse,
+                  "/api/admin/edge-ai/emotion-pulse", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台触发联邦学习聚合
+     * @route POST /api/admin/edge-ai/federated/aggregate
+     */
+    ADD_METHOD_TO(EdgeAIController::federatedAggregate,
+                  "/api/admin/edge-ai/federated/aggregate", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台查询隐私预算
+     * @route GET /api/admin/edge-ai/privacy-budget
+     */
+    ADD_METHOD_TO(EdgeAIController::getPrivacyBudget,
+                  "/api/admin/edge-ai/privacy-budget", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 管理后台向量检索
+     * @route POST /api/admin/edge-ai/vector-search
+     */
+    ADD_METHOD_TO(EdgeAIController::vectorSearch,
+                  "/api/admin/edge-ai/vector-search", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
      * @brief 获取边缘AI配置（管理员）
      * @route GET /api/admin/edge-ai/config
      *

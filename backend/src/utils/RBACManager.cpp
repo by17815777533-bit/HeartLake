@@ -44,7 +44,7 @@ void RBACManager::initialize() {
         {Permissions::REPORTS, {Permissions::READ, Permissions::UPDATE}},
         {Permissions::SETTINGS, {Permissions::READ}},
         {Permissions::STATISTICS, {Permissions::READ}},
-        {Permissions::AI, {Permissions::READ, Permissions::CREATE}},
+        {Permissions::AI, {Permissions::READ, Permissions::CREATE, Permissions::UPDATE}},
         {Permissions::SYSTEM, {Permissions::READ}}
     };
     
@@ -164,7 +164,9 @@ std::string RBACManager::pathToResource(const std::string& path) {
         hasPathSegment(path, "admin/system")) {
         return Permissions::SYSTEM;
     }
-    if (hasPathSegment(path, "ai")) {
+    if (hasPathSegment(path, "admin/edge-ai") ||
+        hasPathSegment(path, "edge-ai") ||
+        hasPathSegment(path, "ai")) {
         return Permissions::AI;
     }
 

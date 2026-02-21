@@ -107,11 +107,11 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
         title: Text(
           '湖神',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             shadows: [
               Shadow(
-                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
                 blurRadius: 12,
               ),
             ],
@@ -119,7 +119,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
       ),
       body: SafeArea(
         child: Column(
@@ -153,7 +153,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.candleGlow, AppTheme.warmOrange],
+                    colors: [AppTheme.primaryLightColor, AppTheme.primaryColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -169,7 +169,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.candleGlow.withValues(alpha: 0.3),
+                      color: AppTheme.primaryLightColor.withValues(alpha: 0.3),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -181,7 +181,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Text(
                     message['content'] ?? '',
-                    style: TextStyle(color: AppTheme.darkTextPrimary.withValues(alpha: 0.9), fontSize: 15),
+                    style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.9), fontSize: 15),
                   ),
                 ),
               ),
@@ -211,9 +211,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
               style: const TextStyle(color: AppTheme.darkTextPrimary),
               decoration: InputDecoration(
                 hintText: '和湖神说说心里话...',
-                hintStyle: TextStyle(color: AppTheme.darkTextSecondary.withValues(alpha: 0.6)),
+                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6)),
                 filled: true,
-                fillColor: AppTheme.nightSurface,
+                fillColor: AppTheme.lightStone,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -221,7 +221,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(
-                    color: AppTheme.candleGlow.withValues(alpha: 0.15),
+                    color: AppTheme.primaryLightColor.withValues(alpha: 0.15),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(

@@ -382,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 45,
-                                backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.3),
+                                backgroundColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
                                 backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty) ? NetworkImage(_avatarUrl!) : null,
                                 child: _avatarUrl == null
                                     ? const Icon(Icons.person, size: 45, color: Colors.white)
@@ -394,7 +394,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
-                                    color: AppTheme.skyBlue,
+                                    color: AppTheme.backgroundColor,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
@@ -597,7 +597,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: AppTheme.skyBlue.withValues(alpha: 0.3),
+          color: AppTheme.backgroundColor.withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -607,7 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(
               icon,
-              color: AppTheme.skyBlue,
+              color: AppTheme.backgroundColor,
               size: 28,
             ),
             const SizedBox(height: 8),

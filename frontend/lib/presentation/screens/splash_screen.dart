@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final glowColor = isDark ? AppTheme.candleGlow : AppTheme.primaryColor;
+    final glowColor = isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor;
 
     return Scaffold(
       body: Stack(
@@ -137,7 +137,7 @@ class _SplashScreenState extends State<SplashScreen>
             top: -90,
             child: _buildOrb(
               size: 220,
-              color: (isDark ? AppTheme.spiritBlue : AppTheme.secondaryColor)
+              color: (isDark ? AppTheme.secondaryColor : AppTheme.secondaryColor)
                   .withValues(alpha: isDark ? 0.18 : 0.16),
             ),
           ),
@@ -192,7 +192,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: Icon(
                         Icons.water_drop,
                         size: 64,
-                        color: isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor,
+                        color: isDark ? AppTheme.primaryLightColor : AppTheme.primaryLightColor,
                       ),
                     ),
                     const SizedBox(height: 30),
@@ -218,7 +218,7 @@ class _SplashScreenState extends State<SplashScreen>
                       style: TextStyle(
                         fontSize: 14,
                         color: isDark
-                            ? AppTheme.darkTextSecondary.withValues(alpha: 0.9)
+                            ? AppTheme.textSecondary.withValues(alpha: 0.9)
                             : AppTheme.textSecondary.withValues(alpha: 0.85),
                         letterSpacing: 3.5,
                       ),
@@ -230,7 +230,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor,
+                          isDark ? AppTheme.primaryLightColor : AppTheme.primaryLightColor,
                         ),
                       ),
                     ),
@@ -273,7 +273,7 @@ class _StarPoint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isDark ? AppTheme.peachPink : AppTheme.primaryColor;
+    final color = isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor;
     return Align(
       alignment: alignment,
       child: Container(

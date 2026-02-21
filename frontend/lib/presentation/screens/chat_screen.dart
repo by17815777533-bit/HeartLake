@@ -52,8 +52,8 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('加载消息失败，请下拉重试', style: TextStyle(color: AppTheme.darkTextPrimary)),
-            backgroundColor: AppTheme.nightSurface,
+            content: Text('加载消息失败，请下拉重试', style: TextStyle(color: AppTheme.textPrimary)),
+            backgroundColor: AppTheme.lightStone,
           ),
         );
       }
@@ -92,7 +92,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? '发送失败', style: const TextStyle(color: AppTheme.darkTextPrimary)),
-              backgroundColor: AppTheme.nightSurface,
+              backgroundColor: AppTheme.lightStone,
             ),
           );
         }
@@ -103,8 +103,8 @@ class _ChatScreenState extends State<ChatScreen> {
         _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('网络异常，请稍后再试', style: TextStyle(color: AppTheme.darkTextPrimary)),
-            backgroundColor: AppTheme.nightSurface,
+            content: Text('网络异常，请稍后再试', style: TextStyle(color: AppTheme.textPrimary)),
+            backgroundColor: AppTheme.lightStone,
           ),
         );
       }
@@ -119,16 +119,16 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Text(
           widget.recipientName ?? '聊天',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             shadows: [
-              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.6), blurRadius: 12),
+              Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.6), blurRadius: 12),
             ],
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
         iconTheme: const IconThemeData(color: AppTheme.darkTextPrimary),
       ),
       body: SafeArea(
@@ -170,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.candleGlow, AppTheme.warmOrange],
+                    colors: [AppTheme.primaryLightColor, AppTheme.primaryColor],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

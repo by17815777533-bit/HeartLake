@@ -33,8 +33,8 @@ class SkyNavBar extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: isDark
                       ? [
-                          AppTheme.nightSurface.withValues(alpha: 0.86),
-                          AppTheme.darkBlue.withValues(alpha: 0.72),
+                          AppTheme.lightStone.withValues(alpha: 0.86),
+                          AppTheme.backgroundColor.withValues(alpha: 0.72),
                         ]
                       : [
                           Colors.white.withValues(alpha: 0.9),
@@ -42,7 +42,7 @@ class SkyNavBar extends StatelessWidget {
                         ],
                 ),
                 border: Border.all(
-                  color: (isDark ? AppTheme.candleGlow : AppTheme.primaryColor)
+                  color: (isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor)
                       .withValues(alpha: isDark ? 0.2 : 0.16),
                 ),
                 boxShadow: [
@@ -62,8 +62,8 @@ class SkyNavBar extends StatelessWidget {
                     final selected = states.contains(WidgetState.selected);
                     return IconThemeData(
                       color: selected
-                          ? (isDark ? AppTheme.candleGlow : AppTheme.primaryDarkColor)
-                          : (isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
+                          ? (isDark ? AppTheme.primaryLightColor : AppTheme.primaryLightColor)
+                          : (isDark ? AppTheme.textSecondary : AppTheme.textTertiary),
                     );
                   }),
                   labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -72,8 +72,8 @@ class SkyNavBar extends StatelessWidget {
                       fontSize: 11,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       color: selected
-                          ? (isDark ? AppTheme.candleGlow : AppTheme.textPrimary)
-                          : (isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
+                          ? (isDark ? AppTheme.primaryLightColor : AppTheme.textPrimary)
+                          : (isDark ? AppTheme.textSecondary : AppTheme.textTertiary),
                     );
                   }),
                 ),

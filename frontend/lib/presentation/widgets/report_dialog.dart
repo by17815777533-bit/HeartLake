@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/report_service.dart';
+import '../../utils/app_theme.dart';
 
 /// 举报对话框组件
 class ReportDialog extends StatefulWidget {
@@ -128,7 +129,7 @@ class _ReportDialogState extends State<ReportDialog> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
           ),
           child: _isSubmitting

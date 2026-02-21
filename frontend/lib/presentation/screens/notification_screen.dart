@@ -67,7 +67,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('加载通知失败，请下拉重试'),
-            backgroundColor: AppTheme.nightSurface,
+            backgroundColor: AppTheme.lightStone,
           ),
         );
       }
@@ -107,7 +107,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('操作失败，请重试'),
-            backgroundColor: AppTheme.nightSurface,
+            backgroundColor: AppTheme.lightStone,
           ),
         );
       }
@@ -154,7 +154,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('无法打开该内容'),
-            backgroundColor: AppTheme.nightSurface,
+            backgroundColor: AppTheme.lightStone,
           ),
         );
       }
@@ -185,18 +185,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Color _getNotificationIconColor(String type) {
     switch (type) {
       case 'like':
-        return AppTheme.warmPink;
+        return AppTheme.errorColor;
       case 'comment':
-        return AppTheme.spiritBlue;
+        return AppTheme.secondaryColor;
       case 'boat_reply':
-        return AppTheme.candleGlow;
+        return AppTheme.primaryLightColor;
       case 'friend_request':
       case 'friend_accepted':
-        return AppTheme.candleGlow;
+        return AppTheme.primaryLightColor;
       case 'friend_message':
-        return AppTheme.warmOrange;
+        return AppTheme.primaryColor;
       default:
-        return AppTheme.darkTextSecondary;
+        return AppTheme.textSecondary;
     }
   }
 
@@ -207,16 +207,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.darkTextPrimary,
+        foregroundColor: AppTheme.textPrimary,
         title: Text(
           '通知',
           style: TextStyle(
-            color: AppTheme.candleGlow,
+            color: AppTheme.primaryLightColor,
             fontWeight: FontWeight.bold,
             fontSize: 20,
             shadows: [
               Shadow(
-                color: AppTheme.candleGlow.withValues(alpha: 0.5),
+                color: AppTheme.primaryLightColor.withValues(alpha: 0.5),
                 blurRadius: 8,
               ),
             ],
@@ -228,7 +228,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               onPressed: _markAllAsRead,
               child: Text(
                 '全部已读',
-                style: TextStyle(color: AppTheme.candleGlow, fontSize: 14),
+                style: TextStyle(color: AppTheme.primaryLightColor, fontSize: 14),
               ),
             ),
         ],
@@ -236,12 +236,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadNotifications,
-          color: AppTheme.candleGlow,
-          backgroundColor: AppTheme.nightSurface,
+          color: AppTheme.primaryLightColor,
+          backgroundColor: AppTheme.lightStone,
           child: _isLoading
               ? Center(
                   child: CircularProgressIndicator(
-                    color: AppTheme.candleGlow,
+                    color: AppTheme.primaryLightColor,
                   ),
                 )
               : _notifications.isEmpty
@@ -264,13 +264,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Icon(
                   Icons.notifications_off_outlined,
                   size: 64,
-                  color: AppTheme.darkTextSecondary,
+                  color: AppTheme.textSecondary,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   '暂无通知',
                   style: TextStyle(
-                    color: AppTheme.darkTextPrimary,
+                    color: AppTheme.textPrimary,
                     fontSize: 16,
                   ),
                 ),
@@ -278,7 +278,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Text(
                   '新的互动消息会出现在这里',
                   style: TextStyle(
-                    color: AppTheme.darkTextSecondary,
+                    color: AppTheme.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -340,7 +340,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               title: Text(
                 notification['content'] ?? '新通知',
                 style: TextStyle(
-                  color: AppTheme.darkTextPrimary,
+                  color: AppTheme.textPrimary,
                   fontSize: 14,
                   fontWeight:
                       isRead ? FontWeight.normal : FontWeight.bold,
@@ -350,7 +350,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 notification['created_at']?.toString() ?? '',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.darkTextSecondary,
+                  color: AppTheme.textSecondary,
                 ),
               ),
               trailing: isRead
@@ -359,11 +359,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: AppTheme.candleGlow,
+                        color: AppTheme.primaryLightColor,
                         borderRadius: BorderRadius.circular(4),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                            color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
                             blurRadius: 6,
                             spreadRadius: 1,
                           ),

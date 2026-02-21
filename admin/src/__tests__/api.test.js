@@ -281,7 +281,7 @@ describe('API Module', () => {
     })
 
     it('should call edge AI endpoints', async () => {
-      mock.onGet('/edge-ai/status').reply(200, { status: 'ok' })
+      mock.onGet('/admin/edge-ai/status').reply(200, { status: 'ok' })
 
       const res = await api.getEdgeAIStatus()
       expect(res.data.status).toBe('ok')

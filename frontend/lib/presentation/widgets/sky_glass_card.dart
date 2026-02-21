@@ -27,7 +27,7 @@ class SkyGlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeGlow = glowColor ?? (isDark ? AppTheme.candleGlow : AppTheme.warmOrange);
+    final activeGlow = glowColor ?? (isDark ? AppTheme.primaryLightColor : AppTheme.primaryColor);
     final radius = BorderRadius.circular(borderRadius);
 
     final card = ClipRRect(

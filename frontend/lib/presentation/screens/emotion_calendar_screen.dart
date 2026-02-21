@@ -377,7 +377,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           ),
           Text('${_currentMonth.year}年${_currentMonth.month}月', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           IconButton(
-            icon: Icon(Icons.chevron_right, color: _canGoNext() ? AppTheme.skyBlue : Colors.grey.shade300),
+            icon: Icon(Icons.chevron_right, color: _canGoNext() ? AppTheme.backgroundColor : Colors.grey.shade300),
             onPressed: _canGoNext() ? () {
               setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1));
               _loadEmotionData();
@@ -501,7 +501,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                     gradient: hasData ? LinearGradient(colors: [config.gradientStart, config.gradientEnd], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
                     color: hasData ? null : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(10),
-                    border: isToday ? Border.all(color: AppTheme.skyBlue, width: 2) : null,
+                    border: isToday ? Border.all(color: AppTheme.backgroundColor, width: 2) : null,
                     boxShadow: hasData ? [BoxShadow(color: config.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
                   ),
                   child: Stack(

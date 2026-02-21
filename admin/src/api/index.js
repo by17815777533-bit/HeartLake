@@ -84,7 +84,7 @@ export default {
   getMoodTrend: days => http.get('/admin/stats/mood-distribution', { params: { days, type: 'trend' } }),
   getTrendingTopics: () => http.get('/admin/stats/trending-topics'),
   getActiveTimeStats: () => http.get('/admin/stats/active-time'),
-  getPrivacyStats: () => http.get('/edge-ai/privacy-budget', { skipLoading: true }),
+  getPrivacyStats: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true }),
   getResonanceStats: () => http.get('/recommendations/emotion-trends', { skipLoading: true }),
   // Users
   getUsers: params => http.get('/admin/users', { params }),
@@ -111,24 +111,24 @@ export default {
   // Settings
   getSystemConfig: () => http.get('/admin/config'),
   updateSystemConfig: data => http.put('/admin/config', data),
-  testAIConnection: () => http.get('/edge-ai/status'),
+  testAIConnection: () => http.get('/admin/edge-ai/status'),
   broadcastMessage: data => http.post('/admin/broadcast', data),
   // Logs
   getOperationLogs: params => http.get('/admin/logs', { params }),
   // Admin info
   getAdminInfo: () => http.get('/admin/info'),
   // Edge AI
-  getEdgeAIStatus: () => http.get('/edge-ai/status', { skipLoading: true }),
-  getEdgeAIMetrics: () => http.get('/edge-ai/metrics', { skipLoading: true }),
-  getEmotionPulse: () => http.get('/edge-ai/emotion-pulse', { skipLoading: true }),
-  triggerFederatedAggregation: data => http.post('/edge-ai/federated/aggregate', data),
-  getPrivacyBudget: () => http.get('/edge-ai/privacy-budget', { skipLoading: true }),
-  edgeAIVectorSearch: data => http.post('/edge-ai/vector-search', data),
+  getEdgeAIStatus: () => http.get('/admin/edge-ai/status', { skipLoading: true }),
+  getEdgeAIMetrics: () => http.get('/admin/edge-ai/metrics', { skipLoading: true }),
+  getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true }),
+  triggerFederatedAggregation: data => http.post('/admin/edge-ai/federated/aggregate', data),
+  getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true }),
+  edgeAIVectorSearch: data => http.post('/admin/edge-ai/vector-search', data),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
   updateEdgeAIConfig: data => http.put('/admin/edge-ai/config', data),
   // AI Analysis
-  analyzeText: text => http.post('/edge-ai/analyze', { text }),
-  moderateText: text => http.post('/edge-ai/moderate', { text }),
+  analyzeText: text => http.post('/admin/edge-ai/analyze', { text }),
+  moderateText: text => http.post('/admin/edge-ai/moderate', { text }),
   // Recommendations
   getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true }),
   getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true }),

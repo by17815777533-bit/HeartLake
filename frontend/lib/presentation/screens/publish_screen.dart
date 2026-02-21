@@ -45,11 +45,11 @@ class _PublishScreenState extends State<PublishScreen> {
         appBar: AppBar(
           title: Text('投石',
               style: TextStyle(
-                color: AppTheme.candleGlow,
+                color: AppTheme.primaryLightColor,
                 fontWeight: FontWeight.bold,
                 shadows: [
                   Shadow(
-                    color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                    color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
                     blurRadius: 12,
                   ),
                 ],
@@ -58,7 +58,7 @@ class _PublishScreenState extends State<PublishScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          foregroundColor: AppTheme.darkTextPrimary,
+          foregroundColor: AppTheme.textPrimary,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -72,10 +72,10 @@ class _PublishScreenState extends State<PublishScreen> {
                   style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.candleGlow,
+                      color: AppTheme.primaryLightColor,
                       shadows: [
                         Shadow(
-                            color: AppTheme.candleGlow.withValues(alpha: 0.5),
+                            color: AppTheme.primaryLightColor.withValues(alpha: 0.5),
                             offset: const Offset(0, 2),
                             blurRadius: 8)
                       ]),
@@ -85,7 +85,7 @@ class _PublishScreenState extends State<PublishScreen> {
                   '这里是你的安全空间',
                   style: TextStyle(
                     fontSize: 16,
-                    color: AppTheme.darkTextSecondary,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -134,7 +134,7 @@ class _PublishScreenState extends State<PublishScreen> {
                       const Text(
                         '选择心情',
                         style: TextStyle(
-                          color: AppTheme.darkTextPrimary,
+                          color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -157,7 +157,7 @@ class _PublishScreenState extends State<PublishScreen> {
                       const Text(
                         '选择石头类型',
                         style: TextStyle(
-                          color: AppTheme.darkTextPrimary,
+                          color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -292,7 +292,7 @@ class _PublishScreenState extends State<PublishScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('你的石头已投入湖中，等待涟漪...'),
-            backgroundColor: AppTheme.skyBlue,
+            backgroundColor: AppTheme.backgroundColor,
           ),
         );
         _contentController.clear();

@@ -40,7 +40,7 @@ class EdgeAIService extends BaseService {
   Future<ServiceResponse> vectorSearch(String query, {int topK = 10}) async {
     return post('/edge-ai/vector-search', data: {
       'query': query,
-      'top_k': topK,
+      'topK': topK,
     });
   }
 }
