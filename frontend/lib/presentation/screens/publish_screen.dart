@@ -2,12 +2,14 @@
 // @brief 发布石头界面
 // Created by 林子怡
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/water_background.dart';
 import '../widgets/psych_support_dialog.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../data/datasources/stone_service.dart';
+import '../../providers/edge_ai_provider.dart';
 
 class PublishScreen extends StatefulWidget {
   const PublishScreen({super.key});
@@ -19,10 +21,14 @@ class PublishScreen extends StatefulWidget {
 class _PublishScreenState extends State<PublishScreen> {
   final TextEditingController _contentController = TextEditingController();
   final StoneService _stoneService = StoneService();
+  final EdgeAIProvider _provider = EdgeAIProvider();
   String _selectedType = 'medium';
   String _selectedColor = '#ADA59E';
   MoodType _selectedMood = MoodType.neutral; // 新增：选中的心情
   bool _isSubmitting = false;
+  Map<String, double>? _emotionResult;
+  String? _topEmotion;
+  Timer? _debounceTimer;
 
   final Map<String, String> _stoneTypes = {
     'light': '轻石',
@@ -107,6 +113,7 @@ class _PublishScreenState extends State<PublishScreen> {
                           controller: _contentController,
                           maxLines: 6,
                           maxLength: 500,
+                          onChanged: _onContentChanged,
                           decoration: const InputDecoration(
                             hintText: '说说你的心情吧...',
                             counterText: '',
@@ -117,6 +124,31 @@ class _PublishScreenState extends State<PublishScreen> {
                             height: 1.5,
                           ),
                         ),
+
+                        if (_emotionResult != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.psychology, size: 16, color: AppTheme.primaryColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'AI感知: ${_provider.getEmotionLabel(_topEmotion!)} ${(_emotionResult![_topEmotion]! * 100).toStringAsFixed(0)}%',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.shield, size: 14, color: AppTheme.successColor),
+                                const Text(' 差分隐私保护', style: TextStyle(fontSize: 10, color: AppTheme.textTertiary)),
+                              ],
+                            ),
+                          ),
+                        ],
 
                         const SizedBox(height: 16),
 
@@ -222,8 +254,23 @@ class _PublishScreenState extends State<PublishScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _contentController.dispose();
     super.dispose();
+  }
+
+  void _onContentChanged(String text) {
+    _debounceTimer?.cancel();
+    if (text.length < 4) return;
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      final result = await _provider.classifyText(text);
+      if (mounted) {
+        setState(() {
+          _emotionResult = result;
+          _topEmotion = _provider.lastEmotion;
+        });
+      }
+    });
   }
 
   // 提交石头
@@ -241,6 +288,21 @@ class _PublishScreenState extends State<PublishScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      // EdgeAI 内容审核
+      final isSafe = await _provider.moderateContent(_contentController.text.trim());
+      if (!isSafe) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('内容包含敏感信息，请修改后重试'),
+              backgroundColor: AppTheme.warningColor,
+            ),
+          );
+          setState(() => _isSubmitting = false);
+        }
+        return;
+      }
+
       final result = await _stoneService.createStone(
         content: _contentController.text.trim(),
         stoneType: _selectedType,
@@ -266,6 +328,8 @@ class _PublishScreenState extends State<PublishScreen> {
           _selectedType = 'medium';
           _selectedColor = '#ADA59E';
           _selectedMood = MoodType.neutral;
+          _emotionResult = null;
+          _topEmotion = null;
         });
       } else if (result['high_risk'] == true) {
         final tip = result['help_tip']?.toString();
