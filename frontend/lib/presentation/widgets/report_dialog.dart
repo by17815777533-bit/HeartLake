@@ -92,20 +92,20 @@ class _ReportDialogState extends State<ReportDialog> {
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            ..._reportReasons.entries.map((entry) {
-              return RadioListTile<String>(
-                title: Text(entry.value),
-                value: entry.key,
-                groupValue: _selectedReason,
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedReason = value);
-                  }
-                },
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              );
-            }),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _reportReasons.entries.map((entry) {
+                final selected = _selectedReason == entry.key;
+                return ChoiceChip(
+                  label: Text(entry.value),
+                  selected: selected,
+                  onSelected: (_) {
+                    setState(() => _selectedReason = entry.key);
+                  },
+                );
+              }).toList(),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _descriptionController,
