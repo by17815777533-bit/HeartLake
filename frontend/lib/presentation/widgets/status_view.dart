@@ -39,7 +39,7 @@ class StatusView extends StatelessWidget {
               Text(
                 loadingMessage!,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
                 ),
               ),
@@ -59,13 +59,13 @@ class StatusView extends StatelessWidget {
               Icon(
                 Icons.sailing,
                 size: 64,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: Colors.white.withOpacity(0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 "湖面很静，你是第一个投石的人吗？",
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: Colors.white.withOpacity(0.7),
                   fontSize: 16,
                 ),
               ),
@@ -74,7 +74,7 @@ class StatusView extends StatelessWidget {
                 Text(
                   "点击刷新",
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: Colors.white.withOpacity(0.5),
                     fontSize: 12,
                   ),
                 ),
@@ -93,13 +93,13 @@ class StatusView extends StatelessWidget {
             Icon(
               Icons.cloud_off,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Colors.white.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
               "信号被云层挡住了",
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -108,7 +108,7 @@ class StatusView extends StatelessWidget {
               Text(
                 errorMessage!,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: Colors.white.withOpacity(0.5),
                   fontSize: 12,
                 ),
               ),

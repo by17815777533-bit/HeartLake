@@ -8,8 +8,6 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../domain/entities/stone.dart';
-import '../widgets/sky_scaffold.dart';
-import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 
 class MyBoatsScreen extends StatefulWidget {
@@ -28,8 +26,6 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   // WebSocket Listeners
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
-  late void Function(Map<String, dynamic>) _reconnectedListener;
-  late void Function(Map<String, dynamic>) _boatUpdateListener;
 
   @override
   void initState() {
@@ -43,8 +39,6 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   void dispose() {
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
-    _wsManager.off('boat_update', _boatUpdateListener);
-    _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
 
@@ -70,20 +64,6 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
-
-    // 监听纸船更新（别人回复了我的纸船）
-    _boatUpdateListener = (data) {
-      if (!mounted) return;
-      // 有更新时刷新列表
-      _loadMyBoats();
-    };
-    _wsManager.on('boat_update', _boatUpdateListener);
-
-    // 断线重连后自动刷新
-    _reconnectedListener = (data) {
-      if (mounted) _loadMyBoats();
-    };
-    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   Future<void> _loadMyBoats() async {
@@ -120,19 +100,16 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2A3A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('删除纸船', style: TextStyle(color: Colors.white)),
-        content: const Text('确定要删除这条纸船吗？此操作无法撤销。',
-            style: TextStyle(color: Colors.white70)),
+        title: const Text('删除纸船'),
+        content: const Text('确定要删除这条纸船吗？此操作无法撤销。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消', style: TextStyle(color: Colors.white54)),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryLightColor),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('删除'),
           ),
         ],
@@ -149,7 +126,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('已轻轻放下'),
-            backgroundColor: AppTheme.backgroundColor,
+            backgroundColor: AppTheme.skyBlue,
           ),
         );
       } else {
@@ -174,16 +151,10 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: true,
+    return Scaffold(
       appBar: AppBar(
         title: const Text('我的纸船'),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -191,7 +162,14 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
           ),
         ],
       ),
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFF8F0), Color(0xFFFAF0E8)],
+          ),
+        ),
         child: RefreshIndicator(
           onRefresh: _loadMyBoats,
           child: _isLoading
@@ -277,12 +255,12 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                             side: BorderSide(
-                              color: moodConfig.primary.withValues(alpha: 0.4),
+                              color: moodConfig.primary.withOpacity(0.4),
                               width: 2,
                             ),
                           ),
                           elevation: 3,
-                          shadowColor: moodConfig.primary.withValues(alpha: 0.2),
+                          shadowColor: moodConfig.primary.withOpacity(0.2),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
                             onTap: () {
@@ -299,7 +277,9 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                 );
                                 Navigator.push(
                                   context,
-                                  SkyPageRoute(page: StoneDetailScreen(stone: stone)),
+                                  MaterialPageRoute(
+                                    builder: (_) => StoneDetailScreen(stone: stone),
+                                  ),
                                 );
                               }
                             },
@@ -312,7 +292,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                   end: Alignment.bottomRight,
                                   colors: [
                                     Colors.white,
-                                    moodConfig.primary.withValues(alpha: 0.05),
+                                    moodConfig.primary.withOpacity(0.05),
                                   ],
                                 ),
                               ),
@@ -330,9 +310,9 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                           gradient: LinearGradient(
                                             colors: [
                                               moodConfig.primary
-                                                  .withValues(alpha: 0.6),
+                                                  .withOpacity(0.6),
                                               moodConfig.rippleColor
-                                                  .withValues(alpha: 0.4),
+                                                  .withOpacity(0.4),
                                             ],
                                           ),
                                         ),
@@ -377,11 +357,11 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color:
-                                          moodConfig.primary.withValues(alpha: 0.05),
+                                          moodConfig.primary.withOpacity(0.05),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: moodConfig.primary
-                                            .withValues(alpha: 0.15),
+                                            .withOpacity(0.15),
                                         width: 1,
                                       ),
                                     ),
@@ -393,7 +373,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                           Icons.format_quote,
                                           size: 16,
                                           color: moodConfig.primary
-                                              .withValues(alpha: 0.4),
+                                              .withOpacity(0.4),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(

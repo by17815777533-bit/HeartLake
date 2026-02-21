@@ -12,10 +12,9 @@ import '../../data/datasources/api_client.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/vip_service.dart';
-import '../widgets/sky_scaffold.dart';
+import '../widgets/atmospheric_background.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:async';
 import '../../data/datasources/media_service.dart';
 import 'auth_screen.dart';
 import 'help_screen.dart';
@@ -26,7 +25,6 @@ import 'guardian_screen.dart';
 import 'my_stones_screen.dart';
 import 'my_boats_screen.dart';
 import 'received_boats_screen.dart';
-import '../../utils/animation_utils.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -46,14 +44,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasLight = false; // 灯是否点亮
   int _vipDaysLeft = 0;
   final ImagePicker _picker = ImagePicker();
-  Timer? _statsDebounceTimer;
-
-  void _debouncedLoadStats() {
-    _statsDebounceTimer?.cancel();
-    _statsDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) _loadUserStats(silent: true);
-    });
-  }
 
   // WebSocket 监听器
   late void Function(Map<String, dynamic>) _newStoneListener;
@@ -101,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = await StorageUtil.getUserId();
       final stoneUserId = data['stone']?['user_id'] ?? data['user_id'];
       if (stoneUserId == userId && mounted) {
-        _debouncedLoadStats();
+        _loadUserStats(silent: true); // 重新加载统计
       }
     };
     _wsManager.on('new_stone', _newStoneListener);
@@ -110,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _boatUpdateListener = (data) async {
       // 当收到纸船时刷新统计
       if (mounted) {
-        _debouncedLoadStats();
+        _loadUserStats(silent: true);
       }
     };
     _wsManager.on('boat_update', _boatUpdateListener);
@@ -119,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // 监听涟漪更新
     _rippleUpdateListener = (data) async {
       if (mounted) {
-        _debouncedLoadStats();
+        _loadUserStats(silent: true);
       }
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
@@ -127,17 +117,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // 监听删除事件，刷新统计
     _stoneDeletedListener = (data) {
-      if (mounted) _debouncedLoadStats();
+      if (mounted) _loadUserStats(silent: true);
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
 
     _boatDeletedListener = (data) {
-      if (mounted) _debouncedLoadStats();
+      if (mounted) _loadUserStats(silent: true);
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
 
     _rippleDeletedListener = (data) {
-      if (mounted) _debouncedLoadStats();
+      if (mounted) _loadUserStats(silent: true);
     };
     _wsManager.on('ripple_deleted', _rippleDeletedListener);
   }
@@ -155,7 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
-    _statsDebounceTimer?.cancel();
     _removeWebSocketListeners();
     super.dispose();
   }
@@ -338,8 +327,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
     final joinDays = (_stats?['join_days']?.toString() ?? '0');
 
-    return SkyScaffold(
-      showParticles: true,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('倒影',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -355,22 +344,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshAll,
-          color: Colors.blue[900],
-          backgroundColor: Colors.white,
-          child: ListView(
-            padding: const EdgeInsets.only(
-              top: 16,
-              bottom: 20,
-              left: 16,
-              right: 16,
+      body: Stack(
+        children: [
+          // 倒影背景
+          const Positioned.fill(
+            child: SceneTransitionBackground(
+              scene: LakeScene.reflection,
+              child: SizedBox.expand(),
             ),
-            children: [
+          ),
+
+          // 内容区域
+          RefreshIndicator(
+            onRefresh: _refreshAll,
+            color: Colors.blue[900],
+            backgroundColor: Colors.white,
+            child: ListView(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+                bottom: 20,
+                left: 16,
+                right: 16,
+              ),
+              children: [
                 // 个人信息卡片
                 Card(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withOpacity(0.9),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -382,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 45,
-                                backgroundColor: AppTheme.backgroundColor.withValues(alpha: 0.3),
+                                backgroundColor: AppTheme.skyBlue.withOpacity(0.3),
                                 backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty) ? NetworkImage(_avatarUrl!) : null,
                                 child: _avatarUrl == null
                                     ? const Icon(Icons.person, size: 45, color: Colors.white)
@@ -394,7 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
-                                    color: AppTheme.backgroundColor,
+                                    color: AppTheme.skyBlue,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
@@ -441,16 +440,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     Expanded(child: _buildStatCard(context, '投石', stonesCount, Icons.water_drop,
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const MyStonesScreen())))),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyStonesScreen())))),
                     Expanded(child: _buildStatCard(context, '收到纸船', boatsReceived, Icons.sailing,
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const ReceivedBoatsScreen())))),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceivedBoatsScreen())))),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(child: _buildStatCard(context, '发送纸船', boatsSent, Icons.send,
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const MyBoatsScreen())))),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBoatsScreen())))),
                     Expanded(child: _buildStatCard(context, '相伴', '$joinDays天', Icons.favorite)),
                   ],
                 ),
@@ -467,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: Text(_hasLight ? '灯火将燃$_vipDaysLeft天' : '温暖时刻自动点亮',
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const VIPScreen())),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VIPScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -475,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: const Text('情绪日历'),
                         subtitle: const Text('记录每日心情变化', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const EmotionCalendarScreen())),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionCalendarScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -483,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: const Text('点灯人'),
                         subtitle: const Text('守护心湖的温暖', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const GuardianScreen())),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GuardianScreen())),
                       ),
                     ],
                   ),
@@ -498,14 +497,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading: const Icon(Icons.notifications_outlined, color: AppTheme.skyBlue),
                         title: const Text('消息通知'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const NotificationScreen())),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.help_outline, color: AppTheme.skyBlue),
                         title: const Text('帮助与反馈'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, SkyPageRoute(page: const HelpScreen())),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -572,7 +571,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // 跳转到登录页面
                             if (context.mounted) {
                               Navigator.of(context).pushAndRemoveUntil(
-                                SkyPageRoute(page: const AuthScreen()),
+                                MaterialPageRoute(
+                                  builder: (context) => const AuthScreen(),
+                                ),
                                 (route) => false,
                               );
                             }
@@ -585,7 +586,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-        ),
+        ],
+      ),
     );
   }
 
@@ -593,11 +595,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
     final card = Card(
-      color: Colors.white.withValues(alpha: 0.9),
+      color: Colors.white.withOpacity(0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+          color: AppTheme.skyBlue.withOpacity(0.3),
           width: 2,
         ),
       ),
@@ -607,7 +609,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(
               icon,
-              color: AppTheme.backgroundColor,
+              color: AppTheme.skyBlue,
               size: 28,
             ),
             const SizedBox(height: 8),
@@ -857,7 +859,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SnackBar(content: Text('账号已注销')),
                     );
                     navigator.pushAndRemoveUntil(
-                      SkyPageRoute(page: const AuthScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const AuthScreen()),
                       (route) => false,
                     );
                   } else {

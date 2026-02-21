@@ -1,10 +1,9 @@
 // @file lake_god_chat_screen.dart
-// @brief 湖神聊天界面 - 光遇风格温馨治愈AI咨询
+// @brief 湖神聊天界面 - 温馨治愈风格的AI咨询
 import 'package:flutter/material.dart';
 import '../../data/datasources/lake_god_service.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
+import '../widgets/atmospheric_background.dart';
 
 class LakeGodChatScreen extends StatefulWidget {
   const LakeGodChatScreen({super.key});
@@ -13,41 +12,28 @@ class LakeGodChatScreen extends StatefulWidget {
   State<LakeGodChatScreen> createState() => _LakeGodChatScreenState();
 }
 
-class _LakeGodChatScreenState extends State<LakeGodChatScreen>
-    with SingleTickerProviderStateMixin {
+class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final LakeGodService _service = LakeGodService();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
-  late AnimationController _welcomeAnimController;
-  late Animation<double> _welcomeFadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _welcomeAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _welcomeFadeAnim = CurvedAnimation(
-      parent: _welcomeAnimController,
-      curve: Curves.easeIn,
-    );
     _addWelcome();
   }
 
   @override
   void dispose() {
-    _welcomeAnimController.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _addWelcome() {
-    _messages.add({'content': '你好呀，我是湖神。有什么心事想和我聊聊吗？', 'is_mine': false, 'is_welcome': true});
-    _welcomeAnimController.forward();
+    _messages.add({'content': '你好呀，我是湖神。有什么心事想和我聊聊吗？', 'is_mine': false});
   }
 
   void _scrollToBottom() {
@@ -101,28 +87,21 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(
-          '湖神',
-          style: TextStyle(
-            color: AppTheme.primaryLightColor,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
-                blurRadius: 12,
-              ),
-            ],
-          ),
-        ),
+        title: const Text('湖神'),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
+        foregroundColor: Colors.white,
       ),
-      body: SafeArea(
-        child: Column(
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: SceneTransitionBackground(scene: LakeScene.underwater, child: SizedBox.expand()),
+          ),
+          SafeArea(
+            child: Column(
           children: [
             Expanded(
               child: ListView.builder(
@@ -135,111 +114,61 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
             _buildInputBar(),
           ],
         ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isMe = message['is_mine'] == true;
-    final isWelcome = message['is_welcome'] == true;
-
-    Widget bubble = Align(
+    return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        child: isMe
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primaryLightColor, AppTheme.primaryColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  message['content'] ?? '',
-                  style: const TextStyle(color: AppTheme.darkTextPrimary, fontSize: 15),
-                ),
-              )
-            : Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryLightColor.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                child: SkyGlassCard(
-                  borderRadius: 16,
-                  enableGlow: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Text(
-                    message['content'] ?? '',
-                    style: TextStyle(color: AppTheme.textPrimary.withValues(alpha: 0.9), fontSize: 15),
-                  ),
-                ),
-              ),
+        decoration: BoxDecoration(
+          color: isMe ? AppTheme.primaryColor : Colors.grey[200],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          message['content'] ?? '',
+          style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 15),
+        ),
       ),
     );
-
-    // 欢迎消息淡入动画
-    if (isWelcome) {
-      return FadeTransition(opacity: _welcomeFadeAnim, child: bubble);
-    }
-    return bubble;
   }
 
   Widget _buildInputBar() {
-    return SkyGlassCard(
-      borderRadius: 0,
-      enableGlow: false,
+    return Container(
       padding: EdgeInsets.only(
         left: 16, right: 8, top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: AppTheme.darkTextPrimary),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '和湖神说说心里话...',
-                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.6)),
-                filled: true,
-                fillColor: AppTheme.lightStone,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(
-                    color: AppTheme.primaryLightColor.withValues(alpha: 0.15),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppTheme.candleGlow, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               maxLines: null,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
             ),
           ),
-          const SizedBox(width: 4),
           IconButton(
             icon: _isSending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.candleGlow))
-                : const Icon(Icons.send, color: AppTheme.candleGlow),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.send, color: AppTheme.primaryColor),
             onPressed: _isSending ? null : _sendMessage,
           ),
         ],

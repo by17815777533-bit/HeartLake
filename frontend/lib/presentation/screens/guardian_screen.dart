@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/guardian_service.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
-import '../../utils/animation_utils.dart';
+import '../widgets/water_background.dart';
 import 'lake_god_chat_screen.dart';
 
 class GuardianScreen extends StatefulWidget {
@@ -55,66 +53,28 @@ class _GuardianScreenState extends State<GuardianScreen>
   }
 
   Future<void> _showTransferDialog() async {
-    final colorScheme = Theme.of(context).colorScheme;
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '转赠灯火',
-          style: TextStyle(
-            color: AppTheme.primaryColor,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(color: AppTheme.primaryColor.withValues(alpha: 0.5), blurRadius: 8),
-            ],
-          ),
-        ),
+        title: const Text('转赠灯火'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('将你的温暖传递给需要的人',
-                style: TextStyle(color: AppTheme.textSecondary)),
+            const Text('将你的温暖传递给需要的人', style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              style: const TextStyle(color: AppTheme.darkTextPrimary),
-              decoration: InputDecoration(
-                labelText: '对方ID',
-                labelStyle: const TextStyle(color: AppTheme.darkTextSecondary),
-                filled: true,
-                fillColor: AppTheme.lightStone,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.3)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.2)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.candleGlow, width: 1.5),
-                ),
-              ),
+              decoration: const InputDecoration(labelText: '对方ID', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: AppTheme.darkTextSecondary)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: AppTheme.backgroundColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('转赠', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('转赠'),
           ),
         ],
       ),
@@ -126,30 +86,14 @@ class _GuardianScreenState extends State<GuardianScreen>
         final bool success = response['success'] == true;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                success ? '灯火已传递' : '转赠失败',
-                style: const TextStyle(color: AppTheme.darkTextPrimary),
-              ),
-              backgroundColor: success
-                  ? AppTheme.lightStone
-                  : AppTheme.errorColor.withValues(alpha: 0.9),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
+            SnackBar(content: Text(success ? '灯火已传递' : '转赠失败'), backgroundColor: success ? Colors.green : Colors.red),
           );
           if (success) _loadStats();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('网络异常，请稍后再试',
-                  style: TextStyle(color: AppTheme.textPrimary)),
-              backgroundColor: AppTheme.lightStone,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
+            const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
           );
         }
       }
@@ -158,69 +102,45 @@ class _GuardianScreenState extends State<GuardianScreen>
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: true,
-      appBar: AppBar(
-        title: Text(
-          '点灯人',
-          style: TextStyle(
-            color: AppTheme.primaryLightColor,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.6), blurRadius: 12),
-            ],
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: AppTheme.textPrimary,
-      ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.candleGlow))
-            : _stats == null
-                ? const Center(child: Text('暂无数据', style: TextStyle(color: AppTheme.darkTextPrimary)))
-                : FadeTransition(
-                    opacity: _fadeAnim,
-                    child: ScaleTransition(
-                      scale: _scaleAnim,
-                      child: ListView(
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(title: const Text('点灯人'), backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Colors.white),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: WaterBackground()),
+          SafeArea(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : _stats == null
+                    ? const Center(child: Text('暂无数据', style: TextStyle(color: Colors.white)))
+                    : FadeTransition(
+                        opacity: _fadeAnim,
+                        child: ScaleTransition(
+                          scale: _scaleAnim,
+                          child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
-                          // 主卡片 - 点灯人状态
-                          SkyGlassCard(
-                            glowColor: _stats!['is_guardian'] == true
-                                ? AppTheme.primaryLightColor
-                                : AppTheme.secondaryColor,
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  _stats!['is_guardian'] == true
-                                      ? Icons.local_fire_department
-                                      : Icons.local_fire_department_outlined,
-                                  size: 64,
-                                  color: _stats!['is_guardian'] == true
-                                      ? AppTheme.primaryLightColor
-                                      : AppTheme.textSecondary,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _stats!['is_guardian'] == true ? '你是一位点灯人' : '成为点灯人',
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary,
+                          Card(
+                            color: Colors.white.withOpacity(0.95),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    _stats!['is_guardian'] == true ? Icons.local_fire_department : Icons.local_fire_department_outlined,
+                                    size: 64,
+                                    color: _stats!['is_guardian'] == true ? Colors.orange : Colors.grey,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  '用温暖的涟漪，照亮他人的心湖',
-                                  style: TextStyle(color: AppTheme.textSecondary),
-                                ),
-                              ],
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _stats!['is_guardian'] == true ? '你是一位点灯人' : '成为点灯人',
+                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text('用温暖的涟漪，照亮他人的心湖', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -241,45 +161,35 @@ class _GuardianScreenState extends State<GuardianScreen>
                               icon: const Icon(Icons.volunteer_activism),
                               label: const Text('转赠灯火'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: AppTheme.backgroundColor,
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           const SizedBox(height: 16),
                           // 湖神入口
-                          SkyGlassCard(
-                            glowColor: AppTheme.secondaryColor,
-                            padding: EdgeInsets.zero,
+                          Card(
+                            color: Colors.white.withOpacity(0.95),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: ListTile(
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.secondaryColor.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.auto_awesome, color: AppTheme.candleGlow),
+                                decoration: BoxDecoration(color: AppTheme.skyBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                child: const Icon(Icons.auto_awesome, color: AppTheme.skyBlue),
                               ),
-                              title: const Text(
-                                '与湖神对话',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              subtitle: const Text(
-                                '倾诉心事，获得温暖陪伴',
-                                style: TextStyle(color: AppTheme.textSecondary),
-                              ),
-                              trailing: const Icon(Icons.chevron_right, color: AppTheme.darkTextSecondary),
-                              onTap: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
+                              title: const Text('与湖神对话', style: TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: const Text('倾诉心事，获得温暖陪伴'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
+          ),
+        ],
       ),
     );
   }
@@ -293,26 +203,16 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: SkyGlassCard(
-        glowColor: AppTheme.primaryLightColor,
-        borderRadius: 16,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryLightColor,
-                shadows: [
-                  Shadow(color: AppTheme.primaryLightColor.withValues(alpha: 0.4), blurRadius: 6),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.darkTextSecondary)),
-          ],
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            children: [
+              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.skyBlue)),
+              const SizedBox(height: 4),
+              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
         ),
       ),
     );

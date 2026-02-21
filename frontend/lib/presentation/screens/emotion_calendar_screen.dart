@@ -4,17 +4,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dio/dio.dart' show DioException;
+import 'package:dio/dio.dart';
 import '../../data/datasources/api_client.dart';
-import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
 import '../widgets/privacy_badge.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
 
 const _kRippleColorLow = Color(0xFF90CAF9);
 const _kRippleColorHigh = Color(0xFF7C4DFF);
@@ -28,7 +25,6 @@ class EmotionCalendarScreen extends StatefulWidget {
 
 class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with SingleTickerProviderStateMixin {
   final ApiClient _apiClient = ApiClient();
-  final AIRecommendationService _aiService = AIRecommendationService();
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;
@@ -36,8 +32,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   Map<String, dynamic>? _cachedStats;
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
-  Map<String, dynamic> _emotionTrends = {};
-  bool _trendsLoading = false;
 
   @override
   void initState() {
@@ -45,7 +39,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
     _loadEmotionData();
     _loadHeatmapData();
-    _loadEmotionTrends();
   }
 
   @override
@@ -117,16 +110,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         setState(() => _insights = _generateInsights(_heatmapData));
       }
     }
-  }
-
-  /// 加载AI情绪趋势分析
-  Future<void> _loadEmotionTrends() async {
-    setState(() => _trendsLoading = true);
-    try {
-      final trends = await _aiService.getEmotionTrends();
-      if (mounted) setState(() => _emotionTrends = trends);
-    } catch (_) {}
-    if (mounted) setState(() => _trendsLoading = false);
   }
 
   List<String> _generateInsights(Map<String, Map<String, dynamic>> data) {
@@ -201,10 +184,17 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      body: SafeArea(
-        child: Column(
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
             children: [
               _buildHeader(),
               Expanded(
@@ -216,17 +206,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                       const SizedBox(height: 8),
                       _buildWeekdayHeader(),
                       _isLoading
-                          ? SizedBox(
+                          ? const SizedBox(
                               height: 300,
-                              child: Center(
-                                child: WarmLoadingIndicator(
-                                  messages: [
-                                    '正在加载你的心情轨迹...',
-                                    '回顾这段时间的情绪变化...',
-                                    '每一天都值得被记录...',
-                                  ],
-                                ),
-                              ),
+                              child: Center(child: WarmLoadingIndicator(messages: ['正在加载你的心情轨迹...', '回顾这段时间的情绪变化...', '每一天都值得被记录...'])),
                             )
                           : SizedBox(
                               height: 300,
@@ -251,90 +233,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: EmotionInsightsCard(insights: _insights),
                         ),
-                      const SizedBox(height: 16),
-                      // AI 情绪趋势
-                      if (_trendsLoading)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                            ),
-                            child: Center(
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                SizedBox(width: 16, height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white.withValues(alpha: 0.5))),
-                                const SizedBox(width: 12),
-                                Text('AI 正在分析情绪趋势...',
-                                  style: TextStyle(fontSize: 13,
-                                    color: Colors.white.withValues(alpha: 0.6))),
-                              ]),
-                            ),
-                          ),
-                        )
-                      else if (_emotionTrends.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFFB39DDB).withValues(alpha: 0.12),
-                                  const Color(0xFF64B5F6).withValues(alpha: 0.08),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(children: [
-                                  Icon(Icons.auto_awesome, size: 16,
-                                    color: Colors.white.withValues(alpha: 0.7)),
-                                  const SizedBox(width: 8),
-                                  Text('AI 情绪趋势',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
-                                      color: Colors.white.withValues(alpha: 0.85))),
-                                ]),
-                                const SizedBox(height: 12),
-                                if (_emotionTrends['summary'] != null)
-                                  Text(_emotionTrends['summary'] as String,
-                                    style: TextStyle(fontSize: 13, height: 1.6,
-                                      color: Colors.white.withValues(alpha: 0.7))),
-                                if (_emotionTrends['suggestions'] is List) ...[
-                                  const SizedBox(height: 10),
-                                  ...(_emotionTrends['suggestions'] as List).take(3).map((s) =>
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Container(width: 5, height: 5,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: const Color(0xFFB39DDB).withValues(alpha: 0.6))),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(child: Text(s.toString(),
-                                          style: TextStyle(fontSize: 12, height: 1.5,
-                                            color: Colors.white.withValues(alpha: 0.6)))),
-                                      ]),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -342,6 +240,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
               ),
             ],
           ),
+        ),
       ),
     );
   }
@@ -360,12 +259,15 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildMonthSelector() {
-    return SkyGlassCard(
-      borderRadius: 20,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
@@ -377,14 +279,13 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           ),
           Text('${_currentMonth.year}年${_currentMonth.month}月', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           IconButton(
-            icon: Icon(Icons.chevron_right, color: _canGoNext() ? AppTheme.backgroundColor : Colors.grey.shade300),
+            icon: Icon(Icons.chevron_right, color: _canGoNext() ? AppTheme.skyBlue : Colors.grey.shade300),
             onPressed: _canGoNext() ? () {
               setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1));
               _loadEmotionData();
             } : null,
           ),
         ],
-      ),
       ),
     );
   }
@@ -396,20 +297,21 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   Widget _buildEmotionSummary() {
     final stats = _calculateStats();
-    return SkyGlassCard(
-      borderRadius: 20,
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statItem('${stats['happy']}', '愉悦', MoodColors.getConfig(MoodType.happy).icon),
-            _statItem('${stats['calm']}', '平静', MoodColors.getConfig(MoodType.calm).icon),
-            _statItem('${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
-            _statItem('${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppTheme.skyBlue.withOpacity(0.8), AppTheme.skyBlue]),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _statItem('${stats['happy']}', '愉悦', MoodColors.getConfig(MoodType.happy).icon),
+          _statItem('${stats['calm']}', '平静', MoodColors.getConfig(MoodType.calm).icon),
+          _statItem('${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
+          _statItem('${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
+        ],
       ),
     );
   }
@@ -420,7 +322,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         Icon(icon, color: Colors.white, size: 20),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
       ],
     );
   }
@@ -493,22 +395,22 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
               color: Colors.transparent,
               child: InkWell(
                 onTap: hasData ? () { HapticFeedback.lightImpact(); _showDayDetail(day, emotion); } : null,
-                splashColor: rippleColor.withValues(alpha: 0.4),
-                highlightColor: rippleColor.withValues(alpha: 0.2),
+                splashColor: rippleColor.withOpacity(0.4),
+                highlightColor: rippleColor.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(10),
                 child: Ink(
                   decoration: BoxDecoration(
                     gradient: hasData ? LinearGradient(colors: [config.gradientStart, config.gradientEnd], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
                     color: hasData ? null : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(10),
-                    border: isToday ? Border.all(color: AppTheme.backgroundColor, width: 2) : null,
-                    boxShadow: hasData ? [BoxShadow(color: config.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
+                    border: isToday ? Border.all(color: AppTheme.skyBlue, width: 2) : null,
+                    boxShadow: hasData ? [BoxShadow(color: config.primary.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Text('$day', style: TextStyle(color: hasData ? config.textColor : Colors.grey.shade400, fontWeight: isToday ? FontWeight.bold : FontWeight.w500, fontSize: 14)),
-                      if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withValues(alpha: 0.7))),
+                      if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withOpacity(0.7))),
                     ],
                   ),
                 ),
@@ -538,7 +440,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: config.textColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: config.textColor.withOpacity(0.3), borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             Icon(config.icon, size: 48, color: config.iconColor),
             const SizedBox(height: 12),
@@ -546,7 +448,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
             const SizedBox(height: 8),
             Text(config.name, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: config.primary)),
             const SizedBox(height: 4),
-            Text(config.description, style: TextStyle(fontSize: 14, color: config.textColor.withValues(alpha: 0.7))),
+            Text(config.description, style: TextStyle(fontSize: 14, color: config.textColor.withOpacity(0.7))),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -582,7 +484,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: AppTheme.secondaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: AppTheme.secondaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

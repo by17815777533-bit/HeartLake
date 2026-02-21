@@ -1,5 +1,5 @@
 // @file friends_screen.dart
-// @brief 好友列表界面 - 光遇风格重构
+// @brief 好友列表界面
 // Created by 林子怡
 
 import 'dart:math';
@@ -7,10 +7,7 @@ import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
-import '../widgets/sky_button.dart';
-import '../../utils/animation_utils.dart';
+import '../widgets/water_background.dart';
 import 'temp_friends_screen.dart';
 import 'friend_chat_screen.dart';
 import 'user_detail_screen.dart';
@@ -35,7 +32,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   late final void Function(Map<String, dynamic>) _onFriendAccepted;
   late final void Function(Map<String, dynamic>) _onFriendRemoved;
   late final void Function(Map<String, dynamic>) _onFriendRequest;
-  late final void Function(Map<String, dynamic>) _onReconnected;
 
   @override
   void initState() {
@@ -74,12 +70,6 @@ class _FriendsScreenState extends State<FriendsScreen>
         );
       }
     };
-    _onReconnected = (data) {
-      if (mounted) {
-        _loadFriends();
-        _loadPendingCount();
-      }
-    };
   }
 
   @override
@@ -98,7 +88,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.on('friend_accepted', _onFriendAccepted);
     wsManager.on('friend_removed', _onFriendRemoved);
     wsManager.on('friend_request', _onFriendRequest);
-    wsManager.on('reconnected', _onReconnected);
   }
 
   void _removeWebSocketListeners() {
@@ -106,7 +95,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.off('friend_accepted', _onFriendAccepted);
     wsManager.off('friend_removed', _onFriendRemoved);
     wsManager.off('friend_request', _onFriendRequest);
-    wsManager.off('reconnected', _onReconnected);
   }
 
   Future<void> _loadFriends() async {
@@ -140,8 +128,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       final result = await _friendService.getPendingRequests();
       if (result['success'] && mounted) {
         setState(() {
-          final requests = result['requests'];
-          _pendingCount = requests is List ? requests.length : 0;
+          _pendingCount = result['total'] ?? 0;
         });
       }
     } catch (_) {}
@@ -149,8 +136,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showWater: true,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('好友',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -162,46 +149,36 @@ class _FriendsScreenState extends State<FriendsScreen>
       ),
       body: Stack(
         children: [
-          // 小船动画
+          // 动态水面背景
+          const Positioned.fill(child: WaterBackground()),
+
+          // 漂浮小船装饰
           Positioned(
             right: 20,
             bottom: 100,
             child: AnimatedBuilder(
               animation: _boatAnimController,
               builder: (context, child) {
+                final t = _boatAnimController.value * 2 * 3.14159;
                 return Transform.translate(
-                  offset: Offset(
-                    sin(_boatAnimController.value * 2 * pi) * 10,
-                    cos(_boatAnimController.value * 2 * pi) * 5,
-                  ),
-                  child: Transform.rotate(
-                    angle: sin(_boatAnimController.value * 2 * pi) * 0.05,
-                    child: child,
+                  offset: Offset(sin(t) * 8, cos(t) * 4),
+                  child: const Opacity(
+                    opacity: 0.6,
+                    child: Text('⛵', style: TextStyle(fontSize: 32)),
                   ),
                 );
               },
-              child: Text(
-                '⛵',
-                style: TextStyle(
-                  fontSize: 40,
-                  shadows: [
-                    Shadow(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
-          // 内容
+
+          // 内容区域
           RefreshIndicator(
             onRefresh: () async {
               await _loadFriends();
               await _loadPendingCount();
             },
-            color: AppTheme.primaryColor,
-            backgroundColor: AppTheme.lightStone,
+            color: Colors.blue[900],
+            backgroundColor: Colors.white,
             child: ListView(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
@@ -211,50 +188,51 @@ class _FriendsScreenState extends State<FriendsScreen>
               ),
               children: [
                 // 临时好友入口
-                SkyGlassCard(
-                  enableGlow: false,
-                  padding: EdgeInsets.zero,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      SkyPageRoute(page: const TempFriendsScreen()),
-                    );
-                  },
+                Card(
+                  color: Colors.white.withOpacity(0.95),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Colors.orange, width: 1.5),
+                  ),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                      child: const Icon(Icons.timer, color: AppTheme.warmOrange),
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.orange,
+                      child: Icon(Icons.access_time, color: Colors.white),
                     ),
-                    title: const Text('临时好友',
-                        style: TextStyle(color: Colors.white)),
-                    subtitle: Text('查看限时好友',
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6))),
-                    trailing: Icon(Icons.chevron_right,
-                        color: Colors.white.withValues(alpha: 0.6)),
+                    title: const Text('临时好友'),
+                    subtitle: const Text('24小时有效期，可升级为永久好友'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TempFriendsScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
-                // 好友请求入口
-                SkyGlassCard(
-                  enableGlow: false,
-                  padding: EdgeInsets.zero,
-                  onTap: _showPendingRequests,
+                // 好友请求
+                Card(
+                  color: Colors.white.withOpacity(0.95),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(
+                        color: AppTheme.borderCyan, width: 1.5),
+                  ),
                   child: ListTile(
                     leading: Stack(
-                      clipBehavior: Clip.none,
                       children: [
-                        CircleAvatar(
-                          backgroundColor:
-                              AppTheme.secondaryColor.withValues(alpha: 0.2),
-                          child: const Icon(Icons.person_add,
-                              color: AppTheme.secondaryColor),
+                        const CircleAvatar(
+                          backgroundColor: AppTheme.skyBlue,
+                          child: Icon(Icons.person_add, color: Colors.white),
                         ),
                         if (_pendingCount > 0)
                           Positioned(
-                            right: -2,
-                            top: -2,
+                            right: 0,
+                            top: 0,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
@@ -273,10 +251,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                           ),
                       ],
                     ),
-                    title: const Text('新好友请求',
-                        style: TextStyle(color: Colors.white)),
-                    trailing: Icon(Icons.chevron_right,
-                        color: Colors.white.withValues(alpha: 0.6)),
+                    title: const Text('新好友请求'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _showPendingRequests,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -286,17 +263,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(
-                              color: AppTheme.primaryColor),
-                          const SizedBox(height: 16),
-                          Text('正在寻找温暖的连接...',
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8))),
-                        ],
-                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在寻找温暖的连接...', style: TextStyle(color: Colors.white.withOpacity(0.8)))]),
                     ),
                   )
                 else if (_friends.isEmpty)
@@ -308,14 +275,14 @@ class _FriendsScreenState extends State<FriendsScreen>
                         Icon(
                           Icons.people_outline,
                           size: 80,
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: Colors.white.withOpacity(0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           '还没有好友，来寻找志同道合的人吧',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                           ),
                         ),
                       ],
@@ -330,13 +297,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                       builder: (context, child) {
                         final delay = index * 0.1;
                         final start = delay.clamp(0.0, 0.7);
-                        final anim =
-                            Tween<double>(begin: 0.0, end: 1.0).animate(
+                        final anim = Tween<double>(begin: 0.0, end: 1.0).animate(
                           CurvedAnimation(
                             parent: _listAnimController,
-                            curve: Interval(start,
-                                (start + 0.3).clamp(0.0, 1.0),
-                                curve: Curves.easeOut),
+                            curve: Interval(start, (start + 0.3).clamp(0.0, 1.0), curve: Curves.easeOut),
                           ),
                         );
                         return Opacity(
@@ -347,98 +311,63 @@ class _FriendsScreenState extends State<FriendsScreen>
                           ),
                         );
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: SkyGlassCard(
-                          enableGlow: false,
-                          padding: EdgeInsets.zero,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              SkyPageRoute(page: FriendChatScreen(
-                                  friendId: friend['user_id'],
-                                  friendName: friend['nickname'] ?? '未知',
-                                )),
-                            );
-                          },
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  AppTheme.secondaryColor.withValues(alpha: 0.2),
-                              child: Text(
-                                (friend['nickname']
-                                            ?.toString()
-                                            .isNotEmpty ==
-                                        true)
-                                    ? friend['nickname']
-                                        .toString()
-                                        .substring(0, 1)
-                                    : '?',
-                                style: const TextStyle(
-                                  color: AppTheme.secondaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      child: Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        color: Colors.white.withOpacity(0.9),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.skyBlue.withOpacity(0.2),
+                            child: Text(
+                              (friend['nickname']?.toString().isNotEmpty == true)
+                                  ? friend['nickname'].toString().substring(0, 1)
+                                  : '?',
+                              style: const TextStyle(
+                                color: AppTheme.skyBlue,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            title: Text(friend['nickname'] ?? '未知',
-                                style:
-                                    const TextStyle(color: Colors.white)),
-                            subtitle: Text(
-                                '账号: ${friend['username']}',
-                                style: TextStyle(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.6))),
-                            trailing: PopupMenuButton(
-                              icon: Icon(Icons.more_vert,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.7)),
-                              color: AppTheme.lightStone,
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'detail',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.info_outline,
-                                          size: 18, color: Colors.white70),
-                                      SizedBox(width: 8),
-                                      Text('查看资料',
-                                          style: TextStyle(
-                                              color: Colors.white)),
-                                    ],
-                                  ),
+                          ),
+                          title: Text(friend['nickname'] ?? '未知'),
+                          subtitle: Text('账号: ${friend['username']}'),
+                          onTap: () {
+                            // 点击好友进入聊天界面
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FriendChatScreen(
+                                  friendId: friend['user_id'],
+                                  friendName: friend['nickname'] ?? '未知',
                                 ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete_outline,
-                                          size: 18,
-                                          color: AppTheme.errorColor),
-                                      SizedBox(width: 8),
-                                      Text('删除好友',
-                                          style: TextStyle(
-                                              color:
-                                                  AppTheme.errorColor)),
-                                    ],
+                              ),
+                            );
+                          },
+                          trailing: PopupMenuButton(
+                            icon: const Icon(Icons.more_vert),
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'detail',
+                                child: Text('查看详情'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('删除好友'),
+                              ),
+                            ],
+                            onSelected: (value) {
+                              if (value == 'detail') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserDetailScreen(
+                                      userId: friend['user_id'],
+                                      nickname: friend['nickname'],
+                                    ),
                                   ),
-                                ),
-                              ],
-                              onSelected: (value) {
-                                if (value == 'detail') {
-                                  Navigator.push(
-                                    context,
-                                    SkyPageRoute(page: UserDetailScreen(
-                                        userId: friend['user_id'],
-                                      )),
-                                  );
-                                } else if (value == 'delete') {
-                                  _confirmDeleteFriend(
-                                    friend['user_id'],
-                                    friend['nickname'] ?? '未知',
-                                  );
-                                }
-                              },
-                            ),
+                                );
+                              } else if (value == 'delete') {
+                                _confirmDeleteFriend(friend['user_id']);
+                              }
+                            },
                           ),
                         ),
                       ),
@@ -455,35 +384,32 @@ class _FriendsScreenState extends State<FriendsScreen>
   void _showPendingRequests() {
     Navigator.push(
       context,
-      SkyPageRoute(page: const FriendRequestsScreen()),
+      MaterialPageRoute(
+        builder: (context) => const FriendRequestsScreen(),
+      ),
     ).then((_) {
       _loadFriends();
       _loadPendingCount();
     });
   }
 
-  void _confirmDeleteFriend(String friendId, String nickname) {
+  void _confirmDeleteFriend(String friendId) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.lightStone,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('删除好友',
-            style: TextStyle(color: Colors.white)),
-        content: Text('确定要删除 $nickname 吗？',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+        title: const Text('删除好友'),
+        content: const Text('确定要删除这位好友吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('取消',
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6))),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              final result =
-                  await _friendService.removeFriend(friendId);
+
+              final result = await _friendService.removeFriend(friendId);
+
               if (mounted) {
                 if (result['success']) {
                   _loadFriends();
@@ -492,15 +418,12 @@ class _FriendsScreenState extends State<FriendsScreen>
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text(result['message'] ?? '删除失败')),
+                    SnackBar(content: Text(result['message'] ?? '删除失败')),
                   );
                 }
               }
             },
-            child: const Text('确定',
-                style: TextStyle(color: AppTheme.errorColor)),
+            child: const Text('确定', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -508,10 +431,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 }
 
-// ============================================================
 // 好友请求页面
-// ============================================================
-
 class FriendRequestsScreen extends StatefulWidget {
   const FriendRequestsScreen({super.key});
 
@@ -525,6 +445,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
   List<dynamic> _requests = [];
   bool _isLoading = true;
 
+  // P1-5: 保存监听器引用，dispose 时精确移除
   late final void Function(Map<String, dynamic>) _onFriendRequest;
 
   @override
@@ -536,13 +457,16 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
 
   @override
   void dispose() {
+    // P1-5: 精确移除监听器，防止泄漏
     _wsManager.off('friend_request', _onFriendRequest);
     super.dispose();
   }
 
   void _setupWebSocketListeners() {
     _onFriendRequest = (data) {
-      if (mounted) _loadRequests();
+      if (mounted) {
+        _loadRequests();
+      }
     };
     _wsManager.on('friend_request', _onFriendRequest);
   }
@@ -552,19 +476,22 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
 
     try {
       final result = await _friendService.getPendingRequests();
+
       if (result['success'] && mounted) {
         setState(() {
           _requests = result['requests'] ?? [];
           _isLoading = false;
         });
       } else {
-        if (mounted) setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载好友请求失败')),
+          const SnackBar(content: Text('加载失败，请下拉重试')),
         );
       }
     }
@@ -572,55 +499,41 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showWater: true,
+    return Scaffold(
       appBar: AppBar(
-        title: const Text('好友请求',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('好友请求'),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryColor))
-          : _requests.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline,
-                          size: 64,
-                          color: Colors.white.withValues(alpha: 0.4)),
-                      const SizedBox(height: 16),
-                      Text('暂无好友请求',
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 16)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top +
-                        kToolbarHeight +
-                        16,
-                    left: 16,
-                    right: 16,
-                    bottom: 20,
-                  ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppTheme.skyBlue.withOpacity(0.08), Colors.white],
+          ),
+        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _requests.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text('暂无好友请求', style: TextStyle(color: Colors.grey[600])),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                  padding: const EdgeInsets.all(16),
                   itemCount: _requests.length,
                   itemBuilder: (context, index) {
                     final request = _requests[index];
-                    final nickname = request['nickname'] ?? '未知';
-                    final initial =
-                        nickname.isNotEmpty ? nickname.substring(0, 1) : '?';
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: SkyGlassCard(
-                        enableGlow: false,
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -628,11 +541,13 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                               children: [
                                 CircleAvatar(
                                   backgroundColor:
-                                      AppTheme.secondaryColor.withValues(alpha: 0.2),
+                                      AppTheme.skyBlue.withOpacity(0.2),
                                   child: Text(
-                                    initial,
+                                    (request['nickname']?.toString().isNotEmpty == true)
+                                        ? request['nickname'].toString().substring(0, 1)
+                                        : '?',
                                     style: const TextStyle(
-                                      color: AppTheme.secondaryColor,
+                                      color: AppTheme.skyBlue,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -644,19 +559,17 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        nickname,
+                                        request['nickname'] ?? '未知',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
-                                          color: Colors.white,
                                         ),
                                       ),
                                       Text(
                                         '账号: ${request['username']}',
                                         style: TextStyle(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.6),
-                                          fontSize: 13,
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
                                         ),
                                       ),
                                     ],
@@ -670,37 +583,32 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                               children: [
                                 TextButton(
                                   onPressed: () async {
-                                    final messenger =
-                                        ScaffoldMessenger.of(context);
+                                    final messenger = ScaffoldMessenger.of(context);
                                     final result = await _friendService
                                         .rejectFriendRequest(
                                       request['requester_id'],
                                     );
+
                                     if (mounted) {
                                       if (result['success']) {
                                         _loadRequests();
                                         messenger.showSnackBar(
-                                          const SnackBar(
-                                              content: Text('已拒绝好友请求')),
+                                          const SnackBar(content: Text('已拒绝')),
                                         );
                                       }
                                     }
                                   },
-                                  child: Text('拒绝',
-                                      style: TextStyle(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.6))),
+                                  child: const Text('拒绝'),
                                 ),
                                 const SizedBox(width: 8),
-                                SkyButton(
-                                  label: '接受',
+                                ElevatedButton(
                                   onPressed: () async {
-                                    final messenger =
-                                        ScaffoldMessenger.of(context);
+                                    final messenger = ScaffoldMessenger.of(context);
                                     final result = await _friendService
                                         .acceptFriendRequest(
                                       request['requester_id'],
                                     );
+
                                     if (mounted) {
                                       if (result['success']) {
                                         _loadRequests();
@@ -711,6 +619,11 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                                       }
                                     }
                                   },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.skyBlue,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('接受'),
                                 ),
                               ],
                             ),
@@ -720,6 +633,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                     );
                   },
                 ),
+      ),
     );
   }
 }

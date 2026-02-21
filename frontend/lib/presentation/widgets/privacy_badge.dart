@@ -1,5 +1,6 @@
 // @file privacy_badge.dart
 // @brief 差分隐私保护徽章组件
+// Created by AI Assistant
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
@@ -17,13 +18,13 @@ class PrivacyBadge extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF26A69A).withValues(alpha: 0.12),
-              const Color(0xFF42A5F5).withValues(alpha: 0.08),
+              const Color(0xFF26A69A).withOpacity(0.12),
+              const Color(0xFF42A5F5).withOpacity(0.08),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFF26A69A).withValues(alpha: 0.25),
+            color: const Color(0xFF26A69A).withOpacity(0.25),
           ),
         ),
         child: const Row(
@@ -61,7 +62,7 @@ class PrivacyBadge extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF26A69A).withValues(alpha: 0.1),
+                color: const Color(0xFF26A69A).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(

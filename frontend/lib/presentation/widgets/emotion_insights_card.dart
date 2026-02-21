@@ -1,5 +1,6 @@
 // @file emotion_insights_card.dart
 // @brief AI 情绪洞察卡片组件
+// Created by AI Assistant
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
@@ -23,15 +24,15 @@ class EmotionInsightsCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.primaryColor.withValues(alpha: 0.06),
-            AppTheme.secondaryColor.withValues(alpha: 0.04),
+            AppTheme.primaryColor.withOpacity(0.06),
+            AppTheme.secondaryColor.withOpacity(0.04),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+          color: AppTheme.primaryColor.withOpacity(0.12),
         ),
       ),
       child: Column(
@@ -43,7 +44,7 @@ class EmotionInsightsCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  color: AppTheme.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -68,7 +69,7 @@ class EmotionInsightsCard extends StatelessWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                  color: AppTheme.secondaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
@@ -127,8 +128,8 @@ class EmotionInsightsCard extends StatelessWidget {
     const colors = [
       AppTheme.primaryColor,
       AppTheme.secondaryColor,
-      AppTheme.primaryColor,
-      AppTheme.secondaryColor,
+      AppTheme.warmOrange,
+      AppTheme.purpleColor,
     ];
     return colors[index % colors.length];
   }

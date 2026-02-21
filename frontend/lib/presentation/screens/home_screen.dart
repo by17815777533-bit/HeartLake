@@ -8,8 +8,6 @@ import 'discover_screen.dart';
 import 'publish_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
-import '../widgets/sky_nav_bar.dart';
-import '../../utils/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,15 +49,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightStone,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
         child: KeyedSubtree(key: ValueKey(_selectedIndex), child: _screens[_selectedIndex]),
       ),
-      bottomNavigationBar: SkyNavBar(
+      bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onTabTapped,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF303134)
+            : const Color(0xFFF5F9FC),
+        indicatorColor: const Color(0xFF4285F4).withAlpha(30),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.water_outlined), selectedIcon: Icon(Icons.water), label: '观湖'),
+          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: '湖底'),
+          NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: '投石'),
+          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: '好友'),
+          NavigationDestination(icon: Icon(Icons.blur_on_outlined), selectedIcon: Icon(Icons.blur_on), label: '倒影'),
+        ],
       ),
     );
   }

@@ -1,5 +1,6 @@
 // @file emotion_heatmap.dart
 // @brief GitHub 风格情绪贡献热力图组件
+// Created by AI Assistant
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -139,7 +140,7 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -338,7 +339,7 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
                       ? Border.all(color: AppTheme.primaryColor, width: 1.5)
                       : null,
                   boxShadow: isHovered
-                      ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)]
+                      ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)]
                       : null,
                 ),
               ),
@@ -374,7 +375,7 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
       decoration: BoxDecoration(
         color: config.cardColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: config.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: config.primary.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -426,7 +427,7 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
             height: 12,
             margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
-              color: AppTheme.secondaryColor.withValues(alpha: opacity),
+              color: AppTheme.secondaryColor.withOpacity(opacity),
               borderRadius: BorderRadius.circular(2),
             ),
           );

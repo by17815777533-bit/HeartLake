@@ -1,13 +1,12 @@
 // @file personalized_screen.dart
-// @brief 个性化推荐 - 光遇风格星光推荐流
+// @brief 个性化推荐 - 蓝色湖面风格
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
+import '../../emotion_effects/water_background.dart';
 import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 
@@ -70,9 +69,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: false,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -81,15 +79,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           '为你而来',
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w300,
-            color: AppTheme.primaryLightColor,
-            letterSpacing: 3,
-            shadows: [
-              Shadow(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
-                blurRadius: 12,
-              ),
-            ],
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1,
           ),
         ),
         centerTitle: true,
@@ -105,27 +96,18 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           ),
         ],
       ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 漂浮光点
-            AnimatedBuilder(
-              animation: _driftController,
-              builder: (_, __) => CustomPaint(
-                painter:
-                    _FloatingLightsPainter(progress: _driftController.value),
-                size: Size.infinite,
-              ),
-            ),
-            // 主内容
-            _loading
+      body: Stack(
+        children: [
+          const WaterBackground(),
+          SafeArea(
+            child: _loading
                 ? _buildLoadingState()
                 : FadeTransition(
                     opacity: _fadeController,
                     child: _buildContent(),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -245,15 +227,14 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                   stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
-                SkyPageRoute(page: StoneDetailScreen(stone: stone)),
+                MaterialPageRoute(builder: (_) => StoneDetailScreen(stone: stone)),
               );
             },
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: SkyGlassCard(
-                borderRadius: 20,
-                enableGlow: true,
-                glowColor: config.primary,
+              child: Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 1,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -347,9 +328,9 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   }
 
   Widget _buildEmptyState() {
-    return SkyGlassCard(
-      borderRadius: 20,
-      enableGlow: false,
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
         child: Column(
@@ -371,41 +352,4 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       ),
     );
   }
-}
-
-/// 漂浮光点画笔
-class _FloatingLightsPainter extends CustomPainter {
-  final double progress;
-  _FloatingLightsPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rng = math.Random(42);
-    for (int i = 0; i < 20; i++) {
-      final baseX = rng.nextDouble() * size.width;
-      final baseY = rng.nextDouble() * size.height;
-      final phase = rng.nextDouble() * math.pi * 2;
-      final speed = 0.3 + rng.nextDouble() * 0.7;
-      final radius = 1.0 + rng.nextDouble() * 2.0;
-
-      final x =
-          baseX + math.sin(progress * math.pi * 2 * speed + phase) * 20;
-      final y =
-          baseY + math.cos(progress * math.pi * 2 * speed * 0.7 + phase) * 15;
-      final alpha =
-          (0.2 + math.sin(progress * math.pi * 2 + phase) * 0.15)
-              .clamp(0.05, 0.4);
-
-      canvas.drawCircle(
-        Offset(x, y),
-        radius,
-        Paint()
-          ..color = AppTheme.primaryLightColor.withValues(alpha: alpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_FloatingLightsPainter old) => old.progress != progress;
 }

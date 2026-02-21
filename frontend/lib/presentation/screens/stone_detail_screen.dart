@@ -8,16 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/interaction_service.dart';
-import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/storage_util.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
+import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
-import '../widgets/similar_stones_section.dart';
-import '../../utils/animation_utils.dart';
-import '../../utils/app_theme.dart';
 
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -37,14 +32,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   int _localBoatsCount = 0;
   bool _hasInteraction = false; // 追踪是否有互动发生
   final InteractionService _interactionService = InteractionService();
-  final AIRecommendationService _aiService = AIRecommendationService();
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
   late WebSocketManager _wsManager;
-
-  // AI 相似推荐
-  List<Map<String, dynamic>> _similarStones = [];
-  bool _loadingSimilar = false;
 
   // 监听器引用，用于正确移除
   late void Function(Map<String, dynamic>) _rippleListener;
@@ -79,8 +69,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager = WebSocketManager();
     _loadCurrentUser();
     _loadBoats();
-    _loadSimilarStones();
-    _trackView();
     _setupWebSocketListener();
 
     // 初始化心形动画
@@ -182,7 +170,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('这颗石头已被删除'),
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: Colors.orange,
               ),
             );
           }
@@ -248,31 +236,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     }
   }
 
-  /// 加载 AI 相似石头推荐
-  Future<void> _loadSimilarStones() async {
-    setState(() => _loadingSimilar = true);
-    try {
-      final stones = await _aiService.getSimilarStones(widget.stone.stoneId);
-      if (mounted) {
-        setState(() {
-          _similarStones = stones;
-          _loadingSimilar = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingSimilar = false);
-    }
-  }
-
-  /// 记录浏览行为（用于推荐引擎学习）
-  Future<void> _trackView() async {
-    await _aiService.trackInteraction(
-      stoneId: widget.stone.stoneId,
-      interactionType: 'view',
-      reward: 0.3,
-    );
-  }
-
   /// 发送涟漪（点赞）
   Future<void> _sendRipple() async {
     if (_isSendingRipple) return;
@@ -303,12 +266,12 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.waves, color: AppTheme.textPrimary, size: 20),
+                Icon(Icons.waves, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Text('你的共鸣已传递'),
               ],
             ),
-            backgroundColor: AppTheme.lightStone,
+            backgroundColor: MoodColors.getConfig(_stoneMood).primary,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 1),
           ),
@@ -362,14 +325,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppTheme.textPrimary,
+                color: Colors.white,
               ),
             ),
             SizedBox(width: 12),
             Text('纸船正在漂向湖心...'),
           ],
         ),
-        backgroundColor: AppTheme.lightStone,
+        backgroundColor: MoodColors.getConfig(_stoneMood).primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 1),
       ),
@@ -387,12 +350,12 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.sailing, color: AppTheme.textPrimary, size: 20),
+                Icon(Icons.sailing, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Text('纸船已成功漂出~ ⛵'),
               ],
             ),
-            backgroundColor: AppTheme.lightStone,
+            backgroundColor: MoodColors.getConfig(_stoneMood).primary,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
@@ -434,7 +397,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? '评论发送失败，请重试'),
-              backgroundColor: AppTheme.errorColor,
+              backgroundColor: Colors.red[400],
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -453,7 +416,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('网络错误，请检查网络连接后重试'),
-            backgroundColor: AppTheme.errorColor,
+            backgroundColor: Colors.red[400],
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -488,7 +451,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          foregroundColor: AppTheme.textPrimary,
+          foregroundColor: Colors.white,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
@@ -513,19 +476,35 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ),
           ],
         ),
-        body: SkyScaffold(
-          showWater: true,
-          body: SafeArea(
+        body: Stack(
+          children: [
+            // 使用统一的水面背景
+            const Positioned.fill(child: WaterBackground()),
+
+            SafeArea(
               child: Column(
                 children: [
                   // 石头内容卡片
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: SkyGlassCard(
-                      borderRadius: 20,
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: moodConfig.primary.withOpacity(0.3),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: moodConfig.primary.withOpacity(0.15),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 情绪标签
@@ -536,7 +515,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryLightColor.withValues(alpha: 0.2),
+                                color: moodConfig.primary.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
@@ -545,14 +524,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                   Icon(
                                     moodConfig.icon,
                                     size: 16,
-                                    color: AppTheme.primaryLightColor,
+                                    color: moodConfig.primary,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     moodConfig.name,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: AppTheme.primaryLightColor,
+                                      color: moodConfig.primary,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -566,11 +545,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                               CircleAvatar(
                                 radius: 16,
                                 backgroundColor:
-                                    AppTheme.primaryLightColor.withValues(alpha: 0.3),
+                                    moodConfig.primary.withOpacity(0.3),
                                 child: Icon(
                                   Icons.person,
                                   size: 18,
-                                  color: AppTheme.primaryLightColor,
+                                  color: moodConfig.primary,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -578,7 +557,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 widget.stone.authorNickname ?? '匿名旅人',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: AppTheme.textPrimary,
+                                  color: moodConfig.textColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -587,7 +566,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 _formatTime(widget.stone.createdAt),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                                  color: moodConfig.textColor.withOpacity(0.6),
                                 ),
                               ),
                             ],
@@ -599,7 +578,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                             style: TextStyle(
                               fontSize: 17,
                               height: 1.6,
-                              color: AppTheme.textPrimary,
+                              color: moodConfig.textColor,
                             ),
                           ),
                           // AI标签
@@ -616,14 +595,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryLightColor.withValues(alpha: 0.1),
+                                    color: moodConfig.primary.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     '#$tag',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: AppTheme.primaryLightColor,
+                                      color: moodConfig.primary,
                                     ),
                                   ),
                                 );
@@ -640,7 +619,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 count: _localRipplesCount,
                                 onTap: _sendRipple,
                                 isLoading: _isSendingRipple,
-                                color: AppTheme.primaryLightColor,
+                                color: moodConfig.rippleColor,
                                 animation: _heartScaleAnimation,
                               ),
                               const SizedBox(width: 24),
@@ -649,24 +628,13 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 icon: Icons.sailing,
                                 count: _localBoatsCount,
                                 onTap: () => _commentFocusNode.requestFocus(),
-                                color: AppTheme.primaryLightColor,
+                                color: moodConfig.primary,
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-                  // 相似石头推荐（AI共鸣推荐）
-                  SimilarStonesSection(
-                    stoneId: widget.stone.stoneId,
-                    onStoneTap: (stone) {
-                      Navigator.push(
-                        context,
-                        SkyPageRoute(page: StoneDetailScreen(stone: stone)),
-                      );
-                    },
                   ),
                   // 评论标题
                   Padding(
@@ -676,7 +644,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                         const Icon(
                           Icons.sailing_outlined,
                           size: 20,
-                          color: AppTheme.textSecondary,
+                          color: Colors.white70,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -684,7 +652,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -696,7 +664,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     child: _isLoading
                         ? const Center(
                             child:
-                                CircularProgressIndicator(color: AppTheme.primaryLightColor),
+                                CircularProgressIndicator(color: Colors.white),
                           )
                         : _boats.isEmpty
                             ? Center(
@@ -706,14 +674,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     Icon(
                                       Icons.sailing_outlined,
                                       size: 64,
-                                      color: AppTheme.textPrimary.withValues(alpha: 0.3),
+                                      color: Colors.white.withOpacity(0.3),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       '还没有纸船漂来',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: AppTheme.textPrimary.withValues(alpha: 0.6),
+                                        color: Colors.white.withOpacity(0.6),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -721,7 +689,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                       '写下你的感受，让它随波漂流吧',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                                        color: Colors.white.withOpacity(0.4),
                                       ),
                                     ),
                                   ],
@@ -736,17 +704,15 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 },
                               ),
                   ),
-                  // AI 相似推荐
-                  if (_similarStones.isNotEmpty || _loadingSimilar)
-                    _buildSimilarStonesSection(),
                   // 评论输入框
-                  _buildCommentInput(),
+                  _buildCommentInput(moodConfig),
                 ],
               ),
             ),
-          ),
+          ],
         ),
-      ); // PopScope
+      ), // 添加闭合WillPopScope的child
+    ); // 添加闭合WillPopScope
   }
 
   Widget _buildInteractionButton({
@@ -763,7 +729,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.textPrimary.withValues(alpha: 0.2),
+          color: Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -811,6 +777,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   Widget _buildBoatCard(Map<String, dynamic> boat) {
+    final moodConfig = MoodColors.getConfig(_stoneMood);
     final isTemp = boat['_isTemp'] == true;
 
     return Container(
@@ -820,26 +787,26 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         borderRadius: BorderRadius.circular(16),
         // 治愈风格的渐变边框
         border: Border.all(
-          color: AppTheme.primaryLightColor.withValues(alpha: 0.4),
+          color: moodConfig.primary.withOpacity(0.4),
           width: 1.5,
         ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppTheme.lightStone.withValues(alpha: isTemp ? 0.85 : 0.95),
-            AppTheme.primaryLightColor.withValues(alpha: 0.05),
+            Colors.white.withOpacity(isTemp ? 0.85 : 0.95),
+            moodConfig.primary.withOpacity(0.05),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryLightColor.withValues(alpha: 0.15),
+            color: moodConfig.primary.withOpacity(0.15),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
           // 内发光效果
           BoxShadow(
-            color: AppTheme.lightStone.withValues(alpha: 0.3),
+            color: Colors.white.withOpacity(0.8),
             blurRadius: 4,
             spreadRadius: -2,
             offset: const Offset(0, -1),
@@ -858,18 +825,18 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      AppTheme.primaryLightColor.withValues(alpha: 0.6),
-                      AppTheme.secondaryColor.withValues(alpha: 0.4),
+                      moodConfig.primary.withOpacity(0.6),
+                      moodConfig.rippleColor.withOpacity(0.4),
                     ],
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 14,
-                  backgroundColor: AppTheme.lightStone,
+                  backgroundColor: Colors.white,
                   child: Icon(
                     isTemp ? Icons.hourglass_empty : Icons.person,
                     size: 14,
-                    color: AppTheme.primaryLightColor,
+                    color: moodConfig.primary,
                   ),
                 ),
               ),
@@ -879,7 +846,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: AppTheme.textPrimary,
+                  color: moodConfig.textColor,
                 ),
               ),
               if (isTemp) ...[
@@ -888,14 +855,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryLightColor.withValues(alpha: 0.2),
+                    color: moodConfig.primary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '发送中...',
                     style: TextStyle(
                       fontSize: 10,
-                      color: AppTheme.primaryLightColor,
+                      color: moodConfig.primary,
                     ),
                   ),
                 ),
@@ -906,7 +873,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     DateTime.now()),
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppTheme.textSecondary,
+                  color: Colors.grey[500],
                 ),
               ),
             ],
@@ -916,10 +883,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryLightColor.withValues(alpha: 0.05),
+              color: moodConfig.primary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.1),
+                color: moodConfig.primary.withOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -929,7 +896,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 Icon(
                   Icons.format_quote,
                   size: 16,
-                  color: AppTheme.primaryLightColor.withValues(alpha: 0.4),
+                  color: moodConfig.primary.withOpacity(0.4),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -938,7 +905,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.5,
-                      color: AppTheme.textPrimary,
+                      color: Colors.grey[800],
                     ),
                   ),
                 ),
@@ -950,153 +917,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     );
   }
 
-  /// 相似石头推荐区域 - 类光遇风格：柔光半透明卡片
-  Widget _buildSimilarStonesSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题行 - 柔光风格
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppTheme.textPrimary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.auto_awesome, size: 14,
-                    color: AppTheme.primaryLightColor),
-              ),
-              const SizedBox(width: 8),
-              Text('相似的心声',
-                style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary.withValues(alpha: 0.7),
-                  letterSpacing: 1.2,
-                )),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryLightColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('AI · 语义共鸣',
-                  style: TextStyle(fontSize: 9,
-                    color: AppTheme.textSecondary)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // 横向滚动卡片列表
-          if (_loadingSimilar)
-            Center(child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 1.5,
-                  color: AppTheme.primaryLightColor.withValues(alpha: 0.4))),
-            ))
-          else
-            SizedBox(
-              height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _similarStones.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final stone = _similarStones[index];
-                  final content = stone['content'] as String? ?? '';
-                  final score = (stone['score'] as num?)?.toDouble() ?? 0;
-                  final cardColor = AppTheme.primaryLightColor;
-                  return GestureDetector(
-                    onTap: () {
-                      // 记录点击交互
-                      final sid = stone['stone_id'] as String? ?? '';
-                      if (sid.isNotEmpty) {
-                        _aiService.trackInteraction(
-                          stoneId: sid,
-                          interactionType: 'click_similar',
-                          reward: 0.8,
-                        );
-                      }
-                      // 导航到详情
-                      try {
-                        final s = Stone.fromJson(stone);
-                        Navigator.push(context, SkyPageRoute(page: StoneDetailScreen(stone: s)));
-                      } catch (_) {}
-                    },
-                    child: Container(
-                      width: 160,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            cardColor.withValues(alpha: 0.15),
-                            AppTheme.textPrimary.withValues(alpha: 0.05),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppTheme.textPrimary.withValues(alpha: 0.1)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 相似度指示
-                          Row(
-                            children: [
-                              Container(
-                                width: 6, height: 6,
-                                decoration: BoxDecoration(
-                                  color: cardColor.withValues(alpha: 0.8),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [BoxShadow(
-                                    color: cardColor.withValues(alpha: 0.4),
-                                    blurRadius: 4)],
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text('${(score * 100).toInt()}% 共鸣',
-                                style: TextStyle(fontSize: 9,
-                                  color: AppTheme.textSecondary)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // 内容预览
-                          Expanded(
-                            child: Text(
-                              content.length > 50
-                                  ? '${content.substring(0, 50)}...' : content,
-                              style: TextStyle(
-                                fontSize: 12, height: 1.4,
-                                color: AppTheme.textPrimary.withValues(alpha: 0.7)),
-                              maxLines: 3, overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentInput() {
+  Widget _buildCommentInput(MoodColorConfig moodConfig) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.lightStone,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.backgroundColor.withValues(alpha: 0.4),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -1113,20 +941,20 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 maxLength: 200,
                 decoration: InputDecoration(
                   hintText: '写一张纸船漂给TA...',
-                  hintStyle: TextStyle(color: AppTheme.textSecondary),
+                  hintStyle: TextStyle(color: Colors.grey[400]),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.3)),
+                        BorderSide(color: moodConfig.primary.withOpacity(0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: AppTheme.primaryLightColor.withValues(alpha: 0.3)),
+                        BorderSide(color: moodConfig.primary.withOpacity(0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: AppTheme.primaryLightColor, width: 2),
+                    borderSide: BorderSide(color: moodConfig.primary, width: 2),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -1134,7 +962,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   ),
                   counterText: '',
                   filled: true,
-                  fillColor: AppTheme.lightStone,
+                  fillColor: Colors.grey[50],
                 ),
               ),
             ),
@@ -1143,14 +971,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppTheme.primaryLightColor,
-                    AppTheme.primaryLightColor.withValues(alpha: 0.8),
+                    moodConfig.primary,
+                    moodConfig.primary.withOpacity(0.8),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryLightColor.withValues(alpha: 0.3),
+                    color: moodConfig.primary.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1159,7 +987,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               child: IconButton(
                 onPressed: _sendComment,
                 icon: const Icon(Icons.sailing),
-                color: AppTheme.textPrimary,
+                color: Colors.white,
                 iconSize: 24,
               ),
             ),

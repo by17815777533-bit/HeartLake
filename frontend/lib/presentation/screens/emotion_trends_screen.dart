@@ -1,12 +1,10 @@
 // @file emotion_trends_screen.dart
-// @brief 情绪星图 - 光遇风格情绪趋势可视化
-import 'dart:math' as math;
+// @brief 情绪趋势可视化 - 蓝色湖面风格
 import 'package:flutter/material.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
+import '../../emotion_effects/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
 
 class EmotionTrendsScreen extends StatefulWidget {
@@ -16,10 +14,9 @@ class EmotionTrendsScreen extends StatefulWidget {
 }
 
 class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final AIRecommendationService _aiService = AIRecommendationService();
   final EdgeAIService _edgeService = EdgeAIService();
-  late AnimationController _starController;
   late AnimationController _fadeController;
   Map<String, dynamic> _trends = {};
   Map<String, dynamic>? _privacyInfo;
@@ -28,9 +25,6 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   @override
   void initState() {
     super.initState();
-    _starController = AnimationController(
-      vsync: this, duration: const Duration(seconds: 12),
-    )..repeat();
     _fadeController = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 800),
     );
@@ -39,7 +33,6 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   @override
   void dispose() {
-    _starController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -65,40 +58,30 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: false,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.textPrimary,
         title: const Text(
-          '情绪星图',
+          '情绪趋势',
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w300,
-            color: Colors.white,
-            letterSpacing: 3,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1,
           ),
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 星空背景
-            AnimatedBuilder(
-              animation: _starController,
-              builder: (_, __) => CustomPaint(
-                painter: _StarFieldPainter(progress: _starController.value),
-                size: Size.infinite,
-              ),
-            ),
-            // 主内容
-            _loading
+      body: Stack(
+        children: [
+          const WaterBackground(),
+          SafeArea(
+            child: _loading
                 ? Center(
                     child: CircularProgressIndicator(
-                      color: AppTheme.primaryLightColor,
+                      color: AppTheme.primaryColor,
                       strokeWidth: 2,
                     ),
                   )
@@ -106,8 +89,8 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                     opacity: _fadeController,
                     child: _buildContent(),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -138,32 +121,35 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     final total = (_privacyInfo?['epsilon_total'] ?? 10.0).toDouble();
     final percent = total > 0 ? (epsilon / total * 100).clamp(0.0, 100.0) : 0.0;
 
-    return SkyGlassCard(
-      borderRadius: 20,
-      enableGlow: false,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
-          const SizedBox(width: 6),
-          Text(
-            '差分隐私保护中',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.7),
-              letterSpacing: 0.5,
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
+            const SizedBox(width: 6),
+            Text(
+              '差分隐私保护中',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'ε ${percent.toStringAsFixed(0)}%',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppTheme.secondaryColor.withValues(alpha: 0.8),
+            const SizedBox(width: 8),
+            Text(
+              'ε ${percent.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.secondaryColor.withValues(alpha: 0.8),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -181,74 +167,76 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             '情绪分布',
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w300,
-              color: Colors.white.withValues(alpha: 0.7),
-              letterSpacing: 2,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+              letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 12),
-          SkyGlassCard(
-            borderRadius: 16,
-            enableGlow: false,
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: distribution.entries.map((e) {
-                final value = (e.value as num).toDouble().clamp(0.0, 1.0);
-                final color = _moodColor(e.key);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 50,
-                        child: Text(
-                          _moodLabel(e.key),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.6),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: distribution.entries.map((e) {
+                  final value = (e.value as num).toDouble().clamp(0.0, 1.0);
+                  final color = _moodColor(e.key);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            _moodLabel(e.key),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: value,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: [
-                                  color.withValues(alpha: 0.8),
-                                  color.withValues(alpha: 0.4),
-                                ]),
-                                borderRadius: BorderRadius.circular(3),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.3),
-                                    blurRadius: 4,
-                                  ),
-                                ],
+                        Expanded(
+                          child: Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppTheme.textTertiary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: value,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: [
+                                    color.withValues(alpha: 0.8),
+                                    color.withValues(alpha: 0.4),
+                                  ]),
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.3),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(value * 100).toInt()}%',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.5),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(value * 100).toInt()}%',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textTertiary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ],
@@ -259,39 +247,40 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             'AI 洞察',
             style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w300,
-              color: Colors.white.withValues(alpha: 0.7),
-              letterSpacing: 2,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+              letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 12),
           ...insights.map((insight) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: SkyGlassCard(
-              borderRadius: 14,
-              enableGlow: true,
-              glowColor: AppTheme.primaryLightColor,
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 14,
-                    color: AppTheme.primaryLightColor.withValues(alpha: 0.7),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      insight.toString(),
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: Colors.white.withValues(alpha: 0.7),
+            child: Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: AppTheme.primaryColor.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        insight.toString(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           )),
@@ -320,38 +309,4 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     };
     return labels[mood] ?? mood;
   }
-}
-
-/// 星空背景画笔
-class _StarFieldPainter extends CustomPainter {
-  final double progress;
-  _StarFieldPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rng = math.Random(42);
-    for (int i = 0; i < 40; i++) {
-      final x = rng.nextDouble() * size.width;
-      final baseY = rng.nextDouble() * size.height;
-      final y = (baseY - progress * 30 * (i % 3 + 1)) % size.height;
-      final radius = 1.0 + rng.nextDouble() * 1.5;
-      final twinkle = (math.sin(progress * math.pi * 2 + i * 0.5) + 1) / 2;
-      final opacity = 0.1 + twinkle * 0.3;
-
-      final color = i % 3 == 0
-          ? const Color(0xFFFFD54F)
-          : i % 3 == 1
-              ? const Color(0xFFFFAB91)
-              : const Color(0xFF90CAF9);
-
-      canvas.drawCircle(
-        Offset(x, y),
-        radius,
-        Paint()..color = color.withValues(alpha: opacity),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_StarFieldPainter old) => old.progress != progress;
 }

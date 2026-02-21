@@ -4,23 +4,22 @@
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_glass_card.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      appBar: AppBar(
-        title: const Text('帮助与反馈'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
+    return Scaffold(
+      appBar: AppBar(title: const Text('帮助与反馈'), centerTitle: true),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppTheme.skyBlue.withOpacity(0.05), Colors.white],
+          ),
+        ),
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -33,12 +32,17 @@ class HelpScreen extends StatelessWidget {
             ]),
             const SizedBox(height: 24),
             _buildSection('联系我们', [
-              SkyGlassCard(
-                borderRadius: 12,
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade50, Colors.cyan.shade50],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: ListTile(
-                  leading: const Icon(Icons.email, color: AppTheme.warmOrange),
-                  title: const Text('邮箱反馈', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('support@heartlake.app', style: TextStyle(color: Colors.white70)),
+                  leading: const Icon(Icons.email, color: AppTheme.skyBlue),
+                  title: const Text('邮箱反馈'),
+                  subtitle: const Text('support@heartlake.app'),
                   onTap: () => _showContactInfo(context, '请发送邮件至 support@heartlake.app'),
                 ),
               ),
@@ -61,26 +65,24 @@ class HelpScreen extends StatelessWidget {
   }
 
   Widget _buildFAQ(String question, String answer) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SkyGlassCard(
-        borderRadius: 12,
-        enableGlow: false,
-        padding: EdgeInsets.zero,
-        child: ExpansionTile(
-          title: Text(question, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.white)),
-          iconColor: Colors.white70,
-          collapsedIconColor: Colors.white70,
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            Text(answer, style: const TextStyle(color: Colors.white70, height: 1.5)),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+      ),
+      child: ExpansionTile(
+        title: Text(question, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          Text(answer, style: TextStyle(color: Colors.grey[600], height: 1.5)),
+        ],
       ),
     );
   }
 
   void _showContactInfo(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.primaryColor));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.skyBlue));
   }
 }

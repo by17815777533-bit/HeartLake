@@ -78,14 +78,6 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
       return widget.child;
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveBaseColor = widget.baseColor == const Color(0xFFE0E0E0) && isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : widget.baseColor;
-    final effectiveHighlightColor = widget.highlightColor == const Color(0xFFF5F5F5) && isDark
-        ? Colors.white.withValues(alpha: 0.15)
-        : widget.highlightColor;
-
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
@@ -95,9 +87,9 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                effectiveBaseColor,
-                effectiveHighlightColor,
-                effectiveBaseColor,
+                widget.baseColor,
+                widget.highlightColor,
+                widget.baseColor,
               ],
               stops: [
                 math.max(0.0, _animation.value - 0.3),
@@ -129,9 +121,6 @@ class StoneCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final skeletonColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[300]!;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -140,7 +129,7 @@ class StoneCardSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -158,8 +147,8 @@ class StoneCardSkeleton extends StatelessWidget {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
-                      color: skeletonColor,
+                    decoration: const BoxDecoration(
+                      color: Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -173,7 +162,7 @@ class StoneCardSkeleton extends StatelessWidget {
                           width: 100,
                           height: 14,
                           decoration: BoxDecoration(
-                            color: skeletonColor,
+                            color: Colors.grey,
                             borderRadius: BorderRadius.circular(7),
                           ),
                         ),
@@ -182,7 +171,7 @@ class StoneCardSkeleton extends StatelessWidget {
                           width: 60,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: skeletonColor,
+                            color: Colors.grey,
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
@@ -194,7 +183,7 @@ class StoneCardSkeleton extends StatelessWidget {
                     width: 60,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: skeletonColor,
+                      color: Colors.grey,
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -209,7 +198,7 @@ class StoneCardSkeleton extends StatelessWidget {
                 width: double.infinity,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: skeletonColor,
+                  color: Colors.grey,
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -218,7 +207,7 @@ class StoneCardSkeleton extends StatelessWidget {
                 width: MediaQuery.of(context).size.width * 0.7,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: skeletonColor,
+                  color: Colors.grey,
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -227,7 +216,7 @@ class StoneCardSkeleton extends StatelessWidget {
                 width: MediaQuery.of(context).size.width * 0.5,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: skeletonColor,
+                  color: Colors.grey,
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -244,7 +233,7 @@ class StoneCardSkeleton extends StatelessWidget {
                     width: 80,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: skeletonColor,
+                      color: Colors.grey,
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
@@ -254,7 +243,7 @@ class StoneCardSkeleton extends StatelessWidget {
                     width: 80,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: skeletonColor,
+                      color: Colors.grey,
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
@@ -263,8 +252,8 @@ class StoneCardSkeleton extends StatelessWidget {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: BoxDecoration(
-                      color: skeletonColor,
+                    decoration: const BoxDecoration(
+                      color: Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -282,9 +271,6 @@ class UserCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final skeletonColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[300]!;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -293,7 +279,7 @@ class UserCardSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -310,8 +296,8 @@ class UserCardSkeleton extends StatelessWidget {
                 Container(
                   width: 60,
                   height: 60,
-                  decoration: BoxDecoration(
-                    color: skeletonColor,
+                  decoration: const BoxDecoration(
+                    color: Colors.grey,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -325,7 +311,7 @@ class UserCardSkeleton extends StatelessWidget {
                         width: 120,
                         height: 16,
                         decoration: BoxDecoration(
-                          color: skeletonColor,
+                          color: Colors.grey,
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -334,7 +320,7 @@ class UserCardSkeleton extends StatelessWidget {
                         width: 80,
                         height: 14,
                         decoration: BoxDecoration(
-                          color: skeletonColor,
+                          color: Colors.grey,
                           borderRadius: BorderRadius.circular(7),
                         ),
                       ),
@@ -346,7 +332,7 @@ class UserCardSkeleton extends StatelessWidget {
                   width: 70,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: skeletonColor,
+                    color: Colors.grey,
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
@@ -359,7 +345,7 @@ class UserCardSkeleton extends StatelessWidget {
               width: double.infinity,
               height: 14,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(7),
               ),
             ),
@@ -368,7 +354,7 @@ class UserCardSkeleton extends StatelessWidget {
               width: MediaQuery.of(context).size.width * 0.6,
               height: 14,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(7),
               ),
             ),
@@ -379,7 +365,7 @@ class UserCardSkeleton extends StatelessWidget {
               width: double.infinity,
               height: 60,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
@@ -390,7 +376,7 @@ class UserCardSkeleton extends StatelessWidget {
               width: double.infinity,
               height: 40,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
@@ -513,7 +499,7 @@ class _WarmLoadingIndicatorState extends State<WarmLoadingIndicator>
                   gradient: LinearGradient(
                     colors: [
                       widget.color,
-                      widget.color.withValues(alpha: 0.3),
+                      widget.color.withOpacity(0.3),
                       widget.color,
                     ],
                     stops: const [0.0, 0.5, 1.0],
@@ -528,7 +514,7 @@ class _WarmLoadingIndicatorState extends State<WarmLoadingIndicator>
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: widget.color.withValues(alpha: 0.3),
+                          color: widget.color.withOpacity(0.3),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -648,9 +634,6 @@ class ChartSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final skeletonColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[300]!;
-
     return Container(
       height: height,
       margin: const EdgeInsets.all(16),
@@ -660,7 +643,7 @@ class ChartSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -675,7 +658,7 @@ class ChartSkeleton extends StatelessWidget {
               width: 150,
               height: 20,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -684,7 +667,7 @@ class ChartSkeleton extends StatelessWidget {
               width: 200,
               height: 14,
               decoration: BoxDecoration(
-                color: skeletonColor,
+                color: Colors.grey,
                 borderRadius: BorderRadius.circular(7),
               ),
             ),
@@ -695,7 +678,7 @@ class ChartSkeleton extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: skeletonColor,
+                  color: Colors.grey,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -709,7 +692,7 @@ class ChartSkeleton extends StatelessWidget {
                   margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
                   height: 40,
                   decoration: BoxDecoration(
-                    color: skeletonColor,
+                    color: Colors.grey,
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),

@@ -4,9 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
-import '../../utils/app_theme.dart';
 import '../widgets/stone_card.dart';
-import '../widgets/sky_scaffold.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 
@@ -148,110 +146,75 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showParticles: true,
-      showWater: false,
+    return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
-        title: Text(
-          '我的石头',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryLightColor,
-            letterSpacing: 3,
-            shadows: [
-              Shadow(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
-                blurRadius: 12,
-              ),
-            ],
-          ),
-        ),
+        title: const Text('我的石头'),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: AppTheme.textSecondary, size: 20),
+            icon: const Icon(Icons.refresh),
             onPressed: _loadMyStones,
           ),
         ],
       ),
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF5F0FF), Color(0xFFE8F4FD)],
+          ),
+        ),
         child: RefreshIndicator(
-          color: AppTheme.primaryLightColor,
-          backgroundColor: AppTheme.lightStone,
           onRefresh: _loadMyStones,
           child: _isLoading
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在寻找你的石头...', style: TextStyle(color: Colors.grey[600]))]))
+            : _myStones.isEmpty
+                ? ListView(
                     children: [
-                      CircularProgressIndicator(
-                        color: AppTheme.primaryLightColor,
-                        strokeWidth: 2,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '正在寻找你的石头...',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 13,
-                          letterSpacing: 1,
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.water_drop_outlined,
+                                size: 80,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '还没有投出石头，来投下你的第一颗吧',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                )
-              : _myStones.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.7,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.water_drop_outlined,
-                                  size: 80,
-                                  color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '还没有投出石头，来投下你的第一颗吧',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppTheme.textSecondary,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _myStones.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: StoneCard(
+                          stone: _myStones[index],
+                          onDeleted: () {
+                            // 删除后从列表中移除该石头
+                            setState(() {
+                              _myStones.removeAt(index);
+                            });
+                          },
                         ),
-                      ],
-                    )
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _myStones.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: StoneCard(
-                            stone: _myStones[index],
-                            onDeleted: () {
-                              // 删除后从列表中移除该石头
-                              setState(() {
-                                _myStones.removeAt(index);
-                              });
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                      );
+                    },
+                  ),
         ),
       ),
     );

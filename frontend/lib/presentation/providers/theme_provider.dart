@@ -1,11 +1,12 @@
 // @file theme_provider.dart
-// @brief M3 主题状态管理
+// @brief 主题状态管理
+// Created by 林子怡
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light; // 默认亮色模式（M3）
+  ThemeMode _themeMode = ThemeMode.light; // 默认浅色模式
 
   ThemeMode get themeMode => _themeMode;
 

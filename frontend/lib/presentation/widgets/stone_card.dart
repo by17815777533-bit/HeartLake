@@ -12,7 +12,6 @@ import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../screens/stone_detail_screen.dart';
 import '../../utils/storage_util.dart';
-import '../../utils/animation_utils.dart';
 
 class StoneCard extends StatefulWidget {
   final Stone stone;
@@ -86,8 +85,6 @@ class _StoneCardState extends State<StoneCard>
         _controller.forward();
       }
     });
-
-
   }
 
   Future<void> _checkCurrentUser() async {
@@ -261,19 +258,16 @@ class _StoneCardState extends State<StoneCard>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.backgroundColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('沉没石头', style: TextStyle(color: Colors.white)),
-        content: const Text('确定要让这颗石头永远沉入湖底吗？此操作无法撤销。',
-            style: TextStyle(color: Colors.white70)),
+        title: const Text('沉没石头'),
+        content: const Text('确定要让这颗石头永远沉入湖底吗？此操作无法撤销。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消', style: TextStyle(color: Colors.white60)),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('沉没'),
           ),
         ],
@@ -329,9 +323,9 @@ class _StoneCardState extends State<StoneCard>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SafeArea(
           child: Column(
@@ -339,9 +333,9 @@ class _StoneCardState extends State<StoneCard>
             children: [
               if (isAuthor)
                 ListTile(
-                  leading: Icon(Icons.delete_outline, color: AppTheme.errorColor),
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
                   title:
-                      Text('沉没石头', style: TextStyle(color: AppTheme.errorColor)),
+                      const Text('沉没石头', style: TextStyle(color: Colors.red)),
                   onTap: () {
                     Navigator.pop(context);
                     _deleteStone(context);
@@ -350,8 +344,8 @@ class _StoneCardState extends State<StoneCard>
               else
                 ListTile(
                   leading:
-                      Icon(Icons.flag_outlined, color: AppTheme.primaryColor),
-                  title: const Text('举报内容', style: TextStyle(color: Colors.white70)),
+                      const Icon(Icons.flag_outlined, color: Colors.orange),
+                  title: const Text('举报内容'),
                   onTap: () {
                     Navigator.pop(context);
                     // 举报逻辑
@@ -364,8 +358,8 @@ class _StoneCardState extends State<StoneCard>
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.close, color: Colors.white70),
-                title: const Text('取消', style: TextStyle(color: Colors.white70)),
+                leading: const Icon(Icons.close),
+                title: const Text('取消'),
                 onTap: () => Navigator.pop(context),
               ),
             ],
@@ -424,8 +418,9 @@ class _StoneCardState extends State<StoneCard>
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -439,17 +434,17 @@ class _StoneCardState extends State<StoneCard>
                           color: AppTheme.borderCyan),
                       const SizedBox(width: 8),
                       Text('放一只纸船',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontSize: 16)),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   if (loading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: CircularProgressIndicator(color: AppTheme.warmOrange)),
+                      child: Center(child: CircularProgressIndicator()),
                     )
                   else if (errorMessage != null)
                     Padding(
@@ -460,8 +455,7 @@ class _StoneCardState extends State<StoneCard>
                   else if (boats.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('还没有纸船，做第一个回应的人吧～',
-                          style: TextStyle(color: Colors.white70)),
+                      child: Text('还没有纸船，做第一个回应的人吧～'),
                     )
                   else
                     ConstrainedBox(
@@ -480,15 +474,15 @@ class _StoneCardState extends State<StoneCard>
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppTheme.lightStone.withValues(alpha: 0.08),
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: moodConfig.primary.withValues(alpha: 0.3),
+                                color: moodConfig.primary.withOpacity(0.3),
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: moodConfig.primary.withValues(alpha: 0.1),
+                                  color: moodConfig.primary.withOpacity(0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -505,9 +499,9 @@ class _StoneCardState extends State<StoneCard>
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
                                           colors: [
-                                            moodConfig.primary.withValues(alpha: 0.6),
+                                            moodConfig.primary.withOpacity(0.6),
                                             moodConfig.rippleColor
-                                                .withValues(alpha: 0.4),
+                                                .withOpacity(0.4),
                                           ],
                                         ),
                                       ),
@@ -528,7 +522,7 @@ class _StoneCardState extends State<StoneCard>
                                       author['nickname']?.toString() ?? '匿名旅人',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                        color: moodConfig.textColor,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -539,7 +533,7 @@ class _StoneCardState extends State<StoneCard>
                                             horizontal: 4, vertical: 1),
                                         decoration: BoxDecoration(
                                           color: moodConfig.primary
-                                              .withValues(alpha: 0.2),
+                                              .withOpacity(0.2),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
@@ -558,7 +552,7 @@ class _StoneCardState extends State<StoneCard>
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: moodConfig.primary.withValues(alpha: 0.05),
+                                    color: moodConfig.primary.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -569,14 +563,14 @@ class _StoneCardState extends State<StoneCard>
                                         Icons.format_quote,
                                         size: 12,
                                         color:
-                                            moodConfig.primary.withValues(alpha: 0.4),
+                                            moodConfig.primary.withOpacity(0.4),
                                       ),
                                       const SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
                                           boat['content']?.toString() ?? '',
                                           style: const TextStyle(
-                                            color: Colors.white70,
+                                            color: AppTheme.textSecondary,
                                             height: 1.4,
                                             fontSize: 13,
                                           ),
@@ -596,23 +590,14 @@ class _StoneCardState extends State<StoneCard>
                     controller: boatController,
                     maxLines: 3,
                     maxLength: 200,
-                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: '写下你想对TA说的话...',
-                      hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.35)),
-                      counterStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.4)),
-                      filled: true,
-                      fillColor: AppTheme.lightStone.withValues(alpha: 0.08),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.2))),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.15))),
+                          borderRadius: BorderRadius.circular(12)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.6), width: 1.5),
+                        borderSide: const BorderSide(
+                            color: AppTheme.borderCyan, width: 2),
                       ),
                     ),
                   ),
@@ -716,8 +701,8 @@ class _StoneCardState extends State<StoneCard>
                               _localBoatsCount--;
                             });
                             messenger.showSnackBar(
-                              SnackBar(
-                                content: const Text('网络错误，请检查网络连接'),
+                              const SnackBar(
+                                content: Text('网络错误，请检查网络连接'),
                                 backgroundColor: AppTheme.errorColor,
                               ),
                             );
@@ -725,7 +710,7 @@ class _StoneCardState extends State<StoneCard>
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.borderCyan,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -753,7 +738,7 @@ class _StoneCardState extends State<StoneCard>
       text = '刚刚';
     } else if (difference.inHours >= 23) {
       text = '即将沉没';
-      color = AppTheme.errorColor;
+      color = Colors.red;
       fontWeight = FontWeight.bold;
     } else if (difference.inDays > 0) {
       text = '${difference.inDays}天前';
@@ -786,14 +771,32 @@ class _StoneCardState extends State<StoneCard>
           child: child,
         );
       },
-      child: Material(
+      child: Container(
+        decoration: BoxDecoration(
+          // 使用情绪色彩的卡片背景
+          color: moodConfig.cardColor.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(24),
+          // 使用情绪主色作为边框
+          border: Border.all(
+              color: moodConfig.primary.withOpacity(0.6), width: 2.5),
+          boxShadow: [
+            BoxShadow(
+              color: moodConfig.primary.withOpacity(0.15),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: () async {
               // 导航到详情页并等待返回结果
               final result = await Navigator.push<dynamic>(
                 context,
-                SkyPageRoute(page: StoneDetailScreen(stone: widget.stone)),
+                MaterialPageRoute(
+                  builder: (context) => StoneDetailScreen(stone: widget.stone),
+                ),
               );
 
               // 如果有互动，同步最新的计数
@@ -810,7 +813,7 @@ class _StoneCardState extends State<StoneCard>
                 widget.onRippleSuccess?.call();
               }
             },
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -829,13 +832,13 @@ class _StoneCardState extends State<StoneCard>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              moodConfig.primary.withValues(alpha: 0.7),
+                              moodConfig.primary.withOpacity(0.7),
                               moodConfig.primary,
                             ],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: moodConfig.primary.withValues(alpha: 0.4),
+                              color: moodConfig.primary.withOpacity(0.4),
                               blurRadius: 8,
                               offset: const Offset(2, 2),
                             )
@@ -851,9 +854,12 @@ class _StoneCardState extends State<StoneCard>
                         children: [
                           Text(
                             widget.stone.authorNickname ?? '匿名旅人',
-                            style: const TextStyle(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: moodConfig.textColor,
                                   fontSize: 15,
                                 ),
                           ),
@@ -866,7 +872,7 @@ class _StoneCardState extends State<StoneCard>
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: moodConfig.primary.withValues(alpha: 0.15),
+                                color: moodConfig.primary.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -901,13 +907,13 @@ class _StoneCardState extends State<StoneCard>
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       // 使用情绪色彩的浅色背景
-                      color: moodConfig.lakeColor.withValues(alpha: 0.1),
+                      color: moodConfig.lakeColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       widget.stone.content,
-                      style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: moodConfig.textColor,
                             height: 1.6,
                             letterSpacing: 0.3,
                             fontSize: 15,
@@ -930,9 +936,9 @@ class _StoneCardState extends State<StoneCard>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: moodConfig.primary.withValues(alpha: 0.1),
+                            color: moodConfig.primary.withOpacity(0.1),
                             border: Border.all(
-                                color: moodConfig.primary.withValues(alpha: 0.5)),
+                                color: moodConfig.primary.withOpacity(0.5)),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -969,6 +975,7 @@ class _StoneCardState extends State<StoneCard>
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -988,10 +995,10 @@ class _StoneCardState extends State<StoneCard>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: moodConfig.primary.withValues(alpha: isActive ? 0.2 : 0.08),
+          color: moodConfig.primary.withOpacity(isActive ? 0.2 : 0.08),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: moodConfig.primary.withValues(alpha: isActive ? 0.5 : 0.2),
+            color: moodConfig.primary.withOpacity(isActive ? 0.5 : 0.2),
             width: 1,
           ),
         ),
@@ -1006,7 +1013,7 @@ class _StoneCardState extends State<StoneCard>
             Text(
               count > 0 ? count.toString() : label,
               style: TextStyle(
-                color: isActive ? moodConfig.primary : Colors.white70,
+                color: isActive ? moodConfig.primary : moodConfig.textColor,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),

@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/report_service.dart';
-import '../../utils/app_theme.dart';
 
 /// 举报对话框组件
 class ReportDialog extends StatefulWidget {
@@ -82,7 +81,7 @@ class _ReportDialogState extends State<ReportDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-        title: const Text('举报内容'),
+      title: const Text('举报内容'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -93,20 +92,20 @@ class _ReportDialogState extends State<ReportDialog> {
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _reportReasons.entries.map((entry) {
-                final selected = _selectedReason == entry.key;
-                return ChoiceChip(
-                  label: Text(entry.value),
-                  selected: selected,
-                  onSelected: (_) {
-                    setState(() => _selectedReason = entry.key);
-                  },
-                );
-              }).toList(),
-            ),
+            ..._reportReasons.entries.map((entry) {
+              return RadioListTile<String>(
+                title: Text(entry.value),
+                value: entry.key,
+                groupValue: _selectedReason,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedReason = value);
+                  }
+                },
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              );
+            }),
             const SizedBox(height: 16),
             TextField(
               controller: _descriptionController,
@@ -129,7 +128,7 @@ class _ReportDialogState extends State<ReportDialog> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
+            backgroundColor: Colors.red,
             foregroundColor: Colors.white,
           ),
           child: _isSubmitting

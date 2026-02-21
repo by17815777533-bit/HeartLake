@@ -1,14 +1,10 @@
 // @file user_detail_screen.dart
-// @brief 用户详情界面 - 光遇视觉风格
+// @brief 用户详情界面
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/api_client.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/sky_scaffold.dart';
-import '../widgets/sky_button.dart';
-import '../widgets/sky_glass_card.dart';
-import '../../utils/animation_utils.dart';
 import 'friend_chat_screen.dart';
 
 class UserDetailScreen extends StatefulWidget {
@@ -50,88 +46,76 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
+    return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.nickname ?? '用户详情',
-          style: TextStyle(
-            color: AppTheme.primaryLightColor,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                color: AppTheme.primaryLightColor.withValues(alpha: 0.6),
-                blurRadius: 12,
-              ),
-            ],
+        title: Text(widget.nickname ?? '用户详情'),
+        centerTitle: true,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
-      ),
-      body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange))
+            ? const Center(child: CircularProgressIndicator())
             : _user == null
-                ? Center(
-                    child: Text(
-                      '用户不存在',
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                  )
+                ? const Center(child: Text('用户不存在'))
                 : SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                        backgroundColor: AppTheme.skyBlue.withOpacity(0.2),
                         backgroundImage: (_user?['avatar_url'] != null && _user!['avatar_url'].toString().isNotEmpty)
                             ? NetworkImage(_user!['avatar_url'])
                             : null,
                         child: _user?['avatar_url'] == null
                             ? Text(
                                 (_user?['nickname']?.isNotEmpty == true) ? _user!['nickname'].substring(0, 1) : '?',
-                                style: const TextStyle(fontSize: 36, color: AppTheme.warmOrange),
+                                style: const TextStyle(fontSize: 36, color: AppTheme.skyBlue),
                               )
                             : null,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         _user?['nickname'] ?? '匿名用户',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.darkTextPrimary),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                       if (_user?['bio'] != null) ...[
                         const SizedBox(height: 8),
-                        Text(_user!['bio'], style: const TextStyle(color: AppTheme.darkTextSecondary)),
+                        Text(_user!['bio'], style: TextStyle(color: Colors.grey[600])),
                       ],
                       const SizedBox(height: 24),
-                      SkyGlassCard(
-                        enableGlow: false,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildStat('石头', _user?['stone_count'] ?? 0),
-                            const SizedBox(width: 32),
-                            _buildStat('涟漪', _user?['ripple_count'] ?? 0),
-                          ],
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildStat('石头', _user?['stone_count'] ?? 0),
+                          const SizedBox(width: 32),
+                          _buildStat('涟漪', _user?['ripple_count'] ?? 0),
+                        ],
                       ),
                       const SizedBox(height: 32),
                       if (_isFriend)
-                        SkyButton(
-                          label: '发消息',
-                          icon: Icons.chat,
-                          width: 200,
+                        ElevatedButton.icon(
                           onPressed: () => Navigator.push(
                             context,
-                            SkyPageRoute(page: FriendChatScreen(
+                            MaterialPageRoute(
+                              builder: (context) => FriendChatScreen(
                                 friendId: widget.userId,
                                 friendName: _user?['nickname'] ?? '好友',
-                              )),
+                              ),
+                            ),
                           ),
-                        ),
+                          icon: const Icon(Icons.chat),
+                          label: const Text('发消息'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(200, 48),
+                          ),
+                        )
                     ],
                   ),
                 ),
@@ -142,8 +126,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget _buildStat(String label, int count) {
     return Column(
       children: [
-        Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.candleGlow)),
-        Text(label, style: const TextStyle(color: AppTheme.darkTextSecondary)),
+        Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: Colors.grey[600])),
       ],
     );
   }
