@@ -3,13 +3,13 @@
 // Created by 林子怡
 
 import 'package:flutter/foundation.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../utils/storage_util.dart';
 
 /// 通知状态管理Provider
 class NotificationProvider with ChangeNotifier {
-  final ApiClient _apiClient = ApiClient();
+  final NotificationService _notificationService = NotificationService();
   final WebSocketManager _wsManager = WebSocketManager();
   int _unreadCount = 0;
   bool _isLoading = false;
@@ -67,18 +67,9 @@ class NotificationProvider with ChangeNotifier {
     try {
       final token = await StorageUtil.getToken();
       if (token != null) {
-        final response = await _apiClient.get(
-          '/notifications',
-          queryParameters: {'page': 1, 'page_size': 1},
-        );
-
-        if (response.statusCode == 200 && response.data['code'] == 0) {
-          final data = response.data['data'];
-          if (data is Map) {
-            _unreadCount = data['unread_count'] ?? 0;
-          } else if (data is List) {
-            _unreadCount = data.length;
-          }
+        final result = await _notificationService.getUnreadCount();
+        if (result['success'] == true) {
+          _unreadCount = result['unread_count'] ?? 0;
           _lastUpdate = DateTime.now();
         }
       }
@@ -96,7 +87,7 @@ class NotificationProvider with ChangeNotifier {
     try {
       final token = await StorageUtil.getToken();
       if (token != null) {
-        await _apiClient.post('/notifications/$notificationId/read');
+        await _notificationService.markAsRead(notificationId);
         if (_unreadCount > 0) {
           _unreadCount--;
           notifyListeners();
@@ -112,7 +103,7 @@ class NotificationProvider with ChangeNotifier {
     try {
       final token = await StorageUtil.getToken();
       if (token != null) {
-        await _apiClient.post('/notifications/read-all');
+        await _notificationService.markAllAsRead();
         _unreadCount = 0;
         notifyListeners();
       }

@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../domain/entities/stone.dart';
 import '../providers/notification_provider.dart';
@@ -22,7 +22,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final List<Map<String, dynamic>> _notifications = [];
-  final ApiClient _apiClient = ApiClient();
+  final NotificationService _notificationService = NotificationService();
   bool _isLoading = false;
   int _unreadCount = 0;
 
@@ -36,18 +36,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await _apiClient.get(
-        '/notifications',
-        queryParameters: {'page': 1, 'page_size': 100},
-      );
+      final result = await _notificationService.getNotifications();
 
-      if (response.statusCode == 200 &&
-          response.data['code'] == 0 &&
-          mounted) {
-        final data = response.data['data'];
-        final items =
-            data['notifications'] as List? ?? data['items'] as List? ?? [];
-        final serverUnreadCount = data['unread_count'] as int? ?? 0;
+      if (result['success'] == true && mounted) {
+        final items = result['notifications'] as List? ?? [];
+        final serverUnreadCount = result['unread_count'] as int? ?? 0;
 
         setState(() {
           _notifications.clear();
@@ -56,12 +49,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
           _isLoading = false;
         });
 
-        // 同步更新Provider中的计数
         if (mounted) {
-          context
-              .read<NotificationProvider>()
-              .setUnreadCount(serverUnreadCount);
+          context.read<NotificationProvider>().setUnreadCount(serverUnreadCount);
         }
+      } else if (mounted) {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
@@ -75,18 +67,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _markAsRead(String notificationId, int index) async {
     try {
-      final response =
-          await _apiClient.post('/notifications/$notificationId/read');
+      final result = await _notificationService.markAsRead(notificationId);
 
-      if (response.statusCode == 200 && mounted) {
+      if (result['success'] == true && mounted) {
         setState(() {
           _notifications[index]['is_read'] = true;
-          _unreadCount =
-              response.data['data']?['unread_count'] ?? (_unreadCount - 1);
+          _unreadCount = result['unread_count'] ?? (_unreadCount - 1);
           if (_unreadCount < 0) _unreadCount = 0;
         });
 
-        // 同步更新Provider
         context.read<NotificationProvider>().setUnreadCount(_unreadCount);
       }
     } catch (e) {
@@ -96,9 +85,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _markAllAsRead() async {
     try {
-      final response = await _apiClient.post('/notifications/read-all');
+      final result = await _notificationService.markAllAsRead();
 
-      if (response.statusCode == 200 && mounted) {
+      if (result['success'] == true && mounted) {
         setState(() {
           for (var notif in _notifications) {
             notif['is_read'] = true;
@@ -106,7 +95,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
           _unreadCount = 0;
         });
 
-        // 同步更新Provider
         context.read<NotificationProvider>().setUnreadCount(0);
 
         ScaffoldMessenger.of(context).showSnackBar(

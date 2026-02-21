@@ -17,6 +17,15 @@ class NotificationService extends BaseService {
     if (!response.success) return toMap(response);
 
     final data = response.data;
+    // 后端返回纯数组 或 {notifications: [...], unread_count: N}
+    if (data is List) {
+      final unread = data.where((n) => n['is_read'] != true).length;
+      return {
+        'success': true,
+        'notifications': data,
+        'unread_count': unread,
+      };
+    }
     if (data is Map<String, dynamic>) {
       final items = data['notifications'] as List? ?? data['items'] as List? ?? [];
       final unreadCount = data['unread_count'] as int? ?? 0;
@@ -42,7 +51,7 @@ class NotificationService extends BaseService {
     if (data is Map) {
       unreadCount = data['unread_count'] ?? 0;
     } else if (data is List) {
-      unreadCount = data.length;
+      unreadCount = data.where((n) => n['is_read'] != true).length;
     }
     return {'success': true, 'unread_count': unreadCount};
   }
