@@ -26,6 +26,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   // WebSocket Listeners
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
+  late void Function(Map<String, dynamic>) _reconnectedListener;
 
   @override
   void initState() {
@@ -39,6 +40,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   void dispose() {
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
+    _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
 
@@ -64,6 +66,12 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
+
+    // 断线重连后自动刷新
+    _reconnectedListener = (data) {
+      if (mounted) _loadMyBoats();
+    };
+    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   Future<void> _loadMyBoats() async {

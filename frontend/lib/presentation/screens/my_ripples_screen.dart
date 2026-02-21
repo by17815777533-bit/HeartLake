@@ -26,6 +26,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _rippleUpdateListener;
+  late void Function(Map<String, dynamic>) _reconnectedListener;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     _wsManager.off('ripple_deleted', _rippleDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
     _wsManager.off('ripple_update', _rippleUpdateListener);
+    _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
 
@@ -96,6 +98,12 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
       });
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
+
+    // 断线重连后自动刷新
+    _reconnectedListener = (data) {
+      if (mounted) _loadMyRipples();
+    };
+    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   Future<void> _loadMyRipples() async {

@@ -13,6 +13,7 @@
 #include <mutex>
 #include <memory>
 #include <json/json.h>
+#include "infrastructure/realtime/WebSocketHub.h"
 
 namespace heartlake {
 namespace services {
@@ -151,20 +152,16 @@ public:
      * @brief 推送通知给指定用户
      */
     bool pushToUser(const std::string& userId, const NotificationMessage& notification) {
-        auto& connManager = WebSocketConnectionManager::getInstance();
-        auto conn = connManager.getConnection(userId);
-
-        if (!conn) {
-            LOG_DEBUG << "User not online, notification will be stored: " << userId;
-            return false;
-        }
+        // 使用 WebSocketHub（实际的连接管理器）而非废弃的 WebSocketConnectionManager
+        auto& hub = heartlake::realtime::WebSocketHub::getInstance();
 
         try {
             Json::Value message;
             message["type"] = "notification";
             message["data"] = notification.toJson();
 
-            conn->send(message.toStyledString());
+            Json::FastWriter writer;
+            hub.sendToUser(userId, writer.write(message));
             LOG_INFO << "Notification pushed to user: " << userId;
             return true;
         } catch (const std::exception& e) {
@@ -180,7 +177,7 @@ public:
                                const std::string& rippleUserId,
                                const std::string& stoneId) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = stoneOwnerId;
         notification.type = NotificationType::RIPPLE_RECEIVED;
         notification.title = "收到新的涟漪";
@@ -200,7 +197,7 @@ public:
                              const std::string& boatId,
                              const std::string& content) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = receiverId;
         notification.type = NotificationType::BOAT_RECEIVED;
         notification.title = "收到新纸船";
@@ -219,7 +216,7 @@ public:
                                        const std::string& requesterId,
                                      const std::string& requesterNickname) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = receiverId;
         notification.type = NotificationType::FRIEND_REQUEST;
         notification.title = "新的好友请求";
@@ -238,7 +235,7 @@ public:
                                             const std::string& friendNickname,
                                             int minutesLeft) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = userId;
         notification.type = NotificationType::TEMP_FRIEND_EXPIRING;
         notification.title = "临时好友即将过期";
@@ -259,7 +256,7 @@ public:
                                     const std::string& senderNickname,
                                     const std::string& messagePreview) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = receiverId;
         notification.type = NotificationType::NEW_MESSAGE;
         notification.title = "新消息";
@@ -277,7 +274,7 @@ public:
                          const std::string& title,
                          const std::string& content) {
         NotificationMessage notification;
-        notification.notificationId = "notif_" + std::to_string(std::time(nullptr));
+        notification.notificationId = "notif_" + drogon::utils::getUuid();
         notification.userId = userId;
         notification.type = NotificationType::SYSTEM_NOTICE;
         notification.title = title;

@@ -270,25 +270,13 @@ void InteractionController::deleteBoat(
     try {
         std::string userId = extractUserId(req);
 
-        // 先查出 stone_id 用于广播
-        auto dbClient = drogon::app().getDbClient("default");
-        auto boatInfo = dbClient->execSqlSync(
-            "SELECT stone_id FROM paper_boats WHERE boat_id = $1", boatId);
-        std::string stoneId = boatInfo.empty() ? "" : boatInfo[0]["stone_id"].as<std::string>();
-
         auto service = getInteractionService();
-        service->deleteBoat(boatId, userId);
+        auto result = service->deleteBoat(boatId, userId);
 
         // 广播纸船删除事件
-        if (!stoneId.empty()) {
-            // 更新石头的纸船计数
-            dbClient->execSqlSync(
-                "UPDATE stones SET boat_count = GREATEST(boat_count - 1, 0) WHERE stone_id = $1",
-                stoneId);
-
-            auto countResult = dbClient->execSqlSync(
-                "SELECT boat_count FROM stones WHERE stone_id = $1", stoneId);
-            int boatCount = countResult.empty() ? 0 : countResult[0]["boat_count"].as<int>();
+        {
+            std::string stoneId = result["stone_id"].asString();
+            int boatCount = result["boat_count"].asInt();
 
             Json::Value broadcastMsg;
             broadcastMsg["type"] = "boat_deleted";

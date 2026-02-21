@@ -15,6 +15,7 @@ import '../../data/datasources/vip_service.dart';
 import '../widgets/atmospheric_background.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import '../../data/datasources/media_service.dart';
 import 'auth_screen.dart';
 import 'help_screen.dart';
@@ -44,6 +45,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasLight = false; // 灯是否点亮
   int _vipDaysLeft = 0;
   final ImagePicker _picker = ImagePicker();
+  Timer? _statsDebounceTimer;
+
+  void _debouncedLoadStats() {
+    _statsDebounceTimer?.cancel();
+    _statsDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) _loadUserStats(silent: true);
+    });
+  }
 
   // WebSocket 监听器
   late void Function(Map<String, dynamic>) _newStoneListener;
@@ -91,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = await StorageUtil.getUserId();
       final stoneUserId = data['stone']?['user_id'] ?? data['user_id'];
       if (stoneUserId == userId && mounted) {
-        _loadUserStats(silent: true); // 重新加载统计
+        _debouncedLoadStats();
       }
     };
     _wsManager.on('new_stone', _newStoneListener);
@@ -100,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _boatUpdateListener = (data) async {
       // 当收到纸船时刷新统计
       if (mounted) {
-        _loadUserStats(silent: true);
+        _debouncedLoadStats();
       }
     };
     _wsManager.on('boat_update', _boatUpdateListener);
@@ -109,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // 监听涟漪更新
     _rippleUpdateListener = (data) async {
       if (mounted) {
-        _loadUserStats(silent: true);
+        _debouncedLoadStats();
       }
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
@@ -117,17 +126,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // 监听删除事件，刷新统计
     _stoneDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
+      if (mounted) _debouncedLoadStats();
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
 
     _boatDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
+      if (mounted) _debouncedLoadStats();
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
 
     _rippleDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
+      if (mounted) _debouncedLoadStats();
     };
     _wsManager.on('ripple_deleted', _rippleDeletedListener);
   }
@@ -145,6 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _statsDebounceTimer?.cancel();
     _removeWebSocketListeners();
     super.dispose();
   }
