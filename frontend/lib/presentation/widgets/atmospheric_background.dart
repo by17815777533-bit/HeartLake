@@ -1,10 +1,11 @@
 // @file atmospheric_background.dart
-// @brief 氛围背景组件
+// @brief 氛围背景组件（性能优化版）
 // Created by 吴睿璐
 
 library;
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 class AtmosphericBackground extends StatefulWidget {
   final Widget child;
@@ -28,6 +29,10 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late List<Particle> _particles;
+
+  // 渐变缓存：只在小时变化时重新计算
+  int _cachedHour = -1;
+  LinearGradient? _cachedGradient;
 
   @override
   void initState() {
@@ -63,9 +68,15 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
 
     final hour = DateTime.now().hour;
 
+    // 缓存命中：同一小时内直接返回
+    if (hour == _cachedHour && _cachedGradient != null) {
+      return _cachedGradient!;
+    }
+    _cachedHour = hour;
+
     // 早晨 (5-9)
     if (hour >= 5 && hour < 9) {
-      return const LinearGradient(
+      _cachedGradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -77,7 +88,7 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
     }
     // 上午 (9-12)
     else if (hour >= 9 && hour < 12) {
-      return const LinearGradient(
+      _cachedGradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -89,7 +100,7 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
     }
     // 下午 (12-17)
     else if (hour >= 12 && hour < 17) {
-      return const LinearGradient(
+      _cachedGradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -101,7 +112,7 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
     }
     // 傍晚 (17-20)
     else if (hour >= 17 && hour < 20) {
-      return const LinearGradient(
+      _cachedGradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -113,7 +124,7 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
     }
     // 夜晚 (20-5)
     else {
-      return const LinearGradient(
+      _cachedGradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -123,6 +134,8 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
         ],
       );
     }
+
+    return _cachedGradient!;
   }
 
   @override
@@ -139,19 +152,21 @@ class _AtmosphericBackgroundState extends State<AtmosphericBackground>
           ),
         ),
 
-        // 粒子效果
+        // 粒子效果（RepaintBoundary 隔离重绘区域）
         if (widget.enableParticles)
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: ParticlePainter(
-                    particles: _particles,
-                    animation: _controller.value,
-                  ),
-                );
-              },
+            child: RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: ParticlePainter(
+                      particles: _particles,
+                      animation: _controller.value,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
 
@@ -203,18 +218,53 @@ class ParticlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (particles.length > 10) {
+      // 批量绘制优化：粒子数 > 10 时使用 drawRawPoints
+      _drawBatch(canvas, size);
+    } else {
+      _drawIndividual(canvas, size);
+    }
+  }
+
+  /// 逐个绘制（粒子数 <= 10）
+  void _drawIndividual(Canvas canvas, Size size) {
     for (final particle in particles) {
       final paint = Paint()
         ..color = particle.color.withValues(alpha: particle.opacity)
         ..style = PaintingStyle.fill;
 
-      // 计算粒子位置（循环移动）
       final y = ((particle.y + animation * particle.speed) % 1.0) * size.height;
       final x = particle.x * size.width;
 
-      canvas.drawCircle(
-        Offset(x, y),
-        particle.size,
+      canvas.drawCircle(Offset(x, y), particle.size, paint);
+    }
+  }
+
+  /// 批量绘制（粒子数 > 10）：按透明度分组，使用 drawRawPoints
+  void _drawBatch(Canvas canvas, Size size) {
+    // 按相近透明度分桶（0.1 步长），减少 Paint 切换次数
+    final Map<int, List<Offset>> buckets = {};
+
+    for (final particle in particles) {
+      final y = ((particle.y + animation * particle.speed) % 1.0) * size.height;
+      final x = particle.x * size.width;
+      final bucket = (particle.opacity * 10).round();
+      (buckets[bucket] ??= []).add(Offset(x, y));
+    }
+
+    for (final entry in buckets.entries) {
+      final alpha = entry.key / 10.0;
+      final points = entry.value;
+
+      final paint = Paint()
+        ..color = Colors.white.withValues(alpha: alpha)
+        ..strokeWidth = 4.0 // 平均粒子直径
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawPoints(
+        ui.PointMode.points,
+        points,
         paint,
       );
     }
