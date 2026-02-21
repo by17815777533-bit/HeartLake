@@ -36,6 +36,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
   PaperBoat? _caughtBoat;
   bool _isCatching = false;
   bool _showCatchAnimation = false;
+  final _responseController = TextEditingController();
 
   @override
   void initState() {

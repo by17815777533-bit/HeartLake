@@ -189,7 +189,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
                 selected: isSelected,
                 selectedColor: color.withValues(alpha: 0.8),
                 backgroundColor: color.withValues(alpha: 0.3),
-                onSelected: (_) => _discoverByMood(mood),
+                onSelected: (selected) {
+                  if (selected) {
+                    _discoverByMood(mood);
+                  } else {
+                    setState(() => _selectedMood = null);
+                    _loadTrending();
+                  }
+                },
               );
             }).toList(),
           ),
