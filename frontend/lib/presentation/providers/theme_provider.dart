@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light; // 默认浅色模式
+  ThemeMode _themeMode = ThemeMode.dark; // 默认暗色模式（光遇星空）
 
   ThemeMode get themeMode => _themeMode;
 
@@ -16,7 +16,7 @@ class ThemeProvider with ChangeNotifier {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool('isDarkMode') ?? false;
+    final isDark = prefs.getBool('isDarkMode') ?? true;
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
   }
