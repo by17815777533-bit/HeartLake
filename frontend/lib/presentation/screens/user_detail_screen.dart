@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/api_client.dart';
+import '../../data/datasources/friend_service.dart';
 import '../../utils/app_theme.dart';
 import 'friend_chat_screen.dart';
 
@@ -19,9 +20,11 @@ class UserDetailScreen extends StatefulWidget {
 
 class _UserDetailScreenState extends State<UserDetailScreen> {
   final ApiClient _apiClient = ApiClient();
+  final FriendService _friendService = FriendService();
   Map<String, dynamic>? _user;
   bool _isLoading = true;
   bool _isFriend = false;
+  bool _isSendingRequest = false;
 
   @override
   void initState() {
@@ -44,6 +47,24 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     }
   }
 
+  Future<void> _sendFriendRequest() async {
+    setState(() => _isSendingRequest = true);
+    try {
+      final result = await _friendService.sendFriendRequest(userId: widget.userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? '好友请求已发送')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSendingRequest = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,7 +77,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
           ),
         ),
         child: _isLoading
@@ -69,7 +90,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: AppTheme.skyBlue.withOpacity(0.2),
+                        backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),
                         backgroundImage: (_user?['avatar_url'] != null && _user!['avatar_url'].toString().isNotEmpty)
                             ? NetworkImage(_user!['avatar_url'])
                             : null,
@@ -112,6 +133,17 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                           ),
                           icon: const Icon(Icons.chat),
                           label: const Text('发消息'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(200, 48),
+                          ),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: _isSendingRequest ? null : _sendFriendRequest,
+                          icon: _isSendingRequest
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.person_add),
+                          label: Text(_isSendingRequest ? '发送中...' : '添加好友'),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(200, 48),
                           ),

@@ -285,6 +285,16 @@ void FriendController::sendMessage(
                 "INSERT INTO friend_messages (sender_id, receiver_id, content, created_at) VALUES ($1, $2, $3, NOW())",
                 userId, friendId, content
             );
+
+            // 推送实时消息给接收方
+            Json::Value wsMsg;
+            wsMsg["type"] = "new_friend_message";
+            wsMsg["sender_id"] = userId;
+            wsMsg["receiver_id"] = friendId;
+            wsMsg["content"] = content;
+            wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::sendToUser(friendId, wsMsg);
+
             callback(ResponseUtil::success("消息已发送"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Error in sendMessage: " << e.what();
