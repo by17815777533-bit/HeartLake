@@ -462,7 +462,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     });
   }
 
-  void _confirmDeleteFriend(int friendId, String nickname) {
+  void _confirmDeleteFriend(String friendId, String nickname) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(

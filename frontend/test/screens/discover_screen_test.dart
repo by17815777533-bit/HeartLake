@@ -196,12 +196,12 @@ void main() {
     test('happy config should have warm colors', () {
       final config = MoodColors.getConfig(MoodType.happy);
       // primary 应该是暖色调（偏黄/橙）
-      expect(config.primary.alpha, greaterThan(0));
+      expect((config.primary.a * 255).round(), greaterThan(0));
     });
 
     test('sad config should have cool colors', () {
       final config = MoodColors.getConfig(MoodType.sad);
-      expect(config.primary.alpha, greaterThan(0));
+      expect((config.primary.a * 255).round(), greaterThan(0));
     });
 
     test('each mood should have unique primary color', () {
@@ -225,11 +225,11 @@ void main() {
         final moodType = MoodColors.fromString(mood);
         final config = MoodColors.getConfig(moodType);
         // DiscoverScreen 使用 color.withOpacity(0.8) 和 color.withOpacity(0.3)
-        final selectedColor = config.primary.withOpacity(0.8);
-        final bgColor = config.primary.withOpacity(0.3);
+        final selectedColor = config.primary.withValues(alpha: 0.8);
+        final bgColor = config.primary.withValues(alpha: 0.3);
 
-        expect(selectedColor.opacity, closeTo(0.8, 0.01));
-        expect(bgColor.opacity, closeTo(0.3, 0.01));
+        expect(selectedColor.a, closeTo(0.8, 0.01));
+        expect(bgColor.a, closeTo(0.3, 0.01));
       }
     });
   });

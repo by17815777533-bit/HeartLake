@@ -65,10 +65,10 @@ void main() {
 
     test('smaller epsilon should add more noise', () {
       final dpLowPrivacy = LocalDifferentialPrivacy(epsilon: 10.0);
-      final dpHighPrivacy = LocalDifferentialPrivacy(epsilon: 0.5);
+      final dpHighPrivacy = LocalDifferentialPrivacy(epsilon: 0.1);
 
       const trueScore = 0.5;
-      const iterations = 100;
+      const iterations = 1000;
 
       var deviationLow = 0.0;
       var deviationHigh = 0.0;

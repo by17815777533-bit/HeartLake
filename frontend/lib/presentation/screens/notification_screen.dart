@@ -131,7 +131,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         context,
         SkyPageRoute(page: FriendChatScreen(
             friendId: senderId,
-            friendNickname: senderNickname,
+            friendName: senderNickname,
           )),
       );
     } else if (stoneId != null) {

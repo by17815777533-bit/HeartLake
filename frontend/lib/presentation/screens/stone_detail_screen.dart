@@ -514,7 +514,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         ),
         body: SkyScaffold(
           showWater: true,
-          child: SafeArea(
+          body: SafeArea(
               child: Column(
                 children: [
                   // 石头内容卡片
@@ -745,7 +745,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ),
           ),
         ),
-      ), // PopScope
+      ); // PopScope
   }
 
   Widget _buildInteractionButton({

@@ -9,22 +9,22 @@ import 'package:heart_lake/utils/app_theme.dart';
 
 void main() {
   group('AppTheme color constants', () {
-    test('primaryColor should be Google Blue', () {
-      expect(AppTheme.primaryColor, const Color(0xFF4285F4));
+    test('primaryColor should be Sky peach', () {
+      expect(AppTheme.primaryColor, const Color(0xFFFFAB91));
     });
 
-    test('secondaryColor should be Google Green', () {
-      expect(AppTheme.secondaryColor, const Color(0xFF34A853));
+    test('secondaryColor should be Sky lavender', () {
+      expect(AppTheme.secondaryColor, const Color(0xFFB39DDB));
     });
 
-    test('accentColor should be Google Yellow', () {
-      expect(AppTheme.accentColor, const Color(0xFFFBBC04));
+    test('accentColor should be Sky warm yellow', () {
+      expect(AppTheme.accentColor, const Color(0xFFFFD54F));
     });
 
     test('primaryLightColor should be lighter than primaryColor', () {
       expect(AppTheme.primaryLightColor, isA<Color>());
       // primaryLightColor alpha should be > 0
-      expect(AppTheme.primaryLightColor.alpha, greaterThan(0));
+      expect((AppTheme.primaryLightColor.a * 255).round(), greaterThan(0));
     });
 
     test('primaryDarkColor should be defined', () {
@@ -70,7 +70,7 @@ void main() {
     test('textPrimary should be dark', () {
       expect(AppTheme.textPrimary, isA<Color>());
       // text primary should have high alpha (opaque or near-opaque)
-      expect(AppTheme.textPrimary.alpha, greaterThan(200));
+      expect((AppTheme.textPrimary.a * 255).round(), greaterThan(200));
     });
 
     test('textSecondary should be defined', () {
@@ -158,7 +158,7 @@ void main() {
 
     test('all colors should be non-transparent', () {
       for (final color in AppTheme.rainbowColors) {
-        expect(color.alpha, greaterThan(0));
+        expect((color.a * 255).round(), greaterThan(0));
       }
     });
   });
@@ -207,21 +207,21 @@ void main() {
     // Test the color values HomeScreen uses for NavigationBar
     test('light mode nav background should be valid', () {
       const navBgLight = Color(0xFFF5F9FC);
-      expect(navBgLight.alpha, 255);
+      expect((navBgLight.a * 255).round(), 255);
     });
 
     test('dark mode nav background should be valid', () {
       const navBgDark = Color(0xFF303134);
-      expect(navBgDark.alpha, 255);
+      expect((navBgDark.a * 255).round(), 255);
     });
 
     test('indicator color should match primaryColor with low alpha', () {
-      final indicatorColor = const Color(0xFF4285F4).withAlpha(30);
-      expect(indicatorColor.alpha, 30);
+      final indicatorColor = AppTheme.primaryColor.withAlpha(30);
+      expect((indicatorColor.a * 255).round(), closeTo(30, 1));
       // RGB channels should match primaryColor
-      expect(indicatorColor.red, AppTheme.primaryColor.red);
-      expect(indicatorColor.green, AppTheme.primaryColor.green);
-      expect(indicatorColor.blue, AppTheme.primaryColor.blue);
+      expect((indicatorColor.r * 255).round(), (AppTheme.primaryColor.r * 255).round());
+      expect((indicatorColor.g * 255).round(), (AppTheme.primaryColor.g * 255).round());
+      expect((indicatorColor.b * 255).round(), (AppTheme.primaryColor.b * 255).round());
     });
 
     test('HomeScreen uses 5 navigation destinations', () {

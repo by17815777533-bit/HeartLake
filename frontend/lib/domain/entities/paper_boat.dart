@@ -4,7 +4,7 @@
 
 library;
 
-import 'mood.dart';
+import '../../utils/mood_colors.dart';
 
 /// 漂流状态枚举
 enum DriftStatus {
@@ -97,7 +97,7 @@ class PaperBoat {
       receiverId: json['receiver_id'],
       stoneId: json['stone_id'],
       content: json['content'] ?? '',
-      mood: MoodConfigs.fromString(json['mood']),
+      mood: MoodColors.fromString(json['mood']),
       boatStyle: _parseBoatStyle(json['boat_style']),
       driftMode: _parseDriftMode(json['drift_mode']),
       driftStatus: _parseDriftStatus(json['drift_status']),
