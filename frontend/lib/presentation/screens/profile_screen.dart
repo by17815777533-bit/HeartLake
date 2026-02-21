@@ -380,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 内容区域
           RefreshIndicator(
             onRefresh: _refreshAll,
-            color: Colors.blue[900],
+            color: AppTheme.lakeDeep,
             backgroundColor: Colors.white,
             child: ListView(
               padding: EdgeInsets.only(
@@ -437,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.edit, size: 16, color: Colors.grey),
+                              const Icon(Icons.edit, size: 16, color: AppTheme.textTertiary),
                             ],
                           ),
                         ),
@@ -448,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             _bio ?? '点击添加个性签名...',
                             style: TextStyle(
-                              color: _bio != null ? Colors.grey[700] : Colors.grey,
+                              color: _bio != null ? AppTheme.textSecondary : AppTheme.textTertiary,
                               fontStyle: _bio == null ? FontStyle.italic : FontStyle.normal,
                             ),
                           ),
