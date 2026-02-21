@@ -33,52 +33,6 @@ class UserProvider with ChangeNotifier {
     super.dispose();
   }
 
-  // 邮箱登录
-  // P1-2: 添加 try-catch 捕获异常，防止未处理错误
-  Future<Map<String, dynamic>> loginWithEmail(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final result = await _authService.login(email: email, password: password);
-      if (result['success'] == true) {
-        _user = User(userId: result['user_id'], nickname: result['nickname'], isAnonymous: false);
-        _isAnonymous = false;
-        _wsManager.connect();
-      }
-      return result;
-    } catch (e) {
-      if (kDebugMode) debugPrint('邮箱登录异常: $e');
-      return {'success': false, 'message': '登录失败，请检查网络连接'};
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // 账号登录
-  // P1-2: 添加 try-catch 捕获异常
-  Future<Map<String, dynamic>> loginWithUsername(String username, String password) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final result = await _authService.loginWithUsername(username: username, password: password);
-      if (result['success'] == true) {
-        _user = User(userId: result['user_id'], nickname: result['nickname'], isAnonymous: false);
-        _isAnonymous = false;
-        _wsManager.connect();
-      }
-      return result;
-    } catch (e) {
-      if (kDebugMode) debugPrint('账号登录异常: $e');
-      return {'success': false, 'message': '登录失败，请检查网络连接'};
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
   // 匿名登录（游客模式）
   Future<bool> anonymousLogin() async {
     _isLoading = true;
@@ -180,13 +134,4 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // 绑定邮箱（游客升级）
-  Future<Map<String, dynamic>> bindEmail(String email, String code) async {
-    final result = await _authService.bindEmail(email: email, code: code);
-    if (result['success'] == true) {
-      _isAnonymous = false;
-      notifyListeners();
-    }
-    return result;
-  }
 }
