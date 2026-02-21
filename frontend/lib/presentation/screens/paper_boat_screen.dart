@@ -55,6 +55,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
   void dispose() {
     _tabController.dispose();
     _contentController.dispose();
+    _responseController.dispose();
     _sendAnimController.dispose();
     super.dispose();
   }
@@ -153,6 +154,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
             backgroundColor: AppTheme.secondaryColor,
           ),
         );
+        _responseController.clear();
         setState(() {
           _caughtBoat = null;
           _showCatchAnimation = false;
@@ -175,15 +177,24 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
   Future<void> _releaseBoat() async {
     if (_caughtBoat == null) return;
 
-    final result = await _boatService.releaseBoat(_caughtBoat!.boatId);
-    if (mounted && result['success'] == true) {
-      setState(() {
-        _caughtBoat = null;
-        _showCatchAnimation = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('纸船已放回湖中')),
-      );
+    try {
+      final result = await _boatService.releaseBoat(_caughtBoat!.boatId);
+      if (mounted && result['success'] == true) {
+        _responseController.clear();
+        setState(() {
+          _caughtBoat = null;
+          _showCatchAnimation = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('纸船已放回湖中')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: AppTheme.errorColor),
+        );
+      }
     }
   }
 
@@ -305,7 +316,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
               onPressed: _isSending ? null : () async {
                 await _sendAnimController.forward();
                 await _sendAnimController.reverse();
-                _sendBoat();
+                await _sendBoat();
               },
               icon: _isSending
                   ? const SizedBox(
@@ -336,7 +347,6 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
 
   Widget _buildRespondView() {
     final boat = _caughtBoat!;
-    final responseController = TextEditingController();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -375,7 +385,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
-                controller: responseController,
+                controller: _responseController,
                 maxLines: 4,
                 maxLength: 300,
                 decoration: const InputDecoration(
@@ -400,7 +410,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _respondToBoat(responseController.text),
+                  onPressed: () => _respondToBoat(_responseController.text),
                   icon: const Icon(Icons.send),
                   label: const Text('送出回应'),
                 ),
