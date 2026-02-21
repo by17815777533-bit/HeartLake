@@ -10,7 +10,7 @@ import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../widgets/stone_card.dart';
-import '../widgets/sky_scaffold.dart';
+import '../widgets/water_background.dart';
 import '../widgets/sky_glass_card.dart';
 import '../widgets/status_view.dart';
 import 'notification_screen.dart';
@@ -351,9 +351,8 @@ class LakeScreenState extends State<LakeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SkyScaffold(
-      showWater: true,
-      showParticles: true,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
@@ -448,8 +447,13 @@ class LakeScreenState extends State<LakeScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: _buildContent(),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: WaterBackground()),
+          Positioned.fill(
+            child: SafeArea(child: _buildContent()),
+          ),
+        ],
       ),
     );
   }
