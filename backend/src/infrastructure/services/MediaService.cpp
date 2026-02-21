@@ -329,33 +329,208 @@ bool MediaService::deleteMedia(const std::string& media_id, const std::string& u
     return true;
 }
 
-std::string MediaService::compressImage(const std::string& input_path, 
+std::string MediaService::compressImage(const std::string& input_path,
                                        int max_width, int quality) {
-    // 简化版：返回原路径
-    // 生产环境建议使用 ImageMagick 或 libvips 进行压缩
-    // 命令示例: convert input.jpg -resize {max_width}x -quality {quality} output.jpg
-    
-    LOG_INFO << "Image compression disabled (max_width: " << max_width 
-             << ", quality: " << quality << ")";
-    return input_path;
+    // 检查输入文件是否存在
+    if (!fs::exists(input_path)) {
+        LOG_WARN << "compressImage: input file not found: " << input_path;
+        return input_path;
+    }
+
+    // 构造输出路径：在文件名后加 _compressed
+    fs::path p(input_path);
+    std::string stem = p.stem().string();
+    std::string ext = p.extension().string();
+    fs::path output_path = p.parent_path() / (stem + "_compressed" + ext);
+
+    // 检测 ImageMagick 是否可用（优先 magick，回退 convert）
+    std::string magick_cmd;
+    if (std::system("which magick > /dev/null 2>&1") == 0) {
+        magick_cmd = "magick";
+    } else if (std::system("which convert > /dev/null 2>&1") == 0) {
+        magick_cmd = "convert";
+    } else {
+        LOG_WARN << "compressImage: ImageMagick not available, returning original file";
+        return input_path;
+    }
+
+    // 构造命令：resize 到最大宽度，设置 JPEG quality
+    // -resize WIDTHx> 表示只缩小不放大，且只限制宽度
+    std::string cmd = magick_cmd + " "
+        + "'" + input_path + "'"
+        + " -resize " + std::to_string(max_width) + "x\\>"
+        + " -quality " + std::to_string(quality)
+        + " '" + output_path.string() + "'"
+        + " 2>&1";
+
+    LOG_INFO << "compressImage: executing: " << cmd;
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        LOG_WARN << "compressImage: failed to execute command";
+        return input_path;
+    }
+
+    char buffer[256];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        result += buffer;
+    }
+    int ret = pclose(pipe);
+
+    if (ret != 0) {
+        LOG_WARN << "compressImage: command failed (exit " << ret << "): " << result;
+        return input_path;
+    }
+
+    if (!fs::exists(output_path)) {
+        LOG_WARN << "compressImage: output file not created";
+        return input_path;
+    }
+
+    LOG_INFO << "compressImage: compressed " << input_path
+             << " -> " << output_path.string()
+             << " (original: " << fs::file_size(input_path)
+             << " bytes, compressed: " << fs::file_size(output_path) << " bytes)";
+    return output_path.string();
 }
 
 std::string MediaService::compressVideo(const std::string& input_path, int max_bitrate) {
-    // 简化版：返回原路径
-    // 生产环境建议使用 FFmpeg 进行视频压缩
-    // 命令示例: ffmpeg -i input.mp4 -b:v {max_bitrate}k -c:v libx264 -preset medium output.mp4
-    
-    LOG_INFO << "Video compression disabled (max_bitrate: " << max_bitrate << "k)";
-    return input_path;
+    // 检查输入文件是否存在
+    if (!fs::exists(input_path)) {
+        LOG_WARN << "compressVideo: input file not found: " << input_path;
+        return input_path;
+    }
+
+    // 检测 FFmpeg 是否可用
+    if (std::system("which ffmpeg > /dev/null 2>&1") != 0) {
+        LOG_WARN << "compressVideo: FFmpeg not available, returning original file";
+        return input_path;
+    }
+
+    // 构造输出路径
+    fs::path p(input_path);
+    std::string stem = p.stem().string();
+    std::string ext = p.extension().string();
+    fs::path output_path = p.parent_path() / (stem + "_compressed" + ext);
+
+    // H.264 编码，CRF 23，最大 720p，限制码率
+    // -vf scale=-2:720 保持宽高比缩放到720p（-2确保宽度为偶数）
+    // -crf 23 恒定质量因子
+    // -maxrate + -bufsize 限制最大码率
+    std::string cmd = "ffmpeg -y -i"
+        " '" + input_path + "'"
+        " -c:v libx264 -preset medium -crf 23"
+        " -vf 'scale=-2:min(720\\,ih)'"
+        " -maxrate " + std::to_string(max_bitrate) + "k"
+        " -bufsize " + std::to_string(max_bitrate * 2) + "k"
+        " -c:a aac -b:a 128k"
+        " -movflags +faststart"
+        " '" + output_path.string() + "'"
+        " 2>&1";
+
+    LOG_INFO << "compressVideo: executing: " << cmd;
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        LOG_WARN << "compressVideo: failed to execute command";
+        return input_path;
+    }
+
+    char buffer[256];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        result += buffer;
+    }
+    int ret = pclose(pipe);
+
+    if (ret != 0) {
+        LOG_WARN << "compressVideo: command failed (exit " << ret << "): " << result;
+        return input_path;
+    }
+
+    if (!fs::exists(output_path)) {
+        LOG_WARN << "compressVideo: output file not created";
+        return input_path;
+    }
+
+    LOG_INFO << "compressVideo: compressed " << input_path
+             << " -> " << output_path.string()
+             << " (original: " << fs::file_size(input_path)
+             << " bytes, compressed: " << fs::file_size(output_path) << " bytes)";
+    return output_path.string();
 }
 
 std::string MediaService::convertAudio(const std::string& input_path,
                                       const std::string& output_format) {
-    // 简化版：返回原路径
-    // 生产环境建议使用 FFmpeg 进行音频格式转换
-    // 命令示例: ffmpeg -i input.wav -c:a libmp3lame -b:a 192k output.mp3
-    
-    LOG_INFO << "Audio conversion disabled (target format: " << output_format << ")";
-    return input_path;
+    // 检查输入文件是否存在
+    if (!fs::exists(input_path)) {
+        LOG_WARN << "convertAudio: input file not found: " << input_path;
+        return input_path;
+    }
+
+    // 检测 FFmpeg 是否可用
+    if (std::system("which ffmpeg > /dev/null 2>&1") != 0) {
+        LOG_WARN << "convertAudio: FFmpeg not available, returning original file";
+        return input_path;
+    }
+
+    // 构造输出路径：替换扩展名为目标格式，加 _compressed 后缀
+    fs::path p(input_path);
+    std::string stem = p.stem().string();
+    std::string target_ext = "." + output_format;
+    fs::path output_path = p.parent_path() / (stem + "_compressed" + target_ext);
+
+    // AAC 编码，128kbps
+    // 根据输出格式选择编码器
+    std::string audio_codec;
+    if (output_format == "mp3") {
+        audio_codec = "libmp3lame";
+    } else if (output_format == "aac" || output_format == "m4a") {
+        audio_codec = "aac";
+    } else if (output_format == "ogg") {
+        audio_codec = "libvorbis";
+    } else {
+        audio_codec = "aac";
+    }
+
+    std::string cmd = "ffmpeg -y -i"
+        " '" + input_path + "'"
+        " -c:a " + audio_codec +
+        " -b:a 128k"
+        " -ar 44100"
+        " '" + output_path.string() + "'"
+        " 2>&1";
+
+    LOG_INFO << "convertAudio: executing: " << cmd;
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        LOG_WARN << "convertAudio: failed to execute command";
+        return input_path;
+    }
+
+    char buffer[256];
+    std::string result;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        result += buffer;
+    }
+    int ret = pclose(pipe);
+
+    if (ret != 0) {
+        LOG_WARN << "convertAudio: command failed (exit " << ret << "): " << result;
+        return input_path;
+    }
+
+    if (!fs::exists(output_path)) {
+        LOG_WARN << "convertAudio: output file not created";
+        return input_path;
+    }
+
+    LOG_INFO << "convertAudio: converted " << input_path
+             << " -> " << output_path.string()
+             << " (original: " << fs::file_size(input_path)
+             << " bytes, converted: " << fs::file_size(output_path) << " bytes)";
+    return output_path.string();
 }
 

@@ -468,14 +468,64 @@ bool EdgeAIController::validateAdminConfig(const Json::Value &config, std::strin
 Json::Value EdgeAIController::collectSubsystemHealth() {
     Json::Value health;
     auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
-    health["sentiment_analysis"] = "active";
-    health["content_moderation"] = "active";
-    health["emotion_pulse"] = "active";
-    health["federated_learning"] = "active";
-    health["differential_privacy"] = "active";
-    health["hnsw_search"] = "active";
-    health["quantized_inference"] = "active";
-    health["node_monitoring"] = "active";
+    auto stats = engine.getEngineStats();
+
+    bool engineEnabled = engine.isEnabled();
+    std::string baseState = engineEnabled ? "active" : "disabled";
+
+    // 子系统1&2: 情感分析和文本审核 — 始终可用（纯算法，无外部依赖）
+    health["sentiment_analysis"] = baseState;
+    health["content_moderation"] = baseState;
+
+    // 子系统3: 情绪脉搏 — 检查窗口是否有数据
+    if (!engineEnabled) {
+        health["emotion_pulse"] = "disabled";
+    } else {
+        health["emotion_pulse"] = stats["emotion_window_size"].asUInt64() > 0 ? "active" : "idle";
+    }
+
+    // 子系统4: 联邦学习 — 检查是否有进行中的聚合轮次
+    if (!engineEnabled) {
+        health["federated_learning"] = "disabled";
+    } else {
+        health["federated_learning"] = stats["federated_round"].asInt() > 0 ? "active" : "idle";
+    }
+
+    // 子系统5: 差分隐私 — 检查隐私预算是否耗尽
+    if (!engineEnabled) {
+        health["differential_privacy"] = "disabled";
+    } else {
+        float remaining = engine.getRemainingPrivacyBudget();
+        health["differential_privacy"] = remaining > 0.0f ? "active" : "exhausted";
+    }
+
+    // 子系统6: HNSW向量检索 — 检查索引是否有数据
+    if (!engineEnabled) {
+        health["hnsw_search"] = "disabled";
+    } else {
+        health["hnsw_search"] = stats["hnsw_node_count"].asUInt64() > 0 ? "active" : "idle";
+    }
+
+    // 子系统7: 量化推理 — 始终可用（纯计算）
+    health["quantized_inference"] = baseState;
+
+    // 子系统8: 节点监控 — 检查是否有注册节点及健康状态
+    if (!engineEnabled) {
+        health["node_monitoring"] = "disabled";
+    } else {
+        int registeredNodes = stats["registered_nodes"].asInt();
+        int healthyNodes = stats["healthy_nodes"].asInt();
+        if (registeredNodes == 0) {
+            health["node_monitoring"] = "idle";
+        } else if (healthyNodes == 0) {
+            health["node_monitoring"] = "degraded";
+        } else if (healthyNodes < registeredNodes) {
+            health["node_monitoring"] = "partial";
+        } else {
+            health["node_monitoring"] = "active";
+        }
+    }
+
     return health;
 }
 
