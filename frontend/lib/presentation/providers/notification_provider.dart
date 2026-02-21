@@ -5,7 +5,6 @@
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
-import '../../utils/storage_util.dart';
 
 /// 通知状态管理Provider
 class NotificationProvider with ChangeNotifier {
@@ -65,13 +64,10 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final token = await StorageUtil.getToken();
-      if (token != null) {
-        final result = await _notificationService.getUnreadCount();
-        if (result['success'] == true) {
-          _unreadCount = result['unread_count'] ?? 0;
-          _lastUpdate = DateTime.now();
-        }
+      final result = await _notificationService.getUnreadCount();
+      if (result['success'] == true) {
+        _unreadCount = result['unread_count'] ?? 0;
+        _lastUpdate = DateTime.now();
       }
     } catch (e) {
       // P2-3: debugPrint 包裹在 kDebugMode 检查中
@@ -85,13 +81,10 @@ class NotificationProvider with ChangeNotifier {
   /// 标记单个通知为已读
   Future<void> markAsRead(String notificationId) async {
     try {
-      final token = await StorageUtil.getToken();
-      if (token != null) {
-        await _notificationService.markAsRead(notificationId);
-        if (_unreadCount > 0) {
-          _unreadCount--;
-          notifyListeners();
-        }
+      await _notificationService.markAsRead(notificationId);
+      if (_unreadCount > 0) {
+        _unreadCount--;
+        notifyListeners();
       }
     } catch (e) {
       if (kDebugMode) { debugPrint('标记通知已读失败: $e'); }
@@ -101,12 +94,9 @@ class NotificationProvider with ChangeNotifier {
   /// 标记所有通知为已读
   Future<void> markAllAsRead() async {
     try {
-      final token = await StorageUtil.getToken();
-      if (token != null) {
-        await _notificationService.markAllAsRead();
-        _unreadCount = 0;
-        notifyListeners();
-      }
+      await _notificationService.markAllAsRead();
+      _unreadCount = 0;
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) { debugPrint('标记所有通知已读失败: $e'); }
     }
