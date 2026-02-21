@@ -795,28 +795,60 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+/* ═══════════════════════════════════════════════════
+   Sky: Children of the Light — Dashboard Theme
+   光遇风格：星空深蓝 + 金色暖光 + 毛玻璃质感
+   ═══════════════════════════════════════════════════ */
+
+// 光遇色彩系统
+$sky-gold: #F2CC8F;
+$sky-amber: #E8A87C;
+$sky-sunset: #E07A5F;
+$sky-purple: #7B68AE;
+$sky-bg-base: #141432;
+$sky-bg-card: #1A1A3E;
+$sky-text-primary: #F0E6D3;
+$sky-text-secondary: #B8A99A;
+
+// 毛玻璃混入
+@mixin glass-card($bg: rgba(26, 26, 62, 0.7), $blur: 16px, $border-alpha: 0.1) {
+  background: $bg;
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(242, 204, 143, $border-alpha);
+  border-radius: 16px;
+}
+
+// 金色渐变文字
+@mixin gold-text {
+  background: linear-gradient(135deg, $sky-gold, $sky-amber);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .dashboard {
+  // ── 页面头部 ──
   .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
     padding: 20px 24px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.1);
+    background: transparent;
+    border-radius: 16px;
 
     .welcome-section {
       h1 {
-        font-size: 22px;
-        font-weight: 400;
-        color: #202124;
+        font-size: 24px;
+        font-weight: 600;
         margin: 0 0 4px 0;
+        @include gold-text;
       }
 
       .welcome-sub {
         font-size: 13px;
-        color: #5f6368;
+        color: $sky-text-secondary;
         margin: 0;
       }
     }
@@ -827,36 +859,101 @@ onUnmounted(() => {
       gap: 12px;
 
       :deep(.el-button--primary) {
-        background: #1A73E8;
-        border-color: #1A73E8;
-        border-radius: 4px;
-        &:hover { background: #1557b0; }
+        background: linear-gradient(135deg, $sky-gold, $sky-amber);
+        border-color: transparent;
+        border-radius: 20px;
+        color: $sky-bg-base;
+        font-weight: 600;
+        &:hover {
+          background: linear-gradient(135deg, $sky-amber, $sky-sunset);
+          box-shadow: 0 0 16px rgba(242, 204, 143, 0.3);
+        }
       }
       :deep(.el-button--success) {
-        background: #34A853;
-        border-color: #34A853;
-        border-radius: 4px;
-        &:hover { background: #2d8f47; }
+        background: linear-gradient(135deg, rgba(242, 204, 143, 0.15), rgba(232, 168, 124, 0.15));
+        border: 1px solid rgba(242, 204, 143, 0.25);
+        border-radius: 20px;
+        color: $sky-gold;
+        &:hover {
+          background: linear-gradient(135deg, rgba(242, 204, 143, 0.25), rgba(232, 168, 124, 0.25));
+          box-shadow: 0 0 16px rgba(242, 204, 143, 0.2);
+        }
       }
 
       .update-time {
         font-size: 12px;
-        color: #5f6368;
+        color: $sky-text-secondary;
       }
     }
   }
 
+  // ── 技术标签 ──
+  .tech-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+
+    .tech-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      background: rgba(26, 26, 62, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(242, 204, 143, 0.12);
+      border-radius: 20px;
+      font-size: 12px;
+      color: $sky-gold;
+      transition: all 0.3s ease;
+
+      &:hover {
+        border-color: rgba(242, 204, 143, 0.3);
+        box-shadow: 0 0 12px rgba(242, 204, 143, 0.1);
+      }
+
+      .badge-icon {
+        font-size: 14px;
+      }
+
+      .badge-label {
+        font-weight: 500;
+      }
+    }
+  }
+
+  // ── 统计卡片 ──
   .stats-cards {
     margin-bottom: 24px;
 
     .stat-card {
-      border-radius: 8px;
-      border: none;
-      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.1);
-      transition: box-shadow 0.2s;
+      @include glass-card;
+      border-top: none !important;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.35s ease;
+
+      // 左侧金色渐变条
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, $sky-gold, $sky-amber);
+        border-radius: 16px 0 0 16px;
+      }
 
       &:hover {
-        box-shadow: 0 4px 12px rgba(60, 64, 67, 0.15);
+        transform: translateY(-4px);
+        box-shadow: 0 0 20px rgba(242, 204, 143, 0.15);
+        border-color: rgba(242, 204, 143, 0.2);
+      }
+
+      :deep(.el-card__body) {
+        padding: 20px;
       }
 
       .stat-content {
@@ -867,14 +964,14 @@ onUnmounted(() => {
         .stat-info {
           .stat-value {
             font-size: 28px;
-            font-weight: 400;
-            color: #202124;
+            font-weight: 600;
             line-height: 1.2;
+            @include gold-text;
           }
 
           .stat-title {
             font-size: 14px;
-            color: #5f6368;
+            color: $sky-text-secondary;
             margin-top: 8px;
           }
         }
@@ -886,27 +983,60 @@ onUnmounted(() => {
           display: flex;
           align-items: center;
           justify-content: center;
+          background: rgba(242, 204, 143, 0.1) !important;
+          color: $sky-gold !important;
         }
       }
     }
   }
 
+  // ── 图表卡片 ──
   .charts-row {
     margin-bottom: 24px;
 
     .chart-card {
-      border-radius: 8px;
-      border: none;
-      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.1);
+      @include glass-card(rgba(26, 26, 62, 0.6), 16px, 0.08);
+
+      :deep(.el-card__header) {
+        border-bottom: 1px solid rgba(242, 204, 143, 0.08);
+        color: $sky-gold;
+        font-weight: 500;
+      }
+
+      :deep(.el-card__body) {
+        background: transparent;
+      }
 
       .card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        color: $sky-gold;
+
+        :deep(.el-radio-group) {
+          .el-radio-button__inner {
+            background: rgba(242, 204, 143, 0.08);
+            border-color: rgba(242, 204, 143, 0.15);
+            color: $sky-text-secondary;
+          }
+          .el-radio-button__original-radio:checked + .el-radio-button__inner {
+            background: linear-gradient(135deg, $sky-gold, $sky-amber);
+            border-color: transparent;
+            color: $sky-bg-base;
+            box-shadow: none;
+          }
+        }
+
+        :deep(.el-tag) {
+          background: rgba(242, 204, 143, 0.1);
+          border-color: rgba(242, 204, 143, 0.2);
+          color: $sky-gold;
+        }
       }
     }
   }
 
+  // ── 热门话题列表 ──
   .topics-list {
     max-height: 300px;
     overflow-y: auto;
@@ -915,19 +1045,21 @@ onUnmounted(() => {
       display: flex;
       align-items: center;
       padding: 10px 12px;
-      border-radius: 4px;
+      border-radius: 10px;
       margin-bottom: 8px;
-      background: #f8f9fa;
-      transition: background 0.2s;
+      background: rgba(26, 26, 62, 0.4);
+      transition: all 0.25s ease;
 
-      &:hover { background: #e8f0fe; }
+      &:hover {
+        background: rgba(242, 204, 143, 0.06);
+      }
 
       .topic-rank {
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        background: #e0e0e0;
-        color: #5f6368;
+        background: rgba(242, 204, 143, 0.1);
+        color: $sky-text-secondary;
         font-size: 12px;
         font-weight: 500;
         display: flex;
@@ -935,44 +1067,18 @@ onUnmounted(() => {
         justify-content: center;
         margin-right: 12px;
 
-        &.top { background: #4285F4; color: #fff; }
+        &.top {
+          background: linear-gradient(135deg, $sky-gold, $sky-amber);
+          color: $sky-bg-base;
+        }
       }
 
-      .topic-name { flex: 1; color: #202124; font-size: 14px; }
-      .topic-count { color: #5f6368; font-size: 13px; }
+      .topic-name { flex: 1; color: $sky-text-primary; font-size: 14px; }
+      .topic-count { color: $sky-text-secondary; font-size: 13px; }
     }
   }
 
-  .tech-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-
-    .tech-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      background: #fff;
-      border: 1px solid #dadce0;
-      border-radius: 20px;
-      font-size: 13px;
-      color: #202124;
-      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
-      transition: all 0.2s;
-
-      &:hover {
-        background: #e8f0fe;
-        border-color: #4285F4;
-        box-shadow: 0 2px 6px rgba(66, 133, 244, 0.15);
-      }
-
-      .badge-icon { font-size: 16px; }
-      .badge-label { font-weight: 500; }
-    }
-  }
-
+  // ── 创新卡片 (隐私保护 / 情绪共鸣 / 情绪脉搏) ──
   .innovation-card {
     .innovation-stats {
       display: flex;
@@ -986,33 +1092,45 @@ onUnmounted(() => {
 
         .inno-label {
           font-size: 13px;
-          color: #5f6368;
+          color: $sky-text-secondary;
         }
 
         .inno-value {
           font-size: 18px;
           font-weight: 500;
-          color: #202124;
+          @include gold-text;
 
-          &.epsilon { font-family: 'Roboto Mono', monospace; font-size: 15px; }
-          &.highlight { color: #1A73E8; }
+          &.epsilon {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 15px;
+          }
+          &.highlight {
+            background: linear-gradient(135deg, $sky-amber, $sky-sunset);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+          }
         }
       }
 
       .budget-bar {
+        :deep(.el-progress-bar__outer) {
+          background: rgba(242, 204, 143, 0.1);
+        }
         :deep(.el-progress__text) {
           font-size: 12px !important;
-          color: #5f6368;
+          color: $sky-text-secondary;
         }
       }
     }
 
     .pulse-hint {
       font-size: 12px;
-      color: #9AA0A6;
+      color: $sky-text-secondary;
     }
   }
 
+  // ── 心湖天气卡片 ──
   .lake-weather-card {
     .lake-weather-content {
       display: flex;
@@ -1025,6 +1143,7 @@ onUnmounted(() => {
         gap: 20px;
         padding: 24px;
         border-radius: 12px;
+        background: rgba(242, 204, 143, 0.04);
 
         .weather-icon {
           font-size: 64px;
@@ -1035,20 +1154,20 @@ onUnmounted(() => {
           .weather-temp {
             font-size: 42px;
             font-weight: 300;
-            color: #202124;
             line-height: 1;
+            @include gold-text;
           }
 
           .weather-label {
             font-size: 18px;
             font-weight: 500;
-            color: #202124;
+            color: $sky-text-primary;
             margin-top: 4px;
           }
 
           .weather-desc {
             font-size: 13px;
-            color: #5f6368;
+            color: $sky-text-secondary;
             margin-top: 2px;
           }
         }
@@ -1066,10 +1185,10 @@ onUnmounted(() => {
 
           .scale-segment {
             height: 100%;
-            &.storm { background: #EA4335; }
-            &.rain { background: #4285F4; }
-            &.cloudy { background: #9AA0A6; }
-            &.sunny { background: #FBBC04; }
+            &.storm { background: $sky-sunset; }
+            &.rain { background: $sky-purple; }
+            &.cloudy { background: $sky-text-secondary; }
+            &.sunny { background: $sky-gold; }
           }
 
           .scale-pointer {
@@ -1077,7 +1196,7 @@ onUnmounted(() => {
             top: -4px;
             width: 4px;
             height: 16px;
-            background: #202124;
+            background: $sky-text-primary;
             border-radius: 2px;
             transform: translateX(-50%);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -1089,13 +1208,13 @@ onUnmounted(() => {
           justify-content: space-between;
           margin-top: 6px;
           font-size: 11px;
-          color: #9AA0A6;
+          color: $sky-text-secondary;
         }
       }
     }
   }
 
-  // AI 趋势卡片
+  // ── AI 趋势卡片 ──
   .ai-trends-card, .ai-trending-card {
     .trending-content-list {
       max-height: 320px;
@@ -1105,17 +1224,22 @@ onUnmounted(() => {
         display: flex;
         align-items: flex-start;
         padding: 10px 0;
-        border-bottom: 1px solid #f1f3f4;
+        border-bottom: 1px solid rgba(242, 204, 143, 0.06);
+        transition: background 0.25s ease;
 
         &:last-child { border-bottom: none; }
+
+        &:hover {
+          background: rgba(242, 204, 143, 0.04);
+        }
 
         .trending-rank {
           flex-shrink: 0;
           width: 24px;
           height: 24px;
           border-radius: 6px;
-          background: #f1f3f4;
-          color: #5f6368;
+          background: rgba(242, 204, 143, 0.1);
+          color: $sky-text-secondary;
           font-size: 12px;
           font-weight: 600;
           display: flex;
@@ -1125,8 +1249,8 @@ onUnmounted(() => {
           margin-top: 2px;
 
           &.top {
-            background: linear-gradient(135deg, #FBBC04, #F9AB00);
-            color: #fff;
+            background: linear-gradient(135deg, $sky-gold, $sky-amber);
+            color: $sky-bg-base;
           }
         }
 
@@ -1137,7 +1261,7 @@ onUnmounted(() => {
           .trending-title {
             display: block;
             font-size: 13px;
-            color: #202124;
+            color: $sky-text-primary;
             line-height: 1.5;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1150,14 +1274,139 @@ onUnmounted(() => {
             gap: 8px;
             margin-top: 4px;
 
+            :deep(.el-tag) {
+              background: rgba(242, 204, 143, 0.1);
+              border-color: rgba(242, 204, 143, 0.2);
+              color: $sky-gold;
+            }
+
             .trending-score {
               font-size: 11px;
-              color: #9AA0A6;
+              color: $sky-text-secondary;
             }
           }
         }
       }
     }
   }
+}
+
+// ── Element Plus 全局覆盖 (scoped deep) ──
+.dashboard {
+  :deep(.el-card) {
+    background: rgba(26, 26, 62, 0.6);
+    border: 1px solid rgba(242, 204, 143, 0.08);
+    border-radius: 16px;
+    color: $sky-text-primary;
+    --el-card-bg-color: transparent;
+  }
+
+  :deep(.el-card__header) {
+    border-bottom: 1px solid rgba(242, 204, 143, 0.08);
+    color: $sky-gold;
+  }
+
+  :deep(.el-empty__description p) {
+    color: $sky-text-secondary;
+  }
+
+  :deep(.el-loading-mask) {
+    background: rgba(20, 20, 50, 0.7);
+  }
+}
+
+// ── 亮色模式覆盖 ──
+// 保持金色主题色，卡片白色半透明，文字深棕色
+html:not(.dark) .dashboard {
+  $light-text: #3D2B1F;
+  $light-text-secondary: #7A6B5D;
+  $light-card-bg: rgba(255, 255, 255, 0.75);
+  $light-card-border: rgba(242, 204, 143, 0.2);
+
+  .page-header {
+    .welcome-section .welcome-sub { color: $light-text-secondary; }
+    .header-actions .update-time { color: $light-text-secondary; }
+  }
+
+  .tech-badges .tech-badge {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: $light-card-border;
+    backdrop-filter: blur(12px);
+  }
+
+  .stats-cards .stat-card {
+    background: $light-card-bg;
+    border-color: $light-card-border;
+    backdrop-filter: blur(16px);
+
+    .stat-content {
+      .stat-title { color: $light-text-secondary; }
+      .stat-icon {
+        background: rgba(242, 204, 143, 0.15) !important;
+      }
+    }
+  }
+
+  .charts-row .chart-card {
+    background: $light-card-bg;
+    border-color: $light-card-border;
+    backdrop-filter: blur(16px);
+
+    .card-header {
+      :deep(.el-radio-group) {
+        .el-radio-button__inner {
+          background: rgba(242, 204, 143, 0.1);
+          border-color: rgba(242, 204, 143, 0.2);
+          color: $light-text-secondary;
+        }
+      }
+    }
+  }
+
+  .topics-list .topic-item {
+    background: rgba(255, 255, 255, 0.5);
+    .topic-name { color: $light-text; }
+    .topic-count { color: $light-text-secondary; }
+    .topic-rank { background: rgba(242, 204, 143, 0.15); color: $light-text-secondary; }
+  }
+
+  .innovation-card .innovation-stats {
+    .inno-label { color: $light-text-secondary; }
+    .budget-bar :deep(.el-progress__text) { color: $light-text-secondary; }
+  }
+
+  .lake-weather-card .lake-weather-content {
+    .weather-display { background: rgba(242, 204, 143, 0.06); }
+    .weather-info {
+      .weather-label { color: $light-text; }
+      .weather-desc { color: $light-text-secondary; }
+    }
+    .weather-scale .scale-labels { color: $light-text-secondary; }
+  }
+
+  .ai-trends-card, .ai-trending-card {
+    .trending-item {
+      border-bottom-color: rgba(242, 204, 143, 0.1);
+      .trending-info {
+        .trending-title { color: $light-text; }
+        .trending-meta .trending-score { color: $light-text-secondary; }
+      }
+    }
+  }
+
+  :deep(.el-card) {
+    background: $light-card-bg;
+    border-color: $light-card-border;
+    color: $light-text;
+  }
+
+  :deep(.el-card__header) {
+    border-bottom-color: rgba(242, 204, 143, 0.12);
+  }
+
+  :deep(.el-empty__description p) { color: $light-text-secondary; }
+  :deep(.el-loading-mask) { background: rgba(255, 255, 255, 0.7); }
+
+  .pulse-hint { color: $light-text-secondary; }
 }
 </style>
