@@ -19,8 +19,10 @@ class AIRecommendationService extends BaseService {
 
   /// 获取相似石头推荐 (基于 HNSW 向量语义搜索)
   Future<List<Map<String, dynamic>>> getSimilarStones(String stoneId, {int limit = 5}) async {
-    final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
-        queryParameters: {'limit': limit});
+    final resp = await post<dynamic>('/vector-search/similar', data: {
+      'stone_id': stoneId,
+      'limit': limit,
+    });
     if (resp.success && resp.data != null) {
       return _extractList(resp.data);
     }
@@ -29,7 +31,7 @@ class AIRecommendationService extends BaseService {
 
   /// 获取个性化推荐 (协同过滤 + 内容推荐 + 探索)
   Future<List<Map<String, dynamic>>> getPersonalizedRecommendations({int limit = 10}) async {
-    final resp = await get<dynamic>('/recommendations/personalized',
+    final resp = await get<dynamic>('/recommendations/stones',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
       return _extractList(resp.data);
