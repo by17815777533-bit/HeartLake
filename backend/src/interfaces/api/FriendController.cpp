@@ -80,7 +80,7 @@ void FriendController::sendFriendRequest(
             callback(ResponseUtil::success(result, "好友请求已发送"));
         } catch (const std::runtime_error& e) {
             LOG_ERROR << "Error in sendFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, e.what()));
+            callback(ResponseUtil::error(400, "好友请求发送失败"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Unexpected error in sendFriendRequest: " << e.what();
             callback(ResponseUtil::internalError("发送好友请求失败"));
@@ -120,7 +120,7 @@ void FriendController::acceptFriendRequest(
             callback(ResponseUtil::success(result, "已接受好友请求"));
         } catch (const std::runtime_error& e) {
             LOG_ERROR << "Error in acceptFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, e.what()));
+            callback(ResponseUtil::error(400, "接受好友请求失败"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Unexpected error in acceptFriendRequest: " << e.what();
             callback(ResponseUtil::internalError("接受好友请求失败"));
@@ -151,7 +151,7 @@ void FriendController::rejectFriendRequest(
             callback(ResponseUtil::success(result, "已拒绝好友请求"));
         } catch (const std::runtime_error& e) {
             LOG_ERROR << "Error in rejectFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, e.what()));
+            callback(ResponseUtil::error(400, "拒绝好友请求失败"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Unexpected error in rejectFriendRequest: " << e.what();
             callback(ResponseUtil::internalError("拒绝好友请求失败"));
@@ -182,7 +182,7 @@ void FriendController::removeFriend(
             callback(ResponseUtil::success(result, "已删除好友"));
         } catch (const std::runtime_error& e) {
             LOG_ERROR << "Error in removeFriend: " << e.what();
-            callback(ResponseUtil::error(400, e.what()));
+            callback(ResponseUtil::error(400, "删除好友失败"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Unexpected error in removeFriend: " << e.what();
             callback(ResponseUtil::internalError("删除好友失败"));

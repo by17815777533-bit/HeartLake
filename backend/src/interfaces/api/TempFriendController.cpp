@@ -131,7 +131,19 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
 void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto currentUserId = req->getAttributes()->get<std::string>("user_id");
+        std::string currentUserId;
+        try {
+            currentUserId = req->getAttributes()->get<std::string>("user_id");
+        } catch (...) {}
+        if (currentUserId.empty()) {
+            Json::Value ret;
+            ret["code"] = 401;
+            ret["message"] = "未登录";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k401Unauthorized);
+            callback(resp);
+            return;
+        }
         auto dbClient = app().getDbClient("default");
         
         // 首先清理过期的临时好友
@@ -204,9 +216,21 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
                                               std::function<void(const HttpResponsePtr &)> &&callback,
                                               const std::string &tempFriendId) {
     try {
-        auto currentUserId = req->getAttributes()->get<std::string>("user_id");
+        std::string currentUserId;
+        try {
+            currentUserId = req->getAttributes()->get<std::string>("user_id");
+        } catch (...) {}
+        if (currentUserId.empty()) {
+            Json::Value ret;
+            ret["code"] = 401;
+            ret["message"] = "未登录";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k401Unauthorized);
+            callback(resp);
+            return;
+        }
         auto dbClient = app().getDbClient("default");
-        
+
         auto querySql = "SELECT tf.*, "
                        "u1.nickname as user1_nickname, u1.avatar_url as user1_avatar, "
                        "u2.nickname as user2_nickname, u2.avatar_url as user2_avatar, "
@@ -279,9 +303,21 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
                                              std::function<void(const HttpResponsePtr &)> &&callback,
                                              const std::string &tempFriendId) {
     try {
-        auto currentUserId = req->getAttributes()->get<std::string>("user_id");
+        std::string currentUserId;
+        try {
+            currentUserId = req->getAttributes()->get<std::string>("user_id");
+        } catch (...) {}
+        if (currentUserId.empty()) {
+            Json::Value ret;
+            ret["code"] = 401;
+            ret["message"] = "未登录";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k401Unauthorized);
+            callback(resp);
+            return;
+        }
         auto dbClient = app().getDbClient("default");
-        
+
         // 获取临时好友信息
         auto querySql = "SELECT * FROM temp_friends "
                        "WHERE temp_friend_id = $1 "
@@ -358,9 +394,21 @@ void TempFriendController::deleteTempFriend(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback,
                                            const std::string &tempFriendId) {
     try {
-        auto currentUserId = req->getAttributes()->get<std::string>("user_id");
+        std::string currentUserId;
+        try {
+            currentUserId = req->getAttributes()->get<std::string>("user_id");
+        } catch (...) {}
+        if (currentUserId.empty()) {
+            Json::Value ret;
+            ret["code"] = 401;
+            ret["message"] = "未登录";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k401Unauthorized);
+            callback(resp);
+            return;
+        }
         auto dbClient = app().getDbClient("default");
-        
+
         // 更新状态为expired而不是删除
         auto updateSql = "UPDATE temp_friends "
                         "SET status = 'expired' "
@@ -398,9 +446,21 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
                                                 std::function<void(const HttpResponsePtr &)> &&callback,
                                                 const std::string &targetUserId) {
     try {
-        auto currentUserId = req->getAttributes()->get<std::string>("user_id");
+        std::string currentUserId;
+        try {
+            currentUserId = req->getAttributes()->get<std::string>("user_id");
+        } catch (...) {}
+        if (currentUserId.empty()) {
+            Json::Value ret;
+            ret["code"] = 401;
+            ret["message"] = "未登录";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k401Unauthorized);
+            callback(resp);
+            return;
+        }
         auto dbClient = app().getDbClient("default");
-        
+
         // 检查临时好友关系
         auto querySql = "SELECT tf.*, "
                        "EXTRACT(EPOCH FROM (tf.expires_at - NOW())) as seconds_remaining "

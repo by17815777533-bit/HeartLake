@@ -18,6 +18,8 @@ import '../widgets/status_view.dart';
 import 'notification_screen.dart';
 import 'stone_detail_screen.dart';
 import 'lake_god_chat_screen.dart';
+import 'emotion_trends_screen.dart';
+import 'personalized_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
@@ -595,14 +597,14 @@ class LakeScreenState extends State<LakeScreen> {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: StoneCard(
-                key: ValueKey(_stones[index].stoneId),
-                stone: _stones[index],
+                key: ValueKey(_stones[stoneIndex].stoneId),
+                stone: _stones[stoneIndex],
                 onRippleSuccess: () {
                   _loadStones(refresh: true);
                 },
                 onDeleted: () {
                   setState(() {
-                    _stones.removeAt(index);
+                    _stones.removeAt(stoneIndex);
                   });
                 },
               ),
@@ -610,6 +612,162 @@ class LakeScreenState extends State<LakeScreen> {
           );
         },
       ),
+    );
+  }
+
+  /// 是否显示推荐区域
+  bool get _showRecommendationSection =>
+      !_loadingPersonalized && _personalizedStones.isNotEmpty;
+
+  /// 个性化推荐区域 - 光遇风格飘浮卡片
+  Widget _buildPersonalizedSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题行
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, size: 16, color: Colors.white70),
+            const SizedBox(width: 6),
+            const Text(
+              '为你而来',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                letterSpacing: 1,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+              ),
+              child: Text(
+                '更多',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // 横向滚动推荐卡片
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _personalizedStones.length,
+            itemBuilder: (context, index) {
+              final item = _personalizedStones[index];
+              final content = item['content'] as String? ?? '';
+              final mood = item['mood_type'] as String? ?? 'neutral';
+              return GestureDetector(
+                onTap: () {
+                  try {
+                    final stone = Stone.fromJson(item);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StoneDetailScreen(stone: stone),
+                      ),
+                    );
+                  } catch (_) {}
+                },
+                child: Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.15),
+                        Colors.white.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mood,
+                        style: const TextStyle(fontSize: 10, color: Colors.white54),
+                      ),
+                      const SizedBox(height: 6),
+                      Expanded(
+                        child: Text(
+                          content,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Text(
+                          '✨ AI',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        // 情绪星图入口
+        GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EmotionTrendsScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bubble_chart, size: 16, color: Colors.amber.withValues(alpha: 0.7)),
+                const SizedBox(width: 6),
+                Text(
+                  '情绪星图',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios, size: 10, color: Colors.white.withValues(alpha: 0.4)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

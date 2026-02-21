@@ -248,7 +248,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           child: GestureDetector(
             onTap: () {
               // 记录交互
-              _service.trackInteraction(stone.stoneId, 'click');
+              _service.trackInteraction(stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -288,7 +288,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       ),
                     ),
                     child: Center(
-                      child: Text(config.emoji, style: const TextStyle(fontSize: 18)),
+                      child: Icon(config.icon, size: 18, color: config.primary),
                     ),
                   ),
                   const SizedBox(width: 14),

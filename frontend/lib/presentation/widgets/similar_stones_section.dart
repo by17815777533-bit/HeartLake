@@ -192,7 +192,7 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    config.label,
+                    config.name,
                     style: TextStyle(
                       fontSize: 10,
                       color: config.primary,

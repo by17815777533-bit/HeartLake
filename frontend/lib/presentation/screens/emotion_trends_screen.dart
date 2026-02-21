@@ -22,7 +22,6 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   late AnimationController _fadeController;
 
   Map<String, dynamic> _trends = {};
-  Map<String, dynamic>? _pulseData;
   Map<String, dynamic>? _privacyInfo;
   bool _loading = true;
 
@@ -47,21 +46,15 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   Future<void> _loadData() async {
     try {
-      // 分开调用，因为返回类型不同
       final trendsFuture = _recService.getEmotionTrends();
-      final pulseFuture = _aiService.getEmotionPulse();
       final privacyFuture = _aiService.getPrivacyBudget();
 
       final trends = await trendsFuture;
-      final pulseResp = await pulseFuture;
       final privResp = await privacyFuture;
 
       if (mounted) {
         setState(() {
           _trends = trends;
-          if (pulseResp.success && pulseResp.data != null) {
-            _pulseData = pulseResp.data as Map<String, dynamic>;
-          }
           if (privResp.success && privResp.data != null) {
             _privacyInfo = privResp.data as Map<String, dynamic>;
           }

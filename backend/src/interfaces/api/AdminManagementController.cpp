@@ -879,6 +879,9 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
             if (auto p = req->getParameter("page_size"); !p.empty()) pageSize = std::stoi(p);
         } catch (...) {}
 
+        if (page < 1 || page > 10000) page = 1;
+        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM admin_operation_logs");
         int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
 

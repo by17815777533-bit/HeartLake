@@ -872,7 +872,7 @@ int PaperBoatController::calculateSoulDistanceDelay(const std::string& content, 
         );
         if (result.empty()) return calculateDriftDelay();
 
-        std::string targetContent = result[0]["content"].as<std::string>();
+        std::string targetContent = result[0]["content"].isNull() ? "" : result[0]["content"].as<std::string>();
 
         auto& engine = heartlake::ai::AdvancedEmbeddingEngine::getInstance();
         auto vec1 = engine.generateEmbedding(content);
