@@ -88,7 +88,7 @@ void HealthController::healthDetailed(
                 [result, callbackPtr](const std::exception &err) {
                   // Redis 异常
                   (*result)["redis_status"] = "error";
-                  (*result)["redis_error"] = err.what();
+                  (*result)["redis_error"] = "connection_failed";
                   (*result)["status"] = "degraded";
 
                   auto resp = HttpResponse::newHttpJsonResponse(*result);
@@ -99,7 +99,7 @@ void HealthController::healthDetailed(
           } catch (const std::exception &e) {
             // Redis 客户端获取失败
             (*result)["redis_status"] = "unavailable";
-            (*result)["redis_error"] = e.what();
+            (*result)["redis_error"] = "connection_failed";
             (*result)["status"] = "degraded";
 
             auto resp = HttpResponse::newHttpJsonResponse(*result);
@@ -110,7 +110,7 @@ void HealthController::healthDetailed(
         [result, callbackPtr](const drogon::orm::DrogonDbException &e) {
           // 数据库异常
           (*result)["db_status"] = "error";
-          (*result)["db_error"] = e.base().what();
+          (*result)["db_error"] = "connection_failed";
           (*result)["status"] = "degraded";
 
           // 即使数据库挂了也尝试检查 Redis
@@ -126,7 +126,7 @@ void HealthController::healthDetailed(
                 },
                 [result, callbackPtr](const std::exception &err) {
                   (*result)["redis_status"] = "error";
-                  (*result)["redis_error"] = err.what();
+                  (*result)["redis_error"] = "connection_failed";
 
                   auto resp = HttpResponse::newHttpJsonResponse(*result);
                   resp->setStatusCode(k200OK);
@@ -135,7 +135,7 @@ void HealthController::healthDetailed(
                 "PING");
           } catch (const std::exception &ex) {
             (*result)["redis_status"] = "unavailable";
-            (*result)["redis_error"] = ex.what();
+            (*result)["redis_error"] = "connection_failed";
 
             auto resp = HttpResponse::newHttpJsonResponse(*result);
             resp->setStatusCode(k200OK);
@@ -145,7 +145,7 @@ void HealthController::healthDetailed(
   } catch (const std::exception &e) {
     // 数据库客户端获取失败
     (*result)["db_status"] = "unavailable";
-    (*result)["db_error"] = e.what();
+    (*result)["db_error"] = "connection_failed";
     (*result)["status"] = "degraded";
 
     // 仍然尝试检查 Redis
@@ -161,7 +161,7 @@ void HealthController::healthDetailed(
           },
           [result, callbackPtr](const std::exception &err) {
             (*result)["redis_status"] = "error";
-            (*result)["redis_error"] = err.what();
+            (*result)["redis_error"] = "connection_failed";
 
             auto resp = HttpResponse::newHttpJsonResponse(*result);
             resp->setStatusCode(k200OK);
@@ -170,7 +170,7 @@ void HealthController::healthDetailed(
           "PING");
     } catch (const std::exception &ex) {
       (*result)["redis_status"] = "unavailable";
-      (*result)["redis_error"] = ex.what();
+      (*result)["redis_error"] = "connection_failed";
 
       auto resp = HttpResponse::newHttpJsonResponse(*result);
       resp->setStatusCode(k200OK);
