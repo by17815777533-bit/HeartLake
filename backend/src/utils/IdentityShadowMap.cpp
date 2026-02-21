@@ -5,7 +5,8 @@
  */
 
 #include "utils/IdentityShadowMap.h"
-#include <openssl/sha.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <chrono>
 #include <mutex>
@@ -38,14 +39,13 @@ std::string IdentityShadowMap::getOrCreateShadowId(const std::string& userId) {
 std::string IdentityShadowMap::anonymizeIp(const std::string& ipAddress) {
     // 使用固定盐值进行单向哈希，确保同一IP始终映射到同一匿名ID
     static const std::string salt = "heartlake_ip_salt_v1";
-    auto hash = sha256Hash(ipAddress, salt);
-    // 只返回前16字符作为匿名标识
+    auto hash = hmacSha256(ipAddress, salt);
     return "ip_" + hash.substr(0, 16);
 }
 
 std::string IdentityShadowMap::anonymizeFingerprint(const std::string& fingerprint) {
     static const std::string salt = "heartlake_fp_salt_v1";
-    auto hash = sha256Hash(fingerprint, salt);
+    auto hash = hmacSha256(fingerprint, salt);
     return "fp_" + hash.substr(0, 16);
 }
 
@@ -88,13 +88,16 @@ std::string IdentityShadowMap::desensitize(const std::string& value, const std::
     return value;
 }
 
-std::string IdentityShadowMap::sha256Hash(const std::string& input, const std::string& salt) {
-    std::string combined = salt + input;
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char*>(combined.c_str()), combined.size(), hash);
+std::string IdentityShadowMap::hmacSha256(const std::string& input, const std::string& key) {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hashLen = 0;
+    HMAC(EVP_sha256(),
+         key.data(), static_cast<int>(key.size()),
+         reinterpret_cast<const unsigned char*>(input.data()), input.size(),
+         hash, &hashLen);
 
     std::ostringstream oss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
+    for (unsigned int i = 0; i < hashLen; ++i) {
         oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
     }
     return oss.str();

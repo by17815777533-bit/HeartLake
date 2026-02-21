@@ -220,6 +220,19 @@ struct QuantizedTensor {
 /**
  * @brief 边缘节点状态
  */
+/**
+ * @brief 熔断器状态枚举 (经典三状态模式)
+ *
+ * CLOSED  -> 正常状态，请求正常通过，失败率超阈值时转 OPEN
+ * OPEN    -> 熔断状态，拒绝请求，冷却时间后转 HALF_OPEN
+ * HALF_OPEN -> 探测状态，允许少量探测请求，成功转 CLOSED，失败转回 OPEN
+ */
+enum class CircuitState {
+    CLOSED,     ///< 正常 - 请求正常通过
+    OPEN,       ///< 熔断 - 拒绝所有请求
+    HALF_OPEN   ///< 半开 - 允许探测请求
+};
+
 struct EdgeNodeStatus {
     std::string nodeId;                                ///< 节点标识
     float cpuUsage;                                    ///< CPU使用率 [0, 1]
@@ -232,6 +245,18 @@ struct EdgeNodeStatus {
     std::chrono::steady_clock::time_point lastHeartbeat; ///< 最后心跳时间
     float healthScore;                                 ///< 综合健康分 [0, 1]
 
+    // 熔断器状态字段
+    CircuitState circuitState = CircuitState::CLOSED;  ///< 熔断器当前状态
+    std::chrono::steady_clock::time_point circuitOpenedAt; ///< 进入OPEN状态的时间
+    int consecutiveFailures = 0;                       ///< 连续失败计数
+    int halfOpenSuccesses = 0;                         ///< HALF_OPEN状态下连续成功数
+
+    // 熔断器配置常量
+    static constexpr float FAILURE_RATE_THRESHOLD = 0.5f;    ///< 失败率阈值
+    static constexpr int MIN_REQUESTS_FOR_CIRCUIT = 5;       ///< 触发熔断的最小请求数
+    static constexpr int COOLDOWN_SECONDS = 30;              ///< OPEN->HALF_OPEN冷却时间(秒)
+    static constexpr int HALF_OPEN_SUCCESS_THRESHOLD = 3;    ///< HALF_OPEN转CLOSED所需连续成功数
+
     Json::Value toJson() const {
         Json::Value j;
         j["node_id"] = nodeId;
@@ -243,6 +268,9 @@ struct EdgeNodeStatus {
         j["failed_requests"] = failedRequests;
         j["is_healthy"] = isHealthy;
         j["health_score"] = healthScore;
+        j["circuit_state"] = circuitState == CircuitState::CLOSED ? "CLOSED" :
+                             circuitState == CircuitState::OPEN   ? "OPEN" : "HALF_OPEN";
+        j["consecutive_failures"] = consecutiveFailures;
         return j;
     }
 };

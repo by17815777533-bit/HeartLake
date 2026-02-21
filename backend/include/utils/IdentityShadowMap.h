@@ -78,7 +78,7 @@ private:
     IdentityShadowMap(const IdentityShadowMap&) = delete;
     IdentityShadowMap& operator=(const IdentityShadowMap&) = delete;
 
-    static std::string sha256Hash(const std::string& input, const std::string& salt);
+    static std::string hmacSha256(const std::string& input, const std::string& key);
     static std::string generateShadowId();
 
     mutable std::shared_mutex mutex_;

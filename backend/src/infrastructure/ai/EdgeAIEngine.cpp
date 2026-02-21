@@ -1662,6 +1662,10 @@ void EdgeAIEngine::registerNode(const std::string& nodeId) {
     status.isHealthy = true;
     status.lastHeartbeat = std::chrono::steady_clock::now();
     status.healthScore = 1.0f;
+    status.circuitState = CircuitState::CLOSED;
+    status.circuitOpenedAt = std::chrono::steady_clock::time_point{};
+    status.consecutiveFailures = 0;
+    status.halfOpenSuccesses = 0;
 
     nodeRegistry_[nodeId] = std::move(status);
     LOG_INFO << "[EdgeAI] Node registered: " << nodeId;
@@ -1691,12 +1695,76 @@ void EdgeAIEngine::updateNodeStatus(const EdgeNodeStatus& status) {
     // 重新计算健康分
     it->second.healthScore = computeHealthScore(it->second);
 
-    // 健康判定：分数低于0.3视为不健康
-    it->second.isHealthy = (it->second.healthScore >= 0.3f);
+    // 熔断器状态机转换
+    auto& node = it->second;
+    auto now = std::chrono::steady_clock::now();
+    float failRate = node.totalRequests > 0
+        ? static_cast<float>(node.failedRequests) / static_cast<float>(node.totalRequests)
+        : 0.0f;
 
-    if (!it->second.isHealthy) {
+    switch (node.circuitState) {
+        case CircuitState::CLOSED: {
+            // CLOSED: 失败率超阈值且请求数足够 -> 转 OPEN
+            if (node.totalRequests >= EdgeNodeStatus::MIN_REQUESTS_FOR_CIRCUIT &&
+                failRate >= EdgeNodeStatus::FAILURE_RATE_THRESHOLD) {
+                node.circuitState = CircuitState::OPEN;
+                node.circuitOpenedAt = now;
+                node.isHealthy = false;
+                LOG_WARN << "[EdgeAI] Circuit OPEN for node '" << node.nodeId
+                         << "', failRate=" << failRate;
+            } else {
+                // 正常健康判定
+                node.isHealthy = (node.healthScore >= 0.3f);
+            }
+            break;
+        }
+        case CircuitState::OPEN: {
+            // OPEN: 冷却时间到 -> 转 HALF_OPEN
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                now - node.circuitOpenedAt).count();
+            if (elapsed >= EdgeNodeStatus::COOLDOWN_SECONDS) {
+                node.circuitState = CircuitState::HALF_OPEN;
+                node.halfOpenSuccesses = 0;
+                node.consecutiveFailures = 0;
+                LOG_INFO << "[EdgeAI] Circuit HALF_OPEN for node '" << node.nodeId
+                         << "' after " << elapsed << "s cooldown";
+            }
+            // OPEN 状态下保持 isHealthy = false
+            node.isHealthy = false;
+            break;
+        }
+        case CircuitState::HALF_OPEN: {
+            // HALF_OPEN: 根据最新失败率判断
+            if (failRate < EdgeNodeStatus::FAILURE_RATE_THRESHOLD) {
+                node.halfOpenSuccesses++;
+                if (node.halfOpenSuccesses >= EdgeNodeStatus::HALF_OPEN_SUCCESS_THRESHOLD) {
+                    // 探测成功足够次数 -> 转 CLOSED
+                    node.circuitState = CircuitState::CLOSED;
+                    node.consecutiveFailures = 0;
+                    node.isHealthy = (node.healthScore >= 0.3f);
+                    LOG_INFO << "[EdgeAI] Circuit CLOSED for node '" << node.nodeId
+                             << "', recovered";
+                } else {
+                    node.isHealthy = true;  // 允许探测请求
+                }
+            } else {
+                // 探测失败 -> 转回 OPEN
+                node.circuitState = CircuitState::OPEN;
+                node.circuitOpenedAt = now;
+                node.halfOpenSuccesses = 0;
+                node.isHealthy = false;
+                LOG_WARN << "[EdgeAI] Circuit re-OPEN for node '" << node.nodeId
+                         << "', probe failed, failRate=" << failRate;
+            }
+            break;
+        }
+    }
+
+    if (!node.isHealthy) {
         LOG_WARN << "[EdgeAI] Node '" << status.nodeId
-                 << "' marked unhealthy, score=" << it->second.healthScore;
+                 << "' marked unhealthy, score=" << node.healthScore
+                 << ", circuit=" << (node.circuitState == CircuitState::CLOSED ? "CLOSED" :
+                                     node.circuitState == CircuitState::OPEN   ? "OPEN" : "HALF_OPEN");
     }
 }
 
@@ -1711,6 +1779,9 @@ std::optional<std::string> EdgeAIEngine::selectBestNode() {
     auto now = std::chrono::steady_clock::now();
 
     for (auto& [nodeId, status] : nodeRegistry_) {
+        // 跳过 OPEN 熔断状态节点（完全隔离）
+        if (status.circuitState == CircuitState::OPEN) continue;
+
         // 跳过不健康节点
         if (!status.isHealthy) continue;
 
@@ -1722,9 +1793,12 @@ std::optional<std::string> EdgeAIEngine::selectBestNode() {
             continue;
         }
 
-        // 实时重算健康分
+        // HALF_OPEN 节点降低优先级（乘以0.5权重）
         float score = computeHealthScore(status);
         status.healthScore = score;
+        if (status.circuitState == CircuitState::HALF_OPEN) {
+            score *= 0.5f;
+        }
 
         if (score > bestScore) {
             bestScore = score;
