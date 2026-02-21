@@ -2,6 +2,8 @@
 // @brief 好友聊天界面
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/websocket_manager.dart';
+import '../../utils/storage_util.dart';
 import '../../utils/app_theme.dart';
 
 class FriendChatScreen extends StatefulWidget {
@@ -16,23 +18,48 @@ class FriendChatScreen extends StatefulWidget {
 
 class _FriendChatScreenState extends State<FriendChatScreen> {
   final FriendService _friendService = FriendService();
+  final WebSocketManager _wsManager = WebSocketManager();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<dynamic> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
+    _initCurrentUser();
     _loadMessages();
+    _wsManager.on('new_friend_message', _onNewMessage);
   }
 
   @override
   void dispose() {
+    _wsManager.off('new_friend_message', _onNewMessage);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initCurrentUser() async {
+    _currentUserId = await StorageUtil.getUserId();
+  }
+
+  void _onNewMessage(Map<String, dynamic> data) {
+    final senderId = data['sender_id']?.toString();
+    if (senderId != widget.friendId) return;
+    if (!mounted) return;
+    setState(() {
+      _messages.add({
+        'content': data['content'],
+        'sender_id': senderId,
+        'receiver_id': data['receiver_id'],
+        'created_at': data['created_at'],
+        'is_mine': false,
+      });
+    });
+    _scrollToBottom();
   }
 
   Future<void> _loadMessages() async {
@@ -75,14 +102,31 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     _controller.clear();
     FocusScope.of(context).unfocus();
 
+    // 乐观更新：立即追加消息到本地列表
+    final optimisticMessage = {
+      'content': content,
+      'sender_id': _currentUserId,
+      'receiver_id': widget.friendId,
+      'created_at': DateTime.now().toIso8601String(),
+      'is_mine': true,
+    };
+    if (mounted) {
+      setState(() {
+        _messages.add(optimisticMessage);
+      });
+      _scrollToBottom();
+    }
+
     try {
       final result = await _friendService.sendMessage(widget.friendId, content);
 
       if (mounted) {
         setState(() => _isSending = false);
-        if (result['success'] == true) {
-          _loadMessages();
-        } else {
+        if (result['success'] != true) {
+          // 发送失败，移除乐观消息并恢复输入
+          setState(() {
+            _messages.remove(optimisticMessage);
+          });
           _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(result['message'] ?? '发送失败'), backgroundColor: Colors.red),
@@ -91,7 +135,10 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSending = false);
+        setState(() {
+          _isSending = false;
+          _messages.remove(optimisticMessage);
+        });
         _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
