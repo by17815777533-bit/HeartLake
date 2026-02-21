@@ -59,7 +59,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -76,7 +76,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -95,7 +95,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

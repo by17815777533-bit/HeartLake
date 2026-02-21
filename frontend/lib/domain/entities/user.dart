@@ -59,16 +59,22 @@ class User {
       avatarUrl: json['avatar_url'],
       bio: json['bio'],
       vipLevel: json['vip_level'] ?? 0,
-      vipExpiresAt: json['vip_expires_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['vip_expires_at'] * 1000)
-          : null,
-      createdAt: json['created_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['created_at'] * 1000)
-          : null,
-      lastActiveAt: json['last_active_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['last_active_at'] * 1000)
-          : null,
+      vipExpiresAt: _parseDateTime(json['vip_expires_at']),
+      createdAt: _parseDateTime(json['created_at']),
+      lastActiveAt: _parseDateTime(json['last_active_at']),
     );
+  }
+
+  static DateTime? _parseDateTime(dynamic date) {
+    if (date == null) return null;
+    if (date is int) return DateTime.fromMillisecondsSinceEpoch(date * 1000);
+    if (date is double) return DateTime.fromMillisecondsSinceEpoch(date.toInt() * 1000);
+    if (date is String) {
+      final numVal = int.tryParse(date);
+      if (numVal != null) return DateTime.fromMillisecondsSinceEpoch(numVal * 1000);
+      return DateTime.tryParse(date);
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {

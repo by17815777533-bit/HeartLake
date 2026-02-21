@@ -59,22 +59,22 @@ class _WaterPainter extends CustomPainter {
     final Rect rect = Offset.zero & size;
 
     if (isDark) {
-      // 深色模式：神秘夜湖
+      // 深色模式：光遇星空夜湖
       final Paint bgPaint = Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF1a1a2e), Color(0xFF16213e), Color(0xFF0f3460), Color(0xFF0a1628)],
+          colors: [Color(0xFF0A0A1A), Color(0xFF141432), Color(0xFF1A1A3E), Color(0xFF0F0F2A)],
           stops: [0.0, 0.35, 0.6, 1.0],
         ).createShader(rect);
       canvas.drawRect(rect, bgPaint);
 
-      // 深色模式水波纹 - 发光效果
-      _drawWave(canvas, size, 0.42, 12.0, 0.8, const Color(0xFF4FC3F7).withValues(alpha: 0.15));
-      _drawWave(canvas, size, 0.46, 18.0, 0.6, const Color(0xFF29B6F6).withValues(alpha: 0.12));
-      _drawWave(canvas, size, 0.52, 24.0, 0.4, const Color(0xFF03A9F4).withValues(alpha: 0.1));
+      // 深色模式水波纹 - 金色光遇风格
+      _drawWave(canvas, size, 0.42, 12.0, 0.8, const Color(0xFFF2CC8F).withValues(alpha: 0.08));
+      _drawWave(canvas, size, 0.46, 18.0, 0.6, const Color(0xFF7B68AE).withValues(alpha: 0.06));
+      _drawWave(canvas, size, 0.52, 24.0, 0.4, const Color(0xFFE8A87C).withValues(alpha: 0.05));
 
-      // 月光涟漪
+      // 星光涟漪
       _drawMoonRipple(canvas, size);
     } else {
       // 浅色模式
@@ -99,7 +99,7 @@ class _WaterPainter extends CustomPainter {
       final progress = (animationValue + i * 0.33) % 1.0;
       final radius = 20 + progress * 60;
       final opacity = (1 - progress) * 0.15;
-      canvas.drawCircle(center, radius, Paint()..color = const Color(0xFF90CAF9).withValues(alpha: opacity)..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      canvas.drawCircle(center, radius, Paint()..color = const Color(0xFFF2CC8F).withValues(alpha: opacity)..style = PaintingStyle.stroke..strokeWidth = 1.5);
     }
   }
 

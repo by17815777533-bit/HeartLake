@@ -16,6 +16,13 @@ import 'utils/app_config.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 全局错误处理，防止未捕获异常导致红屏
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('Flutter Error: ${details.exceptionAsString()}');
+  };
+
   appConfig.initialize();
   cacheService.startAutoCleanup();
   runApp(const HeartLakeApp());

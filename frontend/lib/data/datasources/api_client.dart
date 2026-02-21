@@ -433,7 +433,7 @@ class ApiClient {
   }) async {
     try {
       final response = await get(path, queryParameters: queryParameters);
-      final data = parser != null ? parser(response.data) : response.data as T;
+      final data = parser != null ? parser(response.data) : response.data is T ? response.data as T : response.data;
       return Result.success(data);
     } catch (e) {
       return Result.failure(ErrorHandler.handle(e, context: 'GET $path'));

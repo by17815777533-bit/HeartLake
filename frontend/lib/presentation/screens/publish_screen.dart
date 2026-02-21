@@ -406,9 +406,9 @@ class _PublishScreenState extends State<PublishScreen> {
 
     // 将颜色转换为十六进制字符串（确保格式正确）
     String colorToHex(Color color) {
-      final r = color.r.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
-      final g = color.g.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
-      final b = color.b.toInt().toRadixString(16).padLeft(2, '0').toUpperCase();
+      final r = (color.r * 255).round().toRadixString(16).padLeft(2, '0').toUpperCase();
+      final g = (color.g * 255).round().toRadixString(16).padLeft(2, '0').toUpperCase();
+      final b = (color.b * 255).round().toRadixString(16).padLeft(2, '0').toUpperCase();
       return '#$r$g$b';
     }
 

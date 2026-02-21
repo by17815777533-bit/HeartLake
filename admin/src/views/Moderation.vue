@@ -195,9 +195,74 @@ onMounted(() => fetchPending())
 
 <style lang="scss" scoped>
 .moderation-page {
-  .filter-card { margin-bottom: 16px; border-radius: 12px; }
-  .content-preview { margin: 0; color: #5D4037; line-height: 1.5; }
-  .pagination-wrapper { margin-top: 20px; display: flex; justify-content: flex-end; }
-  .detail-content { white-space: pre-wrap; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+  :deep(.el-tabs__item) {
+    color: #B8A99A;
+
+    &.is-active {
+      color: #F2CC8F;
+    }
+  }
+
+  :deep(.el-tabs__active-bar) {
+    background-color: #F2CC8F;
+  }
+
+  .filter-card {
+    margin-bottom: 16px;
+    background: rgba(26, 26, 62, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(242, 204, 143, 0.08);
+    border-radius: 16px;
+
+    :deep(.el-card__body) {
+      padding: 16px 20px;
+    }
+  }
+
+  :deep(.el-card) {
+    background: rgba(26, 26, 62, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(242, 204, 143, 0.08);
+    border-radius: 16px;
+  }
+
+  :deep(.el-table) {
+    background: transparent;
+    --el-table-bg-color: transparent;
+    --el-table-tr-bg-color: transparent;
+    --el-table-header-bg-color: rgba(26, 26, 62, 0.5);
+    --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
+    --el-table-border-color: rgba(242, 204, 143, 0.06);
+
+    th {
+      color: #B8A99A !important;
+      font-weight: 500;
+    }
+
+    td {
+      color: #F0E6D3;
+      border-bottom-color: rgba(242, 204, 143, 0.06);
+    }
+  }
+
+  .content-preview {
+    margin: 0;
+    color: #B8A99A;
+    line-height: 1.5;
+  }
+
+  .pagination-wrapper {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .detail-content {
+    color: #F0E6D3;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
+  }
 }
 </style>

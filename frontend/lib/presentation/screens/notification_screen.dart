@@ -143,7 +143,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     try {
       final stoneService = StoneService();
       final stoneData = await stoneService.getStoneDetail(stoneId);
-      if (stoneData != null && mounted) {
+      if (mounted) {
         final stone = Stone.fromJson(stoneData);
         Navigator.push(
           context,

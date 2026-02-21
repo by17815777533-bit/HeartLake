@@ -3,6 +3,7 @@
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
+import '../../utils/app_theme.dart';
 import 'lake_screen.dart';
 import 'discover_screen.dart';
 import 'publish_screen.dart';
@@ -50,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.nightDeep,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),

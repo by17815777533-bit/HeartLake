@@ -106,6 +106,7 @@ class _AuthScreenState extends State<AuthScreen>
 
       final result = await _authService.login(email: email, password: password);
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       if (result['success']) {
@@ -134,6 +135,7 @@ class _AuthScreenState extends State<AuthScreen>
         password: password,
       );
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       if (result['success']) {
@@ -184,6 +186,7 @@ class _AuthScreenState extends State<AuthScreen>
       nickname: nickname.isEmpty ? null : nickname,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success']) {
@@ -199,6 +202,7 @@ class _AuthScreenState extends State<AuthScreen>
 
     final result = await _authService.anonymousLogin();
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success']) {

@@ -891,12 +891,463 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+/* ============================================
+   Sky: Children of the Light — 光遇视觉主题
+   ============================================ */
+
+// 光遇色彩系统
+$gold: #F2CC8F;
+$amber: #E8A87C;
+$sunset: #E07A5F;
+$twilight: #7B68AE;
+$starry: #141432;
+$card-bg: rgba(26, 26, 62, 0.7);
+$card-border: rgba(242, 204, 143, 0.1);
+$text-primary: #F0E6D3;
+$text-secondary: #B8A99A;
+$glass-blur: blur(16px);
+
+// 通用毛玻璃 mixin
+@mixin glass-card {
+  background: $card-bg;
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: 1px solid $card-border;
+  border-radius: 16px;
+}
+
+@mixin gold-gradient-text {
+  background: linear-gradient(135deg, $gold, $amber, $sunset);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@mixin glow($color: $gold, $size: 20px) {
+  box-shadow: 0 0 $size rgba($color, 0.15);
+}
+
+// ==========================================
+// 根容器
+// ==========================================
+.edge-ai {
+  min-height: 100vh;
+  padding: 24px;
+  background: linear-gradient(160deg, #0a0a23 0%, $starry 40%, #1a1a4e 70%, #0d0d2b 100%);
+  color: $text-primary;
+  font-family: 'Inter', 'PingFang SC', sans-serif;
+
+  // 星空粒子背景
+  &::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba($gold, 0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 60%, rgba($amber, 0.3) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 50% 10%, rgba($gold, 0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 40%, rgba($twilight, 0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 80%, rgba($gold, 0.35) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 20% 90%, rgba($amber, 0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 15%, rgba($gold, 0.3) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+// ==========================================
+// 页面头部
+// ==========================================
+.page-header {
+  margin-bottom: 28px;
+
+  .welcome-section {
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      @include gold-gradient-text;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    .welcome-sub {
+      font-size: 14px;
+      color: $text-secondary;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    .update-time {
+      font-size: 12px;
+      color: $text-secondary;
+      opacity: 0.7;
+    }
+  }
+}
+
+// ==========================================
+// 技术徽章
+// ==========================================
+.tech-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+
+  .tech-badge {
+    @include glass-card;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: $text-primary;
+    transition: all 0.3s ease;
+    cursor: default;
+
+    &:hover {
+      border-color: rgba($gold, 0.3);
+      @include glow($gold, 12px);
+      transform: translateY(-1px);
+    }
+
+    .badge-icon {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .badge-label {
+      font-weight: 500;
+    }
+  }
+}
+
+// ==========================================
+// 状态卡片
+// ==========================================
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+
+  .stat-card {
+    @include glass-card;
+    padding: 20px;
+    transition: all 0.35s ease;
+    overflow: hidden;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, $gold, transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    &:hover {
+      transform: translateY(-3px);
+      @include glow($gold, 24px);
+      border-color: rgba($gold, 0.25);
+
+      &::after {
+        opacity: 1;
+      }
+    }
+
+    .stat-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-info {
+      .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        @include gold-gradient-text;
+        line-height: 1.2;
+      }
+
+      .stat-title {
+        font-size: 13px;
+        color: $text-secondary;
+        margin-top: 4px;
+      }
+    }
+
+    .stat-icon {
+      font-size: 36px;
+      opacity: 0.6;
+      filter: grayscale(0.2);
+    }
+  }
+}
+
+// ==========================================
+// 图表行
+// ==========================================
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+
+  .chart-card {
+    @include glass-card;
+    padding: 20px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: rgba($gold, 0.2);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: $text-primary;
+
+      span {
+        @include gold-gradient-text;
+      }
+    }
+  }
+}
+
+// ==========================================
+// 性能指标网格
+// ==========================================
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+
+  .metric-item {
+    @include glass-card;
+    padding: 14px 12px;
+    text-align: center;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: rgba($gold, 0.25);
+      @include glow($gold, 10px);
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      @include gold-gradient-text;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: $text-secondary;
+      margin-top: 4px;
+    }
+  }
+}
+
+// ==========================================
+// 情感脉搏
+// ==========================================
+.emotion-pulse-container {
+  display: flex;
+  gap: 16px;
+  height: 300px;
+
+  .gauge-wrapper {
+    flex: 0 0 45%;
+    min-height: 280px;
+  }
+
+  .pulse-line-wrapper {
+    flex: 1;
+    min-height: 280px;
+  }
+}
+
+// ==========================================
+// 联邦学习面板
+// ==========================================
+.federated-panel {
+  .fed-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .fed-stat-item {
+      @include glass-card;
+      padding: 14px;
+      text-align: center;
+      border-radius: 12px;
+
+      .fed-stat-value {
+        font-size: 22px;
+        font-weight: 700;
+        @include gold-gradient-text;
+      }
+
+      .fed-stat-label {
+        font-size: 11px;
+        color: $text-secondary;
+        margin-top: 4px;
+      }
+    }
+  }
+
+  .fed-progress {
+    margin: 16px 0;
+
+    .fed-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: $text-secondary;
+      margin-bottom: 8px;
+    }
+  }
+
+  .fed-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+}
+
+// ==========================================
+// 隐私预算面板
+// ==========================================
+.privacy-panel {
+  .budget-overview {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 16px;
+
+    .budget-main {
+      text-align: center;
+
+      .epsilon {
+        font-size: 36px;
+        font-weight: 700;
+        @include gold-gradient-text;
+      }
+
+      .budget-hint {
+        font-size: 11px;
+        color: $text-secondary;
+        margin-top: 2px;
+      }
+    }
+
+    .budget-chart {
+      flex: 1;
+      min-height: 200px;
+    }
+  }
+}
+
+// ==========================================
+// 向量搜索面板
+// ==========================================
+.vector-search-panel {
+  .search-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .search-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .search-result-item {
+      @include glass-card;
+      padding: 14px 16px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        border-color: rgba($gold, 0.25);
+        @include glow($gold, 10px);
+      }
+
+      .result-score {
+        font-size: 18px;
+        font-weight: 700;
+        @include gold-gradient-text;
+        min-width: 50px;
+        text-align: center;
+      }
+
+      .result-content {
+        flex: 1;
+        font-size: 13px;
+        color: $text-primary;
+        line-height: 1.5;
+      }
+    }
+  }
+}
+
+// ==========================================
+// 配置管理
+// ==========================================
+.module-card {
+  @include glass-card;
+  padding: 20px;
+  margin-bottom: 16px;
+
+  .config-form {
+    margin-top: 12px;
+  }
+
+  .config-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid $card-border;
+  }
+}
+
+// ==========================================
+// AI 工具面板
+// ==========================================
 .ai-tool-panel {
   .tool-result {
     margin-top: 16px;
     padding: 16px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    @include glass-card;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -908,19 +1359,21 @@ onUnmounted(() => {
 
       .result-label {
         font-size: 13px;
-        color: #5f6368;
+        color: $text-secondary;
         min-width: 80px;
       }
 
       .result-value {
         font-size: 15px;
-        font-weight: 500;
-        color: #202124;
+        font-weight: 600;
+        @include gold-gradient-text;
 
         &.reason-text {
           font-size: 13px;
           font-weight: 400;
-          color: #EA4335;
+          background: none;
+          -webkit-text-fill-color: $sunset;
+          color: $sunset;
           text-align: right;
           max-width: 200px;
           word-break: break-all;
@@ -931,6 +1384,373 @@ onUnmounted(() => {
         flex: 1;
         margin-left: 12px;
       }
+    }
+  }
+}
+
+// ==========================================
+// Element Plus 组件覆盖 — 光遇主题
+// ==========================================
+
+// el-card 毛玻璃
+:deep(.el-card) {
+  @include glass-card;
+  color: $text-primary;
+  --el-card-bg-color: transparent;
+
+  .el-card__header {
+    border-bottom: 1px solid $card-border;
+    color: $text-primary;
+    padding: 16px 20px;
+    font-weight: 600;
+  }
+
+  .el-card__body {
+    color: $text-primary;
+  }
+}
+
+// el-button 金色系
+:deep(.el-button) {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: rgba(242, 204, 143, 0.3);
+  --el-button-text-color: #{$text-primary};
+  --el-button-hover-bg-color: rgba(242, 204, 143, 0.1);
+  --el-button-hover-border-color: #{$gold};
+  --el-button-hover-text-color: #{$gold};
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+
+  &:hover {
+    @include glow($gold, 12px);
+  }
+
+  &--primary {
+    --el-button-bg-color: linear-gradient(135deg, #{$gold}, #{$amber});
+    background: linear-gradient(135deg, $gold, $amber) !important;
+    border: none !important;
+    color: $starry !important;
+    font-weight: 600;
+
+    &:hover {
+      background: linear-gradient(135deg, lighten($gold, 5%), lighten($amber, 5%)) !important;
+      @include glow($gold, 16px);
+    }
+  }
+
+  &--success {
+    --el-button-bg-color: rgba(76, 175, 80, 0.15);
+    border-color: rgba(76, 175, 80, 0.4) !important;
+    color: #81c784 !important;
+
+    &:hover {
+      background: rgba(76, 175, 80, 0.25) !important;
+    }
+  }
+
+  &--warning {
+    --el-button-bg-color: rgba(242, 204, 143, 0.15);
+    border-color: rgba($gold, 0.4) !important;
+    color: $gold !important;
+
+    &:hover {
+      background: rgba($gold, 0.25) !important;
+    }
+  }
+
+  &--danger {
+    --el-button-bg-color: rgba(224, 122, 95, 0.15);
+    border-color: rgba($sunset, 0.4) !important;
+    color: $sunset !important;
+
+    &:hover {
+      background: rgba($sunset, 0.25) !important;
+    }
+  }
+}
+
+// el-input 暗色输入框
+:deep(.el-input) {
+  .el-input__wrapper {
+    background: rgba(20, 20, 50, 0.6);
+    border: 1px solid $card-border;
+    border-radius: 10px;
+    box-shadow: none !important;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: rgba($gold, 0.25);
+    }
+
+    &.is-focus {
+      border-color: rgba($gold, 0.5);
+      @include glow($gold, 8px);
+    }
+  }
+
+  .el-input__inner {
+    color: $text-primary;
+
+    &::placeholder {
+      color: rgba($text-secondary, 0.5);
+    }
+  }
+}
+
+// el-textarea
+:deep(.el-textarea) {
+  .el-textarea__inner {
+    background: rgba(20, 20, 50, 0.6);
+    border: 1px solid $card-border;
+    border-radius: 10px;
+    color: $text-primary;
+    box-shadow: none !important;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: rgba($gold, 0.25);
+    }
+
+    &:focus {
+      border-color: rgba($gold, 0.5);
+      @include glow($gold, 8px);
+    }
+
+    &::placeholder {
+      color: rgba($text-secondary, 0.5);
+    }
+  }
+}
+
+// el-select
+:deep(.el-select) {
+  .el-select__wrapper {
+    background: rgba(20, 20, 50, 0.6) !important;
+    border: 1px solid $card-border;
+    border-radius: 10px;
+    box-shadow: none !important;
+
+    &:hover {
+      border-color: rgba($gold, 0.25);
+    }
+  }
+
+  .el-select__selected-item {
+    color: $text-primary;
+  }
+
+  .el-select__placeholder {
+    color: rgba($text-secondary, 0.5);
+  }
+}
+
+// el-input-number
+:deep(.el-input-number) {
+  .el-input__wrapper {
+    background: rgba(20, 20, 50, 0.6);
+    border: 1px solid $card-border;
+    border-radius: 10px;
+  }
+
+  .el-input-number__decrease,
+  .el-input-number__increase {
+    background: transparent;
+    border-color: $card-border;
+    color: $text-secondary;
+
+    &:hover {
+      color: $gold;
+    }
+  }
+}
+
+// el-switch
+:deep(.el-switch) {
+  --el-switch-on-color: #{$gold};
+  --el-switch-off-color: rgba(255, 255, 255, 0.1);
+}
+
+// el-progress 金色进度条
+:deep(.el-progress) {
+  .el-progress-bar__outer {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+  }
+
+  .el-progress-bar__inner {
+    background: linear-gradient(90deg, $gold, $amber);
+    border-radius: 6px;
+  }
+
+  .el-progress__text {
+    color: $text-secondary;
+    font-size: 12px !important;
+  }
+}
+
+// el-table 暗色表格
+:deep(.el-table) {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(20, 20, 50, 0.5);
+  --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
+  --el-table-border-color: #{$card-border};
+  --el-table-text-color: #{$text-primary};
+  --el-table-header-text-color: #{$text-secondary};
+  background: transparent;
+  color: $text-primary;
+
+  &::before {
+    display: none;
+  }
+
+  th.el-table__cell {
+    background: rgba(20, 20, 50, 0.5) !important;
+    border-bottom: 1px solid $card-border !important;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: $text-secondary;
+  }
+
+  td.el-table__cell {
+    border-bottom: 1px solid rgba($card-border, 0.5) !important;
+  }
+
+  .el-table__body tr:hover > td {
+    background: rgba($gold, 0.04) !important;
+  }
+}
+
+// el-tag 标签
+:deep(.el-tag) {
+  border-radius: 8px;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+
+  &--success {
+    background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
+  }
+
+  &--warning {
+    background: rgba($gold, 0.15);
+    color: $gold;
+  }
+
+  &--danger {
+    background: rgba($sunset, 0.15);
+    color: $sunset;
+  }
+
+  &--info {
+    background: rgba($twilight, 0.2);
+    color: lighten($twilight, 20%);
+  }
+}
+
+// el-form
+:deep(.el-form) {
+  .el-form-item__label {
+    color: $text-secondary;
+    font-size: 13px;
+  }
+}
+
+// v-loading 覆盖
+:deep(.el-loading-mask) {
+  background: rgba($starry, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+:deep(.el-loading-spinner) {
+  .circular .path {
+    stroke: $gold;
+  }
+
+  .el-loading-text {
+    color: $text-secondary;
+  }
+}
+
+// el-empty
+:deep(.el-empty) {
+  .el-empty__description p {
+    color: $text-secondary;
+  }
+}
+
+// ==========================================
+// 动画
+// ==========================================
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba($gold, 0.1); }
+  50% { box-shadow: 0 0 20px rgba($gold, 0.25); }
+}
+
+// ==========================================
+// 响应式
+// ==========================================
+@media (max-width: 768px) {
+  .edge-ai {
+    padding: 16px;
+  }
+
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .emotion-pulse-container {
+    flex-direction: column;
+    height: auto;
+
+    .gauge-wrapper,
+    .pulse-line-wrapper {
+      flex: none;
+      min-height: 220px;
+    }
+  }
+
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .page-header .welcome-section h1 {
+    font-size: 22px;
+  }
+}
+
+// ==========================================
+// 滚动条美化
+// ==========================================
+.edge-ai {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba($gold, 0.2);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba($gold, 0.35);
     }
   }
 }

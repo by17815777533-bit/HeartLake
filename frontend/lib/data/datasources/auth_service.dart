@@ -68,7 +68,7 @@ class AuthService extends BaseService {
     }
 
     await StorageUtil.clearLoginFailCount();
-    final data = response.data;
+    final data = response.data as Map<String, dynamic>? ?? {};
     await _saveAuthData(token: data['token'], userId: data['user_id'], username: data['username'], nickname: data['nickname'], email: email);
     return {'success': true, 'user_id': data['user_id'], 'nickname': data['nickname']};
   }

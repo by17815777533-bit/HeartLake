@@ -93,13 +93,15 @@ class Stone {
         boatCount: json['boat_count'] is int
             ? json['boat_count']
             : int.tryParse(json['boat_count']?.toString() ?? '0') ?? 0,
-        tags: json['tags'] != null ? List<String>.from(json['tags']) : [],
+        tags: json['tags'] is List ? (json['tags'] as List).map((e) => e.toString()).toList() : [],
         createdAt: _parseDate(json['created_at']),
         authorNickname: json['author']?['nickname'],
         // AI 分析字段
         moodType: json['mood_type'],
         sentimentScore: json['sentiment_score'] != null
-            ? (json['sentiment_score'] as num).toDouble()
+            ? (json['sentiment_score'] is num
+                ? (json['sentiment_score'] as num).toDouble()
+                : double.tryParse(json['sentiment_score'].toString()))
             : null,
         aiTags:
             json['ai_tags'] != null ? List<String>.from(json['ai_tags']) : null,

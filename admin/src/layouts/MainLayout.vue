@@ -1,6 +1,6 @@
 <!--
   @file MainLayout.vue
-  @brief MainLayout 组件 - 暗色模式 + 全局加载指示器
+  @brief MainLayout 组件 - 光遇(Sky: Children of the Light)风格
   Created by 林子怡
 -->
 
@@ -247,6 +247,38 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+/* ============================================
+   光遇 (Sky: Children of the Light) 主题
+   温暖金色 + 星空深蓝 + 毛玻璃 + 星光粒子
+   ============================================ */
+
+/* 星光闪烁动画 */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes twinkle-slow {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes loading-slide {
+  0% { transform: translateX(-100%); width: 30%; }
+  50% { width: 60%; }
+  100% { transform: translateX(400%); width: 30%; }
+}
+
+@keyframes logo-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(242, 204, 143, 0.4)); }
+  50% { filter: drop-shadow(0 0 14px rgba(242, 204, 143, 0.7)); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
 /* 全局加载进度条 */
 .global-loading-bar {
   position: fixed;
@@ -261,31 +293,44 @@ onUnmounted(() => {
   .loading-progress {
     height: 100%;
     width: 30%;
-    background: linear-gradient(90deg, #4285F4, #1A73E8);
+    background: var(--sky-gradient-gold, linear-gradient(90deg, #F2CC8F, #E8A87C, #E07A5F));
     border-radius: 0 2px 2px 0;
     animation: loading-slide 1.2s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(242, 204, 143, 0.5);
   }
 }
 
-@keyframes loading-slide {
-  0% { transform: translateX(-100%); width: 30%; }
-  50% { width: 60%; }
-  100% { transform: translateX(400%); width: 30%; }
+/* 页面过渡 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 主布局 */
 .main-layout {
   display: flex;
   height: 100vh;
-  background: #f1f3f4;
+  background: var(--sky-bg-light, #FFF8F0);
 }
 
+/* ============================================
+   侧边栏
+   ============================================ */
 .sidebar {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid rgba(212, 165, 90, 0.15);
+  z-index: 10;
 
   .logo {
     height: 60px;
@@ -293,111 +338,177 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     padding: 0 16px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid rgba(212, 165, 90, 0.1);
+    position: relative;
 
     img {
       width: 32px;
       height: 32px;
+      animation: float-gentle 4s ease-in-out infinite;
     }
 
     .logo-text {
       margin-left: 12px;
-      font-size: 18px;
-      font-weight: 500;
-      color: #1A73E8;
-      white-space: nowrap;
+      font-size: 16px;
+      font-weight: 700;
+      background: var(--sky-gradient-gold, linear-gradient(135deg, #F2CC8F, #E8A87C));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
     }
   }
 
   .sidebar-menu {
     flex: 1;
+    overflow-y: auto;
     border-right: none;
     background: transparent;
+    padding: 8px 0;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(212, 165, 90, 0.2);
+      border-radius: 2px;
+    }
 
     :deep(.el-menu-item) {
-      color: #5f6368;
-      margin: 4px 8px;
-      border-radius: 24px;
+      margin: 2px 8px;
+      border-radius: var(--sky-radius-sm, 8px);
+      color: #6B5B4F;
+      transition: all 0.3s ease;
+      position: relative;
+      height: 44px;
+      line-height: 44px;
+
+      .el-icon {
+        color: #9A8A7A;
+        transition: color 0.3s ease;
+      }
 
       &:hover {
-        background: #e8f0fe;
-        color: #1A73E8;
+        background: rgba(242, 204, 143, 0.12);
+        color: #D4A55A;
+
+        .el-icon {
+          color: #D4A55A;
+        }
       }
 
       &.is-active {
-        background: #e8f0fe;
-        color: #1A73E8;
-        font-weight: 500;
+        background: rgba(242, 204, 143, 0.15);
+        color: #C4883A;
+        font-weight: 600;
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 3px;
+          height: 20px;
+          background: var(--sky-gradient-gold, linear-gradient(180deg, #F2CC8F, #E8A87C));
+          border-radius: 0 3px 3px 0;
+        }
+
+        .el-icon {
+          color: #D4A55A;
+        }
       }
+    }
+
+    /* 折叠状态 */
+    :deep(.el-menu--collapse .el-menu-item) {
+      margin: 2px 4px;
+      padding: 0 !important;
+      justify-content: center;
     }
   }
 
   .collapse-btn {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 32px;
-    height: 32px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #5f6368;
-    border-radius: 50%;
+    color: #9A8A7A;
+    border-top: 1px solid rgba(212, 165, 90, 0.1);
+    transition: all 0.3s ease;
 
     &:hover {
-      background: #e8f0fe;
-      color: #1A73E8;
+      color: #D4A55A;
+      background: rgba(242, 204, 143, 0.08);
     }
   }
 }
 
-.main-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
+/* ============================================
+   顶部栏
+   ============================================ */
 .header {
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.1);
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(212, 165, 90, 0.1);
 
   .header-left {
-    display: flex;
-    align-items: center;
+    :deep(.el-breadcrumb) {
+      .el-breadcrumb__inner {
+        color: #6B5B4F;
+        transition: color 0.3s ease;
+
+        &.is-link:hover {
+          color: #D4A55A;
+        }
+      }
+
+      .el-breadcrumb__separator {
+        color: #B8A99A;
+      }
+    }
   }
 
   .header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 
     .realtime-stats {
       display: flex;
-      gap: 12px;
+      gap: 8px;
 
       :deep(.el-tag) {
+        background: rgba(242, 204, 143, 0.08);
+        border: 1px solid rgba(212, 165, 90, 0.15);
+        color: #9A7A4A;
         border-radius: 16px;
-        border: none;
-        background: #e8f0fe;
-        color: #1A73E8;
+        font-size: 12px;
+
+        .el-icon {
+          margin-right: 2px;
+        }
       }
     }
 
     .dark-toggle {
-      border: none;
+      border: 1px solid rgba(212, 165, 90, 0.15);
       background: transparent;
-      color: #5f6368;
+      color: #9A8A7A;
+      transition: all 0.3s ease;
 
       &:hover {
-        background: #f1f3f4;
-        color: #1A73E8;
+        background: rgba(242, 204, 143, 0.12);
+        color: #D4A55A;
+        border-color: rgba(242, 204, 143, 0.3);
       }
     }
 
@@ -406,118 +517,258 @@ onUnmounted(() => {
       align-items: center;
       gap: 8px;
       cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 20px;
+      padding: 4px 12px;
+      border-radius: var(--sky-radius-md, 12px);
+      transition: all 0.3s ease;
 
       &:hover {
-        background: #f1f3f4;
+        background: rgba(242, 204, 143, 0.1);
+      }
+
+      :deep(.el-avatar) {
+        background: var(--sky-gradient-gold, linear-gradient(135deg, #F2CC8F, #E8A87C));
+        color: #fff;
+        font-weight: 600;
+        font-size: 14px;
       }
 
       .username {
         font-size: 14px;
-        color: #5f6368;
+        color: #6B5B4F;
+        font-weight: 500;
       }
     }
   }
 }
 
+/* ============================================
+   主内容区
+   ============================================ */
 .main-content {
-  flex: 1;
+  background: #FFF8F0;
+  overflow-y: auto;
   padding: 20px;
-  overflow: auto;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(212, 165, 90, 0.2);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* 暗色模式适配 */
-:global(html.dark) {
+/* ============================================
+   暗色模式 (光遇星空主题 - 默认推荐)
+   ============================================ */
+html.dark {
   .main-layout {
-    background: #1a1a2e;
+    background: var(--sky-bg-deep, #0A0A1A);
   }
 
   .sidebar {
-    background: #16213e;
-    border-right-color: #2a2a4a;
+    background: rgba(10, 10, 26, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(242, 204, 143, 0.1);
 
     .logo {
-      border-bottom-color: #2a2a4a;
+      border-bottom: 1px solid rgba(242, 204, 143, 0.08);
+
+      img {
+        animation: logo-glow 3s ease-in-out infinite, float-gentle 4s ease-in-out infinite;
+      }
 
       .logo-text {
-        color: #64b5f6;
+        background: var(--sky-gradient-gold, linear-gradient(135deg, #F2CC8F, #E8A87C));
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
     }
 
     .sidebar-menu {
+      &::-webkit-scrollbar-thumb {
+        background: rgba(242, 204, 143, 0.15);
+      }
+
       :deep(.el-menu-item) {
-        color: #b0b0c0;
+        color: var(--sky-text-secondary, #B8A99A);
+
+        .el-icon {
+          color: var(--sky-text-muted, #7A6F63);
+        }
 
         &:hover {
-          background: #1a2744;
-          color: #64b5f6;
+          background: rgba(242, 204, 143, 0.1);
+          color: var(--sky-gold, #F2CC8F);
+
+          .el-icon {
+            color: var(--sky-gold, #F2CC8F);
+          }
         }
 
         &.is-active {
-          background: #1a2744;
-          color: #64b5f6;
+          background: rgba(242, 204, 143, 0.12);
+          color: var(--sky-gold, #F2CC8F);
+
+          &::before {
+            background: var(--sky-gradient-gold, linear-gradient(180deg, #F2CC8F, #E8A87C));
+            box-shadow: 0 0 8px rgba(242, 204, 143, 0.4);
+          }
+
+          .el-icon {
+            color: var(--sky-gold, #F2CC8F);
+          }
         }
       }
     }
 
     .collapse-btn {
-      color: #b0b0c0;
+      color: var(--sky-text-muted, #7A6F63);
+      border-top: 1px solid rgba(242, 204, 143, 0.08);
 
       &:hover {
-        background: #1a2744;
-        color: #64b5f6;
+        color: var(--sky-gold, #F2CC8F);
+        background: rgba(242, 204, 143, 0.08);
       }
     }
   }
 
   .header {
-    background: #16213e;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    background: rgba(20, 20, 50, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(242, 204, 143, 0.08);
+
+    .header-left {
+      :deep(.el-breadcrumb) {
+        .el-breadcrumb__inner {
+          color: var(--sky-text-secondary, #B8A99A);
+
+          &.is-link:hover {
+            color: var(--sky-gold, #F2CC8F);
+          }
+        }
+
+        .el-breadcrumb__separator {
+          color: var(--sky-text-muted, #7A6F63);
+        }
+      }
+    }
 
     .header-right {
       .realtime-stats :deep(.el-tag) {
-        background: #1a2744;
-        color: #64b5f6;
+        background: rgba(242, 204, 143, 0.08);
+        border: 1px solid rgba(242, 204, 143, 0.12);
+        color: var(--sky-gold, #F2CC8F);
       }
 
       .dark-toggle {
-        color: #b0b0c0;
+        color: var(--sky-text-secondary, #B8A99A);
+        border-color: rgba(242, 204, 143, 0.1);
 
         &:hover {
-          background: #1a2744;
-          color: #ffd54f;
+          background: rgba(242, 204, 143, 0.1);
+          color: var(--sky-gold, #F2CC8F);
+          border-color: rgba(242, 204, 143, 0.25);
+          box-shadow: 0 0 12px rgba(242, 204, 143, 0.15);
         }
       }
 
       .user-info {
         &:hover {
-          background: #1a2744;
+          background: rgba(242, 204, 143, 0.08);
+        }
+
+        :deep(.el-avatar) {
+          background: var(--sky-gradient-gold, linear-gradient(135deg, #F2CC8F, #E8A87C));
+          box-shadow: 0 0 10px rgba(242, 204, 143, 0.25);
         }
 
         .username {
-          color: #b0b0c0;
+          color: var(--sky-text-secondary, #B8A99A);
         }
       }
     }
   }
 
+  /* 星空主内容区 */
   .main-content {
-    background: #1a1a2e;
+    background: linear-gradient(180deg, #0A0A1A 0%, #0F0F2A 50%, #141432 100%);
+    position: relative;
+
+    /* 星星粒子层1 - 小星星 */
+    &::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(1px 1px at 10% 15%, rgba(242, 204, 143, 0.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 35%, rgba(255, 255, 255, 0.5) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 40% 10%, rgba(242, 204, 143, 0.7) 0%, transparent 100%),
+        radial-gradient(1px 1px at 55% 45%, rgba(255, 255, 255, 0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 20%, rgba(232, 168, 124, 0.5) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 85% 55%, rgba(242, 204, 143, 0.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 15% 65%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 35% 80%, rgba(242, 204, 143, 0.5) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 60% 70%, rgba(255, 255, 255, 0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 85%, rgba(232, 168, 124, 0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 92% 40%, rgba(242, 204, 143, 0.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 5% 90%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 48% 25%, rgba(123, 104, 174, 0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 75% 60%, rgba(242, 204, 143, 0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 50%, rgba(255, 255, 255, 0.35) 0%, transparent 100%);
+      animation: twinkle 4s ease-in-out infinite;
+    }
+
+    /* 星星粒子层2 - 大星星，错开闪烁 */
+    &::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(2px 2px at 20% 25%, rgba(242, 204, 143, 0.8) 0%, transparent 100%),
+        radial-gradient(2px 2px at 50% 15%, rgba(255, 255, 255, 0.6) 0%, transparent 100%),
+        radial-gradient(2.5px 2.5px at 75% 35%, rgba(242, 204, 143, 0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 90% 65%, rgba(232, 168, 124, 0.6) 0%, transparent 100%),
+        radial-gradient(2px 2px at 10% 75%, rgba(123, 104, 174, 0.5) 0%, transparent 100%),
+        radial-gradient(2.5px 2.5px at 45% 55%, rgba(242, 204, 143, 0.6) 0%, transparent 100%),
+        radial-gradient(2px 2px at 65% 85%, rgba(255, 255, 255, 0.5) 0%, transparent 100%),
+        radial-gradient(2px 2px at 35% 95%, rgba(242, 204, 143, 0.4) 0%, transparent 100%);
+      animation: twinkle-slow 6s ease-in-out infinite 2s;
+    }
+
+    /* 确保内容在星星之上 */
+    :deep(> *) {
+      position: relative;
+      z-index: 1;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(242, 204, 143, 0.15);
+    }
   }
 
+  /* 暗色模式加载条 */
   .global-loading-bar .loading-progress {
-    background: linear-gradient(90deg, #64b5f6, #42a5f5);
+    background: var(--sky-gradient-gold, linear-gradient(90deg, #F2CC8F, #E8A87C, #E07A5F));
+    box-shadow: 0 0 16px rgba(242, 204, 143, 0.6);
   }
 }
 </style>

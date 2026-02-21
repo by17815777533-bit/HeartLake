@@ -124,8 +124,9 @@ class WebSocketManager {
 
   void _onMessage(dynamic message) {
     try {
-      final data = jsonDecode(message as String) as Map<String, dynamic>;
-      final type = data['type'] as String?;
+      if (message is! String) return;
+      final data = jsonDecode(message) as Map<String, dynamic>;
+      final type = data['type']?.toString();
       if (type == 'pong') {
         _lastPongTime = DateTime.now();
         return;

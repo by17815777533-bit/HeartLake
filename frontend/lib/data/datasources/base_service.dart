@@ -49,7 +49,7 @@ class ServiceResponse<T> {
 
       return ServiceResponse(
         success: success,
-        data: success ? data['data'] as T? : null,
+        data: success ? (data['data'] is T ? data['data'] as T : null) : null,
         message: data['message'] as String?,
         code: code,
       );
