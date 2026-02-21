@@ -284,7 +284,7 @@ class _StoneCardState extends State<StoneCard>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
             child: const Text('沉没'),
           ),
         ],
@@ -350,9 +350,9 @@ class _StoneCardState extends State<StoneCard>
             children: [
               if (isAuthor)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  leading: Icon(Icons.delete_outline, color: AppTheme.errorColor),
                   title:
-                      const Text('沉没石头', style: TextStyle(color: Colors.red)),
+                      Text('沉没石头', style: TextStyle(color: AppTheme.errorColor)),
                   onTap: () {
                     Navigator.pop(context);
                     _deleteStone(context);
@@ -361,7 +361,7 @@ class _StoneCardState extends State<StoneCard>
               else
                 ListTile(
                   leading:
-                      const Icon(Icons.flag_outlined, color: Colors.orange),
+                      Icon(Icons.flag_outlined, color: AppTheme.warmOrange),
                   title: const Text('举报内容', style: TextStyle(color: Colors.white70)),
                   onTap: () {
                     Navigator.pop(context);
@@ -758,14 +758,14 @@ class _StoneCardState extends State<StoneCard>
   Widget _buildTimeStatus() {
     final difference = DateTime.now().difference(widget.stone.createdAt);
     String text;
-    Color color = Colors.white60;
+    Color color = AppTheme.darkTextSecondary;
     FontWeight fontWeight = FontWeight.normal;
 
     if (difference.inMinutes < 60) {
       text = '刚刚';
     } else if (difference.inHours >= 23) {
       text = '即将沉没';
-      color = Colors.red;
+      color = AppTheme.errorColor;
       fontWeight = FontWeight.bold;
     } else if (difference.inDays > 0) {
       text = '${difference.inDays}天前';

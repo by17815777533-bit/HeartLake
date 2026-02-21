@@ -71,7 +71,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
       if (!mounted) return;
       final boatId = data['boat_id'];
       if (boatId == null) return;
-      
+
       setState(() {
         _boats.removeWhere((b) => b['boat_id'] == boatId);
       });
@@ -121,7 +121,10 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载失败，请下拉重试')),
+          const SnackBar(
+            content: Text('加载失败，请下拉重试'),
+            backgroundColor: AppTheme.nightSurface,
+          ),
         );
       }
     }
@@ -135,12 +138,24 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
-        title: const Text('收到的纸船', style: TextStyle(color: Colors.white)),
+        foregroundColor: AppTheme.darkTextPrimary,
+        title: Text(
+          '收到的纸船',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+        ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: const Icon(Icons.refresh, color: AppTheme.darkTextSecondary),
             onPressed: _loadReceivedBoats,
           ),
         ],
@@ -148,11 +163,11 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadReceivedBoats,
-          color: AppTheme.warmOrange,
-          backgroundColor: Colors.white24,
+          color: AppTheme.candleGlow,
+          backgroundColor: AppTheme.nightSurface,
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: AppTheme.warmOrange),
+                  child: CircularProgressIndicator(color: AppTheme.candleGlow),
                 )
               : _boats.isEmpty
                   ? ListView(
@@ -166,14 +181,14 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                 Icon(
                                   Icons.sailing_outlined,
                                   size: 80,
-                                  color: Colors.white38,
+                                  color: AppTheme.darkTextSecondary,
                                 ),
                                 SizedBox(height: 16),
                                 Text(
                                   '还没有收到纸船',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: Colors.white54,
+                                    color: AppTheme.darkTextPrimary,
                                   ),
                                 ),
                                 SizedBox(height: 8),
@@ -181,7 +196,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                   '别人会在你的石头下留言',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.white38,
+                                    color: AppTheme.darkTextSecondary,
                                   ),
                                 ),
                               ],
@@ -227,13 +242,13 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                     // 发送者信息
                                     Row(
                                       children: [
-                                        const Icon(Icons.person, size: 16, color: Colors.white70),
+                                        const Icon(Icons.person, size: 16, color: AppTheme.darkTextSecondary),
                                         const SizedBox(width: 8),
                                         Text(
                                           boat['sender_name'] ?? '匿名旅人',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.white,
+                                            color: AppTheme.darkTextPrimary,
                                           ),
                                         ),
                                         const Spacer(),
@@ -241,7 +256,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                           boat['created_at']?.toString() ?? '',
                                           style: const TextStyle(
                                             fontSize: 12,
-                                            color: Colors.white38,
+                                            color: AppTheme.darkTextSecondary,
                                           ),
                                         ),
                                       ],
@@ -252,15 +267,15 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                       boat['content'] ?? '',
                                       style: const TextStyle(
                                         fontSize: 16,
-                                        color: Colors.white,
+                                        color: AppTheme.darkTextPrimary,
                                       ),
                                     ),
-                                    Divider(height: 24, color: Colors.white.withValues(alpha: 0.15)),
+                                    Divider(height: 24, color: AppTheme.candleGlow.withValues(alpha: 0.15)),
                                     // 对应的石头
                                     Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.08),
+                                        color: AppTheme.candleGlow.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Column(
@@ -271,7 +286,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                             '你的石头:',
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Colors.white38,
+                                              color: AppTheme.darkTextSecondary,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
@@ -279,7 +294,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                             boat['stone_content'] ?? '',
                                             style: const TextStyle(
                                               fontSize: 14,
-                                              color: Colors.white70,
+                                              color: AppTheme.darkTextSecondary,
                                             ),
                                             maxLines: 3,
                                             overflow: TextOverflow.ellipsis,

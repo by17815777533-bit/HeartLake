@@ -43,14 +43,22 @@ class _PublishScreenState extends State<PublishScreen> {
         showWater: true,
         showParticles: true,
         appBar: AppBar(
-          title: const Text('投石',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Text('投石',
+              style: TextStyle(
+                color: AppTheme.candleGlow,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                    blurRadius: 12,
+                  ),
+                ],
+              )),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.darkTextPrimary,
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -64,12 +72,12 @@ class _PublishScreenState extends State<PublishScreen> {
                   style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppTheme.candleGlow,
                       shadows: [
                         Shadow(
-                            color: AppTheme.warmOrange.withValues(alpha: 0.4),
+                            color: AppTheme.candleGlow.withValues(alpha: 0.5),
                             offset: const Offset(0, 2),
-                            blurRadius: 4)
+                            blurRadius: 8)
                       ]),
                 ),
                 const SizedBox(height: 8),
@@ -77,7 +85,7 @@ class _PublishScreenState extends State<PublishScreen> {
                   '这里是你的安全空间',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AppTheme.darkTextSecondary,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -126,7 +134,7 @@ class _PublishScreenState extends State<PublishScreen> {
                       const Text(
                         '选择心情',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.darkTextPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -149,7 +157,7 @@ class _PublishScreenState extends State<PublishScreen> {
                       const Text(
                         '选择石头类型',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.darkTextPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),

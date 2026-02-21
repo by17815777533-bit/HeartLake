@@ -154,20 +154,26 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
-        title: const Text(
+        foregroundColor: AppTheme.darkTextPrimary,
+        title: Text(
           '我的石头',
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w300,
-            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.candleGlow,
             letterSpacing: 3,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                blurRadius: 12,
+              ),
+            ],
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white38, size: 20),
+            icon: Icon(Icons.refresh, color: AppTheme.darkTextSecondary, size: 20),
             onPressed: _loadMyStones,
           ),
         ],
@@ -175,7 +181,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppTheme.candleGlow,
-          backgroundColor: Colors.white.withValues(alpha: 0.1),
+          backgroundColor: AppTheme.nightSurface,
           onRefresh: _loadMyStones,
           child: _isLoading
               ? Center(
@@ -190,7 +196,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
                       Text(
                         '正在寻找你的石头...',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: AppTheme.darkTextSecondary,
                           fontSize: 13,
                           letterSpacing: 1,
                         ),
@@ -210,14 +216,14 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
                                 Icon(
                                   Icons.water_drop_outlined,
                                   size: 80,
-                                  color: Colors.white.withValues(alpha: 0.3),
+                                  color: AppTheme.darkTextSecondary.withValues(alpha: 0.5),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   '还没有投出石头，来投下你的第一颗吧',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: AppTheme.darkTextSecondary,
                                     letterSpacing: 1,
                                   ),
                                 ),

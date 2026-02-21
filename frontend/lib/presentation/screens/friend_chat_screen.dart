@@ -143,22 +143,31 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     return SkyScaffold(
       showParticles: true,
       appBar: AppBar(
-        title: Text(widget.friendName ?? '聊天'),
+        title: Text(
+          widget.friendName ?? '聊天',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.6), blurRadius: 12),
+            ],
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.darkTextPrimary,
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange))
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.candleGlow))
                   : _messages.isEmpty
                       ? Center(
                           child: Text(
                             '还没有消息，说点什么吧~',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                            style: const TextStyle(color: AppTheme.darkTextSecondary),
                           ),
                         )
                       : ListView.builder(

@@ -1,5 +1,5 @@
 // @file user_detail_screen.dart
-// @brief 用户详情界面
+// @brief 用户详情界面 - 光遇视觉风格
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
@@ -52,17 +52,34 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget build(BuildContext context) {
     return SkyScaffold(
       appBar: AppBar(
-        title: Text(widget.nickname ?? '用户详情'),
+        title: Text(
+          widget.nickname ?? '用户详情',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.darkTextPrimary,
       ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange))
             : _user == null
-                ? const Center(child: Text('用户不存在', style: TextStyle(color: Colors.white70)))
+                ? Center(
+                    child: Text(
+                      '用户不存在',
+                      style: TextStyle(color: AppTheme.darkTextSecondary),
+                    ),
+                  )
                 : SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -83,11 +100,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                       const SizedBox(height: 16),
                       Text(
                         _user?['nickname'] ?? '匿名用户',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.darkTextPrimary),
                       ),
                       if (_user?['bio'] != null) ...[
                         const SizedBox(height: 8),
-                        Text(_user!['bio'], style: const TextStyle(color: Colors.white70)),
+                        Text(_user!['bio'], style: const TextStyle(color: AppTheme.darkTextSecondary)),
                       ],
                       const SizedBox(height: 24),
                       SkyGlassCard(
@@ -125,8 +142,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget _buildStat(String label, int count) {
     return Column(
       children: [
-        Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.warmOrange)),
-        Text(label, style: const TextStyle(color: Colors.white70)),
+        Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.candleGlow)),
+        Text(label, style: const TextStyle(color: AppTheme.darkTextSecondary)),
       ],
     );
   }

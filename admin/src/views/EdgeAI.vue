@@ -1425,48 +1425,48 @@ $glass-blur: blur(16px);
   &:hover {
     @include glow($gold, 12px);
   }
+}
 
-  &--primary {
-    --el-button-bg-color: linear-gradient(135deg, #{$gold}, #{$amber});
-    background: linear-gradient(135deg, $gold, $amber) !important;
-    border: none !important;
-    color: $starry !important;
-    font-weight: 600;
+:deep(.el-button--primary) {
+  --el-button-bg-color: linear-gradient(135deg, #{$gold}, #{$amber});
+  background: linear-gradient(135deg, $gold, $amber) !important;
+  border: none !important;
+  color: $starry !important;
+  font-weight: 600;
 
-    &:hover {
-      background: linear-gradient(135deg, lighten($gold, 5%), lighten($amber, 5%)) !important;
-      @include glow($gold, 16px);
-    }
+  &:hover {
+    background: linear-gradient(135deg, lighten($gold, 5%), lighten($amber, 5%)) !important;
+    @include glow($gold, 16px);
   }
+}
 
-  &--success {
-    --el-button-bg-color: rgba(76, 175, 80, 0.15);
-    border-color: rgba(76, 175, 80, 0.4) !important;
-    color: #81c784 !important;
+:deep(.el-button--success) {
+  --el-button-bg-color: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4) !important;
+  color: #81c784 !important;
 
-    &:hover {
-      background: rgba(76, 175, 80, 0.25) !important;
-    }
+  &:hover {
+    background: rgba(76, 175, 80, 0.25) !important;
   }
+}
 
-  &--warning {
-    --el-button-bg-color: rgba(242, 204, 143, 0.15);
-    border-color: rgba($gold, 0.4) !important;
-    color: $gold !important;
+:deep(.el-button--warning) {
+  --el-button-bg-color: rgba(242, 204, 143, 0.15);
+  border-color: rgba($gold, 0.4) !important;
+  color: $gold !important;
 
-    &:hover {
-      background: rgba($gold, 0.25) !important;
-    }
+  &:hover {
+    background: rgba($gold, 0.25) !important;
   }
+}
 
-  &--danger {
-    --el-button-bg-color: rgba(224, 122, 95, 0.15);
-    border-color: rgba($sunset, 0.4) !important;
-    color: $sunset !important;
+:deep(.el-button--danger) {
+  --el-button-bg-color: rgba(224, 122, 95, 0.15);
+  border-color: rgba($sunset, 0.4) !important;
+  color: $sunset !important;
 
-    &:hover {
-      background: rgba($sunset, 0.25) !important;
-    }
+  &:hover {
+    background: rgba($sunset, 0.25) !important;
   }
 }
 
@@ -1630,26 +1630,26 @@ $glass-blur: blur(16px);
   border: none;
   font-size: 11px;
   font-weight: 500;
+}
 
-  &--success {
-    background: rgba(76, 175, 80, 0.15);
-    color: #81c784;
-  }
+:deep(.el-tag--success) {
+  background: rgba(76, 175, 80, 0.15);
+  color: #81c784;
+}
 
-  &--warning {
-    background: rgba($gold, 0.15);
-    color: $gold;
-  }
+:deep(.el-tag--warning) {
+  background: rgba($gold, 0.15);
+  color: $gold;
+}
 
-  &--danger {
-    background: rgba($sunset, 0.15);
-    color: $sunset;
-  }
+:deep(.el-tag--danger) {
+  background: rgba($sunset, 0.15);
+  color: $sunset;
+}
 
-  &--info {
-    background: rgba($twilight, 0.2);
-    color: lighten($twilight, 20%);
-  }
+:deep(.el-tag--info) {
+  background: rgba($twilight, 0.2);
+  color: lighten($twilight, 20%);
 }
 
 // el-form

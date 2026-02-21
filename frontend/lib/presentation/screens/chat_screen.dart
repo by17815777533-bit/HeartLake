@@ -52,8 +52,8 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('加载消息失败，请下拉重试'),
-            backgroundColor: AppTheme.warmOrange,
+            content: Text('加载消息失败，请下拉重试', style: TextStyle(color: AppTheme.darkTextPrimary)),
+            backgroundColor: AppTheme.nightSurface,
           ),
         );
       }
@@ -91,8 +91,8 @@ class _ChatScreenState extends State<ChatScreen> {
           _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message'] ?? '发送失败'),
-              backgroundColor: AppTheme.warmOrange,
+              content: Text(result['message'] ?? '发送失败', style: const TextStyle(color: AppTheme.darkTextPrimary)),
+              backgroundColor: AppTheme.nightSurface,
             ),
           );
         }
@@ -103,8 +103,8 @@ class _ChatScreenState extends State<ChatScreen> {
         _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('网络异常，请稍后再试'),
-            backgroundColor: AppTheme.warmOrange,
+            content: Text('网络异常，请稍后再试', style: TextStyle(color: AppTheme.darkTextPrimary)),
+            backgroundColor: AppTheme.nightSurface,
           ),
         );
       }
@@ -116,22 +116,32 @@ class _ChatScreenState extends State<ChatScreen> {
     return SkyScaffold(
       showParticles: true,
       appBar: AppBar(
-        title: Text(widget.recipientName ?? '聊天'),
+        title: Text(
+          widget.recipientName ?? '聊天',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(color: AppTheme.candleGlow.withValues(alpha: 0.6), blurRadius: 12),
+            ],
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.darkTextPrimary,
+        iconTheme: const IconThemeData(color: AppTheme.darkTextPrimary),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange))
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.candleGlow))
                   : _messages.isEmpty
                       ? Center(
                           child: Text(
                             '还没有消息，说点什么吧~',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                            style: const TextStyle(color: AppTheme.darkTextSecondary),
                           ),
                         )
                       : ListView.builder(
@@ -160,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.warmOrange, AppTheme.peachPink],
+                    colors: [AppTheme.candleGlow, AppTheme.warmOrange],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -168,7 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 child: Text(
                   message['content'] ?? '',
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: const TextStyle(color: AppTheme.nightDeep, fontSize: 15),
                 ),
               )
             : SkyGlassCard(
@@ -177,7 +187,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Text(
                   message['content'] ?? '',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
+                  style: const TextStyle(color: AppTheme.darkTextPrimary, fontSize: 15),
                 ),
               ),
       ),
@@ -197,10 +207,10 @@ class _ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppTheme.darkTextPrimary),
               decoration: InputDecoration(
                 hintText: '说点什么...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                hintStyle: const TextStyle(color: AppTheme.darkTextSecondary),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -211,8 +221,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           IconButton(
             icon: _isSending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.warmOrange))
-                : const Icon(Icons.send, color: AppTheme.warmOrange),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.candleGlow))
+                : const Icon(Icons.send, color: AppTheme.candleGlow),
             onPressed: _isSending ? null : _sendMessage,
           ),
         ],

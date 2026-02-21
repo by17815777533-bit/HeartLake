@@ -104,10 +104,22 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
     return SkyScaffold(
       showParticles: true,
       appBar: AppBar(
-        title: const Text('湖神'),
+        title: Text(
+          '湖神',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.darkTextPrimary,
       ),
       body: SafeArea(
         child: Column(
@@ -141,7 +153,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.warmOrange, AppTheme.peachPink],
+                    colors: [AppTheme.candleGlow, AppTheme.warmOrange],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -149,7 +161,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                 ),
                 child: Text(
                   message['content'] ?? '',
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: const TextStyle(color: AppTheme.darkTextPrimary, fontSize: 15),
                 ),
               )
             : Container(
@@ -169,7 +181,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Text(
                     message['content'] ?? '',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
+                    style: TextStyle(color: AppTheme.darkTextPrimary.withValues(alpha: 0.9), fontSize: 15),
                   ),
                 ),
               ),
@@ -196,22 +208,38 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen>
           Expanded(
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppTheme.darkTextPrimary),
               decoration: InputDecoration(
                 hintText: '和湖神说说心里话...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                hintStyle: TextStyle(color: AppTheme.darkTextSecondary.withValues(alpha: 0.6)),
+                filled: true,
+                fillColor: AppTheme.nightSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: AppTheme.candleGlow.withValues(alpha: 0.15),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppTheme.candleGlow, width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               maxLines: null,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
             ),
           ),
+          const SizedBox(width: 4),
           IconButton(
             icon: _isSending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.warmOrange))
-                : const Icon(Icons.send, color: AppTheme.warmOrange),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.candleGlow))
+                : const Icon(Icons.send, color: AppTheme.candleGlow),
             onPressed: _isSending ? null : _sendMessage,
           ),
         ],

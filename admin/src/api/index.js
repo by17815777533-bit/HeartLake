@@ -84,8 +84,8 @@ export default {
   getMoodTrend: days => http.get('/admin/stats/mood-distribution', { params: { days, type: 'trend' } }),
   getTrendingTopics: () => http.get('/admin/stats/trending-topics'),
   getActiveTimeStats: () => http.get('/admin/stats/active-time'),
-  getPrivacyStats: () => http.get('/admin/stats/privacy', { skipLoading: true }),
-  getResonanceStats: () => http.get('/admin/stats/resonance', { skipLoading: true }),
+  getPrivacyStats: () => http.get('/edge-ai/privacy-budget', { skipLoading: true }),
+  getResonanceStats: () => http.get('/recommendations/emotion-trends', { skipLoading: true }),
   // Users
   getUsers: params => http.get('/admin/users', { params }),
   banUser: (userId, reason) => http.post(`/admin/users/${userId}/ban`, { reason }),
@@ -111,7 +111,7 @@ export default {
   // Settings
   getSystemConfig: () => http.get('/admin/config'),
   updateSystemConfig: data => http.put('/admin/config', data),
-  testAIConnection: () => http.post('/admin/config/test-ai'),
+  testAIConnection: () => http.get('/edge-ai/status'),
   broadcastMessage: data => http.post('/admin/broadcast', data),
   // Logs
   getOperationLogs: params => http.get('/admin/logs', { params }),

@@ -37,13 +37,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
-
     try {
       final response = await _apiClient.get(
         '/notifications',
         queryParameters: {'page': 1, 'page_size': 100},
       );
-
       if (response.statusCode == 200 &&
           response.data['code'] == 0 &&
           mounted) {
@@ -51,15 +49,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final items =
             data['notifications'] as List? ?? data['items'] as List? ?? [];
         final serverUnreadCount = data['unread_count'] as int? ?? 0;
-
         setState(() {
           _notifications.clear();
           _notifications.addAll(items.whereType<Map<String, dynamic>>());
           _unreadCount = serverUnreadCount;
           _isLoading = false;
         });
-
-        // 同步更新Provider中的计数
         if (mounted) {
           context
               .read<NotificationProvider>()
@@ -70,7 +65,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载通知失败，请下拉重试')),
+          SnackBar(
+            content: const Text('加载通知失败，请下拉重试'),
+            backgroundColor: AppTheme.nightSurface,
+          ),
         );
       }
     }
@@ -80,7 +78,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     try {
       final response =
           await _apiClient.post('/notifications/$notificationId/read');
-
       if (response.statusCode == 200 && mounted) {
         setState(() {
           _notifications[index]['is_read'] = true;
@@ -96,7 +93,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _markAllAsRead() async {
     try {
       final response = await _apiClient.post('/notifications/read-all');
-
       if (response.statusCode == 200 && mounted) {
         setState(() {
           for (var n in _notifications) {
@@ -109,7 +105,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('操作失败，请重试')),
+          SnackBar(
+            content: const Text('操作失败，请重试'),
+            backgroundColor: AppTheme.nightSurface,
+          ),
         );
       }
     }
@@ -120,7 +119,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final stoneId = notification['stone_id'];
     final senderId = notification['sender_id'];
     final senderNickname = notification['sender_nickname'] ?? '用户';
-
     if (type == 'friend_request' || type == 'friend_accepted') {
       Navigator.push(
         context,
@@ -129,10 +127,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } else if (type == 'friend_message' && senderId != null) {
       Navigator.push(
         context,
-        SkyPageRoute(page: FriendChatScreen(
-            friendId: senderId,
-            friendName: senderNickname,
-          )),
+        SkyPageRoute(
+            page: FriendChatScreen(
+          friendId: senderId,
+          friendName: senderNickname,
+        )),
       );
     } else if (stoneId != null) {
       _navigateToStone(stoneId);
@@ -153,7 +152,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开该内容')),
+          SnackBar(
+            content: const Text('无法打开该内容'),
+            backgroundColor: AppTheme.nightSurface,
+          ),
         );
       }
     }
@@ -183,18 +185,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Color _getNotificationIconColor(String type) {
     switch (type) {
       case 'like':
-        return AppTheme.peachPink;
+        return AppTheme.warmPink;
       case 'comment':
         return AppTheme.spiritBlue;
       case 'boat_reply':
-        return AppTheme.skyBlue;
+        return AppTheme.candleGlow;
       case 'friend_request':
       case 'friend_accepted':
         return AppTheme.candleGlow;
       case 'friend_message':
         return AppTheme.warmOrange;
       default:
-        return Colors.white70;
+        return AppTheme.darkTextSecondary;
     }
   }
 
@@ -205,13 +207,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
-        title: const Text('通知', style: TextStyle(color: Colors.white)),
+        foregroundColor: AppTheme.darkTextPrimary,
+        title: Text(
+          '通知',
+          style: TextStyle(
+            color: AppTheme.candleGlow,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.5),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+        ),
         actions: [
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllAsRead,
-              child: const Text(
+              child: Text(
                 '全部已读',
                 style: TextStyle(color: AppTheme.candleGlow, fontSize: 14),
               ),
@@ -221,118 +236,144 @@ class _NotificationScreenState extends State<NotificationScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadNotifications,
-          color: AppTheme.warmOrange,
-          backgroundColor: Colors.white24,
+          color: AppTheme.candleGlow,
+          backgroundColor: AppTheme.nightSurface,
           child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppTheme.warmOrange),
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.candleGlow,
+                  ),
                 )
               : _notifications.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.6,
-                          child: const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.notifications_off_outlined,
-                                    size: 64, color: Colors.white38),
-                                SizedBox(height: 16),
-                                Text(
-                                  '暂无通知',
-                                  style: TextStyle(
-                                      color: Colors.white54, fontSize: 16),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  '新的互动消息会出现在这里',
-                                  style: TextStyle(
-                                      color: Colors.white38, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      itemCount: _notifications.length,
-                      itemBuilder: (context, index) {
-                        final notification = _notifications[index];
-                        final isRead = notification['is_read'] == true;
-                        final type = notification['type'] ?? '';
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: SkyGlassCard(
-                            borderRadius: 16,
-                            enableGlow: !isRead,
-                            glowColor: _getNotificationIconColor(type),
-                            padding: EdgeInsets.zero,
-                            onTap: () {
-                              if (!isRead) {
-                                final notifId =
-                                    notification['notification_id'];
-                                if (notifId != null) {
-                                  _markAsRead(notifId, index);
-                                }
-                              }
-                              _navigateToContent(notification);
-                            },
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 4),
-                              leading: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: _getNotificationIconColor(type)
-                                      .withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _getNotificationIcon(type),
-                                  color: _getNotificationIconColor(type),
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                notification['content'] ?? '新通知',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: isRead
-                                      ? FontWeight.normal
-                                      : FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Text(
-                                notification['created_at']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white38,
-                                ),
-                              ),
-                              trailing: isRead
-                                  ? null
-                                  : Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.candleGlow,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  ? _buildEmptyState(context)
+                  : _buildNotificationList(),
         ),
       ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return ListView(
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.notifications_off_outlined,
+                  size: 64,
+                  color: AppTheme.darkTextSecondary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '暂无通知',
+                  style: TextStyle(
+                    color: AppTheme.darkTextPrimary,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '新的互动消息会出现在这里',
+                  style: TextStyle(
+                    color: AppTheme.darkTextSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: _notifications.length,
+      itemBuilder: (context, index) {
+        final notification = _notifications[index];
+        final isRead = notification['is_read'] == true;
+        final type = notification['type'] ?? '';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SkyGlassCard(
+            borderRadius: 16,
+            enableGlow: !isRead,
+            glowColor: _getNotificationIconColor(type),
+            padding: EdgeInsets.zero,
+            onTap: () {
+              if (!isRead) {
+                final notifId = notification['notification_id'];
+                if (notifId != null) {
+                  _markAsRead(notifId, index);
+                }
+              }
+              _navigateToContent(notification);
+            },
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _getNotificationIconColor(type)
+                      .withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _getNotificationIconColor(type)
+                        .withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  _getNotificationIcon(type),
+                  color: _getNotificationIconColor(type),
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                notification['content'] ?? '新通知',
+                style: TextStyle(
+                  color: AppTheme.darkTextPrimary,
+                  fontSize: 14,
+                  fontWeight:
+                      isRead ? FontWeight.normal : FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                notification['created_at']?.toString() ?? '',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.darkTextSecondary,
+                ),
+              ),
+              trailing: isRead
+                  ? null
+                  : Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppTheme.candleGlow,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

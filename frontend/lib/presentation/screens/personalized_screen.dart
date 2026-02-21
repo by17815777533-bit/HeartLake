@@ -76,20 +76,28 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
-        title: const Text(
+        foregroundColor: AppTheme.darkTextPrimary,
+        title: Text(
           '为你而来',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w300,
-            color: Colors.white,
+            color: AppTheme.candleGlow,
             letterSpacing: 3,
+            shadows: [
+              Shadow(
+                color: AppTheme.candleGlow.withValues(alpha: 0.6),
+                blurRadius: 12,
+              ),
+            ],
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white38, size: 20),
+            icon: Icon(Icons.refresh,
+                color: AppTheme.darkTextSecondary.withValues(alpha: 0.6),
+                size: 20),
             onPressed: () {
               setState(() => _loading = true);
               _loadRecommendations();
@@ -104,7 +112,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
             AnimatedBuilder(
               animation: _driftController,
               builder: (_, __) => CustomPaint(
-                painter: _FloatingLightsPainter(progress: _driftController.value),
+                painter:
+                    _FloatingLightsPainter(progress: _driftController.value),
                 size: Size.infinite,
               ),
             ),
@@ -129,7 +138,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           AnimatedBuilder(
             animation: _driftController,
             builder: (_, __) {
-              final scale = 1.0 + math.sin(_driftController.value * math.pi * 2) * 0.1;
+              final scale =
+                  1.0 + math.sin(_driftController.value * math.pi * 2) * 0.1;
               return Transform.scale(
                 scale: scale,
                 child: Container(
@@ -144,7 +154,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       ],
                     ),
                   ),
-                  child: Icon(Icons.auto_awesome, color: AppTheme.warmOrange, size: 24),
+                  child: Icon(Icons.auto_awesome,
+                      color: AppTheme.candleGlow, size: 24),
                 ),
               );
             },
@@ -153,7 +164,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           Text(
             '正在寻找共鸣...',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppTheme.darkTextSecondary.withValues(alpha: 0.7),
               fontSize: 13,
               letterSpacing: 2,
             ),
@@ -170,19 +181,21 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       children: [
         const SizedBox(height: 12),
         if (_personalizedStones.isNotEmpty) ...[
-          _buildSectionTitle('心灵共振', Icons.favorite_border, AppTheme.peachPink),
+          _buildSectionTitle(
+              '心灵共振', Icons.favorite_border, AppTheme.peachPink),
           const SizedBox(height: 12),
           ..._personalizedStones.asMap().entries.map(
-            (e) => _buildDriftingCard(e.value, e.key),
-          ),
+                (e) => _buildDriftingCard(e.value, e.key),
+              ),
         ],
         const SizedBox(height: 24),
         if (_advancedStones.isNotEmpty) ...[
-          _buildSectionTitle('深层共鸣', Icons.auto_awesome, AppTheme.candleGlow),
+          _buildSectionTitle(
+              '深层共鸣', Icons.auto_awesome, AppTheme.candleGlow),
           const SizedBox(height: 12),
           ..._advancedStones.asMap().entries.map(
-            (e) => _buildDriftingCard(e.value, e.key + 100),
-          ),
+                (e) => _buildDriftingCard(e.value, e.key + 100),
+              ),
         ],
         if (_personalizedStones.isEmpty && _advancedStones.isEmpty)
           _buildEmptyState(),
@@ -201,7 +214,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w300,
-            color: Colors.white.withValues(alpha: 0.8),
+            color: AppTheme.darkTextPrimary.withValues(alpha: 0.8),
             letterSpacing: 2,
           ),
         ),
@@ -219,14 +232,17 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       animation: _driftController,
       builder: (_, __) {
         final phase = index * 0.3;
-        final dx = math.sin(_driftController.value * math.pi * 2 + phase) * 3;
-        final dy = math.cos(_driftController.value * math.pi * 2 + phase * 0.7) * 2;
+        final dx =
+            math.sin(_driftController.value * math.pi * 2 + phase) * 3;
+        final dy =
+            math.cos(_driftController.value * math.pi * 2 + phase * 0.7) * 2;
 
         return Transform.translate(
           offset: Offset(dx, dy),
           child: GestureDetector(
             onTap: () {
-              _service.trackInteraction(stoneId: stone.stoneId, interactionType: 'click');
+              _service.trackInteraction(
+                  stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
                 SkyPageRoute(page: StoneDetailScreen(stone: stone)),
@@ -256,7 +272,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                           ),
                         ),
                         child: Center(
-                          child: Icon(config.icon, size: 18, color: config.primary),
+                          child: Icon(config.icon,
+                              size: 18, color: config.primary),
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -271,32 +288,39 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                                   : stone.content,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.white.withValues(alpha: 0.85),
+                                color: AppTheme.darkTextPrimary
+                                    .withValues(alpha: 0.85),
                                 height: 1.5,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                Icon(Icons.water_drop, size: 12,
-                                    color: Colors.white.withValues(alpha: 0.3)),
+                                Icon(Icons.water_drop,
+                                    size: 12,
+                                    color: AppTheme.darkTextSecondary
+                                        .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.rippleCount}涟漪',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.4),
+                                    color: AppTheme.darkTextSecondary
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Icon(Icons.sailing, size: 12,
-                                    color: Colors.white.withValues(alpha: 0.3)),
+                                Icon(Icons.sailing,
+                                    size: 12,
+                                    color: AppTheme.darkTextSecondary
+                                        .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.boatCount}纸船',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.4),
+                                    color: AppTheme.darkTextSecondary
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -308,7 +332,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       Icon(
                         Icons.arrow_forward_ios,
                         size: 14,
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AppTheme.darkTextSecondary
+                            .withValues(alpha: 0.3),
                       ),
                     ],
                   ),
@@ -329,12 +354,14 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
         child: Column(
           children: [
-            Icon(Icons.explore, size: 48, color: Colors.white.withValues(alpha: 0.3)),
+            Icon(Icons.explore,
+                size: 48,
+                color: AppTheme.darkTextPrimary.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
               '投出更多石头，发现更多共鸣',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppTheme.darkTextSecondary.withValues(alpha: 0.7),
                 fontSize: 14,
                 letterSpacing: 1,
               ),
@@ -361,15 +388,19 @@ class _FloatingLightsPainter extends CustomPainter {
       final speed = 0.3 + rng.nextDouble() * 0.7;
       final radius = 1.0 + rng.nextDouble() * 2.0;
 
-      final x = baseX + math.sin(progress * math.pi * 2 * speed + phase) * 20;
-      final y = baseY + math.cos(progress * math.pi * 2 * speed * 0.7 + phase) * 15;
-      final alpha = (0.2 + math.sin(progress * math.pi * 2 + phase) * 0.15).clamp(0.05, 0.4);
+      final x =
+          baseX + math.sin(progress * math.pi * 2 * speed + phase) * 20;
+      final y =
+          baseY + math.cos(progress * math.pi * 2 * speed * 0.7 + phase) * 15;
+      final alpha =
+          (0.2 + math.sin(progress * math.pi * 2 + phase) * 0.15)
+              .clamp(0.05, 0.4);
 
       canvas.drawCircle(
         Offset(x, y),
         radius,
         Paint()
-          ..color = const Color(0xFFFFD54F).withValues(alpha: alpha)
+          ..color = AppTheme.candleGlow.withValues(alpha: alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
     }

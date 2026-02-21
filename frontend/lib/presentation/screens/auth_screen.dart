@@ -1,5 +1,5 @@
 // @file auth_screen.dart
-// @brief 登录注册界面
+// @brief 登录注册界面 - 光遇 Sky: Children of the Light 视觉设计语言
 // Created by 林子怡
 
 import 'dart:async';
@@ -41,7 +41,7 @@ class _AuthScreenState extends State<AuthScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   int _countdown = 0;
-  bool _useEmailLogin = false; // 切换登录方式
+  bool _useEmailLogin = false;
   // P2-6 修复：使用 Timer.periodic 替代 for 循环 + Future.delayed
   Timer? _countdownTimer;
 
@@ -220,7 +220,15 @@ class _AuthScreenState extends State<AuthScreen>
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppTheme.warmOrange),
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: AppTheme.darkTextPrimary),
+        ),
+        backgroundColor: AppTheme.nightSurface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
@@ -237,15 +245,18 @@ class _AuthScreenState extends State<AuthScreen>
               child: Column(
                 children: [
                   const SizedBox(height: 40),
-                  // Logo - 暖色光晕
+
+                  // Logo - 金色光晕圆形容器 + water_drop 图标
                   Container(
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: AppTheme.warmOrange.withValues(alpha: 0.15),
+                      color: AppTheme.candleGlow.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.5), width: 2),
+                        color: AppTheme.candleGlow.withValues(alpha: 0.5),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: AppTheme.candleGlow.withValues(alpha: 0.3),
@@ -254,25 +265,37 @@ class _AuthScreenState extends State<AuthScreen>
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.water_drop,
-                        size: 50, color: Colors.white),
+                    child: const Icon(
+                      Icons.water_drop,
+                      size: 50,
+                      color: AppTheme.candleGlow,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '心湖',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 4,
+
+                  // "心湖" 标题 - ShaderMask 金色渐变文字
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: AppTheme.warmGradient,
+                    ).createShader(bounds),
+                    child: const Text(
+                      '心湖',
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 4,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+
+                  // 副标题
+                  const Text(
                     '把石头投入湖中',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: AppTheme.darkTextSecondary,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -287,16 +310,19 @@ class _AuthScreenState extends State<AuthScreen>
                         // Tab 切换
                         TabBar(
                           controller: _tabController,
-                          indicatorColor: AppTheme.warmOrange,
-                          labelColor: AppTheme.warmOrange,
-                          unselectedLabelColor: AppTheme.textSecondary,
+                          indicatorColor: AppTheme.candleGlow,
+                          labelColor: AppTheme.candleGlow,
+                          unselectedLabelColor: AppTheme.darkTextSecondary,
                           tabs: const [
                             Tab(text: '登录'),
                             Tab(text: '注册'),
                           ],
                         ),
                         ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 380, maxHeight: 420),
+                          constraints: const BoxConstraints(
+                            minHeight: 380,
+                            maxHeight: 420,
+                          ),
                           child: TabBarView(
                             controller: _tabController,
                             children: [
@@ -314,20 +340,27 @@ class _AuthScreenState extends State<AuthScreen>
                   // 匿名登录按钮
                   TextButton.icon(
                     onPressed: _isLoading ? null : _handleAnonymousLogin,
-                    icon:
-                        const Icon(Icons.visibility_off, color: Colors.white70),
+                    icon: const Icon(
+                      Icons.visibility_off,
+                      color: AppTheme.darkTextSecondary,
+                    ),
                     label: const Text(
                       '匿名漫游心湖',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                      style: TextStyle(
+                        color: AppTheme.darkTextSecondary,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
+
+                  // 底部提示文字
                   Text(
                     '匿名用户数据将在24小时后消失',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: AppTheme.darkTextSecondary.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -340,7 +373,9 @@ class _AuthScreenState extends State<AuthScreen>
             Container(
               color: Colors.black.withValues(alpha: 0.3),
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(
+                  color: AppTheme.candleGlow,
+                ),
               ),
             ),
         ],
@@ -363,7 +398,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = false);
                 },
-                selectedColor: AppTheme.warmOrange.withValues(alpha: 0.3),
+                selectedColor: AppTheme.candleGlow.withValues(alpha: 0.3),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
@@ -372,7 +407,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = true);
                 },
-                selectedColor: AppTheme.warmOrange.withValues(alpha: 0.3),
+                selectedColor: AppTheme.candleGlow.withValues(alpha: 0.3),
               ),
             ],
           ),
@@ -382,7 +417,8 @@ class _AuthScreenState extends State<AuthScreen>
             labelText: _useEmailLogin ? '邮箱地址' : '用户名 (8位数字)',
             hintText: _useEmailLogin ? '请输入有效的邮箱地址' : '请输入8位数字用户名',
             prefixIcon: Icon(
-                _useEmailLogin ? Icons.email_outlined : Icons.person_outline),
+              _useEmailLogin ? Icons.email_outlined : Icons.person_outline,
+            ),
             keyboardType: _useEmailLogin
                 ? TextInputType.emailAddress
                 : TextInputType.number,
@@ -395,7 +431,8 @@ class _AuthScreenState extends State<AuthScreen>
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility),
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              ),
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
@@ -423,7 +460,7 @@ class _AuthScreenState extends State<AuthScreen>
               '请使用邮箱注册账号',
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textSecondary,
+                color: AppTheme.darkTextSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -464,12 +501,14 @@ class _AuthScreenState extends State<AuthScreen>
                         ? null
                         : () async {
                             // 邮箱验证码
-                            final email = _registerEmailController.text.trim();
+                            final email =
+                                _registerEmailController.text.trim();
 
                             // 严格验证邮箱格式
-                            final emailRegex =
-                                RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                            if (email.isEmpty || !emailRegex.hasMatch(email)) {
+                            final emailRegex = RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            if (email.isEmpty ||
+                                !emailRegex.hasMatch(email)) {
                               _showSnackBar('请输入有效的邮箱地址');
                               return;
                             }
@@ -482,7 +521,8 @@ class _AuthScreenState extends State<AuthScreen>
                                 // P2-6: 使用 Timer.periodic 倒计时
                                 _startCountdown();
                               } else {
-                                _showSnackBar(result['message'] ?? '发送失败');
+                                _showSnackBar(
+                                    result['message'] ?? '发送失败');
                                 return;
                               }
                             } catch (e) {
@@ -491,11 +531,12 @@ class _AuthScreenState extends State<AuthScreen>
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.warmOrange,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppTheme.candleGlow,
+                      foregroundColor: AppTheme.nightDeep,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(
                       _countdown > 0 ? '$_countdown秒' : '发送',
@@ -512,9 +553,9 @@ class _AuthScreenState extends State<AuthScreen>
               labelText: '密码 (至少6个字符)',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                ),
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
               ),
@@ -526,9 +567,11 @@ class _AuthScreenState extends State<AuthScreen>
               labelText: '确认密码',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
-                icon: Icon(_obscureConfirmPassword
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                icon: Icon(
+                  _obscureConfirmPassword
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                ),
                 onPressed: () => setState(
                     () => _obscureConfirmPassword = !_obscureConfirmPassword),
               ),
