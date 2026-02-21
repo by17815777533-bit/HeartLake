@@ -8,10 +8,12 @@
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/DualMemoryRAG.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/services/NotificationPushService.h"
 #include "infrastructure/services/WarmQuoteService.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/IdGenerator.h"
+#include "infrastructure/services/EmotionTrackingService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include <drogon/drogon.h>
 
@@ -63,6 +65,16 @@ Json::Value StoneApplicationService::publishStone(
             event.content = content;
             event.moodType = moodType;
             eventBus_->publish(event);
+        }
+
+        // 记录情绪到追踪服务（用于异常检测和干预）
+        try {
+            auto& emotionTracker = heartlake::infrastructure::EmotionTrackingService::getInstance();
+            auto& aiEngine = heartlake::ai::EdgeAIEngine::getInstance();
+            auto sentiment = aiEngine.analyzeSentimentLocal(content);
+            emotionTracker.recordEmotion(userId, sentiment.score, content);
+        } catch (...) {
+            LOG_WARN << "EmotionTracking recordEmotion failed for user: " << userId;
         }
 
         // 清除缓存
