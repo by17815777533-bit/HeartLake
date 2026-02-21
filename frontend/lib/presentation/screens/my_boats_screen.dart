@@ -255,12 +255,12 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                             side: BorderSide(
-                              color: moodConfig.primary.withOpacity(0.4),
+                              color: moodConfig.primary.withValues(alpha: 0.4),
                               width: 2,
                             ),
                           ),
                           elevation: 3,
-                          shadowColor: moodConfig.primary.withOpacity(0.2),
+                          shadowColor: moodConfig.primary.withValues(alpha: 0.2),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
                             onTap: () {
@@ -292,7 +292,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                   end: Alignment.bottomRight,
                                   colors: [
                                     Colors.white,
-                                    moodConfig.primary.withOpacity(0.05),
+                                    moodConfig.primary.withValues(alpha: 0.05),
                                   ],
                                 ),
                               ),
@@ -310,9 +310,9 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                           gradient: LinearGradient(
                                             colors: [
                                               moodConfig.primary
-                                                  .withOpacity(0.6),
+                                                  .withValues(alpha: 0.6),
                                               moodConfig.rippleColor
-                                                  .withOpacity(0.4),
+                                                  .withValues(alpha: 0.4),
                                             ],
                                           ),
                                         ),
@@ -357,11 +357,11 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color:
-                                          moodConfig.primary.withOpacity(0.05),
+                                          moodConfig.primary.withValues(alpha: 0.05),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: moodConfig.primary
-                                            .withOpacity(0.15),
+                                            .withValues(alpha: 0.15),
                                         width: 1,
                                       ),
                                     ),
@@ -373,7 +373,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                           Icons.format_quote,
                                           size: 16,
                                           color: moodConfig.primary
-                                              .withOpacity(0.4),
+                                              .withValues(alpha: 0.4),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(

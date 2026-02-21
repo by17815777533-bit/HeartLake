@@ -16,13 +16,44 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
   bool _isLoading = true;
   bool _hasLight = false; // 是否点亮灯
   int _daysLeft = 0;
+  bool _privilegesLoading = true;
+  List<_PrivilegeItem> _privileges = [];
   late AnimationController _animController;
+
+  /// 硬编码的默认权益列表，作为 API 失败或返回空数据时的 fallback
+  static final List<_PrivilegeItem> _defaultPrivileges = [
+    _PrivilegeItem(Icons.water_drop, '湖神回应', '更频繁的温暖', const Color(0xFFFFB74D)),
+    _PrivilegeItem(Icons.psychology, '心理咨询', '每月1次免费', const Color(0xFF81C784)),
+    _PrivilegeItem(Icons.local_fire_department, '专属灯火', '温暖身份标识', const Color(0xFFFF8A65)),
+    _PrivilegeItem(Icons.people, '优先匹配', '更快找到伙伴', const Color(0xFF64B5F6)),
+    _PrivilegeItem(Icons.auto_awesome, '专属特效', '独特视觉体验', const Color(0xFFBA68C8)),
+  ];
+
+  /// 图标名称到 IconData 的映射
+  static final Map<String, IconData> _iconMap = {
+    'water_drop': Icons.water_drop,
+    'psychology': Icons.psychology,
+    'local_fire_department': Icons.local_fire_department,
+    'people': Icons.people,
+    'auto_awesome': Icons.auto_awesome,
+    'favorite': Icons.favorite,
+    'star': Icons.star,
+    'shield': Icons.shield,
+    'spa': Icons.spa,
+    'lightbulb': Icons.lightbulb,
+    'emoji_emotions': Icons.emoji_emotions,
+    'health_and_safety': Icons.health_and_safety,
+    'volunteer_activism': Icons.volunteer_activism,
+    'diversity_3': Icons.diversity_3,
+    'self_improvement': Icons.self_improvement,
+  };
 
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
     _loadLightData();
+    _loadPrivileges();
   }
 
   @override
@@ -49,6 +80,49 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     }
   }
 
+  Future<void> _loadPrivileges() async {
+    setState(() => _privilegesLoading = true);
+    try {
+      final result = await _vipService.getPrivileges();
+      if (mounted) {
+        final List<dynamic> items = result['privileges'] ?? [];
+        if (items.isNotEmpty) {
+          setState(() {
+            _privileges = items.map((item) {
+              final iconName = item['icon'] as String? ?? 'star';
+              final colorValue = item['color'] as int? ?? 0xFFFFB74D;
+              return _PrivilegeItem(
+                _iconMap[iconName] ?? Icons.star,
+                item['title'] as String? ?? '',
+                item['desc'] as String? ?? '',
+                Color(colorValue),
+              );
+            }).toList();
+            _privilegesLoading = false;
+          });
+        } else {
+          // API 返回空列表，使用 fallback
+          setState(() {
+            _privileges = _defaultPrivileges;
+            _privilegesLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      // API 失败，使用 fallback
+      if (mounted) {
+        setState(() {
+          _privileges = _defaultPrivileges;
+          _privilegesLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait([_loadLightData(), _loadPrivileges()]);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,14 +131,14 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF1A237E).withOpacity(0.9), const Color(0xFF0D1B2A)],
+            colors: [const Color(0xFF1A237E).withValues(alpha: 0.9), const Color(0xFF0D1B2A)],
           ),
         ),
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD54F)))
               : RefreshIndicator(
-                  onRefresh: _loadLightData,
+                  onRefresh: _refreshAll,
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
@@ -115,7 +189,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: _hasLight
-                ? [BoxShadow(color: const Color(0xFFFFD54F).withOpacity(glowOpacity), blurRadius: 30, spreadRadius: 5)]
+                ? [BoxShadow(color: const Color(0xFFFFD54F).withValues(alpha: glowOpacity), blurRadius: 30, spreadRadius: 5)]
                 : null,
           ),
           child: Column(
@@ -135,7 +209,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('灯火将燃 $_daysLeft 天', style: const TextStyle(color: Colors.white, fontSize: 14)),
@@ -149,56 +223,58 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildPrivilegesGrid() {
-    final privileges = [
-      _PrivilegeItem(Icons.water_drop, '湖神回应', '更频繁的温暖', const Color(0xFFFFB74D)),
-      _PrivilegeItem(Icons.psychology, '心理咨询', '每月1次免费', const Color(0xFF81C784)),
-      _PrivilegeItem(Icons.local_fire_department, '专属灯火', '温暖身份标识', const Color(0xFFFF8A65)),
-      _PrivilegeItem(Icons.people, '优先匹配', '更快找到伙伴', const Color(0xFF64B5F6)),
-      _PrivilegeItem(Icons.auto_awesome, '专属特效', '独特视觉体验', const Color(0xFFBA68C8)),
-    ];
+    final privileges = _privileges.isNotEmpty ? _privileges : _defaultPrivileges;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('点灯权益', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.9,
+        if (_privilegesLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: CircularProgressIndicator(color: Color(0xFFFFD54F), strokeWidth: 2),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.9,
+            ),
+            itemCount: privileges.length,
+            itemBuilder: (context, index) {
+              final p = privileges[index];
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: p.color.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(p.icon, color: p.color, size: 28),
+                    const SizedBox(height: 8),
+                    Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(p.desc, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10), textAlign: TextAlign.center),
+                    if (_hasLight)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Icon(Icons.check_circle, color: Color(0xFFFFD54F), size: 16),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
-          itemCount: privileges.length,
-          itemBuilder: (context, index) {
-            final p = privileges[index];
-            return Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: p.color.withOpacity(0.3)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(p.icon, color: p.color, size: 28),
-                  const SizedBox(height: 8),
-                  Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white)),
-                  const SizedBox(height: 2),
-                  Text(p.desc, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10), textAlign: TextAlign.center),
-                  if (_hasLight)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.check_circle, color: Color(0xFFFFD54F), size: 16),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
       ],
     );
   }
@@ -207,9 +283,9 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFFFD54F).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -219,7 +295,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
           const SizedBox(height: 8),
           Text(
             '灯完全免费！当系统感知到您需要温暖时，将自动为您点亮灯，照亮前行的路',
-            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -242,7 +318,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFD54F).withOpacity(0.15),
+        color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

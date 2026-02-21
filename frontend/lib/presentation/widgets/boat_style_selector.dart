@@ -27,17 +27,17 @@ class BoatStyleSelector extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             Colors.white,
-            AppTheme.peachPink.withOpacity(0.15),
+            AppTheme.peachPink.withValues(alpha: 0.15),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppTheme.peachPink.withOpacity(0.5),
+          color: AppTheme.peachPink.withValues(alpha: 0.5),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.08),
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -51,7 +51,7 @@ class BoatStyleSelector extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.15),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -190,8 +190,8 @@ class _BoatStyleItemState extends State<_BoatStyleItem>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      _styleColor.withOpacity(0.2),
-                      _styleColor.withOpacity(0.1),
+                      _styleColor.withValues(alpha: 0.2),
+                      _styleColor.withValues(alpha: 0.1),
                     ],
                   )
                 : null,
@@ -200,13 +200,13 @@ class _BoatStyleItemState extends State<_BoatStyleItem>
             border: Border.all(
               color: widget.isSelected
                   ? _styleColor
-                  : Colors.grey.withOpacity(0.25),
+                  : Colors.grey.withValues(alpha: 0.25),
               width: widget.isSelected ? 2 : 1,
             ),
             boxShadow: widget.isSelected
                 ? [
                     BoxShadow(
-                      color: _styleColor.withOpacity(0.25),
+                      color: _styleColor.withValues(alpha: 0.25),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -224,13 +224,13 @@ class _BoatStyleItemState extends State<_BoatStyleItem>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: widget.isSelected
-                        ? [_styleColor.withOpacity(0.8), _styleColor]
+                        ? [_styleColor.withValues(alpha: 0.8), _styleColor]
                         : [Colors.grey[200]!, Colors.grey[300]!],
                   ),
                   boxShadow: widget.isSelected
                       ? [
                           BoxShadow(
-                            color: _styleColor.withOpacity(0.4),
+                            color: _styleColor.withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),

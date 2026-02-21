@@ -171,7 +171,7 @@ class _RippleNotificationWidgetState extends State<RippleNotificationWidget>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: widget.color.withOpacity(0.3),
+                          color: widget.color.withValues(alpha: 0.3),
                           blurRadius: 20,
                           spreadRadius: 2,
                           offset: const Offset(0, 4),
@@ -189,7 +189,7 @@ class _RippleNotificationWidgetState extends State<RippleNotificationWidget>
                             gradient: LinearGradient(
                               colors: [
                                 widget.color,
-                                widget.color.withOpacity(0.7),
+                                widget.color.withValues(alpha: 0.7),
                               ],
                             ),
                           ),
@@ -263,7 +263,7 @@ class _RipplePainter extends CustomPainter {
       final opacity = (1.0 - rippleProgress) * 0.6;
 
       final paint = Paint()
-        ..color = ripple.color.withOpacity(opacity)
+        ..color = ripple.color.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
 
@@ -274,7 +274,7 @@ class _RipplePainter extends CustomPainter {
         final innerRadius = radius * 0.6;
         final innerOpacity = opacity * 0.7;
         final innerPaint = Paint()
-          ..color = ripple.color.withOpacity(innerOpacity)
+          ..color = ripple.color.withValues(alpha: innerOpacity)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5;
 

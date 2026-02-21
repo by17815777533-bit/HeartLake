@@ -117,7 +117,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
       setState(() {
         _isCatching = false;
         if (result['success'] == true && result['data'] != null) {
-          _caughtBoat = PaperBoat.fromJson(result['data']);
+          _caughtBoat = PaperBoat.fromJson(result['data']['boat']);
         } else {
           _showCatchAnimation = false;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -206,8 +206,8 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.lakeSurface.withOpacity(0.2),
-              AppTheme.lakeMiddle.withOpacity(0.1),
+              AppTheme.lakeSurface.withValues(alpha: 0.2),
+              AppTheme.lakeMiddle.withValues(alpha: 0.1),
             ],
           ),
         ),

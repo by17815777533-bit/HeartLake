@@ -18,4 +18,9 @@ class GuardianService extends BaseService {
     });
     return toMap(response);
   }
+
+  Future<Map<String, dynamic>> getEmotionInsights() async {
+    final response = await get('/guardian/insights');
+    return toMap(response);
+  }
 }

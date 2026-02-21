@@ -499,15 +499,15 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     padding: const EdgeInsets.all(16),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: moodConfig.primary.withOpacity(0.3),
+                          color: moodConfig.primary.withValues(alpha: 0.3),
                           width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: moodConfig.primary.withOpacity(0.15),
+                            color: moodConfig.primary.withValues(alpha: 0.15),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -525,7 +525,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: moodConfig.primary.withOpacity(0.2),
+                                color: moodConfig.primary.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
@@ -555,7 +555,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                               CircleAvatar(
                                 radius: 16,
                                 backgroundColor:
-                                    moodConfig.primary.withOpacity(0.3),
+                                    moodConfig.primary.withValues(alpha: 0.3),
                                 child: Icon(
                                   Icons.person,
                                   size: 18,
@@ -576,7 +576,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 _formatTime(widget.stone.createdAt),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: moodConfig.textColor.withOpacity(0.6),
+                                  color: moodConfig.textColor.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -605,7 +605,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: moodConfig.primary.withOpacity(0.1),
+                                    color: moodConfig.primary.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -684,14 +684,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     Icon(
                                       Icons.sailing_outlined,
                                       size: 64,
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.white.withValues(alpha: 0.3),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       '还没有纸船漂来',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.white.withOpacity(0.6),
+                                        color: Colors.white.withValues(alpha: 0.6),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -699,7 +699,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                       '写下你的感受，让它随波漂流吧',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.white.withOpacity(0.4),
+                                        color: Colors.white.withValues(alpha: 0.4),
                                       ),
                                     ),
                                   ],
@@ -739,7 +739,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -797,26 +797,26 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         borderRadius: BorderRadius.circular(16),
         // 治愈风格的渐变边框
         border: Border.all(
-          color: moodConfig.primary.withOpacity(0.4),
+          color: moodConfig.primary.withValues(alpha: 0.4),
           width: 1.5,
         ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(isTemp ? 0.85 : 0.95),
-            moodConfig.primary.withOpacity(0.05),
+            Colors.white.withValues(alpha: isTemp ? 0.85 : 0.95),
+            moodConfig.primary.withValues(alpha: 0.05),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: moodConfig.primary.withOpacity(0.15),
+            color: moodConfig.primary.withValues(alpha: 0.15),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
           // 内发光效果
           BoxShadow(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             blurRadius: 4,
             spreadRadius: -2,
             offset: const Offset(0, -1),
@@ -835,8 +835,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      moodConfig.primary.withOpacity(0.6),
-                      moodConfig.rippleColor.withOpacity(0.4),
+                      moodConfig.primary.withValues(alpha: 0.6),
+                      moodConfig.rippleColor.withValues(alpha: 0.4),
                     ],
                   ),
                 ),
@@ -865,7 +865,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: moodConfig.primary.withOpacity(0.2),
+                    color: moodConfig.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -893,10 +893,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: moodConfig.primary.withOpacity(0.05),
+              color: moodConfig.primary.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: moodConfig.primary.withOpacity(0.1),
+                color: moodConfig.primary.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -906,7 +906,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 Icon(
                   Icons.format_quote,
                   size: 16,
-                  color: moodConfig.primary.withOpacity(0.4),
+                  color: moodConfig.primary.withValues(alpha: 0.4),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -934,7 +934,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -955,12 +955,12 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: moodConfig.primary.withOpacity(0.3)),
+                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: moodConfig.primary.withOpacity(0.3)),
+                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
@@ -982,13 +982,13 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 gradient: LinearGradient(
                   colors: [
                     moodConfig.primary,
-                    moodConfig.primary.withOpacity(0.8),
+                    moodConfig.primary.withValues(alpha: 0.8),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: moodConfig.primary.withOpacity(0.3),
+                    color: moodConfig.primary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

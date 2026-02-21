@@ -264,7 +264,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                   return Column(
                     children: [
                       Card(
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                         elevation: 4,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -276,7 +276,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.skyBlue.withOpacity(0.1),
+                                  color: AppTheme.skyBlue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(
@@ -338,14 +338,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                         Icon(
                           Icons.people_outline,
                           size: 80,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           '还没有临时好友',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -353,7 +353,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                           '在心湖中互动即可建立临时好友关系',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -400,12 +400,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        color: Colors.white.withOpacity(0.95),
+        color: Colors.white.withValues(alpha: 0.95),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isExpired ? Colors.grey.withOpacity(0.3) : AppTheme.skyBlue.withOpacity(0.3),
+            color: isExpired ? Colors.grey.withValues(alpha: 0.3) : AppTheme.skyBlue.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -415,7 +415,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: isExpired ? Colors.grey.withOpacity(0.2) : AppTheme.skyBlue.withOpacity(0.2),
+                backgroundColor: isExpired ? Colors.grey.withValues(alpha: 0.2) : AppTheme.skyBlue.withValues(alpha: 0.2),
                 child: Text(
                   (tempFriend['friend_nickname']?.isNotEmpty == true) ? tempFriend['friend_nickname'].substring(0, 1) : '?',
                   style: TextStyle(color: isExpired ? Colors.grey : AppTheme.skyBlue, fontWeight: FontWeight.bold, fontSize: 20),
@@ -439,7 +439,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               if (isUpgraded)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                   child: const Text('已升级', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
                 ),
             ],

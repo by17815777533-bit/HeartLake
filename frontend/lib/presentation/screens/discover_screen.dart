@@ -6,6 +6,7 @@ import '../widgets/water_background.dart';
 import '../widgets/deep_dive_layer.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
+import 'personalized_screen.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -23,17 +24,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   bool _isLoading = false;
   String? _selectedMood;
 
-  final List<String> _moods = ['开心', '平静', '忧伤', '焦虑', '愤怒', '迷茫', '感恩', '期待'];
+  final List<String> _moods = ['开心', '平静', '悲伤', '焦虑', '愤怒', '迷茫', '惊喜', '中性'];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadTrending();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 0 && !_tabController.indexIsChanging) {
+      _loadTrending();
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -101,6 +110,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFF5D4037)),
+            tooltip: '个性化推荐',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalizedScreen())),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.accentColor,
@@ -112,9 +128,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
             Tab(icon: Icon(Icons.search), text: '搜索'),
             Tab(icon: Icon(Icons.mood), text: '情绪'),
           ],
-          onTap: (index) {
-            if (index == 0) _loadTrending();
-          },
+          // Tab切换由 _onTabChanged listener 统一处理
         ),
       ),
       body: Stack(
@@ -144,7 +158,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
             controller: _searchController,
             hintText: '搜索石头...',
             elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all(Colors.white.withOpacity(0.9)),
+            backgroundColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.9)),
             trailing: [
               IconButton(
                 icon: const Icon(Icons.search),
@@ -173,8 +187,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
               return ChoiceChip(
                 label: Text(mood),
                 selected: isSelected,
-                selectedColor: color.withOpacity(0.8),
-                backgroundColor: color.withOpacity(0.3),
+                selectedColor: color.withValues(alpha: 0.8),
+                backgroundColor: color.withValues(alpha: 0.3),
                 onSelected: (_) => _discoverByMood(mood),
               );
             }).toList(),
@@ -187,16 +201,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
   Widget _buildStoneList() {
     if (_isLoading) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在探索心湖深处...', style: TextStyle(color: Colors.white.withOpacity(0.8)))]));
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在探索心湖深处...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))]));
     }
     if (_stones.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.explore_off, size: 64, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.explore_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('暂无内容，试试搜索或按心情发现', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+            Text('暂无内容，试试搜索或按心情发现', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
           ],
         ),
       );

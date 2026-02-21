@@ -24,6 +24,9 @@ import 'notification_screen.dart';
 import 'guardian_screen.dart';
 import 'my_stones_screen.dart';
 import 'my_boats_screen.dart';
+import 'my_ripples_screen.dart';
+import 'paper_boat_screen.dart';
+import 'emotion_trends_screen.dart';
 import 'received_boats_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -46,12 +49,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
 
   // WebSocket 监听器
-  late void Function(Map<String, dynamic>) _newStoneListener;
-  late void Function(Map<String, dynamic>) _boatUpdateListener;
-  late void Function(Map<String, dynamic>) _rippleUpdateListener;
-  late void Function(Map<String, dynamic>) _stoneDeletedListener;
-  late void Function(Map<String, dynamic>) _boatDeletedListener;
-  late void Function(Map<String, dynamic>) _rippleDeletedListener;
+  void Function(Map<String, dynamic>)? _newStoneListener;
+  void Function(Map<String, dynamic>)? _boatUpdateListener;
+  void Function(Map<String, dynamic>)? _rippleUpdateListener;
+  void Function(Map<String, dynamic>)? _stoneDeletedListener;
+  void Function(Map<String, dynamic>)? _boatDeletedListener;
+  void Function(Map<String, dynamic>)? _rippleDeletedListener;
+  void Function(Map<String, dynamic>)? _reconnectedListener;
 
   @override
   void initState() {
@@ -85,62 +89,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _setupWebSocketListeners() async {
     await _wsManager.connect();
+    if (!mounted) return;
 
     // 监听新石头（更新投石计数）
     _newStoneListener = (data) async {
       final userId = await StorageUtil.getUserId();
       final stoneUserId = data['stone']?['user_id'] ?? data['user_id'];
       if (stoneUserId == userId && mounted) {
-        _loadUserStats(silent: true); // 重新加载统计
+        _loadUserStats(silent: true);
       }
     };
-    _wsManager.on('new_stone', _newStoneListener);
+    _wsManager.on('new_stone', _newStoneListener!);
 
     // 监听纸船更新
-    _boatUpdateListener = (data) async {
-      // 当收到纸船时刷新统计
-      if (mounted) {
-        _loadUserStats(silent: true);
-      }
+    _boatUpdateListener = (data) {
+      if (mounted) _loadUserStats(silent: true);
     };
-    _wsManager.on('boat_update', _boatUpdateListener);
-    _wsManager.on('new_boat', _boatUpdateListener);
+    _wsManager.on('boat_update', _boatUpdateListener!);
+    _wsManager.on('new_boat', _boatUpdateListener!);
 
     // 监听涟漪更新
-    _rippleUpdateListener = (data) async {
-      if (mounted) {
-        _loadUserStats(silent: true);
-      }
+    _rippleUpdateListener = (data) {
+      if (mounted) _loadUserStats(silent: true);
     };
-    _wsManager.on('ripple_update', _rippleUpdateListener);
-    _wsManager.on('new_ripple', _rippleUpdateListener);
+    _wsManager.on('ripple_update', _rippleUpdateListener!);
+    _wsManager.on('new_ripple', _rippleUpdateListener!);
 
     // 监听删除事件，刷新统计
     _stoneDeletedListener = (data) {
       if (mounted) _loadUserStats(silent: true);
     };
-    _wsManager.on('stone_deleted', _stoneDeletedListener);
+    _wsManager.on('stone_deleted', _stoneDeletedListener!);
 
     _boatDeletedListener = (data) {
       if (mounted) _loadUserStats(silent: true);
     };
-    _wsManager.on('boat_deleted', _boatDeletedListener);
+    _wsManager.on('boat_deleted', _boatDeletedListener!);
 
     _rippleDeletedListener = (data) {
       if (mounted) _loadUserStats(silent: true);
     };
-    _wsManager.on('ripple_deleted', _rippleDeletedListener);
+    _wsManager.on('ripple_deleted', _rippleDeletedListener!);
+
+    // 断线重连后自动刷新所有数据
+    _reconnectedListener = (data) {
+      if (mounted) _refreshAll();
+    };
+    _wsManager.on('reconnected', _reconnectedListener!);
   }
 
   void _removeWebSocketListeners() {
-    _wsManager.off('new_stone', _newStoneListener);
-    _wsManager.off('boat_update', _boatUpdateListener);
-    _wsManager.off('new_boat', _boatUpdateListener);
-    _wsManager.off('ripple_update', _rippleUpdateListener);
-    _wsManager.off('new_ripple', _rippleUpdateListener);
-    _wsManager.off('stone_deleted', _stoneDeletedListener);
-    _wsManager.off('boat_deleted', _boatDeletedListener);
-    _wsManager.off('ripple_deleted', _rippleDeletedListener);
+    if (_newStoneListener != null) {
+      _wsManager.off('new_stone', _newStoneListener!);
+    }
+    if (_boatUpdateListener != null) {
+      _wsManager.off('boat_update', _boatUpdateListener!);
+      _wsManager.off('new_boat', _boatUpdateListener!);
+    }
+    if (_rippleUpdateListener != null) {
+      _wsManager.off('ripple_update', _rippleUpdateListener!);
+      _wsManager.off('new_ripple', _rippleUpdateListener!);
+    }
+    if (_stoneDeletedListener != null) {
+      _wsManager.off('stone_deleted', _stoneDeletedListener!);
+    }
+    if (_boatDeletedListener != null) {
+      _wsManager.off('boat_deleted', _boatDeletedListener!);
+    }
+    if (_rippleDeletedListener != null) {
+      _wsManager.off('ripple_deleted', _rippleDeletedListener!);
+    }
+    if (_reconnectedListener != null) {
+      _wsManager.off('reconnected', _reconnectedListener!);
+    }
   }
 
   @override
@@ -369,7 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // 个人信息卡片
                 Card(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -381,7 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 45,
-                                backgroundColor: AppTheme.skyBlue.withOpacity(0.3),
+                                backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.3),
                                 backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty) ? NetworkImage(_avatarUrl!) : null,
                                 child: _avatarUrl == null
                                     ? const Icon(Icons.person, size: 45, color: Colors.white)
@@ -478,6 +499,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const Divider(height: 1),
                       ListTile(
+                        leading: const Icon(Icons.show_chart, color: AppTheme.skyBlue),
+                        title: const Text('情绪趋势'),
+                        subtitle: const Text('查看情绪变化轨迹', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionTrendsScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.water, color: AppTheme.skyBlue),
+                        title: const Text('我的涟漪'),
+                        subtitle: const Text('查看发出的涟漪', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRipplesScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.sailing, color: AppTheme.skyBlue),
+                        title: const Text('漂流纸船'),
+                        subtitle: const Text('放漂和捞取纸船', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaperBoatScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
                         leading: const Icon(Icons.lightbulb_outline, color: Color(0xFFFFB74D)),
                         title: const Text('点灯人'),
                         subtitle: const Text('守护心湖的温暖', style: TextStyle(fontSize: 12)),
@@ -558,6 +603,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
 
                           if (confirm == true && context.mounted) {
+                            // 先移除 WebSocket 监听器
+                            _removeWebSocketListeners();
+
+                            // 断开 WebSocket
+                            _wsManager.disconnect();
+
                             // 清除本地存储
                             await StorageUtil.clearToken();
                             ApiClient().clearToken();
@@ -595,11 +646,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
     final card = Card(
-      color: Colors.white.withOpacity(0.9),
+      color: Colors.white.withValues(alpha: 0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: AppTheme.skyBlue.withOpacity(0.3),
+          color: AppTheme.skyBlue.withValues(alpha: 0.3),
           width: 2,
         ),
       ),

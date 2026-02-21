@@ -233,10 +233,10 @@ class _AuthScreenState extends State<AuthScreen>
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Colors.white.withOpacity(0.5), width: 2),
+                          color: Colors.white.withValues(alpha: 0.5), width: 2),
                     ),
                     child: const Icon(Icons.water_drop,
                         size: 50, color: Colors.white),
@@ -256,7 +256,7 @@ class _AuthScreenState extends State<AuthScreen>
                     '把石头投入湖中',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -268,7 +268,7 @@ class _AuthScreenState extends State<AuthScreen>
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -319,7 +319,7 @@ class _AuthScreenState extends State<AuthScreen>
                     '匿名用户数据将在24小时后消失',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -330,7 +330,7 @@ class _AuthScreenState extends State<AuthScreen>
           // Loading 遮罩
           if (_isLoading)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               child: const Center(
                 child: CircularProgressIndicator(color: Colors.white),
               ),
@@ -355,7 +355,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = false);
                 },
-                selectedColor: AppTheme.primaryColor.withOpacity(0.3),
+                selectedColor: AppTheme.primaryColor.withValues(alpha: 0.3),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
@@ -364,7 +364,7 @@ class _AuthScreenState extends State<AuthScreen>
                 onSelected: (selected) {
                   if (selected) setState(() => _useEmailLogin = true);
                 },
-                selectedColor: AppTheme.primaryColor.withOpacity(0.3),
+                selectedColor: AppTheme.primaryColor.withValues(alpha: 0.3),
               ),
             ],
           ),

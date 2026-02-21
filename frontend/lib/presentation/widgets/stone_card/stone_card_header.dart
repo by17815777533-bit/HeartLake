@@ -51,13 +51,13 @@ class StoneCardHeader extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            moodConfig.primary.withOpacity(0.7),
+            moodConfig.primary.withValues(alpha: 0.7),
             moodConfig.primary,
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: moodConfig.primary.withOpacity(0.4),
+            color: moodConfig.primary.withValues(alpha: 0.4),
             blurRadius: 8,
             offset: const Offset(2, 2),
           )
@@ -85,7 +85,7 @@ class StoneCardHeader extends StatelessWidget {
             margin: const EdgeInsets.only(top: 2),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
             decoration: BoxDecoration(
-              color: moodConfig.primary.withOpacity(0.15),
+              color: moodConfig.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(

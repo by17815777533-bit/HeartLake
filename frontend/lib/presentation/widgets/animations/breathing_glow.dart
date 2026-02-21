@@ -56,13 +56,13 @@ class _BreathingGlowState extends State<BreathingGlow>
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: widget.glowColor.withOpacity(0.12 + 0.12 * t),
+                color: widget.glowColor.withValues(alpha: 0.12 + 0.12 * t),
                 blurRadius: blur,
                 spreadRadius: spread,
               ),
               // 外层柔光
               BoxShadow(
-                color: widget.glowColor.withOpacity(0.05 * t),
+                color: widget.glowColor.withValues(alpha: 0.05 * t),
                 blurRadius: blur * 1.5,
                 spreadRadius: spread * 2,
               ),

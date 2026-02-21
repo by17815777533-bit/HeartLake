@@ -129,7 +129,7 @@ class StoneCardSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -279,7 +279,7 @@ class UserCardSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -499,7 +499,7 @@ class _WarmLoadingIndicatorState extends State<WarmLoadingIndicator>
                   gradient: LinearGradient(
                     colors: [
                       widget.color,
-                      widget.color.withOpacity(0.3),
+                      widget.color.withValues(alpha: 0.3),
                       widget.color,
                     ],
                     stops: const [0.0, 0.5, 1.0],
@@ -514,7 +514,7 @@ class _WarmLoadingIndicatorState extends State<WarmLoadingIndicator>
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: widget.color.withOpacity(0.3),
+                          color: widget.color.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -643,7 +643,7 @@ class ChartSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

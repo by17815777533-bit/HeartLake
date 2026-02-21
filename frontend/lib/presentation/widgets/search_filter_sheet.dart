@@ -229,7 +229,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? moodConfig.primary
-                      : moodConfig.primary.withOpacity(0.1),
+                      : moodConfig.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: moodConfig.primary,
@@ -309,7 +309,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppTheme.secondaryColor
-                      : AppTheme.secondaryColor.withOpacity(0.1),
+                      : AppTheme.secondaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppTheme.secondaryColor,
@@ -356,10 +356,10 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.05),
+            color: AppTheme.primaryColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppTheme.primaryColor.withOpacity(0.2),
+              color: AppTheme.primaryColor.withValues(alpha: 0.2),
             ),
           ),
           child: Column(
@@ -397,7 +397,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                 max: 1.0,
                 divisions: 20,
                 activeColor: AppTheme.primaryColor,
-                inactiveColor: AppTheme.primaryColor.withOpacity(0.3),
+                inactiveColor: AppTheme.primaryColor.withValues(alpha: 0.3),
                 labels: RangeLabels(
                   _getScoreLabel(_emotionScoreRange.start),
                   _getScoreLabel(_emotionScoreRange.end),

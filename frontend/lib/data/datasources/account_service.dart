@@ -127,6 +127,32 @@ class AccountService extends BaseService {
     return toMap(response);
   }
 
+  /// 移除登录设备
+  Future<Map<String, dynamic>> removeDevice(String sessionId) async {
+    final response = await delete('/account/devices/$sessionId');
+    return toMap(response);
+  }
+
+  /// 获取安全事件
+  Future<Map<String, dynamic>> getSecurityEvents() async {
+    final response = await get('/account/security-events');
+    return toMap(response);
+  }
+
+  /// 获取数据导出状态
+  Future<Map<String, dynamic>> getExportStatus(String taskId) async {
+    final response = await get('/account/export/$taskId');
+    return toMap(response);
+  }
+
+  /// 永久删除账号
+  Future<Map<String, dynamic>> deleteAccountPermanently(String password) async {
+    final response = await post('/account/delete-permanent', data: {
+      'password': password,
+    });
+    return toMap(response);
+  }
+
   /// 注销账号
   Future<Map<String, dynamic>> deactivateAccount(String password) async {
     final response = await post('/account/deactivate', data: {

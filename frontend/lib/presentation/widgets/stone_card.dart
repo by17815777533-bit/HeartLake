@@ -477,12 +477,12 @@ class _StoneCardState extends State<StoneCard>
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: moodConfig.primary.withOpacity(0.3),
+                                color: moodConfig.primary.withValues(alpha: 0.3),
                                 width: 1.5,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: moodConfig.primary.withOpacity(0.1),
+                                  color: moodConfig.primary.withValues(alpha: 0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -499,9 +499,9 @@ class _StoneCardState extends State<StoneCard>
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
                                           colors: [
-                                            moodConfig.primary.withOpacity(0.6),
+                                            moodConfig.primary.withValues(alpha: 0.6),
                                             moodConfig.rippleColor
-                                                .withOpacity(0.4),
+                                                .withValues(alpha: 0.4),
                                           ],
                                         ),
                                       ),
@@ -533,7 +533,7 @@ class _StoneCardState extends State<StoneCard>
                                             horizontal: 4, vertical: 1),
                                         decoration: BoxDecoration(
                                           color: moodConfig.primary
-                                              .withOpacity(0.2),
+                                              .withValues(alpha: 0.2),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
@@ -552,7 +552,7 @@ class _StoneCardState extends State<StoneCard>
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: moodConfig.primary.withOpacity(0.05),
+                                    color: moodConfig.primary.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -563,7 +563,7 @@ class _StoneCardState extends State<StoneCard>
                                         Icons.format_quote,
                                         size: 12,
                                         color:
-                                            moodConfig.primary.withOpacity(0.4),
+                                            moodConfig.primary.withValues(alpha: 0.4),
                                       ),
                                       const SizedBox(width: 4),
                                       Expanded(
@@ -774,14 +774,14 @@ class _StoneCardState extends State<StoneCard>
       child: Container(
         decoration: BoxDecoration(
           // 使用情绪色彩的卡片背景
-          color: moodConfig.cardColor.withOpacity(0.95),
+          color: moodConfig.cardColor.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(24),
           // 使用情绪主色作为边框
           border: Border.all(
-              color: moodConfig.primary.withOpacity(0.6), width: 2.5),
+              color: moodConfig.primary.withValues(alpha: 0.6), width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: moodConfig.primary.withOpacity(0.15),
+              color: moodConfig.primary.withValues(alpha: 0.15),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -832,13 +832,13 @@ class _StoneCardState extends State<StoneCard>
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              moodConfig.primary.withOpacity(0.7),
+                              moodConfig.primary.withValues(alpha: 0.7),
                               moodConfig.primary,
                             ],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: moodConfig.primary.withOpacity(0.4),
+                              color: moodConfig.primary.withValues(alpha: 0.4),
                               blurRadius: 8,
                               offset: const Offset(2, 2),
                             )
@@ -872,7 +872,7 @@ class _StoneCardState extends State<StoneCard>
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: moodConfig.primary.withOpacity(0.15),
+                                color: moodConfig.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -907,7 +907,7 @@ class _StoneCardState extends State<StoneCard>
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       // 使用情绪色彩的浅色背景
-                      color: moodConfig.lakeColor.withOpacity(0.1),
+                      color: moodConfig.lakeColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
@@ -936,9 +936,9 @@ class _StoneCardState extends State<StoneCard>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: moodConfig.primary.withOpacity(0.1),
+                            color: moodConfig.primary.withValues(alpha: 0.1),
                             border: Border.all(
-                                color: moodConfig.primary.withOpacity(0.5)),
+                                color: moodConfig.primary.withValues(alpha: 0.5)),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -995,10 +995,10 @@ class _StoneCardState extends State<StoneCard>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: moodConfig.primary.withOpacity(isActive ? 0.2 : 0.08),
+          color: moodConfig.primary.withValues(alpha: isActive ? 0.2 : 0.08),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: moodConfig.primary.withOpacity(isActive ? 0.5 : 0.2),
+            color: moodConfig.primary.withValues(alpha: isActive ? 0.5 : 0.2),
             width: 1,
           ),
         ),

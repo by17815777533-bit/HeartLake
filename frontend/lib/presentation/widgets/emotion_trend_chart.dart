@@ -100,7 +100,7 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -121,7 +121,7 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -240,8 +240,8 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
             show: true,
             gradient: LinearGradient(
               colors: [
-                AppTheme.lakeSurface.withOpacity(0.25),
-                AppTheme.secondaryColor.withOpacity(0.08),
+                AppTheme.lakeSurface.withValues(alpha: 0.25),
+                AppTheme.secondaryColor.withValues(alpha: 0.08),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -373,10 +373,10 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: moodConfig.primary.withOpacity(0.1),
+                  color: moodConfig.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: moodConfig.primary.withOpacity(0.3),
+                    color: moodConfig.primary.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -459,7 +459,7 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
@@ -507,7 +507,7 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.primaryColor.withOpacity(0.05), Colors.white],
+          colors: [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.white],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -515,7 +515,7 @@ class _EmotionTrendChartState extends State<EmotionTrendChart> {
       ),
       child: Column(
         children: [
-          Icon(Icons.spa_outlined, size: 56, color: AppTheme.primaryColor.withOpacity(0.6)),
+          Icon(Icons.spa_outlined, size: 56, color: AppTheme.primaryColor.withValues(alpha: 0.6)),
           const SizedBox(height: 16),
           Text('心湖正在等待你的故事', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),

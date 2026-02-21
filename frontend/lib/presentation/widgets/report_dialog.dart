@@ -93,10 +93,13 @@ class _ReportDialogState extends State<ReportDialog> {
             ),
             const SizedBox(height: 12),
             ..._reportReasons.entries.map((entry) {
+              // ignore: deprecated_member_use
               return RadioListTile<String>(
                 title: Text(entry.value),
                 value: entry.key,
+                // ignore: deprecated_member_use
                 groupValue: _selectedReason,
+                // ignore: deprecated_member_use
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => _selectedReason = value);

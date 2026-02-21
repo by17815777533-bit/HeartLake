@@ -20,6 +20,11 @@ class _GuardianScreenState extends State<GuardianScreen>
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
 
+  // 情感洞察
+  Map<String, dynamic>? _insights;
+  bool _insightsLoading = true;
+  String? _insightsError;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +39,7 @@ class _GuardianScreenState extends State<GuardianScreen>
       CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
     );
     _loadStats();
+    _loadInsights();
   }
 
   @override
@@ -50,6 +56,193 @@ class _GuardianScreenState extends State<GuardianScreen>
     } catch (e) {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadInsights() async {
+    try {
+      final insights = await _service.getEmotionInsights();
+      if (mounted) {
+        setState(() {
+          _insights = insights;
+          _insightsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _insightsLoading = false;
+          _insightsError = '加载情感洞察失败';
+        });
+      }
+    }
+  }
+
+  Widget _buildInsightsCard() {
+    return Card(
+      color: Colors.white.withValues(alpha: 0.95),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.purpleColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.psychology, color: AppTheme.purpleColor),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '情感洞察',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (!_insightsLoading && _insightsError == null)
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20, color: Colors.grey),
+                    onPressed: () {
+                      setState(() {
+                        _insightsLoading = true;
+                        _insightsError = null;
+                      });
+                      _loadInsights();
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_insightsLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.purpleColor),
+                  ),
+                ),
+              )
+            else if (_insightsError != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.grey, size: 32),
+                      const SizedBox(height: 8),
+                      Text(_insightsError!, style: const TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _insightsLoading = true;
+                            _insightsError = null;
+                          });
+                          _loadInsights();
+                        },
+                        child: const Text('重试'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_insights != null)
+              ..._buildInsightsContent(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildInsightsContent() {
+    final List<Widget> widgets = [];
+
+    // 情感趋势
+    final trend = _insights!['emotion_trend'] ?? _insights!['trend'];
+    if (trend != null) {
+      widgets.add(
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.skyBlue.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.trending_up, color: AppTheme.skyBlue, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$trend',
+                  style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      widgets.add(const SizedBox(height: 12));
+    }
+
+    // 情感摘要
+    final summary = _insights!['summary'] ?? _insights!['emotion_summary'];
+    if (summary != null) {
+      widgets.add(
+        Text(
+          '$summary',
+          style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary, height: 1.5),
+        ),
+      );
+      widgets.add(const SizedBox(height: 12));
+    }
+
+    // 建议列表
+    final suggestions = _insights!['suggestions'] ?? _insights!['advice'];
+    if (suggestions is List && suggestions.isNotEmpty) {
+      for (final suggestion in suggestions) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.lightbulb_outline, size: 18, color: AppTheme.accentColor),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '$suggestion',
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    // 如果没有任何内容，显示默认提示
+    if (widgets.isEmpty) {
+      widgets.add(
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('暂无洞察数据', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
   }
 
   Future<void> _showTransferDialog() async {
@@ -121,7 +314,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                         padding: const EdgeInsets.all(16),
                         children: [
                           Card(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: Padding(
                               padding: const EdgeInsets.all(20),
@@ -153,8 +346,10 @@ class _GuardianScreenState extends State<GuardianScreen>
                               _StatCard(label: '温暖纸船', value: '${_stats!['warm_boats'] ?? 0}'),
                             ],
                           ),
+                          const SizedBox(height: 16),
+                          // 情感洞察卡片
+                          _buildInsightsCard(),
                           const SizedBox(height: 24),
-                          // 灯火转赠按钮
                           if (_stats!['is_guardian'] == true)
                             ElevatedButton.icon(
                               onPressed: _showTransferDialog,
@@ -170,12 +365,12 @@ class _GuardianScreenState extends State<GuardianScreen>
                           const SizedBox(height: 16),
                           // 湖神入口
                           Card(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             child: ListTile(
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: AppTheme.skyBlue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                decoration: BoxDecoration(color: AppTheme.skyBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                                 child: const Icon(Icons.auto_awesome, color: AppTheme.skyBlue),
                               ),
                               title: const Text('与湖神对话', style: TextStyle(fontWeight: FontWeight.bold)),

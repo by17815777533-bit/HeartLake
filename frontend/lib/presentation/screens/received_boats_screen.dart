@@ -134,7 +134,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.1), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
           ),
         ),
         child: RefreshIndicator(
@@ -187,7 +187,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                             side: BorderSide(
-                              color: Colors.blue.withOpacity(0.3),
+                              color: Colors.blue.withValues(alpha: 0.3),
                               width: 2,
                             ),
                           ),

@@ -8,9 +8,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'home_screen.dart';
+import 'onboarding_screen.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -83,9 +85,24 @@ class _SplashScreenState extends State<SplashScreen>
     }
     if (!mounted) return;
 
+    // 首次启动显示引导页
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstLaunch = prefs.getString('onboarding_done') == null;
+    if (!mounted) return;
+
+    final targetScreen = isFirstLaunch
+        ? OnboardingScreen(onComplete: () async {
+            await prefs.setString('onboarding_done', 'true');
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          })
+        : const HomeScreen() as Widget;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -116,13 +133,13 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.5), width: 2),
+                            color: Colors.white.withValues(alpha: 0.5), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.2),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.2),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           )
@@ -143,7 +160,7 @@ class _SplashScreenState extends State<SplashScreen>
                         letterSpacing: 4,
                         shadows: [
                           Shadow(
-                              color: AppTheme.heavyStone.withOpacity(0.3),
+                              color: AppTheme.heavyStone.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 5))
                         ]),

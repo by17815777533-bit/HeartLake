@@ -197,14 +197,14 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF9DB2BF).withOpacity(0.8),
+                              const Color(0xFF9DB2BF).withValues(alpha: 0.8),
                               const Color(0xFFDDE6ED),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),

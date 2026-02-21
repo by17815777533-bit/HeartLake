@@ -7,7 +7,6 @@ import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
 import '../../emotion_effects/water_background.dart';
-import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 
 class PersonalizedScreen extends StatefulWidget {

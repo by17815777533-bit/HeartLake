@@ -36,7 +36,7 @@ class RecommendedStoneCard extends StatelessWidget {
       sentimentScore: recommendedStone.emotionScore,
       rippleCount: recommendedStone.rippleCount,
       boatCount: recommendedStone.boatCount,
-      createdAt: recommendedStone.createdAt,
+      createdAt: recommendedStone.createdAt ?? DateTime.now(),
       status: 'published',
       authorNickname: recommendedStone.authorName,
       tags: recommendedStone.tags ?? [],

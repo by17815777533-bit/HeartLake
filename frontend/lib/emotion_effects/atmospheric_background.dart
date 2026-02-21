@@ -205,7 +205,7 @@ class ParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final particle in particles) {
       final paint = Paint()
-        ..color = particle.color.withOpacity(particle.opacity)
+        ..color = particle.color.withValues(alpha: particle.opacity)
         ..style = PaintingStyle.fill;
 
       // 计算粒子位置（循环移动）
@@ -250,10 +250,10 @@ class FrostedGlassCard extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: borderRadius ?? BorderRadius.circular(16),
-        color: Colors.white.withOpacity(opacity),
+        color: Colors.white.withValues(alpha: opacity),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -290,7 +290,7 @@ class GlowEffect extends StatelessWidget {
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: glowColor.withOpacity(glowOpacity),
+            color: glowColor.withValues(alpha: glowOpacity),
             blurRadius: glowRadius,
             spreadRadius: glowRadius / 2,
           ),
@@ -415,7 +415,7 @@ class _RipplePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(scene == LakeScene.reflection ? 0.08 : 0.12)
+      ..color = Colors.white.withValues(alpha: scene == LakeScene.reflection ? 0.08 : 0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -428,7 +428,7 @@ class _RipplePainter extends CustomPainter {
           width: radius * 2,
           height: radius * 0.3,
         ),
-        paint..color = paint.color.withOpacity((1 - (animation + i * 0.33) % 1.0) * 0.12),
+        paint..color = paint.color.withValues(alpha: (1 - (animation + i * 0.33) % 1.0) * 0.12),
       );
     }
   }
@@ -512,7 +512,7 @@ class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     final path = Path();

@@ -189,7 +189,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               children: [
                 // 临时好友入口
                 Card(
-                  color: Colors.white.withOpacity(0.95),
+                  color: Colors.white.withValues(alpha: 0.95),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(color: Colors.orange, width: 1.5),
@@ -216,7 +216,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
                 // 好友请求
                 Card(
-                  color: Colors.white.withOpacity(0.95),
+                  color: Colors.white.withValues(alpha: 0.95),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(
@@ -263,7 +263,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在寻找温暖的连接...', style: TextStyle(color: Colors.white.withOpacity(0.8)))]),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在寻找温暖的连接...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))]),
                     ),
                   )
                 else if (_friends.isEmpty)
@@ -275,14 +275,14 @@ class _FriendsScreenState extends State<FriendsScreen>
                         Icon(
                           Icons.people_outline,
                           size: 80,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           '还没有好友，来寻找志同道合的人吧',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -313,10 +313,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                       },
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 8),
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.skyBlue.withOpacity(0.2),
+                            backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),
                             child: Text(
                               (friend['nickname']?.toString().isNotEmpty == true)
                                   ? friend['nickname'].toString().substring(0, 1)
@@ -509,7 +509,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withOpacity(0.08), Colors.white],
+            colors: [AppTheme.skyBlue.withValues(alpha: 0.08), Colors.white],
           ),
         ),
         child: _isLoading
@@ -541,7 +541,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                               children: [
                                 CircleAvatar(
                                   backgroundColor:
-                                      AppTheme.skyBlue.withOpacity(0.2),
+                                      AppTheme.skyBlue.withValues(alpha: 0.2),
                                   child: Text(
                                     (request['nickname']?.toString().isNotEmpty == true)
                                         ? request['nickname'].toString().substring(0, 1)

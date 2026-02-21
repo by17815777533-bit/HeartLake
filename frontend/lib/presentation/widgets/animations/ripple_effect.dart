@@ -125,7 +125,7 @@ class _RipplePainter extends CustomPainter {
       final radius = maxRadius * Curves.easeOutQuart.transform(lifeProgress);
       final opacity = (1.0 - Curves.easeInQuad.transform(lifeProgress)) * 0.3;
       final paint = Paint()
-        ..color = ripple.color.withOpacity(opacity)
+        ..color = ripple.color.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0 * (1.0 - lifeProgress) + 0.8;
 
@@ -244,7 +244,7 @@ class _ParticlePainter extends CustomPainter {
       canvas.drawCircle(
         Offset(x, y),
         p.size,
-        Paint()..color = color.withOpacity(opacity),
+        Paint()..color = color.withValues(alpha: opacity),
       );
     }
   }

@@ -110,8 +110,8 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer>
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: widget.isSelf
-                ? Colors.blue.withOpacity(0.3)
-                : Colors.grey.withOpacity(0.3),
+                ? Colors.blue.withValues(alpha: 0.3)
+                : Colors.grey.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
