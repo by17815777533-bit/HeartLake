@@ -242,6 +242,46 @@
       </el-col>
     </el-row>
 
+    <!-- AI 趋势分析 -->
+    <el-row :gutter="20" style="margin-bottom: 20px">
+      <el-col :xs="24" :sm="24" :md="14">
+        <el-card shadow="hover" class="chart-card ai-trends-card">
+          <template #header>
+            <div class="card-header">
+              <span>📈 AI 情绪趋势</span>
+              <el-tag size="small" type="info">近7天</el-tag>
+            </div>
+          </template>
+          <v-chart :option="emotionTrendsOption" autoresize style="height: 280px" />
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="10">
+        <el-card shadow="hover" class="chart-card ai-trending-card">
+          <template #header>
+            <div class="card-header">
+              <span>🔥 AI 热门内容</span>
+              <el-tag size="small" type="warning">推荐引擎</el-tag>
+            </div>
+          </template>
+          <div class="trending-content-list">
+            <div v-for="(item, i) in aiTrendingContent" :key="i" class="trending-item">
+              <span class="trending-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
+              <div class="trending-info">
+                <span class="trending-title">{{ item.title || item.content || item.text || '未知内容' }}</span>
+                <div class="trending-meta">
+                  <el-tag v-if="item.emotion || item.mood" size="small" :type="(item.emotion || item.mood) === 'positive' ? 'success' : (item.emotion || item.mood) === 'negative' ? 'danger' : 'info'">
+                    {{ item.emotion || item.mood || '中性' }}
+                  </el-tag>
+                  <span v-if="item.score != null" class="trending-score">匹配度 {{ (item.score * 100).toFixed(0) }}%</span>
+                </div>
+              </div>
+            </div>
+            <el-empty v-if="!aiTrendingContent.length" description="暂无推荐数据" :image-size="60" />
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
   </div>
 </template>
 
@@ -1050,6 +1090,71 @@ onUnmounted(() => {
           margin-top: 6px;
           font-size: 11px;
           color: #9AA0A6;
+        }
+      }
+    }
+  }
+
+  // AI 趋势卡片
+  .ai-trends-card, .ai-trending-card {
+    .trending-content-list {
+      max-height: 320px;
+      overflow-y: auto;
+
+      .trending-item {
+        display: flex;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f3f4;
+
+        &:last-child { border-bottom: none; }
+
+        .trending-rank {
+          flex-shrink: 0;
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          background: #f1f3f4;
+          color: #5f6368;
+          font-size: 12px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 12px;
+          margin-top: 2px;
+
+          &.top {
+            background: linear-gradient(135deg, #FBBC04, #F9AB00);
+            color: #fff;
+          }
+        }
+
+        .trending-info {
+          flex: 1;
+          min-width: 0;
+
+          .trending-title {
+            display: block;
+            font-size: 13px;
+            color: #202124;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .trending-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+
+            .trending-score {
+              font-size: 11px;
+              color: #9AA0A6;
+            }
+          }
         }
       }
     }
