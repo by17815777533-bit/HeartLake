@@ -11,9 +11,8 @@ import '../../data/datasources/api_client.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../widgets/stone_card.dart';
-import '../widgets/water_background.dart';
-import '../widgets/animations/ripple_effect.dart';
-import '../widgets/animations/staggered_list.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 import '../widgets/status_view.dart';
 import 'notification_screen.dart';
 import 'stone_detail_screen.dart';
@@ -417,8 +416,9 @@ class LakeScreenState extends State<LakeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
+    return SkyScaffold(
+      showWater: true,
+      showParticles: true,
       appBar: AppBar(
         title: const Text('心湖',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -510,39 +510,23 @@ class LakeScreenState extends State<LakeScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // 动态水面背景
-          const Positioned.fill(child: WaterBackground()),
-
-          // 浮动粒子增强氛围
-          Positioned.fill(
-            child: IgnorePointer(
-              child: FloatingParticles(
-                count: 12,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-
-          // 内容区域
-          _buildContent(),
-        ],
+      body: SafeArea(
+        child: _buildContent(),
       ),
     );
   }
 
   Widget _buildContent() {
-    // 1. 只有在没有生据且正在加载时，显示全屏Loading
+    // 1. 只有在没有数据且正在加载时，显示全屏Loading
     if (_stones.isEmpty && _isLoading) {
       return const StatusView(type: StatusType.loading, loadingMessage: '正在倾听湖面的声音...');
     }
 
-    // 2. 只有在没有数据且出错时，显示错状态
+    // 2. 只有在没有数据且出错时，显示错误状态
     if (_stones.isEmpty && _errorMessage != null) {
       return StatusView(
         type: StatusType.error,
-        errorMessage: _errorMessage, // 可选：显示具体错误信息
+        errorMessage: _errorMessage,
         onRetry: () => _loadStones(refresh: true),
       );
     }
@@ -551,19 +535,19 @@ class LakeScreenState extends State<LakeScreen> {
     if (_stones.isEmpty) {
       return StatusView(
         type: StatusType.empty,
-        onRetry: () => _loadStones(refresh: true), // 空状态也可以点击刷新
+        onRetry: () => _loadStones(refresh: true),
       );
     }
 
     // 4. 有数据，显示列表（带下拉刷新）
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: Colors.blue[900],
-      backgroundColor: Colors.white,
+      color: AppTheme.warmOrange,
+      backgroundColor: Colors.white.withValues(alpha: 0.9),
       child: ListView.builder(
         controller: _scrollController,
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+        padding: const EdgeInsets.only(
+          top: 16,
           bottom: 20,
           left: 16,
           right: 16,
@@ -587,27 +571,24 @@ class LakeScreenState extends State<LakeScreen> {
                 ? const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(
-                        child: CircularProgressIndicator(color: Colors.white)),
+                        child: CircularProgressIndicator(color: AppTheme.warmOrange)),
                   )
                 : const SizedBox(height: 50);
           }
 
-          return StaggeredListItem(
-            index: stoneIndex,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: StoneCard(
-                key: ValueKey(_stones[stoneIndex].stoneId),
-                stone: _stones[stoneIndex],
-                onRippleSuccess: () {
-                  _loadStones(refresh: true);
-                },
-                onDeleted: () {
-                  setState(() {
-                    _stones.removeAt(stoneIndex);
-                  });
-                },
-              ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: StoneCard(
+              key: ValueKey(_stones[stoneIndex].stoneId),
+              stone: _stones[stoneIndex],
+              onRippleSuccess: () {
+                _loadStones(refresh: true);
+              },
+              onDeleted: () {
+                setState(() {
+                  _stones.removeAt(stoneIndex);
+                });
+              },
             ),
           );
         },
@@ -621,132 +602,119 @@ class LakeScreenState extends State<LakeScreen> {
 
   /// 个性化推荐区域 - 光遇风格飘浮卡片
   Widget _buildPersonalizedSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 标题行
-        Row(
-          children: [
-            const Icon(Icons.auto_awesome, size: 16, color: Colors.white70),
-            const SizedBox(width: 6),
-            const Text(
-              '为你而来',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-                letterSpacing: 1,
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
-              ),
-              child: Text(
-                '更多',
+    return SkyGlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 16, color: Colors.white70),
+              const SizedBox(width: 6),
+              const Text(
+                '为你而来',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  letterSpacing: 1,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // 横向滚动推荐卡片
-        SizedBox(
-          height: 120,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _personalizedStones.length,
-            itemBuilder: (context, index) {
-              final item = _personalizedStones[index];
-              final content = item['content'] as String? ?? '';
-              final mood = item['mood_type'] as String? ?? 'neutral';
-              return GestureDetector(
-                onTap: () {
-                  try {
-                    final stone = Stone.fromJson(item);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StoneDetailScreen(stone: stone),
-                      ),
-                    );
-                  } catch (_) {}
-                },
-                child: Container(
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.15),
-                        Colors.white.withValues(alpha: 0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+                ),
+                child: Text(
+                  '查看更多',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.6),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        mood,
-                        style: const TextStyle(fontSize: 10, color: Colors.white54),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 推荐石头横向滚动
+          SizedBox(
+            height: 100,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _personalizedStones.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final item = _personalizedStones[index];
+                return GestureDetector(
+                  onTap: () {
+                    final stoneId = item['stone_id'] ?? '';
+                    if (stoneId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoneDetailScreen(stone: Stone.fromJson(item)),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
                       ),
-                      const SizedBox(height: 6),
-                      Expanded(
-                        child: Text(
-                          content,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['content'] ?? '',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.9),
                             height: 1.4,
-                            color: Colors.white.withValues(alpha: 0.85),
                           ),
                         ),
-                      ),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          '✨ AI',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.white.withValues(alpha: 0.4),
-                          ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Icon(Icons.favorite_border,
+                                size: 12,
+                                color: Colors.white.withValues(alpha: 0.4)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${item['score']?.toStringAsFixed(0) ?? '0'}%匹配',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white.withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        // 情绪星图入口
-        GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const EmotionTrendsScreen()),
-          ),
-          child: Container(
+          const SizedBox(height: 8),
+          // 情绪星图入口
+          SkyGlassCard(
+            borderRadius: 12,
+            blur: 8,
+            enableGlow: false,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EmotionTrendsScreen()),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -766,8 +734,8 @@ class LakeScreenState extends State<LakeScreen> {
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
