@@ -27,6 +27,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _reconnectedListener;
+  late void Function(Map<String, dynamic>) _boatUpdateListener;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   void dispose() {
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
+    _wsManager.off('boat_update', _boatUpdateListener);
     _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
@@ -66,6 +68,14 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
+
+    // 监听纸船更新（别人回复了我的纸船）
+    _boatUpdateListener = (data) {
+      if (!mounted) return;
+      // 有更新时刷新列表
+      _loadMyBoats();
+    };
+    _wsManager.on('boat_update', _boatUpdateListener);
 
     // 断线重连后自动刷新
     _reconnectedListener = (data) {

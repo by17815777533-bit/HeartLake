@@ -13,6 +13,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <future>
 #include <ctime>
 #include <json/json.h>
 #include <drogon/drogon.h>
@@ -53,16 +54,19 @@ public:
         Json::StreamWriterBuilder writer;
         req->setBody(Json::writeString(writer, body));
 
-        std::atomic<bool> done{false};
-        bool success = false;
+        std::promise<bool> promise;
+        auto future = promise.get_future();
 
-        client->sendRequest(req, [&](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
-            success = (result == drogon::ReqResult::Ok && resp && resp->statusCode() == drogon::k200OK);
-            done = true;
+        client->sendRequest(req, [&promise](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
+            promise.set_value(result == drogon::ReqResult::Ok && resp && resp->statusCode() == drogon::k200OK);
         });
 
-        while (!done) std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        return success;
+        // 带超时等待，避免永久阻塞
+        if (future.wait_for(std::chrono::seconds(5)) == std::future_status::ready) {
+            return future.get();
+        }
+        LOG_WARN << "NATS publish timeout for subject: " << subject;
+        return false;
     }
 
     void publishStoneEvent(const std::string& stoneId, const std::string& userId,

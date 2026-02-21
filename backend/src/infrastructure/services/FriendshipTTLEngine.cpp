@@ -144,11 +144,26 @@ void FriendshipTTLEngine::setExpirationCallback(ExpirationCallback callback) {
 }
 
 void FriendshipTTLEngine::startExpirationListener() {
-    // 使用轮询机制替代 Redis keyspace notifications
+    // 使用轮询机制检查过期的临时好友关系
     listenerThread_ = std::make_unique<std::thread>([this]() {
         while (running_) {
             std::this_thread::sleep_for(std::chrono::seconds(30));
-            // 轮询检查过期的友谊关系由数据库触发器处理
+            if (!running_) break;
+            try {
+                auto dbClient = drogon::app().getDbClient("default");
+                auto expired = dbClient->execSqlSync(
+                    "UPDATE temp_friends SET status = 'expired' "
+                    "WHERE status = 'active' AND expires_at < NOW() "
+                    "RETURNING temp_friend_id, user1_id, user2_id"
+                );
+                for (const auto& row : expired) {
+                    std::string friendshipId = row["temp_friend_id"].as<std::string>();
+                    processExpiredKey(friendshipId);
+                    LOG_INFO << "Temp friendship expired: " << friendshipId;
+                }
+            } catch (const std::exception& e) {
+                LOG_WARN << "TTL expiration check failed: " << e.what();
+            }
         }
     });
 }

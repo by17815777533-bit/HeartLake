@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_config.dart';
+import 'cache_service.dart';
 
 class WebSocketManager {
   static final WebSocketManager _instance = WebSocketManager._internal();
@@ -59,6 +60,9 @@ class WebSocketManager {
       // 标记为已连接（WebSocket 通道已建立）
       _isConnected = true;
       if (_reconnectAttempts > 0) {
+        // 重连后清除缓存，确保各Screen刷新时拿到最新数据
+        CacheService().removeByPrefix('stones_');
+        CacheService().removeByPrefix('stone_');
         _emit('reconnected', {'type': 'reconnected'});
       }
       _reconnectAttempts = 0;
