@@ -745,8 +745,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ),
           ),
         ),
-      ), // 添加闭合WillPopScope的child
-    ); // 添加闭合WillPopScope
+      ), // PopScope
   }
 
   Widget _buildInteractionButton({
