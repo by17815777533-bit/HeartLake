@@ -11,8 +11,30 @@
 #include <ctime>
 #include <chrono>
 #include <random>
+#include <set>
 
 namespace fs = std::filesystem;
+
+// 转义 shell 单引号：将 ' 替换为 '\''
+static std::string shellEscape(const std::string& s) {
+    std::string result = "'";
+    for (char c : s) {
+        if (c == '\'') {
+            result += "'\\''";
+        } else {
+            result += c;
+        }
+    }
+    result += "'";
+    return result;
+}
+
+// 验证路径不包含路径遍历
+static bool isPathSafe(const std::string& path) {
+    if (path.find("..") != std::string::npos) return false;
+    if (path.find('\0') != std::string::npos) return false;
+    return true;
+}
 using namespace heartlake::services;
 
 MediaService& MediaService::getInstance() {
@@ -331,11 +353,20 @@ bool MediaService::deleteMedia(const std::string& media_id, const std::string& u
 
 std::string MediaService::compressImage(const std::string& input_path,
                                        int max_width, int quality) {
+    // 安全检查
+    if (!isPathSafe(input_path)) {
+        LOG_WARN << "compressImage: unsafe path rejected: " << input_path;
+        return input_path;
+    }
     // 检查输入文件是否存在
     if (!fs::exists(input_path)) {
         LOG_WARN << "compressImage: input file not found: " << input_path;
         return input_path;
     }
+
+    // 参数范围限制
+    max_width = std::clamp(max_width, 100, 7680);
+    quality = std::clamp(quality, 1, 100);
 
     // 构造输出路径：在文件名后加 _compressed
     fs::path p(input_path);
@@ -354,13 +385,12 @@ std::string MediaService::compressImage(const std::string& input_path,
         return input_path;
     }
 
-    // 构造命令：resize 到最大宽度，设置 JPEG quality
-    // -resize WIDTHx> 表示只缩小不放大，且只限制宽度
+    // 构造命令：使用 shellEscape 防止命令注入
     std::string cmd = magick_cmd + " "
-        + "'" + input_path + "'"
+        + shellEscape(input_path)
         + " -resize " + std::to_string(max_width) + "x\\>"
         + " -quality " + std::to_string(quality)
-        + " '" + output_path.string() + "'"
+        + " " + shellEscape(output_path.string())
         + " 2>&1";
 
     LOG_INFO << "compressImage: executing: " << cmd;
@@ -396,11 +426,19 @@ std::string MediaService::compressImage(const std::string& input_path,
 }
 
 std::string MediaService::compressVideo(const std::string& input_path, int max_bitrate) {
+    // 安全检查
+    if (!isPathSafe(input_path)) {
+        LOG_WARN << "compressVideo: unsafe path rejected: " << input_path;
+        return input_path;
+    }
     // 检查输入文件是否存在
     if (!fs::exists(input_path)) {
         LOG_WARN << "compressVideo: input file not found: " << input_path;
         return input_path;
     }
+
+    // 参数范围限制
+    max_bitrate = std::clamp(max_bitrate, 100, 50000);
 
     // 检测 FFmpeg 是否可用
     if (std::system("which ffmpeg > /dev/null 2>&1") != 0) {
@@ -414,19 +452,15 @@ std::string MediaService::compressVideo(const std::string& input_path, int max_b
     std::string ext = p.extension().string();
     fs::path output_path = p.parent_path() / (stem + "_compressed" + ext);
 
-    // H.264 编码，CRF 23，最大 720p，限制码率
-    // -vf scale=-2:720 保持宽高比缩放到720p（-2确保宽度为偶数）
-    // -crf 23 恒定质量因子
-    // -maxrate + -bufsize 限制最大码率
     std::string cmd = "ffmpeg -y -i"
-        " '" + input_path + "'"
+        " " + shellEscape(input_path) +
         " -c:v libx264 -preset medium -crf 23"
         " -vf 'scale=-2:min(720\\,ih)'"
         " -maxrate " + std::to_string(max_bitrate) + "k"
         " -bufsize " + std::to_string(max_bitrate * 2) + "k"
         " -c:a aac -b:a 128k"
         " -movflags +faststart"
-        " '" + output_path.string() + "'"
+        " " + shellEscape(output_path.string()) +
         " 2>&1";
 
     LOG_INFO << "compressVideo: executing: " << cmd;
@@ -463,6 +497,17 @@ std::string MediaService::compressVideo(const std::string& input_path, int max_b
 
 std::string MediaService::convertAudio(const std::string& input_path,
                                       const std::string& output_format) {
+    // 安全检查
+    if (!isPathSafe(input_path)) {
+        LOG_WARN << "convertAudio: unsafe path rejected: " << input_path;
+        return input_path;
+    }
+    // 验证 output_format 只允许白名单格式
+    static const std::set<std::string> allowed_formats = {"mp3", "aac", "m4a", "ogg", "wav", "flac"};
+    if (allowed_formats.find(output_format) == allowed_formats.end()) {
+        LOG_WARN << "convertAudio: unsupported format rejected: " << output_format;
+        return input_path;
+    }
     // 检查输入文件是否存在
     if (!fs::exists(input_path)) {
         LOG_WARN << "convertAudio: input file not found: " << input_path;
@@ -481,7 +526,6 @@ std::string MediaService::convertAudio(const std::string& input_path,
     std::string target_ext = "." + output_format;
     fs::path output_path = p.parent_path() / (stem + "_compressed" + target_ext);
 
-    // AAC 编码，128kbps
     // 根据输出格式选择编码器
     std::string audio_codec;
     if (output_format == "mp3") {
@@ -495,11 +539,11 @@ std::string MediaService::convertAudio(const std::string& input_path,
     }
 
     std::string cmd = "ffmpeg -y -i"
-        " '" + input_path + "'"
+        " " + shellEscape(input_path) +
         " -c:a " + audio_codec +
         " -b:a 128k"
         " -ar 44100"
-        " '" + output_path.string() + "'"
+        " " + shellEscape(output_path.string()) +
         " 2>&1";
 
     LOG_INFO << "convertAudio: executing: " << cmd;
