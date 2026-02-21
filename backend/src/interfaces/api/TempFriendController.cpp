@@ -40,8 +40,16 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             return;
         }
 
+        if (!jsonPtr->isMember("target_user_id") || (*jsonPtr)["target_user_id"].asString().empty()) {
+            Json::Value ret;
+            ret["code"] = 400;
+            ret["message"] = "缺少target_user_id参数";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            callback(resp);
+            return;
+        }
         auto targetUserId = (*jsonPtr)["target_user_id"].asString();
-        auto source = (*jsonPtr)["source"].asString(); // comment, boat, chat等
+        auto source = jsonPtr->isMember("source") ? (*jsonPtr)["source"].asString() : std::string("");
         auto sourceId = (*jsonPtr).get("source_id", "").asString();
         
         if (targetUserId.empty()) {
@@ -169,8 +177,9 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             friend_["source"] = row["source"].as<std::string>();
             friend_["created_at"] = row["created_at"].as<std::string>();
             friend_["expires_at"] = row["expires_at"].as<std::string>();
-            friend_["seconds_remaining"] = row["seconds_remaining"].as<int>();
-            friend_["hours_remaining"] = row["seconds_remaining"].as<int>() / 3600;
+            int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+            friend_["seconds_remaining"] = secRemaining;
+            friend_["hours_remaining"] = secRemaining / 3600;
             
             friends.append(friend_);
         }
@@ -230,8 +239,9 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         data["source"] = row["source"].as<std::string>();
         data["created_at"] = row["created_at"].as<std::string>();
         data["expires_at"] = row["expires_at"].as<std::string>();
-        data["seconds_remaining"] = row["seconds_remaining"].as<int>();
-        data["hours_remaining"] = row["seconds_remaining"].as<int>() / 3600;
+        int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+        data["seconds_remaining"] = secRemaining;
+        data["hours_remaining"] = secRemaining / 3600;
         data["upgraded_to_friend"] = row["upgraded_to_friend"].as<bool>();
         
         // 判断对方是谁
@@ -410,8 +420,9 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
             data["is_temp_friend"] = true;
             data["temp_friend_id"] = row["temp_friend_id"].as<std::string>();
             data["expires_at"] = row["expires_at"].as<std::string>();
-            data["seconds_remaining"] = row["seconds_remaining"].as<int>();
-            data["hours_remaining"] = row["seconds_remaining"].as<int>() / 3600;
+            int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+            data["seconds_remaining"] = secRemaining;
+            data["hours_remaining"] = secRemaining / 3600;
             ret["data"] = data;
         } else {
             Json::Value data;

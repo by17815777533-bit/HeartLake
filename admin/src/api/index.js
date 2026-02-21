@@ -126,4 +126,11 @@ export default {
   edgeAIVectorSearch: data => http.post('/edge-ai/vector-search', data),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
   updateEdgeAIConfig: data => http.put('/admin/edge-ai/config', data),
+  // AI Analysis
+  analyzeText: text => http.post('/edge-ai/analyze', { text }),
+  moderateText: text => http.post('/edge-ai/moderate', { text }),
+  // Recommendations
+  getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true }),
+  getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true }),
+  getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true }),
 }

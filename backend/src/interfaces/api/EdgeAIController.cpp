@@ -411,12 +411,54 @@ void EdgeAIController::updateAdminConfig(
             return;
         }
 
+        const auto& body = *jsonPtr;
+
         // 记录配置变更日志
-        LOG_INFO << "Admin updating EdgeAI config: " << jsonPtr->toStyledString();
+        LOG_INFO << "Admin updating EdgeAI config: " << body.toStyledString();
+
+        // 允许的运行时配置键（对应 EdgeAIEngine::initialize 支持的参数）
+        static const std::vector<std::string> allowedKeys = {
+            "hnsw_m", "hnsw_ef_construction", "hnsw_ef_search",
+            "dp_epsilon", "dp_delta",
+            "pulse_window_seconds", "quantization_bits"
+        };
+
+        // 过滤并验证配置项
+        Json::Value engineConfig;
+        Json::Value appliedKeys(Json::arrayValue);
+        Json::Value ignoredKeys(Json::arrayValue);
+
+        for (const auto& key : body.getMemberNames()) {
+            bool allowed = false;
+            for (const auto& ak : allowedKeys) {
+                if (key == ak) { allowed = true; break; }
+            }
+            if (allowed) {
+                engineConfig[key] = body[key];
+                appliedKeys.append(key);
+            } else {
+                ignoredKeys.append(key);
+            }
+        }
+
+        if (appliedKeys.empty()) {
+            callback(ResponseUtil::badRequest(
+                "没有可应用的配置项，支持的键: hnsw_m, hnsw_ef_construction, "
+                "hnsw_ef_search, dp_epsilon, dp_delta, pulse_window_seconds, quantization_bits"));
+            return;
+        }
+
+        // 应用配置到引擎（重新初始化受影响的子系统）
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        engine.initialize(engineConfig);
 
         Json::Value data;
         data["status"] = "config_updated";
-        data["message"] = "配置已更新，部分配置需要重启服务生效";
+        data["applied_keys"] = appliedKeys;
+        if (!ignoredKeys.empty()) {
+            data["ignored_keys"] = ignoredKeys;
+        }
+        data["engine_enabled"] = engine.isEnabled();
 
         callback(ResponseUtil::success(data, "边缘AI配置更新成功"));
     } catch (const std::exception &e) {

@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../widgets/water_background.dart';
+import '../widgets/ai_content_preview.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../data/datasources/stone_service.dart';
@@ -22,6 +23,8 @@ class _PublishScreenState extends State<PublishScreen> {
   String _selectedColor = '#ADA59E';
   MoodType _selectedMood = MoodType.neutral; // 新增：选中的心情
   bool _isSubmitting = false;
+  String _contentText = '';
+  AIPreviewResult _aiPreviewResult = const AIPreviewResult();
 
   final Map<String, String> _stoneTypes = {
     'light': '轻石',
@@ -106,6 +109,9 @@ class _PublishScreenState extends State<PublishScreen> {
                           controller: _contentController,
                           maxLines: 6,
                           maxLength: 500,
+                          onChanged: (text) {
+                            setState(() => _contentText = text);
+                          },
                           decoration: const InputDecoration(
                             hintText: '说说你的心情吧...',
                             counterText: '',
@@ -115,6 +121,14 @@ class _PublishScreenState extends State<PublishScreen> {
                             fontSize: 16,
                             height: 1.5,
                           ),
+                        ),
+
+                        // AI内容审核预览
+                        AIContentPreview(
+                          text: _contentText,
+                          onResultChanged: (result) {
+                            setState(() => _aiPreviewResult = result);
+                          },
                         ),
 
                         const SizedBox(height: 16),
@@ -204,6 +218,7 @@ class _PublishScreenState extends State<PublishScreen> {
                         // 发布按钮
                         _PublishButton(
                           isSubmitting: _isSubmitting,
+                          canSubmit: _aiPreviewResult.canSubmit,
                           onPressed: _submitStone,
                           moodConfig: MoodColors.getConfig(_selectedMood),
                         ),
@@ -231,6 +246,16 @@ class _PublishScreenState extends State<PublishScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('请输入内容'),
+          backgroundColor: AppTheme.warningColor,
+        ),
+      );
+      return;
+    }
+
+    if (!_aiPreviewResult.canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_aiPreviewResult.message ?? '内容未通过审核，请修改后再试'),
           backgroundColor: AppTheme.warningColor,
         ),
       );
@@ -384,11 +409,13 @@ class _PublishScreenState extends State<PublishScreen> {
 
 class _PublishButton extends StatefulWidget {
   final bool isSubmitting;
+  final bool canSubmit;
   final VoidCallback onPressed;
   final MoodColorConfig moodConfig;
 
   const _PublishButton({
     required this.isSubmitting,
+    required this.canSubmit,
     required this.onPressed,
     required this.moodConfig,
   });
@@ -416,9 +443,11 @@ class _PublishButtonState extends State<_PublishButton> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
+    final disabled = widget.isSubmitting || !widget.canSubmit;
+
     return GestureDetector(
-      onTapDown: widget.isSubmitting ? null : (_) => _controller.forward(),
-      onTapUp: widget.isSubmitting ? null : (_) {
+      onTapDown: disabled ? null : (_) => _controller.forward(),
+      onTapUp: disabled ? null : (_) {
         _controller.reverse();
         widget.onPressed();
       },
@@ -432,17 +461,32 @@ class _PublishButtonState extends State<_PublishButton> with SingleTickerProvide
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [widget.moodConfig.primary, widget.moodConfig.primary.withValues(alpha: 0.8)],
+              colors: disabled
+                  ? [Colors.grey.shade400, Colors.grey.shade300]
+                  : [widget.moodConfig.primary, widget.moodConfig.primary.withValues(alpha: 0.8)],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: widget.moodConfig.primary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
+              BoxShadow(
+                color: disabled
+                    ? Colors.grey.withValues(alpha: 0.15)
+                    : widget.moodConfig.primary.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Center(
             child: widget.isSubmitting
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('投入湖中', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                : Text(
+                    '投入湖中',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: disabled ? Colors.white70 : Colors.white,
+                    ),
+                  ),
           ),
         ),
       ),

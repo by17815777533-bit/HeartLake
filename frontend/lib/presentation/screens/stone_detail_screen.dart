@@ -8,11 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/interaction_service.dart';
+import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
+import '../widgets/similar_stones_section.dart';
 
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -32,9 +34,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   int _localBoatsCount = 0;
   bool _hasInteraction = false; // 追踪是否有互动发生
   final InteractionService _interactionService = InteractionService();
+  final AIRecommendationService _aiService = AIRecommendationService();
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
   late WebSocketManager _wsManager;
+
+  // AI 相似推荐
+  List<Map<String, dynamic>> _similarStones = [];
+  bool _loadingSimilar = false;
 
   // 监听器引用，用于正确移除
   late void Function(Map<String, dynamic>) _rippleListener;
@@ -69,6 +76,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager = WebSocketManager();
     _loadCurrentUser();
     _loadBoats();
+    _loadSimilarStones();
+    _trackView();
     _setupWebSocketListener();
 
     // 初始化心形动画
@@ -234,6 +243,31 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// 加载 AI 相似石头推荐
+  Future<void> _loadSimilarStones() async {
+    setState(() => _loadingSimilar = true);
+    try {
+      final stones = await _aiService.getSimilarStones(widget.stone.stoneId);
+      if (mounted) {
+        setState(() {
+          _similarStones = stones;
+          _loadingSimilar = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingSimilar = false);
+    }
+  }
+
+  /// 记录浏览行为（用于推荐引擎学习）
+  Future<void> _trackView() async {
+    await _aiService.trackInteraction(
+      stoneId: widget.stone.stoneId,
+      interactionType: 'view',
+      reward: 0.3,
+    );
   }
 
   /// 发送涟漪（点赞）
@@ -636,6 +670,18 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                       ),
                     ),
                   ),
+                  // 相似石头推荐（AI共鸣推荐）
+                  SimilarStonesSection(
+                    stoneId: widget.stone.stoneId,
+                    onStoneTap: (stone) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoneDetailScreen(stone: stone),
+                        ),
+                      );
+                    },
+                  ),
                   // 评论标题
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -704,6 +750,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 },
                               ),
                   ),
+                  // AI 相似推荐
+                  if (_similarStones.isNotEmpty || _loadingSimilar)
+                    _buildSimilarStonesSection(moodConfig),
                   // 评论输入框
                   _buildCommentInput(moodConfig),
                 ],
@@ -912,6 +961,149 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// 相似石头推荐区域 - 类光遇风格：柔光半透明卡片
+  Widget _buildSimilarStonesSection(MoodColorConfig moodConfig) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行 - 柔光风格
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.auto_awesome, size: 14,
+                    color: Colors.white.withValues(alpha: 0.8)),
+              ),
+              const SizedBox(width: 8),
+              Text('相似的心声',
+                style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.7),
+                  letterSpacing: 1.2,
+                )),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: moodConfig.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('AI · 语义共鸣',
+                  style: TextStyle(fontSize: 9,
+                    color: Colors.white.withValues(alpha: 0.5))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // 横向滚动卡片列表
+          if (_loadingSimilar)
+            Center(child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 1.5,
+                  color: Colors.white.withValues(alpha: 0.4))),
+            ))
+          else
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _similarStones.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final stone = _similarStones[index];
+                  final content = stone['content'] as String? ?? '';
+                  final score = (stone['score'] as num?)?.toDouble() ?? 0;
+                  final mood = stone['mood_type'] as String? ?? 'neutral';
+                  final moodType = MoodColors.fromString(mood);
+                  final cardColor = MoodColors.getConfig(moodType).primary;
+                  return GestureDetector(
+                    onTap: () {
+                      // 记录点击交互
+                      final sid = stone['stone_id'] as String? ?? '';
+                      if (sid.isNotEmpty) {
+                        _aiService.trackInteraction(
+                          stoneId: sid,
+                          interactionType: 'click_similar',
+                          reward: 0.8,
+                        );
+                      }
+                      // 导航到详情
+                      try {
+                        final s = Stone.fromJson(stone);
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => StoneDetailScreen(stone: s),
+                        ));
+                      } catch (_) {}
+                    },
+                    child: Container(
+                      width: 160,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            cardColor.withValues(alpha: 0.15),
+                            Colors.white.withValues(alpha: 0.05),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 相似度指示
+                          Row(
+                            children: [
+                              Container(
+                                width: 6, height: 6,
+                                decoration: BoxDecoration(
+                                  color: cardColor.withValues(alpha: 0.8),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(
+                                    color: cardColor.withValues(alpha: 0.4),
+                                    blurRadius: 4)],
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text('${(score * 100).toInt()}% 共鸣',
+                                style: TextStyle(fontSize: 9,
+                                  color: Colors.white.withValues(alpha: 0.5))),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // 内容预览
+                          Expanded(
+                            child: Text(
+                              content.length > 50
+                                  ? '${content.substring(0, 50)}...' : content,
+                              style: TextStyle(
+                                fontSize: 12, height: 1.4,
+                                color: Colors.white.withValues(alpha: 0.7)),
+                              maxLines: 3, overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );

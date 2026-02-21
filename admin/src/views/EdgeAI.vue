@@ -318,6 +318,100 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- AI 工具箱 -->
+    <el-row :gutter="20" class="section-row">
+      <el-col :xs="24" :md="12">
+        <el-card shadow="hover" class="module-card">
+          <template #header>
+            <div class="card-header">
+              <span><el-icon><DataAnalysis /></el-icon> 情感分析测试</span>
+            </div>
+          </template>
+          <div class="ai-tool-panel">
+            <el-input
+              v-model="sentimentTool.text"
+              type="textarea"
+              :rows="3"
+              placeholder="输入文本，测试情感分析..."
+              maxlength="500"
+              show-word-limit
+            />
+            <el-button
+              type="primary"
+              @click="doSentimentAnalysis"
+              :loading="sentimentTool.loading"
+              :disabled="!sentimentTool.text.trim()"
+              style="margin-top: 12px"
+            >分析</el-button>
+            <div class="tool-result" v-if="sentimentTool.result">
+              <div class="result-item">
+                <span class="result-label">情感得分</span>
+                <el-progress
+                  :percentage="Math.round(sentimentTool.result.score * 100)"
+                  :color="sentimentTool.result.score >= 0.6 ? '#34A853' : sentimentTool.result.score >= 0.4 ? '#FBBC04' : '#EA4335'"
+                  :stroke-width="12"
+                />
+              </div>
+              <div class="result-item">
+                <span class="result-label">情绪类型</span>
+                <el-tag :type="sentimentTool.result.emotion === 'positive' ? 'success' : sentimentTool.result.emotion === 'negative' ? 'danger' : 'info'">
+                  {{ sentimentTool.result.emotion || '-' }}
+                </el-tag>
+              </div>
+              <div class="result-item">
+                <span class="result-label">置信度</span>
+                <span class="result-value">{{ ((sentimentTool.result.confidence ?? 0) * 100).toFixed(1) }}%</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :md="12">
+        <el-card shadow="hover" class="module-card">
+          <template #header>
+            <div class="card-header">
+              <span><el-icon><CircleCheck /></el-icon> 内容审核测试</span>
+            </div>
+          </template>
+          <div class="ai-tool-panel">
+            <el-input
+              v-model="moderationTool.text"
+              type="textarea"
+              :rows="3"
+              placeholder="输入文本，测试内容审核..."
+              maxlength="500"
+              show-word-limit
+            />
+            <el-button
+              type="primary"
+              @click="doContentModeration"
+              :loading="moderationTool.loading"
+              :disabled="!moderationTool.text.trim()"
+              style="margin-top: 12px"
+            >审核</el-button>
+            <div class="tool-result" v-if="moderationTool.result">
+              <div class="result-item">
+                <span class="result-label">审核结果</span>
+                <el-tag :type="moderationTool.result.pass ? 'success' : 'danger'" size="large">
+                  {{ moderationTool.result.pass ? '通过' : '未通过' }}
+                </el-tag>
+              </div>
+              <div class="result-item">
+                <span class="result-label">风险等级</span>
+                <el-tag :type="moderationTool.result.risk === 'low' ? 'success' : moderationTool.result.risk === 'medium' ? 'warning' : 'danger'">
+                  {{ { low: '低风险', medium: '中风险', high: '高风险' }[moderationTool.result.risk] || moderationTool.result.risk || '-' }}
+                </el-tag>
+              </div>
+              <div class="result-item" v-if="moderationTool.result.reason">
+                <span class="result-label">原因</span>
+                <span class="result-value reason-text">{{ moderationTool.result.reason }}</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -571,6 +665,10 @@ const edgeConfig = reactive({
 })
 const configSaving = ref(false)
 
+// AI 工具箱
+const sentimentTool = reactive({ text: '', loading: false, result: null })
+const moderationTool = reactive({ text: '', loading: false, result: null })
+
 // ========== 数据加载函数 ==========
 async function loadStatus() {
   try {
@@ -687,6 +785,44 @@ async function triggerAggregation() {
   }
 }
 
+async function doSentimentAnalysis() {
+  if (!sentimentTool.text.trim()) return
+  sentimentTool.loading = true
+  sentimentTool.result = null
+  try {
+    const { data } = await api.analyzeText(sentimentTool.text)
+    const r = data.data || data
+    sentimentTool.result = {
+      score: r.score ?? r.sentiment_score ?? 0,
+      emotion: r.emotion ?? r.sentiment ?? 'neutral',
+      confidence: r.confidence ?? r.conf ?? 0,
+    }
+  } catch {
+    sentimentTool.result = null
+  } finally {
+    sentimentTool.loading = false
+  }
+}
+
+async function doContentModeration() {
+  if (!moderationTool.text.trim()) return
+  moderationTool.loading = true
+  moderationTool.result = null
+  try {
+    const { data } = await api.moderateText(moderationTool.text)
+    const r = data.data || data
+    moderationTool.result = {
+      pass: r.pass ?? r.approved ?? true,
+      risk: r.risk ?? r.risk_level ?? 'low',
+      reason: r.reason ?? r.reject_reason ?? '',
+    }
+  } catch {
+    moderationTool.result = null
+  } finally {
+    moderationTool.loading = false
+  }
+}
+
 async function doVectorSearch() {
   if (!vectorSearch.query.trim()) return
   vectorSearch.searching = true
@@ -753,3 +889,49 @@ onUnmounted(() => {
   pulseTimer = null
 })
 </script>
+
+<style lang="scss" scoped>
+.ai-tool-panel {
+  .tool-result {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .result-label {
+        font-size: 13px;
+        color: #5f6368;
+        min-width: 80px;
+      }
+
+      .result-value {
+        font-size: 15px;
+        font-weight: 500;
+        color: #202124;
+
+        &.reason-text {
+          font-size: 13px;
+          font-weight: 400;
+          color: #EA4335;
+          text-align: right;
+          max-width: 200px;
+          word-break: break-all;
+        }
+      }
+
+      .el-progress {
+        flex: 1;
+        margin-left: 12px;
+      }
+    }
+  }
+}
+</style>

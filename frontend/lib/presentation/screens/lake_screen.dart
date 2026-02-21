@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/api_client.dart';
+import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../widgets/stone_card.dart';
 import '../widgets/water_background.dart';
@@ -15,6 +16,7 @@ import '../widgets/animations/ripple_effect.dart';
 import '../widgets/animations/staggered_list.dart';
 import '../widgets/status_view.dart';
 import 'notification_screen.dart';
+import 'stone_detail_screen.dart';
 import 'lake_god_chat_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
@@ -29,6 +31,7 @@ class LakeScreen extends StatefulWidget {
 
 class LakeScreenState extends State<LakeScreen> {
   final ApiClient _apiClient = ApiClient();
+  final AIRecommendationService _aiService = AIRecommendationService();
   List<Stone> _stones = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -37,6 +40,10 @@ class LakeScreenState extends State<LakeScreen> {
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final WebSocketManager _wsManager = WebSocketManager();
+
+  // 个性化推荐
+  List<Map<String, dynamic>> _personalizedStones = [];
+  bool _loadingPersonalized = true;
 
   // 监听器引用
   late void Function(Map<String, dynamic>) _newStoneListener;
@@ -52,6 +59,7 @@ class LakeScreenState extends State<LakeScreen> {
   void initState() {
     super.initState();
     _loadStones();
+    _loadPersonalizedRecommendations();
     _scrollController.addListener(_onScroll);
     _initWebSocket();
     _loadNotificationCount();
@@ -70,6 +78,23 @@ class LakeScreenState extends State<LakeScreen> {
           Provider.of<NotificationProvider>(context, listen: false);
       notificationProvider.loadUnreadCount();
     });
+  }
+
+  // 加载个性化推荐
+  Future<void> _loadPersonalizedRecommendations() async {
+    try {
+      final results = await _aiService.getPersonalizedRecommendations(limit: 6);
+      if (mounted) {
+        setState(() {
+          _personalizedStones = results;
+          _loadingPersonalized = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingPersonalized = false);
+      }
+    }
   }
 
   // 初始化 WebSocket 监听新石头
@@ -542,9 +567,19 @@ class LakeScreenState extends State<LakeScreen> {
           right: 16,
         ),
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _stones.length + (_hasMore ? 1 : 0),
+        itemCount: _stones.length + (_hasMore ? 1 : 0) + (_showRecommendationSection ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == _stones.length) {
+          // 推荐区域作为第一个 item
+          if (_showRecommendationSection && index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: _buildPersonalizedSection(),
+            );
+          }
+
+          final stoneIndex = _showRecommendationSection ? index - 1 : index;
+
+          if (stoneIndex == _stones.length) {
             // 底部加载更多指示器
             return _isLoadingMore
                 ? const Padding(
@@ -556,7 +591,7 @@ class LakeScreenState extends State<LakeScreen> {
           }
 
           return StaggeredListItem(
-            index: index,
+            index: stoneIndex,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: StoneCard(
