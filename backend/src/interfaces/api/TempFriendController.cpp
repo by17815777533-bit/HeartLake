@@ -299,11 +299,11 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
         try {
             // 创建永久好友关系
             auto friendshipId = drogon::utils::getUuid();
-            auto insertSql = "INSERT INTO friendships "
-                           "(friendship_id, user1_id, user2_id, requester_id, status) "
-                           "VALUES ($1, $2, $3, $4, 'accepted')";
+            auto insertSql = "INSERT INTO friends "
+                           "(friendship_id, user_id, friend_id, status, created_at) "
+                           "VALUES ($1, $2, $3, 'accepted', NOW())";
             
-            trans->execSqlSync(insertSql, friendshipId, user1, user2, currentUserId);
+            trans->execSqlSync(insertSql, friendshipId, user1, user2);
             
             // 更新临时好友状态
             auto updateSql = "UPDATE temp_friends "

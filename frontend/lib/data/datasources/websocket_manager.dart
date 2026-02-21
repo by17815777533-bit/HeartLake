@@ -57,6 +57,9 @@ class WebSocketManager {
 
       // 标记为已连接（WebSocket 通道已建立）
       _isConnected = true;
+      if (_reconnectAttempts > 0) {
+        _emit('reconnected', {'type': 'reconnected'});
+      }
       _reconnectAttempts = 0;
       _startHeartbeat();
       _flushQueue();
@@ -153,12 +156,20 @@ class WebSocketManager {
     }
   }
 
+  /// 公开重连方法：重置计数器并重新连接
+  Future<bool> reconnect() async {
+    disconnect();
+    _reconnectAttempts = 0;
+    return connect();
+  }
+
   void _scheduleReconnect() {
-    if (_reconnectAttempts >= _maxReconnectAttempts) return;
-    // 如果已有重连定时器在等待，不重复调度
     if (_reconnectTimer?.isActive == true) return;
     _reconnectAttempts++;
-    final delay = Duration(seconds: (1 << _reconnectAttempts).clamp(1, 30));
+    // 前10次指数退避，之后每60秒尝试一次
+    final delay = _reconnectAttempts <= _maxReconnectAttempts
+        ? Duration(seconds: (1 << _reconnectAttempts).clamp(1, 30))
+        : const Duration(seconds: 60);
     _reconnectTimer = Timer(delay, () async {
       await connect();
     });

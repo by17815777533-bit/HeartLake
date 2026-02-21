@@ -93,6 +93,7 @@ export default {
   unbanUser: userId => http.post(`/admin/users/${userId}/unban`),
   // Content
   getStones: params => http.get('/admin/stones', { params }),
+  getBoats: params => http.get('/admin/boats', { params }),
   deleteStone: (id, reason) => http.delete(`/admin/stones/${id}`, { data: { reason } }),
   deleteBoat: (id, reason) => http.delete(`/admin/boats/${id}`, { data: { reason } }),
   // Reports

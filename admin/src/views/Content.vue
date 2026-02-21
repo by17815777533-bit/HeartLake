@@ -139,16 +139,22 @@ const fetchContent = async () => {
     const params = {
       page: pagination.page,
       page_size: pagination.pageSize,
-      status: filters.status,
-      keyword: filters.keyword,
     }
-    // 根据类型筛选调用不同 API，或传递 type 参数
-    const res = await api.getStones({ ...params, type: filters.type || undefined })
-    // 兼容后端两种响应格式: {data: {stones, total}} 或 {stones, total}
+    if (filters.status) params.status = filters.status
+    if (filters.keyword) params.keyword = filters.keyword
+
+    let res
+    if (filters.type === 'boat') {
+      res = await api.getBoats(params)
+    } else {
+      res = await api.getStones(params)
+    }
+
     const resData = res.data?.data || res.data || {}
-    contentList.value = (resData.stones || resData.list || []).map(item => ({
+    const list = resData.stones || resData.boats || resData.list || []
+    contentList.value = list.map(item => ({
       id: item.stone_id || item.boat_id || item.id,
-      type: item.type || 'stone',
+      type: filters.type || item.type || 'stone',
       content: item.content,
       user: { nickname: item.author_nickname || item.nickname },
       status: item.status,

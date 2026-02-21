@@ -22,6 +22,7 @@
 #include "infrastructure/services/EmotionTrackingService.h"
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ArchitectureBootstrap.h"
+#include "interfaces/api/BroadcastWebSocketController.h"
 
 using namespace drogon;
 
@@ -395,6 +396,10 @@ int main(int argc, char *argv[]) {
             // 启动情绪追踪服务（72h负重者监测与关怀）
             LOG_INFO << "Starting Emotion Tracking Service...";
             heartlake::infrastructure::EmotionTrackingService::getInstance().start();
+
+            // 启动WebSocket心跳定时器，清理僵尸连接
+            LOG_INFO << "Starting WebSocket heartbeat timer...";
+            heartlake::controllers::BroadcastWebSocketController::startHeartbeatTimer();
 
             LOG_INFO << "All services initialized successfully";
         });

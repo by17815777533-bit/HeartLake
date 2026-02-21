@@ -75,6 +75,23 @@ void InteractionController::createRipple(
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::broadcast(broadcastMsg);
+
+            // 定向通知石头主人
+            auto stoneResult = dbClient->execSqlSync(
+                "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
+            if (!stoneResult.empty()) {
+                std::string stoneOwnerId = stoneResult[0]["user_id"].as<std::string>();
+                if (stoneOwnerId != userId) {  // 不通知自己
+                    Json::Value notifyMsg;
+                    notifyMsg["type"] = "new_notification";
+                    notifyMsg["notification_type"] = "ripple";
+                    notifyMsg["stone_id"] = stoneId;
+                    notifyMsg["from_user_id"] = userId;
+                    notifyMsg["ripple_count"] = rippleCount;
+                    notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+                    BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+                }
+            }
         }
 
         callback(ResponseUtil::success(result, "涟漪成功"));

@@ -73,7 +73,11 @@ public:
         std::shared_lock lock(mutex_);
         if (auto it = userConnections_.find(userId); it != userConnections_.end()) {
             for (const auto& conn : it->second) {
-                conn->send(message);
+                try {
+                    conn->send(message);
+                } catch (const std::exception& e) {
+                    LOG_WARN << "Failed to send to user " << userId << ": " << e.what();
+                }
             }
         }
     }
@@ -83,7 +87,13 @@ public:
         std::shared_lock lock(mutex_);
         if (auto it = rooms_.find(room); it != rooms_.end()) {
             for (const auto& conn : it->second) {
-                if (conn != exclude) conn->send(message);
+                if (conn != exclude) {
+                    try {
+                        conn->send(message);
+                    } catch (const std::exception& e) {
+                        LOG_WARN << "Failed to send to room " << room << ": " << e.what();
+                    }
+                }
             }
         }
     }
@@ -91,7 +101,11 @@ public:
     void broadcast(const std::string& message) {
         std::shared_lock lock(mutex_);
         for (const auto& [conn, _] : connections_) {
-            conn->send(message);
+            try {
+                conn->send(message);
+            } catch (const std::exception& e) {
+                LOG_WARN << "Failed to broadcast to connection: " << e.what();
+            }
         }
     }
 
@@ -128,7 +142,11 @@ public:
             ping["ts"] = static_cast<Json::Int64>(std::time(nullptr));
             auto msg = Json::FastWriter().write(ping);
             for (const auto& [conn, _] : connections_) {
-                conn->send(msg);
+                try {
+                    conn->send(msg);
+                } catch (const std::exception& e) {
+                    LOG_WARN << "Failed to send heartbeat: " << e.what();
+                }
             }
         });
     }
