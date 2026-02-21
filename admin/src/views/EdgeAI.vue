@@ -531,10 +531,10 @@ const emotionGaugeOption = computed(() => ({
       lineStyle: {
         width: 16,
         color: [
-          [0.3, '#4285F4'],
-          [0.5, '#34A853'],
-          [0.7, '#FBBC04'],
-          [1, '#EA4335'],
+          [0.3, '#1565C0'],
+          [0.5, '#2E7D32'],
+          [0.7, '#E65100'],
+          [1, '#C62828'],
         ],
       },
     },
@@ -547,8 +547,8 @@ const emotionGaugeOption = computed(() => ({
     },
     axisTick: { length: 8, lineStyle: { color: 'auto', width: 1.5 } },
     splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.5 } },
-    axisLabel: { color: '#9AA0A6', fontSize: 10, distance: -40 },
-    title: { offsetCenter: [0, '75%'], fontSize: 13, color: '#5f6368' },
+    axisLabel: { color: '#44474E', fontSize: 10, distance: -40 },
+    title: { offsetCenter: [0, '75%'], fontSize: 13, color: '#44474E' },
     detail: {
       fontSize: 28,
       offsetCenter: [0, '45%'],
@@ -566,15 +566,15 @@ const emotionLineOption = computed(() => ({
   xAxis: {
     type: 'category',
     data: emotionPulse.timestamps,
-    axisLabel: { color: '#9AA0A6', fontSize: 10 },
-    axisLine: { lineStyle: { color: '#E8EAED' } },
+    axisLabel: { color: '#44474E', fontSize: 10 },
+    axisLine: { lineStyle: { color: '#C4C6CF' } },
   },
   yAxis: {
     type: 'value',
     min: 0,
     max: 100,
-    axisLabel: { color: '#9AA0A6', fontSize: 10 },
-    splitLine: { lineStyle: { color: '#F1F3F4' } },
+    axisLabel: { color: '#44474E', fontSize: 10 },
+    splitLine: { lineStyle: { color: '#C4C6CF' } },
   },
   series: [{
     type: 'line',
@@ -582,15 +582,15 @@ const emotionLineOption = computed(() => ({
     smooth: true,
     symbol: 'circle',
     symbolSize: 6,
-    lineStyle: { color: '#4285F4', width: 2 },
-    itemStyle: { color: '#4285F4' },
+    lineStyle: { color: '#1565C0', width: 2 },
+    itemStyle: { color: '#1565C0' },
     areaStyle: {
       color: {
         type: 'linear',
         x: 0, y: 0, x2: 0, y2: 1,
         colorStops: [
-          { offset: 0, color: 'rgba(66,133,244,0.25)' },
-          { offset: 1, color: 'rgba(66,133,244,0.02)' },
+          { offset: 0, color: 'rgba(21,101,192,0.25)' },
+          { offset: 1, color: 'rgba(21,101,192,0.02)' },
         ],
       },
     },
@@ -621,7 +621,7 @@ const privacy = reactive({
 
 const privacyPieOption = computed(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: ε={c} ({d}%)' },
-  legend: { bottom: 0, textStyle: { color: '#5f6368', fontSize: 11 } },
+  legend: { bottom: 0, textStyle: { color: '#44474E', fontSize: 11 } },
   series: [{
     type: 'pie',
     radius: ['40%', '65%'],
@@ -633,11 +633,11 @@ const privacyPieOption = computed(() => ({
     data: privacy.allocation.length > 0
       ? privacy.allocation
       : [
-          { value: 3, name: '情绪分析', itemStyle: { color: '#4285F4' } },
-          { value: 2, name: '内容审核', itemStyle: { color: '#34A853' } },
-          { value: 2.5, name: '推荐系统', itemStyle: { color: '#FBBC04' } },
-          { value: 1.5, name: '向量搜索', itemStyle: { color: '#EA4335' } },
-          { value: 1, name: '预留', itemStyle: { color: '#9AA0A6' } },
+          { value: 3, name: '情绪分析', itemStyle: { color: '#1565C0' } },
+          { value: 2, name: '内容审核', itemStyle: { color: '#2E7D32' } },
+          { value: 2.5, name: '推荐系统', itemStyle: { color: '#E65100' } },
+          { value: 1.5, name: '向量搜索', itemStyle: { color: '#C62828' } },
+          { value: 1, name: '预留', itemStyle: { color: '#545F71' } },
         ],
   }],
 }))
@@ -1042,12 +1042,14 @@ onUnmounted(() => {
   margin-bottom: 24px;
 
   .chart-card {
-    @include glass-card;
+    background: var(--m3-surface-container);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-large);
     padding: 20px;
-    transition: all 0.3s ease;
+    transition: all var(--m3-motion-duration-medium2) var(--m3-motion-easing-standard);
 
     &:hover {
-      border-color: rgba($gold, 0.2);
+      border-color: var(--m3-outline);
     }
 
     .card-header {
@@ -1057,10 +1059,10 @@ onUnmounted(() => {
       margin-bottom: 16px;
       font-size: 15px;
       font-weight: 600;
-      color: $text-primary;
+      color: var(--m3-on-surface);
 
       span {
-        @include gold-gradient-text;
+        color: var(--m3-primary);
       }
     }
   }
@@ -1076,26 +1078,27 @@ onUnmounted(() => {
   margin-top: 16px;
 
   .metric-item {
-    @include glass-card;
+    background: var(--m3-surface-container-high);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-medium);
     padding: 14px 12px;
     text-align: center;
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
 
     &:hover {
-      border-color: rgba($gold, 0.25);
-      @include glow($gold, 10px);
+      border-color: var(--m3-primary);
+      background: var(--m3-surface-container-highest);
     }
 
     .metric-value {
       font-size: 20px;
       font-weight: 700;
-      @include gold-gradient-text;
+      color: var(--m3-primary);
     }
 
     .metric-label {
       font-size: 11px;
-      color: $text-secondary;
+      color: var(--m3-on-surface-variant);
       margin-top: 4px;
     }
   }
@@ -1131,20 +1134,21 @@ onUnmounted(() => {
     margin-bottom: 16px;
 
     .fed-stat-item {
-      @include glass-card;
+      background: var(--m3-surface-container-high);
+      border: 1px solid var(--m3-outline-variant);
+      border-radius: var(--m3-shape-corner-medium);
       padding: 14px;
       text-align: center;
-      border-radius: 12px;
 
       .fed-stat-value {
         font-size: 22px;
         font-weight: 700;
-        @include gold-gradient-text;
+        color: var(--m3-primary);
       }
 
       .fed-stat-label {
         font-size: 11px;
-        color: $text-secondary;
+        color: var(--m3-on-surface-variant);
         margin-top: 4px;
       }
     }
@@ -1157,7 +1161,7 @@ onUnmounted(() => {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
-      color: $text-secondary;
+      color: var(--m3-on-surface-variant);
       margin-bottom: 8px;
     }
   }
@@ -1185,12 +1189,12 @@ onUnmounted(() => {
       .epsilon {
         font-size: 36px;
         font-weight: 700;
-        @include gold-gradient-text;
+        color: var(--m3-primary);
       }
 
       .budget-hint {
         font-size: 11px;
-        color: $text-secondary;
+        color: var(--m3-on-surface-variant);
         margin-top: 2px;
       }
     }
@@ -1218,23 +1222,24 @@ onUnmounted(() => {
     gap: 10px;
 
     .search-result-item {
-      @include glass-card;
+      background: var(--m3-surface-container-high);
+      border: 1px solid var(--m3-outline-variant);
+      border-radius: var(--m3-shape-corner-medium);
       padding: 14px 16px;
-      border-radius: 12px;
       display: flex;
       align-items: center;
       gap: 14px;
-      transition: all 0.3s ease;
+      transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
 
       &:hover {
-        border-color: rgba($gold, 0.25);
-        @include glow($gold, 10px);
+        border-color: var(--m3-primary);
+        background: var(--m3-surface-container-highest);
       }
 
       .result-score {
         font-size: 18px;
         font-weight: 700;
-        @include gold-gradient-text;
+        color: var(--m3-primary);
         min-width: 50px;
         text-align: center;
       }
@@ -1242,7 +1247,7 @@ onUnmounted(() => {
       .result-content {
         flex: 1;
         font-size: 13px;
-        color: $text-primary;
+        color: var(--m3-on-surface);
         line-height: 1.5;
       }
     }
@@ -1253,7 +1258,9 @@ onUnmounted(() => {
 // 配置管理
 // ==========================================
 .module-card {
-  @include glass-card;
+  background: var(--m3-surface-container);
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: var(--m3-shape-corner-large);
   padding: 20px;
   margin-bottom: 16px;
 
@@ -1267,7 +1274,7 @@ onUnmounted(() => {
     gap: 10px;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid $card-border;
+    border-top: 1px solid var(--m3-outline-variant);
   }
 }
 
@@ -1278,8 +1285,9 @@ onUnmounted(() => {
   .tool-result {
     margin-top: 16px;
     padding: 16px;
-    @include glass-card;
-    border-radius: 12px;
+    background: var(--m3-surface-container-high);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-medium);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -1291,21 +1299,19 @@ onUnmounted(() => {
 
       .result-label {
         font-size: 13px;
-        color: $text-secondary;
+        color: var(--m3-on-surface-variant);
         min-width: 80px;
       }
 
       .result-value {
         font-size: 15px;
         font-weight: 600;
-        @include gold-gradient-text;
+        color: var(--m3-primary);
 
         &.reason-text {
           font-size: 13px;
           font-weight: 400;
-          background: none;
-          -webkit-text-fill-color: $sunset;
-          color: $sunset;
+          color: var(--m3-error);
           text-align: right;
           max-width: 200px;
           word-break: break-all;
@@ -1321,111 +1327,108 @@ onUnmounted(() => {
 }
 
 // ==========================================
-// Element Plus 组件覆盖 — 光遇主题
+// Element Plus 组件覆盖 — Material Design 3
 // ==========================================
 
-// el-card 毛玻璃
+// el-card
 :deep(.el-card) {
-  @include glass-card;
-  color: $text-primary;
+  background: var(--m3-surface-container);
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: var(--m3-shape-corner-large);
+  color: var(--m3-on-surface);
   --el-card-bg-color: transparent;
 
   .el-card__header {
-    border-bottom: 1px solid $card-border;
-    color: $text-primary;
+    border-bottom: 1px solid var(--m3-outline-variant);
+    color: var(--m3-on-surface);
     padding: 16px 20px;
     font-weight: 600;
   }
 
   .el-card__body {
-    color: $text-primary;
+    color: var(--m3-on-surface);
   }
 }
 
-// el-button 金色系
+// el-button
 :deep(.el-button) {
   --el-button-bg-color: transparent;
-  --el-button-border-color: rgba(242, 204, 143, 0.3);
-  --el-button-text-color: #{$text-primary};
-  --el-button-hover-bg-color: rgba(242, 204, 143, 0.1);
-  --el-button-hover-border-color: #{$gold};
-  --el-button-hover-text-color: #{$gold};
-  border-radius: 10px;
-  backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
-
-  &:hover {
-    @include glow($gold, 12px);
-  }
+  --el-button-border-color: var(--m3-outline);
+  --el-button-text-color: var(--m3-on-surface);
+  --el-button-hover-bg-color: var(--m3-surface-container-high);
+  --el-button-hover-border-color: var(--m3-primary);
+  --el-button-hover-text-color: var(--m3-primary);
+  border-radius: var(--m3-shape-corner-small);
+  transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
 }
 
 :deep(.el-button--primary) {
-  --el-button-bg-color: linear-gradient(135deg, #{$gold}, #{$amber});
-  background: linear-gradient(135deg, $gold, $amber) !important;
+  --el-button-bg-color: var(--m3-primary);
+  background: var(--m3-primary) !important;
   border: none !important;
-  color: $starry !important;
+  color: var(--m3-on-primary) !important;
   font-weight: 600;
 
   &:hover {
-    background: linear-gradient(135deg, lighten($gold, 5%), lighten($amber, 5%)) !important;
-    @include glow($gold, 16px);
+    background: var(--m3-primary-container) !important;
+    color: var(--m3-on-primary-container) !important;
   }
 }
 
 :deep(.el-button--success) {
-  --el-button-bg-color: rgba(76, 175, 80, 0.15);
-  border-color: rgba(76, 175, 80, 0.4) !important;
-  color: #81c784 !important;
+  --el-button-bg-color: var(--m3-success-container);
+  border-color: var(--m3-success) !important;
+  color: var(--m3-success) !important;
 
   &:hover {
-    background: rgba(76, 175, 80, 0.25) !important;
+    background: var(--m3-success-container) !important;
   }
 }
 
 :deep(.el-button--warning) {
-  --el-button-bg-color: rgba(242, 204, 143, 0.15);
-  border-color: rgba($gold, 0.4) !important;
-  color: $gold !important;
+  --el-button-bg-color: var(--m3-tertiary-container);
+  border-color: var(--m3-tertiary) !important;
+  color: var(--m3-tertiary) !important;
 
   &:hover {
-    background: rgba($gold, 0.25) !important;
+    background: var(--m3-tertiary-container) !important;
   }
 }
 
 :deep(.el-button--danger) {
-  --el-button-bg-color: rgba(224, 122, 95, 0.15);
-  border-color: rgba($sunset, 0.4) !important;
-  color: $sunset !important;
+  --el-button-bg-color: var(--m3-error-container);
+  border-color: var(--m3-error) !important;
+  color: var(--m3-error) !important;
 
   &:hover {
-    background: rgba($sunset, 0.25) !important;
+    background: var(--m3-error-container) !important;
   }
 }
 
-// el-input 暗色输入框
+// el-input
 :deep(.el-input) {
   .el-input__wrapper {
-    background: rgba(20, 20, 50, 0.6);
-    border: 1px solid $card-border;
-    border-radius: 10px;
+    background: var(--m3-surface-container-highest);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-small);
     box-shadow: none !important;
-    transition: all 0.3s ease;
+    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
 
     &:hover {
-      border-color: rgba($gold, 0.25);
+      border-color: var(--m3-outline);
     }
 
     &.is-focus {
-      border-color: rgba($gold, 0.5);
-      @include glow($gold, 8px);
+      border-color: var(--m3-primary);
     }
   }
 
   .el-input__inner {
-    color: $text-primary;
+    color: var(--m3-on-surface);
 
     &::placeholder {
-      color: rgba($text-secondary, 0.5);
+      color: var(--m3-on-surface-variant);
+      opacity: 0.6;
     }
   }
 }
@@ -1433,24 +1436,24 @@ onUnmounted(() => {
 // el-textarea
 :deep(.el-textarea) {
   .el-textarea__inner {
-    background: rgba(20, 20, 50, 0.6);
-    border: 1px solid $card-border;
-    border-radius: 10px;
-    color: $text-primary;
+    background: var(--m3-surface-container-highest);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-small);
+    color: var(--m3-on-surface);
     box-shadow: none !important;
-    transition: all 0.3s ease;
+    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
 
     &:hover {
-      border-color: rgba($gold, 0.25);
+      border-color: var(--m3-outline);
     }
 
     &:focus {
-      border-color: rgba($gold, 0.5);
-      @include glow($gold, 8px);
+      border-color: var(--m3-primary);
     }
 
     &::placeholder {
-      color: rgba($text-secondary, 0.5);
+      color: var(--m3-on-surface-variant);
+      opacity: 0.6;
     }
   }
 }
@@ -1458,179 +1461,161 @@ onUnmounted(() => {
 // el-select
 :deep(.el-select) {
   .el-select__wrapper {
-    background: rgba(20, 20, 50, 0.6) !important;
-    border: 1px solid $card-border;
-    border-radius: 10px;
+    background: var(--m3-surface-container-highest) !important;
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-small);
     box-shadow: none !important;
 
     &:hover {
-      border-color: rgba($gold, 0.25);
+      border-color: var(--m3-outline);
     }
   }
 
   .el-select__selected-item {
-    color: $text-primary;
+    color: var(--m3-on-surface);
   }
 
   .el-select__placeholder {
-    color: rgba($text-secondary, 0.5);
+    color: var(--m3-on-surface-variant);
+    opacity: 0.6;
   }
 }
 
 // el-input-number
 :deep(.el-input-number) {
   .el-input__wrapper {
-    background: rgba(20, 20, 50, 0.6);
-    border: 1px solid $card-border;
-    border-radius: 10px;
+    background: var(--m3-surface-container-highest);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-corner-small);
   }
 
   .el-input-number__decrease,
   .el-input-number__increase {
     background: transparent;
-    border-color: $card-border;
-    color: $text-secondary;
+    border-color: var(--m3-outline-variant);
+    color: var(--m3-on-surface-variant);
 
     &:hover {
-      color: $gold;
+      color: var(--m3-primary);
     }
   }
 }
 
 // el-switch
 :deep(.el-switch) {
-  --el-switch-on-color: #{$gold};
-  --el-switch-off-color: rgba(255, 255, 255, 0.1);
+  --el-switch-on-color: var(--m3-primary);
+  --el-switch-off-color: var(--m3-surface-container-highest);
 }
 
-// el-progress 金色进度条
+// el-progress
 :deep(.el-progress) {
   .el-progress-bar__outer {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
+    background: var(--m3-surface-container-highest);
+    border-radius: var(--m3-shape-corner-small);
   }
 
   .el-progress-bar__inner {
-    background: linear-gradient(90deg, $gold, $amber);
-    border-radius: 6px;
+    background: var(--m3-primary);
+    border-radius: var(--m3-shape-corner-small);
   }
 
   .el-progress__text {
-    color: $text-secondary;
+    color: var(--m3-on-surface-variant);
     font-size: 12px !important;
   }
 }
 
-// el-table 暗色表格
+// el-table
 :deep(.el-table) {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
-  --el-table-header-bg-color: rgba(20, 20, 50, 0.5);
-  --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
-  --el-table-border-color: #{$card-border};
-  --el-table-text-color: #{$text-primary};
-  --el-table-header-text-color: #{$text-secondary};
+  --el-table-header-bg-color: var(--m3-surface-container);
+  --el-table-row-hover-bg-color: var(--m3-surface-container-high);
+  --el-table-border-color: var(--m3-outline-variant);
+  --el-table-text-color: var(--m3-on-surface);
+  --el-table-header-text-color: var(--m3-on-surface-variant);
   background: transparent;
-  color: $text-primary;
+  color: var(--m3-on-surface);
 
   &::before {
     display: none;
   }
 
   th.el-table__cell {
-    background: rgba(20, 20, 50, 0.5) !important;
-    border-bottom: 1px solid $card-border !important;
+    background: var(--m3-surface-container) !important;
+    border-bottom: 1px solid var(--m3-outline-variant) !important;
     font-weight: 600;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: $text-secondary;
+    color: var(--m3-on-surface-variant);
   }
 
   td.el-table__cell {
-    border-bottom: 1px solid rgba($card-border, 0.5) !important;
+    border-bottom: 1px solid var(--m3-outline-variant) !important;
   }
 
   .el-table__body tr:hover > td {
-    background: rgba($gold, 0.04) !important;
+    background: var(--m3-surface-container-high) !important;
   }
 }
 
-// el-tag 标签
+// el-tag
 :deep(.el-tag) {
-  border-radius: 8px;
+  border-radius: var(--m3-shape-corner-small);
   border: none;
   font-size: 11px;
   font-weight: 500;
 }
 
 :deep(.el-tag--success) {
-  background: rgba(76, 175, 80, 0.15);
-  color: #81c784;
+  background: var(--m3-success-container);
+  color: var(--m3-success);
 }
 
 :deep(.el-tag--warning) {
-  background: rgba($gold, 0.15);
-  color: $gold;
+  background: var(--m3-tertiary-container);
+  color: var(--m3-tertiary);
 }
 
 :deep(.el-tag--danger) {
-  background: rgba($sunset, 0.15);
-  color: $sunset;
+  background: var(--m3-error-container);
+  color: var(--m3-error);
 }
 
 :deep(.el-tag--info) {
-  background: rgba($twilight, 0.2);
-  color: lighten($twilight, 20%);
+  background: var(--m3-secondary-container);
+  color: var(--m3-secondary);
 }
 
 // el-form
 :deep(.el-form) {
   .el-form-item__label {
-    color: $text-secondary;
+    color: var(--m3-on-surface-variant);
     font-size: 13px;
   }
 }
 
-// v-loading 覆盖
+// v-loading
 :deep(.el-loading-mask) {
-  background: rgba($starry, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 :deep(.el-loading-spinner) {
   .circular .path {
-    stroke: $gold;
+    stroke: var(--m3-primary);
   }
 
   .el-loading-text {
-    color: $text-secondary;
+    color: var(--m3-on-surface-variant);
   }
 }
 
 // el-empty
 :deep(.el-empty) {
   .el-empty__description p {
-    color: $text-secondary;
+    color: var(--m3-on-surface-variant);
   }
-}
-
-// ==========================================
-// 动画
-// ==========================================
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba($gold, 0.1); }
-  50% { box-shadow: 0 0 20px rgba($gold, 0.25); }
 }
 
 // ==========================================
@@ -1678,11 +1663,11 @@ onUnmounted(() => {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba($gold, 0.2);
+    background: var(--m3-outline-variant);
     border-radius: 3px;
 
     &:hover {
-      background: rgba($gold, 0.35);
+      background: var(--m3-outline);
     }
   }
 }

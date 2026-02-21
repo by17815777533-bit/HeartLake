@@ -131,21 +131,21 @@ describe('Dashboard API', () => {
 
   describe('隐私统计', () => {
     it('应正确获取隐私预算数据', async () => {
-      mock.onGet('/admin/stats/privacy').reply(200, privacyData)
+      mock.onGet('/edge-ai/privacy-budget').reply(200, privacyData)
       const res = await api.getPrivacyStats()
       expect(res.data.data.epsilon_used).toBe(3.5)
       expect(res.data.data.epsilon_budget).toBe(10.0)
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/admin/stats/privacy').reply(500)
+      mock.onGet('/edge-ai/privacy-budget').reply(500)
       await expect(api.getPrivacyStats()).rejects.toThrow()
     })
   })
 
   describe('共鸣统计', () => {
     it('应正确获取共鸣匹配数据', async () => {
-      mock.onGet('/admin/stats/resonance').reply(200, resonanceData)
+      mock.onGet('/recommendations/emotion-trends').reply(200, resonanceData)
       const res = await api.getResonanceStats()
       expect(res.data.data.total_matches).toBe(456)
       expect(res.data.data.avg_score).toBe(0.72)
@@ -172,8 +172,8 @@ describe('Dashboard API', () => {
       mock.onGet('/admin/stats/dashboard').reply(200, statsData)
       mock.onGet('/admin/stats/user-growth').reply(200, growthData)
       mock.onGet('/admin/stats/mood-distribution').reply(200, moodData)
-      mock.onGet('/admin/stats/privacy').reply(200, privacyData)
-      mock.onGet('/admin/stats/resonance').reply(200, resonanceData)
+      mock.onGet('/edge-ai/privacy-budget').reply(200, privacyData)
+      mock.onGet('/recommendations/emotion-trends').reply(200, resonanceData)
       mock.onGet('/edge-ai/emotion-pulse').reply(200, pulseData)
 
       const results = await Promise.all([

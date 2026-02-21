@@ -110,14 +110,14 @@ describe('Settings API', () => {
   })
 
   describe('测试AI连接', () => {
-    it('应调用 test-ai 接口', async () => {
-      mock.onPost('/admin/config/test-ai').reply(200, { code: 0 })
+    it('应调用 edge-ai status 接口', async () => {
+      mock.onGet('/edge-ai/status').reply(200, { code: 0 })
       await api.testAIConnection()
-      expect(mock.history.post[0].url).toBe('/admin/config/test-ai')
+      expect(mock.history.get[0].url).toBe('/edge-ai/status')
     })
 
     it('连接失败应抛出异常', async () => {
-      mock.onPost('/admin/config/test-ai').reply(500)
+      mock.onGet('/edge-ai/status').reply(500)
       await expect(api.testAIConnection()).rejects.toThrow()
     })
   })

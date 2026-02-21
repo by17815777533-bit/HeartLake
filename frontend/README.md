@@ -19,7 +19,7 @@
 lib/
 ├── main.dart                          # 应用入口, MaterialApp + 路由
 ├── data/
-│   ├── datasources/                   # 17个服务层
+│   ├── datasources/                   # 服务层（认证、心石、纸船、好友、推荐、媒体等）
 │   │   ├── api_client.dart            # HTTP客户端 (Dio封装, Token管理)
 │   │   ├── websocket_manager.dart     # WebSocket连接管理 (心跳/重连/事件分发)
 │   │   ├── stone_service.dart         # 心石CRUD
@@ -37,7 +37,7 @@ lib/
 │   │   ├── user_service.dart          # 用户信息
 │   │   ├── cache_service.dart         # 本地缓存
 │   │   └── base_service.dart          # 服务基类
-│   └── repositories/                  # 仓储层
+│   └── repositories/                  # 仓储层（预留）
 ├── domain/
 │   └── entities/                      # 领域实体
 │       ├── stone.dart                 # 心石
@@ -45,17 +45,9 @@ lib/
 │       ├── user.dart                  # 用户
 │       └── mood.dart                  # 情绪类型
 ├── edge_ai/                           # 边缘AI模块
-│   ├── edge_ai.dart                   # 引擎入口
-│   ├── emotion_classifier.dart        # 本地情感分类
 │   └── local_dp.dart                  # 本地差分隐私
-├── emotion_effects/                   # 情绪视觉效果
-│   ├── atmospheric_background.dart    # 氛围背景
-│   ├── water_background.dart          # 水面动效
-│   ├── deep_dive_layer.dart           # 深潜分层
-│   ├── mood_background.dart           # 情绪背景
-│   └── mood_colors.dart               # 情绪色彩映射
 ├── presentation/
-│   ├── screens/                       # 22个页面
+│   ├── screens/                       # 多页面业务流（观湖/湖底/投石/好友/倒影等）
 │   │   ├── splash_screen.dart         # 启动页
 │   │   ├── auth_screen.dart           # 登录/注册
 │   │   ├── home_screen.dart           # 主页框架 (5个底部Tab)
@@ -78,16 +70,11 @@ lib/
 │   │   ├── user_detail_screen.dart    # 用户详情
 │   │   ├── notification_screen.dart   # 通知中心
 │   │   └── help_screen.dart           # 帮助
-│   ├── widgets/                       # 14个可复用组件
+│   ├── widgets/                       # 复用组件（SkyScaffold/SkyGlassCard 等）
 │   │   ├── stone_card.dart            # 心石卡片
-│   │   ├── water_background.dart      # 水面背景
-│   │   ├── atmospheric_background.dart # 氛围背景
 │   │   ├── deep_dive_layer.dart       # 深潜分层浏览
 │   │   ├── emotion_heatmap.dart       # 情绪热力图
 │   │   ├── emotion_insights_card.dart # 情绪洞察卡片
-│   │   ├── mood_selector.dart         # 心情选择器
-│   │   ├── boat_style_selector.dart   # 纸船样式选择
-│   │   ├── catch_boat_animation.dart  # 捞纸船动画
 │   │   ├── privacy_badge.dart         # 隐私保护徽章
 │   │   ├── report_dialog.dart         # 举报对话框
 │   │   ├── shimmer_loading.dart       # 骨架屏加载
@@ -149,9 +136,7 @@ flutter build ios --release    # iOS
 
 ## 统计
 
-- 22 个页面
-- 14 个可复用 Widget
-- 17 个服务层
-- 4 个领域实体
-- 3 个边缘AI模块
-- 20,000+ 行代码
+- 24 个页面（含聊天、守护者、推荐与情绪分析）
+- 19 个可复用 Widget（Sky 系列基础组件 + 业务组件）
+- 20 个数据源服务（账号、内容、互动、推荐、媒体、VIP 等）
+- 3 个核心领域实体

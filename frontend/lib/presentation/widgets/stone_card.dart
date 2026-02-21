@@ -3,6 +3,7 @@
 // Created by 林子怡
 
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
@@ -34,6 +35,8 @@ class _StoneCardState extends State<StoneCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  AnimationController? _glowCtrl;
+  Animation<double>? _glowPulse;
   final InteractionService _interactionService = InteractionService();
   bool _hasRippled = false;
   int _localRipplesCount = 0;
@@ -208,6 +211,7 @@ class _StoneCardState extends State<StoneCard>
   @override
   void dispose() {
     _controller.dispose();
+    _glowCtrl?.dispose();
     // 清理WebSocket监听器
     final ws = WebSocketManager();
     ws.off('ripple_update', _rippleUpdateListener);

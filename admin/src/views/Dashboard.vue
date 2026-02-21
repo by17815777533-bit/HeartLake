@@ -796,19 +796,456 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 /* ═══════════════════════════════════════════════════
-   Sky: Children of the Light — Dashboard Theme
-   光遇风格：星空深蓝 + 金色暖光 + 毛玻璃质感
+   Dashboard 样式 - Material Design 3 主题
    ═══════════════════════════════════════════════════ */
 
-// 光遇色彩系统
-$sky-gold: #F2CC8F;
-$sky-amber: #E8A87C;
-$sky-sunset: #E07A5F;
-$sky-purple: #7B68AE;
-$sky-bg-base: #141432;
-$sky-bg-card: #1A1A3E;
-$sky-text-primary: #F0E6D3;
-$sky-text-secondary: #B8A99A;
+.dashboard {
+  // ── 页面头部 ──
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 20px 24px;
+    background: var(--m3-surface-container);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-lg);
+    box-shadow: var(--m3-elevation-1);
+
+    .welcome-section {
+      h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        color: var(--m3-on-surface);
+      }
+
+      .welcome-sub {
+        font-size: 13px;
+        color: var(--m3-on-surface-variant);
+        margin: 0;
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .update-time {
+        font-size: 12px;
+        color: var(--m3-on-surface-variant);
+      }
+    }
+  }
+
+  // ── 技术标签 ──
+  .tech-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+
+    .tech-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--m3-surface-container-high);
+      border: 1px solid var(--m3-outline-variant);
+      border-radius: var(--m3-shape-md);
+      font-size: 12px;
+      color: var(--m3-on-surface-variant);
+      transition: all var(--m3-transition-duration);
+
+      &:hover {
+        background: var(--m3-surface-container-highest);
+        border-color: var(--m3-outline);
+        box-shadow: var(--m3-elevation-1);
+      }
+
+      .badge-icon {
+        font-size: 14px;
+      }
+    }
+  }
+
+  // ── 统计卡片 ──
+  .stats-cards {
+    margin-bottom: 20px;
+
+    .stat-card {
+      background: var(--m3-surface-container);
+      border: 1px solid var(--m3-outline-variant);
+      border-radius: var(--m3-shape-lg);
+      box-shadow: var(--m3-elevation-1);
+      transition: all var(--m3-transition-duration);
+
+      &:hover {
+        box-shadow: var(--m3-elevation-2);
+        transform: translateY(-2px);
+      }
+
+      :deep(.el-card__body) {
+        padding: 20px;
+      }
+
+      .stat-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .stat-info {
+          .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--m3-on-surface);
+            margin-bottom: 4px;
+          }
+
+          .stat-title {
+            font-size: 13px;
+            color: var(--m3-on-surface-variant);
+          }
+        }
+
+        .stat-icon {
+          width: 56px;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--m3-shape-lg);
+        }
+      }
+    }
+  }
+
+  // ── 图表卡片 ──
+  .charts-row {
+    margin-bottom: 20px;
+  }
+
+  .chart-card {
+    background: var(--m3-surface-container);
+    border: 1px solid var(--m3-outline-variant);
+    border-radius: var(--m3-shape-lg);
+    box-shadow: var(--m3-elevation-1);
+    transition: all var(--m3-transition-duration);
+
+    &:hover {
+      box-shadow: var(--m3-elevation-2);
+    }
+
+    :deep(.el-card__header) {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--m3-outline-variant);
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--m3-on-surface);
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+
+    :deep(.el-card__body) {
+      padding: 20px;
+    }
+  }
+
+  // ── 热门话题列表 ──
+  .trending-topics-list {
+    .topic-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--m3-outline-variant);
+      transition: all var(--m3-transition-duration);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: var(--m3-surface-container-high);
+        margin: 0 -12px;
+        padding: 12px;
+        border-radius: var(--m3-shape-sm);
+      }
+
+      .topic-rank {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--m3-shape-sm);
+        background: var(--m3-surface-container-highest);
+        color: var(--m3-on-surface-variant);
+        font-size: 12px;
+        font-weight: 600;
+        flex-shrink: 0;
+
+        &.top {
+          background: var(--m3-primary);
+          color: var(--m3-on-primary);
+        }
+      }
+
+      .topic-info {
+        flex: 1;
+        min-width: 0;
+
+        .topic-title {
+          font-size: 14px;
+          color: var(--m3-on-surface);
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .topic-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+          font-size: 12px;
+          color: var(--m3-on-surface-variant);
+        }
+      }
+    }
+  }
+
+  // ── 隐私保护卡片 ──
+  .privacy-card {
+    .privacy-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+
+      .privacy-stat-item {
+        text-align: center;
+        padding: 12px;
+        background: var(--m3-surface-container-high);
+        border-radius: var(--m3-shape-md);
+
+        .stat-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--m3-on-surface);
+          margin-bottom: 4px;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          color: var(--m3-on-surface-variant);
+        }
+      }
+    }
+
+    .budget-bar {
+      margin-top: 16px;
+
+      .budget-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--m3-on-surface-variant);
+      }
+    }
+  }
+
+  // ── 情绪共鸣卡片 ──
+  .resonance-card {
+    .resonance-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+
+      .resonance-stat-item {
+        text-align: center;
+        padding: 12px;
+        background: var(--m3-surface-container-high);
+        border-radius: var(--m3-shape-md);
+
+        .stat-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--m3-on-surface);
+          margin-bottom: 4px;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          color: var(--m3-on-surface-variant);
+        }
+      }
+    }
+  }
+
+  // ── 湖面天气卡片 ──
+  .lake-weather-card {
+    .lake-weather-content {
+      .weather-display {
+        padding: 24px;
+        border-radius: var(--m3-shape-lg);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+
+        .weather-icon {
+          font-size: 48px;
+        }
+
+        .weather-info {
+          flex: 1;
+
+          .weather-temp {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--m3-on-surface);
+          }
+
+          .weather-label {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--m3-on-surface);
+            margin-top: 4px;
+          }
+
+          .weather-desc {
+            font-size: 13px;
+            color: var(--m3-on-surface-variant);
+            margin-top: 2px;
+          }
+        }
+      }
+
+      .weather-scale {
+        .scale-bar {
+          position: relative;
+          height: 8px;
+          border-radius: 4px;
+          overflow: hidden;
+          display: flex;
+          margin-bottom: 8px;
+
+          .scale-segment {
+            height: 100%;
+
+            &.storm { background: #BA1A1A; }
+            &.rain { background: #1565C0; }
+            &.cloudy { background: #44474E; }
+            &.sunny { background: #E65100; }
+          }
+
+          .scale-pointer {
+            position: absolute;
+            top: -4px;
+            width: 16px;
+            height: 16px;
+            background: var(--m3-on-surface);
+            border: 2px solid var(--m3-surface);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            box-shadow: var(--m3-elevation-2);
+          }
+        }
+
+        .scale-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: var(--m3-on-surface-variant);
+        }
+      }
+    }
+  }
+
+  // ── AI 趋势卡片 ──
+  .ai-trends-card, .ai-trending-card {
+    .trending-content-list {
+      .trending-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--m3-outline-variant);
+        transition: all var(--m3-transition-duration);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:hover {
+          background: var(--m3-surface-container-high);
+          margin: 0 -12px;
+          padding: 12px;
+          border-radius: var(--m3-shape-sm);
+        }
+
+        .trending-rank {
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--m3-shape-sm);
+          background: var(--m3-surface-container-highest);
+          color: var(--m3-on-surface-variant);
+          font-size: 12px;
+          font-weight: 600;
+          flex-shrink: 0;
+
+          &.top {
+            background: var(--m3-primary);
+            color: var(--m3-on-primary);
+          }
+        }
+
+        .trending-info {
+          flex: 1;
+          min-width: 0;
+
+          .trending-title {
+            font-size: 14px;
+            color: var(--m3-on-surface);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .trending-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+
+            .trending-score {
+              font-size: 12px;
+              color: var(--m3-on-surface-variant);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .pulse-hint {
+    font-size: 12px;
+    color: var(--m3-on-surface-variant);
+  }
+}
+</style>
 
 // 毛玻璃混入
 @mixin glass-card($bg: rgba(26, 26, 62, 0.7), $blur: 16px, $border-alpha: 0.1) {
