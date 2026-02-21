@@ -59,6 +59,7 @@ double RecommendationEngine::thompsonSample(int successes, int failures) {
 }
 
 double RecommendationEngine::timeDecay(int64_t timestampMs, double halfLifeHours) {
+    if (halfLifeHours <= 0.0) halfLifeHours = 24.0;  // 默认24小时
     auto now = std::chrono::system_clock::now().time_since_epoch();
     int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
     double hoursOld = (nowMs - timestampMs) / (1000.0 * 3600.0);
