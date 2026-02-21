@@ -221,7 +221,6 @@ class AppTheme {
       outline: primaryLightColor.withValues(alpha: 0.3),
       surfaceContainerHighest: const Color(0xFF2A3F5F),
     ),
-    fontFamily: 'Inter',
     scaffoldBackgroundColor: nightDeep,
     appBarTheme: AppBarTheme(
       backgroundColor: nightDeep.withValues(alpha: 0.82),
