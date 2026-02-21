@@ -8,10 +8,6 @@
 #pragma once
 
 #include <drogon/drogon.h>
-#include <drogon/WebSocketController.h>
-#include <unordered_map>
-#include <mutex>
-#include <memory>
 #include <json/json.h>
 #include "infrastructure/realtime/WebSocketHub.h"
 
@@ -57,85 +53,6 @@ struct NotificationMessage {
         json["extra_data"] = extraData;
         return json;
     }
-};
-
-/**
- * @brief WebSocket连接管理器
- */
-class WebSocketConnectionManager {
-public:
-    static WebSocketConnectionManager& getInstance() {
-        static WebSocketConnectionManager instance;
-        return instance;
-    }
-
-    /**
-     * @brief 添加连接
-     */
-    void addConnection(const std::string& userId,
-                      const drogon::WebSocketConnectionPtr& conn) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        connections_[userId] = conn;
-        LOG_INFO << "WebSocket connection added for user: " << userId;
-    }
-
-    /**
-     * @brief 移除连接
-     */
-    void removeConnection(const std::string& userId) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        connections_.erase(userId);
-        LOG_INFO << "WebSocket connection removed for user: " << userId;
-    }
-
-    /**
-     * @brief 获取连接
-     */
-    drogon::WebSocketConnectionPtr getConnection(const std::string& userId) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = connections_.find(userId);
-        if (it != connections_.end()) {
-            return it->second;
-        }
-        return nullptr;
-    }
-
-    /**
-     * @brief 检查用户是否在线
-     */
-    bool isUserOnline(const std::string& userId) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return connections_.find(userId) != connections_.end();
-    }
-
-    /**
-     * @brief 获取在线用户数量
-     */
-    size_t getOnlineCount() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return connections_.size();
-    }
-
-    /**
-     * @brief 广播消息给所有在线用户
-     */
-    void broadcast(const std::string& message) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto& [userId, conn] : connections_) {
-            if (conn) {
-                conn->send(message);
-            }
-        }
-    }
-
-private:
-    WebSocketConnectionManager() = default;
-    ~WebSocketConnectionManager() = default;
-    WebSocketConnectionManager(const WebSocketConnectionManager&) = delete;
-    WebSocketConnectionManager& operator=(const WebSocketConnectionManager&) = delete;
-
-    std::unordered_map<std::string, drogon::WebSocketConnectionPtr> connections_;
-    std::mutex mutex_;
 };
 
 /**

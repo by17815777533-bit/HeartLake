@@ -86,7 +86,6 @@ export default {
   getActiveTimeStats: () => http.get('/admin/stats/active-time'),
   getPrivacyStats: () => http.get('/admin/stats/privacy', { skipLoading: true }),
   getResonanceStats: () => http.get('/admin/stats/resonance', { skipLoading: true }),
-  getEmotionPulseStats: () => http.get('/admin/stats/emotion-pulse', { skipLoading: true }),
   // Users
   getUsers: params => http.get('/admin/users', { params }),
   banUser: (userId, reason) => http.post(`/admin/users/${userId}/ban`, { reason }),
@@ -121,8 +120,6 @@ export default {
   // Edge AI
   getEdgeAIStatus: () => http.get('/edge-ai/status', { skipLoading: true }),
   getEdgeAIMetrics: () => http.get('/edge-ai/metrics', { skipLoading: true }),
-  edgeAIAnalyze: text => http.post('/edge-ai/analyze', { text }),
-  edgeAIModerate: text => http.post('/edge-ai/moderate', { text }),
   getEmotionPulse: () => http.get('/edge-ai/emotion-pulse', { skipLoading: true }),
   triggerFederatedAggregation: data => http.post('/edge-ai/federated/aggregate', data),
   getPrivacyBudget: () => http.get('/edge-ai/privacy-budget', { skipLoading: true }),
