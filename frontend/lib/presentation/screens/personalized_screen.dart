@@ -6,7 +6,7 @@ import '../../domain/entities/stone.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
-import '../../emotion_effects/water_background.dart';
+import '../widgets/water_background.dart';
 import 'stone_detail_screen.dart';
 
 class PersonalizedScreen extends StatefulWidget {
@@ -74,7 +74,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: AppTheme.textPrimary,
-        title: Text(
+        title: const Text(
           '为你而来',
           style: TextStyle(
             fontSize: 18,
@@ -135,7 +135,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       ],
                     ),
                   ),
-                  child: Icon(Icons.auto_awesome,
+                  child: const Icon(Icons.auto_awesome,
                       color: AppTheme.primaryLightColor, size: 24),
                 ),
               );

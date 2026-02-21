@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../utils/app_theme.dart';
-import '../../emotion_effects/water_background.dart';
+import '../widgets/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
 
 class EmotionTrendsScreen extends StatefulWidget {
@@ -79,7 +79,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           const WaterBackground(),
           SafeArea(
             child: _loading
-                ? Center(
+                ? const Center(
                     child: CircularProgressIndicator(
                       color: AppTheme.primaryColor,
                       strokeWidth: 2,
@@ -130,9 +130,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
+            const Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
             const SizedBox(width: 6),
-            Text(
+            const Text(
               '差分隐私保护中',
               style: TextStyle(
                 fontSize: 11,
@@ -163,7 +163,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       children: [
         // 情绪分布
         if (distribution.isNotEmpty) ...[
-          Text(
+          const Text(
             '情绪分布',
             style: TextStyle(
               fontSize: 14,
@@ -190,7 +190,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                           width: 50,
                           child: Text(
                             _moodLabel(e.key),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
                               color: AppTheme.textSecondary,
                             ),
@@ -227,7 +227,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                         const SizedBox(width: 8),
                         Text(
                           '${(value * 100).toInt()}%',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 10,
                             color: AppTheme.textTertiary,
                           ),
@@ -243,7 +243,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
         const SizedBox(height: 24),
         // AI 洞察
         if (insights.isNotEmpty) ...[
-          Text(
+          const Text(
             'AI 洞察',
             style: TextStyle(
               fontSize: 14,
@@ -272,7 +272,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                     Expanded(
                       child: Text(
                         insight.toString(),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           height: 1.5,
                           color: AppTheme.textSecondary,

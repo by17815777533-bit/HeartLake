@@ -120,7 +120,6 @@ class AppTheme {
       outline: const Color(0xFFDADCE0),
       surfaceContainerHighest: const Color(0xFFE8F0FE),
     ),
-    fontFamily: 'Inter',
     scaffoldBackgroundColor: backgroundColor,
     appBarTheme: AppBarTheme(
       backgroundColor: backgroundColor.withValues(alpha: 0.92),

@@ -59,35 +59,6 @@ class AccountService extends BaseService {
     return toMap(response);
   }
 
-  /// 修改密码
-  Future<Map<String, dynamic>> changePassword({
-    required String oldPassword,
-    required String newPassword,
-  }) async {
-    final response = await post('/account/change-password', data: {
-      'old_password': oldPassword,
-      'new_password': newPassword,
-    });
-    return toMap(response);
-  }
-
-  /// 绑定邮箱
-  Future<Map<String, dynamic>> bindEmail(String email, String code) async {
-    final response = await post('/account/bind-email', data: {
-      'email': email,
-      'verification_code': code,
-    });
-    return toMap(response);
-  }
-
-  /// 解绑邮箱
-  Future<Map<String, dynamic>> unbindEmail(String code) async {
-    final response = await post('/account/unbind-email', data: {
-      'code': code,
-    });
-    return toMap(response);
-  }
-
   /// 获取隐私设置
   Future<Map<String, dynamic>> getPrivacySettings() async {
     final response = await get('/account/privacy');
@@ -142,22 +113,6 @@ class AccountService extends BaseService {
   /// 获取数据导出状态
   Future<Map<String, dynamic>> getExportStatus(String taskId) async {
     final response = await get('/account/export/$taskId');
-    return toMap(response);
-  }
-
-  /// 永久删除账号
-  Future<Map<String, dynamic>> deleteAccountPermanently(String password) async {
-    final response = await post('/account/delete-permanent', data: {
-      'password': password,
-    });
-    return toMap(response);
-  }
-
-  /// 注销账号
-  Future<Map<String, dynamic>> deactivateAccount(String password) async {
-    final response = await post('/account/deactivate', data: {
-      'password': password,
-    });
     return toMap(response);
   }
 }

@@ -104,10 +104,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
       if (mounted) {
         setState(() {
-          _keywordResults = (results[0] as List<Map<String, dynamic>>)
+          _keywordResults = results[0]
               .map((e) => Stone.fromJson(e))
               .toList();
-          _semanticResults = (results[1] as List<Map<String, dynamic>>)
+          _semanticResults = results[1]
               .map((e) => Stone.fromJson(e))
               .toList();
           _hasSearched = true;
