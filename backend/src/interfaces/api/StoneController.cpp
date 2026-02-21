@@ -81,9 +81,10 @@ static bool isValidColor(const std::string& color) {
 }
 
 // 白名单常量
-static const std::set<std::string> VALID_STONE_TYPES = {"small", "medium", "large"};
+static const std::set<std::string> VALID_STONE_TYPES = {"small", "medium", "large", "light", "heavy"};
 static const std::set<std::string> VALID_MOOD_TYPES = {
-    "calm", "happy", "sad", "angry", "anxious", "hopeful", "lonely", "grateful", "confused", "peaceful"
+    "calm", "happy", "sad", "angry", "anxious", "hopeful", "lonely", "grateful", "confused", "peaceful",
+    "surprised", "neutral"
 };
 static const std::set<std::string> VALID_SORT_VALUES = {"latest", "hot", "created_at"};
 
