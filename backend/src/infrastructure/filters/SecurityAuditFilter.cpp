@@ -25,10 +25,24 @@ void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
         "/ws/broadcast"
     };
 
-    const std::string path = req->path();
+    std::string path = req->path();
+
+    // 路径规范化：去除连续斜杠
+    while (path.find("//") != std::string::npos) {
+        path.replace(path.find("//"), 2, "/");
+    }
+    // 拒绝包含路径遍历的请求
+    if (path.find("/..") != std::string::npos) {
+        fcb(utils::ResponseUtil::error(400, "非法路径"));
+        return;
+    }
+    // 去除尾部斜杠
+    if (path.size() > 1 && path.back() == '/') {
+        path.pop_back();
+    }
 
     for (const auto& prefix : whitelist) {
-        if (path.find(prefix) == 0) {
+        if (path == prefix || (path.size() > prefix.size() && path.find(prefix) == 0 && path[prefix.size()] == '/')) {
             fccb();
             return;
         }
@@ -46,7 +60,6 @@ void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
         std::string key = utils::PasetoUtil::getKey();
         std::string userId = utils::PasetoUtil::verifyToken(token, key);
 
-        req->addHeader("X-User-Id", userId);
         req->getAttributes()->insert("user_id", userId);
         fccb();
     } catch (const std::exception& e) {

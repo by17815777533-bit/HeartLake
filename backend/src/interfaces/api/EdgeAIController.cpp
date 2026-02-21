@@ -50,7 +50,7 @@ void EdgeAIController::getStatus(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI getStatus error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("获取边缘AI状态失败: ") + e.what()));
+                                     "AI服务暂时不可用"));
     }
 }
 
@@ -99,7 +99,7 @@ void EdgeAIController::getMetrics(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI getMetrics error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("获取性能指标失败: ") + e.what()));
+                                     "获取性能指标失败"));
     }
 }
 
@@ -139,7 +139,7 @@ void EdgeAIController::analyzeLocal(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI analyzeSentiment error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("情感分析失败: ") + e.what()));
+                                     "情感分析失败"));
     }
 }
 
@@ -179,7 +179,7 @@ void EdgeAIController::moderateLocal(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI moderateContent error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("内容审核失败: ") + e.what()));
+                                     "内容审核失败"));
     }
 }
 
@@ -212,7 +212,7 @@ void EdgeAIController::getEmotionPulse(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI getEmotionPulse error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("获取情绪脉搏失败: ") + e.what()));
+                                     "获取情绪脉搏失败"));
     }
 }
 
@@ -262,7 +262,7 @@ void EdgeAIController::federatedAggregate(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI federatedAggregate error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("联邦学习聚合失败: ") + e.what()));
+                                     "联邦学习聚合失败"));
     }
 }
 
@@ -290,7 +290,7 @@ void EdgeAIController::getPrivacyBudget(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI getPrivacyBudget error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("获取隐私预算失败: ") + e.what()));
+                                     "获取隐私预算失败"));
     }
 }
 
@@ -362,7 +362,7 @@ void EdgeAIController::vectorSearch(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI vectorSearch error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("向量搜索失败: ") + e.what()));
+                                     "向量搜索失败"));
     }
 }
 
@@ -395,7 +395,7 @@ void EdgeAIController::getAdminConfig(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI getAdminConfig error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("获取配置失败: ") + e.what()));
+                                     "获取配置失败"));
     }
 }
 
@@ -422,7 +422,7 @@ void EdgeAIController::updateAdminConfig(
     } catch (const std::exception &e) {
         LOG_ERROR << "EdgeAI updateAdminConfig error: " << e.what();
         callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR,
-                                     std::string("更新配置失败: ") + e.what()));
+                                     "更新配置失败"));
     }
 }
 

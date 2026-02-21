@@ -308,7 +308,6 @@ int main(int argc, char *argv[]) {
                         acb(createErrorResponse(401, "认证失败，请重新登录"));
                         return;
                     }
-                    req->addHeader("X-User-Id", user_id);
                     req->getAttributes()->insert("user_id", user_id);
 
                 } catch (const std::exception& e) {

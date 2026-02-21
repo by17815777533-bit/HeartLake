@@ -13,12 +13,13 @@ using namespace heartlake::utils;
 void ReportController::createReport(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        std::string user_id = req->getAttributes()->get<std::string>("user_id");
+        std::string user_id;
+        try { user_id = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
         if (user_id.empty()) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
-        
+
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
@@ -79,7 +80,8 @@ void ReportController::createReport(const HttpRequestPtr &req,
 void ReportController::getMyReports(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        std::string user_id = req->getAttributes()->get<std::string>("user_id");
+        std::string user_id;
+        try { user_id = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
         if (user_id.empty()) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
@@ -99,7 +101,7 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
             "SELECT COUNT(*) as total FROM reports WHERE reporter_id = $1",
             user_id
         );
-        int total = countResult[0]["total"].as<int>();
+        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
 
         // 获取列表
         int offset = (page - 1) * page_size;
@@ -117,7 +119,7 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
             report["target_type"] = row["target_type"].as<std::string>();
             report["target_id"] = row["target_id"].as<std::string>();
             report["reason"] = row["reason"].as<std::string>();
-            report["description"] = row["description"].as<std::string>();
+            report["description"] = row["description"].isNull() ? "" : row["description"].as<std::string>();
             report["status"] = row["status"].as<std::string>();
             report["created_at"] = row["created_at"].as<std::string>();
             reports.append(report);

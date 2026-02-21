@@ -18,17 +18,12 @@ using namespace heartlake::utils;
  * 无论字符串是否匹配，比较时间恒定
  */
 static bool constantTimeCompare(const std::string& a, const std::string& b) {
-    if (a.size() != b.size()) {
-        // 长度不同也遍历固定长度，防止泄露长度信息
-        volatile unsigned char result = 1;
-        for (size_t i = 0; i < a.size(); i++) {
-            result |= a[i] ^ b[i % (b.size() ? b.size() : 1)];
-        }
-        return false;
-    }
-    volatile unsigned char result = 0;
-    for (size_t i = 0; i < a.size(); i++) {
-        result |= a[i] ^ b[i];
+    volatile unsigned char result = a.size() ^ b.size();
+    size_t len = std::max(a.size(), b.size());
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char ca = i < a.size() ? static_cast<unsigned char>(a[i]) : 0;
+        unsigned char cb = i < b.size() ? static_cast<unsigned char>(b[i]) : 0;
+        result |= ca ^ cb;
     }
     return result == 0;
 }

@@ -37,6 +37,13 @@ float EmotionResonanceEngine::trajectorySimDTW(
     const size_t n = traj1.size();
     const size_t m = traj2.size();
 
+    constexpr size_t MAX_DTW_LEN = 1000;
+    if (n > MAX_DTW_LEN || m > MAX_DTW_LEN) {
+        auto t1 = std::vector<float>(traj1.end() - std::min(n, MAX_DTW_LEN), traj1.end());
+        auto t2 = std::vector<float>(traj2.end() - std::min(m, MAX_DTW_LEN), traj2.end());
+        return trajectorySimDTW(t1, t2);
+    }
+
     // DTW距离矩阵
     std::vector<std::vector<float>> dtw(n + 1, std::vector<float>(m + 1, std::numeric_limits<float>::max()));
     dtw[0][0] = 0.0f;

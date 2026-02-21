@@ -55,7 +55,9 @@ double RecommendationEngine::thompsonSample(int successes, int failures) {
     std::gamma_distribution<double> gamma_b(failures + 1, 1.0);
     double x = gamma_a(rng_);
     double y = gamma_b(rng_);
-    return x / (x + y);
+    double sum = x + y;
+    if (sum < 1e-15) return 0.5;
+    return x / sum;
 }
 
 double RecommendationEngine::timeDecay(int64_t timestampMs, double halfLifeHours) {

@@ -4,6 +4,7 @@
  */
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/PasetoUtil.h"
+#include <sstream>
 
 namespace heartlake::controllers {
 
@@ -80,13 +81,35 @@ void BroadcastWebSocketController::handleNewMessage(
         conn->send(Json::FastWriter().write(pong));
     } else if (msgType == "join") {
         std::string room = json["room"].asString();
-        // VUL-02: 私有房间（以 "private:" 开头）需要验证用户身份
-        if (room.find("private:") == 0 && connUserId.empty()) {
-            Json::Value err;
-            err["type"] = "error";
-            err["message"] = "认证用户才能加入私有房间";
-            conn->send(Json::FastWriter().write(err));
-            return;
+        // 私有房间权限验证
+        if (room.find("private:") == 0) {
+            if (connUserId.empty()) {
+                Json::Value err;
+                err["type"] = "error";
+                err["message"] = "认证用户才能加入私有房间";
+                conn->send(Json::FastWriter().write(err));
+                return;
+            }
+            // 私有房间格式: private:{userId1}_{userId2}
+            // 验证当前用户是参与方之一
+            std::string roomBody = room.substr(8); // 去掉 "private:" 前缀
+            // 按 '_' 分割参与者ID，逐个精确匹配
+            bool authorized = false;
+            std::istringstream ss(roomBody);
+            std::string participant;
+            while (std::getline(ss, participant, '_')) {
+                if (participant == connUserId) {
+                    authorized = true;
+                    break;
+                }
+            }
+            if (!authorized) {
+                Json::Value err;
+                err["type"] = "error";
+                err["message"] = "无权加入此私有房间";
+                conn->send(Json::FastWriter().write(err));
+                return;
+            }
         }
         Hub::getInstance().joinRoom(conn, room);
     } else if (msgType == "leave") {

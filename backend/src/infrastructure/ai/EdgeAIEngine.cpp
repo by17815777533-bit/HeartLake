@@ -1184,6 +1184,10 @@ std::vector<size_t> EdgeAIEngine::searchLayer(const std::vector<float>& query,
     // 使用 max-heap 维护结果集（最远的在堆顶，方便淘汰）
     // 使用 min-heap 维护候选集（最近的在堆顶，优先扩展）
 
+    if (entryPoint >= hnswNodes_.size()) {
+        return {};
+    }
+
     using DistIdx = std::pair<float, size_t>;
 
     // 结果集：max-heap（距离最大的在顶部）
@@ -1252,6 +1256,12 @@ void EdgeAIEngine::connectNeighbors(size_t nodeIdx,
                                      int level, int maxM) {
     // 双向连接：将 nodeIdx 与 neighbors 互相连接
     // 如果邻居数超过 maxM，执行启发式裁剪（保留最近的 maxM 个）
+
+    if (nodeIdx >= hnswNodes_.size() ||
+        level < 0 ||
+        level >= static_cast<int>(hnswNodes_[nodeIdx].neighbors.size())) {
+        return;
+    }
 
     auto& nodeNeighbors = hnswNodes_[nodeIdx].neighbors[level];
     for (size_t neighborIdx : neighbors) {

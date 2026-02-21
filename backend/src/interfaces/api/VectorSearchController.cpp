@@ -55,7 +55,7 @@ void VectorSearchController::getSimilarStones(
                             Json::Value stone;
                             stone["stone_id"] = row["stone_id"].as<std::string>();
                             stone["content"] = row["content"].as<std::string>();
-                            stone["mood"] = row["mood_type"].as<std::string>();
+                            stone["mood"] = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
                             stone["ripple_count"] = row["ripple_count"].as<int>();
                             stone["boat_count"] = row["boat_count"].as<int>();
                             stone["created_at"] = row["created_at"].as<std::string>();
@@ -109,7 +109,7 @@ void VectorSearchController::getSimilarStones(
                         Json::Value stone;
                         stone["stone_id"] = row["stone_id"].as<std::string>();
                         stone["content"] = row["content"].as<std::string>();
-                        stone["mood"] = row["mood_type"].as<std::string>();
+                        stone["mood"] = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
                         stone["ripple_count"] = row["ripple_count"].as<int>();
                         stone["boat_count"] = row["boat_count"].as<int>();
                         stone["created_at"] = row["created_at"].as<std::string>();
@@ -198,7 +198,7 @@ void VectorSearchController::getPersonalizedRecommendations(
                 Json::Value stone;
                 stone["stone_id"] = row["stone_id"].as<std::string>();
                 stone["content"] = row["content"].as<std::string>();
-                stone["mood"] = row["mood_type"].as<std::string>();
+                stone["mood"] = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
                 stone["ripple_count"] = row["ripple_count"].as<int>();
                 stone["boat_count"] = row["boat_count"].as<int>();
                 stone["created_at"] = row["created_at"].as<std::string>();

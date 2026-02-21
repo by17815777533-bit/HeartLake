@@ -124,51 +124,50 @@ int RBACManager::getRoleLevel(const std::string& role) {
     return it != roleLevels_.end() ? it->second : 0;
 }
 
+// 辅助函数：检查路径是否包含精确的路径段（按 / 分割后匹配）
+static bool hasPathSegment(const std::string& path, const std::string& segment) {
+    std::string needle = "/" + segment;
+    auto pos = path.find(needle);
+    if (pos == std::string::npos) return false;
+    // 确保匹配的是完整路径段：下一个字符必须是 '/' 或字符串结尾
+    auto endPos = pos + needle.size();
+    return endPos == path.size() || path[endPos] == '/';
+}
+
 std::string RBACManager::pathToResource(const std::string& path) {
-    // 路径到资源映射（支持 /api/admin/ 和 /api/v1/admin/ 两种前缀）
-    if (path.find("/admin/users") != std::string::npos) {
+    // 路径到资源映射（使用精确路径段匹配，防止子串误匹配）
+    if (hasPathSegment(path, "admin/users") || hasPathSegment(path, "admin/info")) {
         return Permissions::USERS;
     }
-    if (path.find("/admin/content") != std::string::npos ||
-        path.find("/admin/stones") != std::string::npos ||
-        path.find("/admin/boats") != std::string::npos ||
-        path.find("/admin/moderation") != std::string::npos) {
+    if (hasPathSegment(path, "admin/content") ||
+        hasPathSegment(path, "admin/stones") ||
+        hasPathSegment(path, "admin/boats") ||
+        hasPathSegment(path, "admin/moderation") ||
+        hasPathSegment(path, "admin/sensitive-words")) {
         return Permissions::CONTENT;
     }
-    if (path.find("/admin/reports") != std::string::npos) {
+    if (hasPathSegment(path, "admin/reports")) {
         return Permissions::REPORTS;
     }
-    if (path.find("/admin/config") != std::string::npos ||
-        path.find("/admin/settings") != std::string::npos) {
+    if (hasPathSegment(path, "admin/config") ||
+        hasPathSegment(path, "admin/settings") ||
+        hasPathSegment(path, "admin/broadcast")) {
         return Permissions::SETTINGS;
     }
-    if (path.find("/admin/stats") != std::string::npos ||
-        path.find("/admin/analytics") != std::string::npos) {
+    if (hasPathSegment(path, "admin/stats") ||
+        hasPathSegment(path, "admin/analytics") ||
+        hasPathSegment(path, "admin/logs")) {
         return Permissions::STATISTICS;
     }
-    if (path.find("/admin/sensitive-words") != std::string::npos) {
-        return Permissions::CONTENT;
-    }
-    if (path.find("/admin/logs") != std::string::npos) {
-        return Permissions::STATISTICS;
-    }
-    if (path.find("/admin/broadcast") != std::string::npos) {
-        return Permissions::SETTINGS;
-    }
-    if (path.find("/admin/info") != std::string::npos) {
-        return Permissions::USERS;
-    }
-    if (path.find("/admin/risk") != std::string::npos ||
-        path.find("/admin/security") != std::string::npos) {
+    if (hasPathSegment(path, "admin/risk") ||
+        hasPathSegment(path, "admin/security") ||
+        hasPathSegment(path, "admin/system")) {
         return Permissions::SYSTEM;
     }
-    if (path.find("/ai/") != std::string::npos) {
+    if (hasPathSegment(path, "ai")) {
         return Permissions::AI;
     }
-    if (path.find("/admin/system") != std::string::npos) {
-        return Permissions::SYSTEM;
-    }
-    
+
     // 默认返回最受限的资源
     return Permissions::SYSTEM;
 }
