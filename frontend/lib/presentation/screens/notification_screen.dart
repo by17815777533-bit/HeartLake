@@ -1,5 +1,5 @@
 // @file notification_screen.dart
-// @brief 通知列表界面
+// @brief 通知列表界面 - 光遇风格
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
@@ -9,6 +9,8 @@ import '../../data/datasources/stone_service.dart';
 import '../../domain/entities/stone.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 import 'stone_detail_screen.dart';
 import 'friend_chat_screen.dart';
 import 'friends_screen.dart';
@@ -81,16 +83,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       if (response.statusCode == 200 && mounted) {
         setState(() {
           _notifications[index]['is_read'] = true;
-          _unreadCount =
-              response.data['data']?['unread_count'] ?? (_unreadCount - 1);
-          if (_unreadCount < 0) _unreadCount = 0;
+          _unreadCount = (_unreadCount - 1).clamp(0, _notifications.length);
         });
-
-        // 同步更新Provider
         context.read<NotificationProvider>().setUnreadCount(_unreadCount);
       }
     } catch (e) {
-      debugPrint('Error marking notification as read: $e');
+      // 静默失败
     }
   }
 
@@ -100,236 +98,243 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
       if (response.statusCode == 200 && mounted) {
         setState(() {
-          for (var notif in _notifications) {
-            notif['is_read'] = true;
+          for (var n in _notifications) {
+            n['is_read'] = true;
           }
           _unreadCount = 0;
         });
-
-        // 同步更新Provider
         context.read<NotificationProvider>().setUnreadCount(0);
-
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('所有通知已标记为已读')),
+          const SnackBar(content: Text('操作失败，请重试')),
+        );
+      }
+    }
+  }
+
+  void _navigateToContent(Map<String, dynamic> notification) {
+    final type = notification['type'] ?? '';
+    final stoneId = notification['stone_id'];
+    final senderId = notification['sender_id'];
+    final senderNickname = notification['sender_nickname'] ?? '用户';
+
+    if (type == 'friend_request' || type == 'friend_accepted') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FriendsScreen()),
+      );
+    } else if (type == 'friend_message' && senderId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FriendChatScreen(
+            friendId: senderId,
+            friendNickname: senderNickname,
+          ),
+        ),
+      );
+    } else if (stoneId != null) {
+      _navigateToStone(stoneId);
+    }
+  }
+
+  Future<void> _navigateToStone(String stoneId) async {
+    try {
+      final stoneService = StoneService();
+      final stoneData = await stoneService.getStoneDetail(stoneId);
+      if (stoneData != null && mounted) {
+        final stone = Stone.fromJson(stoneData);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoneDetailScreen(stone: stone),
+          ),
         );
       }
     } catch (e) {
-      debugPrint('Error marking all notifications as read: $e');
-    }
-  }
-
-  Future<void> _navigateToContent(Map<String, dynamic> notification) async {
-    final type = notification['type'] ?? '';
-    final targetId = notification['target_id'] ?? notification['related_id'];
-    final targetName = notification['target_name'] ?? notification['sender_name'] ?? '用户';
-
-    switch (type) {
-      case 'ripple':
-      case 'boat':
-        if (targetId != null) {
-          final result = await StoneService().getStoneDetail(targetId);
-          if (result['success'] == true && result['stone'] != null && mounted) {
-            final stone = Stone.fromJson(result['stone']);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StoneDetailScreen(stone: stone),
-              ),
-            );
-          }
-        }
-        break;
-      case 'friend_request':
-      case 'friend_accepted':
-      case 'connection':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const FriendsScreen()),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法打开该内容')),
         );
-        break;
-      case 'message':
-        if (targetId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FriendChatScreen(
-                friendId: targetId,
-                friendName: targetName,
-              ),
-            ),
-          );
-        }
-        break;
+      }
     }
   }
 
-  String _getNotificationIcon(String type) {
+  IconData _getNotificationIcon(String type) {
     switch (type) {
-      case 'ripple':
-        return '💧';
-      case 'boat':
-        return '⛵';
-      case 'connection':
-        return '🤝';
+      case 'like':
+        return Icons.favorite;
+      case 'comment':
+        return Icons.chat_bubble;
+      case 'boat_reply':
+        return Icons.sailing;
       case 'friend_request':
-        return '👋';
+        return Icons.person_add;
       case 'friend_accepted':
-        return '🎉';
-      case 'message':
-        return '💬';
+        return Icons.people;
+      case 'friend_message':
+        return Icons.message;
+      case 'system':
+        return Icons.notifications;
       default:
-        return '🔔';
+        return Icons.notifications_none;
+    }
+  }
+
+  Color _getNotificationIconColor(String type) {
+    switch (type) {
+      case 'like':
+        return AppTheme.peachPink;
+      case 'comment':
+        return AppTheme.spiritBlue;
+      case 'boat_reply':
+        return AppTheme.skyBlue;
+      case 'friend_request':
+      case 'friend_accepted':
+        return AppTheme.candleGlow;
+      case 'friend_message':
+        return AppTheme.warmOrange;
+      default:
+        return Colors.white70;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SkyScaffold(
+      showParticles: true,
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('通知'),
-            if (_unreadCount > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  _unreadCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        title: const Text('通知', style: TextStyle(color: Colors.white)),
         actions: [
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllAsRead,
-              child: const Text('全部已读', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                '全部已读',
+                style: TextStyle(color: AppTheme.candleGlow, fontSize: 14),
+              ),
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadNotifications,
-          ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.08), Colors.white],
-          ),
-        ),
+      body: SafeArea(
         child: RefreshIndicator(
-        onRefresh: _loadNotifications,
-        child: _isLoading
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在收集湖面的回响...', style: TextStyle(color: Colors.grey[600]))]))
-            : _notifications.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.notifications_none,
-                                size: 80,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '暂无通知，心湖很安静',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
+          onRefresh: _loadNotifications,
+          color: AppTheme.warmOrange,
+          backgroundColor: Colors.white24,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppTheme.warmOrange),
+                )
+              : _notifications.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.6,
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.notifications_off_outlined,
+                                    size: 64, color: Colors.white38),
+                                SizedBox(height: 16),
+                                Text(
+                                  '暂无通知',
+                                  style: TextStyle(
+                                      color: Colors.white54, fontSize: 16),
                                 ),
-                              ),
-                            ],
+                                SizedBox(height: 8),
+                                Text(
+                                  '新的互动消息会出现在这里',
+                                  style: TextStyle(
+                                      color: Colors.white38, fontSize: 13),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _notifications.length,
-                    itemBuilder: (context, index) {
-                      final notification = _notifications[index];
-                      final isRead = notification['is_read'] == true;
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      itemCount: _notifications.length,
+                      itemBuilder: (context, index) {
+                        final notification = _notifications[index];
+                        final isRead = notification['is_read'] == true;
+                        final type = notification['type'] ?? '';
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        color:
-                            isRead ? null : AppTheme.skyBlue.withValues(alpha: 0.05),
-                        child: ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: isRead
-                                  ? Colors.grey[200]
-                                  : AppTheme.skyBlue.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _getNotificationIcon(
-                                    notification['type'] ?? ''),
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                            ),
-                          ),
-                          title: Text(
-                            notification['content'] ?? '',
-                            style: TextStyle(
-                              fontWeight:
-                                  isRead ? FontWeight.normal : FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            notification['created_at']?.toString() ?? '',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          trailing: isRead
-                              ? null
-                              : Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.skyBlue,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                          onTap: () {
-                            if (!isRead) {
-                              final notifId = notification['notification_id'];
-                              if (notifId != null) {
-                                _markAsRead(notifId, index);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: SkyGlassCard(
+                            borderRadius: 16,
+                            enableGlow: !isRead,
+                            glowColor: _getNotificationIconColor(type),
+                            padding: EdgeInsets.zero,
+                            onTap: () {
+                              if (!isRead) {
+                                final notifId =
+                                    notification['notification_id'];
+                                if (notifId != null) {
+                                  _markAsRead(notifId, index);
+                                }
                               }
-                            }
-                            _navigateToContent(notification);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-      ),
+                              _navigateToContent(notification);
+                            },
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 4),
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: _getNotificationIconColor(type)
+                                      .withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _getNotificationIcon(type),
+                                  color: _getNotificationIconColor(type),
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                notification['content'] ?? '新通知',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: isRead
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                notification['created_at']?.toString() ?? '',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white38,
+                                ),
+                              ),
+                              trailing: isRead
+                                  ? null
+                                  : Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.candleGlow,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
       ),
     );
   }

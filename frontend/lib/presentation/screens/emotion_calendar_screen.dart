@@ -13,6 +13,8 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
 import '../widgets/privacy_badge.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 
 const _kRippleColorLow = Color(0xFF90CAF9);
 const _kRippleColorHigh = Color(0xFF7C4DFF);
@@ -43,6 +45,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
     _loadEmotionData();
     _loadHeatmapData();
+    _loadEmotionTrends();
   }
 
   @override
@@ -114,6 +117,16 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         setState(() => _insights = _generateInsights(_heatmapData));
       }
     }
+  }
+
+  /// 加载AI情绪趋势分析
+  Future<void> _loadEmotionTrends() async {
+    setState(() => _trendsLoading = true);
+    try {
+      final trends = await _aiService.getEmotionTrends();
+      if (mounted) setState(() => _emotionTrends = trends);
+    } catch (_) {}
+    if (mounted) setState(() => _trendsLoading = false);
   }
 
   List<String> _generateInsights(Map<String, Map<String, dynamic>> data) {
@@ -188,17 +201,10 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
+    return SkyScaffold(
+      showParticles: true,
+      body: SafeArea(
+        child: Column(
             children: [
               _buildHeader(),
               Expanded(
@@ -237,6 +243,90 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: EmotionInsightsCard(insights: _insights),
                         ),
+                      const SizedBox(height: 16),
+                      // AI 情绪趋势
+                      if (_trendsLoading)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                            ),
+                            child: Center(
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                SizedBox(width: 16, height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white.withValues(alpha: 0.5))),
+                                const SizedBox(width: 12),
+                                Text('AI 正在分析情绪趋势...',
+                                  style: TextStyle(fontSize: 13,
+                                    color: Colors.white.withValues(alpha: 0.6))),
+                              ]),
+                            ),
+                          ),
+                        )
+                      else if (_emotionTrends.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFFB39DDB).withValues(alpha: 0.12),
+                                  const Color(0xFF64B5F6).withValues(alpha: 0.08),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Icon(Icons.auto_awesome, size: 16,
+                                    color: Colors.white.withValues(alpha: 0.7)),
+                                  const SizedBox(width: 8),
+                                  Text('AI 情绪趋势',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                                      color: Colors.white.withValues(alpha: 0.85))),
+                                ]),
+                                const SizedBox(height: 12),
+                                if (_emotionTrends['summary'] != null)
+                                  Text(_emotionTrends['summary'] as String,
+                                    style: TextStyle(fontSize: 13, height: 1.6,
+                                      color: Colors.white.withValues(alpha: 0.7))),
+                                if (_emotionTrends['suggestions'] is List) ...[
+                                  const SizedBox(height: 10),
+                                  ...(_emotionTrends['suggestions'] as List).take(3).map((s) =>
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Container(width: 5, height: 5,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: const Color(0xFFB39DDB).withValues(alpha: 0.6))),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(child: Text(s.toString(),
+                                          style: TextStyle(fontSize: 12, height: 1.5,
+                                            color: Colors.white.withValues(alpha: 0.6)))),
+                                      ]),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -244,7 +334,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -263,15 +352,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildMonthSelector() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-      ),
-      child: Row(
+    return SkyGlassCard(
+      borderRadius: 20,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
@@ -291,6 +377,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -301,21 +388,20 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   Widget _buildEmotionSummary() {
     final stats = _calculateStats();
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue]),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _statItem('${stats['happy']}', '愉悦', MoodColors.getConfig(MoodType.happy).icon),
-          _statItem('${stats['calm']}', '平静', MoodColors.getConfig(MoodType.calm).icon),
-          _statItem('${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
-          _statItem('${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
-        ],
+    return SkyGlassCard(
+      borderRadius: 20,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _statItem('${stats['happy']}', '愉悦', MoodColors.getConfig(MoodType.happy).icon),
+            _statItem('${stats['calm']}', '平静', MoodColors.getConfig(MoodType.calm).icon),
+            _statItem('${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
+            _statItem('${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
+          ],
+        ),
       ),
     );
   }

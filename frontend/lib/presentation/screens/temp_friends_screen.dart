@@ -1,12 +1,14 @@
 // @file temp_friends_screen.dart
-// @brief 临时好友列表界面
+// @brief 临时好友列表界面 - 光遇风格重构
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/temp_friend_service.dart';
-import '../widgets/water_background.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
+import '../widgets/sky_button.dart';
 import 'friend_chat_screen.dart';
 
 class TempFriendsScreen extends StatefulWidget {
@@ -99,14 +101,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       final diff = expiryTime.difference(now);
 
       if (diff.isNegative) {
-        return Colors.red;
+        return AppTheme.errorColor;
       } else if (diff.inHours < 1) {
-        return Colors.orange;
+        return AppTheme.warmOrange;
       } else {
-        return Colors.green;
+        return AppTheme.candleGlow;
       }
     } catch (e) {
-      return Colors.grey;
+      return Colors.white.withValues(alpha: 0.3);
     }
   }
 
@@ -115,16 +117,22 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('升级为永久好友'),
-        content: Text('确定要将 $friendName 升级为永久好友吗？'),
+        backgroundColor: AppTheme.nightSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('升级为永久好友',
+            style: TextStyle(color: Colors.white)),
+        content: Text('确定要将 $friendName 升级为永久好友吗？',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text('取消',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
+            child: const Text('确定',
+                style: TextStyle(color: AppTheme.candleGlow)),
           ),
         ],
       ),
@@ -132,13 +140,16 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
     if (confirm == true && mounted) {
       try {
-        final result = await _tempFriendService.upgradeToPermanent(tempFriendId);
+        final result =
+            await _tempFriendService.upgradeToPermanent(tempFriendId);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['success'] ? '升级成功！' : result['message']),
-              backgroundColor: result['success'] ? Colors.green : Colors.red,
+              content:
+                  Text(result['success'] ? '升级成功！' : result['message']),
+              backgroundColor:
+                  result['success'] ? AppTheme.candleGlow : AppTheme.errorColor,
             ),
           );
 
@@ -149,28 +160,36 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text('操作失败，请稍后再试'),
+                backgroundColor: AppTheme.errorColor),
           );
         }
       }
     }
   }
 
-  Future<void> _deleteTempFriend(String tempFriendId, String friendName) async {
+  Future<void> _deleteTempFriend(
+      String tempFriendId, String friendName) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除临时好友'),
-        content: Text('确定要删除临时好友 $friendName 吗？'),
+        backgroundColor: AppTheme.nightSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('删除临时好友',
+            style: TextStyle(color: Colors.white)),
+        content: Text('确定要删除临时好友 $friendName 吗？',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text('取消',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
+            child: const Text('删除',
+                style: TextStyle(color: AppTheme.errorColor)),
           ),
         ],
       ),
@@ -178,13 +197,16 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
     if (confirm == true && mounted) {
       try {
-        final result = await _tempFriendService.deleteTempFriend(tempFriendId);
+        final result =
+            await _tempFriendService.deleteTempFriend(tempFriendId);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['success'] ? '删除成功' : result['message']),
-              backgroundColor: result['success'] ? Colors.green : Colors.red,
+              content:
+                  Text(result['success'] ? '删除成功' : result['message']),
+              backgroundColor:
+                  result['success'] ? AppTheme.candleGlow : AppTheme.errorColor,
             ),
           );
 
@@ -195,7 +217,9 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text('操作失败，请稍后再试'),
+                backgroundColor: AppTheme.errorColor),
           );
         }
       }
@@ -204,11 +228,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
+    return SkyScaffold(
+      showWater: true,
       appBar: AppBar(
         title: const Text('临时好友',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -220,18 +245,26 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('关于临时好友'),
-                  content: const Text(
+                  backgroundColor: AppTheme.nightSurface,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                  title: const Text('关于临时好友',
+                      style: TextStyle(color: Colors.white)),
+                  content: Text(
                     '临时好友是通过互动（评论、纸船）自动建立的24小时好友关系。\n\n'
                     '• 临时好友可以私聊\n'
                     '• 24小时后自动失效\n'
                     '• 可以升级为永久好友\n\n'
                     '在心湖中多互动，遇见更多朋友吧！',
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        height: 1.5),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('知道了'),
+                      child: const Text('知道了',
+                          style: TextStyle(color: AppTheme.candleGlow)),
                     ),
                   ],
                 ),
@@ -240,251 +273,281 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // 动态水面背景
-          const Positioned.fill(child: WaterBackground()),
-
-          // 内容区域
-          RefreshIndicator(
-            onRefresh: _loadTempFriends,
-            color: Colors.blue[900],
-            backgroundColor: Colors.white,
-            child: ListView.builder(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-                bottom: 20,
-                left: 16,
-                right: 16,
-              ),
-              itemCount: _isLoading ? 2 : (_tempFriends.isEmpty ? 2 : _tempFriends.length + 1),
-              itemBuilder: (context, index) {
-                // 第一项：提示卡片
-                if (index == 0) {
-                  return Column(
+      body: RefreshIndicator(
+        onRefresh: _loadTempFriends,
+        color: AppTheme.warmOrange,
+        backgroundColor: AppTheme.nightSurface,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppTheme.warmOrange))
+            : _tempFriends.isEmpty
+                ? ListView(
                     children: [
-                      Card(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.skyBlue.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.access_time,
-                                  color: AppTheme.skyBlue,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '临时好友关系',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.darkBlue,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      '通过互动自动建立，24小时有效期',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                      SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.3),
+                      Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.people_outline,
+                                size: 64,
+                                color: Colors.white.withValues(alpha: 0.3)),
+                            const SizedBox(height: 16),
+                            Text('还没有临时好友',
+                                style: TextStyle(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.5),
+                                    fontSize: 16)),
+                            const SizedBox(height: 8),
+                            Text('去心湖互动，遇见新朋友吧！',
+                                style: TextStyle(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.3),
+                                    fontSize: 14)),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
                     ],
-                  );
-                }
-
-                // 加载中状态
-                if (_isLoading) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+                      bottom: 20,
+                      left: 16,
+                      right: 16,
                     ),
-                  );
-                }
-
-                // 空状态
-                if (_tempFriends.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 40),
-                        Icon(
-                          Icons.people_outline,
-                          size: 80,
-                          color: Colors.white.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          '还没有临时好友',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.9),
+                    itemCount: _tempFriends.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SkyGlassCard(
+                            glowColor: AppTheme.spiritBlue,
+                            enableGlow: false,
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: AppTheme.spiritBlue, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    '临时好友24小时后失效，可升级为永久好友',
+                                    style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.7),
+                                        fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '在心湖中互动即可建立临时好友关系',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // 好友列表项
-                final friendIndex = index - 1;
-                final tempFriend = _tempFriends[friendIndex];
-                final status = tempFriend['status'] ?? 'active';
-                final expiresAt = tempFriend['expires_at'] ?? '';
-                final isExpired = status == 'expired';
-                final isUpgraded = tempFriend['upgraded_to_friend'] == true;
-
-                return _buildFriendCard(friendIndex, tempFriend, isExpired, isUpgraded, expiresAt);
-              },
-            ),
-          ),
-        ],
+                        );
+                      }
+                      return _buildFriendCard(
+                          _tempFriends[index - 1], index - 1);
+                    },
+                  ),
       ),
     );
   }
 
-  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired, bool isUpgraded, String expiresAt) {
+  Widget _buildFriendCard(dynamic tempFriend, int index) {
+    final expiresAt = tempFriend['expires_at'] ?? '';
+    final isExpired = tempFriend['status'] == 'expired';
+    final isUpgraded = tempFriend['status'] == 'upgraded';
+    final delay = (index * 0.1).clamp(0.0, 1.0);
+
     return AnimatedBuilder(
       animation: _listAnimController,
       builder: (context, child) {
-        final delay = index * 0.1;
-        final start = delay.clamp(0.0, 0.7);
-        final anim = Tween<double>(begin: 0.0, end: 1.0).animate(
-          CurvedAnimation(
-            parent: _listAnimController,
-            curve: Interval(start, (start + 0.3).clamp(0.0, 1.0), curve: Curves.easeOut),
-          ),
-        );
-        return Opacity(
-          opacity: anim.value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - anim.value)),
-            child: child,
-          ),
+        final progress =
+            ((_listAnimController.value - delay) / (1 - delay)).clamp(0.0, 1.0);
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - progress)),
+          child: Opacity(opacity: progress, child: child),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        color: Colors.white.withValues(alpha: 0.95),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: isExpired ? Colors.grey.withValues(alpha: 0.3) : AppTheme.skyBlue.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(12),
-          leading: Stack(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SkyGlassCard(
+          enableGlow: !isExpired && !isUpgraded,
+          glowColor: isExpired
+              ? Colors.white.withValues(alpha: 0.1)
+              : AppTheme.spiritBlue,
+          onTap: !isExpired && !isUpgraded
+              ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => FriendChatScreen(
+                          friendId: tempFriend['friend_id'],
+                          friendName:
+                              tempFriend['friend_nickname'] ?? '未知')))
+              : null,
+          child: Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: isExpired ? Colors.grey.withValues(alpha: 0.2) : AppTheme.skyBlue.withValues(alpha: 0.2),
-                child: Text(
-                  (tempFriend['friend_nickname']?.isNotEmpty == true) ? tempFriend['friend_nickname'].substring(0, 1) : '?',
-                  style: TextStyle(color: isExpired ? Colors.grey : AppTheme.skyBlue, fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-              ),
-              if (!isExpired && !isUpgraded)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: _getExpiryColor(expiresAt), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                    child: const Icon(Icons.access_time, color: Colors.white, size: 12),
-                  ),
-                ),
-            ],
-          ),
-          title: Row(
-            children: [
-              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? Colors.grey : AppTheme.darkBlue))),
-              if (isUpgraded)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: const Text('已升级', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold)),
-                ),
-            ],
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text('来源: ${_getSourceText(tempFriend['source'])}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              const SizedBox(height: 4),
-              Row(
+              // 头像区域
+              Stack(
                 children: [
-                  Icon(Icons.timer_outlined, size: 14, color: _getExpiryColor(expiresAt)),
-                  const SizedBox(width: 4),
-                  Text(isExpired ? '已过期' : '剩余: ${_getTimeRemaining(expiresAt)}', style: TextStyle(fontSize: 12, color: _getExpiryColor(expiresAt), fontWeight: FontWeight.w500)),
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: isExpired
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : AppTheme.spiritBlue.withValues(alpha: 0.2),
+                    child: Text(
+                      (tempFriend['friend_nickname']?.isNotEmpty == true)
+                          ? tempFriend['friend_nickname'].substring(0, 1)
+                          : '?',
+                      style: TextStyle(
+                          color: isExpired
+                              ? Colors.white.withValues(alpha: 0.3)
+                              : AppTheme.spiritBlue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20),
+                    ),
+                  ),
+                  if (!isExpired && !isUpgraded)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                            color: _getExpiryColor(expiresAt),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: AppTheme.nightSurface, width: 2)),
+                        child: const Icon(Icons.access_time,
+                            color: Colors.white, size: 10),
+                      ),
+                    ),
                 ],
               ),
-            ],
-          ),
-          trailing: !isExpired && !isUpgraded
-              ? PopupMenuButton(
-                  icon: const Icon(Icons.more_vert),
+              const SizedBox(width: 14),
+              // 信息区域
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tempFriend['friend_nickname'] ?? '未知',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isExpired
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : Colors.white),
+                          ),
+                        ),
+                        if (isUpgraded)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                                color:
+                                    AppTheme.candleGlow.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12)),
+                            child: const Text('已升级',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.candleGlow,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '来源: ${_getSourceText(tempFriend['source'])}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.5)),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.timer_outlined,
+                            size: 14, color: _getExpiryColor(expiresAt)),
+                        const SizedBox(width: 4),
+                        Text(
+                          isExpired
+                              ? '已过期'
+                              : '剩余: ${_getTimeRemaining(expiresAt)}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: _getExpiryColor(expiresAt),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 操作菜单
+              if (!isExpired && !isUpgraded)
+                PopupMenuButton(
+                  icon: Icon(Icons.more_vert,
+                      color: Colors.white.withValues(alpha: 0.6)),
+                  color: AppTheme.nightSurface,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'chat', child: Row(children: [Icon(Icons.chat, size: 20), SizedBox(width: 8), Text('私聊')])),
-                    const PopupMenuItem(value: 'upgrade', child: Row(children: [Icon(Icons.upgrade, color: Colors.green, size: 20), SizedBox(width: 8), Text('升级为永久好友', style: TextStyle(color: Colors.green))])),
-                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red, size: 20), SizedBox(width: 8), Text('删除', style: TextStyle(color: Colors.red))])),
+                    PopupMenuItem(
+                        value: 'chat',
+                        child: Row(children: [
+                          Icon(Icons.chat,
+                              size: 20,
+                              color: Colors.white.withValues(alpha: 0.8)),
+                          const SizedBox(width: 8),
+                          Text('私聊',
+                              style: TextStyle(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.9))),
+                        ])),
+                    PopupMenuItem(
+                        value: 'upgrade',
+                        child: Row(children: [
+                          const Icon(Icons.upgrade,
+                              color: AppTheme.candleGlow, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('升级为永久好友',
+                              style: TextStyle(color: AppTheme.candleGlow)),
+                        ])),
+                    PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          const Icon(Icons.delete,
+                              color: AppTheme.errorColor, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('删除',
+                              style: TextStyle(color: AppTheme.errorColor)),
+                        ])),
                   ],
                   onSelected: (value) {
                     switch (value) {
                       case 'chat':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => FriendChatScreen(friendId: tempFriend['friend_id'], friendName: tempFriend['friend_nickname'] ?? '未知')));
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => FriendChatScreen(
+                                    friendId: tempFriend['friend_id'],
+                                    friendName:
+                                        tempFriend['friend_nickname'] ??
+                                            '未知')));
                         break;
                       case 'upgrade':
-                        _upgradeToPermanent(tempFriend['temp_friend_id'], tempFriend['friend_nickname'] ?? '未知');
+                        _upgradeToPermanent(tempFriend['temp_friend_id'],
+                            tempFriend['friend_nickname'] ?? '未知');
                         break;
                       case 'delete':
-                        _deleteTempFriend(tempFriend['temp_friend_id'], tempFriend['friend_nickname'] ?? '未知');
+                        _deleteTempFriend(tempFriend['temp_friend_id'],
+                            tempFriend['friend_nickname'] ?? '未知');
                         break;
                     }
                   },
-                )
-              : null,
-          onTap: !isExpired && !isUpgraded
-              ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => FriendChatScreen(friendId: tempFriend['friend_id'], friendName: tempFriend['friend_nickname'] ?? '未知')))
-              : null,
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/mood_colors.dart';
-import '../widgets/water_background.dart';
+import '../../utils/app_theme.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 import 'stone_detail_screen.dart';
 
 class PersonalizedScreen extends StatefulWidget {
   const PersonalizedScreen({super.key});
-
   @override
   State<PersonalizedScreen> createState() => _PersonalizedScreenState();
 }
@@ -20,7 +21,6 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   final AIRecommendationService _service = AIRecommendationService();
   late AnimationController _driftController;
   late AnimationController _fadeController;
-
   List<Stone> _personalizedStones = [];
   List<Stone> _advancedStones = [];
   bool _loading = true;
@@ -29,12 +29,10 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   void initState() {
     super.initState();
     _driftController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
+      vsync: this, duration: const Duration(seconds: 8),
     )..repeat();
     _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
+      vsync: this, duration: const Duration(milliseconds: 600),
     );
     _loadRecommendations();
   }
@@ -52,7 +50,6 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         _service.getPersonalizedRecommendations(limit: 10),
         _service.getAdvancedRecommendations(limit: 10),
       ]);
-
       if (mounted) {
         setState(() {
           _personalizedStones = _parseStones(results[0]);
@@ -72,61 +69,24 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const WaterBackground(forceDark: true),
-          // 漂浮光点
-          AnimatedBuilder(
-            animation: _driftController,
-            builder: (_, __) => CustomPaint(
-              painter: _FloatingLightsPainter(
-                progress: _driftController.value,
-              ),
-              size: Size.infinite,
-            ),
+    return SkyScaffold(
+      showParticles: true,
+      showWater: false,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        title: const Text(
+          '为你而来',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w300,
+            color: Colors.white,
+            letterSpacing: 3,
           ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: _loading
-                      ? _buildLoadingState()
-                      : FadeTransition(
-                          opacity: _fadeController,
-                          child: _buildContent(),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white70, size: 20),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Expanded(
-            child: Text(
-              '为你而来',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w300,
-                color: Colors.white,
-                letterSpacing: 3,
-              ),
-            ),
-          ),
+        ),
+        centerTitle: true,
+        actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white38, size: 20),
             onPressed: () {
@@ -135,6 +95,27 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
             },
           ),
         ],
+      ),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 漂浮光点
+            AnimatedBuilder(
+              animation: _driftController,
+              builder: (_, __) => CustomPaint(
+                painter: _FloatingLightsPainter(progress: _driftController.value),
+                size: Size.infinite,
+              ),
+            ),
+            // 主内容
+            _loading
+                ? _buildLoadingState()
+                : FadeTransition(
+                    opacity: _fadeController,
+                    child: _buildContent(),
+                  ),
+          ],
+        ),
       ),
     );
   }
@@ -157,12 +138,12 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFFFFD54F).withValues(alpha: 0.4),
-                        const Color(0xFFFFD54F).withValues(alpha: 0.0),
+                        AppTheme.warmOrange.withValues(alpha: 0.4),
+                        AppTheme.warmOrange.withValues(alpha: 0.0),
                       ],
                     ),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: Color(0xFFFFD54F), size: 24),
+                  child: Icon(Icons.auto_awesome, color: AppTheme.warmOrange, size: 24),
                 ),
               );
             },
@@ -187,24 +168,21 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         const SizedBox(height: 12),
-        // 个性化推荐区
         if (_personalizedStones.isNotEmpty) ...[
-          _buildSectionTitle('心灵共振', Icons.favorite_border, const Color(0xFFF48FB1)),
+          _buildSectionTitle('心灵共振', Icons.favorite_border, AppTheme.peachPink),
           const SizedBox(height: 12),
           ..._personalizedStones.asMap().entries.map(
             (e) => _buildDriftingCard(e.value, e.key),
           ),
         ],
         const SizedBox(height: 24),
-        // 高级共鸣推荐区
         if (_advancedStones.isNotEmpty) ...[
-          _buildSectionTitle('深层共鸣', Icons.auto_awesome, const Color(0xFFFFD54F)),
+          _buildSectionTitle('深层共鸣', Icons.auto_awesome, AppTheme.candleGlow),
           const SizedBox(height: 12),
           ..._advancedStones.asMap().entries.map(
             (e) => _buildDriftingCard(e.value, e.key + 100),
           ),
         ],
-        // 空状态
         if (_personalizedStones.isEmpty && _advancedStones.isEmpty)
           _buildEmptyState(),
         const SizedBox(height: 40),
@@ -247,7 +225,6 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           offset: Offset(dx, dy),
           child: GestureDetector(
             onTap: () {
-              // 记录交互
               _service.trackInteraction(stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
@@ -256,93 +233,87 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                 ),
               );
             },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: config.primary.withValues(alpha: 0.15),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: config.primary.withValues(alpha: 0.06),
-                    blurRadius: 20,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // 情绪光点
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          config.primary.withValues(alpha: 0.5),
-                          config.primary.withValues(alpha: 0.1),
-                        ],
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(config.icon, size: 18, color: config.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  // 内容
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stone.content.length > 50
-                              ? '${stone.content.substring(0, 50)}...'
-                              : stone.content,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.85),
-                            height: 1.5,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SkyGlassCard(
+                borderRadius: 20,
+                enableGlow: true,
+                glowColor: config.primary,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      // 情绪光点
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              config.primary.withValues(alpha: 0.5),
+                              config.primary.withValues(alpha: 0.1),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
+                        child: Center(
+                          child: Icon(config.icon, size: 18, color: config.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // 内容
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.water_drop, size: 12,
-                                color: Colors.white.withValues(alpha: 0.3)),
-                            const SizedBox(width: 4),
                             Text(
-                              '${stone.rippleCount}涟漪',
+                              stone.content.length > 50
+                                  ? '${stone.content.substring(0, 50)}...'
+                                  : stone.content,
                               style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                height: 1.5,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Icon(Icons.sailing, size: 12,
-                                color: Colors.white.withValues(alpha: 0.3)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${stone.boatCount}纸船',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.4),
-                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.water_drop, size: 12,
+                                    color: Colors.white.withValues(alpha: 0.3)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${stone.rippleCount}涟漪',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(Icons.sailing, size: 12,
+                                    color: Colors.white.withValues(alpha: 0.3)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${stone.boatCount}纸船',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      // 共鸣指示
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                    ],
                   ),
-                  // 共鸣指示
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: Colors.white.withValues(alpha: 0.2),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -352,23 +323,25 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 80),
-      child: Column(
-        children: [
-          Icon(Icons.explore, size: 48, color: Colors.white.withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
-          Text(
-            '多投几颗石头\n让湖水认识你',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.4),
-              height: 1.8,
-              letterSpacing: 1,
+    return SkyGlassCard(
+      borderRadius: 20,
+      enableGlow: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
+        child: Column(
+          children: [
+            Icon(Icons.explore, size: 48, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(height: 16),
+            Text(
+              '投出更多石头，发现更多共鸣',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 14,
+                letterSpacing: 1,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

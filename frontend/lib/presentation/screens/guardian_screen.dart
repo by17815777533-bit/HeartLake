@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/guardian_service.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/water_background.dart';
+import '../widgets/sky_scaffold.dart';
 import 'lake_god_chat_screen.dart';
 
 class GuardianScreen extends StatefulWidget {
@@ -102,22 +102,26 @@ class _GuardianScreenState extends State<GuardianScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text('点灯人'), backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Colors.white),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: WaterBackground()),
-          SafeArea(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                : _stats == null
-                    ? const Center(child: Text('暂无数据', style: TextStyle(color: Colors.white)))
-                    : FadeTransition(
-                        opacity: _fadeAnim,
-                        child: ScaleTransition(
-                          scale: _scaleAnim,
-                          child: ListView(
+    return SkyScaffold(
+      showParticles: true,
+      showWater: true,
+      appBar: AppBar(
+        title: const Text('点灯人'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: Colors.white,
+      ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : _stats == null
+                ? const Center(child: Text('暂无数据', style: TextStyle(color: Colors.white)))
+                : FadeTransition(
+                    opacity: _fadeAnim,
+                    child: ScaleTransition(
+                      scale: _scaleAnim,
+                      child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
                           Card(
@@ -188,8 +192,6 @@ class _GuardianScreenState extends State<GuardianScreen>
                       ),
                     ),
                   ),
-          ),
-        ],
       ),
     );
   }

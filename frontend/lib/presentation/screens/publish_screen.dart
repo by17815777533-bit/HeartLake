@@ -1,9 +1,12 @@
 // @file publish_screen.dart
-// @brief 发布石头界面
+// @brief 发布石头界面 - 光遇风格重构
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
-import '../widgets/water_background.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
+import '../widgets/sky_button.dart';
+import '../widgets/sky_input.dart';
 import '../widgets/ai_content_preview.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
@@ -21,7 +24,7 @@ class _PublishScreenState extends State<PublishScreen> {
   final StoneService _stoneService = StoneService();
   String _selectedType = 'medium';
   String _selectedColor = '#ADA59E';
-  MoodType _selectedMood = MoodType.neutral; // 新增：选中的心情
+  MoodType _selectedMood = MoodType.neutral;
   bool _isSubmitting = false;
   String _contentText = '';
   AIPreviewResult _aiPreviewResult = const AIPreviewResult();
@@ -36,8 +39,9 @@ class _PublishScreenState extends State<PublishScreen> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
+      child: SkyScaffold(
+        showWater: true,
+        showParticles: true,
         appBar: AppBar(
           title: const Text('投石',
               style:
@@ -48,187 +52,185 @@ class _PublishScreenState extends State<PublishScreen> {
           scrolledUnderElevation: 0,
           foregroundColor: Colors.white,
         ),
-        body: Stack(
-          children: [
-            const Positioned.fill(child: WaterBackground()),
-            SingleChildScrollView(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight + 20,
-                left: 24,
-                right: 24,
-                bottom: 24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '向湖中投入你的石头',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                              color: AppTheme.heavyStone.withValues(alpha: 0.4),
-                              offset: const Offset(0, 2),
-                              blurRadius: 4)
-                        ]),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 标题
+                Text(
+                  '向湖中投入你的石头',
+                  style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                            color: AppTheme.warmOrange.withValues(alpha: 0.4),
+                            offset: const Offset(0, 2),
+                            blurRadius: 4)
+                      ]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '这里是你的安全空间',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '这里是你的安全空间',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 32),
 
-                  // 输入区域容器
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: MoodColors.getConfig(_selectedMood).primary,
-                        width: 2,
+                // 内容输入区域 - SkyGlassCard 包裹
+                SkyGlassCard(
+                  borderRadius: 24,
+                  enableGlow: true,
+                  glowColor: MoodColors.getConfig(_selectedMood).primary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 输入框 - SkyInput
+                      SkyInput(
+                        controller: _contentController,
+                        hintText: '说说你的心情吧...',
+                        maxLines: 6,
+                        maxLength: 500,
+                        onChanged: (text) {
+                          setState(() => _contentText = text);
+                        },
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.skyBlue.withValues(alpha: 0.15),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _contentController,
-                          maxLines: 6,
-                          maxLength: 500,
-                          onChanged: (text) {
-                            setState(() => _contentText = text);
-                          },
-                          decoration: const InputDecoration(
-                            hintText: '说说你的心情吧...',
-                            counterText: '',
-                            border: InputBorder.none,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
+
+                      const SizedBox(height: 12),
+
+                      // AI内容审核预览
+                      AIContentPreview(
+                        text: _contentText,
+                        onResultChanged: (result) {
+                          setState(() => _aiPreviewResult = result);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 心情选择器 - SkyGlassCard 包裹
+                SkyGlassCard(
+                  borderRadius: 20,
+                  enableGlow: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '选择心情',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildMoodSelector(),
+                    ],
+                  ),
+                ),
 
-                        // AI内容审核预览
-                        AIContentPreview(
-                          text: _contentText,
-                          onResultChanged: (result) {
-                            setState(() => _aiPreviewResult = result);
-                          },
+                const SizedBox(height: 20),
+
+                // 石头类型选择 - SkyGlassCard 包裹
+                SkyGlassCard(
+                  borderRadius: 20,
+                  enableGlow: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '选择石头类型',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: _stoneTypes.entries.map((entry) {
+                          final isSelected = _selectedType == entry.key;
+                          final moodConfig =
+                              MoodColors.getConfig(_selectedMood);
+                          Color activeColor;
+                          if (entry.key == 'light') {
+                            activeColor = moodConfig.primary.withValues(alpha: 0.3);
+                          } else if (entry.key == 'medium') {
+                            activeColor = moodConfig.primary.withValues(alpha: 0.6);
+                          } else {
+                            activeColor = moodConfig.primary.withValues(alpha: 0.9);
+                          }
 
-                        const SizedBox(height: 16),
-
-                        // 心情选择器（新增）
-                        Text(
-                          '选择心情',
-                          style:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildMoodSelector(),
-
-                        const SizedBox(height: 24),
-
-                        // 石头类型选择
-                        Text(
-                          '选择石头类型',
-                          style:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: _stoneTypes.entries.map((entry) {
-                            final isSelected = _selectedType == entry.key;
-                            // 根据心情和石头类型动态计算颜色
-                            final moodConfig =
-                                MoodColors.getConfig(_selectedMood);
-                            Color activeColor;
-                            if (entry.key == 'light') {
-                              activeColor = moodConfig.primary.withValues(alpha: 0.3);
-                            } else if (entry.key == 'medium') {
-                              activeColor = moodConfig.primary.withValues(alpha: 0.6);
-                            } else {
-                              activeColor = moodConfig.primary.withValues(alpha: 0.9);
-                            }
-
-                            return Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedType = entry.key;
-                                    // 根据心情更新颜色
-                                    _updateStoneColor();
-                                  });
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin:
-                                      const EdgeInsets.symmetric(horizontal: 4),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedType = entry.key;
+                                  _updateStoneColor();
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? activeColor
+                                      : Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
                                     color: isSelected
-                                        ? activeColor
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? moodConfig.primary
-                                          : Colors.grey.shade300,
-                                      width: isSelected ? 2 : 1,
-                                    ),
+                                        ? moodConfig.primary
+                                        : Colors.white.withValues(alpha: 0.2),
+                                    width: isSelected ? 2 : 1,
                                   ),
-                                  child: Text(
-                                    entry.value,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.grey.shade600,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                ),
+                                child: Text(
+                                  entry.value,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                            );
-                          }).toList(),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // 发布按钮
-                        _PublishButton(
-                          isSubmitting: _isSubmitting,
-                          canSubmit: _aiPreviewResult.canSubmit,
-                          onPressed: _submitStone,
-                          moodConfig: MoodColors.getConfig(_selectedMood),
-                        ),
-                      ],
-                    ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // 发布按钮 - SkyButton
+                SkyButton(
+                  label: '投入湖中',
+                  onPressed: (_contentController.text.trim().isEmpty || !_aiPreviewResult.canSubmit || _isSubmitting)
+                      ? null
+                      : _submitStone,
+                  isLoading: _isSubmitting,
+                  width: double.infinity,
+                  icon: Icons.water_drop,
+                ),
+
+                const SizedBox(height: 24),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -349,12 +351,25 @@ class _PublishScreenState extends State<PublishScreen> {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? config.primary : Colors.transparent,
+              color: isSelected
+                  ? config.primary
+                  : Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? config.primary : Colors.grey.shade300,
+                color: isSelected
+                    ? config.primary
+                    : Colors.white.withValues(alpha: 0.2),
                 width: isSelected ? 2 : 1,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: config.primary.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -362,13 +377,17 @@ class _PublishScreenState extends State<PublishScreen> {
                 Icon(
                   config.icon,
                   size: 18,
-                  color: isSelected ? Colors.white : config.primary,
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.7),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   config.name,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.7),
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     fontSize: 14,
                   ),
@@ -404,92 +423,5 @@ class _PublishScreenState extends State<PublishScreen> {
     }
 
     _selectedColor = colorToHex(targetColor);
-  }
-}
-
-class _PublishButton extends StatefulWidget {
-  final bool isSubmitting;
-  final bool canSubmit;
-  final VoidCallback onPressed;
-  final MoodColorConfig moodConfig;
-
-  const _PublishButton({
-    required this.isSubmitting,
-    required this.canSubmit,
-    required this.onPressed,
-    required this.moodConfig,
-  });
-
-  @override
-  State<_PublishButton> createState() => _PublishButtonState();
-}
-
-class _PublishButtonState extends State<_PublishButton> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween<double>(begin: 1.0, end: 0.95).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = widget.isSubmitting || !widget.canSubmit;
-
-    return GestureDetector(
-      onTapDown: disabled ? null : (_) => _controller.forward(),
-      onTapUp: disabled ? null : (_) {
-        _controller.reverse();
-        widget.onPressed();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: disabled
-                  ? [Colors.grey.shade400, Colors.grey.shade300]
-                  : [widget.moodConfig.primary, widget.moodConfig.primary.withValues(alpha: 0.8)],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: disabled
-                    ? Colors.grey.withValues(alpha: 0.15)
-                    : widget.moodConfig.primary.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Center(
-            child: widget.isSubmitting
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(
-                    '投入湖中',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: disabled ? Colors.white70 : Colors.white,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
   }
 }

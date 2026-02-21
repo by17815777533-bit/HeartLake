@@ -7,6 +7,7 @@ library;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../utils/app_theme.dart';
 
 /// 全屏图片预览
 class ImagePreviewScreen extends StatefulWidget {
@@ -45,7 +46,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.black.withValues(alpha: 0.92),
       body: Stack(
         children: [
           // 图片滑动
@@ -70,7 +71,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
             top: MediaQuery.of(context).padding.top + 8,
             right: 16,
             child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              icon: const Icon(Icons.close, color: AppTheme.peachPink, size: 28),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -108,7 +109,7 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
         fit: BoxFit.contain,
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange));
         },
         errorBuilder: (context, error, stack) {
           return const Icon(Icons.broken_image, color: Colors.white54, size: 64);

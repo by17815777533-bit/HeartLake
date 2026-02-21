@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../../../utils/app_theme.dart';
+import '../../../utils/app_theme.dart';
 
 class GlowParticles extends StatefulWidget {
   final int particleCount;

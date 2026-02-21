@@ -7,6 +7,8 @@ import '../../data/datasources/api_client.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 import 'stone_detail_screen.dart';
 
 class ReceivedBoatsScreen extends StatefulWidget {
@@ -126,173 +128,173 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SkyScaffold(
+      showParticles: true,
+      showWater: true,
       appBar: AppBar(
-        title: const Text('收到的纸船'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        title: const Text('收到的纸船', style: TextStyle(color: Colors.white)),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white70),
             onPressed: _loadReceivedBoats,
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
-          ),
-        ),
+      body: SafeArea(
         child: RefreshIndicator(
-        onRefresh: _loadReceivedBoats,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _boats.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.sailing_outlined,
-                                size: 80,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '还没有收到纸船',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
+          onRefresh: _loadReceivedBoats,
+          color: AppTheme.warmOrange,
+          backgroundColor: Colors.white24,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppTheme.warmOrange),
+                )
+              : _boats.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sailing_outlined,
+                                  size: 80,
+                                  color: Colors.white38,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '别人会在你的石头下留言',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[400],
+                                SizedBox(height: 16),
+                                Text(
+                                  '还没有收到纸船',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white54,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _boats.length,
-                      itemBuilder: (context, index) {
-                        final boat = _boats[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(
-                              color: Colors.blue.withValues(alpha: 0.3),
-                              width: 2,
+                                SizedBox(height: 8),
+                                Text(
+                                  '别人会在你的石头下留言',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white38,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          elevation: 2,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              final stoneId = boat['stone_id']?.toString();
-                              if (stoneId != null && stoneId.isNotEmpty) {
-                                final stone = Stone(
-                                  stoneId: stoneId,
-                                  userId: boat['stone_user_id']?.toString() ?? '',
-                                  content: boat['stone_content']?.toString() ?? '',
-                                  stoneType: 'medium',
-                                  stoneColor: '#7A92A3',
-                                  createdAt: DateTime.tryParse(boat['stone_created_at']?.toString() ?? '') ?? DateTime.now(),
-                                  moodType: boat['stone_mood_type']?.toString(),
-                                );
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => StoneDetailScreen(stone: stone),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 发送者信息
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.person, size: 16),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        boat['sender_name'] ?? '匿名旅人',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        boat['created_at']?.toString() ?? '',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  // 纸船内容
-                                  Text(
-                                    boat['content'] ?? '',
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                  const Divider(height: 24),
-                                  // 对应的石头
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      borderRadius: BorderRadius.circular(8),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _boats.length,
+                        itemBuilder: (context, index) {
+                          final boat = _boats[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: SkyGlassCard(
+                              glowColor: AppTheme.skyBlue,
+                              borderRadius: 16,
+                              padding: EdgeInsets.zero,
+                              onTap: () {
+                                final stoneId = boat['stone_id']?.toString();
+                                if (stoneId != null && stoneId.isNotEmpty) {
+                                  final stone = Stone(
+                                    stoneId: stoneId,
+                                    userId: boat['stone_user_id']?.toString() ?? '',
+                                    content: boat['stone_content']?.toString() ?? '',
+                                    stoneType: 'medium',
+                                    stoneColor: '#7A92A3',
+                                    createdAt: DateTime.tryParse(boat['stone_created_at']?.toString() ?? '') ?? DateTime.now(),
+                                    moodType: boat['stone_mood_type']?.toString(),
+                                  );
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => StoneDetailScreen(stone: stone),
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                  );
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // 发送者信息
+                                    Row(
                                       children: [
+                                        const Icon(Icons.person, size: 16, color: Colors.white70),
+                                        const SizedBox(width: 8),
                                         Text(
-                                          '你的石头:',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
+                                          boat['sender_name'] ?? '匿名旅人',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const Spacer(),
                                         Text(
-                                          boat['stone_content'] ?? '',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[800],
+                                          boat['created_at']?.toString() ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white38,
                                           ),
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 12),
+                                    // 纸船内容
+                                    Text(
+                                      boat['content'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Divider(height: 24, color: Colors.white.withValues(alpha: 0.15)),
+                                    // 对应的石头
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            '你的石头:',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white38,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            boat['stone_content'] ?? '',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.white70,
+                                            ),
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
         ),
       ),
     );

@@ -2,8 +2,10 @@
 // @brief 举报对话框组件
 // Created by 林子怡
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/datasources/report_service.dart';
+import '../../utils/app_theme.dart';
 
 /// 举报对话框组件
 class ReportDialog extends StatefulWidget {
@@ -80,8 +82,10 @@ class _ReportDialogState extends State<ReportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('举报内容'),
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: AlertDialog(
+        title: const Text('举报内容'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -128,7 +132,7 @@ class _ReportDialogState extends State<ReportDialog> {
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.warmOrange,
             foregroundColor: Colors.white,
           ),
           child: _isSubmitting
@@ -140,6 +144,7 @@ class _ReportDialogState extends State<ReportDialog> {
               : const Text('提交举报'),
         ),
       ],
+      ),
     );
   }
 }

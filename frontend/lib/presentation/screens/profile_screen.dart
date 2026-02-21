@@ -12,7 +12,7 @@ import '../../data/datasources/api_client.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/vip_service.dart';
-import '../widgets/atmospheric_background.dart';
+import '../widgets/sky_scaffold.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:async';
@@ -337,8 +337,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
     final joinDays = (_stats?['join_days']?.toString() ?? '0');
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
+    return SkyScaffold(
+      showParticles: true,
       appBar: AppBar(
         title: const Text('倒影',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -354,29 +354,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // 倒影背景
-          const Positioned.fill(
-            child: SceneTransitionBackground(
-              scene: LakeScene.reflection,
-              child: SizedBox.expand(),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshAll,
+          color: Colors.blue[900],
+          backgroundColor: Colors.white,
+          child: ListView(
+            padding: const EdgeInsets.only(
+              top: 16,
+              bottom: 20,
+              left: 16,
+              right: 16,
             ),
-          ),
-
-          // 内容区域
-          RefreshIndicator(
-            onRefresh: _refreshAll,
-            color: Colors.blue[900],
-            backgroundColor: Colors.white,
-            child: ListView(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-                bottom: 20,
-                left: 16,
-                right: 16,
-              ),
-              children: [
+            children: [
                 // 个人信息卡片
                 Card(
                   color: Colors.white.withValues(alpha: 0.9),
@@ -596,8 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-        ],
-      ),
+        ),
     );
   }
 

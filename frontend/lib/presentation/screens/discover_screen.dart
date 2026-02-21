@@ -3,7 +3,9 @@ import '../../data/datasources/recommendation_service.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card.dart';
-import '../widgets/water_background.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
+import '../widgets/sky_input.dart';
 import '../widgets/deep_dive_layer.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
@@ -121,20 +123,23 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
+    return SkyScaffold(
+      showWater: true,
+      showParticles: true,
       appBar: AppBar(
-        title: const Text('发现', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF5D4037))),
+        title: const Text('发现',
+            style: TextStyle(
+                fontWeight: FontWeight.w600, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppTheme.accentColor,
+          indicatorColor: AppTheme.warmOrange,
           indicatorWeight: 3,
-          labelColor: const Color(0xFF5D4037),
-          unselectedLabelColor: const Color(0xFF8D6E63),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withValues(alpha: 0.5),
           tabs: const [
             Tab(icon: Icon(Icons.local_fire_department), text: '热门'),
             Tab(icon: Icon(Icons.search), text: '搜索'),
@@ -149,22 +154,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           },
         ),
       ),
-      body: Stack(
-        children: [
-          const WaterBackground(),
-          SafeArea(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildStoneList(),
-                _buildSearchTab(),
-                _buildMoodTab(),
-                _buildResonanceTab(),
-                _buildPersonalizedTab(),
-              ],
-            ),
-          ),
-        ],
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildStoneList(),
+            _buildSearchTab(),
+            _buildMoodTab(),
+            _buildResonanceTab(),
+            _buildPersonalizedTab(),
+          ],
+        ),
       ),
     );
   }
@@ -174,17 +174,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: SearchBar(
+          child: SkyInput(
             controller: _searchController,
             hintText: '搜索石头...',
-            elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.9)),
-            trailing: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => _searchStones(_searchController.text),
-              ),
-            ],
+            prefixIcon: Icon(Icons.search,
+                color: Colors.white.withValues(alpha: 0.5)),
+            suffixIcon: IconButton(
+              icon: Icon(Icons.send,
+                  color: Colors.white.withValues(alpha: 0.7)),
+              onPressed: () => _searchStones(_searchController.text),
+            ),
             onSubmitted: _searchStones,
           ),
         ),
@@ -198,20 +197,57 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _moods.map((mood) {
-              final isSelected = _selectedMood == mood;
-              final color = MoodColors.getConfig(MoodColors.fromString(mood)).primary;
-              return ChoiceChip(
-                label: Text(mood),
-                selected: isSelected,
-                selectedColor: color.withValues(alpha: 0.8),
-                backgroundColor: color.withValues(alpha: 0.3),
-                onSelected: (_) => _discoverByMood(mood),
-              );
-            }).toList(),
+          child: SkyGlassCard(
+            borderRadius: 20,
+            enableGlow: false,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _moods.map((mood) {
+                final isSelected = _selectedMood == mood;
+                final color = MoodColors.getConfig(MoodColors.fromString(mood)).primary;
+                return GestureDetector(
+                  onTap: () => _discoverByMood(mood),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? color.withValues(alpha: 0.8)
+                          : color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? color
+                            : Colors.white.withValues(alpha: 0.2),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: color.withValues(alpha: 0.4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Text(
+                      mood,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.7),
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ),
         Expanded(child: _buildStoneList()),
@@ -221,16 +257,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
   Widget _buildStoneList() {
     if (_isLoading) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在探索心湖深处...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))]));
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircularProgressIndicator(color: AppTheme.warmOrange),
+          const SizedBox(height: 16),
+          Text('正在探索心湖深处...',
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8))),
+        ]),
+      );
     }
     if (_stones.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.explore_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
+            Icon(Icons.explore_off,
+                size: 64,
+                color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('暂无内容，试试搜索或按心情发现', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+            Text('暂无内容，试试搜索或按心情发现',
+                style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7))),
           ],
         ),
       );
@@ -241,25 +289,31 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     );
   }
 
-  /// 共鸣推荐 Tab - 类光遇柔光风格
+  /// 共鸣推荐 Tab - 光遇柔光风格
   Widget _buildResonanceTab() {
     if (_resonanceLoading) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const CircularProgressIndicator(color: Color(0xFFFFAB91), strokeWidth: 2),
+          const CircularProgressIndicator(
+              color: AppTheme.warmOrange, strokeWidth: 2),
           const SizedBox(height: 16),
           Text('正在寻找共鸣之声...',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), letterSpacing: 1)),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  letterSpacing: 1)),
         ]),
       );
     }
     if (_resonanceStones.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.favorite_border, size: 64, color: Colors.white.withValues(alpha: 0.4)),
+          Icon(Icons.favorite_border,
+              size: 64,
+              color: Colors.white.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text('多投几颗石头，共鸣就会来',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6))),
         ]),
       );
     }
@@ -273,91 +327,103 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         final mood = stone['mood_type'] as String? ?? 'neutral';
         final moodConfig = MoodColors.getConfig(MoodColors.fromString(mood));
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                moodConfig.primary.withValues(alpha: 0.12),
-                Colors.white.withValues(alpha: 0.04),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SkyGlassCard(
+            borderRadius: 16,
+            enableGlow: true,
+            glowColor: moodConfig.primary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 共鸣分数标签
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [
+                          moodConfig.primary.withValues(alpha: 0.3),
+                          AppTheme.warmOrange.withValues(alpha: 0.2),
+                        ]),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.favorite,
+                                size: 10,
+                                color:
+                                    Colors.white.withValues(alpha: 0.8)),
+                            const SizedBox(width: 4),
+                            Text(
+                                '${(score * 100).toInt()}% 共鸣',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white
+                                        .withValues(alpha: 0.8))),
+                          ]),
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: moodConfig.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: moodConfig.primary
+                                  .withValues(alpha: 0.5),
+                              blurRadius: 6)
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // 内容
+                Text(content,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: Colors.white.withValues(alpha: 0.8))),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 共鸣分数标签
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [
-                        moodConfig.primary.withValues(alpha: 0.3),
-                        const Color(0xFFFFAB91).withValues(alpha: 0.2),
-                      ]),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.favorite, size: 10,
-                        color: Colors.white.withValues(alpha: 0.8)),
-                      const SizedBox(width: 4),
-                      Text('${(score * 100).toInt()}% 共鸣',
-                        style: TextStyle(fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.8))),
-                    ]),
-                  ),
-                  const Spacer(),
-                  Container(
-                    width: 8, height: 8,
-                    decoration: BoxDecoration(
-                      color: moodConfig.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(
-                        color: moodConfig.primary.withValues(alpha: 0.5),
-                        blurRadius: 6)],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // 内容
-              Text(content,
-                maxLines: 4, overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14, height: 1.6,
-                  color: Colors.white.withValues(alpha: 0.8))),
-            ],
           ),
         );
       },
     );
   }
 
-  /// 个性化推荐 Tab - 类光遇飘浮光球风格
+  /// 个性化推荐 Tab - 光遇飘浮光球风格
   Widget _buildPersonalizedTab() {
     if (_personalizedLoading) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const CircularProgressIndicator(color: Color(0xFFFFD54F), strokeWidth: 2),
+          const CircularProgressIndicator(
+              color: AppTheme.warmOrange, strokeWidth: 2),
           const SizedBox(height: 16),
           Text('星光正在为你汇聚...',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), letterSpacing: 1)),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  letterSpacing: 1)),
         ]),
       );
     }
     if (_personalizedStones.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.auto_awesome, size: 64, color: Colors.white.withValues(alpha: 0.4)),
+          Icon(Icons.auto_awesome,
+              size: 64,
+              color: Colors.white.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text('继续探索，推荐会越来越懂你',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6))),
         ]),
       );
     }
@@ -376,59 +442,52 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         final mood = stone['mood_type'] as String? ?? 'neutral';
         final moodConfig = MoodColors.getConfig(MoodColors.fromString(mood));
 
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              colors: [
-                moodConfig.primary.withValues(alpha: 0.15),
-                Colors.white.withValues(alpha: 0.03),
-              ],
-              radius: 1.2,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: moodConfig.primary.withValues(alpha: 0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        return SkyGlassCard(
+          borderRadius: 18,
+          enableGlow: true,
+          glowColor: moodConfig.primary,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 光球情绪指示
               Container(
-                width: 24, height: 24,
+                width: 24,
+                height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(colors: [
                     moodConfig.primary.withValues(alpha: 0.8),
                     moodConfig.primary.withValues(alpha: 0.2),
                   ]),
-                  boxShadow: [BoxShadow(
-                    color: moodConfig.primary.withValues(alpha: 0.4),
-                    blurRadius: 8)],
+                  boxShadow: [
+                    BoxShadow(
+                        color:
+                            moodConfig.primary.withValues(alpha: 0.4),
+                        blurRadius: 8)
+                  ],
                 ),
-                child: Icon(moodConfig.icon, size: 12, color: Colors.white),
+                child: Icon(moodConfig.icon,
+                    size: 12, color: Colors.white),
               ),
               const SizedBox(height: 10),
               // 内容
               Expanded(
                 child: Text(content,
-                  overflow: TextOverflow.fade,
-                  style: TextStyle(
-                    fontSize: 13, height: 1.5,
-                    color: Colors.white.withValues(alpha: 0.75))),
+                    overflow: TextOverflow.fade,
+                    style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color:
+                            Colors.white.withValues(alpha: 0.75))),
               ),
               // AI标签
               Align(
                 alignment: Alignment.bottomRight,
                 child: Text('✨ AI推荐',
-                  style: TextStyle(fontSize: 9,
-                    color: Colors.white.withValues(alpha: 0.4))),
+                    style: TextStyle(
+                        fontSize: 9,
+                        color:
+                            Colors.white.withValues(alpha: 0.4))),
               ),
             ],
           ),

@@ -775,15 +775,21 @@ class _StoneCardState extends State<StoneCard>
         decoration: BoxDecoration(
           // 使用情绪色彩的卡片背景
           color: moodConfig.cardColor.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(24),
-          // 使用情绪主色作为边框
+          borderRadius: BorderRadius.circular(20),
+          // 使用情绪主色作为边框（光遇风格柔和边框）
           border: Border.all(
-              color: moodConfig.primary.withValues(alpha: 0.6), width: 2.5),
+              color: moodConfig.primary.withValues(alpha: 0.35), width: 1.2),
           boxShadow: [
             BoxShadow(
               color: moodConfig.primary.withValues(alpha: 0.15),
               blurRadius: 15,
               offset: const Offset(0, 8),
+            ),
+            // 光遇风格情绪微光
+            BoxShadow(
+              color: moodConfig.primary.withValues(alpha: 0.1),
+              blurRadius: 12,
+              spreadRadius: 1,
             ),
           ],
         ),
@@ -813,7 +819,7 @@ class _StoneCardState extends State<StoneCard>
                 widget.onRippleSuccess?.call();
               }
             },
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(

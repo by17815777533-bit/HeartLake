@@ -1,9 +1,10 @@
 // @file chat_screen.dart
-// @brief 通用聊天界面
+// @brief 通用聊天界面 - 光遇风格
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../utils/app_theme.dart';
-import '../widgets/atmospheric_background.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 
 class ChatScreen extends StatefulWidget {
   final String recipientId;
@@ -50,7 +51,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载消息失败，请下拉重试')),
+          const SnackBar(
+            content: Text('加载消息失败，请下拉重试'),
+            backgroundColor: AppTheme.warmOrange,
+          ),
         );
       }
     }
@@ -86,7 +90,10 @@ class _ChatScreenState extends State<ChatScreen> {
         } else {
           _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? '发送失败'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(result['message'] ?? '发送失败'),
+              backgroundColor: AppTheme.warmOrange,
+            ),
           );
         }
       }
@@ -95,7 +102,10 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _isSending = false);
         _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('网络异常，请稍后再试'),
+            backgroundColor: AppTheme.warmOrange,
+          ),
         );
       }
     }
@@ -103,25 +113,27 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
+    return SkyScaffold(
+      showParticles: true,
       appBar: AppBar(
         title: Text(widget.recipientName ?? '聊天'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
       ),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: WaveBackground(child: SizedBox.shrink())),
-          SafeArea(
-            child: Column(
+      body: SafeArea(
+        child: Column(
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.warmOrange))
                   : _messages.isEmpty
-                      ? const Center(child: Text('还没有消息，说点什么吧~', style: TextStyle(color: Colors.grey)))
+                      ? Center(
+                          child: Text(
+                            '还没有消息，说点什么吧~',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                          ),
+                        )
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.all(16),
@@ -132,8 +144,6 @@ class _ChatScreenState extends State<ChatScreen> {
             _buildInputBar(),
           ],
         ),
-          ),
-        ],
       ),
     );
   }
@@ -144,39 +154,55 @@ class _ChatScreenState extends State<ChatScreen> {
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryColor : Colors.grey[200],
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          message['content'] ?? '',
-          style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 15),
-        ),
+        child: isMe
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.warmOrange, AppTheme.peachPink],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  message['content'] ?? '',
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
+              )
+            : SkyGlassCard(
+                borderRadius: 16,
+                enableGlow: false,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Text(
+                  message['content'] ?? '',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
+                ),
+              ),
       ),
     );
   }
 
   Widget _buildInputBar() {
-    return Container(
+    return SkyGlassCard(
+      borderRadius: 0,
+      enableGlow: false,
       padding: EdgeInsets.only(
         left: 16, right: 8, top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
-              decoration: const InputDecoration(
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
                 hintText: '说点什么...',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               maxLines: null,
               textInputAction: TextInputAction.send,
@@ -185,8 +211,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           IconButton(
             icon: _isSending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.send, color: AppTheme.primaryColor),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.warmOrange))
+                : const Icon(Icons.send, color: AppTheme.warmOrange),
             onPressed: _isSending ? null : _sendMessage,
           ),
         ],

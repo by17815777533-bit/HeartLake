@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/vip_service.dart';
+import '../widgets/sky_scaffold.dart';
 
 class VIPScreen extends StatefulWidget {
   const VIPScreen({super.key});
@@ -51,34 +52,26 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [const Color(0xFF1A237E).withValues(alpha: 0.9), const Color(0xFF0D1B2A)],
-          ),
-        ),
-        child: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD54F)))
-              : RefreshIndicator(
-                  onRefresh: _loadLightData,
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 24),
-                      _buildLampCard(),
-                      const SizedBox(height: 24),
-                      _buildPrivilegesGrid(),
-                      const SizedBox(height: 24),
-                      _buildInfoSection(),
-                    ],
-                  ),
+    return SkyScaffold(
+      showParticles: true,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD54F)))
+            : RefreshIndicator(
+                onRefresh: _loadLightData,
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+                    _buildLampCard(),
+                    const SizedBox(height: 24),
+                    _buildPrivilegesGrid(),
+                    const SizedBox(height: 24),
+                    _buildInfoSection(),
+                  ],
                 ),
-        ),
+              ),
       ),
     );
   }

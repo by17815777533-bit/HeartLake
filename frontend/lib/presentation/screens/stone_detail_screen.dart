@@ -12,7 +12,8 @@ import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/storage_util.dart';
-import '../widgets/water_background.dart';
+import '../widgets/sky_scaffold.dart';
+import '../widgets/sky_glass_card.dart';
 import '../widgets/report_dialog.dart';
 import '../widgets/similar_stones_section.dart';
 
@@ -510,35 +511,19 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ),
           ],
         ),
-        body: Stack(
-          children: [
-            // 使用统一的水面背景
-            const Positioned.fill(child: WaterBackground()),
-
-            SafeArea(
+        body: SkyScaffold(
+          showWater: true,
+          child: SafeArea(
               child: Column(
                 children: [
                   // 石头内容卡片
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: moodConfig.primary.withValues(alpha: 0.3),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: moodConfig.primary.withValues(alpha: 0.15),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
+                    child: SkyGlassCard(
+                      borderRadius: 20,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 情绪标签
@@ -670,6 +655,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                       ),
                     ),
                   ),
+                ),
                   // 相似石头推荐（AI共鸣推荐）
                   SimilarStonesSection(
                     stoneId: widget.stone.stoneId,
@@ -758,7 +744,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ), // 添加闭合WillPopScope的child
     ); // 添加闭合WillPopScope

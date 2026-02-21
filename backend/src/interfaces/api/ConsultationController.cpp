@@ -178,7 +178,7 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
             }
             db->execSqlAsync(
                 "SELECT sender_shadow_id, ciphertext, iv, tag, created_at FROM consultation_messages "
-                "WHERE session_id = $1 ORDER BY created_at ASC",
+                "WHERE session_id = $1 ORDER BY created_at ASC LIMIT 500",
                 [callback](const orm::Result& r) {
                     Json::Value messages(Json::arrayValue);
                     for (const auto& row : r) {

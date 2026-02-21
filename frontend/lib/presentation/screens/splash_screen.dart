@@ -9,6 +9,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'home_screen.dart';
 import '../widgets/water_background.dart';
+import '../widgets/journey_effects/glow_particles.dart';
+import '../widgets/journey_effects/pulse_ring.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
 
@@ -106,6 +108,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         children: [
           const Positioned.fill(child: WaterBackground()),
+          const Positioned.fill(child: GlowParticles()),
           Center(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -119,10 +122,10 @@ class _SplashScreenState extends State<SplashScreen>
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5), width: 2),
+                            color: AppTheme.candleGlow.withValues(alpha: 0.5), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                            color: AppTheme.candleGlow.withValues(alpha: 0.2),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           )
@@ -143,7 +146,7 @@ class _SplashScreenState extends State<SplashScreen>
                         letterSpacing: 4,
                         shadows: [
                           Shadow(
-                              color: AppTheme.heavyStone.withValues(alpha: 0.3),
+                              color: AppTheme.candleGlow.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 5))
                         ]),
@@ -158,13 +161,9 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 60),
-                  const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
+                  const PulseRing(
+                    size: 40,
+                    color: Colors.white,
                   ),
                 ],
               ),

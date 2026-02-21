@@ -8,6 +8,7 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../domain/entities/stone.dart';
+import '../widgets/sky_scaffold.dart';
 import 'stone_detail_screen.dart';
 
 class MyBoatsScreen extends StatefulWidget {
@@ -118,16 +119,19 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除纸船'),
-        content: const Text('确定要删除这条纸船吗？此操作无法撤销。'),
+        backgroundColor: const Color(0xFF1A2A3A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('删除纸船', style: TextStyle(color: Colors.white)),
+        content: const Text('确定要删除这条纸船吗？此操作无法撤销。',
+            style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: const Text('取消', style: TextStyle(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.peachPink),
             child: const Text('删除'),
           ),
         ],
@@ -169,10 +173,16 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SkyScaffold(
+      showParticles: true,
+      showWater: true,
       appBar: AppBar(
         title: const Text('我的纸船'),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -180,14 +190,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF8F0), Color(0xFFFAF0E8)],
-          ),
-        ),
+      body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadMyBoats,
           child: _isLoading
