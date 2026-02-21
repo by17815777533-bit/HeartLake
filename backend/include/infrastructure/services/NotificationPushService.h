@@ -88,45 +88,6 @@ public:
     }
 
     /**
-     * @brief 推送涟漪通知
-     */
-    void pushRippleNotification(const std::string& stoneOwnerId,
-                               const std::string& rippleUserId,
-                               const std::string& stoneId) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = stoneOwnerId;
-        notification.type = NotificationType::RIPPLE_RECEIVED;
-        notification.title = "收到新的涟漪";
-        notification.content = "有人喜欢了你的石头";
-        notification.relatedId = stoneId;
-        notification.timestamp = std::time(nullptr);
-        notification.extraData["ripple_user_id"] = rippleUserId;
-
-        pushToUser(stoneOwnerId, notification);
-    }
-
-    /**
-     * @brief 推送纸船通知
-     */
-    void pushBoatNotification(const std::string& receiverId,
-                             const std::string& senderId,
-                             const std::string& boatId,
-                             const std::string& content) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = receiverId;
-        notification.type = NotificationType::BOAT_RECEIVED;
-        notification.title = "收到新纸船";
-        notification.content = content.substr(0, 50); // 截取前50字符
-        notification.relatedId = boatId;
-        notification.timestamp = std::time(nullptr);
-        notification.extraData["sender_id"] = senderId;
-
-        pushToUser(receiverId, notification);
-    }
-
-    /**
      * @brief 推送好友请求通知
      */
     void pushFriendRequestNotification(const std::string& receiverId,
