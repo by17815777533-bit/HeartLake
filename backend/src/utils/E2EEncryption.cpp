@@ -1,6 +1,10 @@
 /**
  * @file E2EEncryption.cpp
  * @brief 端到端加密模块实现
+ *
+ * X25519 密钥交换 + HKDF-SHA256 密钥派生 + AES-256-GCM 认证加密
+ * 提供 IND-CCA2 安全性，通过临时密钥对实现前向保密。
+ *
  * Created by engineer-4
  */
 
@@ -10,13 +14,89 @@
 #include <openssl/kdf.h>
 #include <cstring>
 #include <stdexcept>
+#include <memory>
 
 namespace heartlake {
 namespace utils {
 
+// RAII wrapper for EVP_PKEY
+struct EvpPkeyDeleter {
+    void operator()(EVP_PKEY* p) const { if (p) EVP_PKEY_free(p); }
+};
+using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, EvpPkeyDeleter>;
+
+// RAII wrapper for EVP_PKEY_CTX
+struct EvpPkeyCtxDeleter {
+    void operator()(EVP_PKEY_CTX* p) const { if (p) EVP_PKEY_CTX_free(p); }
+};
+using EvpPkeyCtxPtr = std::unique_ptr<EVP_PKEY_CTX, EvpPkeyCtxDeleter>;
+
 std::string E2EEncryption::generateKey() {
     auto bytes = generateRandomBytes(KEY_SIZE);
     return base64Encode(bytes);
+}
+
+std::optional<X25519KeyPair> E2EEncryption::generateX25519KeyPair() {
+    EvpPkeyCtxPtr ctx(EVP_PKEY_CTX_new_id(EVP_PKEY_X25519, nullptr));
+    if (!ctx) return std::nullopt;
+
+    if (EVP_PKEY_keygen_init(ctx.get()) <= 0) return std::nullopt;
+
+    EVP_PKEY* rawKey = nullptr;
+    if (EVP_PKEY_keygen(ctx.get(), &rawKey) <= 0) return std::nullopt;
+    EvpPkeyPtr pkey(rawKey);
+
+    // Extract raw private key
+    size_t privLen = X25519_KEY_SIZE;
+    std::vector<unsigned char> privBytes(privLen);
+    if (EVP_PKEY_get_raw_private_key(pkey.get(), privBytes.data(), &privLen) <= 0)
+        return std::nullopt;
+    privBytes.resize(privLen);
+
+    // Extract raw public key
+    size_t pubLen = X25519_KEY_SIZE;
+    std::vector<unsigned char> pubBytes(pubLen);
+    if (EVP_PKEY_get_raw_public_key(pkey.get(), pubBytes.data(), &pubLen) <= 0)
+        return std::nullopt;
+    pubBytes.resize(pubLen);
+
+    return X25519KeyPair{base64Encode(pubBytes), base64Encode(privBytes)};
+}
+
+std::optional<std::string> E2EEncryption::computeSharedSecret(const std::string& myPrivateKey,
+                                                               const std::string& peerPublicKey) {
+    auto privBytes = base64Decode(myPrivateKey);
+    auto pubBytes = base64Decode(peerPublicKey);
+
+    if (privBytes.size() != X25519_KEY_SIZE || pubBytes.size() != X25519_KEY_SIZE)
+        return std::nullopt;
+
+    // Create EVP_PKEY from raw private key
+    EvpPkeyPtr privKey(EVP_PKEY_new_raw_private_key(EVP_PKEY_X25519, nullptr,
+                                                     privBytes.data(), privBytes.size()));
+    if (!privKey) return std::nullopt;
+
+    // Create EVP_PKEY from raw public key
+    EvpPkeyPtr pubKey(EVP_PKEY_new_raw_public_key(EVP_PKEY_X25519, nullptr,
+                                                    pubBytes.data(), pubBytes.size()));
+    if (!pubKey) return std::nullopt;
+
+    // Perform ECDH key agreement
+    EvpPkeyCtxPtr ctx(EVP_PKEY_CTX_new(privKey.get(), nullptr));
+    if (!ctx) return std::nullopt;
+
+    if (EVP_PKEY_derive_init(ctx.get()) <= 0) return std::nullopt;
+    if (EVP_PKEY_derive_set_peer(ctx.get(), pubKey.get()) <= 0) return std::nullopt;
+
+    // Determine shared secret length
+    size_t secretLen = 0;
+    if (EVP_PKEY_derive(ctx.get(), nullptr, &secretLen) <= 0) return std::nullopt;
+
+    std::vector<unsigned char> secret(secretLen);
+    if (EVP_PKEY_derive(ctx.get(), secret.data(), &secretLen) <= 0) return std::nullopt;
+    secret.resize(secretLen);
+
+    return base64Encode(secret);
 }
 
 std::optional<EncryptedMessage> E2EEncryption::encrypt(const std::string& plaintext,

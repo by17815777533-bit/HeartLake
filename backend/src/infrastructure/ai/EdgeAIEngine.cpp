@@ -16,6 +16,7 @@
  */
 
 #include "infrastructure/ai/EdgeAIEngine.h"
+#include "utils/PsychologicalRiskAssessment.h"
 #include <trantor/utils/Logger.h>
 #include <cstring>
 #include <sstream>
@@ -685,7 +686,16 @@ float EdgeAIEngine::semanticRiskAnalysis(const std::string& text,
         lengthFactor = 0.9f;
     }
 
-    return std::clamp(combinedRisk * lengthFactor, 0.0f, 1.0f);
+    float acRisk = std::clamp(combinedRisk * lengthFactor, 0.0f, 1.0f);
+
+    // 五因子心理风险评估融合
+    auto& pra = utils::PsychologicalRiskAssessment::getInstance();
+    auto praResult = pra.assessRisk(text, "", 0.0f, "");
+    float fiveFactorScore = praResult.overallScore;
+
+    // 融合策略：取AC匹配风险和五因子风险的最大值
+    // 确保任一维度的高风险都不会被低估
+    return std::clamp(std::max(acRisk, fiveFactorScore), 0.0f, 1.0f);
 }
 
 EdgeModerationResult EdgeAIEngine::moderateTextLocal(const std::string& text) {
@@ -739,8 +749,38 @@ EdgeModerationResult EdgeAIEngine::moderateTextLocal(const std::string& text) {
 
     result.categories.assign(categorySet.begin(), categorySet.end());
 
-    // 阶段2: 语义风险分析
+    // 阶段2: 语义风险分析（已融合五因子模型）
     float riskScore = semanticRiskAnalysis(text, matches);
+
+    // 阶段3: 提取五因子详情填充到结果中
+    auto& pra = utils::PsychologicalRiskAssessment::getInstance();
+    auto praResult = pra.assessRisk(text, "", 0.0f, "");
+
+    FiveFactorRiskDetail fiveFactorDetail;
+    fiveFactorDetail.selfHarmIntent = 0.0f;
+    fiveFactorDetail.hopelessness = 0.0f;
+    fiveFactorDetail.socialIsolation = 0.0f;
+    fiveFactorDetail.temporalUrgency = 0.0f;
+    fiveFactorDetail.linguisticMarkers = 0.0f;
+    fiveFactorDetail.compositeScore = praResult.overallScore;
+
+    // 从 PsychologicalRiskResult 的 factors 中提取各因子分数
+    for (const auto& factor : praResult.factors) {
+        if (factor.name == "self_harm_intent") {
+            fiveFactorDetail.selfHarmIntent = factor.score;
+        } else if (factor.name == "hopelessness") {
+            fiveFactorDetail.hopelessness = factor.score;
+        } else if (factor.name == "social_isolation") {
+            fiveFactorDetail.socialIsolation = factor.score;
+        } else if (factor.name == "temporal_urgency") {
+            fiveFactorDetail.temporalUrgency = factor.score;
+        } else if (factor.category == "linguistic") {
+            // analyzeLinguisticMarkers 产生的因子
+            fiveFactorDetail.linguisticMarkers = std::max(fiveFactorDetail.linguisticMarkers, factor.score);
+        }
+    }
+
+    result.fiveFactorDetail = fiveFactorDetail;
 
     // 确定风险等级
     if (riskScore >= 0.8f || maxLevel >= 3) {
@@ -757,13 +797,17 @@ EdgeModerationResult EdgeAIEngine::moderateTextLocal(const std::string& text) {
         result.confidence = 0.7f;
     }
 
-    // 自伤检测需要紧急关注
-    if (hasSelfHarm) {
+    // 自伤检测需要紧急关注（AC匹配或五因子模型检出）
+    bool fiveFactorSelfHarm = fiveFactorDetail.selfHarmIntent > 0.5f;
+    if (hasSelfHarm || fiveFactorSelfHarm || praResult.needsImmediateAttention) {
         result.needsAlert = true;
         result.passed = false;
         result.riskLevel = "high_risk";
         result.suggestion = "Detected potential self-harm content. "
                            "Please provide crisis support resources and escalate to human moderator.";
+        if (!praResult.supportMessage.empty()) {
+            result.suggestion += " " + praResult.supportMessage;
+        }
     } else if (result.riskLevel == "high_risk") {
         result.suggestion = "High-risk content detected. Recommend blocking and review by human moderator.";
     } else if (result.riskLevel == "medium_risk") {

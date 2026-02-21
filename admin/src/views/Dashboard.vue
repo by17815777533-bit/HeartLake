@@ -190,6 +190,58 @@
       </el-col>
     </el-row>
 
+    <!-- 湖面天气可视化 -->
+    <el-row :gutter="20" class="charts-row">
+      <el-col :xs="24" :sm="24" :md="10">
+        <el-card shadow="hover" class="chart-card lake-weather-card">
+          <template #header>
+            <div class="card-header">
+              <span>🌤️ 湖面天气</span>
+              <el-tag size="small" :color="lakeWeather.color" effect="dark" style="border: none; color: #fff;">
+                {{ lakeWeather.label }}
+              </el-tag>
+            </div>
+          </template>
+          <div class="lake-weather-content">
+            <div class="weather-display" :style="{ background: lakeWeather.bg }">
+              <div class="weather-icon">{{ lakeWeather.icon }}</div>
+              <div class="weather-info">
+                <div class="weather-temp">{{ lakeWeatherTemp.toFixed(0) }}°</div>
+                <div class="weather-label">{{ lakeWeather.label }}</div>
+                <div class="weather-desc">{{ lakeWeather.desc }}</div>
+              </div>
+            </div>
+            <div class="weather-scale">
+              <div class="scale-bar">
+                <div class="scale-segment storm" style="width: 10%"></div>
+                <div class="scale-segment rain" style="width: 20%"></div>
+                <div class="scale-segment cloudy" style="width: 30%"></div>
+                <div class="scale-segment sunny" style="width: 40%"></div>
+                <div class="scale-pointer" :style="{ left: lakeWeatherTemp + '%' }"></div>
+              </div>
+              <div class="scale-labels">
+                <span>暴风雨</span>
+                <span>小雨</span>
+                <span>多云</span>
+                <span>晴朗</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="14">
+        <el-card shadow="hover" class="chart-card lake-weather-card">
+          <template #header>
+            <div class="card-header">
+              <span>🎭 心情分布</span>
+              <span class="pulse-hint">基于情绪脉搏数据</span>
+            </div>
+          </template>
+          <v-chart :option="weatherMoodPieOption" autoresize style="height: 260px" />
+        </el-card>
+      </el-col>
+    </el-row>
+
   </div>
 </template>
 
@@ -267,6 +319,52 @@ const resonanceStats = reactive({
   avgScore: 0,
   topMood: '',
   successRate: 0,
+})
+
+// 湖面天气可视化 - 基于情绪温度映射
+const lakeWeather = computed(() => {
+  const temp = emotionPulseOption.value.series[0].data[0]?.value ?? 50
+  if (temp > 60) return { icon: '\u2600\uFE0F', label: '晴朗', desc: '社区积极', color: '#FBBC04', bg: 'linear-gradient(135deg, #FFF9C4 0%, #FFE082 100%)' }
+  if (temp > 30) return { icon: '\u26C5', label: '多云', desc: '社区平稳', color: '#9AA0A6', bg: 'linear-gradient(135deg, #ECEFF1 0%, #CFD8DC 100%)' }
+  if (temp > 10) return { icon: '\uD83C\uDF27\uFE0F', label: '小雨', desc: '社区低落', color: '#4285F4', bg: 'linear-gradient(135deg, #E3F2FD 0%, #90CAF9 100%)' }
+  return { icon: '\u26C8\uFE0F', label: '暴风雨', desc: '社区消极', color: '#EA4335', bg: 'linear-gradient(135deg, #FFEBEE 0%, #EF9A9A 100%)' }
+})
+
+const lakeWeatherTemp = computed(() => emotionPulseOption.value.series[0].data[0]?.value ?? 50)
+
+// 湖面天气心情分布饼图
+const weatherMoodPieOption = computed(() => {
+  const moodData = moodDistributionOption.value.series[0].data
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#fff',
+      borderColor: '#dadce0',
+      borderRadius: 4,
+      padding: [6, 10],
+      textStyle: { color: '#202124', fontSize: 12 },
+      formatter: (p) => {
+        const name = String(p.name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))
+        return `${p.marker} ${name}: ${Number(p.percent).toFixed(1)}%`
+      }
+    },
+    series: [{
+      type: 'pie',
+      radius: ['50%', '75%'],
+      center: ['50%', '50%'],
+      itemStyle: { borderRadius: 3, borderColor: '#fff', borderWidth: 1 },
+      label: { show: false },
+      emphasis: {
+        label: { show: true, fontSize: 11, fontWeight: '500', color: '#202124' },
+        itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.08)' }
+      },
+      data: moodData.length ? moodData : moodNames.map((name, i) => ({
+        value: [30, 25, 20, 15, 10][i],
+        name,
+        itemStyle: { color: moodColors[i] }
+      }))
+    }]
+  }
 })
 
 // 湖面情绪温度 - 仪表盘
@@ -826,6 +924,88 @@ onUnmounted(() => {
     .pulse-hint {
       font-size: 12px;
       color: #9AA0A6;
+    }
+  }
+
+  .lake-weather-card {
+    .lake-weather-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+
+      .weather-display {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 24px;
+        border-radius: 12px;
+
+        .weather-icon {
+          font-size: 64px;
+          line-height: 1;
+        }
+
+        .weather-info {
+          .weather-temp {
+            font-size: 42px;
+            font-weight: 300;
+            color: #202124;
+            line-height: 1;
+          }
+
+          .weather-label {
+            font-size: 18px;
+            font-weight: 500;
+            color: #202124;
+            margin-top: 4px;
+          }
+
+          .weather-desc {
+            font-size: 13px;
+            color: #5f6368;
+            margin-top: 2px;
+          }
+        }
+      }
+
+      .weather-scale {
+        padding: 0 4px;
+
+        .scale-bar {
+          position: relative;
+          display: flex;
+          height: 8px;
+          border-radius: 4px;
+          overflow: hidden;
+
+          .scale-segment {
+            height: 100%;
+            &.storm { background: #EA4335; }
+            &.rain { background: #4285F4; }
+            &.cloudy { background: #9AA0A6; }
+            &.sunny { background: #FBBC04; }
+          }
+
+          .scale-pointer {
+            position: absolute;
+            top: -4px;
+            width: 4px;
+            height: 16px;
+            background: #202124;
+            border-radius: 2px;
+            transform: translateX(-50%);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+          }
+        }
+
+        .scale-labels {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 6px;
+          font-size: 11px;
+          color: #9AA0A6;
+        }
+      }
     }
   }
 }

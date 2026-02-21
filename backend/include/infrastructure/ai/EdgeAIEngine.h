@@ -72,6 +72,29 @@ struct EdgeSentimentResult {
 /**
  * @brief 本地审核结果
  */
+/**
+ * @brief 五因子心理风险评估详情
+ */
+struct FiveFactorRiskDetail {
+    float selfHarmIntent;       ///< 自残意图 (weight 0.9)
+    float hopelessness;         ///< 绝望表达 (weight 0.6)
+    float socialIsolation;      ///< 社交孤立 (weight 0.1)
+    float temporalUrgency;      ///< 时间紧迫性 (weight 0.5)
+    float linguisticMarkers;    ///< 语言风险标记 (weight 0.3)
+    float compositeScore;       ///< 五因子加权综合分数
+
+    Json::Value toJson() const {
+        Json::Value j;
+        j["self_harm_intent"] = selfHarmIntent;
+        j["hopelessness"] = hopelessness;
+        j["social_isolation"] = socialIsolation;
+        j["temporal_urgency"] = temporalUrgency;
+        j["linguistic_markers"] = linguisticMarkers;
+        j["composite_score"] = compositeScore;
+        return j;
+    }
+};
+
 struct EdgeModerationResult {
     bool passed;                              ///< 是否通过审核
     std::string riskLevel;                    ///< 风险等级: safe, low_risk, medium_risk, high_risk
@@ -80,6 +103,7 @@ struct EdgeModerationResult {
     float confidence;                         ///< 置信度
     bool needsAlert;                          ///< 是否需要紧急关注（自伤倾向等）
     std::string suggestion;                   ///< 处理建议
+    std::optional<FiveFactorRiskDetail> fiveFactorDetail; ///< 五因子心理风险详情
 
     Json::Value toJson() const {
         Json::Value j;
@@ -94,6 +118,9 @@ struct EdgeModerationResult {
         Json::Value cats(Json::arrayValue);
         for (const auto& c : categories) cats.append(c);
         j["categories"] = cats;
+        if (fiveFactorDetail.has_value()) {
+            j["five_factor_detail"] = fiveFactorDetail->toJson();
+        }
         return j;
     }
 };

@@ -5,6 +5,7 @@
 
 #include "infrastructure/services/ResonanceSearchService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "infrastructure/ai/EmotionResonanceEngine.h"
 #include "infrastructure/vector/MilvusClient.h"
 #include <drogon/drogon.h>
 #include <algorithm>
@@ -66,16 +67,19 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
     auto queryVec = ai::AdvancedEmbeddingEngine::getInstance().generateEmbedding(content);
     if (queryVec.empty()) return {};
 
-    std::vector<ResonanceMatch> matches;
+    // Phase 1: 收集 cosine similarity 候选（宽松阈值，多取候选供重排序）
+    const float candidateThreshold = std::max(0.5f, threshold - 0.2f);
+    const int candidateLimit = limit * 5;
+    std::vector<ResonanceMatch> candidates;
 
     if (useMilvus_) {
         auto results = MilvusClient::getInstance().search(
-            COLLECTION_NAME, queryVec, limit * 2, "id != \"" + stoneId + "\"");
+            COLLECTION_NAME, queryVec, candidateLimit, "id != \"" + stoneId + "\"");
 
         auto db = drogon::app().getDbClient("default");
         for (const auto& r : results) {
             float similarity = 1.0f - r.score; // COSINE distance to similarity
-            if (similarity < threshold) continue;
+            if (similarity < candidateThreshold) continue;
 
             try {
                 auto row = db->execSqlSync(
@@ -88,10 +92,8 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                 m.userId = row[0]["user_id"].as<std::string>();
                 m.content = row[0]["content"].as<std::string>();
                 m.similarity = similarity;
-                m.deliveryDelaySeconds = calculateDeliveryDelay(similarity);
-                matches.push_back(m);
-
-                if (static_cast<int>(matches.size()) >= limit) break;
+                m.semanticScore = similarity;
+                candidates.push_back(m);
             } catch (...) {}
         }
     } else {
@@ -112,23 +114,141 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                 if (targetVec.size() != queryVec.size()) continue;
 
                 float similarity = ai::AdvancedEmbeddingEngine::cosineSimilarity(queryVec, targetVec);
-                if (similarity >= threshold) {
+                if (similarity >= candidateThreshold) {
                     ResonanceMatch m;
                     m.stoneId = row["stone_id"].as<std::string>();
                     m.userId = row["user_id"].as<std::string>();
                     m.content = row["content"].as<std::string>();
                     m.similarity = similarity;
-                    m.deliveryDelaySeconds = calculateDeliveryDelay(similarity);
-                    matches.push_back(m);
+                    m.semanticScore = similarity;
+                    candidates.push_back(m);
                 }
             }
-
-            std::sort(matches.begin(), matches.end(),
-                [](const ResonanceMatch& a, const ResonanceMatch& b) { return a.similarity > b.similarity; });
-            if (static_cast<int>(matches.size()) > limit) matches.resize(limit);
         } catch (const drogon::orm::DrogonDbException& e) {
             LOG_ERROR << "Resonance search failed: " << e.base().what();
         }
+    }
+
+    if (candidates.empty()) return {};
+
+    // Phase 2: 使用 EmotionResonanceEngine 四维重排序
+    // ResonanceScore = α·Semantic + β·DTW + γ·Decay + δ·Diversity
+    auto& resonanceEngine = ai::EmotionResonanceEngine::getInstance();
+    auto db = drogon::app().getDbClient("default");
+
+    // 获取源石头的 mood 和当前用户ID
+    std::string sourceMood = "neutral";
+    std::string sourceUserId;
+    try {
+        auto stoneRow = db->execSqlSync(
+            "SELECT user_id, mood_type FROM stones WHERE stone_id = $1",
+            stoneId);
+        if (!stoneRow.empty()) {
+            sourceUserId = stoneRow[0]["user_id"].as<std::string>();
+            if (!stoneRow[0]["mood_type"].isNull())
+                sourceMood = stoneRow[0]["mood_type"].as<std::string>();
+        }
+    } catch (...) {}
+
+    // 加载源用户的情绪轨迹（用于DTW计算）
+    ai::EmotionTrajectory userTraj;
+    if (!sourceUserId.empty()) {
+        try {
+            auto trajRows = db->execSqlSync(
+                "SELECT score FROM emotion_tracking "
+                "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
+                "ORDER BY created_at ASC", sourceUserId);
+            userTraj.userId = sourceUserId;
+            for (const auto& r : trajRows) {
+                userTraj.scores.push_back(r["score"].as<float>());
+            }
+            if (!userTraj.scores.empty())
+                userTraj.currentScore = userTraj.scores.back();
+        } catch (...) {}
+    }
+
+    std::vector<std::string> recommendedMoods;
+
+    for (auto& m : candidates) {
+        // 获取候选石头的 mood 和 timestamp
+        std::string candMood = "neutral";
+        std::string candTimestamp;
+        try {
+            auto candRow = db->execSqlSync(
+                "SELECT mood_type, created_at FROM stones WHERE stone_id = $1",
+                m.stoneId);
+            if (!candRow.empty()) {
+                if (!candRow[0]["mood_type"].isNull())
+                    candMood = candRow[0]["mood_type"].as<std::string>();
+                candTimestamp = candRow[0]["created_at"].as<std::string>();
+            }
+        } catch (...) {}
+
+        // 维度1: 语义相似度（已有）
+        // m.semanticScore 已在 Phase 1 设置
+
+        // 维度2: DTW 情绪轨迹相似度
+        ai::EmotionTrajectory candTraj;
+        try {
+            auto trajRows = db->execSqlSync(
+                "SELECT score FROM emotion_tracking "
+                "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
+                "ORDER BY created_at ASC", m.userId);
+            for (const auto& r : trajRows) {
+                candTraj.scores.push_back(r["score"].as<float>());
+            }
+            if (!candTraj.scores.empty())
+                candTraj.currentScore = candTraj.scores.back();
+        } catch (...) {}
+
+        if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
+            m.trajectoryScore = resonanceEngine.trajectorySimDTW(userTraj.scores, candTraj.scores);
+        } else {
+            float scoreDiff = std::abs(userTraj.currentScore - candTraj.currentScore);
+            m.trajectoryScore = std::exp(-scoreDiff);
+        }
+
+        // 维度3: 时间衰减
+        m.temporalScore = candTimestamp.empty()
+            ? 0.5f
+            : resonanceEngine.temporalDecay(candTimestamp);
+
+        // 维度4: 多样性奖励
+        m.diversityScore = resonanceEngine.diversityBonus(sourceMood, candMood, recommendedMoods);
+
+        // 加权总分: α=0.30, β=0.35, γ=0.20, δ=0.15
+        m.resonanceTotal = resonanceEngine.alpha * m.semanticScore
+                         + resonanceEngine.beta  * m.trajectoryScore
+                         + resonanceEngine.gamma * m.temporalScore
+                         + resonanceEngine.delta * m.diversityScore;
+
+        // 生成共鸣原因
+        ai::ResonanceResult rr;
+        rr.stoneId = m.stoneId;
+        rr.totalScore = m.resonanceTotal;
+        rr.semanticScore = m.semanticScore;
+        rr.trajectoryScore = m.trajectoryScore;
+        rr.temporalScore = m.temporalScore;
+        rr.diversityScore = m.diversityScore;
+        m.resonanceReason = resonanceEngine.generateResonanceReason(rr, sourceMood, candMood);
+
+        recommendedMoods.push_back(candMood);
+    }
+
+    // Phase 3: 按四维共鸣总分降序排序
+    std::sort(candidates.begin(), candidates.end(),
+        [](const ResonanceMatch& a, const ResonanceMatch& b) {
+            return a.resonanceTotal > b.resonanceTotal;
+        });
+
+    // 截取 top-K 并计算投递延迟
+    std::vector<ResonanceMatch> matches;
+    for (auto& m : candidates) {
+        if (static_cast<int>(matches.size()) >= limit) break;
+        // 使用四维总分作为最终 similarity 供外部使用
+        m.similarity = m.resonanceTotal;
+        m.deliveryDelaySeconds = calculateDeliveryDelay(m.resonanceTotal);
+        matches.push_back(std::move(m));
     }
 
     return matches;

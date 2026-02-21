@@ -17,6 +17,13 @@ struct ResonanceMatch {
     std::string content;
     float similarity;
     int deliveryDelaySeconds;  // 基于距离的投递延迟
+    // 四维共鸣分数
+    float resonanceTotal    = 0.0f;
+    float semanticScore     = 0.0f;
+    float trajectoryScore   = 0.0f;
+    float temporalScore     = 0.0f;
+    float diversityScore    = 0.0f;
+    std::string resonanceReason;
 };
 
 class ResonanceSearchService {

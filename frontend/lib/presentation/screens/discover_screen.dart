@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../data/datasources/recommendation_service.dart';
+import '../../data/datasources/api_client.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card.dart';
 import '../widgets/water_background.dart';
@@ -15,7 +15,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
-  final RecommendationService _service = RecommendationService();
+  final ApiClient _apiClient = ApiClient();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
 
@@ -42,7 +42,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   Future<void> _loadTrending() async {
     setState(() => _isLoading = true);
     try {
-      final result = await _service.getTrendingContent();
+      final result = await _apiClient.get('/recommendations/trending');
       if (result['success'] == true) {
         final data = result['data'];
         final items = (data is List ? data : data?['trending_stones'] ?? data?['items'] ?? data?['stones'] ?? []) as List;
@@ -63,7 +63,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     if (query.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final result = await _service.searchRecommendations(query);
+      final result = await _apiClient.post('/recommendations/search', {'query': query});
       if (result['success'] == true) {
         final data = result['data'];
         final items = (data is List ? data : data?['results'] ?? data?['stones'] ?? data?['items'] ?? []) as List;
@@ -86,7 +86,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       _selectedMood = mood;
     });
     try {
-      final result = await _service.discoverByMood(mood);
+      final result = await _apiClient.get('/recommendations/discover/$mood');
       if (result['success'] == true) {
         final data = result['data'];
         final items = (data is List ? data : data?['stones'] ?? data?['items'] ?? []) as List;
