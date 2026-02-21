@@ -26,6 +26,7 @@ import 'guardian_screen.dart';
 import 'my_stones_screen.dart';
 import 'my_boats_screen.dart';
 import 'received_boats_screen.dart';
+import '../../utils/animation_utils.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -440,16 +441,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     Expanded(child: _buildStatCard(context, '投石', stonesCount, Icons.water_drop,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyStonesScreen())))),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const MyStonesScreen())))),
                     Expanded(child: _buildStatCard(context, '收到纸船', boatsReceived, Icons.sailing,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceivedBoatsScreen())))),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const ReceivedBoatsScreen())))),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(child: _buildStatCard(context, '发送纸船', boatsSent, Icons.send,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBoatsScreen())))),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const MyBoatsScreen())))),
                     Expanded(child: _buildStatCard(context, '相伴', '$joinDays天', Icons.favorite)),
                   ],
                 ),
@@ -466,7 +467,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: Text(_hasLight ? '灯火将燃$_vipDaysLeft天' : '温暖时刻自动点亮',
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VIPScreen())),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const VIPScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -474,7 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: const Text('情绪日历'),
                         subtitle: const Text('记录每日心情变化', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionCalendarScreen())),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const EmotionCalendarScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -482,7 +483,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: const Text('点灯人'),
                         subtitle: const Text('守护心湖的温暖', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GuardianScreen())),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const GuardianScreen())),
                       ),
                     ],
                   ),
@@ -497,14 +498,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading: const Icon(Icons.notifications_outlined, color: AppTheme.skyBlue),
                         title: const Text('消息通知'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const NotificationScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.help_outline, color: AppTheme.skyBlue),
                         title: const Text('帮助与反馈'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())),
+                        onTap: () => Navigator.push(context, SkyPageRoute(page: const HelpScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -571,9 +572,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // 跳转到登录页面
                             if (context.mounted) {
                               Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (context) => const AuthScreen(),
-                                ),
+                                SkyPageRoute(page: const AuthScreen()),
                                 (route) => false,
                               );
                             }
@@ -858,8 +857,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SnackBar(content: Text('账号已注销')),
                     );
                     navigator.pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (context) => const AuthScreen()),
+                      SkyPageRoute(page: const AuthScreen()),
                       (route) => false,
                     );
                   } else {

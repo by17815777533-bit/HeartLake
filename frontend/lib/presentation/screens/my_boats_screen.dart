@@ -9,6 +9,7 @@ import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/sky_scaffold.dart';
+import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 
 class MyBoatsScreen extends StatefulWidget {
@@ -298,9 +299,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                 );
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (_) => StoneDetailScreen(stone: stone),
-                                  ),
+                                  SkyPageRoute(page: StoneDetailScreen(stone: stone)),
                                 );
                               }
                             },

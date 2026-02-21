@@ -3,6 +3,7 @@
 // Created by 林子怡
 
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
@@ -12,6 +13,7 @@ import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../screens/stone_detail_screen.dart';
 import '../../utils/storage_util.dart';
+import '../../utils/animation_utils.dart';
 
 class StoneCard extends StatefulWidget {
   final Stone stone;
@@ -30,9 +32,12 @@ class StoneCard extends StatefulWidget {
 }
 
 class _StoneCardState extends State<StoneCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  // 光晕脉动控制器
+  AnimationController? _glowCtrl;
+  Animation<double>? _glowPulse;
   final InteractionService _interactionService = InteractionService();
   bool _hasRippled = false;
   int _localRipplesCount = 0;
@@ -85,6 +90,15 @@ class _StoneCardState extends State<StoneCard>
         _controller.forward();
       }
     });
+
+    // 光晕脉动动画
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat(reverse: true);
+    _glowPulse = Tween(begin: 0.15, end: 0.45).animate(
+      CurvedAnimation(parent: _glowCtrl!, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _checkCurrentUser() async {
@@ -800,9 +814,7 @@ class _StoneCardState extends State<StoneCard>
               // 导航到详情页并等待返回结果
               final result = await Navigator.push<dynamic>(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => StoneDetailScreen(stone: widget.stone),
-                ),
+                SkyPageRoute(page: StoneDetailScreen(stone: widget.stone)),
               );
 
               // 如果有互动，同步最新的计数

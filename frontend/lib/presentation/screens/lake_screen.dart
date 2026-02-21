@@ -22,6 +22,7 @@ import 'personalized_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/animation_utils.dart';
 
 class LakeScreen extends StatefulWidget {
   const LakeScreen({super.key});
@@ -450,13 +451,13 @@ class LakeScreenState extends State<LakeScreen> {
             child: const Icon(Icons.water_drop, color: Colors.white, size: 20),
           ),
           tooltip: '湖神',
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
+          onPressed: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.explore_outlined),
             tooltip: '发现',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscoverScreen())),
+            onPressed: () => Navigator.push(context, SkyPageRoute(page: const DiscoverScreen())),
           ),
           // 通知按钮带红点
           Consumer<NotificationProvider>(
@@ -468,9 +469,7 @@ class LakeScreenState extends State<LakeScreen> {
                     onPressed: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotificationScreen(),
-                        ),
+                        SkyPageRoute(page: const NotificationScreen()),
                       );
                       // 返回后刷新未读数
                       notificationProvider.loadUnreadCount();
@@ -625,7 +624,7 @@ class LakeScreenState extends State<LakeScreen> {
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+                  SkyPageRoute(page: const PersonalizedScreen()),
                 ),
                 child: Text(
                   '查看更多',
@@ -653,9 +652,7 @@ class LakeScreenState extends State<LakeScreen> {
                     if (stoneId.isNotEmpty) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => StoneDetailScreen(stone: Stone.fromJson(item)),
-                        ),
+                        SkyPageRoute(page: StoneDetailScreen(stone: Stone.fromJson(item))),
                       );
                     }
                   },
@@ -714,7 +711,7 @@ class LakeScreenState extends State<LakeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const EmotionTrendsScreen()),
+              SkyPageRoute(page: const EmotionTrendsScreen()),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

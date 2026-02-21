@@ -16,6 +16,7 @@ import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_glass_card.dart';
 import '../widgets/report_dialog.dart';
 import '../widgets/similar_stones_section.dart';
+import '../../utils/animation_utils.dart';
 
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -662,9 +663,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     onStoneTap: (stone) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => StoneDetailScreen(stone: stone),
-                        ),
+                        SkyPageRoute(page: StoneDetailScreen(stone: stone)),
                       );
                     },
                   ),
@@ -1028,9 +1027,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                       // 导航到详情
                       try {
                         final s = Stone.fromJson(stone);
-                        Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => StoneDetailScreen(stone: s),
-                        ));
+                        Navigator.push(context, SkyPageRoute(page: StoneDetailScreen(stone: s)));
                       } catch (_) {}
                     },
                     child: Container(

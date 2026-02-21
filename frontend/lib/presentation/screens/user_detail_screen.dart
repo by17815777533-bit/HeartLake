@@ -8,6 +8,7 @@ import '../../utils/app_theme.dart';
 import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_button.dart';
 import '../widgets/sky_glass_card.dart';
+import '../../utils/animation_utils.dart';
 import 'friend_chat_screen.dart';
 
 class UserDetailScreen extends StatefulWidget {
@@ -108,12 +109,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                           width: 200,
                           onPressed: () => Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => FriendChatScreen(
+                            SkyPageRoute(page: FriendChatScreen(
                                 friendId: widget.userId,
                                 friendName: _user?['nickname'] ?? '好友',
-                              ),
-                            ),
+                              )),
                           ),
                         ),
                     ],

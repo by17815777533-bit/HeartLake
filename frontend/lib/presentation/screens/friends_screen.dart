@@ -10,6 +10,7 @@ import '../../data/datasources/websocket_manager.dart';
 import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_glass_card.dart';
 import '../widgets/sky_button.dart';
+import '../../utils/animation_utils.dart';
 import 'temp_friends_screen.dart';
 import 'friend_chat_screen.dart';
 import 'user_detail_screen.dart';
@@ -216,8 +217,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (context) => const TempFriendsScreen()),
+                      SkyPageRoute(page: const TempFriendsScreen()),
                     );
                   },
                   child: ListTile(
@@ -355,12 +355,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                           onTap: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (context) => FriendChatScreen(
+                              SkyPageRoute(page: FriendChatScreen(
                                   friendId: friend['user_id'],
                                   friendName: friend['nickname'] ?? '未知',
-                                ),
-                              ),
+                                )),
                             );
                           },
                           child: ListTile(
@@ -429,12 +427,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                                 if (value == 'detail') {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          UserDetailScreen(
+                                    SkyPageRoute(page: UserDetailScreen(
                                         userId: friend['user_id'],
-                                      ),
-                                    ),
+                                      )),
                                   );
                                 } else if (value == 'delete') {
                                   _confirmDeleteFriend(
@@ -460,9 +455,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   void _showPendingRequests() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const FriendRequestsScreen(),
-      ),
+      SkyPageRoute(page: const FriendRequestsScreen()),
     ).then((_) {
       _loadFriends();
       _loadPendingCount();

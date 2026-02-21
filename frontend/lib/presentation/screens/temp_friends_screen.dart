@@ -9,6 +9,7 @@ import '../../data/datasources/temp_friend_service.dart';
 import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_glass_card.dart';
 import '../widgets/sky_button.dart';
+import '../../utils/animation_utils.dart';
 import 'friend_chat_screen.dart';
 
 class TempFriendsScreen extends StatefulWidget {
@@ -376,8 +377,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           onTap: !isExpired && !isUpgraded
               ? () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => FriendChatScreen(
+                  SkyPageRoute(page: FriendChatScreen(
                           friendId: tempFriend['friend_id'],
                           friendName:
                               tempFriend['friend_nickname'] ?? '未知')))
@@ -528,8 +528,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                       case 'chat':
                         Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (context) => FriendChatScreen(
+                            SkyPageRoute(page: FriendChatScreen(
                                     friendId: tempFriend['friend_id'],
                                     friendName:
                                         tempFriend['friend_nickname'] ??

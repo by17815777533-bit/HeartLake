@@ -8,6 +8,7 @@ import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_glass_card.dart';
+import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 
 class PersonalizedScreen extends StatefulWidget {
@@ -228,9 +229,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
               _service.trackInteraction(stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => StoneDetailScreen(stone: stone),
-                ),
+                SkyPageRoute(page: StoneDetailScreen(stone: stone)),
               );
             },
             child: Padding(

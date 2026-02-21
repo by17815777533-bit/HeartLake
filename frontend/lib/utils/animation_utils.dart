@@ -40,3 +40,23 @@ class AnimationUtils {
     return child;
   }
 }
+
+/// 光遇风格页面路由转场 - 淡入 + 轻微上滑
+class SkyPageRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+  SkyPageRoute({required this.page})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionDuration: const Duration(milliseconds: 400),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final fadeAnimation = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+            final slideAnimation = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+                .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+            return FadeTransition(
+              opacity: fadeAnimation,
+              child: SlideTransition(position: slideAnimation, child: child),
+            );
+          },
+        );
+}

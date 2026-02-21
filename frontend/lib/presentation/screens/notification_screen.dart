@@ -11,6 +11,7 @@ import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/sky_scaffold.dart';
 import '../widgets/sky_glass_card.dart';
+import '../../utils/animation_utils.dart';
 import 'stone_detail_screen.dart';
 import 'friend_chat_screen.dart';
 import 'friends_screen.dart';
@@ -123,17 +124,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (type == 'friend_request' || type == 'friend_accepted') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const FriendsScreen()),
+        SkyPageRoute(page: const FriendsScreen()),
       );
     } else if (type == 'friend_message' && senderId != null) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => FriendChatScreen(
+        SkyPageRoute(page: FriendChatScreen(
             friendId: senderId,
             friendNickname: senderNickname,
-          ),
-        ),
+          )),
       );
     } else if (stoneId != null) {
       _navigateToStone(stoneId);
@@ -148,9 +147,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final stone = Stone.fromJson(stoneData);
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => StoneDetailScreen(stone: stone),
-          ),
+          SkyPageRoute(page: StoneDetailScreen(stone: stone)),
         );
       }
     } catch (e) {

@@ -10,6 +10,7 @@ import 'package:heart_lake/presentation/widgets/sky_input.dart';
 import 'package:heart_lake/presentation/widgets/sky_button.dart';
 import 'package:heart_lake/presentation/widgets/sky_glass_card.dart';
 import 'package:heart_lake/utils/app_theme.dart';
+import 'package:heart_lake/utils/animation_utils.dart';
 import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -209,7 +210,7 @@ class _AuthScreenState extends State<AuthScreen>
 
   void _navigateToHome() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      SkyPageRoute(page: const HomeScreen()),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/guardian_service.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/sky_scaffold.dart';
+import '../../utils/animation_utils.dart';
 import 'lake_god_chat_screen.dart';
 
 class GuardianScreen extends StatefulWidget {
@@ -185,7 +186,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                               title: const Text('与湖神对话', style: TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: const Text('倾诉心事，获得温暖陪伴'),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
+                              onTap: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
                             ),
                           ),
                         ],
