@@ -98,6 +98,7 @@ class _StoneCardState extends State<StoneCard>
     _glowPulse = Tween(begin: 0.15, end: 0.45).animate(
       CurvedAnimation(parent: _glowCtrl!, curve: Curves.easeInOut),
     );
+
   }
 
   Future<void> _checkCurrentUser() async {
