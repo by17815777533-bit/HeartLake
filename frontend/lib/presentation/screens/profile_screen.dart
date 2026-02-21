@@ -22,6 +22,7 @@ import 'vip_screen.dart';
 import 'emotion_calendar_screen.dart';
 import 'notification_screen.dart';
 import 'guardian_screen.dart';
+import 'safe_harbor_screen.dart';
 import 'my_stones_screen.dart';
 import 'my_boats_screen.dart';
 import 'my_ripples_screen.dart';
@@ -528,6 +529,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: const Text('守护心湖的温暖', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GuardianScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.spa, color: AppTheme.secondaryColor),
+                        title: const Text('安全港湾'),
+                        subtitle: const Text('心理支持与自助资源', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SafeHarborScreen())),
                       ),
                     ],
                   ),
