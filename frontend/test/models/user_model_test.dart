@@ -93,10 +93,10 @@ void main() {
       expect(json['avatar_url'], 'https://example.com/avatar.png');
       expect(json['bio'], '热爱生活');
       expect(json['vip_level'], 2);
-      // toJson uses raw millisecondsSinceEpoch (not divided by 1000)
-      expect(json['vip_expires_at'], vipExpires.millisecondsSinceEpoch);
-      expect(json['created_at'], createdAt.millisecondsSinceEpoch);
-      expect(json['last_active_at'], lastActive.millisecondsSinceEpoch);
+      // toJson outputs unix seconds (matching backend format)
+      expect(json['vip_expires_at'], vipExpires.millisecondsSinceEpoch ~/ 1000);
+      expect(json['created_at'], createdAt.millisecondsSinceEpoch ~/ 1000);
+      expect(json['last_active_at'], lastActive.millisecondsSinceEpoch ~/ 1000);
     });
 
     test('should serialize null optional fields as null', () {

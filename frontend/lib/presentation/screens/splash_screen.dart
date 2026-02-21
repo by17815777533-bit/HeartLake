@@ -12,6 +12,7 @@ import '../widgets/water_background.dart';
 import '../widgets/journey_effects/glow_particles.dart';
 import '../widgets/journey_effects/pulse_ring.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/animation_utils.dart';
 import '../../data/datasources/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -86,13 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
+      SkyPageRoute(page: const HomeScreen()),
     );
   }
 

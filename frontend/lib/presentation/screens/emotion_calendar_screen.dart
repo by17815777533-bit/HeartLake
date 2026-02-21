@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' show DioException;
 import '../../data/datasources/api_client.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../utils/app_theme.dart';

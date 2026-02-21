@@ -80,9 +80,9 @@ class User {
       'avatar_url': avatarUrl,
       'bio': bio,
       'vip_level': vipLevel,
-      'vip_expires_at': vipExpiresAt?.millisecondsSinceEpoch,
-      'created_at': createdAt?.millisecondsSinceEpoch,
-      'last_active_at': lastActiveAt?.millisecondsSinceEpoch,
+      'vip_expires_at': vipExpiresAt != null ? vipExpiresAt!.millisecondsSinceEpoch ~/ 1000 : null,
+      'created_at': createdAt != null ? createdAt!.millisecondsSinceEpoch ~/ 1000 : null,
+      'last_active_at': lastActiveAt != null ? lastActiveAt!.millisecondsSinceEpoch ~/ 1000 : null,
     };
   }
 }
