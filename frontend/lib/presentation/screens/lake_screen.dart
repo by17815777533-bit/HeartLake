@@ -85,122 +85,79 @@ class LakeScreenState extends State<LakeScreen> {
   // 加载个性化推荐
   Future<void> _loadPersonalizedRecommendations() async {
     try {
-      final results = await _aiService.getPersonalizedRecommendations(limit: 6);
+      final result = await _aiService.getPersonalizedRecommendations(limit: 5);
       if (mounted) {
         setState(() {
-          _personalizedStones = results;
+          _personalizedStones = result;
           _loadingPersonalized = false;
         });
       }
     } catch (e) {
+      if (kDebugMode) print('加载推荐失败: $e');
       if (mounted) {
         setState(() => _loadingPersonalized = false);
       }
     }
   }
 
-  // 初始化 WebSocket 监听新石头
-  Future<void> _initWebSocket() async {
-    // 只使用 WebSocketManager（统一的WebSocket服务）
-    await _wsManager.connect();
+  void _initWebSocket() {
+    _wsManager.connect();
 
-    // 监听新石头广播
-    _newStoneListener = (data) {
-      if (kDebugMode) { debugPrint('🆕 [LakeScreen] 收到 new_stone: $data'); }
-      _handleNewStone(data);
+    _newStoneListener = (data) => _handleNewStone(data);
+    _boatUpdateListener = (data) => _handleBoatUpdate(data);
+    _boatDeletedListener = (data) => _handleBoatDeleted(data);
+    _rippleUpdateListener = (data) => _handleRippleUpdate(data);
+    _rippleDeletedListener = (data) => _handleRippleDeleted(data);
+    _stoneDeletedListener = (data) => _handleStoneDeleted(data);
+    _disconnectedListener = (_) {
+      if (kDebugMode) print('WebSocket 断开');
     };
+    _reconnectedListener = (_) {
+      if (kDebugMode) print('WebSocket 重连成功');
+      _loadStones(refresh: true);
+    };
+
     _wsManager.on('new_stone', _newStoneListener);
-
-    // 监听纸船更新（更新石头的boat_count）
-    _boatUpdateListener = (data) {
-      if (kDebugMode) { debugPrint('🚤 [LakeScreen] 收到 boat_update: $data'); }
-      _handleBoatUpdate(data);
-    };
     _wsManager.on('boat_update', _boatUpdateListener);
-    _wsManager.on('new_boat', _boatUpdateListener);
-
-    // 监听涟漪更新（更新石头的ripple_count）
-    _rippleUpdateListener = (data) {
-      if (kDebugMode) { debugPrint('🌊 [LakeScreen] 收到 ripple_update: $data'); }
-      _handleRippleUpdate(data);
-    };
-    _wsManager.on('ripple_update', _rippleUpdateListener);
-    _wsManager.on('new_ripple', _rippleUpdateListener);
-
-    // 监听石头删除
-    _stoneDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 stone_deleted: $data'); }
-      _handleStoneDeleted(data);
-    };
-    _wsManager.on('stone_deleted', _stoneDeletedListener);
-
-    // 监听纸船删除（减少石头的boat_count）
-    _boatDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 boat_deleted: $data'); }
-      _handleBoatDeleted(data);
-    };
     _wsManager.on('boat_deleted', _boatDeletedListener);
-
-    // 监听涟漪删除（减少石头的ripple_count）
-    _rippleDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 ripple_deleted: $data'); }
-      _handleRippleDeleted(data);
-    };
+    _wsManager.on('ripple_update', _rippleUpdateListener);
     _wsManager.on('ripple_deleted', _rippleDeletedListener);
-
-    // 监听断开连接，尝试重连
-    _disconnectedListener = (data) {
-      if (kDebugMode) { debugPrint('WebSocket disconnected, will auto-reconnect'); }
-    };
+    _wsManager.on('stone_deleted', _stoneDeletedListener);
     _wsManager.on('disconnected', _disconnectedListener);
-
-    // 监听重连成功，刷新数据
-    _reconnectedListener = (data) {
-      if (mounted) _loadStones(refresh: true);
-    };
     _wsManager.on('reconnected', _reconnectedListener);
   }
 
-  // 处理纸船更新
   void _handleBoatUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
-    if (stoneId == null) return;
-
-    final boatCount = data['boat_count'];
+    final stoneId = data['stone_id'] as String?;
+    final boatCount = data['boat_count'] as int?;
+    if (stoneId == null || boatCount == null) return;
 
     setState(() {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          boatCount: boatCount is int ? boatCount : _stones[index].boatCount + 1,
-        );
+      if (index != -1) {
+        _stones[index] = _stones[index].copyWith(boatCount: boatCount);
       }
     });
   }
 
-  // 处理涟漪更新
   void _handleRippleUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
-    if (stoneId == null) return;
-
-    final rippleCount = data['ripple_count'];
+    final stoneId = data['stone_id'] as String?;
+    final rippleCount = data['ripple_count'] as int?;
+    if (stoneId == null || rippleCount == null) return;
 
     setState(() {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          rippleCount: rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
-        );
+      if (index != -1) {
+        _stones[index] = _stones[index].copyWith(rippleCount: rippleCount);
       }
     });
   }
 
-  // 处理石头删除
   void _handleStoneDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
+    final stoneId = data['stone_id'] as String?;
     if (stoneId == null) return;
 
     setState(() {
@@ -208,114 +165,98 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理纸船删除
   void _handleBoatDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    final stoneId = data['stone_id'] as String?;
+    final boatCount = data['boat_count'] as int?;
     if (stoneId == null) return;
-
-    final boatCount = data['boat_count'];
 
     setState(() {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
+      if (index != -1) {
         _stones[index] = _stones[index].copyWith(
-          boatCount: boatCount is int
-              ? boatCount
-              : ((_stones[index].boatCount > 0) ? _stones[index].boatCount - 1 : 0),
+          boatCount: boatCount ?? (_stones[index].boatCount - 1),
         );
       }
     });
   }
 
-  // 处理涟漪删除
   void _handleRippleDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    final stoneId = data['stone_id'] as String?;
+    final rippleCount = data['ripple_count'] as int?;
     if (stoneId == null) return;
-
-    final rippleCount = data['ripple_count'];
 
     setState(() {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
+      if (index != -1) {
         _stones[index] = _stones[index].copyWith(
-          rippleCount: rippleCount is int
-              ? rippleCount
-              : ((_stones[index].rippleCount > 0) ? _stones[index].rippleCount - 1 : 0),
+          rippleCount: rippleCount ?? (_stones[index].rippleCount - 1),
         );
       }
     });
   }
 
-  // 处理新石头广播（后端发送格式: {type: 'new_stone', stone: {...}}）
   void _handleNewStone(Map<String, dynamic> data) {
     if (!mounted) return;
-
-    // 从 data['stone'] 中提取石头数据
-    final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
-    final stoneId = stoneData['stone_id'] ?? '';
-
-    // 防止重复添加
-    if (_stones.any((s) => s.stoneId == stoneId)) {
-      return;
+    try {
+      final stone = Stone.fromJson(data);
+      setState(() {
+        _stones.insert(0, stone);
+      });
+      // 显示新石头提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('有新的心事漂来了...'),
+            backgroundColor: AppTheme.skyBlue,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: '查看',
+              textColor: AppTheme.candleGlow,
+              onPressed: () {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) print('解析新石头失败: $e');
     }
-
-    setState(() {
-      // 在列表顶部添加新石头
-      final newStone = Stone(
-        stoneId: stoneId,
-        content: stoneData['content'] ?? '',
-        userId: stoneData['user_id'] ?? '',
-        stoneType: stoneData['stone_type'] ?? 'medium',
-        stoneColor: stoneData['stone_color'] ?? '#7A92A3',
-        moodType: stoneData['mood_type'], // 添加心情类型字段
-        isAnonymous: stoneData['is_anonymous'] ?? true,
-        rippleCount: 0,
-        boatCount: 0,
-        createdAt: DateTime.now(),
-      );
-      _stones.insert(0, newStone);
-    });
-
-    // 显示提示
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('有新的石头投入心湖'),
-        duration: Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.skyBlue,
-      ),
-    );
   }
 
-  // 公共方法，供外部调用刷新
-  Future<void> refreshStones() async {
-    await _loadStones(refresh: true);
+  void refreshStones() {
+    _loadStones(refresh: true);
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    // 移除所有WebSocket监听器
     _wsManager.off('new_stone', _newStoneListener);
     _wsManager.off('boat_update', _boatUpdateListener);
-    _wsManager.off('new_boat', _boatUpdateListener);
-    _wsManager.off('ripple_update', _rippleUpdateListener);
-    _wsManager.off('new_ripple', _rippleUpdateListener);
-    _wsManager.off('stone_deleted', _stoneDeletedListener);
     _wsManager.off('boat_deleted', _boatDeletedListener);
+    _wsManager.off('ripple_update', _rippleUpdateListener);
     _wsManager.off('ripple_deleted', _rippleDeletedListener);
+    _wsManager.off('stone_deleted', _stoneDeletedListener);
     _wsManager.off('disconnected', _disconnectedListener);
     _wsManager.off('reconnected', _reconnectedListener);
+    _wsManager.disconnect();
+    _wsManager.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore &&
-        _hasMore) {
+        _scrollController.position.maxScrollExtent - 200) {
       _loadMore();
     }
   }
@@ -328,79 +269,70 @@ class LakeScreenState extends State<LakeScreen> {
     });
 
     try {
-      final page = _currentPage + 1;
-      final response = await _apiClient.get(
-        '/lake/stones',
-        queryParameters: {'page': page, 'page_size': 20, 'sort': 'latest'},
-      );
+      final nextPage = _currentPage + 1;
+      final response = await _apiClient.get('/api/v1/stones', queryParameters: {
+        'page': nextPage.toString(),
+        'page_size': '10',
+      });
 
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final items = response.data['data']?['stones'] as List? ?? [];
-        final newStones = items.map((json) => Stone.fromJson(json)).toList();
+      if (!mounted) return;
 
+      final data = response.data is Map ? response.data as Map<String, dynamic> : <String, dynamic>{};
+      final List<dynamic> stonesJson = data['stones'] ?? [];
+      final newStones = stonesJson.map((json) => Stone.fromJson(json)).toList();
+
+      setState(() {
+        _stones.addAll(newStones);
+        _currentPage = nextPage;
+        _hasMore = newStones.length >= 10;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          if (newStones.isEmpty) {
-            _hasMore = false;
-          } else {
-            _stones.addAll(newStones);
-            _currentPage = page;
-          }
           _isLoadingMore = false;
         });
-      } else {
-        setState(() => _isLoadingMore = false);
       }
-    } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading more stones: $e'); }
-      setState(() => _isLoadingMore = false);
     }
   }
 
   Future<void> _loadStones({bool refresh = false}) async {
-    if (_isLoading) return;
+    if (_isLoading && !refresh) return;
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
       if (refresh) {
-        _errorMessage = null;
+        _currentPage = 1;
         _hasMore = true;
       }
     });
 
     try {
-      final page = refresh ? 1 : _currentPage;
-      final response = await _apiClient.get(
-        '/lake/stones',
-        queryParameters: {'page': page, 'page_size': 20, 'sort': 'latest'},
-      );
+      final response = await _apiClient.get('/api/v1/stones', queryParameters: {
+        'page': refresh ? '1' : _currentPage.toString(),
+        'page_size': '10',
+      });
 
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final items = response.data['data']['stones'] as List? ?? [];
-        final newStones = items.map((json) => Stone.fromJson(json)).toList();
+      if (!mounted) return;
 
-        setState(() {
-          if (refresh) {
-            _stones = newStones;
-            _currentPage = 1;
-          } else {
-            _stones.addAll(newStones);
-          }
-          _hasMore = newStones.isNotEmpty;
-          _errorMessage = null;
-        });
-      } else {
-        throw Exception(response.data['message'] ?? '加载失败');
-      }
+      final data = response.data is Map ? response.data as Map<String, dynamic> : <String, dynamic>{};
+      final List<dynamic> stonesJson = data['stones'] ?? [];
+      final stones = stonesJson.map((json) => Stone.fromJson(json)).toList();
+
+      setState(() {
+        if (refresh) {
+          _stones = stones;
+        } else {
+          _stones.addAll(stones);
+        }
+        _hasMore = stones.length >= 10;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading stones: $e'); }
       if (mounted) {
         setState(() {
-          _errorMessage = '网络连接失败，请检查后端服务是否启动';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
+          _errorMessage = e.toString();
           _isLoading = false;
         });
       }
@@ -409,9 +341,9 @@ class LakeScreenState extends State<LakeScreen> {
 
   Future<void> _onRefresh() async {
     await _loadStones(refresh: true);
-    // 刷新成功且没有错误时，触发震动
-    if (_errorMessage == null) {
-      HapticFeedback.lightImpact();
+    _loadPersonalizedRecommendations();
+    if (mounted) {
+      Provider.of<NotificationProvider>(context, listen: false).loadUnreadCount();
     }
   }
 
@@ -421,34 +353,39 @@ class LakeScreenState extends State<LakeScreen> {
       showWater: true,
       showParticles: true,
       appBar: AppBar(
-        title: const Text('心湖',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: AppTheme.warmGradient,
+          ).createShader(bounds),
+          child: const Text('心湖',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              )),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: AppTheme.darkTextPrimary,
         leading: IconButton(
           icon: Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  Colors.cyan.shade400,
-                  Colors.blue.shade600,
-                ],
+              gradient: const LinearGradient(
+                colors: [AppTheme.candleGlow, AppTheme.warmOrange],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.cyan.withValues(alpha: 0.4),
+                  color: AppTheme.candleGlow.withValues(alpha: 0.4),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
               ],
             ),
-            child: const Icon(Icons.water_drop, color: Colors.white, size: 20),
+            child: const Icon(Icons.water_drop, color: AppTheme.darkTextPrimary, size: 20),
           ),
           tooltip: '湖神',
           onPressed: () => Navigator.push(context, SkyPageRoute(page: const LakeGodChatScreen())),
@@ -482,9 +419,9 @@ class LakeScreenState extends State<LakeScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: AppTheme.warmPink,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
+                          border: Border.all(color: AppTheme.nightDeep, width: 1.5),
                         ),
                         constraints: const BoxConstraints(
                           minWidth: 16,
@@ -495,7 +432,7 @@ class LakeScreenState extends State<LakeScreen> {
                               ? '99+'
                               : notificationProvider.unreadCount.toString(),
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.darkTextPrimary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -541,8 +478,8 @@ class LakeScreenState extends State<LakeScreen> {
     // 4. 有数据，显示列表（带下拉刷新）
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppTheme.warmOrange,
-      backgroundColor: Colors.white.withValues(alpha: 0.9),
+      color: AppTheme.candleGlow,
+      backgroundColor: AppTheme.nightSurface,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.only(
@@ -570,7 +507,7 @@ class LakeScreenState extends State<LakeScreen> {
                 ? const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(
-                        child: CircularProgressIndicator(color: AppTheme.warmOrange)),
+                        child: CircularProgressIndicator(color: AppTheme.candleGlow)),
                   )
                 : const SizedBox(height: 50);
           }
@@ -609,14 +546,14 @@ class LakeScreenState extends State<LakeScreen> {
           // 标题行
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 16, color: Colors.white70),
+              const Icon(Icons.auto_awesome, size: 16, color: AppTheme.candleGlow),
               const SizedBox(width: 6),
               const Text(
                 '为你而来',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white,
+                  color: AppTheme.candleGlow,
                   letterSpacing: 1,
                 ),
               ),
@@ -626,11 +563,11 @@ class LakeScreenState extends State<LakeScreen> {
                   context,
                   SkyPageRoute(page: const PersonalizedScreen()),
                 ),
-                child: Text(
+                child: const Text(
                   '查看更多',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AppTheme.darkTextSecondary,
                   ),
                 ),
               ),
@@ -660,10 +597,10 @@ class LakeScreenState extends State<LakeScreen> {
                     width: 140,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: AppTheme.nightSurface.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: AppTheme.candleGlow.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -673,24 +610,24 @@ class LakeScreenState extends State<LakeScreen> {
                           item['content'] ?? '',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: AppTheme.darkTextPrimary,
                             height: 1.4,
                           ),
                         ),
                         const Spacer(),
                         Row(
                           children: [
-                            Icon(Icons.favorite_border,
+                            const Icon(Icons.favorite_border,
                                 size: 12,
-                                color: Colors.white.withValues(alpha: 0.4)),
+                                color: AppTheme.darkTextSecondary),
                             const SizedBox(width: 4),
                             Text(
                               '${item['score']?.toStringAsFixed(0) ?? '0'}%匹配',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 10,
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: AppTheme.darkTextSecondary,
                               ),
                             ),
                           ],
@@ -713,21 +650,21 @@ class LakeScreenState extends State<LakeScreen> {
               context,
               SkyPageRoute(page: const EmotionTrendsScreen()),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.bubble_chart, size: 16, color: Colors.amber.withValues(alpha: 0.7)),
-                const SizedBox(width: 6),
+                Icon(Icons.bubble_chart, size: 16, color: AppTheme.candleGlow),
+                SizedBox(width: 6),
                 Text(
                   '情绪星图',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AppTheme.darkTextSecondary,
                     letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward_ios, size: 10, color: Colors.white.withValues(alpha: 0.4)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios, size: 10, color: AppTheme.darkTextSecondary),
               ],
             ),
           ),

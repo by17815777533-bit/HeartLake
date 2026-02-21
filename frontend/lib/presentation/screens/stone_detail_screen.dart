@@ -17,6 +17,7 @@ import '../widgets/sky_glass_card.dart';
 import '../widgets/report_dialog.dart';
 import '../widgets/similar_stones_section.dart';
 import '../../utils/animation_utils.dart';
+import '../../utils/app_theme.dart';
 
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -181,7 +182,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('这颗石头已被删除'),
-                backgroundColor: Colors.orange,
+                backgroundColor: AppTheme.warmOrange,
               ),
             );
           }
@@ -302,12 +303,12 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.waves, color: Colors.white, size: 20),
+                Icon(Icons.waves, color: AppTheme.darkTextPrimary, size: 20),
                 SizedBox(width: 8),
                 Text('你的共鸣已传递'),
               ],
             ),
-            backgroundColor: MoodColors.getConfig(_stoneMood).primary,
+            backgroundColor: AppTheme.nightSurface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 1),
           ),
@@ -361,14 +362,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: AppTheme.darkTextPrimary,
               ),
             ),
             SizedBox(width: 12),
             Text('纸船正在漂向湖心...'),
           ],
         ),
-        backgroundColor: MoodColors.getConfig(_stoneMood).primary,
+        backgroundColor: AppTheme.nightSurface,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 1),
       ),
@@ -386,12 +387,12 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.sailing, color: Colors.white, size: 20),
+                Icon(Icons.sailing, color: AppTheme.darkTextPrimary, size: 20),
                 SizedBox(width: 8),
                 Text('纸船已成功漂出~ ⛵'),
               ],
             ),
-            backgroundColor: MoodColors.getConfig(_stoneMood).primary,
+            backgroundColor: AppTheme.nightSurface,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
@@ -433,7 +434,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['message'] ?? '评论发送失败，请重试'),
-              backgroundColor: Colors.red[400],
+              backgroundColor: AppTheme.errorColor,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -452,7 +453,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('网络错误，请检查网络连接后重试'),
-            backgroundColor: Colors.red[400],
+            backgroundColor: AppTheme.errorColor,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -487,7 +488,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.darkTextPrimary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
@@ -535,7 +536,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: moodConfig.primary.withValues(alpha: 0.2),
+                                color: AppTheme.candleGlow.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
@@ -544,14 +545,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                   Icon(
                                     moodConfig.icon,
                                     size: 16,
-                                    color: moodConfig.primary,
+                                    color: AppTheme.candleGlow,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     moodConfig.name,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: moodConfig.primary,
+                                      color: AppTheme.candleGlow,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -565,11 +566,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                               CircleAvatar(
                                 radius: 16,
                                 backgroundColor:
-                                    moodConfig.primary.withValues(alpha: 0.3),
+                                    AppTheme.candleGlow.withValues(alpha: 0.3),
                                 child: Icon(
                                   Icons.person,
                                   size: 18,
-                                  color: moodConfig.primary,
+                                  color: AppTheme.candleGlow,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -577,7 +578,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 widget.stone.authorNickname ?? '匿名旅人',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: moodConfig.textColor,
+                                  color: AppTheme.darkTextPrimary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -586,7 +587,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 _formatTime(widget.stone.createdAt),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: moodConfig.textColor.withValues(alpha: 0.6),
+                                  color: AppTheme.darkTextSecondary.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -598,7 +599,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                             style: TextStyle(
                               fontSize: 17,
                               height: 1.6,
-                              color: moodConfig.textColor,
+                              color: AppTheme.darkTextPrimary,
                             ),
                           ),
                           // AI标签
@@ -615,14 +616,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: moodConfig.primary.withValues(alpha: 0.1),
+                                    color: AppTheme.candleGlow.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     '#$tag',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: moodConfig.primary,
+                                      color: AppTheme.candleGlow,
                                     ),
                                   ),
                                 );
@@ -639,7 +640,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 count: _localRipplesCount,
                                 onTap: _sendRipple,
                                 isLoading: _isSendingRipple,
-                                color: moodConfig.rippleColor,
+                                color: AppTheme.candleGlow,
                                 animation: _heartScaleAnimation,
                               ),
                               const SizedBox(width: 24),
@@ -648,7 +649,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 icon: Icons.sailing,
                                 count: _localBoatsCount,
                                 onTap: () => _commentFocusNode.requestFocus(),
-                                color: moodConfig.primary,
+                                color: AppTheme.candleGlow,
                               ),
                             ],
                           ),
@@ -675,7 +676,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                         const Icon(
                           Icons.sailing_outlined,
                           size: 20,
-                          color: Colors.white70,
+                          color: AppTheme.darkTextSecondary,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -683,7 +684,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppTheme.darkTextPrimary,
                           ),
                         ),
                       ],
@@ -695,7 +696,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     child: _isLoading
                         ? const Center(
                             child:
-                                CircularProgressIndicator(color: Colors.white),
+                                CircularProgressIndicator(color: AppTheme.candleGlow),
                           )
                         : _boats.isEmpty
                             ? Center(
@@ -705,14 +706,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     Icon(
                                       Icons.sailing_outlined,
                                       size: 64,
-                                      color: Colors.white.withValues(alpha: 0.3),
+                                      color: AppTheme.darkTextPrimary.withValues(alpha: 0.3),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       '还没有纸船漂来',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.white.withValues(alpha: 0.6),
+                                        color: AppTheme.darkTextPrimary.withValues(alpha: 0.6),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -720,7 +721,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                       '写下你的感受，让它随波漂流吧',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.white.withValues(alpha: 0.4),
+                                        color: AppTheme.darkTextSecondary.withValues(alpha: 0.6),
                                       ),
                                     ),
                                   ],
@@ -737,9 +738,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   ),
                   // AI 相似推荐
                   if (_similarStones.isNotEmpty || _loadingSimilar)
-                    _buildSimilarStonesSection(moodConfig),
+                    _buildSimilarStonesSection(),
                   // 评论输入框
-                  _buildCommentInput(moodConfig),
+                  _buildCommentInput(),
                 ],
               ),
             ),
@@ -762,7 +763,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.2),
+          color: AppTheme.darkTextPrimary.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -810,7 +811,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   Widget _buildBoatCard(Map<String, dynamic> boat) {
-    final moodConfig = MoodColors.getConfig(_stoneMood);
     final isTemp = boat['_isTemp'] == true;
 
     return Container(
@@ -820,26 +820,26 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         borderRadius: BorderRadius.circular(16),
         // 治愈风格的渐变边框
         border: Border.all(
-          color: moodConfig.primary.withValues(alpha: 0.4),
+          color: AppTheme.candleGlow.withValues(alpha: 0.4),
           width: 1.5,
         ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: isTemp ? 0.85 : 0.95),
-            moodConfig.primary.withValues(alpha: 0.05),
+            AppTheme.nightSurface.withValues(alpha: isTemp ? 0.85 : 0.95),
+            AppTheme.candleGlow.withValues(alpha: 0.05),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: moodConfig.primary.withValues(alpha: 0.15),
+            color: AppTheme.candleGlow.withValues(alpha: 0.15),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
           // 内发光效果
           BoxShadow(
-            color: Colors.white.withValues(alpha: 0.8),
+            color: AppTheme.nightSurface.withValues(alpha: 0.3),
             blurRadius: 4,
             spreadRadius: -2,
             offset: const Offset(0, -1),
@@ -858,18 +858,18 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      moodConfig.primary.withValues(alpha: 0.6),
-                      moodConfig.rippleColor.withValues(alpha: 0.4),
+                      AppTheme.candleGlow.withValues(alpha: 0.6),
+                      AppTheme.spiritBlue.withValues(alpha: 0.4),
                     ],
                   ),
                 ),
                 child: CircleAvatar(
                   radius: 14,
-                  backgroundColor: Colors.white,
+                  backgroundColor: AppTheme.nightSurface,
                   child: Icon(
                     isTemp ? Icons.hourglass_empty : Icons.person,
                     size: 14,
-                    color: moodConfig.primary,
+                    color: AppTheme.candleGlow,
                   ),
                 ),
               ),
@@ -879,7 +879,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
-                  color: moodConfig.textColor,
+                  color: AppTheme.darkTextPrimary,
                 ),
               ),
               if (isTemp) ...[
@@ -888,14 +888,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: moodConfig.primary.withValues(alpha: 0.2),
+                    color: AppTheme.candleGlow.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '发送中...',
                     style: TextStyle(
                       fontSize: 10,
-                      color: moodConfig.primary,
+                      color: AppTheme.candleGlow,
                     ),
                   ),
                 ),
@@ -906,7 +906,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     DateTime.now()),
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: AppTheme.darkTextSecondary,
                 ),
               ),
             ],
@@ -916,10 +916,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: moodConfig.primary.withValues(alpha: 0.05),
+              color: AppTheme.candleGlow.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: moodConfig.primary.withValues(alpha: 0.1),
+                color: AppTheme.candleGlow.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -929,7 +929,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 Icon(
                   Icons.format_quote,
                   size: 16,
-                  color: moodConfig.primary.withValues(alpha: 0.4),
+                  color: AppTheme.candleGlow.withValues(alpha: 0.4),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -938,7 +938,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.5,
-                      color: Colors.grey[800],
+                      color: AppTheme.darkTextPrimary,
                     ),
                   ),
                 ),
@@ -951,7 +951,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   /// 相似石头推荐区域 - 类光遇风格：柔光半透明卡片
-  Widget _buildSimilarStonesSection(MoodColorConfig moodConfig) {
+  Widget _buildSimilarStonesSection() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -963,29 +963,29 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: AppTheme.darkTextPrimary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.auto_awesome, size: 14,
-                    color: Colors.white.withValues(alpha: 0.8)),
+                    color: AppTheme.candleGlow),
               ),
               const SizedBox(width: 8),
               Text('相似的心声',
                 style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: AppTheme.darkTextPrimary.withValues(alpha: 0.7),
                   letterSpacing: 1.2,
                 )),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: moodConfig.primary.withValues(alpha: 0.2),
+                  color: AppTheme.candleGlow.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('AI · 语义共鸣',
                   style: TextStyle(fontSize: 9,
-                    color: Colors.white.withValues(alpha: 0.5))),
+                    color: AppTheme.darkTextSecondary)),
               ),
             ],
           ),
@@ -996,7 +996,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               padding: const EdgeInsets.all(16),
               child: SizedBox(width: 20, height: 20,
                 child: CircularProgressIndicator(strokeWidth: 1.5,
-                  color: Colors.white.withValues(alpha: 0.4))),
+                  color: AppTheme.candleGlow.withValues(alpha: 0.4))),
             ))
           else
             SizedBox(
@@ -1009,9 +1009,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   final stone = _similarStones[index];
                   final content = stone['content'] as String? ?? '';
                   final score = (stone['score'] as num?)?.toDouble() ?? 0;
-                  final mood = stone['mood_type'] as String? ?? 'neutral';
-                  final moodType = MoodColors.fromString(mood);
-                  final cardColor = MoodColors.getConfig(moodType).primary;
+                  final cardColor = AppTheme.candleGlow;
                   return GestureDetector(
                     onTap: () {
                       // 记录点击交互
@@ -1036,14 +1034,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                         gradient: LinearGradient(
                           colors: [
                             cardColor.withValues(alpha: 0.15),
-                            Colors.white.withValues(alpha: 0.05),
+                            AppTheme.darkTextPrimary.withValues(alpha: 0.05),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1)),
+                          color: AppTheme.darkTextPrimary.withValues(alpha: 0.1)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1064,7 +1062,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                               const SizedBox(width: 4),
                               Text('${(score * 100).toInt()}% 共鸣',
                                 style: TextStyle(fontSize: 9,
-                                  color: Colors.white.withValues(alpha: 0.5))),
+                                  color: AppTheme.darkTextSecondary)),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -1075,7 +1073,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                   ? '${content.substring(0, 50)}...' : content,
                               style: TextStyle(
                                 fontSize: 12, height: 1.4,
-                                color: Colors.white.withValues(alpha: 0.7)),
+                                color: AppTheme.darkTextPrimary.withValues(alpha: 0.7)),
                               maxLines: 3, overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1091,14 +1089,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     );
   }
 
-  Widget _buildCommentInput(MoodColorConfig moodConfig) {
+  Widget _buildCommentInput() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.nightSurface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppTheme.nightDeep.withValues(alpha: 0.4),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -1115,20 +1113,20 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 maxLength: 200,
                 decoration: InputDecoration(
                   hintText: '写一张纸船漂给TA...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  hintStyle: TextStyle(color: AppTheme.darkTextSecondary),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
+                        BorderSide(color: AppTheme.candleGlow.withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
-                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
+                        BorderSide(color: AppTheme.candleGlow.withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: moodConfig.primary, width: 2),
+                    borderSide: BorderSide(color: AppTheme.candleGlow, width: 2),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -1136,7 +1134,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   ),
                   counterText: '',
                   filled: true,
-                  fillColor: Colors.grey[50],
+                  fillColor: AppTheme.nightSurface,
                 ),
               ),
             ),
@@ -1145,14 +1143,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    moodConfig.primary,
-                    moodConfig.primary.withValues(alpha: 0.8),
+                    AppTheme.candleGlow,
+                    AppTheme.candleGlow.withValues(alpha: 0.8),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: moodConfig.primary.withValues(alpha: 0.3),
+                    color: AppTheme.candleGlow.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1161,7 +1159,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               child: IconButton(
                 onPressed: _sendComment,
                 icon: const Icon(Icons.sailing),
-                color: Colors.white,
+                color: AppTheme.darkTextPrimary,
                 iconSize: 24,
               ),
             ),
