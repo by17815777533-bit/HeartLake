@@ -99,7 +99,7 @@ public:
     /**
      * @brief 删除纸船
      */
-    void deleteBoat(
+    Json::Value deleteBoat(
         const std::string& boatId,
         const std::string& userId
     );

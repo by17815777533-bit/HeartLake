@@ -63,10 +63,7 @@ void InteractionController::createRipple(
 
         // 广播涟漪更新事件
         {
-            auto dbClient = drogon::app().getDbClient("default");
-            auto countResult = dbClient->execSqlSync(
-                "SELECT ripple_count FROM stones WHERE stone_id = $1", stoneId);
-            int rippleCount = countResult.empty() ? 0 : countResult[0]["ripple_count"].as<int>();
+            int rippleCount = result["ripple_count"].asInt();
 
             Json::Value broadcastMsg;
             broadcastMsg["type"] = "ripple_update";
@@ -77,6 +74,7 @@ void InteractionController::createRipple(
             BroadcastWebSocketController::broadcast(broadcastMsg);
 
             // 定向通知石头主人
+            auto dbClient = drogon::app().getDbClient("default");
             auto stoneResult = dbClient->execSqlSync(
                 "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
             if (!stoneResult.empty()) {
@@ -202,10 +200,7 @@ void InteractionController::createBoat(
 
         // 广播纸船更新事件
         {
-            auto dbClient = drogon::app().getDbClient("default");
-            auto countResult = dbClient->execSqlSync(
-                "SELECT boat_count FROM stones WHERE stone_id = $1", stoneId);
-            int boatCount = countResult.empty() ? 0 : countResult[0]["boat_count"].as<int>();
+            int boatCount = result["boat_count"].asInt();
 
             Json::Value broadcastMsg;
             broadcastMsg["type"] = "boat_update";
@@ -215,6 +210,25 @@ void InteractionController::createBoat(
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::broadcast(broadcastMsg);
+
+            // 通知石头主人有新纸船评论
+            auto dbClient = drogon::app().getDbClient("default");
+            auto stoneResult = dbClient->execSqlSync(
+                "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
+            if (!stoneResult.empty()) {
+                std::string stoneOwnerId = stoneResult[0]["user_id"].as<std::string>();
+                if (stoneOwnerId != userId) {
+                    Json::Value notifyMsg;
+                    notifyMsg["type"] = "new_notification";
+                    notifyMsg["notification_type"] = "boat";
+                    notifyMsg["stone_id"] = stoneId;
+                    notifyMsg["boat_id"] = result["boat_id"].asString();
+                    notifyMsg["from_user_id"] = userId;
+                    notifyMsg["boat_count"] = boatCount;
+                    notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+                    BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+                }
+            }
         }
 
         callback(ResponseUtil::success(result, "纸船发送成功"));

@@ -194,14 +194,30 @@ const broadcastForm = reactive({
   level: 'info',
 })
 
-// 加载配置
+// 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {
   try {
     const res = await api.getSystemConfig()
     if (res.data) {
-      Object.assign(systemConfig, res.data.system || {})
-      Object.assign(aiConfig, res.data.ai || {})
-      Object.assign(rateConfig, res.data.rate || {})
+      const sys = res.data.system || {}
+      systemConfig.name = sys.name ?? sys.site_name ?? '心湖'
+      systemConfig.description = sys.description ?? '一个温暖治愈的情感交流社区'
+      systemConfig.allowRegister = sys.allow_register ?? sys.allowRegister ?? true
+      systemConfig.allowAnonymous = sys.allow_anonymous ?? sys.allowAnonymous ?? true
+
+      const ai = res.data.ai || {}
+      aiConfig.provider = ai.provider ?? 'deepseek'
+      aiConfig.apiKey = ai.api_key ?? ai.apiKey ?? ''
+      aiConfig.baseUrl = ai.base_url ?? ai.baseUrl ?? 'https://api.deepseek.com'
+      aiConfig.model = ai.model ?? 'deepseek-chat'
+      aiConfig.enableSentiment = ai.enable_sentiment ?? ai.enableSentiment ?? true
+      aiConfig.enableAutoReply = ai.enable_auto_reply ?? ai.enableAutoReply ?? true
+
+      const rate = res.data.rate || {}
+      rateConfig.stonePerHour = rate.stone_per_hour ?? rate.stonePerHour ?? 15
+      rateConfig.boatPerHour = rate.boat_per_hour ?? rate.boatPerHour ?? 50
+      rateConfig.messagePerMinute = rate.message_per_minute ?? rate.messagePerMinute ?? 60
+      rateConfig.maxContentLength = rate.max_content_length ?? rate.maxContentLength ?? 2000
     }
   } catch (e) {
     console.error('加载配置失败:', e)
@@ -223,10 +239,28 @@ const saveConfig = async (type) => {
 
   saving.value = true
   try {
+    // camelCase → snake_case 转换
     const configMap = {
-      system: systemConfig,
-      ai: aiConfig,
-      rate: rateConfig,
+      system: {
+        name: systemConfig.name,
+        description: systemConfig.description,
+        allow_register: systemConfig.allowRegister,
+        allow_anonymous: systemConfig.allowAnonymous,
+      },
+      ai: {
+        provider: aiConfig.provider,
+        api_key: aiConfig.apiKey,
+        base_url: aiConfig.baseUrl,
+        model: aiConfig.model,
+        enable_sentiment: aiConfig.enableSentiment,
+        enable_auto_reply: aiConfig.enableAutoReply,
+      },
+      rate: {
+        stone_per_hour: rateConfig.stonePerHour,
+        boat_per_hour: rateConfig.boatPerHour,
+        message_per_minute: rateConfig.messagePerMinute,
+        max_content_length: rateConfig.maxContentLength,
+      },
     }
     await api.updateSystemConfig({ [type]: configMap[type] })
     ElMessage.success('配置保存成功')

@@ -1,7 +1,9 @@
 // @file friend_chat_screen.dart
 // @brief 好友聊天界面
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/websocket_manager.dart';
 import '../../utils/app_theme.dart';
 
 class FriendChatScreen extends StatefulWidget {
@@ -21,15 +23,32 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   List<dynamic> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  late final Function(Map<String, dynamic>) _messageListener;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+
+    // WebSocket 监听新消息
+    _messageListener = (data) {
+      if (mounted && data['friend_id'] == widget.friendId) {
+        _loadMessages();
+      }
+    };
+    WebSocketManager().on('friend_message', _messageListener);
+
+    // 定时轮询兜底
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _loadMessages();
+    });
   }
 
   @override
   void dispose() {
+    WebSocketManager().off('friend_message', _messageListener);
+    _pollTimer?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -81,7 +100,15 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
       if (mounted) {
         setState(() => _isSending = false);
         if (result['success'] == true) {
-          _loadMessages();
+          // 本地追加消息，避免全量重载
+          setState(() {
+            _messages.add({
+              'content': content,
+              'is_mine': true,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          });
+          _scrollToBottom();
         } else {
           _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(

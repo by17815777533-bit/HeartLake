@@ -19,6 +19,7 @@ class WebSocketManager {
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   bool _isConnected = false;
+  DateTime? _lastPongTime;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   static const int _maxQueueSize = 50;
@@ -77,6 +78,7 @@ class WebSocketManager {
   /// 断开连接
   void disconnect() {
     _isConnected = false;
+    _lastPongTime = null;
     _connectCompleter = null;
     _heartbeatTimer?.cancel();
     _reconnectTimer?.cancel();
@@ -120,6 +122,10 @@ class WebSocketManager {
     try {
       final data = jsonDecode(message as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
+      if (type == 'pong') {
+        _lastPongTime = DateTime.now();
+        return;
+      }
       if (type != null) _emit(type, data);
     } catch (e) {
       if (kDebugMode) { debugPrint('消息解析失败: $e'); }
@@ -177,13 +183,27 @@ class WebSocketManager {
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
+    _lastPongTime = DateTime.now();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_isConnected && _channel != null) {
+        // 检查 pong 超时：超过2个心跳周期（60秒）未收到 pong，判定半开连接
+        final now = DateTime.now();
+        if (_lastPongTime != null &&
+            now.difference(_lastPongTime!).inSeconds > 60) {
+          if (kDebugMode) { debugPrint('pong超时，判定半开连接，主动断开重连'); }
+          _isConnected = false;
+          _heartbeatTimer?.cancel();
+          _channel?.sink.close();
+          _channel = null;
+          _scheduleReconnect();
+          return;
+        }
         try {
           _channel!.sink.add(jsonEncode({'type': 'ping'}));
         } catch (e) {
           if (kDebugMode) { debugPrint('心跳发送失败: $e'); }
           _isConnected = false;
+          _heartbeatTimer?.cancel();
           _scheduleReconnect();
         }
       }

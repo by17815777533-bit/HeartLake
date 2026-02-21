@@ -32,6 +32,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   late final void Function(Map<String, dynamic>) _onFriendAccepted;
   late final void Function(Map<String, dynamic>) _onFriendRemoved;
   late final void Function(Map<String, dynamic>) _onFriendRequest;
+  late final void Function(Map<String, dynamic>) _onReconnected;
 
   @override
   void initState() {
@@ -70,6 +71,12 @@ class _FriendsScreenState extends State<FriendsScreen>
         );
       }
     };
+    _onReconnected = (data) {
+      if (mounted) {
+        _loadFriends();
+        _loadPendingCount();
+      }
+    };
   }
 
   @override
@@ -88,6 +95,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.on('friend_accepted', _onFriendAccepted);
     wsManager.on('friend_removed', _onFriendRemoved);
     wsManager.on('friend_request', _onFriendRequest);
+    wsManager.on('reconnected', _onReconnected);
   }
 
   void _removeWebSocketListeners() {
@@ -95,6 +103,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.off('friend_accepted', _onFriendAccepted);
     wsManager.off('friend_removed', _onFriendRemoved);
     wsManager.off('friend_request', _onFriendRequest);
+    wsManager.off('reconnected', _onReconnected);
   }
 
   Future<void> _loadFriends() async {

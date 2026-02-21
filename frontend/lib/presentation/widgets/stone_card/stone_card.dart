@@ -216,19 +216,26 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
     );
 
     if (confirmed == true && controller.text.trim().isNotEmpty && mounted) {
+      // 乐观更新：立即+1
+      _cardController.localBoatsCount++;
+      _cardController.onStateChanged?.call();
+
       final result = await _cardController.createBoat(controller.text.trim());
       if (result['success'] == true) {
-        _cardController.localBoatsCount++;
-        _cardController.onStateChanged?.call();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('纸船已启航，期待温暖的回响'), backgroundColor: AppTheme.primaryColor),
           );
         }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? '发送失败'), backgroundColor: AppTheme.errorColor),
-        );
+      } else {
+        // 失败回滚
+        _cardController.localBoatsCount--;
+        _cardController.onStateChanged?.call();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? '发送失败'), backgroundColor: AppTheme.errorColor),
+          );
+        }
       }
     }
     controller.dispose();

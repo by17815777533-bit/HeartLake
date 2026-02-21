@@ -32,6 +32,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _rippleUpdateListener;
   late void Function(Map<String, dynamic>) _boatUpdateListener;
+  late void Function(Map<String, dynamic>) _reconnectedListener;
 
   @override
   void initState() {
@@ -95,6 +96,12 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
       });
     };
     _wsManager.on('boat_update', _boatUpdateListener);
+
+    // 断线重连后自动刷新数据
+    _reconnectedListener = (data) {
+      if (mounted) _loadStones(refresh: true);
+    };
+    _wsManager.on('reconnected', _reconnectedListener);
   }
 
   Future<void> _loadData() async {
@@ -167,6 +174,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     _wsManager.off('stone_deleted', _stoneDeletedListener);
     _wsManager.off('ripple_update', _rippleUpdateListener);
     _wsManager.off('boat_update', _boatUpdateListener);
+    _wsManager.off('reconnected', _reconnectedListener);
     super.dispose();
   }
 

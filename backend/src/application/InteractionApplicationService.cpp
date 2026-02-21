@@ -382,24 +382,51 @@ Json::Value InteractionApplicationService::createBoat(
     }
 }
 
-void InteractionApplicationService::deleteBoat(
+Json::Value InteractionApplicationService::deleteBoat(
     const std::string& boatId,
     const std::string& userId
 ) {
     auto dbClient = drogon::app().getDbClient("default");
 
     try {
-        // 验证权限并删除
-        auto result = dbClient->execSqlSync(
-            "DELETE FROM paper_boats WHERE boat_id = $1 AND sender_id = $2",
+        auto trans = dbClient->newTransaction();
+
+        // 查出 stone_id 用于后续更新计数
+        auto boatInfo = trans->execSqlSync(
+            "SELECT stone_id FROM paper_boats WHERE boat_id = $1 AND sender_id = $2",
             boatId, userId
         );
 
-        if (result.affectedRows() == 0) {
+        if (boatInfo.empty()) {
             throw std::runtime_error("纸船不存在或无权删除");
         }
 
+        std::string stoneId = boatInfo[0]["stone_id"].as<std::string>();
+
+        // 删除纸船
+        trans->execSqlSync(
+            "DELETE FROM paper_boats WHERE boat_id = $1",
+            boatId
+        );
+
+        // 在事务内递减计数并返回最新值
+        auto countResult = trans->execSqlSync(
+            "UPDATE stones SET boat_count = GREATEST(boat_count - 1, 0) WHERE stone_id = $1 RETURNING boat_count",
+            stoneId
+        );
+        int boatCount = countResult.empty() ? 0 : countResult[0]["boat_count"].as<int>();
+
+        // 清除石头缓存
+        if (cacheManager_) {
+            cacheManager_->invalidate("stone:" + stoneId);
+        }
+
+        Json::Value result;
+        result["stone_id"] = stoneId;
+        result["boat_count"] = boatCount;
+
         LOG_INFO << "Boat deleted: " << boatId;
+        return result;
 
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "Failed to delete boat: " << e.base().what();

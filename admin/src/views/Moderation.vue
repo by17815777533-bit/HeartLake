@@ -49,8 +49,8 @@
           <el-form :model="historyFilters" inline>
             <el-form-item label="结果">
               <el-select v-model="historyFilters.result" placeholder="全部" clearable style="width: 120px">
-                <el-option label="通过" value="handled" />
-                <el-option label="拒绝" value="ignored" />
+                <el-option label="通过" value="approved" />
+                <el-option label="拒绝" value="rejected" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -65,8 +65,8 @@
           </el-table-column>
           <el-table-column label="审核结果" width="100">
             <template #default="{ row }">
-              <el-tag :type="row.result === 'handled' ? 'success' : 'danger'" size="small">
-                {{ row.result === 'handled' ? '通过' : '拒绝' }}
+              <el-tag :type="row.result === 'approved' ? 'success' : 'danger'" size="small">
+                {{ row.result === 'approved' ? '通过' : '拒绝' }}
               </el-tag>
             </template>
           </el-table-column>
