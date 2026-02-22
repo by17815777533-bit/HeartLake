@@ -9,12 +9,26 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <sstream>
 #include <iomanip>
+#include <drogon/drogon.h>
 
 namespace heartlake {
 namespace utils {
+
+static std::string getSalt() {
+    static const std::string salt = []() {
+        const char* env = std::getenv("SHADOW_MAP_SALT");
+        if (env && env[0] != '\0') {
+            return std::string(env);
+        }
+        LOG_WARN << "SHADOW_MAP_SALT environment variable not set, using insecure default salt";
+        return std::string("heartlake_default_salt_CHANGE_ME");
+    }();
+    return salt;
+}
 
 IdentityShadowMap& IdentityShadowMap::getInstance() {
     static IdentityShadowMap instance;
