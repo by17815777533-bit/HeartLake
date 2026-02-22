@@ -26,6 +26,6 @@ class EdgeAIService extends BaseService {
 
   /// 获取隐私预算
   Future<ServiceResponse> getPrivacyBudget() async {
-    return get('/edge-ai/privacy/budget');
+    return get('/edge-ai/privacy-budget');
   }
 }
