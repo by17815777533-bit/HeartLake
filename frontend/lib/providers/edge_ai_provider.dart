@@ -75,8 +75,8 @@ class EdgeAIProvider extends ChangeNotifier {
     return null;
   }
 
-  /// 内容审核
-  Future<bool> moderateContent(String text) async {
+  /// 内容审核，返回三态: true=安全, false=不安全, null=服务不可用
+  Future<bool?> moderateContent(String text) async {
     try {
       final resp = await _edgeService.moderateContent(text);
       if (resp.success && resp.data != null) {
@@ -86,7 +86,7 @@ class EdgeAIProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('内容审核异常: $e');
     }
-    return false; // 审核失败时拒绝，fail-closed策略
+    return null; // 服务不可用，由调用方决定策略
   }
 
   @override

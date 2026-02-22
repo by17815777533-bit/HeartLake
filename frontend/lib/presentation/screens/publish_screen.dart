@@ -289,8 +289,9 @@ class _PublishScreenState extends State<PublishScreen> {
 
     try {
       // EdgeAI 内容审核
-      final isSafe = await _provider.moderateContent(_contentController.text.trim());
-      if (!isSafe) {
+      final moderationResult = await _provider.moderateContent(_contentController.text.trim());
+      if (moderationResult == false) {
+        // 审核明确拒绝
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -302,6 +303,7 @@ class _PublishScreenState extends State<PublishScreen> {
         }
         return;
       }
+      // moderationResult == null 表示服务不可用，允许发布（后端会二次审核）
 
       final result = await _stoneService.createStone(
         content: _contentController.text.trim(),
