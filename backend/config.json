@@ -19,7 +19,7 @@
       "port": 5432,
       "dbname": "heartlake",
       "user": "postgres",
-      "passwd": "postgres",
+      "passwd": "RlOmNXNiacLukTr5FEVx",
       "connection_number": 50,
       "timeout": 30
     }
@@ -29,6 +29,7 @@
       "name": "default",
       "host": "127.0.0.1",
       "port": 6379,
+      "passwd": "h0MnMOU8o8EERIKdum35",
       "connection_number": 50
     }
   ]

@@ -491,6 +491,7 @@ class _PublishButtonState extends State<_PublishButton> with SingleTickerProvide
       },
       onTapCancel: () => _controller.reverse(),
       child: AnimatedBuilder(
+        // AnimatedBuilder is the correct Flutter widget name
         animation: _scale,
         builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
         child: AnimatedContainer(

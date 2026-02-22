@@ -19,6 +19,7 @@ public:
     ADD_METHOD_TO(ConsultationController::exchangeKey, "/api/consultation/key-exchange", drogon::Post);
     ADD_METHOD_TO(ConsultationController::sendMessage, "/api/consultation/message", drogon::Post);
     ADD_METHOD_TO(ConsultationController::getMessages, "/api/consultation/messages/{sessionId}", drogon::Get);
+    ADD_METHOD_TO(ConsultationController::getSessions, "/api/consultation/sessions", drogon::Get);
     METHOD_LIST_END
 
     void createSession(const drogon::HttpRequestPtr& req,
@@ -30,6 +31,8 @@ public:
     void getMessages(const drogon::HttpRequestPtr& req,
                      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
                      const std::string& sessionId);
+    void getSessions(const drogon::HttpRequestPtr& req,
+                     std::function<void(const drogon::HttpResponsePtr&)>&& callback);
 };
 
 } // namespace api

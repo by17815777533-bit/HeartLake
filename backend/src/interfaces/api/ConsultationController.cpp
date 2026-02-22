@@ -204,3 +204,40 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
         sessionId, userId
     );
 }
+
+void ConsultationController::getSessions(const HttpRequestPtr& req,
+                                         std::function<void(const HttpResponsePtr&)>&& callback) {
+    std::string userId;
+    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
+    if (userId.empty()) {
+        callback(ResponseUtil::unauthorized("未授权"));
+        return;
+    }
+
+    auto db = app().getDbClient("default");
+    db->execSqlAsync(
+        "SELECT id, counselor_id, status, created_at, updated_at "
+        "FROM consultation_sessions WHERE user_id = $1 OR counselor_id = $1 "
+        "ORDER BY updated_at DESC LIMIT 50",
+        [callback](const orm::Result& r) {
+            Json::Value sessions(Json::arrayValue);
+            for (const auto& row : r) {
+                Json::Value s;
+                s["session_id"] = row["id"].as<std::string>();
+                s["counselor_id"] = row["counselor_id"].as<std::string>();
+                s["status"] = row["status"].as<std::string>();
+                s["created_at"] = row["created_at"].as<std::string>();
+                s["updated_at"] = row["updated_at"].as<std::string>();
+                sessions.append(s);
+            }
+            Json::Value data;
+            data["sessions"] = sessions;
+            data["total"] = static_cast<int>(r.size());
+            callback(ResponseUtil::success(data));
+        },
+        [callback](const orm::DrogonDbException& e) {
+            callback(ResponseUtil::error(500, "获取会话列表失败"));
+        },
+        userId
+    );
+}

@@ -386,9 +386,11 @@ public:
      * 聚合公式：w_global = Σ(n_k / n) * w_k
      * 其中 n_k 为第k个节点的样本数，n为总样本数
      *
+     * @param clippingBound 梯度裁剪阈值C（0表示不裁剪）
+     * @param noiseSigma 高斯噪声标准差σ（0表示不加噪）
      * @return 聚合后的全局模型参数
      */
-    FederatedModelParams aggregateFedAvg();
+    FederatedModelParams aggregateFedAvg(float clippingBound = 0.0f, float noiseSigma = 0.0f);
 
     /**
      * @brief 获取当前聚合轮次信息

@@ -217,6 +217,7 @@ class MoodColors {
         return MoodType.calm;
       case 'sad':
       case '悲伤':
+      case '忧伤':
       case '难过':
       case '伤心':
         return MoodType.sad;

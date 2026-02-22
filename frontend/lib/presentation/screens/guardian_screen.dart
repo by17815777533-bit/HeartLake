@@ -51,9 +51,11 @@ class _GuardianScreenState extends State<GuardianScreen>
   Future<void> _loadStats() async {
     try {
       final stats = await _service.getStats();
+      if (!mounted) return;
       setState(() { _stats = stats; _loading = false; });
       _animController.forward();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }

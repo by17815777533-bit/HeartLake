@@ -48,11 +48,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Future<void> _loadEmotionData() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
       final year = _currentMonth.year;
       final month = _currentMonth.month;
       final response = await _apiClient.get('/users/my/emotion-calendar?year=$year&month=$month');
+      if (!mounted) return;
       if (response.statusCode == 200 && response.data['code'] == 0) {
         setState(() {
           _emotionData = Map<String, dynamic>.from(response.data['data']?['days'] ?? {});

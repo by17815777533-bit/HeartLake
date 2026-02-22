@@ -35,3 +35,6 @@ backend/build/
 backend/.cache/
 compile_commands.json
 .github/workflows/ci.yml
+
+# Sensitive config (use config.json.example as template)
+backend/config.json

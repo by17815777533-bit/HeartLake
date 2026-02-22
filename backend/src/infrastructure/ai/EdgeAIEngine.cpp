@@ -23,6 +23,7 @@
 #include <cassert>
 #include <set>
 #include <limits>
+#include <random>
 
 namespace heartlake {
 namespace ai {
@@ -144,6 +145,19 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["赞"] = 0.7f;
     sentimentLexicon_["厉害"] = 0.7f;
     sentimentLexicon_["感动"] = 0.75f;
+    sentimentLexicon_["舒适"] = 0.65f;
+    sentimentLexicon_["满足"] = 0.7f;
+    sentimentLexicon_["自信"] = 0.7f;
+    sentimentLexicon_["希望"] = 0.65f;
+    sentimentLexicon_["勇敢"] = 0.7f;
+
+    // 英文正面补充
+    sentimentLexicon_["hopeful"] = 0.7f;
+    sentimentLexicon_["proud"] = 0.75f;
+    sentimentLexicon_["confident"] = 0.7f;
+    sentimentLexicon_["peaceful"] = 0.65f;
+    sentimentLexicon_["content"] = 0.6f;
+    sentimentLexicon_["inspired"] = 0.75f;
 
     // 负面情感词典
     sentimentLexicon_["sad"] = -0.7f;
@@ -179,6 +193,19 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["焦虑"] = -0.6f;
     sentimentLexicon_["抑郁"] = -0.85f;
     sentimentLexicon_["痛苦"] = -0.8f;
+    sentimentLexicon_["绝望"] = -0.9f;
+    sentimentLexicon_["烦躁"] = -0.6f;
+    sentimentLexicon_["委屈"] = -0.65f;
+    sentimentLexicon_["失落"] = -0.6f;
+    sentimentLexicon_["崩溃"] = -0.85f;
+
+    // 英文负面补充
+    sentimentLexicon_["hopeless"] = -0.85f;
+    sentimentLexicon_["heartbroken"] = -0.8f;
+    sentimentLexicon_["devastated"] = -0.9f;
+    sentimentLexicon_["overwhelmed"] = -0.6f;
+    sentimentLexicon_["exhausted"] = -0.55f;
+    sentimentLexicon_["helpless"] = -0.75f;
     sentimentLexicon_["失望"] = -0.65f;
     sentimentLexicon_["烦"] = -0.5f;
     sentimentLexicon_["累"] = -0.4f;
@@ -952,7 +979,7 @@ void EdgeAIEngine::submitLocalModel(const FederatedModelParams& params) {
               << ", loss: " << params.localLoss;
 }
 
-FederatedModelParams EdgeAIEngine::aggregateFedAvg() {
+FederatedModelParams EdgeAIEngine::aggregateFedAvg(float clippingBound, float noiseSigma) {
     std::lock_guard<std::mutex> lock(federatedMutex_);
 
     FederatedModelParams global;
@@ -965,6 +992,38 @@ FederatedModelParams EdgeAIEngine::aggregateFedAvg() {
         global.sampleCount = 0;
         global.localLoss = 0.0f;
         return global;
+    }
+
+    // DP-SGD Step 1: 对每个本地模型的权重进行 ℓ2-norm 梯度裁剪
+    if (clippingBound > 0.0f) {
+        for (auto& model : localModels_) {
+            // 计算该模型所有权重的 ℓ2 范数
+            float l2norm = 0.0f;
+            for (const auto& layer : model.weights) {
+                for (float w : layer) {
+                    l2norm += w * w;
+                }
+            }
+            for (float b : model.biases) {
+                l2norm += b * b;
+            }
+            l2norm = std::sqrt(l2norm);
+
+            // 如果范数超过阈值C，按比例缩放: w = w * (C / ||w||)
+            if (l2norm > clippingBound) {
+                float scale = clippingBound / l2norm;
+                for (auto& layer : model.weights) {
+                    for (float& w : layer) {
+                        w *= scale;
+                    }
+                }
+                for (float& b : model.biases) {
+                    b *= scale;
+                }
+                LOG_DEBUG << "[EdgeAI] Clipped model " << model.nodeId
+                          << " from norm=" << l2norm << " to " << clippingBound;
+            }
+        }
     }
 
     // 计算总样本数
@@ -1018,6 +1077,26 @@ FederatedModelParams EdgeAIEngine::aggregateFedAvg() {
 
         // 加权平均损失
         global.localLoss += weight * model.localLoss;
+    }
+
+    // DP-SGD Step 2: 对聚合后的全局权重添加高斯噪声 N(0, σ²C²I)
+    if (noiseSigma > 0.0f && clippingBound > 0.0f) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        float noiseScale = noiseSigma * clippingBound;
+        std::normal_distribution<float> dist(0.0f, noiseScale);
+
+        for (auto& layer : global.weights) {
+            for (float& w : layer) {
+                w += dist(gen);
+            }
+        }
+        for (float& b : global.biases) {
+            b += dist(gen);
+        }
+
+        LOG_INFO << "[EdgeAI] Added Gaussian noise: σ=" << noiseSigma
+                 << ", C=" << clippingBound << ", noise_scale=" << noiseScale;
     }
 
     LOG_INFO << "[EdgeAI] FedAvg aggregation complete: round=" << federatedRound_

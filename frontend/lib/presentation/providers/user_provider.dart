@@ -96,26 +96,36 @@ class UserProvider with ChangeNotifier {
 
   // 更新昵称
   Future<bool> updateNickname(String nickname) async {
-    final result = await _authService.updateNickname(nickname);
-    if (result['success'] == true && _user != null) {
-      _user = _user!.copyWith(nickname: nickname);
-      await StorageUtil.saveNickname(nickname);
-      notifyListeners();
-      return true;
+    try {
+      final result = await _authService.updateNickname(nickname);
+      if (result['success'] == true && _user != null) {
+        _user = _user!.copyWith(nickname: nickname);
+        await StorageUtil.saveNickname(nickname);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) { debugPrint('更新昵称失败: $e'); }
+      return false;
     }
-    return false;
   }
 
   // 更新资料
   Future<bool> updateProfile({String? nickname, String? avatarUrl, String? bio}) async {
-    final result = await _authService.updateProfile(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
-    if (result['success'] == true && _user != null) {
-      _user = _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
-      if (nickname != null) await StorageUtil.saveNickname(nickname);
-      notifyListeners();
-      return true;
+    try {
+      final result = await _authService.updateProfile(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+      if (result['success'] == true && _user != null) {
+        _user = _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+        if (nickname != null) await StorageUtil.saveNickname(nickname);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) { debugPrint('更新资料失败: $e'); }
+      return false;
     }
-    return false;
   }
 
   // 更新本地用户信息
@@ -126,9 +136,9 @@ class UserProvider with ChangeNotifier {
   }
 
   // 登出
-  void logout() {
+  Future<void> logout() async {
     _wsManager.disconnect();
-    _authService.logout();
+    await _authService.logout();
     _user = null;
     _isAnonymous = false;
     notifyListeners();

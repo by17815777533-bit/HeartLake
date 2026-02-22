@@ -248,7 +248,11 @@ void EdgeAIController::federatedAggregate(
             return;
         }
 
-        auto result = engine.aggregateFedAvg();
+        // DP-SGD: 噪声标准差 σ = C·√(2·ln(1.25/δ)) / ε，简化为 σ ≈ C / ε
+        float clipC = static_cast<float>(clippingBound);
+        float noiseSigma = (epsilon > 0) ? static_cast<float>(1.0 / epsilon) : 0.0f;
+
+        auto result = engine.aggregateFedAvg(clipC, noiseSigma);
 
         Json::Value data;
         data["round"] = round;

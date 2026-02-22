@@ -9,16 +9,16 @@ import 'package:heart_lake/utils/app_theme.dart';
 
 void main() {
   group('AppTheme color constants', () {
-    test('primaryColor should be Sky peach', () {
-      expect(AppTheme.primaryColor, const Color(0xFFFFAB91));
+    test('primaryColor should be lake blue', () {
+      expect(AppTheme.primaryColor, const Color(0xFF4285F4));
     });
 
-    test('secondaryColor should be Sky lavender', () {
-      expect(AppTheme.secondaryColor, const Color(0xFFB39DDB));
+    test('secondaryColor should be lake green', () {
+      expect(AppTheme.secondaryColor, const Color(0xFF34A853));
     });
 
-    test('accentColor should be Sky warm yellow', () {
-      expect(AppTheme.accentColor, const Color(0xFFFFD54F));
+    test('accentColor should be warm yellow', () {
+      expect(AppTheme.accentColor, const Color(0xFFFBBC04));
     });
 
     test('primaryLightColor should be lighter than primaryColor', () {

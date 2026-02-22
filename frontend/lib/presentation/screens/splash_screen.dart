@@ -4,9 +4,6 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:io';
-import 'package:dio/dio.dart';
 import 'home_screen.dart';
 import 'onboarding_screen.dart';
 import '../widgets/water_background.dart';
@@ -55,32 +52,24 @@ class _SplashScreenState extends State<SplashScreen>
       if (isLoggedIn) {
         final result = await _authService.refreshToken();
         if (!result['success']) {
-          final statusCode = result['statusCode'];
-          if (statusCode == 401) {
+          final code = result['code'];
+          if (code == 401) {
             // token 过期，降级为匿名
             await _authService.logout();
             await _authService.anonymousLogin();
           } else {
-            // 网络错误等其他情况，保留 token 继续进入
-            if (kDebugMode) { debugPrint('Token 刷新失败但非401，保留登录状态'); }
+            // 网络错误(code==null)或服务器错误，保留 token 继续进入
+            if (kDebugMode) { debugPrint('Token 刷新失败(code=$code)，保留登录状态'); }
           }
         }
       } else {
-        await _authService.anonymousLogin();
-      }
-    } on SocketException catch (_) {
-      // 网络不可达，保留现有 token，不降级
-      if (kDebugMode) { debugPrint('网络不可达，保留现有登录状态'); }
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        // 明确的 401，token 已失效
-        await _authService.logout();
-        await _authService.anonymousLogin();
-      } else {
-        // 其他 Dio 错误（超时、连接失败等），保留 token
-        if (kDebugMode) { debugPrint('网络错误，保留登录状态: $e'); }
+        final loginResult = await _authService.anonymousLogin();
+        if (!loginResult['success']) {
+          if (kDebugMode) { debugPrint('匿名登录失败: ${loginResult['message']}'); }
+        }
       }
     } catch (e) {
+      // 网络不可达等未预期异常，保留现有状态继续进入
       if (kDebugMode) { debugPrint('登录检查异常: $e'); }
     }
     if (!mounted) return;

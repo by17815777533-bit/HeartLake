@@ -101,7 +101,11 @@ int main(int argc, char *argv[]) {
         [[maybe_unused]] int dbPort = db_port_str ? std::atoi(db_port_str) : 5432;
         [[maybe_unused]] std::string dbName = db_name ? db_name : "heartlake";
         [[maybe_unused]] std::string dbUser = db_user ? db_user : "postgres";
-        [[maybe_unused]] std::string dbPassword = db_password ? db_password : "postgres";
+        if (!db_password) {
+            LOG_ERROR << "DB_PASSWORD environment variable is required";
+            return 1;
+        }
+        [[maybe_unused]] std::string dbPassword = db_password;
         [[maybe_unused]] int dbPoolSize = db_pool_size_str ? std::atoi(db_pool_size_str) : 50;
         [[maybe_unused]] double dbTimeout = db_timeout_str ? std::atof(db_timeout_str) : 30.0;
 

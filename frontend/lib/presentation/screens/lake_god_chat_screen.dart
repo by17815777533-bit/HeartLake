@@ -53,16 +53,16 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         ]);
       } else {
         // 会话启动失败，仍显示欢迎语
-        _addWelcome();
+        if (mounted) _addWelcome();
         await _loadEmotionPulse();
       }
     } catch (_) {
-      _addWelcome();
+      if (mounted) _addWelcome();
       await _loadEmotionPulse();
     }
 
     // 如果历史消息为空，添加欢迎语
-    if (_messages.isEmpty) {
+    if (_messages.isEmpty && mounted) {
       _addWelcome();
     }
   }
@@ -70,9 +70,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   /// 加载历史消息
   Future<void> _loadHistory() async {
     if (!_sessionReady) return;
-    setState(() => _isLoadingHistory = true);
+    if (mounted) setState(() => _isLoadingHistory = true);
     try {
       final result = await _service.getMessages();
+      if (!mounted) return;
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
         final List<dynamic> history =
@@ -101,9 +102,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 加载情绪脉搏
   Future<void> _loadEmotionPulse() async {
-    setState(() => _isPulseLoading = true);
+    if (mounted) setState(() => _isPulseLoading = true);
     try {
       final resp = await _edgeAI.getEmotionPulse();
+      if (!mounted) return;
       if (resp.success && resp.data != null) {
         setState(() => _emotionPulse = resp.data as Map<String, dynamic>);
       }

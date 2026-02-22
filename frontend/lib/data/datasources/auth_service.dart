@@ -39,7 +39,7 @@ class AuthService extends BaseService {
     final response = await post('/auth/anonymous', data: {'device_id': deviceId});
     if (!response.success) return toMap(response);
 
-    final data = response.data;
+    final data = response.data as Map<String, dynamic>? ?? {};
     await _saveAuthData(token: data['token'], userId: data['user_id'], nickname: data['nickname']);
     return {
       'success': true,
@@ -94,7 +94,7 @@ class AuthService extends BaseService {
   // Token 刷新
   Future<Map<String, dynamic>> refreshToken() async {
     final token = await StorageUtil.getToken();
-    if (token == null) return {'success': false, 'statusCode': 401};
+    if (token == null) return {'success': false, 'code': 401};
 
     final response = await post('/auth/refresh', data: {'token': token});
     if (!response.success) return toMap(response);
