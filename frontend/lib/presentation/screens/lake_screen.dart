@@ -19,6 +19,7 @@ import 'lake_god_chat_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/storage_util.dart';
 
 class LakeScreen extends StatefulWidget {
   const LakeScreen({super.key});
@@ -37,6 +38,7 @@ class LakeScreenState extends State<LakeScreen> {
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final WebSocketManager _wsManager = WebSocketManager();
+  String? _currentUserId;
 
   // 监听器引用
   late void Function(Map<String, dynamic>) _newStoneListener;
@@ -51,6 +53,7 @@ class LakeScreenState extends State<LakeScreen> {
   @override
   void initState() {
     super.initState();
+    StorageUtil.getUserId().then((id) { _currentUserId = id; });
     _loadStones();
     _scrollController.addListener(_onScroll);
     _initWebSocket();
@@ -138,6 +141,8 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理纸船更新
   void _handleBoatUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
+    final triggeredBy = data['triggered_by']?.toString();
+    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
 
@@ -156,6 +161,8 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理涟漪更新
   void _handleRippleUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
+    final triggeredBy = data['triggered_by']?.toString();
+    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
 
@@ -185,6 +192,8 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理纸船删除
   void _handleBoatDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
+    final triggeredBy = data['triggered_by']?.toString();
+    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
 
@@ -205,6 +214,8 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理涟漪删除
   void _handleRippleDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
+    final triggeredBy = data['triggered_by']?.toString();
+    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
 
@@ -563,9 +574,6 @@ class LakeScreenState extends State<LakeScreen> {
               child: StoneCard(
                 key: ValueKey(_stones[index].stoneId),
                 stone: _stones[index],
-                onRippleSuccess: () {
-                  _loadStones(refresh: true);
-                },
                 onDeleted: () {
                   setState(() {
                     _stones.removeAt(index);

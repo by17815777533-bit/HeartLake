@@ -59,8 +59,10 @@ public:
 
     /**
      * @brief 获取石头详情
+     * @param stoneId 石头ID
+     * @param currentUserId 当前用户ID（用于判断 has_rippled）
      */
-    Json::Value getStoneDetail(const std::string& stoneId);
+    Json::Value getStoneDetail(const std::string& stoneId, const std::string& currentUserId = "");
 
     /**
      * @brief 获取石头列表
@@ -69,13 +71,15 @@ public:
      * @param sortBy 排序字段
      * @param filterMood 心情过滤
      * @param userId 用户ID（可选，用于过滤特定用户的石头）
+     * @param currentUserId 当前登录用户ID（用于判断 has_rippled）
      */
     Json::Value getStoneList(
         int page,
         int pageSize,
         const std::string& sortBy = "created_at",
         const std::string& filterMood = "",
-        const std::string& userId = ""
+        const std::string& userId = "",
+        const std::string& currentUserId = ""
     );
 
     /**

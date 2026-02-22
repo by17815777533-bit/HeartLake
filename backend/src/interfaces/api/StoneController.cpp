@@ -224,8 +224,10 @@ void StoneController::getStones(
             sortBy = "created_at";
         }
 
+        std::string currentUserId = extractUserId(req);
+
         auto service = getStoneService();
-        auto result = service->getStoneList(page, pageSize, sortBy, filterMood);
+        auto result = service->getStoneList(page, pageSize, sortBy, filterMood, "", currentUserId);
 
         callback(ResponseUtil::success(result));
 
@@ -238,7 +240,7 @@ void StoneController::getStones(
 // ==================== 石头详情 ====================
 
 void StoneController::getStoneById(
-    [[maybe_unused]] const HttpRequestPtr& req,
+    const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& stoneId
 ) {
@@ -249,8 +251,10 @@ void StoneController::getStoneById(
             return;
         }
 
+        std::string currentUserId = extractUserId(req);
+
         auto service = getStoneService();
-        auto result = service->getStoneDetail(stoneId);
+        auto result = service->getStoneDetail(stoneId, currentUserId);
 
         // 异步增加浏览量
         service->incrementViewCount(stoneId);
@@ -289,7 +293,7 @@ void StoneController::getMyStones(
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
         auto service = getStoneService();
-        auto result = service->getStoneList(page, pageSize, "created_at", "", userId);
+        auto result = service->getStoneList(page, pageSize, "created_at", "", userId, userId);
 
         callback(ResponseUtil::success(result));
 

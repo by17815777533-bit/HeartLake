@@ -91,7 +91,7 @@ Json::Value StoneApplicationService::publishStone(
     }
 }
 
-Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId) {
+Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId, const std::string& currentUserId) {
     // 定义数据库查询函数
     auto fetchFromDb = [&stoneId]() -> Json::Value {
         auto dbClient = drogon::app().getDbClient("default");
@@ -148,19 +148,40 @@ Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId) 
 
     // 尝试从缓存获取
     std::string cacheKey = "stone:" + stoneId;
+    Json::Value result;
+    bool fromCache = false;
     if (cacheManager_) {
         auto cached = cacheManager_->getJson(cacheKey);
         if (cached) {
-            return *cached;
+            result = *cached;
+            fromCache = true;
         }
     }
 
-    // 从数据库获取
-    auto result = fetchFromDb();
+    if (!fromCache) {
+        // 从数据库获取
+        result = fetchFromDb();
 
-    // 缓存结果
-    if (cacheManager_) {
-        cacheManager_->setJson(cacheKey, result, 300);
+        // 缓存结果
+        if (cacheManager_) {
+            cacheManager_->setJson(cacheKey, result, 300);
+        }
+    }
+
+    // has_rippled 是用户相关的，不能缓存，每次单独查询
+    if (!currentUserId.empty()) {
+        try {
+            auto dbClient = drogon::app().getDbClient("default");
+            auto rippleResult = dbClient->execSqlSync(
+                "SELECT 1 FROM ripples WHERE stone_id = $1 AND user_id = $2 LIMIT 1",
+                stoneId, currentUserId
+            );
+            result["has_rippled"] = !rippleResult.empty();
+        } catch (...) {
+            result["has_rippled"] = false;
+        }
+    } else {
+        result["has_rippled"] = false;
     }
 
     return result;
@@ -171,7 +192,8 @@ Json::Value StoneApplicationService::getStoneList(
     int pageSize,
     const std::string& sortBy,
     const std::string& filterMood,
-    const std::string& userId
+    const std::string& userId,
+    const std::string& currentUserId
 ) {
     auto dbClient = drogon::app().getDbClient("default");
 
@@ -252,6 +274,21 @@ Json::Value StoneApplicationService::getStoneList(
                     user["avatar_url"] = row["avatar_url"].as<std::string>();
                 }
                 stone["user"] = user;
+            }
+
+            // has_rippled: 当前用户是否已涟漪过该石头
+            if (!currentUserId.empty()) {
+                try {
+                    auto rippleCheck = dbClient->execSqlSync(
+                        "SELECT 1 FROM ripples WHERE stone_id = $1 AND user_id = $2 LIMIT 1",
+                        row["stone_id"].as<std::string>(), currentUserId
+                    );
+                    stone["has_rippled"] = !rippleCheck.empty();
+                } catch (...) {
+                    stone["has_rippled"] = false;
+                }
+            } else {
+                stone["has_rippled"] = false;
             }
 
             stones.append(stone);

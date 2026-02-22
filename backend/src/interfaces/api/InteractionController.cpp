@@ -73,22 +73,26 @@ void InteractionController::createRipple(
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::broadcast(broadcastMsg);
 
-            // 定向通知石头主人
-            auto dbClient = drogon::app().getDbClient("default");
-            auto stoneResult = dbClient->execSqlSync(
-                "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
-            if (!stoneResult.empty()) {
-                std::string stoneOwnerId = stoneResult[0]["user_id"].as<std::string>();
-                if (stoneOwnerId != userId) {  // 不通知自己
-                    Json::Value notifyMsg;
-                    notifyMsg["type"] = "new_notification";
-                    notifyMsg["notification_type"] = "ripple";
-                    notifyMsg["stone_id"] = stoneId;
-                    notifyMsg["from_user_id"] = userId;
-                    notifyMsg["ripple_count"] = rippleCount;
-                    notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-                    BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+            // 定向通知石头主人（独立 try-catch，失败不影响主流程）
+            try {
+                auto dbClient = drogon::app().getDbClient("default");
+                auto stoneResult = dbClient->execSqlSync(
+                    "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
+                if (!stoneResult.empty()) {
+                    std::string stoneOwnerId = stoneResult[0]["user_id"].as<std::string>();
+                    if (stoneOwnerId != userId) {  // 不通知自己
+                        Json::Value notifyMsg;
+                        notifyMsg["type"] = "new_notification";
+                        notifyMsg["notification_type"] = "ripple";
+                        notifyMsg["stone_id"] = stoneId;
+                        notifyMsg["from_user_id"] = userId;
+                        notifyMsg["ripple_count"] = rippleCount;
+                        notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+                        BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+                    }
                 }
+            } catch (const std::exception& ex) {
+                LOG_WARN << "Failed to notify stone owner for stone " << stoneId << ": " << ex.what();
             }
         }
 
@@ -96,7 +100,7 @@ void InteractionController::createRipple(
 
     } catch (const std::runtime_error& e) {
         LOG_ERROR << "Error in createRipple: " << e.what();
-        callback(ResponseUtil::error(400, "操作失败"));
+        callback(ResponseUtil::error(400, e.what()));
     } catch (const std::exception& e) {
         LOG_ERROR << "Unexpected error in createRipple: " << e.what();
         callback(ResponseUtil::internalError("创建涟漪失败"));
