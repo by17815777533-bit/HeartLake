@@ -619,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // 清除用户状态
                             if (context.mounted) {
-                              Provider.of<UserProvider>(context, listen: false)
+                              await Provider.of<UserProvider>(context, listen: false)
                                   .logout();
                             }
 

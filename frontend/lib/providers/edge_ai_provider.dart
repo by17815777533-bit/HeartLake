@@ -83,8 +83,10 @@ class EdgeAIProvider extends ChangeNotifier {
         final data = resp.data as Map<String, dynamic>;
         return data['safe'] == true;
       }
-    } catch (_) {}
-    return true; // 审核失败时放行
+    } catch (e) {
+      debugPrint('内容审核异常: $e');
+    }
+    return false; // 审核失败时拒绝，fail-closed策略
   }
 
   @override

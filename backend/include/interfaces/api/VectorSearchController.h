@@ -8,6 +8,8 @@
 
 #include <drogon/HttpController.h>
 #include "infrastructure/ai/AIService.h"
+#include "infrastructure/filters/SecurityAuditFilter.h"
+#include "infrastructure/filters/AdminAuthFilter.h"
 
 using namespace drogon;
 
@@ -30,13 +32,13 @@ public:
     METHOD_LIST_BEGIN
     
     ADD_METHOD_TO(VectorSearchController::getSimilarStones,
-                  "/api/recommendations/similar-stones/{1}", Get);
+                  "/api/recommendations/similar-stones/{1}", Get, "heartlake::filters::SecurityAuditFilter");
     
     ADD_METHOD_TO(VectorSearchController::getPersonalizedRecommendations,
-                  "/api/recommendations/personalized", Get);
+                  "/api/recommendations/personalized", Get, "heartlake::filters::SecurityAuditFilter");
     
     ADD_METHOD_TO(VectorSearchController::updateStoneEmbedding,
-                  "/api/admin/stones/{1}/embedding", Post);
+                  "/api/admin/stones/{1}/embedding", Post, "heartlake::filters::AdminAuthFilter");
     
     METHOD_LIST_END
     

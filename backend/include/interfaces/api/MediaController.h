@@ -8,6 +8,7 @@
 
 #include <drogon/HttpController.h>
 #include "infrastructure/services/MediaService.h"
+#include "infrastructure/filters/SecurityAuditFilter.h"
 
 using namespace drogon;
 
@@ -25,13 +26,13 @@ class MediaController : public drogon::HttpController<MediaController> {
 public:
     METHOD_LIST_BEGIN
     
-    ADD_METHOD_TO(MediaController::uploadMedia, "/api/media/upload", Post);
+    ADD_METHOD_TO(MediaController::uploadMedia, "/api/media/upload", Post, "heartlake::filters::SecurityAuditFilter");
     
-    ADD_METHOD_TO(MediaController::uploadMultiple, "/api/media/upload/multiple", Post);
+    ADD_METHOD_TO(MediaController::uploadMultiple, "/api/media/upload/multiple", Post, "heartlake::filters::SecurityAuditFilter");
     
-    ADD_METHOD_TO(MediaController::getMediaInfo, "/api/media/{1}", Get);
+    ADD_METHOD_TO(MediaController::getMediaInfo, "/api/media/{1}", Get, "heartlake::filters::SecurityAuditFilter");
     
-    ADD_METHOD_TO(MediaController::deleteMedia, "/api/media/{1}", Delete);
+    ADD_METHOD_TO(MediaController::deleteMedia, "/api/media/{1}", Delete, "heartlake::filters::SecurityAuditFilter");
     
     METHOD_LIST_END
     

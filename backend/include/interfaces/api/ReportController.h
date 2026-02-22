@@ -7,6 +7,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include "infrastructure/filters/SecurityAuditFilter.h"
 
 using namespace drogon;
 
@@ -24,9 +25,9 @@ class ReportController : public drogon::HttpController<ReportController> {
 public:
     METHOD_LIST_BEGIN
     
-    ADD_METHOD_TO(ReportController::createReport, "/api/reports", Post);
+    ADD_METHOD_TO(ReportController::createReport, "/api/reports", Post, "heartlake::filters::SecurityAuditFilter");
     
-    ADD_METHOD_TO(ReportController::getMyReports, "/api/reports/my", Get);
+    ADD_METHOD_TO(ReportController::getMyReports, "/api/reports/my", Get, "heartlake::filters::SecurityAuditFilter");
     
     METHOD_LIST_END
     

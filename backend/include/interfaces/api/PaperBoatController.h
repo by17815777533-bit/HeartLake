@@ -7,6 +7,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include "infrastructure/filters/SecurityAuditFilter.h"
 
 using namespace drogon;
 
@@ -27,31 +28,31 @@ namespace controllers {
 class PaperBoatController : public drogon::HttpController<PaperBoatController> {
 public:
     METHOD_LIST_BEGIN
-    
-    
-    ADD_METHOD_TO(PaperBoatController::sendBoat, "/api/boats/drift", Post);
-    
-    ADD_METHOD_TO(PaperBoatController::replyToStone, "/api/boats/reply", Post);
-    
-    
-    ADD_METHOD_TO(PaperBoatController::catchBoat, "/api/boats/catch", Post);
-    
-    ADD_METHOD_TO(PaperBoatController::respondToBoat, "/api/boats/{1}/respond", Post);
-    
-    ADD_METHOD_TO(PaperBoatController::releaseBoat, "/api/boats/{1}/release", Post);
-    
-    
-    ADD_METHOD_TO(PaperBoatController::getBoatDetail, "/api/boats/{1}", Get);
-    
-    ADD_METHOD_TO(PaperBoatController::getMySentBoats, "/api/boats/sent", Get);
-    
-    ADD_METHOD_TO(PaperBoatController::getMyReceivedBoats, "/api/boats/received", Get);
-    
-    ADD_METHOD_TO(PaperBoatController::getDriftingCount, "/api/boats/drifting/count", Get);
-    
-    
-    ADD_METHOD_TO(PaperBoatController::getBoatStatus, "/api/boats/{1}/status", Get);
-    
+
+
+    ADD_METHOD_TO(PaperBoatController::sendBoat, "/api/boats/drift", Post, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::replyToStone, "/api/boats/reply", Post, "heartlake::filters::SecurityAuditFilter");
+
+
+    ADD_METHOD_TO(PaperBoatController::catchBoat, "/api/boats/catch", Post, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::respondToBoat, "/api/boats/{1}/respond", Post, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::releaseBoat, "/api/boats/{1}/release", Post, "heartlake::filters::SecurityAuditFilter");
+
+
+    ADD_METHOD_TO(PaperBoatController::getBoatDetail, "/api/boats/{1}", Get, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::getMySentBoats, "/api/boats/sent", Get, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::getMyReceivedBoats, "/api/boats/received", Get, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(PaperBoatController::getDriftingCount, "/api/boats/drifting/count", Get, "heartlake::filters::SecurityAuditFilter");
+
+
+    ADD_METHOD_TO(PaperBoatController::getBoatStatus, "/api/boats/{1}/status", Get, "heartlake::filters::SecurityAuditFilter");
+
     METHOD_LIST_END
     
     /**
