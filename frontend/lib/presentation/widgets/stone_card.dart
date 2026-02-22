@@ -87,19 +87,6 @@ class _StoneCardState extends State<StoneCard>
     });
   }
 
-  @override
-  void didUpdateWidget(covariant StoneCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.stone.stoneId != widget.stone.stoneId ||
-        oldWidget.stone.rippleCount != widget.stone.rippleCount) {
-      _localRipplesCount = widget.stone.rippleCount;
-    }
-    if (oldWidget.stone.stoneId != widget.stone.stoneId ||
-        oldWidget.stone.boatCount != widget.stone.boatCount) {
-      _localBoatsCount = widget.stone.boatCount;
-    }
-  }
-
   Future<void> _checkCurrentUser() async {
     final userId = await StorageUtil.getUserId();
     if (mounted) {
