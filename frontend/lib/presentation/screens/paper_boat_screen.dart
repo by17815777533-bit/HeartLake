@@ -240,6 +240,40 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 纸船玩法引导卡片
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.skyBlue.withValues(alpha: 0.08),
+                  AppTheme.cloudPink.withValues(alpha: 0.08),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.skyBlue.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.sailing, color: AppTheme.skyBlue, size: 28),
+                const SizedBox(height: 8),
+                const Text(
+                  '纸船漂流',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '写下心事折成纸船放入湖中，等待有缘人捞起并回应。\n不同于石头的匿名表达，纸船是一场温暖的漂流互动。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+
           // 漂流模式选择
           Card(
             child: Padding(

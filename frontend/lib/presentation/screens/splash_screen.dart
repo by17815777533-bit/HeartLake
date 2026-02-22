@@ -80,13 +80,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final targetScreen = isFirstLaunch
-        ? OnboardingScreen(onComplete: () async {
-            await prefs.setString('onboarding_done', 'true');
-            if (!mounted) return;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-            );
-          })
+        ? const OnboardingScreen()
         : const HomeScreen() as Widget;
 
     Navigator.of(context).pushReplacement(

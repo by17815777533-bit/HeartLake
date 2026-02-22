@@ -2,12 +2,13 @@
 // @brief 新用户引导页面 - 介绍心湖核心概念
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
+import 'home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final VoidCallback onComplete;
-  const OnboardingScreen({super.key, required this.onComplete});
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -16,6 +17,18 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
+  bool _isNavigating = false;
+
+  Future<void> _completeOnboarding() async {
+    if (_isNavigating) return;
+    setState(() => _isNavigating = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('onboarding_done', 'true');
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
+  }
 
   static const _pages = [
     _PageData(
@@ -31,6 +44,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       subtitle: '温暖的回应',
       description: '当有人被你的故事触动\n涟漪便会轻轻荡漾开来',
       color: AppTheme.skyBlue,
+    ),
+    _PageData(
+      icon: Icons.sailing_outlined,
+      title: '纸船',
+      subtitle: '漂流的心意',
+      description: '折一只纸船写下心事\n让它随波漂流，等待有缘人拾起',
+      color: AppTheme.gentlePurple,
     ),
     _PageData(
       icon: Icons.lightbulb_outline,
@@ -60,7 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Align(
                   alignment: Alignment.topRight,
                   child: TextButton(
-                    onPressed: widget.onComplete,
+                    onPressed: _completeOnboarding,
                     child: Text('跳过', style: TextStyle(color: isDark ? Colors.white70 : Colors.white)),
                   ),
                 ),
@@ -79,7 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _currentPage == _pages.length - 1
-                          ? widget.onComplete
+                          ? _completeOnboarding
                           : () => _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _pages[_currentPage].color,

@@ -1087,5 +1087,108 @@ void EdgeAIController::generateSummary(
     }
 }
 
+void EdgeAIController::lakeGodChat(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+
+    drogon::async_run([=, callback = std::move(callback)]() {
+        try {
+            auto userId = req->getAttributes()->get<std::string>("user_id");
+            auto jsonPtr = req->getJsonObject();
+            if (!jsonPtr || !jsonPtr->isMember("content")) {
+                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "缺少content字段"));
+                return;
+            }
+            auto content = (*jsonPtr)["content"].asString();
+            if (content.empty()) {
+                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content不能为空"));
+                return;
+            }
+
+            auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+
+            // 内容审核
+            auto moderateResult = engine.moderateTextLocal(content);
+            if (!moderateResult.passed) {
+                callback(ResponseUtil::error(ErrorCode::CONTENT_DELETED,
+                    "内容未通过审核: " + moderateResult.suggestion));
+                return;
+            }
+
+            // 情感分析
+            auto sentiment = engine.analyzeSentimentLocal(content);
+
+            // 生成AI回复
+            auto &rag = heartlake::ai::DualMemoryRAG::getInstance();
+            auto aiReply = rag.generateResponse(userId, content, sentiment.mood, sentiment.score);
+
+            // 异步存入数据库
+            auto db = drogon::app().getDbClient("default");
+            db->execSqlAsync(
+                "INSERT INTO lake_god_messages (user_id, role, content, mood, emotion_score) VALUES ($1, $2, $3, $4, $5)",
+                [](const drogon::orm::Result &) {},
+                [](const drogon::orm::DrogonDbException &e) {
+                    LOG_ERROR << "Insert lake_god_messages (user) failed: " << e.base().what();
+                },
+                userId, "user", content, sentiment.mood, sentiment.score
+            );
+            db->execSqlAsync(
+                "INSERT INTO lake_god_messages (user_id, role, content, mood, emotion_score) VALUES ($1, $2, $3, $4, $5)",
+                [](const drogon::orm::Result &) {},
+                [](const drogon::orm::DrogonDbException &e) {
+                    LOG_ERROR << "Insert lake_god_messages (assistant) failed: " << e.base().what();
+                },
+                userId, "assistant", aiReply, sentiment.mood, sentiment.score
+            );
+
+            Json::Value data;
+            data["reply"] = aiReply;
+            data["mood"] = sentiment.mood;
+            data["score"] = sentiment.score;
+            callback(ResponseUtil::success(data, "湖神回复成功"));
+        } catch (const std::exception &e) {
+            LOG_ERROR << "lakeGodChat error: " << e.what();
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "湖神对话服务暂时不可用"));
+        }
+    });
+}
+
+void EdgeAIController::lakeGodHistory(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto userId = req->getAttributes()->get<std::string>("user_id");
+        auto db = drogon::app().getDbClient("default");
+        auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+
+        db->execSqlAsync(
+            "SELECT role, content, mood, emotion_score, created_at FROM lake_god_messages WHERE user_id = $1 ORDER BY created_at ASC LIMIT 50",
+            [cb](const drogon::orm::Result &result) {
+                Json::Value messages = Json::arrayValue;
+                for (const auto &row : result) {
+                    Json::Value msg;
+                    msg["role"] = row["role"].as<std::string>();
+                    msg["content"] = row["content"].as<std::string>();
+                    msg["mood"] = row["mood"].isNull() ? "" : row["mood"].as<std::string>();
+                    msg["emotion_score"] = row["emotion_score"].isNull() ? 0.0 : row["emotion_score"].as<double>();
+                    msg["created_at"] = row["created_at"].as<std::string>();
+                    messages.append(msg);
+                }
+                Json::Value data;
+                data["messages"] = messages;
+                (*cb)(ResponseUtil::success(data, "历史消息获取成功"));
+            },
+            [cb](const drogon::orm::DrogonDbException &e) {
+                LOG_ERROR << "lakeGodHistory query failed: " << e.base().what();
+                (*cb)(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "历史消息查询失败"));
+            },
+            userId
+        );
+    } catch (const std::exception &e) {
+        LOG_ERROR << "lakeGodHistory error: " << e.what();
+        callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "历史消息服务暂时不可用"));
+    }
+}
+
 } // namespace controllers
 } // namespace heartlake

@@ -814,7 +814,7 @@ EdgeModerationResult EdgeAIEngine::moderateTextLocal(const std::string& text) {
         result.riskLevel = "high_risk";
         result.passed = false;
         result.confidence = std::min(0.95f, riskScore);
-    } else if (riskScore >= 0.5f || maxLevel >= 2) {
+    } else if (riskScore >= 0.75f) {
         result.riskLevel = "medium_risk";
         result.passed = false;
         result.confidence = std::min(0.85f, riskScore + 0.1f);

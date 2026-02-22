@@ -21,7 +21,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
   bool _isLoadingHistory = false;
-  bool _sessionReady = false;
+
 
   // 情绪脉搏数据
   Map<String, dynamic>? _emotionPulse;
@@ -40,28 +40,15 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     super.dispose();
   }
 
-  /// 初始化会话：startSession -> getMessages -> getEmotionPulse
   Future<void> _initSession() async {
     try {
-      final sessionResult = await _service.startSession();
-      if (sessionResult['success'] == true) {
-        _sessionReady = true;
-        // 并行加载历史消息和情绪脉搏
-        await Future.wait([
-          _loadHistory(),
-          _loadEmotionPulse(),
-        ]);
-      } else {
-        // 会话启动失败，仍显示欢迎语
-        if (mounted) _addWelcome();
-        await _loadEmotionPulse();
-      }
+      await Future.wait([
+        _loadHistory(),
+        _loadEmotionPulse(),
+      ]);
     } catch (_) {
-      if (mounted) _addWelcome();
       await _loadEmotionPulse();
     }
-
-    // 如果历史消息为空，添加欢迎语
     if (_messages.isEmpty && mounted) {
       _addWelcome();
     }
@@ -69,7 +56,6 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 加载历史消息
   Future<void> _loadHistory() async {
-    if (!_sessionReady) return;
     if (mounted) setState(() => _isLoadingHistory = true);
     try {
       final result = await _service.getMessages();
@@ -164,7 +150,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
       final moderateResp = await _edgeAI.moderateContent(content);
       if (moderateResp.success && moderateResp.data != null) {
         final moderateData = moderateResp.data as Map<String, dynamic>;
-        if (moderateData['safe'] != true) {
+        if (moderateData['passed'] != true) {
           final reason = moderateData['reason'] ?? '内容不太合适';
           if (mounted) {
             setState(() => _isSending = false);

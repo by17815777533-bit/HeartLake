@@ -81,7 +81,7 @@ class EdgeAIProvider extends ChangeNotifier {
       final resp = await _edgeService.moderateContent(text);
       if (resp.success && resp.data != null) {
         final data = resp.data as Map<String, dynamic>;
-        return data['safe'] == true;
+        return data['passed'] == true;
       }
     } catch (e) {
       debugPrint('内容审核异常: $e');

@@ -54,6 +54,7 @@ class AppTheme {
   static const Color nightSurface = Color(0xFF1B2838);
   static const Color backgroundColor = Color(0xFFF8F9FA);
   static const Color skyBlue = Color(0xFF81D4FA);
+  static const Color gentlePurple = Color(0xFFCE93D8);
   static const Color borderCyan = Color(0xFF90CAF9);
   static const Color darkBlue = Color(0xFF1A73E8);
   static const Color primaryLightColor = Color(0xFF8AB4F8);

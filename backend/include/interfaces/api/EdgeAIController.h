@@ -386,6 +386,14 @@ public:
                   "/api/edge-ai/summary", Post,
                   "heartlake::filters::SecurityAuditFilter");
 
+    ADD_METHOD_TO(EdgeAIController::lakeGodChat,
+                  "/api/lake-god/chat", Post,
+                  "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(EdgeAIController::lakeGodHistory,
+                  "/api/lake-god/history", Get,
+                  "heartlake::filters::SecurityAuditFilter");
+
     METHOD_LIST_END
 
     // ==================== 公开接口处理函数 ====================
@@ -486,6 +494,12 @@ public:
 
     void generateSummary(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void lakeGodChat(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void lakeGodHistory(const HttpRequestPtr &req,
+                        std::function<void(const HttpResponsePtr &)> &&callback);
 
     // ==================== 管理接口处理函数 ====================
 
