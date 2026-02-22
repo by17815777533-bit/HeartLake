@@ -45,6 +45,10 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
     }
 
     std::string counselorId = (*json)["counselor_id"].asString();
+    if (counselorId.empty() || counselorId.size() > 64) {
+        callback(ResponseUtil::badRequest("counselor_id无效"));
+        return;
+    }
     std::string sessionId = generateSessionId();
     std::string serverKey = E2EEncryption::generateKey();
 
@@ -82,6 +86,10 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
 
     std::string sessionId = (*json)["session_id"].asString();
     std::string clientKey = (*json)["client_public_key"].asString();
+    if (clientKey.empty() || clientKey.size() > 4096) {
+        callback(ResponseUtil::badRequest("client_public_key无效"));
+        return;
+    }
     std::string salt = E2EEncryption::generateKey();
 
     // 验证用户是会话参与者后才允许密钥交换
@@ -126,6 +134,10 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
     std::string ciphertext = enc["ciphertext"].asString();
     std::string iv = enc["iv"].asString();
     std::string tag = enc["tag"].asString();
+    if (ciphertext.size() > 65536 || iv.size() > 32 || tag.size() > 64) {
+        callback(ResponseUtil::badRequest("加密字段长度超限"));
+        return;
+    }
 
     auto shadowId = IdentityShadowMap::getInstance().getOrCreateShadowId(userId);
 
@@ -216,9 +228,9 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
 
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "SELECT id, counselor_id, status, created_at, updated_at "
+        "SELECT id, counselor_id, status, created_at "
         "FROM consultation_sessions WHERE user_id = $1 OR counselor_id = $1 "
-        "ORDER BY updated_at DESC LIMIT 50",
+        "ORDER BY created_at DESC LIMIT 50",
         [callback](const orm::Result& r) {
             Json::Value sessions(Json::arrayValue);
             for (const auto& row : r) {
@@ -227,7 +239,6 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
                 s["counselor_id"] = row["counselor_id"].as<std::string>();
                 s["status"] = row["status"].as<std::string>();
                 s["created_at"] = row["created_at"].as<std::string>();
-                s["updated_at"] = row["updated_at"].as<std::string>();
                 sessions.append(s);
             }
             Json::Value data;

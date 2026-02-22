@@ -58,6 +58,10 @@ void FriendController::sendFriendRequest(
     }
     std::string targetUserId = (*json)["user_id"].asString();
     std::string message = json->isMember("message") ? (*json)["message"].asString() : "";
+    if (message.size() > 500) {
+        callback(ResponseUtil::badRequest("message长度不能超过500"));
+        return;
+    }
 
     auto service = getFriendService();
     if (!service) {
@@ -266,6 +270,10 @@ void FriendController::sendMessage(
     }
 
     std::string content = (*json)["content"].asString();
+    if (content.empty() || content.size() > 5000) {
+        callback(ResponseUtil::badRequest("content长度必须在1-5000之间"));
+        return;
+    }
 
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, content, callback]() -> drogon::Task<void> {

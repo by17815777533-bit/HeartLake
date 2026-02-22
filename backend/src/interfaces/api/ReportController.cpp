@@ -30,6 +30,10 @@ void ReportController::createReport(const HttpRequestPtr &req,
         std::string target_id = (*json)["target_id"].asString();
         std::string reason = (*json)["reason"].asString(); // "spam", "inappropriate", "harassment", etc.
         std::string description = (*json)["description"].asString();
+        if (description.size() > 2000) {
+            callback(ResponseUtil::badRequest("description长度不能超过2000"));
+            return;
+        }
         
         if (target_type.empty() || target_id.empty() || reason.empty()) {
             callback(ResponseUtil::badRequest("target_type, target_id 和 reason 不能为空"));

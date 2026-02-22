@@ -423,7 +423,19 @@ void AIService::callAIAPIWithRetry(
 
             auto jsonPtr = response->getJsonObject();
             if (jsonPtr) {
-                callback(*jsonPtr, "");
+                // 清理 Qwen3 thinking mode 的 <think>...</think> 标签
+                auto& json = *jsonPtr;
+                if (json.isMember("choices") && json["choices"].isArray()) {
+                    for (auto& choice : json["choices"]) {
+                        if (choice.isMember("message") && choice["message"].isMember("content")) {
+                            std::string content = choice["message"]["content"].asString();
+                            static const std::regex thinkRegex("<think>[\\s\\S]*?</think>\\s*");
+                            content = std::regex_replace(content, thinkRegex, "");
+                            choice["message"]["content"] = content;
+                        }
+                    }
+                }
+                callback(json, "");
             } else {
                 LOG_ERROR << "Invalid JSON response from AI API";
                 callback(Json::Value(), "Invalid JSON response");

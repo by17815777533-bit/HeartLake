@@ -271,6 +271,10 @@ void RecommendationController::trackInteraction(
         // 异步更新用户偏好
         updateUserPreferences(userId, dbClient);
 
+        // 通知推荐引擎进行在线学习
+        heartlake::ai::RecommendationEngine::getInstance()
+            .recordInteraction(userId, stoneId, interactionType, weight);
+
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in trackInteraction: " << e.what();
         callback(ResponseUtil::internalError("记录交互失败"));
@@ -359,10 +363,11 @@ void RecommendationController::getEmotionTrends(
 
         // 获取最近30天的情绪数据
         auto trendsResult = dbClient->execSqlSync(
-            "SELECT date, avg_emotion_score, dominant_mood, stone_count, interaction_count "
+            "SELECT date, mood_type, avg_emotion_score, COUNT(*) as stone_count "
             "FROM user_emotion_profile "
             "WHERE user_id = $1 "
             "AND date >= CURRENT_DATE - INTERVAL '30 days' "
+            "GROUP BY date, mood_type, avg_emotion_score "
             "ORDER BY date ASC",
             userId
         );
@@ -375,9 +380,9 @@ void RecommendationController::getEmotionTrends(
             Json::Value trend;
             trend["date"] = row["date"].as<std::string>();
             trend["emotion_score"] = row["avg_emotion_score"].as<double>();
-            trend["mood"] = row["dominant_mood"].as<std::string>();
+            trend["mood"] = row["mood_type"].as<std::string>();
             trend["stone_count"] = row["stone_count"].as<int>();
-            trend["interaction_count"] = row["interaction_count"].as<int>();
+            trend["interaction_count"] = 0;
 
             trends.append(trend);
         }

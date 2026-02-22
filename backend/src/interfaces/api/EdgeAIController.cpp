@@ -11,6 +11,8 @@
 #include "interfaces/api/EdgeAIController.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/ai/DualMemoryRAG.h"
+#include "infrastructure/ai/SummaryService.h"
+#include "infrastructure/ai/AIService.h"
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -605,7 +607,6 @@ Json::Value EdgeAIController::collectCacheMetrics() {
     metrics["cache_size"] = static_cast<Json::UInt64>(totalNodes);
 
     if (totalSearches > 0 && totalNodes > 0) {
-        // 有索引数据且有搜索请求时，视为缓存命中
         double hitRate = std::min(1.0, static_cast<double>(totalNodes) / static_cast<double>(totalSearches));
         metrics["hit_rate"] = hitRate;
         metrics["miss_rate"] = 1.0 - hitRate;
@@ -613,6 +614,17 @@ Json::Value EdgeAIController::collectCacheMetrics() {
         metrics["hit_rate"] = 0.0;
         metrics["miss_rate"] = totalSearches > 0 ? 1.0 : 0.0;
     }
+
+    // SemanticCache 真实命中率
+    auto& aiService = heartlake::ai::AIService::getInstance();
+    auto scStats = aiService.getSemanticCacheStats();
+    Json::Value sc;
+    sc["exact_hits"] = static_cast<Json::UInt64>(scStats.exactHits);
+    sc["semantic_hits"] = static_cast<Json::UInt64>(scStats.semanticHits);
+    sc["misses"] = static_cast<Json::UInt64>(scStats.misses);
+    sc["hit_rate"] = scStats.hitRate();
+    sc["estimated_savings"] = static_cast<Json::UInt64>(scStats.estimatedSavings());
+    metrics["semantic_cache"] = sc;
 
     return metrics;
 }
@@ -646,6 +658,433 @@ Json::Value EdgeAIController::collectEmbeddingMetrics() {
     }
 
     return metrics;
+}
+
+void EdgeAIController::vectorInsert(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        std::string id = (*jsonPtr).get("id", "").asString();
+        if (id.empty()) {
+            callback(ResponseUtil::badRequest("id不能为空"));
+            return;
+        }
+
+        if (!jsonPtr->isMember("vector") || !(*jsonPtr)["vector"].isArray()) {
+            callback(ResponseUtil::badRequest("vector必须为数组"));
+            return;
+        }
+
+        std::vector<float> vec;
+        for (const auto &v : (*jsonPtr)["vector"]) {
+            vec.push_back(v.asFloat());
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        engine.hnswInsert(id, vec);
+
+        Json::Value data;
+        data["id"] = id;
+        data["dimension"] = static_cast<int>(vec.size());
+        callback(ResponseUtil::success(data, "向量已插入"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "vectorInsert error: " << e.what();
+        callback(ResponseUtil::internalError("向量插入失败"));
+    }
+}
+
+void EdgeAIController::submitEmotionSample(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        float score = (*jsonPtr).get("score", 0.0f).asFloat();
+        std::string mood = (*jsonPtr).get("mood", "neutral").asString();
+
+        if (score < 0.0f || score > 1.0f) {
+            callback(ResponseUtil::badRequest("score必须在0-1之间"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        engine.submitEmotionSample(score, mood);
+
+        Json::Value data;
+        data["score"] = score;
+        data["mood"] = mood;
+        callback(ResponseUtil::success(data, "情绪样本已提交"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "submitEmotionSample error: " << e.what();
+        callback(ResponseUtil::internalError("情绪样本提交失败"));
+    }
+}
+
+// ==================== 新增端点实现 ====================
+
+void EdgeAIController::getPulseHistory(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        int count = 10;
+        auto countParam = req->getParameter("count");
+        if (!countParam.empty()) {
+            count = std::stoi(countParam);
+            if (count < 1 || count > 100) count = 10;
+        }
+
+        auto history = engine.getPulseHistory(count);
+        Json::Value data(Json::arrayValue);
+        for (const auto &pulse : history) {
+            data.append(pulse.toJson());
+        }
+
+        Json::Value result;
+        result["history"] = data;
+        result["count"] = static_cast<int>(history.size());
+        callback(ResponseUtil::success(result, "情绪脉搏历史"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "getPulseHistory error: " << e.what();
+        callback(ResponseUtil::internalError("获取脉搏历史失败"));
+    }
+}
+
+void EdgeAIController::submitLocalModel(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        heartlake::ai::FederatedModelParams params;
+        params.modelId = (*jsonPtr).get("model_id", "").asString();
+        params.nodeId = (*jsonPtr).get("node_id", "").asString();
+        params.sampleCount = (*jsonPtr).get("sample_count", 0).asUInt();
+        params.localLoss = (*jsonPtr).get("local_loss", 0.0f).asFloat();
+        params.epoch = (*jsonPtr).get("epoch", 0).asInt();
+
+        if (jsonPtr->isMember("weights") && (*jsonPtr)["weights"].isArray()) {
+            for (const auto &row : (*jsonPtr)["weights"]) {
+                std::vector<float> weightRow;
+                if (row.isArray()) {
+                    for (const auto &v : row) weightRow.push_back(v.asFloat());
+                }
+                params.weights.push_back(weightRow);
+            }
+        }
+        if (jsonPtr->isMember("biases") && (*jsonPtr)["biases"].isArray()) {
+            for (const auto &v : (*jsonPtr)["biases"]) {
+                params.biases.push_back(v.asFloat());
+            }
+        }
+
+        engine.submitLocalModel(params);
+
+        Json::Value data;
+        data["model_id"] = params.modelId;
+        data["node_id"] = params.nodeId;
+        callback(ResponseUtil::success(data, "本地模型已提交"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "submitLocalModel error: " << e.what();
+        callback(ResponseUtil::internalError("提交本地模型失败"));
+    }
+}
+
+void EdgeAIController::resetPrivacyBudget(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        engine.resetPrivacyBudget();
+
+        Json::Value data;
+        data["remaining_budget"] = engine.getRemainingPrivacyBudget();
+        callback(ResponseUtil::success(data, "隐私预算已重置"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "resetPrivacyBudget error: " << e.what();
+        callback(ResponseUtil::internalError("重置隐私预算失败"));
+    }
+}
+
+void EdgeAIController::registerNode(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        std::string nodeId = (*jsonPtr).get("node_id", "").asString();
+        if (nodeId.empty()) {
+            callback(ResponseUtil::badRequest("node_id不能为空"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        engine.registerNode(nodeId);
+
+        Json::Value data;
+        data["node_id"] = nodeId;
+        callback(ResponseUtil::success(data, "节点已注册"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "registerNode error: " << e.what();
+        callback(ResponseUtil::internalError("注册节点失败"));
+    }
+}
+
+void EdgeAIController::updateNodeStatus(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        heartlake::ai::EdgeNodeStatus status;
+        status.nodeId = (*jsonPtr).get("node_id", "").asString();
+        status.cpuUsage = (*jsonPtr).get("cpu_usage", 0.0f).asFloat();
+        status.memoryUsage = (*jsonPtr).get("memory_usage", 0.0f).asFloat();
+        status.latencyMs = (*jsonPtr).get("latency_ms", 0.0f).asFloat();
+        status.activeConnections = (*jsonPtr).get("active_connections", 0).asInt();
+        status.totalRequests = (*jsonPtr).get("total_requests", 0).asInt();
+        status.failedRequests = (*jsonPtr).get("failed_requests", 0).asInt();
+        status.isHealthy = (*jsonPtr).get("is_healthy", true).asBool();
+
+        engine.updateNodeStatus(status);
+
+        Json::Value data;
+        data["node_id"] = status.nodeId;
+        callback(ResponseUtil::success(data, "节点状态已更新"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "updateNodeStatus error: " << e.what();
+        callback(ResponseUtil::internalError("更新节点状态失败"));
+    }
+}
+
+void EdgeAIController::selectBestNode(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        auto bestNode = engine.selectBestNode();
+
+        Json::Value data;
+        if (bestNode.has_value()) {
+            data["node_id"] = bestNode.value();
+            data["found"] = true;
+        } else {
+            data["node_id"] = Json::nullValue;
+            data["found"] = false;
+        }
+        callback(ResponseUtil::success(data, "最优节点查询"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "selectBestNode error: " << e.what();
+        callback(ResponseUtil::internalError("查询最优节点失败"));
+    }
+}
+
+void EdgeAIController::quantizedForward(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        // 解析输入向量
+        std::vector<float> input;
+        if (jsonPtr->isMember("input") && (*jsonPtr)["input"].isArray()) {
+            for (const auto &v : (*jsonPtr)["input"]) input.push_back(v.asFloat());
+        }
+
+        // 解析权重矩阵 -> 量化
+        std::vector<float> weightsFlat;
+        size_t outDim = 0, inDim = 0;
+        if (jsonPtr->isMember("weights") && (*jsonPtr)["weights"].isArray()) {
+            outDim = (*jsonPtr)["weights"].size();
+            for (const auto &row : (*jsonPtr)["weights"]) {
+                if (row.isArray()) {
+                    if (inDim == 0) inDim = row.size();
+                    for (const auto &v : row) weightsFlat.push_back(v.asFloat());
+                }
+            }
+        }
+        auto qWeights = engine.quantizeToInt8(weightsFlat, {outDim, inDim});
+
+        // 解析偏置
+        std::vector<float> biases;
+        if (jsonPtr->isMember("biases") && (*jsonPtr)["biases"].isArray()) {
+            for (const auto &v : (*jsonPtr)["biases"]) biases.push_back(v.asFloat());
+        }
+
+        auto output = engine.quantizedForward(input, qWeights, biases);
+
+        Json::Value data;
+        Json::Value outputArr(Json::arrayValue);
+        for (float v : output) outputArr.append(v);
+        data["output"] = outputArr;
+        data["dimension"] = static_cast<int>(output.size());
+        callback(ResponseUtil::success(data, "量化推理完成"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "quantizedForward error: " << e.what();
+        callback(ResponseUtil::internalError("量化推理失败"));
+    }
+}
+
+void EdgeAIController::addNoise(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        if (!engine.isEnabled()) {
+            callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
+            return;
+        }
+
+        float sensitivity = (*jsonPtr).get("sensitivity", 1.0f).asFloat();
+
+        Json::Value data;
+        if (jsonPtr->isMember("values") && (*jsonPtr)["values"].isArray()) {
+            std::vector<float> values;
+            for (const auto &v : (*jsonPtr)["values"]) values.push_back(v.asFloat());
+            auto noisy = engine.addLaplaceNoiseVec(values, sensitivity);
+            Json::Value arr(Json::arrayValue);
+            for (float v : noisy) arr.append(v);
+            data["values"] = arr;
+        } else if (jsonPtr->isMember("value")) {
+            float value = (*jsonPtr)["value"].asFloat();
+            data["value"] = engine.addLaplaceNoise(value, sensitivity);
+        } else {
+            callback(ResponseUtil::badRequest("需要value或values字段"));
+            return;
+        }
+
+        data["remaining_budget"] = engine.getRemainingPrivacyBudget();
+        callback(ResponseUtil::success(data, "噪声已注入"));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "addNoise error: " << e.what();
+        callback(ResponseUtil::internalError("噪声注入失败"));
+    }
+}
+
+void EdgeAIController::generateSummary(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto jsonPtr = req->getJsonObject();
+        if (!jsonPtr) {
+            callback(ResponseUtil::badRequest("请求体必须为JSON"));
+            return;
+        }
+
+        std::string stoneId = (*jsonPtr).get("stone_id", "").asString();
+        std::string content = (*jsonPtr).get("content", "").asString();
+
+        if (content.empty() || content.size() > 10000) {
+            callback(ResponseUtil::badRequest("content长度必须在1-10000之间"));
+            return;
+        }
+
+        if (content.size() < heartlake::ai::SummaryService::MIN_LENGTH) {
+            Json::Value data;
+            data["summary"] = content;
+            data["skipped"] = true;
+            callback(ResponseUtil::success(data, "文本过短，无需摘要"));
+            return;
+        }
+
+        auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+        heartlake::ai::SummaryService::getInstance().generateSummary(
+            stoneId, content,
+            [cb](const std::string& summary, const std::string& error) {
+                if (!error.empty()) {
+                    (*cb)(ResponseUtil::internalError("摘要生成失败: " + error));
+                    return;
+                }
+                Json::Value data;
+                data["summary"] = summary;
+                data["skipped"] = false;
+                (*cb)(ResponseUtil::success(data, "摘要已生成"));
+            }
+        );
+    } catch (const std::exception &e) {
+        LOG_ERROR << "generateSummary error: " << e.what();
+        callback(ResponseUtil::internalError("摘要生成失败"));
+    }
 }
 
 } // namespace controllers

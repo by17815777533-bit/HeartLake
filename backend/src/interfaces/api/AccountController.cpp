@@ -212,19 +212,18 @@ void AccountController::getLoginDevices(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
-            "SELECT session_id, device_info, ip_address, created_at "
-            "FROM user_sessions WHERE user_id = $1 AND expires_at > NOW() "
+            "SELECT session_id, device_type, device_name, ip_address, last_active_at, created_at "
+            "FROM user_sessions WHERE user_id = $1 AND is_active = true "
             "ORDER BY created_at DESC", userId);
 
         Json::Value devices(Json::arrayValue);
         for (const auto &row : result) {
             Json::Value device;
             device["session_id"] = row["session_id"].as<std::string>();
-            // BUG-FIX: user_sessions 表实际列名是 device_info，不是 device_type/device_name
-            device["device_type"] = row["device_info"].isNull() ? "unknown" : row["device_info"].as<std::string>();
-            device["device_name"] = row["device_info"].isNull() ? "未知设备" : row["device_info"].as<std::string>();
+            device["device_type"] = row["device_type"].isNull() ? "unknown" : row["device_type"].as<std::string>();
+            device["device_name"] = row["device_name"].isNull() ? "未知设备" : row["device_name"].as<std::string>();
             device["ip_address"] = row["ip_address"].isNull() ? "" : row["ip_address"].as<std::string>();
-            device["last_active_at"] = row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+            device["last_active_at"] = row["last_active_at"].isNull() ? "" : row["last_active_at"].as<std::string>();
             devices.append(device);
         }
 

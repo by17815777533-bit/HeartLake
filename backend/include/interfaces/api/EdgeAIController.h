@@ -164,6 +164,34 @@ public:
                   "/api/edge-ai/vector-search", Post,
                   "heartlake::filters::SecurityAuditFilter");
 
+    /**
+     * @brief 向量插入（用于填充HNSW索引）
+     * @route POST /api/edge-ai/vector-insert
+     * @code
+     * {
+     *   "id": "stone_xxx",
+     *   "vector": [0.1, 0.2, ...]
+     * }
+     * @endcode
+     */
+    ADD_METHOD_TO(EdgeAIController::vectorInsert,
+                  "/api/edge-ai/vector-insert", Post,
+                  "heartlake::filters::SecurityAuditFilter");
+
+    /**
+     * @brief 提交情绪样本（用于社区情绪脉搏）
+     * @route POST /api/edge-ai/emotion-sample
+     * @code
+     * {
+     *   "score": 0.85,
+     *   "mood": "happy"
+     * }
+     * @endcode
+     */
+    ADD_METHOD_TO(EdgeAIController::submitEmotionSample,
+                  "/api/edge-ai/emotion-sample", Post,
+                  "heartlake::filters::SecurityAuditFilter");
+
     // ==================== 管理接口（需要 PASETO 令牌） ====================
 
     /**
@@ -230,6 +258,78 @@ public:
                   "/api/admin/edge-ai/vector-search", Post, Options,
                   "heartlake::filters::AdminAuthFilter");
 
+    ADD_METHOD_TO(EdgeAIController::vectorInsert,
+                  "/api/admin/edge-ai/vector-insert", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    ADD_METHOD_TO(EdgeAIController::submitEmotionSample,
+                  "/api/admin/edge-ai/emotion-sample", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 情绪脉搏历史
+     * @route GET /api/admin/edge-ai/pulse-history?count=10
+     */
+    ADD_METHOD_TO(EdgeAIController::getPulseHistory,
+                  "/api/admin/edge-ai/pulse-history", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 提交联邦学习本地模型
+     * @route POST /api/admin/edge-ai/federated/submit
+     */
+    ADD_METHOD_TO(EdgeAIController::submitLocalModel,
+                  "/api/admin/edge-ai/federated/submit", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 重置差分隐私预算
+     * @route POST /api/admin/edge-ai/privacy/reset
+     */
+    ADD_METHOD_TO(EdgeAIController::resetPrivacyBudget,
+                  "/api/admin/edge-ai/privacy/reset", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 注册边缘节点
+     * @route POST /api/admin/edge-ai/nodes/register
+     */
+    ADD_METHOD_TO(EdgeAIController::registerNode,
+                  "/api/admin/edge-ai/nodes/register", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 更新边缘节点状态
+     * @route PUT /api/admin/edge-ai/nodes/status
+     */
+    ADD_METHOD_TO(EdgeAIController::updateNodeStatus,
+                  "/api/admin/edge-ai/nodes/status", Put, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 选择最优边缘节点
+     * @route GET /api/admin/edge-ai/nodes/best
+     */
+    ADD_METHOD_TO(EdgeAIController::selectBestNode,
+                  "/api/admin/edge-ai/nodes/best", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 量化推理
+     * @route POST /api/admin/edge-ai/quantized-forward
+     */
+    ADD_METHOD_TO(EdgeAIController::quantizedForward,
+                  "/api/admin/edge-ai/quantized-forward", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 差分隐私噪声注入
+     * @route POST /api/admin/edge-ai/privacy/add-noise
+     */
+    ADD_METHOD_TO(EdgeAIController::addNoise,
+                  "/api/admin/edge-ai/privacy/add-noise", Post, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
     /**
      * @brief 获取边缘AI配置（管理员）
      * @route GET /api/admin/edge-ai/config
@@ -277,6 +377,14 @@ public:
     ADD_METHOD_TO(EdgeAIController::updateAdminConfig,
                   "/api/admin/edge-ai/config", Put, Options,
                   "heartlake::filters::AdminAuthFilter");
+
+    /**
+     * @brief 生成文本摘要
+     * @route POST /api/edge-ai/summary
+     */
+    ADD_METHOD_TO(EdgeAIController::generateSummary,
+                  "/api/edge-ai/summary", Post,
+                  "heartlake::filters::SecurityAuditFilter");
 
     METHOD_LIST_END
 
@@ -345,6 +453,39 @@ public:
      */
     void vectorSearch(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void vectorInsert(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void submitEmotionSample(const HttpRequestPtr &req,
+                             std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void getPulseHistory(const HttpRequestPtr &req,
+                         std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void submitLocalModel(const HttpRequestPtr &req,
+                          std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void resetPrivacyBudget(const HttpRequestPtr &req,
+                            std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void registerNode(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void updateNodeStatus(const HttpRequestPtr &req,
+                          std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void selectBestNode(const HttpRequestPtr &req,
+                        std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void quantizedForward(const HttpRequestPtr &req,
+                          std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void addNoise(const HttpRequestPtr &req,
+                  std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void generateSummary(const HttpRequestPtr &req,
+                         std::function<void(const HttpResponsePtr &)> &&callback);
 
     // ==================== 管理接口处理函数 ====================
 

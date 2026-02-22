@@ -7,6 +7,7 @@
 
 #include <drogon/HttpController.h>
 #include "infrastructure/filters/SecurityAuditFilter.h"
+#include "infrastructure/filters/AdminAuthFilter.h"
 
 namespace heartlake::controllers {
 
@@ -19,10 +20,10 @@ public:
     ADD_METHOD_TO(SafeHarborController::getWarmPrompt, "/api/safe-harbor/prompt", drogon::Get);
     ADD_METHOD_TO(SafeHarborController::getResources, "/api/safe-harbor/resources", drogon::Get);
     ADD_METHOD_TO(SafeHarborController::recommendResources, "/api/safe-harbor/recommend", drogon::Get);
-    // 写入端点需要认证
-    ADD_METHOD_TO(SafeHarborController::addResource, "/api/safe-harbor/resources", drogon::Post, "heartlake::filters::SecurityAuditFilter");
-    ADD_METHOD_TO(SafeHarborController::updateResource, "/api/safe-harbor/resources/{1}", drogon::Put, "heartlake::filters::SecurityAuditFilter");
-    ADD_METHOD_TO(SafeHarborController::deleteResource, "/api/safe-harbor/resources/{1}", drogon::Delete, "heartlake::filters::SecurityAuditFilter");
+    // 写入端点需要管理员权限
+    ADD_METHOD_TO(SafeHarborController::addResource, "/api/safe-harbor/resources", drogon::Post, "heartlake::filters::AdminAuthFilter");
+    ADD_METHOD_TO(SafeHarborController::updateResource, "/api/safe-harbor/resources/{1}", drogon::Put, "heartlake::filters::AdminAuthFilter");
+    ADD_METHOD_TO(SafeHarborController::deleteResource, "/api/safe-harbor/resources/{1}", drogon::Delete, "heartlake::filters::AdminAuthFilter");
     ADD_METHOD_TO(SafeHarborController::recordAccess, "/api/safe-harbor/access", drogon::Post, "heartlake::filters::SecurityAuditFilter");
     ADD_METHOD_TO(SafeHarborController::getAccessHistory, "/api/safe-harbor/access/history", drogon::Get, "heartlake::filters::SecurityAuditFilter");
     METHOD_LIST_END

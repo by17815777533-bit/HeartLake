@@ -11,7 +11,6 @@
 #include <functional>
 #include <mutex>
 #include <random>
-#include <cmath>
 #include <json/json.h>
 
 namespace heartlake {
@@ -118,7 +117,7 @@ private:
 
     bool initialized_ = false;
     int latentDim_ = 32;
-    mutable std::mutex mutex_;
+    mutable std::recursive_mutex mutex_;
     std::mt19937 rng_{std::random_device{}()};
 
     // 用户潜在因子缓存

@@ -9,6 +9,7 @@
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
+#include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/services/NotificationPushService.h"
 #include "infrastructure/services/WarmQuoteService.h"
 #include "utils/PsychologicalRiskAssessment.h"
@@ -377,6 +378,16 @@ void StoneApplicationService::processStoneAsync(
             score, mood, stoneId
         );
 
+        // 提交情绪样本到社区脉搏
+        try {
+            auto& edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
+            if (edgeEngine.isEnabled()) {
+                edgeEngine.submitEmotionSample(score, mood);
+            }
+        } catch (const std::exception& e) {
+            LOG_WARN << "submitEmotionSample failed: " << e.what();
+        }
+
         // 心理风险评估
         auto& riskAssessment = heartlake::utils::PsychologicalRiskAssessment::getInstance();
         auto riskResult = riskAssessment.assessRisk(content, userId, score, mood);
@@ -437,9 +448,40 @@ void StoneApplicationService::processStoneAsync(
             },
             vecStr, stoneId
         );
+
+        // 同步插入HNSW索引，使向量搜索可用
+        try {
+            auto& edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
+            if (edgeEngine.isEnabled()) {
+                edgeEngine.hnswInsert(stoneId, embedding);
+            }
+        } catch (const std::exception& e) {
+            LOG_WARN << "HNSW insert failed for stone " << stoneId << ": " << e.what();
+        }
     });
 
-    // 3. AI暖心评论（基于双记忆RAG）
+    // 3. 长文本自动摘要
+    if (content.size() >= heartlake::ai::SummaryService::MIN_LENGTH) {
+        heartlake::ai::SummaryService::getInstance().generateSummary(
+            stoneId, content,
+            [stoneId](const std::string& summary, const std::string& error) {
+                if (!error.empty()) {
+                    LOG_WARN << "Summary generation failed for stone " << stoneId << ": " << error;
+                    return;
+                }
+                drogon::app().getDbClient("default")->execSqlAsync(
+                    "UPDATE stones SET summary = $1 WHERE stone_id = $2",
+                    [](const drogon::orm::Result&) {},
+                    [stoneId](const drogon::orm::DrogonDbException& e) {
+                        LOG_ERROR << "Failed to update summary for stone " << stoneId << ": " << e.base().what();
+                    },
+                    summary, stoneId
+                );
+            }
+        );
+    }
+
+    // 4. AI暖心评论（基于双记忆RAG）
     // 使用DualMemoryRAG生成个性化回复，融合用户长期情绪画像和近期交互上下文
     auto cacheManagerCopy = cacheManager_;
     drogon::app().getLoop()->runInLoop([stoneId, userId, content, moodType, cacheManagerCopy]() {

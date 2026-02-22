@@ -8,6 +8,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include "infrastructure/filters/SecurityAuditFilter.h"
 
 using namespace drogon;
 
@@ -19,10 +20,10 @@ public:
     METHOD_LIST_BEGIN
 
     /// 差分隐私保护的湖面情绪统计
-    ADD_METHOD_TO(PrivacyController::getPrivacyStats, "/api/lake/privacy-stats", Get);
+    ADD_METHOD_TO(PrivacyController::getPrivacyStats, "/api/lake/privacy-stats", Get, "heartlake::filters::SecurityAuditFilter");
 
     /// 隐私预算消耗报告
-    ADD_METHOD_TO(PrivacyController::getPrivacyReport, "/api/lake/privacy-report", Get);
+    ADD_METHOD_TO(PrivacyController::getPrivacyReport, "/api/lake/privacy-report", Get, "heartlake::filters::SecurityAuditFilter");
 
     METHOD_LIST_END
 

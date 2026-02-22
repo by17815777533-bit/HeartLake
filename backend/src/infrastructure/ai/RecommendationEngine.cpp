@@ -7,7 +7,8 @@
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include <drogon/drogon.h>
 #include <algorithm>
-#include <numeric>
+#include <cmath>
+#include <limits>
 #include <unordered_set>
 
 using namespace drogon;
@@ -178,7 +179,7 @@ double RecommendationEngine::graphPropagationScore(
 }
 
 UserProfile& RecommendationEngine::getOrCreateProfile(const std::string& userId) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     auto it = userProfiles_.find(userId);
     if (it != userProfiles_.end()) return it->second;
 
@@ -232,7 +233,7 @@ double RecommendationEngine::computeUserSimilarity(
     const std::string& userId1,
     const std::string& userId2
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     auto it1 = userProfiles_.find(userId1);
     auto it2 = userProfiles_.find(userId2);
     if (it1 == userProfiles_.end() || it2 == userProfiles_.end()) return 0.0;
@@ -248,7 +249,7 @@ double RecommendationEngine::computeItemSimilarity(
     const std::string& itemId2
 ) {
     // 基于共现计算物品相似度
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     int cooccur = 0, count1 = 0, count2 = 0;
 
     for (const auto& [userId, profile] : userProfiles_) {
@@ -292,13 +293,13 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         "AVG(us.similarity_score) as avg_sim "
         "FROM stones s "
         "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
-        "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1"
+        "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1 "
         "JOIN users u ON s.user_id = u.user_id "
         "WHERE us.similarity_score > 0.5 AND s.status = 'published' "
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname "
         "ORDER BY avg_sim DESC LIMIT $2",
-        userId, topK
+        userId, (int64_t)topK
     );
 
     for (const auto& row : rows) {
@@ -342,7 +343,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "AND s.status = 'published' "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname "
         "ORDER BY co_occur DESC LIMIT $2",
-        userId, topK
+        userId, (int64_t)topK
     );
 
     for (const auto& row : rows) {
@@ -377,7 +378,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
         "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
         "LIMIT $3",
-        userId, userMood, topK
+        userId, userMood, (int64_t)topK
     );
 
     for (const auto& row : rows) {
@@ -409,13 +410,17 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
         userMood = moodResult[0]["mood_type"].as<std::string>();
     }
 
-    // 各算法获取候选
+    // 各算法获取候选（单个失败不影响整体）
     int cfCount = static_cast<int>(topK * cfWeight * 2);
     int contentCount = static_cast<int>(topK * contentWeight * 2);
 
-    auto userCFResults = userBasedCF(userId, cfCount / 2);
-    auto itemCFResults = itemBasedCF(userId, cfCount / 2);
-    auto contentResults = contentBasedRecommend(userId, userMood, contentCount);
+    std::vector<RecommendationCandidate> userCFResults, itemCFResults, contentResults;
+    try { userCFResults = userBasedCF(userId, cfCount / 2); }
+    catch (const std::exception& e) { LOG_WARN << "userBasedCF failed: " << e.what(); }
+    try { itemCFResults = itemBasedCF(userId, cfCount / 2); }
+    catch (const std::exception& e) { LOG_WARN << "itemBasedCF failed: " << e.what(); }
+    try { contentResults = contentBasedRecommend(userId, userMood, contentCount); }
+    catch (const std::exception& e) { LOG_WARN << "contentBasedRecommend failed: " << e.what(); }
 
     // 合并并加权
     std::unordered_map<std::string, RecommendationCandidate> merged;
@@ -453,7 +458,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             "WHERE s.user_id != $1 AND s.status = 'published' "
             "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
             "ORDER BY RANDOM() LIMIT $2",
-            userId, exploreCount);
+            userId, (int64_t)exploreCount);
         for (const auto& row : exploreRows) {
             RecommendationCandidate cand;
             cand.itemId = row["stone_id"].as<std::string>();
