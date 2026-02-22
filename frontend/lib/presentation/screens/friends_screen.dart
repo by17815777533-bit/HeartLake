@@ -327,16 +327,16 @@ class _FriendsScreenState extends State<FriendsScreen>
                               ),
                             ),
                           ),
-                          title: Text(friend['nickname'] ?? '未知'),
-                          subtitle: Text('账号: ${friend['username']}'),
+                          title: Text(friend['nickname'] ?? friend['nick_name'] ?? '未知'),
+                          subtitle: Text('账号: ${friend['username'] ?? ''}'),
                           onTap: () {
                             // 点击好友进入聊天界面
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => FriendChatScreen(
-                                  friendId: friend['user_id'],
-                                  friendName: friend['nickname'] ?? '未知',
+                                  friendId: friend['user_id'] ?? friend['userId'] ?? '',
+                                  friendName: friend['nickname'] ?? friend['nick_name'] ?? '未知',
                                 ),
                               ),
                             );

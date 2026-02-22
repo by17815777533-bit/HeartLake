@@ -229,12 +229,14 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         setState(() {
           _boats.clear();
           _boats.addAll(List<Map<String, dynamic>>.from(result['boats'] ?? []));
-          
-          // 如果后端返回了总数，且不为0（避免刚加载时覆盖了实时更新），则同步更新本地计数
-          if (result['pagination'] != null && 
-              result['pagination']['total'] != null && 
+
+          // 同步本地纸船计数：优先用后端 pagination.total，否则用实际加载的数量
+          if (result['pagination'] != null &&
+              result['pagination']['total'] != null &&
               result['pagination']['total'] is int) {
              _localBoatsCount = result['pagination']['total'];
+          } else if (_boats.isNotEmpty) {
+             _localBoatsCount = _boats.length;
           }
           _isLoading = false;
         });
