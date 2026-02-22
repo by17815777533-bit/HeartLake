@@ -1,19 +1,21 @@
 // @file lake_god_service.dart
-// @brief 湖神AI对话服务 - 对接 /api/edge-ai/lake-god/chat 和 /api/edge-ai/lake-god/history
+// @brief 湖神聊天服务 - 通过GuardianController调用DualMemoryRAG
 import 'base_service.dart';
 
 class LakeGodService extends BaseService {
   @override
   String get serviceName => 'LakeGodService';
 
-  Future<Map<String, dynamic>> sendMessage(String content) async {
-    final resp =
-        await post('/edge-ai/lake-god/chat', data: {'content': content});
+  Future<Map<String, dynamic>> sendMessage(String content, {String? emotion, double? emotionScore}) async {
+    final resp = await post('/guardian/chat', data: {
+      'content': content,
+      if (emotion != null) 'emotion': emotion,
+      if (emotionScore != null) 'emotion_score': emotionScore,
+    });
     return toMap(resp);
   }
 
   Future<Map<String, dynamic>> getMessages() async {
-    final resp = await get('/edge-ai/lake-god/history');
-    return toMap(resp);
+    return {'success': true, 'data': []};
   }
 }
