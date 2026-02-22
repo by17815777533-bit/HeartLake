@@ -35,6 +35,7 @@ class Stone {
   // 媒体文件相关字段
   final List<String>? mediaIds; // 关联的媒体文件ID列表
   final bool hasMedia; // 是否包含媒体文件
+  final bool hasRippled; // 当前用户是否已涟漪
 
   Stone({
     required this.stoneId,
@@ -55,6 +56,7 @@ class Stone {
     this.aiTags,
     this.mediaIds,
     this.hasMedia = false,
+    this.hasRippled = false,
   });
 
   factory Stone.fromJson(Map<String, dynamic> json) {
@@ -106,6 +108,7 @@ class Stone {
         mediaIds: mediaIds,
         hasMedia: json['has_media'] == true ||
             (mediaIds != null && mediaIds.isNotEmpty),
+        hasRippled: json['has_rippled'] == true,
       );
     } catch (e, stackTrace) {
       // 记录详细错误信息，包含原始JSON便于排查
@@ -161,6 +164,7 @@ class Stone {
       'ai_tags': aiTags,
       'media_ids': mediaIds,
       'has_media': hasMedia,
+      'has_rippled': hasRippled,
     };
   }
 
@@ -184,6 +188,7 @@ class Stone {
     List<String>? aiTags,
     List<String>? mediaIds,
     bool? hasMedia,
+    bool? hasRippled,
   }) {
     return Stone(
       stoneId: stoneId ?? this.stoneId,
@@ -204,6 +209,7 @@ class Stone {
       aiTags: aiTags ?? this.aiTags,
       mediaIds: mediaIds ?? this.mediaIds,
       hasMedia: hasMedia ?? this.hasMedia,
+      hasRippled: hasRippled ?? this.hasRippled,
     );
   }
 }

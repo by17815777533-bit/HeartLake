@@ -32,6 +32,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   int _localRipplesCount = 0;
   int _localBoatsCount = 0;
   bool _hasInteraction = false; // 追踪是否有互动发生
+  bool _hasRippled = false; // 当前用户是否已涟漪
   final InteractionService _interactionService = InteractionService();
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
@@ -68,6 +69,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     super.initState();
     _localRipplesCount = widget.stone.rippleCount;
     _localBoatsCount = widget.stone.boatCount;
+    _hasRippled = widget.stone.hasRippled;
     _wsManager = WebSocketManager();
     _loadCurrentUser();
     _loadBoats();
@@ -251,7 +253,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
   /// 发送涟漪（点赞）
   Future<void> _sendRipple() async {
-    if (_isSendingRipple) return;
+    if (_isSendingRipple || _hasRippled) return;
 
     setState(() => _isSendingRipple = true);
 
@@ -268,6 +270,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       if (result['success'] == true && mounted) {
         setState(() {
           _hasInteraction = true; // 标记有互动
+          _hasRippled = true; // 标记已涟漪
           if (result['data'] != null && result['data']['ripple_count'] != null) {
              _localRipplesCount = result['data']['ripple_count'];
           } else {
@@ -630,9 +633,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                               _buildInteractionButton(
                                 icon: Icons.waves,
                                 count: _localRipplesCount,
-                                onTap: _sendRipple,
+                                onTap: _hasRippled ? null : _sendRipple,
                                 isLoading: _isSendingRipple,
-                                color: moodConfig.rippleColor,
+                                color: _hasRippled ? moodConfig.rippleColor : moodConfig.rippleColor.withValues(alpha: 0.5),
                                 animation: _heartScaleAnimation,
                               ),
                               const SizedBox(width: 24),
