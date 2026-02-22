@@ -1091,18 +1091,18 @@ void EdgeAIController::lakeGodChat(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
-    drogon::async_run([=, callback = std::move(callback)]() {
+    drogon::async_run([=, callback = std::move(callback)]() -> drogon::Task<void> {
         try {
             auto userId = req->getAttributes()->get<std::string>("user_id");
             auto jsonPtr = req->getJsonObject();
             if (!jsonPtr || !jsonPtr->isMember("content")) {
                 callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "缺少content字段"));
-                return;
+                co_return;
             }
             auto content = (*jsonPtr)["content"].asString();
             if (content.empty()) {
                 callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content不能为空"));
-                return;
+                co_return;
             }
 
             auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -1112,7 +1112,7 @@ void EdgeAIController::lakeGodChat(
             if (!moderateResult.passed) {
                 callback(ResponseUtil::error(ErrorCode::CONTENT_DELETED,
                     "内容未通过审核: " + moderateResult.suggestion));
-                return;
+                co_return;
             }
 
             // 情感分析
