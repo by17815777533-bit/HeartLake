@@ -295,48 +295,48 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 3. 石头模块
+## 4. 石头模块
 
-### 3.1 创建石头
+### 4.1 创建石头
 - **Method**: `POST`
 - **Path**: `/api/stones`
 - **描述**: 创建新的情绪石头
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 - **请求体**: `{ "content": "...", "mood": "...", "tags": [...] }`
 
-### 3.2 获取湖面石头列表
+### 4.2 获取湖面石头列表
 - **Method**: `GET`
 - **Path**: `/api/lake/stones`
 - **描述**: 获取公开的石头列表（分页）
 - **认证**: 无需认证
 - **查询参数**: `page`, `page_size`
 
-### 3.3 获取我的石头
+### 4.3 获取我的石头
 - **Method**: `GET`
 - **Path**: `/api/stones/my`
 - **描述**: 获取当前用户创建的所有石头
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 3.4 获取石头详情
+### 4.4 获取石头详情
 - **Method**: `GET`
 - **Path**: `/api/stones/{stoneId}`
 - **描述**: 获取指定石头的详细信息
 - **认证**: 无需认证
 
-### 3.5 删除石头
+### 4.5 删除石头
 - **Method**: `DELETE`
 - **Path**: `/api/stones/{stoneId}`
 - **描述**: 删除指定石头
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 3.6 获取湖面天气
+### 4.6 获取湖面天气
 - **Method**: `GET`
 - **Path**: `/api/lake/weather`
 - **描述**: 获取湖面整体情绪氛围
 - **认证**: 无需认证
 - **响应**: 情绪分布、活跃度、天气状态
 
-### 3.7 搜索共鸣石头
+### 4.7 搜索共鸣石头
 - **Method**: `GET`
 - **Path**: `/api/stones/{stoneId}/resonance`
 - **描述**: 基于向量相似度搜索情感共鸣的石头
@@ -344,9 +344,9 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 4. 纸船模块
+## 5. 纸船模块
 
-### 4.1 放纸船（漂流）
+### 5.1 放纸船（漂流）
 - **Method**: `POST`
 - **Path**: `/api/boats/drift`
 - **描述**: 创建漂流纸船
@@ -362,60 +362,60 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 }
 ```
 
-### 4.2 回复石头
+### 5.2 回复石头
 - **Method**: `POST`
 - **Path**: `/api/boats/reply`
 - **描述**: 创建关联到特定石头的纸船
 - **认证**: 需要 PASETO Token
 - **请求体**: `{ "stone_id": "...", "content": "...", "mood": "..." }`
 
-### 4.3 捞纸船
+### 5.3 捞纸船
 - **Method**: `POST`
 - **Path**: `/api/boats/catch`
 - **描述**: 随机捞取一个漂流中的纸船
 - **认证**: 需要 PASETO Token
 - **响应**: 纸船内容、是否为AI自动回复
 
-### 4.4 回应纸船
+### 5.4 回应纸船
 - **Method**: `POST`
 - **Path**: `/api/boats/{boatId}/respond`
 - **描述**: 回复收到的纸船
 - **认证**: 需要 PASETO Token
 - **请求体**: `{ "content": "回复内容..." }`
 
-### 4.5 扔回水中
+### 5.5 扔回水中
 - **Method**: `POST`
 - **Path**: `/api/boats/{boatId}/release`
 - **描述**: 将纸船重新放回漂流池
 - **认证**: 需要 PASETO Token
 
-### 4.6 获取纸船详情
+### 5.6 获取纸船详情
 - **Method**: `GET`
 - **Path**: `/api/boats/{boatId}`
 - **描述**: 查看纸船详细信息
 - **认证**: 需要 PASETO Token
 
-### 4.7 获取我发送的纸船
+### 5.7 获取我发送的纸船
 - **Method**: `GET`
 - **Path**: `/api/boats/sent`
 - **描述**: 查看我发送的所有纸船
 - **认证**: 需要 PASETO Token
 - **查询参数**: `page`, `page_size`, `status`
 
-### 4.8 获取我收到的纸船
+### 5.8 获取我收到的纸船
 - **Method**: `GET`
 - **Path**: `/api/boats/received`
 - **描述**: 查看我收到的所有纸船
 - **认证**: 需要 PASETO Token
 - **查询参数**: `page`, `page_size`
 
-### 4.9 获取漂流中纸船数量
+### 5.9 获取漂流中纸船数量
 - **Method**: `GET`
 - **Path**: `/api/boats/drifting/count`
 - **描述**: 获取当前漂流池中的纸船总数
 - **认证**: 无需认证
 
-### 4.10 获取纸船状态
+### 5.10 获取纸船状态
 - **Method**: `GET`
 - **Path**: `/api/boats/{boatId}/status`
 - **描述**: 查询纸船当前状态（漂流中/已捞起/已回复）
@@ -423,51 +423,149 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 5. 好友模块
+## 6. 互动模块
 
-### 5.1 发送好友请求
+### 6.1 发布涟漪（评论）
+- **Method**: `POST`
+- **Path**: `/api/stones/{stoneId}/ripples`
+- **描述**: 对石头发布涟漪（评论）
+- **认证**: SecurityAuditFilter
+- **请求体**: content
+
+### 6.2 获取石头的涟漪列表
+- **Method**: `GET`
+- **Path**: `/api/stones/{stoneId}/ripples`
+- **描述**: 获取指定石头的所有涟漪
+- **认证**: SecurityAuditFilter
+- **查询参数**: page, pageSize
+
+### 6.3 删除涟漪
+- **Method**: `DELETE`
+- **Path**: `/api/ripples/{rippleId}`
+- **描述**: 删除自己发布的涟漪
+- **认证**: SecurityAuditFilter
+
+### 6.4 发布纸船到石头
+- **Method**: `POST`
+- **Path**: `/api/stones/{stoneId}/boats`
+- **描述**: 在石头上放置纸船（轻量互动）
+- **认证**: SecurityAuditFilter
+- **请求体**: content
+
+### 6.5 获取石头的纸船列表
+- **Method**: `GET`
+- **Path**: `/api/stones/{stoneId}/boats`
+- **描述**: 获取指定石头上的纸船列表
+- **认证**: SecurityAuditFilter
+
+### 6.6 删除纸船
+- **Method**: `DELETE`
+- **Path**: `/api/boats/{boatId}`
+- **描述**: 删除自己发布的纸船
+- **认证**: SecurityAuditFilter
+
+### 6.7 获取我的涟漪
+- **Method**: `GET`
+- **Path**: `/api/interactions/my/ripples`
+- **描述**: 获取当前用户发布的所有涟漪
+- **认证**: SecurityAuditFilter
+
+### 6.8 获取我的纸船
+- **Method**: `GET`
+- **Path**: `/api/interactions/my/boats`
+- **描述**: 获取当前用户发布的所有纸船
+- **认证**: SecurityAuditFilter
+
+### 6.9 获取通知列表
+- **Method**: `GET`
+- **Path**: `/api/notifications`
+- **描述**: 获取当前用户的通知列表
+- **认证**: SecurityAuditFilter
+- **查询参数**: page, pageSize, type
+
+### 6.10 标记通知已读
+- **Method**: `POST`
+- **Path**: `/api/notifications/{notificationId}/read`
+- **描述**: 将指定通知标记为已读
+- **认证**: SecurityAuditFilter
+
+### 6.11 全部标记已读
+- **Method**: `POST`
+- **Path**: `/api/notifications/read-all`
+- **描述**: 将所有未读通知标记为已读
+- **认证**: SecurityAuditFilter
+
+### 6.12 发起石头连接
+- **Method**: `POST`
+- **Path**: `/api/stones/{stoneId}/connections`
+- **描述**: 通过石头发起与作者的连接请求
+- **认证**: SecurityAuditFilter
+
+### 6.13 创建连接
+- **Method**: `POST`
+- **Path**: `/api/connections`
+- **描述**: 直接创建用户间的连接
+- **认证**: SecurityAuditFilter
+- **请求体**: targetUserId, message
+
+### 6.14 升级连接为好友
+- **Method**: `POST`
+- **Path**: `/api/connections/{connectionId}/friend`
+- **描述**: 将连接关系升级为好友
+- **认证**: SecurityAuditFilter
+
+### 6.15 连接消息
+- **Method**: `GET` / `POST`
+- **Path**: `/api/connections/{connectionId}/messages`
+- **描述**: 获取或发送连接中的消息
+- **认证**: SecurityAuditFilter
+
+---
+## 7. 好友模块
+
+### 7.1 发送好友请求
 - **Method**: `POST`
 - **Path**: `/api/friends/request`
 - **描述**: 向指定用户发送好友申请
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.2 接受好友请求
+### 7.2 接受好友请求
 - **Method**: `POST`
 - **Path**: `/api/friends/accept/{userId}`
 - **描述**: 接受好友申请
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.3 拒绝好友请求
+### 7.3 拒绝好友请求
 - **Method**: `POST`
 - **Path**: `/api/friends/reject/{userId}`
 - **描述**: 拒绝好友申请
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.4 删除好友
+### 7.4 删除好友
 - **Method**: `DELETE`
 - **Path**: `/api/friends/{friendId}`
 - **描述**: 删除好友关系
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.5 获取好友列表
+### 7.5 获取好友列表
 - **Method**: `GET`
 - **Path**: `/api/friends`
 - **描述**: 获取所有好友
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.6 获取待处理请求
+### 7.6 获取待处理请求
 - **Method**: `GET`
 - **Path**: `/api/friends/requests/pending`
 - **描述**: 获取待处理的好友申请列表
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.7 发送消息
+### 7.7 发送消息
 - **Method**: `POST`
 - **Path**: `/api/friends/{friendId}/messages`
 - **描述**: 向好友发送私信
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 5.8 获取消息记录
+### 7.8 获取消息记录
 - **Method**: `GET`
 - **Path**: `/api/friends/{friendId}/messages`
 - **描述**: 获取与好友的聊天记录
@@ -475,59 +573,99 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 6. 推荐模块
+## 8. 临时好友模块
 
-### 6.1 获取推荐石头
+### 8.1 创建临时好友
+- **Method**: `POST`
+- **Path**: `/api/temp-friends`（别名 `/api/friends/temp`）
+- **描述**: 创建临时好友关系（有时效限制）
+- **认证**: SecurityAuditFilter
+- **请求体**: targetUserId, duration
+
+### 8.2 获取临时好友列表
+- **Method**: `GET`
+- **Path**: `/api/temp-friends`（别名 `/api/friends/temp`）
+- **描述**: 获取当前用户的临时好友列表
+- **认证**: SecurityAuditFilter
+
+### 8.3 获取临时好友详情
+- **Method**: `GET`
+- **Path**: `/api/temp-friends/{tempFriendId}`
+- **描述**: 获取指定临时好友关系的详细信息
+- **认证**: SecurityAuditFilter
+
+### 8.4 升级为正式好友
+- **Method**: `POST`
+- **Path**: `/api/temp-friends/{tempFriendId}/upgrade`
+- **描述**: 将临时好友升级为正式好友
+- **认证**: SecurityAuditFilter
+
+### 8.5 删除临时好友
+- **Method**: `DELETE`
+- **Path**: `/api/temp-friends/{tempFriendId}`
+- **描述**: 删除临时好友关系
+- **认证**: SecurityAuditFilter
+
+### 8.6 检查临时好友状态
+- **Method**: `GET`
+- **Path**: `/api/temp-friends/check/{userId}`
+- **描述**: 检查与指定用户是否存在临时好友关系
+- **认证**: SecurityAuditFilter
+
+---
+## 9. 推荐模块
+
+### 9.1 获取推荐石头
 - **Method**: `GET`
 - **Path**: `/api/recommendations/stones`
 - **描述**: 获取个性化推荐的石头（混合推荐算法）
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 - **算法**: 协同过滤 40% + 内容过滤 40% + 随机探索 20%
 
-### 6.2 基于情绪发现
+### 9.2 基于情绪发现
 - **Method**: `GET`
 - **Path**: `/api/recommendations/discover/{mood}`
 - **描述**: 发现特定情绪的用户和内容
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 - **路径参数**: `mood` - 情绪类型（如 happy, sad, anxious）
 
-### 6.3 基于情绪发现（别名）
+### 9.3 基于情绪发现（别名）
 - **Method**: `GET`
 - **Path**: `/api/discover/{mood}`
 - **描述**: 同上（简短路径）
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 6.4 记录用户交互
+### 9.4 记录用户交互
 - **Method**: `POST`
 - **Path**: `/api/recommendations/track`
 - **描述**: 记录用户交互行为（用于学习偏好）
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 6.5 获取情绪趋势
+### 9.5 获取情绪趋势
 - **Method**: `GET`
 - **Path**: `/api/recommendations/emotion-trends`
 - **描述**: 获取个人情绪变化曲线
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 6.6 获取热门内容
+### 9.6 获取热门内容
 - **Method**: `GET`
 - **Path**: `/api/recommendations/trending`
 - **描述**: 获取当前热门的石头、标签、情绪
 - **认证**: 无需认证
 
-### 6.7 搜索推荐内容
+### 9.7 搜索推荐内容
 - **Method**: `POST`
 - **Path**: `/api/recommendations/search`
 - **描述**: 全文搜索 + 智能排序
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 6.8 批量追踪交互
+### 9.8 批量追踪交互
 - **Method**: `POST`
 - **Path**: `/api/recommendations/track-batch`
 - **描述**: 批量上传用户交互数据
 - **认证**: 需要 PASETO Token + SecurityAuditFilter
 
-### 6.9 高级推荐
+### 9.9 高级推荐
 - **Method**: `GET`
 - **Path**: `/api/recommendations/advanced`
 - **描述**: 使用 UCB、Thompson Sampling、MMR 等高级算法
@@ -535,21 +673,21 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 7. 向量搜索模块
+## 10. 向量搜索模块
 
-### 7.1 获取相似石头
+### 10.1 获取相似石头
 - **Method**: `GET`
 - **Path**: `/api/recommendations/similar-stones/{stoneId}`
 - **描述**: 基于向量相似度查找相似石头
 - **认证**: 无需认证
 
-### 7.2 获取个性化推荐
+### 10.2 获取个性化推荐
 - **Method**: `GET`
 - **Path**: `/api/recommendations/personalized`
 - **描述**: 基于用户画像的个性化推荐
 - **认证**: 无需认证
 
-### 7.3 更新石头向量
+### 10.3 更新石头向量
 - **Method**: `POST`
 - **Path**: `/api/admin/stones/{stoneId}/embedding`
 - **描述**: 手动更新石头的向量嵌入（管理员）
@@ -557,9 +695,9 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 8. 边缘AI模块
+## 11. 边缘AI模块
 
-### 8.1 公开接口
+### 11.1 公开接口
 
 #### 获取AI引擎状态
 - **Method**: `GET`
@@ -616,7 +754,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 查询当前隐私预算余额
 - **认证**: SecurityAuditFilter
 
-### 8.2 管理员接口
+### 11.2 管理员接口
 
 #### 联邦学习聚合
 - **Method**: `POST`
@@ -634,16 +772,139 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 9. 隐私统计模块
+## 12. 守望者模块
 
-### 9.1 差分隐私统计
+### 12.1 获取守望者统计
+- **Method**: `GET`
+- **Path**: `/api/guardian/stats`
+- **描述**: 获取守望者系统统计数据
+- **认证**: SecurityAuditFilter
+
+### 12.2 获取守望者统计（别名）
+- **Method**: `GET`
+- **Path**: `/api/guardian`
+- **描述**: 同上（简短路径）
+- **认证**: SecurityAuditFilter
+
+### 12.3 转赠灯火
+- **Method**: `POST`
+- **Path**: `/api/guardian/transfer-lamp`
+- **描述**: 向其他用户转赠灯火（激励机制）
+- **认证**: SecurityAuditFilter
+- **请求体**: `{ "to_user_id": "...", "amount": 1 }`
+
+### 12.4 获取情绪洞察
+- **Method**: `GET`
+- **Path**: `/api/guardian/insights`
+- **描述**: 获取个人情绪洞察报告
+- **认证**: SecurityAuditFilter
+
+---
+
+## 13. 咨询模块
+
+### 13.1 创建咨询会话
+- **Method**: `POST`
+- **Path**: `/api/consultation/session`
+- **描述**: 创建端到端加密（E2EE）咨询会话
+- **认证**: SecurityAuditFilter
+- **请求体**: targetUserId
+
+### 13.2 密钥交换
+- **Method**: `POST`
+- **Path**: `/api/consultation/key-exchange`
+- **描述**: 交换 E2EE 公钥，建立加密通道
+- **认证**: SecurityAuditFilter
+- **请求体**: sessionId, publicKey
+
+### 13.3 发送加密消息
+- **Method**: `POST`
+- **Path**: `/api/consultation/message`
+- **描述**: 在咨询会话中发送端到端加密消息
+- **认证**: SecurityAuditFilter
+- **请求体**: sessionId, encryptedContent, nonce
+
+### 13.4 获取会话消息
+- **Method**: `GET`
+- **Path**: `/api/consultation/messages/{sessionId}`
+- **描述**: 获取指定咨询会话的加密消息列表
+- **认证**: SecurityAuditFilter
+- **查询参数**: page, pageSize
+
+---
+## 14. 安全港湾模块
+
+### 14.1 获取热线列表
+- **Method**: `GET`
+- **Path**: `/api/safe-harbor/hotlines`
+- **描述**: 获取心理援助热线列表
+- **认证**: SecurityAuditFilter
+
+### 14.2 获取工具列表
+- **Method**: `GET`
+- **Path**: `/api/safe-harbor/tools`
+- **描述**: 获取自助心理工具列表
+- **认证**: SecurityAuditFilter
+
+### 14.3 获取引导提示
+- **Method**: `GET`
+- **Path**: `/api/safe-harbor/prompt`
+- **描述**: 获取安全港湾引导提示语
+- **认证**: SecurityAuditFilter
+
+### 14.4 获取访问历史
+- **Method**: `GET`
+- **Path**: `/api/safe-harbor/access-history`
+- **描述**: 获取用户的安全港湾访问记录
+- **认证**: SecurityAuditFilter
+
+### 14.5 记录访问
+- **Method**: `POST`
+- **Path**: `/api/safe-harbor/access`
+- **描述**: 记录用户访问安全港湾
+- **认证**: SecurityAuditFilter
+
+### 14.6 获取推荐资源
+- **Method**: `GET`
+- **Path**: `/api/safe-harbor/recommend`
+- **描述**: 根据用户状态推荐心理健康资源
+- **认证**: SecurityAuditFilter
+
+### 14.7 添加资源（管理员）
+- **Method**: `POST`
+- **Path**: `/api/admin/safe-harbor/resources`
+- **描述**: 管理员添加安全港湾资源
+- **认证**: AdminAuthFilter
+
+### 14.8 获取资源列表（管理员）
+- **Method**: `GET`
+- **Path**: `/api/admin/safe-harbor/resources`
+- **描述**: 管理员获取所有安全港湾资源
+- **认证**: AdminAuthFilter
+
+### 14.9 更新资源（管理员）
+- **Method**: `PUT`
+- **Path**: `/api/admin/safe-harbor/resources/{resourceId}`
+- **描述**: 管理员更新指定安全港湾资源
+- **认证**: AdminAuthFilter
+
+### 14.10 删除资源（管理员）
+- **Method**: `DELETE`
+- **Path**: `/api/admin/safe-harbor/resources/{resourceId}`
+- **描述**: 管理员删除指定安全港湾资源
+- **认证**: AdminAuthFilter
+
+---
+## 15. 隐私统计模块
+
+### 15.1 差分隐私统计
 - **Method**: `GET`
 - **Path**: `/api/lake/privacy-stats`
 - **描述**: 获取差分隐私保护的湖面情绪统计
 - **认证**: 无需认证
 - **响应**: 添加噪声后的情绪分布
 
-### 9.2 隐私预算报告
+### 15.2 隐私预算报告
 - **Method**: `GET`
 - **Path**: `/api/lake/privacy-report`
 - **描述**: 获取隐私预算消耗报告
@@ -652,58 +913,93 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 10. 守望者模块
+## 16. 举报模块
 
-### 10.1 获取守望者统计
-- **Method**: `GET`
-- **Path**: `/api/guardian/stats`
-- **描述**: 获取守望者系统统计数据
-- **认证**: SecurityAuditFilter
-
-### 10.2 获取守望者统计（别名）
-- **Method**: `GET`
-- **Path**: `/api/guardian`
-- **描述**: 同上（简短路径）
-- **认证**: SecurityAuditFilter
-
-### 10.3 转赠灯火
+### 16.1 提交举报
 - **Method**: `POST`
-- **Path**: `/api/guardian/transfer-lamp`
-- **描述**: 向其他用户转赠灯火（激励机制）
+- **Path**: `/api/reports`
+- **描述**: 提交内容或用户举报
 - **认证**: SecurityAuditFilter
-- **请求体**: `{ "to_user_id": "...", "amount": 1 }`
+- **请求体**: targetType, targetId, reason, description
 
-### 10.4 获取情绪洞察
+### 16.2 获取我的举报
 - **Method**: `GET`
-- **Path**: `/api/guardian/insights`
-- **描述**: 获取个人情绪洞察报告
+- **Path**: `/api/reports/my`
+- **描述**: 获取当前用户提交的举报列表
 - **认证**: SecurityAuditFilter
 
 ---
+## 17. VIP模块
 
-## 11. 媒体模块
+### 17.1 获取VIP状态
+- **Method**: `GET`
+- **Path**: `/api/vip/status`
+- **描述**: 获取当前用户的VIP状态信息
+- **认证**: SecurityAuditFilter
 
-### 11.1 上传媒体文件
+### 17.2 获取VIP特权列表
+- **Method**: `GET`
+- **Path**: `/api/vip/privileges`
+- **描述**: 获取VIP特权详情列表
+- **认证**: SecurityAuditFilter
+
+### 17.3 检查咨询资格
+- **Method**: `GET`
+- **Path**: `/api/vip/counseling/check`
+- **描述**: 检查VIP用户是否有专属咨询资格
+- **认证**: SecurityAuditFilter
+
+### 17.4 预约咨询
+- **Method**: `POST`
+- **Path**: `/api/vip/counseling/book`
+- **描述**: VIP用户预约专属心理咨询
+- **认证**: SecurityAuditFilter
+- **请求体**: counselorId, timeSlot
+
+### 17.5 获取AI评论频率
+- **Method**: `GET`
+- **Path**: `/api/vip/ai-comment/frequency`
+- **描述**: 获取VIP用户的AI评论使用频率和配额
+- **认证**: SecurityAuditFilter
+
+---
+## 18. WebSocket广播模块
+
+### 18.1 WebSocket广播连接
+- **Method**: `WebSocket`
+- **Path**: `WS /ws/broadcast`
+- **描述**: 建立WebSocket连接，用于接收系统广播、用户定向消息和房间消息
+- **认证**: 连接时通过 query 参数传递 token
+- **功能**:
+  - `broadcast`: 接收系统广播消息
+  - `sendToUser`: 接收定向用户消息
+  - `sendToRoom`: 接收房间内消息
+  - `startHeartbeatTimer`: 心跳保活机制
+
+---
+## 19. 媒体模块
+
+### 19.1 上传媒体文件
 - **Method**: `POST`
 - **Path**: `/api/media/upload`
 - **描述**: 上传单个媒体文件（图片、音频、视频）
 - **认证**: 需要 PASETO Token
 - **请求**: multipart/form-data
 
-### 11.2 批量上传媒体
+### 19.2 批量上传媒体
 - **Method**: `POST`
 - **Path**: `/api/media/upload/multiple`
 - **描述**: 批量上传多个媒体文件
 - **认证**: 需要 PASETO Token
 - **请求**: multipart/form-data
 
-### 11.3 获取媒体信息
+### 19.3 获取媒体信息
 - **Method**: `GET`
 - **Path**: `/api/media/{mediaId}`
 - **描述**: 获取媒体文件元信息
 - **认证**: 无需认证
 
-### 11.4 删除媒体
+### 19.4 删除媒体
 - **Method**: `DELETE`
 - **Path**: `/api/media/{mediaId}`
 - **描述**: 删除指定媒体文件
@@ -711,9 +1007,9 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 12. 管理员模块
+## 20. 管理员模块
 
-### 12.1 认证管理
+### 20.1 认证管理
 
 #### 管理员登录
 - **Method**: `POST`
@@ -734,7 +1030,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 获取当前管理员信息
 - **认证**: AdminAuthFilter
 
-### 12.2 统计数据
+### 20.2 统计数据
 
 #### 获取热门话题
 - **Method**: `GET`
@@ -772,7 +1068,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 获取用户活跃时段分布
 - **认证**: AdminAuthFilter
 
-### 12.3 风险管理
+### 20.3 风险管理
 
 #### 获取高风险用户
 - **Method**: `GET`
@@ -798,7 +1094,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 标记风险事件为已处理
 - **认证**: AdminAuthFilter
 
-### 12.4 安全审计
+### 20.4 安全审计
 
 #### 获取安全审计日志
 - **Method**: `GET`
@@ -806,6 +1102,176 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 获取安全审计日志
 - **认证**: AdminAuthFilter
 - **查询参数**: `page`, `page_size`, `start_date`, `end_date`
+
+---
+
+## 21. 管理运营模块
+
+### 21.1 用户管理 - 获取用户列表
+- **Method**: `GET`
+- **Path**: `/api/admin/users`
+- **描述**: 分页获取用户列表
+- **认证**: AdminAuthFilter
+- **查询参数**: page, pageSize, keyword, status
+
+### 21.2 用户管理 - 获取用户详情
+- **Method**: `GET`
+- **Path**: `/api/admin/users/{userId}`
+- **描述**: 获取指定用户的详细信息
+- **认证**: AdminAuthFilter
+
+### 21.3 用户管理 - 更新用户信息
+- **Method**: `PUT`
+- **Path**: `/api/admin/users/{userId}`
+- **描述**: 更新指定用户的信息
+- **认证**: AdminAuthFilter
+
+### 21.4 用户管理 - 更新用户状态
+- **Method**: `PUT`
+- **Path**: `/api/admin/users/{userId}/status`
+- **描述**: 更新用户账号状态（启用/禁用）
+- **认证**: AdminAuthFilter
+
+### 21.5 用户管理 - 警告用户
+- **Method**: `POST`
+- **Path**: `/api/admin/users/{userId}/warn`
+- **描述**: 向用户发送警告
+- **认证**: AdminAuthFilter
+
+### 21.6 用户管理 - 封禁用户
+- **Method**: `POST`
+- **Path**: `/api/admin/users/{userId}/ban`
+- **描述**: 封禁指定用户
+- **认证**: AdminAuthFilter
+- **请求体**: reason, duration
+
+### 21.7 用户管理 - 解封用户
+- **Method**: `POST`
+- **Path**: `/api/admin/users/{userId}/unban`
+- **描述**: 解除用户封禁
+- **认证**: AdminAuthFilter
+
+### 21.8 石头管理 - 获取石头列表
+- **Method**: `GET`
+- **Path**: `/api/admin/stones`
+- **描述**: 分页获取石头列表
+- **认证**: AdminAuthFilter
+- **查询参数**: page, pageSize, status, keyword
+
+### 21.9 石头管理 - 获取石头详情
+- **Method**: `GET`
+- **Path**: `/api/admin/stones/{stoneId}`
+- **描述**: 获取指定石头的详细信息
+- **认证**: AdminAuthFilter
+
+### 21.10 石头管理 - 删除石头
+- **Method**: `DELETE`
+- **Path**: `/api/admin/stones/{stoneId}`
+- **描述**: 删除指定石头
+- **认证**: AdminAuthFilter
+
+### 21.11 石头管理 - 更新可见性
+- **Method**: `PUT`
+- **Path**: `/api/admin/stones/{stoneId}/visibility`
+- **描述**: 更新石头的可见性状态
+- **认证**: AdminAuthFilter
+
+### 21.12 纸船管理 - 获取纸船列表
+- **Method**: `GET`
+- **Path**: `/api/admin/boats`
+- **描述**: 分页获取纸船列表
+- **认证**: AdminAuthFilter
+
+### 21.13 纸船管理 - 删除纸船
+- **Method**: `DELETE`
+- **Path**: `/api/admin/boats/{boatId}`
+- **描述**: 删除指定纸船
+- **认证**: AdminAuthFilter
+
+### 21.14 内容审核 - 获取待审核内容
+- **Method**: `GET`
+- **Path**: `/api/admin/moderation/pending`
+- **描述**: 获取待审核的内容列表
+- **认证**: AdminAuthFilter
+
+### 21.15 内容审核 - 审核通过
+- **Method**: `POST`
+- **Path**: `/api/admin/moderation/{contentId}/approve`
+- **描述**: 审核通过指定内容
+- **认证**: AdminAuthFilter
+
+### 21.16 内容审核 - 审核拒绝
+- **Method**: `POST`
+- **Path**: `/api/admin/moderation/{contentId}/reject`
+- **描述**: 审核拒绝指定内容
+- **认证**: AdminAuthFilter
+- **请求体**: reason
+
+### 21.17 内容审核 - 批量审核
+- **Method**: `POST`
+- **Path**: `/api/admin/moderation/batch`
+- **描述**: 批量审核内容
+- **认证**: AdminAuthFilter
+- **请求体**: contentIds, action, reason
+
+### 21.18 举报管理 - 获取举报列表
+- **Method**: `GET`
+- **Path**: `/api/admin/reports`
+- **描述**: 分页获取举报列表
+- **认证**: AdminAuthFilter
+
+### 21.19 举报管理 - 处理举报
+- **Method**: `PUT`
+- **Path**: `/api/admin/reports/{reportId}`
+- **描述**: 处理指定举报
+- **认证**: AdminAuthFilter
+- **请求体**: action, reason
+
+### 21.20 敏感词管理 - 获取敏感词列表
+- **Method**: `GET`
+- **Path**: `/api/admin/sensitive-words`
+- **描述**: 获取敏感词列表
+- **认证**: AdminAuthFilter
+
+### 21.21 敏感词管理 - 添加敏感词
+- **Method**: `POST`
+- **Path**: `/api/admin/sensitive-words`
+- **描述**: 添加新的敏感词
+- **认证**: AdminAuthFilter
+- **请求体**: word, category
+
+### 21.22 敏感词管理 - 删除敏感词
+- **Method**: `DELETE`
+- **Path**: `/api/admin/sensitive-words/{wordId}`
+- **描述**: 删除指定敏感词
+- **认证**: AdminAuthFilter
+
+### 21.23 系统配置 - 获取配置
+- **Method**: `GET`
+- **Path**: `/api/admin/config`
+- **描述**: 获取系统配置信息
+- **认证**: AdminAuthFilter
+
+### 21.24 系统配置 - 更新配置
+- **Method**: `PUT`
+- **Path**: `/api/admin/config`
+- **描述**: 更新系统配置
+- **认证**: AdminAuthFilter
+- **请求体**: key, value
+
+### 21.25 广播管理 - 发送广播
+- **Method**: `POST`
+- **Path**: `/api/admin/broadcast`
+- **描述**: 发送系统广播消息
+- **认证**: AdminAuthFilter
+- **请求体**: title, content, targetType
+
+### 21.26 日志管理 - 获取操作日志
+- **Method**: `GET`
+- **Path**: `/api/admin/logs`
+- **描述**: 获取系统操作日志
+- **认证**: AdminAuthFilter
+- **查询参数**: page, pageSize, type, startDate, endDate
 
 ---
 
@@ -859,6 +1325,6 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 ## 版本信息
 
 - API 版本: v1.0
-- 文档更新日期: 2026-02-21
+- 文档更新日期: 2026-02-23
 - 后端框架: Drogon 1.9.x
 - C++ 标准: C++20
