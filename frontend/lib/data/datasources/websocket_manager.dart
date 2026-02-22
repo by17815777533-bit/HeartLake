@@ -162,8 +162,10 @@ class WebSocketManager {
 
   void _flushQueue() {
     if (!_isConnected || _channel == null) return;
-    while (_offlineQueue.isNotEmpty) {
-      _channel!.sink.add(_offlineQueue.removeAt(0));
+    final pending = List<String>.from(_offlineQueue);
+    _offlineQueue.clear();
+    for (final message in pending) {
+      _channel!.sink.add(message);
     }
   }
 

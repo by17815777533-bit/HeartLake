@@ -15,17 +15,20 @@ class EdgeAIService extends BaseService {
   String get serviceName => 'EdgeAIService';
 
   /// 获取EdgeAI引擎状态
-  Future<ServiceResponse> getStatus() async {
-    return get('/edge-ai/status');
+  Future<Map<String, dynamic>> getStatus() async {
+    final response = await get('/edge-ai/status');
+    return toMap(response);
   }
 
   /// 本地情感分析
-  Future<ServiceResponse> analyzeSentiment(String text) async {
-    return post('/edge-ai/analyze', data: {'text': text});
+  Future<Map<String, dynamic>> analyzeSentiment(String text) async {
+    final response = await post('/edge-ai/analyze', data: {'text': text});
+    return toMap(response);
   }
 
   /// 获取隐私预算
-  Future<ServiceResponse> getPrivacyBudget() async {
-    return get('/edge-ai/privacy-budget');
+  Future<Map<String, dynamic>> getPrivacyBudget() async {
+    final response = await get('/edge-ai/privacy-budget');
+    return toMap(response);
   }
 }

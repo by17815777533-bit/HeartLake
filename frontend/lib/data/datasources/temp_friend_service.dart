@@ -12,7 +12,7 @@ class TempFriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'temp_friends': response.data?['friends'] ?? [],
       'total': response.data?['total'] ?? 0,
     };
@@ -23,7 +23,7 @@ class TempFriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'temp_friend': response.data,
     };
   }
@@ -33,7 +33,7 @@ class TempFriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'friendship_id': response.data?['friendship_id'],
     };
   }

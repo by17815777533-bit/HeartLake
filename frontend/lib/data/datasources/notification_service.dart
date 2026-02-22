@@ -9,7 +9,7 @@ class NotificationService extends BaseService {
   String get serviceName => 'NotificationService';
 
   /// 获取通知列表
-  Future<Map<String, dynamic>> getNotifications({int page = 1, int pageSize = 100}) async {
+  Future<Map<String, dynamic>> getNotifications({int page = 1, int pageSize = 20}) async {
     final response = await get('/notifications', queryParameters: {
       'page': page,
       'page_size': pageSize,
@@ -27,7 +27,9 @@ class NotificationService extends BaseService {
       };
     }
     if (data is Map<String, dynamic>) {
-      final items = data['notifications'] as List? ?? data['items'] as List? ?? [];
+      final rawNotifications = data['notifications'];
+      final rawItems = data['items'];
+      final items = rawNotifications is List ? rawNotifications : (rawItems is List ? rawItems : []);
       final unreadCount = data['unread_count'] as int? ?? 0;
       return {
         'success': true,
@@ -48,7 +50,7 @@ class NotificationService extends BaseService {
     if (data is Map) {
       unreadCount = data['unread_count'] ?? 0;
     }
-    return {'success': true, 'unread_count': unreadCount};
+    return {...toMap(response), 'unread_count': unreadCount};
   }
 
   /// 标记单条通知为已读
@@ -58,7 +60,7 @@ class NotificationService extends BaseService {
 
     final data = response.data;
     final unreadCount = (data is Map) ? data['unread_count'] : null;
-    return {'success': true, 'unread_count': unreadCount};
+    return {...toMap(response), 'unread_count': unreadCount};
   }
 
   /// 标记所有通知为已读

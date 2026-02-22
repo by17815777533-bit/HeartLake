@@ -22,15 +22,11 @@ class VIPService extends BaseService {
 
   /// 检查是否有免费心理咨询额度
   Future<bool> hasFreeCounselingQuota() async {
-    try {
-      final response = await get('/vip/counseling/check');
-      if (response.success) {
-        return response.data?['has_quota'] ?? false;
-      }
-      return false;
-    } catch (e) {
-      return false;
+    final response = await get('/vip/counseling/check');
+    if (response.success) {
+      return response.data?['has_quota'] ?? false;
     }
+    return false;
   }
 
   /// 预约心理咨询
@@ -60,27 +56,21 @@ class VIPService extends BaseService {
 
   /// 检查用户是否是VIP
   Future<bool> isVIP() async {
-    try {
-      final response = await get('/vip/status');
-      if (response.success) {
-        return response.data?['is_vip'] ?? false;
-      }
-      return false;
-    } catch (e) {
-      return false;
+    final result = await getVIPStatus();
+    if (result['success'] == true) {
+      final data = result['data'];
+      return (data is Map) ? (data['is_vip'] ?? false) : false;
     }
+    return false;
   }
 
   /// 获取VIP剩余天数
   Future<int> getVIPDaysLeft() async {
-    try {
-      final response = await get('/vip/status');
-      if (response.success) {
-        return response.data?['days_left'] ?? 0;
-      }
-      return 0;
-    } catch (e) {
-      return 0;
+    final result = await getVIPStatus();
+    if (result['success'] == true) {
+      final data = result['data'];
+      return (data is Map) ? (data['days_left'] ?? 0) : 0;
     }
+    return 0;
   }
 }

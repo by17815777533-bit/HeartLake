@@ -36,10 +36,6 @@ class ApiClient {
   TokenRefreshCallback? _tokenRefreshCallback;
   Function()? _onUnauthorized;
 
-  /// 需要重试的HTTP状态码（预留用于自动重试功能）
-  // ignore: unused_field
-  static const List<int> _retryStatusCodes = [408, 500, 502, 503, 504];
-
   ApiClient._internal() {
     _initializeDio();
     _loadToken();

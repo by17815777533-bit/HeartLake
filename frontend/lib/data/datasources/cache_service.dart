@@ -34,7 +34,7 @@ class _CacheEntry<T> {
 
 /// 缓存服务
 ///
-/// 使用LRU（最近最少使用）策略的内存缓存
+/// 使用最旧优先淘汰策略的内存缓存
 class CacheService {
   static final CacheService _instance = CacheService._internal();
   factory CacheService() => _instance;
@@ -106,7 +106,8 @@ class CacheService {
       category: LogCategory.system,
     );
 
-    return entry.data as T;
+    final data = entry.data;
+    return data is T ? data : null;
   }
 
   /// 删除缓存
@@ -153,7 +154,7 @@ class CacheService {
     }
   }
 
-  /// 移除最旧的缓存条目（LRU策略）
+  /// 移除最旧的缓存条目
   void _evictOldest() {
     if (_cache.isEmpty) return;
 
@@ -239,6 +240,3 @@ class CacheService {
     );
   }
 }
-
-/// 全局缓存服务实例
-final cacheService = CacheService();
