@@ -60,9 +60,9 @@ std::string IdGenerator::generateNickname() {
 
 std::string IdGenerator::generateRandomId(size_t length) {
     static const char hex_chars[] = "0123456789abcdef";
-    thread_local std::random_device rd;
-    thread_local std::mt19937 gen(rd());
-    thread_local std::uniform_int_distribution<> dis(0, 15);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<> dis(0, 15);
 
     std::string id;
     id.reserve(length);
@@ -75,8 +75,8 @@ std::string IdGenerator::generateRandomId(size_t length) {
 }
 
 int IdGenerator::generateRandomNumber(int min, int max) {
-    thread_local std::random_device rd;
-    thread_local std::mt19937 gen(rd());
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(min, max);
     return dis(gen);
 }
