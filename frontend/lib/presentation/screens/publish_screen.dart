@@ -288,23 +288,8 @@ class _PublishScreenState extends State<PublishScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // EdgeAI 内容审核
-      final moderationResult = await _provider.moderateContent(_contentController.text.trim());
-      if (moderationResult == false) {
-        // 审核明确拒绝
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('内容包含敏感信息，请修改后重试'),
-              backgroundColor: AppTheme.warningColor,
-            ),
-          );
-          setState(() => _isSubmitting = false);
-        }
-        return;
-      }
-      // moderationResult == null 表示服务不可用，允许发布（后端会二次审核）
-
+      // 内容审核由后端 StoneController.createStone 内置的
+      // ContentFilter::checkContentSafety() 完成，高危内容返回403
       final result = await _stoneService.createStone(
         content: _contentController.text.trim(),
         stoneType: _selectedType,

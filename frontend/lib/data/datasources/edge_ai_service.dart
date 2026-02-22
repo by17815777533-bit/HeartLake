@@ -1,5 +1,13 @@
 // @file edge_ai_service.dart
-// @brief EdgeAI引擎服务 - 封装情感分析、内容审核、情绪脉搏等API
+// @brief EdgeAI引擎服务 - 封装用户可用的EdgeAI端点
+//
+// 注意：以下端点为管理后台专用（AdminAuthFilter），普通用户不可调用：
+//   - /api/admin/edge-ai/moderate   （内容审核 - 后端在createStone/lakeGodChat中已内置）
+//   - /api/admin/edge-ai/metrics    （性能指标）
+//   - /api/admin/edge-ai/emotion-pulse （情绪脉搏）
+//   - /api/admin/edge-ai/vector-search （向量搜索）
+//   - /api/admin/edge-ai/federated/aggregate （联邦学习聚合）
+//   - /api/admin/edge-ai/config     （配置管理）
 import 'base_service.dart';
 
 class EdgeAIService extends BaseService {
@@ -11,36 +19,13 @@ class EdgeAIService extends BaseService {
     return get('/edge-ai/status');
   }
 
-  /// 获取性能指标
-  Future<ServiceResponse> getMetrics() async {
-    return get('/edge-ai/metrics');
-  }
-
   /// 本地情感分析
   Future<ServiceResponse> analyzeSentiment(String text) async {
     return post('/edge-ai/analyze', data: {'text': text});
   }
 
-  /// 内容审核
-  Future<ServiceResponse> moderateContent(String text) async {
-    return post('/edge-ai/moderate', data: {'text': text});
-  }
-
-  /// 获取情绪脉搏（实时情绪分布）
-  Future<ServiceResponse> getEmotionPulse() async {
-    return get('/edge-ai/emotion-pulse');
-  }
-
   /// 获取隐私预算
   Future<ServiceResponse> getPrivacyBudget() async {
-    return get('/edge-ai/privacy-budget');
-  }
-
-  /// 向量语义搜索
-  Future<ServiceResponse> vectorSearch(String query, {int topK = 10}) async {
-    return post('/edge-ai/vector-search', data: {
-      'query': query,
-      'topK': topK,
-    });
+    return get('/edge-ai/privacy/budget');
   }
 }

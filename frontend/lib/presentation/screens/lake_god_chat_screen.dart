@@ -2,7 +2,6 @@
 // @brief 湖神聊天界面 - 温馨治愈风格的AI咨询，集成EdgeAI情感分析与内容审核
 import 'package:flutter/material.dart';
 import '../../data/datasources/lake_god_service.dart';
-import '../../data/datasources/edge_ai_service.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
 
@@ -15,7 +14,6 @@ class LakeGodChatScreen extends StatefulWidget {
 
 class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final LakeGodService _service = LakeGodService();
-  final EdgeAIService _edgeAI = EdgeAIService();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
@@ -85,17 +83,15 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     }
   }
 
-  /// 加载情绪脉搏
+  /// 加载情绪脉搏（admin专用端点，前端使用默认值）
   Future<void> _loadEmotionPulse() async {
     if (mounted) setState(() => _isPulseLoading = true);
     try {
-      final resp = await _edgeAI.getEmotionPulse();
-      if (!mounted) return;
-      if (resp.success && resp.data != null) {
-        setState(() => _emotionPulse = resp.data as Map<String, dynamic>);
+      // emotion-pulse 为admin端点(/api/admin/edge-ai/emotion-pulse)
+      // 前端使用默认情绪状态
+      if (mounted) {
+        setState(() => _emotionPulse = {'dominant_mood': 'neutral', 'intensity': 0.5});
       }
-    } catch (_) {
-      // 静默失败
     } finally {
       if (mounted) setState(() => _isPulseLoading = false);
     }

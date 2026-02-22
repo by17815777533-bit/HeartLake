@@ -192,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final token = await StorageUtil.getToken();
       final userId = await StorageUtil.getUserId();
       if (token != null && userId != null) {
-        final response = await _apiClient.get('/users/$userId/stats');
+        final response = await _apiClient.get('/users/$userId/stats', useCache: false);
         if (response.statusCode == 200 && response.data['code'] == 0 && mounted) {
           setState(() => _stats = response.data['data']);
         }

@@ -105,16 +105,10 @@ class _AIContentPreviewState extends State<AIContentPreview>
     if (text.length <= 10) return;
 
     try {
-      // 并行调用情感分析和内容审核
-      final results = await Future.wait([
-        _aiService.analyzeSentiment(text),
-        _aiService.moderateContent(text),
-      ]);
+      // 仅调用情感分析（内容审核为admin端点，后端在发布时已内置审核）
+      final sentimentRes = await _aiService.analyzeSentiment(text);
 
       if (!mounted) return;
-
-      final sentimentRes = results[0];
-      final moderateRes = results[1];
 
       // 解析情感分析结果
       if (sentimentRes.success && sentimentRes.data is Map) {
@@ -124,23 +118,8 @@ class _AIContentPreviewState extends State<AIContentPreview>
         if (score != null) {
           _sentimentScore = (score is num) ? score.toDouble() : double.tryParse(score.toString());
         }
-      }
 
-      // 解析内容审核结果
-      if (moderateRes.success && moderateRes.data is Map) {
-        final data = moderateRes.data as Map;
-        final action = data['action']?.toString() ?? data['status']?.toString();
-        _moderationMessage = data['reason']?.toString() ?? data['message']?.toString();
-
-        if (action == 'reject' || action == 'rejected') {
-          _status = ModerationStatus.rejected;
-        } else if (action == 'warn' || action == 'warning') {
-          _status = ModerationStatus.warning;
-        } else {
-          _status = ModerationStatus.passed;
-        }
-
-        // 检测心理风险
+        // 检测心理风险（情感分析结果中可能包含风险标记）
         final highRisk = data['high_risk'] == true || data['mental_risk'] == true;
         if (highRisk) {
           _showCareHint = true;
@@ -149,9 +128,10 @@ class _AIContentPreviewState extends State<AIContentPreview>
         } else {
           _showCareHint = false;
         }
-      } else if (!moderateRes.success) {
-        // 审核服务不可用时默认通过，不阻塞用户
-        _status = ModerationStatus.passed;
+      }
+
+      // 前端不做内容审核拦截，默认通过（后端发布时会二次审核）
+      _status = ModerationStatus.passed;
         _moderationMessage = null;
       }
 

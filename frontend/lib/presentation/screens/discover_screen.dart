@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/recommendation_service.dart';
-import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card.dart';
@@ -19,7 +18,6 @@ class DiscoverScreen extends StatefulWidget {
 
 class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
   final RecommendationService _service = RecommendationService();
-  final EdgeAIService _edgeAIService = EdgeAIService();
   final AIRecommendationService _aiService = AIRecommendationService();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
@@ -74,7 +72,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     }
   }
 
-  /// 同时执行关键词搜索和AI语义搜索
+  /// 执行关键词搜索（向量语义搜索为admin端点，前端不可用）
   Future<void> _searchStones(String query) async {
     if (query.isEmpty) return;
     setState(() {
@@ -82,34 +80,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       _hasSearched = false;
     });
     try {
-      final results = await Future.wait([
-        _service.search(query),
-        _edgeAIService.vectorSearch(query, topK: 10).then((resp) {
-          if (resp.success && resp.data != null) {
-            if (resp.data is List) {
-              return (resp.data as List).cast<Map<String, dynamic>>();
-            }
-            if (resp.data is Map<String, dynamic>) {
-              final map = resp.data as Map<String, dynamic>;
-              for (final key in ['results', 'stones', 'items', 'data']) {
-                if (map[key] is List) {
-                  return (map[key] as List).cast<Map<String, dynamic>>();
-                }
-              }
-            }
-          }
-          return <Map<String, dynamic>>[];
-        }).catchError((_) => <Map<String, dynamic>>[]),
-      ]);
+      final results = await _service.search(query);
 
       if (mounted) {
         setState(() {
-          _keywordResults = results[0]
+          _keywordResults = results
               .map((e) => Stone.fromJson(e))
               .toList();
-          _semanticResults = results[1]
-              .map((e) => Stone.fromJson(e))
-              .toList();
+          // 向量搜索为admin端点(/api/admin/edge-ai/vector-search)，前端返回空
+          _semanticResults = [];
           _hasSearched = true;
         });
       }

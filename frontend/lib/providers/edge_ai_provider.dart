@@ -75,19 +75,8 @@ class EdgeAIProvider extends ChangeNotifier {
     return null;
   }
 
-  /// 内容审核，返回三态: true=安全, false=不安全, null=服务不可用
-  Future<bool?> moderateContent(String text) async {
-    try {
-      final resp = await _edgeService.moderateContent(text);
-      if (resp.success && resp.data != null) {
-        final data = resp.data as Map<String, dynamic>;
-        return data['passed'] == true;
-      }
-    } catch (e) {
-      debugPrint('内容审核异常: $e');
-    }
-    return null; // 服务不可用，由调用方决定策略
-  }
+  // 注意：内容审核(moderateContent)为admin专用端点(/api/admin/edge-ai/moderate)
+  // 前端不应直接调用，后端在createStone和lakeGodChat中已内置审核逻辑
 
   @override
   void dispose() {

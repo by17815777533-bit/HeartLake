@@ -2,7 +2,6 @@
 // @brief 情绪脉搏 - 光遇风格呼吸光球
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../data/datasources/edge_ai_service.dart';
 
 /// 情绪脉搏光球 - 实时展示社区情绪状态
 class EmotionPulseWidget extends StatefulWidget {
@@ -15,7 +14,6 @@ class EmotionPulseWidget extends StatefulWidget {
 
 class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     with SingleTickerProviderStateMixin {
-  final EdgeAIService _service = EdgeAIService();
   late AnimationController _breathController;
   Map<String, dynamic>? _pulseData;
   String _dominantMood = 'neutral';
@@ -51,18 +49,17 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     super.dispose();
   }
 
+  // 情绪脉搏端点为admin专用(/api/admin/edge-ai/emotion-pulse)
+  // 前端使用默认情绪状态展示呼吸光球，不调用admin端点
   Future<void> _loadPulse() async {
-    try {
-      final resp = await _service.getEmotionPulse();
-      if (resp.success && resp.data != null && mounted) {
-        final data = resp.data as Map<String, dynamic>;
-        setState(() {
-          _pulseData = data;
-          _dominantMood = data['dominant_mood'] ?? 'neutral';
-          _intensity = (data['intensity'] ?? 0.5).toDouble();
-        });
-      }
-    } catch (_) {}
+    // 使用默认值展示，无需调用admin端点
+    if (mounted) {
+      setState(() {
+        _pulseData = {'dominant_mood': 'neutral', 'intensity': 0.5};
+        _dominantMood = 'neutral';
+        _intensity = 0.5;
+      });
+    }
   }
 
   Color get _glowColor => _moodColors[_dominantMood] ?? const Color(0xFF90CAF9);
