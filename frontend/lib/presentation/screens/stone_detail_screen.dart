@@ -13,6 +13,7 @@ import '../../utils/mood_colors.dart';
 import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
+import '../widgets/similar_stones_section.dart';
 
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -713,6 +714,18 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                   return _buildBoatCard(_boats[index]);
                                 },
                               ),
+                  ),
+                  // 相似石头推荐（HNSW向量搜索）
+                  SimilarStonesSection(
+                    stoneId: widget.stone.stoneId,
+                    onStoneTap: (stone) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => StoneDetailScreen(stone: stone),
+                        ),
+                      );
+                    },
                   ),
                   // 评论输入框
                   _buildCommentInput(moodConfig),

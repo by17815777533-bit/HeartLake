@@ -92,6 +92,11 @@ public:
      */
     Json::Value getEmotionInsights(const std::string& userId);
 
+    /**
+     * @brief 获取RAG系统运行指标
+     */
+    Json::Value getStats() const;
+
 private:
     DualMemoryRAG() = default;
     std::unordered_map<std::string, EmotionMemory> memories_;

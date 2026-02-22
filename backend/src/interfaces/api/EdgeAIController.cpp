@@ -10,6 +10,7 @@
 
 #include "interfaces/api/EdgeAIController.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
+#include "infrastructure/ai/DualMemoryRAG.h"
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -94,6 +95,9 @@ void EdgeAIController::getMetrics(
         nodeMetrics["healthy_nodes"] = healthyCount;
         nodeMetrics["avg_latency_ms"] = nodes.empty() ? 0.0f : totalLatency / nodes.size();
         data["node_metrics"] = nodeMetrics;
+
+        // 双记忆RAG指标
+        data["dual_memory_rag"] = heartlake::ai::DualMemoryRAG::getInstance().getStats();
 
         callback(ResponseUtil::success(data, "边缘AI性能指标获取成功"));
     } catch (const std::exception &e) {

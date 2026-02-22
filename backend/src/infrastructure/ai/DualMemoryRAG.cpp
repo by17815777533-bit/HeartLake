@@ -362,4 +362,31 @@ float DualMemoryRAG::calculateVolatility(const std::vector<float>& scores) {
     return std::sqrt(variance);
 }
 
+Json::Value DualMemoryRAG::getStats() const {
+    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
+    Json::Value stats;
+    stats["active_users"] = static_cast<int>(memories_.size());
+    stats["max_short_term_entries"] = MAX_SHORT_TERM;
+    stats["long_term_retention_days"] = 30;
+
+    int totalShortTermEntries = 0;
+    int usersWithLongTerm = 0;
+    float avgEmotionScore = 0.0f;
+
+    for (const auto& [uid, mem] : memories_) {
+        totalShortTermEntries += static_cast<int>(mem.shortTerm.size());
+        if (mem.longTerm.totalPosts > 0) {
+            usersWithLongTerm++;
+            avgEmotionScore += mem.longTerm.avgEmotionScore;
+        }
+    }
+
+    stats["total_short_term_entries"] = totalShortTermEntries;
+    stats["users_with_long_term_profile"] = usersWithLongTerm;
+    stats["avg_emotion_score"] = usersWithLongTerm > 0
+        ? avgEmotionScore / usersWithLongTerm : 0.0f;
+
+    return stats;
+}
+
 } // namespace heartlake::ai

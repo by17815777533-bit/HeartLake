@@ -245,6 +245,53 @@
       </el-col>
     </el-row>
 
+    <!-- 双记忆RAG系统 -->
+    <el-row :gutter="20" class="charts-row">
+      <el-col :span="24">
+        <el-card shadow="hover" class="chart-card">
+          <template #header>
+            <div class="card-header">
+              <span>双记忆RAG系统</span>
+              <el-tag type="success" size="small">SoulSpeak架构</el-tag>
+            </div>
+          </template>
+          <el-row :gutter="20">
+            <el-col :xs="24" :md="6">
+              <div class="rag-stat-item">
+                <div class="rag-stat-value">{{ ragStats.active_users || 0 }}</div>
+                <div class="rag-stat-label">活跃用户记忆</div>
+              </div>
+            </el-col>
+            <el-col :xs="24" :md="6">
+              <div class="rag-stat-item">
+                <div class="rag-stat-value">{{ ragStats.total_short_term_entries || 0 }}</div>
+                <div class="rag-stat-label">短期记忆条目</div>
+                <div class="rag-stat-desc">最近交互 (max {{ ragStats.max_short_term_entries || 5 }}/用户)</div>
+              </div>
+            </el-col>
+            <el-col :xs="24" :md="6">
+              <div class="rag-stat-item">
+                <div class="rag-stat-value">{{ ragStats.users_with_long_term_profile || 0 }}</div>
+                <div class="rag-stat-label">长期画像用户</div>
+                <div class="rag-stat-desc">{{ ragStats.long_term_retention_days || 30 }}天情绪聚合</div>
+              </div>
+            </el-col>
+            <el-col :xs="24" :md="6">
+              <div class="rag-stat-item">
+                <div class="rag-stat-value">{{ (ragStats.avg_emotion_score || 0).toFixed(2) }}</div>
+                <div class="rag-stat-label">平均情绪分数</div>
+                <el-progress
+                  :percentage="Math.min(100, Math.round((ragStats.avg_emotion_score || 0) * 100))"
+                  :stroke-width="8"
+                  :color="ragStats.avg_emotion_score > 0.6 ? '#2E7D32' : ragStats.avg_emotion_score > 0.3 ? '#E65100' : '#C62828'"
+                />
+              </div>
+            </el-col>
+          </el-row>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 配置管理 -->
     <el-row :gutter="20" class="charts-row">
       <el-col :span="24">
@@ -659,6 +706,9 @@ const vectorResults = computed(() => vectorSearch.results)
 // 边缘节点
 const edgeNodes = ref([])
 
+// 双记忆RAG指标
+const ragStats = ref({})
+
 // 配置管理
 const edgeConfig = reactive({
   inferenceTimeout: 5000,
@@ -706,6 +756,10 @@ async function loadMetrics() {
     // 节点列表
     if (Array.isArray(m.nodes)) {
       edgeNodes.value = m.nodes
+    }
+    // 双记忆RAG指标
+    if (m.dual_memory_rag) {
+      ragStats.value = m.dual_memory_rag
     }
   } catch { /* 静默 */ }
 }
@@ -1703,6 +1757,31 @@ onUnmounted(() => {
     &:hover {
       background: var(--m3-outline);
     }
+  }
+}
+
+.rag-stat-item {
+  text-align: center;
+  padding: 16px 8px;
+
+  .rag-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--m3-primary);
+    line-height: 1.2;
+  }
+
+  .rag-stat-label {
+    font-size: 13px;
+    color: var(--m3-on-surface);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  .rag-stat-desc {
+    font-size: 11px;
+    color: var(--m3-outline);
+    margin-top: 4px;
   }
 }
 </style>
