@@ -14,30 +14,6 @@ class AccountService extends BaseService {
     return toMap(response);
   }
 
-  /// 更新头像
-  Future<Map<String, dynamic>> updateAvatar(String avatarUrl) async {
-    final response = await post('/account/avatar', data: {
-      'avatar_url': avatarUrl,
-    });
-    return toMap(response);
-  }
-
-  /// 更新资料
-  Future<Map<String, dynamic>> updateProfile({
-    String? nickname,
-    String? bio,
-    String? gender,
-    String? birthday,
-  }) async {
-    final data = <String, dynamic>{};
-    if (nickname != null) data['nickname'] = nickname;
-    if (bio != null) data['bio'] = bio;
-    if (gender != null) data['gender'] = gender;
-    if (birthday != null) data['birthday'] = birthday;
-    final response = await put('/account/profile', data: data);
-    return toMap(response);
-  }
-
   /// 获取账号统计
   Future<Map<String, dynamic>> getAccountStats() async {
     final response = await get('/account/stats');

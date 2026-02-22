@@ -3,30 +3,18 @@
 // Created by 王璐瑶
 
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:dio/dio.dart' as dio;
-import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
 import '../../utils/app_config.dart';
-import '../../utils/storage_util.dart';
+import 'base_service.dart';
 
-class MediaService {
-  final appConfig = AppConfig();
-  String get baseUrl => appConfig.apiBaseUrl;
+class MediaService extends BaseService {
+  @override
+  String get serviceName => 'MediaService';
 
   // 上传超时时间（毫秒）
   static const int uploadTimeout = 60000; // 60秒
-
-  // 获取认证token
-  Future<String?> _getToken() async {
-    return await StorageUtil.getToken();
-  }
-
-  // 获取用户ID
-  Future<String?> _getUserId() async {
-    return await StorageUtil.getUserId();
-  }
 
   // 根据文件扩展名获取 MIME 类型
   MediaType _getMimeType(String fileName) {
@@ -65,9 +53,6 @@ class MediaService {
   // 上传单个媒体文件
   Future<Map<String, dynamic>> uploadMedia(File file) async {
     try {
-      final token = await _getToken();
-      final userId = await _getUserId();
-
       // 验证文件大小
       final fileLength = await file.length();
       final fileName = file.path.split('/').last;
@@ -92,63 +77,33 @@ class MediaService {
         };
       }
 
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/media/upload'),
-      );
-
-      // 添加认证headers
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
-      if (userId != null) {
-        request.headers['X-User-Id'] = userId;
-      }
-
-      // 添加文件 - 使用正确的 MIME 类型
-      var stream = http.ByteStream(file.openRead());
-      var multipartFile = http.MultipartFile(
-        'file',
-        stream,
-        fileLength,
-        filename: fileName,
-        contentType: _getMimeType(fileName),
-      );
-      request.files.add(multipartFile);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          file.path,
+          filename: fileName,
+          contentType: _getMimeType(fileName),
+        ),
+      });
 
       debugPrint(
           '📤 上传媒体文件: $fileName (${(fileLength / 1024).toStringAsFixed(1)} KB)');
 
-      // 发送请求，带超时
-      var streamedResponse = await request.send().timeout(
-        const Duration(milliseconds: uploadTimeout),
-        onTimeout: () {
-          throw Exception('上传超时，请检查网络连接');
-        },
+      final response = await post<Map<String, dynamic>>(
+        '/media/upload',
+        data: formData,
       );
 
-      var responseData = await streamedResponse.stream.bytesToString();
-
-      if (responseData.isEmpty) {
-        return {
-          'success': false,
-          'message': '服务器响应为空',
-        };
-      }
-
-      var jsonResponse = json.decode(responseData);
-
-      if (streamedResponse.statusCode == 200 && jsonResponse['code'] == 0) {
-        debugPrint('✅ 媒体上传成功: ${jsonResponse['data']?['media_id']}');
+      if (response.success) {
+        debugPrint('✅ 媒体上传成功: ${response.data?['media_id']}');
         return {
           'success': true,
-          'data': jsonResponse['data'],
+          'data': response.data,
         };
       } else {
-        debugPrint('❌ 媒体上传失败: ${jsonResponse['message']}');
+        debugPrint('❌ 媒体上传失败: ${response.message}');
         return {
           'success': false,
-          'message': jsonResponse['message'] ?? '上传失败',
+          'message': response.message ?? '上传失败',
         };
       }
     } catch (e) {
@@ -189,72 +144,45 @@ class MediaService {
     }
 
     try {
-      final token = await _getToken();
-      final userId = await _getUserId();
-
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/media/upload/multiple'),
-      );
-
-      // 添加认证headers
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
-      if (userId != null) {
-        request.headers['X-User-Id'] = userId;
-      }
-
-      // 添加所有文件 - 使用正确的 MIME 类型
+      final List<MultipartFile> multipartFiles = [];
       int totalSize = 0;
+
       for (var file in files) {
         final fileName = file.path.split('/').last;
         final fileLength = await file.length();
         totalSize += fileLength;
 
-        var stream = http.ByteStream(file.openRead());
-        var multipartFile = http.MultipartFile(
-          'files',
-          stream,
-          fileLength,
+        multipartFiles.add(await MultipartFile.fromFile(
+          file.path,
           filename: fileName,
           contentType: _getMimeType(fileName),
-        );
-        request.files.add(multipartFile);
+        ));
+      }
+
+      final formData = FormData();
+      for (var mf in multipartFiles) {
+        formData.files.add(MapEntry('files', mf));
       }
 
       debugPrint(
           '📤 批量上传 ${files.length} 个文件 (${(totalSize / 1024).toStringAsFixed(1)} KB)');
 
-      // 发送请求，带超时（批量上传时间更长）
-      var streamedResponse = await request.send().timeout(
-        Duration(milliseconds: uploadTimeout * files.length),
-        onTimeout: () {
-          throw Exception('上传超时，请检查网络连接');
-        },
+      final response = await post<Map<String, dynamic>>(
+        '/media/upload/multiple',
+        data: formData,
       );
-      var responseData = await streamedResponse.stream.bytesToString();
 
-      if (responseData.isEmpty) {
-        return {
-          'success': false,
-          'message': '服务器响应为空',
-        };
-      }
-
-      var jsonResponse = json.decode(responseData);
-
-      if (streamedResponse.statusCode == 200 && jsonResponse['code'] == 0) {
+      if (response.success) {
         debugPrint('✅ 批量上传成功');
         return {
           'success': true,
-          'data': jsonResponse['data'],
+          'data': response.data,
         };
       } else {
-        debugPrint('❌ 批量上传失败: ${jsonResponse['message']}');
+        debugPrint('❌ 批量上传失败: ${response.message}');
         return {
           'success': false,
-          'message': jsonResponse['message'] ?? '批量上传失败',
+          'message': response.message ?? '批量上传失败',
         };
       }
     } catch (e) {
@@ -272,28 +200,20 @@ class MediaService {
     void Function(double progress)? onProgress,
   }) async {
     try {
-      final token = await _getToken();
-      final userId = await _getUserId();
       final fileName = file.path.split(Platform.pathSeparator).last;
 
-      final formData = dio.FormData.fromMap({
-        'file': await dio.MultipartFile.fromFile(
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
           file.path,
           filename: fileName,
           contentType: _getMimeType(fileName),
         ),
       });
 
-      final dioClient = dio.Dio();
-      final response = await dioClient.post(
-        '$baseUrl/media/upload',
+      // 使用 ApiClient 的 dio 实例直接调用以支持 onSendProgress
+      final response = await client.dio.post(
+        '/media/upload',
         data: formData,
-        options: dio.Options(
-          headers: {
-            if (token != null) 'Authorization': 'Bearer $token',
-            if (userId != null) 'X-User-Id': userId,
-          },
-        ),
         onSendProgress: (sent, total) {
           if (total > 0 && onProgress != null) {
             onProgress(sent / total);
@@ -307,47 +227,20 @@ class MediaService {
       return {'success': false, 'message': response.data['message'] ?? '上传失败'};
     } catch (e) {
       debugPrint('❌ 上传错误: $e');
-      return {'success': false, 'message': '上传失败'};
+      return {'success': false, 'message': _uploadErrorMessage(e)};
     }
   }
 
   // 获取媒体信息
   Future<Map<String, dynamic>> getMediaInfo(String mediaId) async {
-    try {
-      final token = await _getToken();
-      final response = await http.get(
-        Uri.parse('$baseUrl/media/$mediaId'),
-        headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-      );
-
-      if (response.statusCode == 200) {
-        var jsonResponse = json.decode(response.body);
-        if (jsonResponse['code'] == 0) {
-          return {'success': true, 'data': jsonResponse['data']};
-        }
-      }
-      return {'success': false, 'message': '获取媒体信息失败'};
-    } catch (e) {
-      return {'success': false, 'message': '获取媒体信息失败: $e'};
-    }
+    final response = await get<Map<String, dynamic>>('/media/$mediaId');
+    return toMap(response);
   }
 
   // 删除媒体文件
   Future<Map<String, dynamic>> deleteMedia(String mediaId) async {
-    try {
-      final token = await _getToken();
-      final response = await http.delete(
-        Uri.parse('$baseUrl/media/$mediaId'),
-        headers: token != null ? {'Authorization': 'Bearer $token'} : null,
-      );
-
-      if (response.statusCode == 200) {
-        return {'success': true, 'message': '删除成功'};
-      }
-      return {'success': false, 'message': '删除失败'};
-    } catch (e) {
-      return {'success': false, 'message': '删除失败: $e'};
-    }
+    final response = await delete('/media/$mediaId');
+    return toMap(response);
   }
 
   // 获取媒体URL
@@ -355,31 +248,13 @@ class MediaService {
     if (url.startsWith('http')) {
       return url;
     }
-    // 使用配置的基础URL替换localhost
-    final baseUrlWithoutApi = appConfig.apiBaseUrl.replaceFirst('/api', '');
+    final baseUrlWithoutApi = AppConfig().apiBaseUrl.replaceFirst('/api', '');
     return '$baseUrlWithoutApi$url';
   }
 
-  // 判断文件类型
+  // 判断文件类型（委托给 _getMimeType 避免重复逻辑）
   MediaType getMediaType(File file) {
-    String extension = file.path.split('.').last.toLowerCase();
-
-    // 图片
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(extension)) {
-      return MediaType('image', extension == 'jpg' ? 'jpeg' : extension);
-    }
-
-    // 视频
-    if (['mp4', 'mov', 'avi'].contains(extension)) {
-      return MediaType('video', extension);
-    }
-
-    // 音频
-    if (['mp3', 'wav', 'ogg', 'm4a'].contains(extension)) {
-      return MediaType('audio', extension);
-    }
-
-    return MediaType('application', 'octet-stream');
+    return _getMimeType(file.path.split('.').last);
   }
 
   // 验证文件大小

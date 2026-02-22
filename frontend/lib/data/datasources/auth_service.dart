@@ -4,23 +4,20 @@
 
 import 'base_service.dart';
 import 'api_client.dart';
-import '../../utils/storage_util.dart';
 import 'package:uuid/uuid.dart';
+import '../../utils/storage_util.dart';
 
 class AuthService extends BaseService {
   @override
   String get serviceName => 'AuthService';
-
-  final ApiClient _apiClient = ApiClient();
-  final Uuid _uuid = const Uuid();
 
   Future<void> _saveAuthData({
     required String token,
     required String userId,
     String? nickname,
   }) async {
-    _apiClient.setToken(token);
-    _apiClient.setUserId(userId);
+    ApiClient().setToken(token);
+    ApiClient().setUserId(userId);
     await Future.wait([
       StorageUtil.saveUserId(userId),
       StorageUtil.saveToken(token),
@@ -32,7 +29,7 @@ class AuthService extends BaseService {
   Future<Map<String, dynamic>> anonymousLogin() async {
     String? deviceId = await StorageUtil.getDeviceId();
     if (deviceId == null) {
-      deviceId = _uuid.v4();
+      deviceId = const Uuid().v4();
       await StorageUtil.saveDeviceId(deviceId);
     }
 
@@ -69,7 +66,7 @@ class AuthService extends BaseService {
   }
 
   Future<void> logout() async {
-    _apiClient.clearToken();
+    ApiClient().clearToken();
     await StorageUtil.clearAll();
   }
 

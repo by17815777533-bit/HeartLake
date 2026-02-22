@@ -5,6 +5,7 @@
 library;
 
 import 'package:dio/dio.dart';
+import 'package:meta/meta.dart';
 import 'api_client.dart';
 import '../../utils/app_logger.dart';
 
@@ -68,6 +69,10 @@ class ServiceResponse<T> {
 abstract class BaseService {
   final ApiClient _client = ApiClient();
   final AppLogger _logger = AppLogger();
+
+  /// 子类可访问的ApiClient实例（用于高级用法如进度回调）
+  @protected
+  ApiClient get client => _client;
 
   /// Service名称（用于日志）
   String get serviceName;

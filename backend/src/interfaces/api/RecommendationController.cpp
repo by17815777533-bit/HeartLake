@@ -58,91 +58,30 @@ void RecommendationController::calculateStoneRecommendations(
     const orm::DbClientPtr &dbClient,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
-    // 1. 获取用户最近的情绪状态
-    auto userEmotionResult = dbClient->execSqlSync(
-        "SELECT mood_type, avg_emotion_score FROM user_emotion_profile "
-        "WHERE user_id = $1 ORDER BY date DESC LIMIT 7",
-        userId
-    );
-
+    // 1. 获取用户最近的情绪状态（容错：表不存在时使用默认值）
     std::string userMood = "calm"; // 默认
-    (void)0; // userEmotionScore removed - unused
-
-    if (!userEmotionResult.empty()) {
-        userMood = userEmotionResult[0]["mood_type"].as<std::string>();
+    try {
+        auto userEmotionResult = dbClient->execSqlSync(
+            "SELECT mood_type, avg_emotion_score FROM user_emotion_profile "
+            "WHERE user_id = $1 ORDER BY date DESC LIMIT 7",
+            userId
+        );
+        if (!userEmotionResult.empty()) {
+            userMood = userEmotionResult[0]["mood_type"].as<std::string>();
+        }
+    } catch (const std::exception &e) {
+        LOG_WARN << "获取用户情绪档案失败(降级为默认mood): " << e.what();
     }
-
-    // 2. 协同过滤：找到相似用户喜欢的内容（40%）
-    auto collaborativeStones = dbClient->execSqlSync(
-        "SELECT DISTINCT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "s.created_at, u.nickname as author_name, "
-        "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
-        "FROM stones s "
-        "JOIN users u ON s.user_id = u.user_id "
-        "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
-        "WHERE uih.user_id IN ( "
-        "  SELECT user2_id FROM user_similarity "
-        "  WHERE user1_id = $1 AND similarity_score > 0.6 "
-        "  ORDER BY similarity_score DESC LIMIT 10 "
-        ") "
-        "AND s.user_id != $1 "
-        "AND s.status = 'published' "
-        "AND s.stone_id NOT IN ( "
-        "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-        ") "
-        "ORDER BY s.created_at DESC, ripple_count DESC "
-        "LIMIT 20",
-        userId
-    );
-
-    // 4. 内容过滤：基于情绪兼容性的内容（40%）
-    auto contentStones = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "s.created_at, u.nickname as author_name, "
-        "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count, "
-        "ec.compatibility_score, ec.relationship_type "
-        "FROM stones s "
-        "JOIN users u ON s.user_id = u.user_id "
-        "LEFT JOIN emotion_compatibility ec ON "
-        "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
-        "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
-      "WHERE s.user_id != $1 "
-        "AND s.status = 'published' "
-        "AND s.stone_id NOT IN ( "
-        "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-        ") "
-        "AND ec.compatibility_score > 0.6 "
-        "ORDER BY ec.compatibility_score DESC, s.created_at DESC "
-        "LIMIT 20",
-        userId, userMood
-    );
-
-    // 5. 随机探索：发现新内容（20%）
-    auto explorationStones = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "s.created_at, u.nickname as author_name, "
-        "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
-        "FROM stones s "
-        "JOIN users u ON s.user_id = u.user_id "
-        "WHERE s.user_id != $1 "
-        "AND s.status = 'published' "
-        "AND s.stone_id NOT IN ( "
-        "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-        ") "
-        "ORDER BY RANDOM() "
-        "LIMIT 10",
-        userId
-    );
 
     // 6. 合并结果并添加推荐理由
     Json::Value recommendations(Json::arrayValue);
     std::unordered_set<std::string> addedStones;
 
-    // 添加协同过滤结果
-    for (size_t i = 0; i < collaborativeStones.size() && recommendations.size() < 8; ++i) {
-        auto row = collaborativeStones[i];
+    // 辅助lambda：将查询行转为Json并去重添加
+    auto appendStone = [&](const drogon::orm::Row &row,
+                           const std::string &reason,
+                           const std::string &type) {
         std::string stoneId = row["stone_id"].as<std::string>();
-
         if (addedStones.find(stoneId) == addedStones.end()) {
             Json::Value stone;
             stone["stone_id"] = stoneId;
@@ -152,62 +91,120 @@ void RecommendationController::calculateStoneRecommendations(
             stone["author_name"] = row["author_name"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
             stone["created_at"] = row["created_at"].as<std::string>();
-            stone["recommendation_reason"] = "和你有相似感受的人也喜欢这个";
-            stone["recommendation_type"] = "collaborative";
-
+            stone["recommendation_reason"] = reason;
+            stone["recommendation_type"] = type;
             recommendations.append(stone);
             addedStones.insert(stoneId);
         }
+    };
+
+    // 2. 协同过滤：找到相似用户喜欢的内容（40%）
+    try {
+        auto collaborativeStones = dbClient->execSqlSync(
+            "SELECT DISTINCT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+            "s.created_at, u.nickname as author_name, "
+            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "FROM stones s "
+            "JOIN users u ON s.user_id = u.user_id "
+            "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
+            "WHERE uih.user_id IN ( "
+            "  SELECT user2_id FROM user_similarity "
+            "  WHERE user1_id = $1 AND similarity_score > 0.6 "
+            "  ORDER BY similarity_score DESC LIMIT 10 "
+            ") "
+            "AND s.user_id != $1 "
+            "AND s.status = 'published' "
+            "AND s.stone_id NOT IN ( "
+            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
+            ") "
+            "ORDER BY s.created_at DESC, ripple_count DESC "
+            "LIMIT 20",
+            userId
+        );
+        for (size_t i = 0; i < collaborativeStones.size() && recommendations.size() < 8; ++i) {
+            appendStone(collaborativeStones[i],
+                        "和你有相似感受的人也喜欢这个", "collaborative");
+        }
+    } catch (const std::exception &e) {
+        LOG_WARN << "协同过滤查询失败(跳过): " << e.what();
     }
 
-    // 添加内容过滤结果
-    for (size_t i = 0; i < contentStones.size() && recommendations.size() < 16; ++i) {
-        auto row = contentStones[i];
-        std::string stoneId = row["stone_id"].as<std::string>();
-
-        if (addedStones.find(stoneId) == addedStones.end()) {
-            Json::Value stone;
-            stone["stone_id"] = stoneId;
-            stone["content"] = row["content"].as<std::string>();
-            stone["mood_type"] = row["mood_type"].as<std::string>();
-            stone["emotion_score"] = row["emotion_score"].as<double>();
-            stone["author_name"] = row["author_name"].as<std::string>();
-            stone["ripple_count"] = row["ripple_count"].as<int>();
-            stone["created_at"] = row["created_at"].as<std::string>();
-
-            // 生成温馨的推荐理由
+    // 4. 内容过滤：基于情绪兼容性的内容（40%）
+    try {
+        auto contentStones = dbClient->execSqlSync(
+            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+            "s.created_at, u.nickname as author_name, "
+            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count, "
+            "ec.compatibility_score, ec.relationship_type "
+            "FROM stones s "
+            "JOIN users u ON s.user_id = u.user_id "
+            "LEFT JOIN emotion_compatibility ec ON "
+            "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
+            "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
+            "WHERE s.user_id != $1 "
+            "AND s.status = 'published' "
+            "AND s.stone_id NOT IN ( "
+            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
+            ") "
+            "AND ec.compatibility_score > 0.6 "
+            "ORDER BY ec.compatibility_score DESC, s.created_at DESC "
+            "LIMIT 20",
+            userId, userMood
+        );
+        for (size_t i = 0; i < contentStones.size() && recommendations.size() < 16; ++i) {
+            auto row = contentStones[i];
             std::string relationshipType = row["relationship_type"].as<std::string>();
-            stone["recommendation_reason"] = generateRecommendationReason(
-                userMood,
-                row["mood_type"].as<std::string>(),
-                relationshipType
-            );
-            stone["recommendation_type"] = "emotion_compatible";
-
-            recommendations.append(stone);
-            addedStones.insert(stoneId);
+            std::string reason = generateRecommendationReason(
+                userMood, row["mood_type"].as<std::string>(), relationshipType);
+            appendStone(row, reason, "emotion_compatible");
         }
+    } catch (const std::exception &e) {
+        LOG_WARN << "内容过滤查询失败(跳过): " << e.what();
     }
 
-    // 添加探索结果
-    for (size_t i = 0; i < explorationStones.size() && recommendations.size() < 20; ++i) {
-        auto row = explorationStones[i];
-        std::string stoneId = row["stone_id"].as<std::string>();
-
-        if (addedStones.find(stoneId) == addedStones.end()) {
-            Json::Value stone;
-            stone["stone_id"] = stoneId;
-            stone["content"] = row["content"].as<std::string>();
-            stone["mood_type"] = row["mood_type"].as<std::string>();
-            stone["emotion_score"] = row["emotion_score"].as<double>();
-            stone["author_name"] = row["author_name"].as<std::string>();
-            stone["ripple_count"] = row["ripple_count"].as<int>();
-            stone["created_at"] = row["created_at"].as<std::string>();
-            stone["recommendation_reason"] = "也许你会喜欢这个意外的发现";
-            stone["recommendation_type"] = "exploration";
-
-            recommendations.append(stone);
-            addedStones.insert(stoneId);
+    // 5. 随机探索：发现新内容（20%）
+    try {
+        auto explorationStones = dbClient->execSqlSync(
+            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+            "s.created_at, u.nickname as author_name, "
+            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "FROM stones s "
+            "JOIN users u ON s.user_id = u.user_id "
+            "WHERE s.user_id != $1 "
+            "AND s.status = 'published' "
+            "AND s.stone_id NOT IN ( "
+            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
+            ") "
+            "ORDER BY RANDOM() "
+            "LIMIT 10",
+            userId
+        );
+        for (size_t i = 0; i < explorationStones.size() && recommendations.size() < 20; ++i) {
+            appendStone(explorationStones[i],
+                        "也许你会喜欢这个意外的发现", "exploration");
+        }
+    } catch (const std::exception &e) {
+        LOG_WARN << "随机探索查询失败(尝试降级查询): " << e.what();
+        // 降级：不依赖 user_interaction_history 表
+        try {
+            auto fallbackStones = dbClient->execSqlSync(
+                "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+                "s.created_at, u.nickname as author_name, "
+                "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+                "FROM stones s "
+                "JOIN users u ON s.user_id = u.user_id "
+                "WHERE s.user_id != $1 "
+                "AND s.status = 'published' "
+                "ORDER BY RANDOM() "
+                "LIMIT 10",
+                userId
+            );
+            for (size_t i = 0; i < fallbackStones.size() && recommendations.size() < 20; ++i) {
+                appendStone(fallbackStones[i],
+                            "也许你会喜欢这个意外的发现", "exploration");
+            }
+        } catch (const std::exception &e2) {
+            LOG_WARN << "随机探索降级查询也失败(跳过): " << e2.what();
         }
     }
 

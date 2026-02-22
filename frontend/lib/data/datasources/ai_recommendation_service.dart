@@ -75,12 +75,12 @@ class AIRecommendationService extends BaseService {
 
   List<Map<String, dynamic>> _extractList(dynamic data) {
     if (data is List) {
-      return data.cast<Map<String, dynamic>>();
+      return data.whereType<Map<String, dynamic>>().toList();
     }
     if (data is Map<String, dynamic>) {
       for (final key in ['stones', 'items', 'recommendations', 'data']) {
         if (data[key] is List) {
-          return (data[key] as List).cast<Map<String, dynamic>>();
+          return (data[key] as List).whereType<Map<String, dynamic>>().toList();
         }
       }
     }

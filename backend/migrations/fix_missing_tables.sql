@@ -1,4 +1,4 @@
--- Fix missing tables (corrected foreign key references: users(user_id) instead of users(id))
+-- Fix missing tables (corrected foreign key references: users(id) is the actual PK)
 
 -- stone_embeddings
 CREATE TABLE IF NOT EXISTS stone_embeddings (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS intervention_log (
 );
 CREATE INDEX IF NOT EXISTS idx_intervention_log_user ON intervention_log(user_id, created_at);
 
--- consultation_sessions (fixed: user_id references users(user_id))
+-- consultation_sessions (fixed: user_id references users(id))
 CREATE TABLE IF NOT EXISTS consultation_sessions (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS consultation_sessions (
     status VARCHAR(20) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT NOW(),
     ended_at TIMESTAMP,
-    CONSTRAINT fk_consultation_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    CONSTRAINT fk_consultation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_consultation_sessions_user ON consultation_sessions(user_id);
 
@@ -44,10 +44,10 @@ CREATE TABLE IF NOT EXISTS consultation_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_consultation_messages_session ON consultation_messages(session_id);
 
--- data_export_tasks (fixed: user_id references users(user_id))
+-- data_export_tasks (fixed: user_id references users(id))
 CREATE TABLE IF NOT EXISTS data_export_tasks (
     task_id VARCHAR(64) PRIMARY KEY,
-    user_id VARCHAR(64) NOT NULL REFERENCES users(user_id),
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id),
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     download_url TEXT,
     file_size BIGINT,
@@ -60,23 +60,11 @@ CREATE TABLE IF NOT EXISTS data_export_tasks (
 CREATE INDEX IF NOT EXISTS idx_export_tasks_user ON data_export_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_export_tasks_status ON data_export_tasks(status);
 
--- backup_records
-CREATE TABLE IF NOT EXISTS backup_records (
-    backup_id VARCHAR(64) PRIMARY KEY,
-    backup_type VARCHAR(20) NOT NULL,
-    file_path TEXT NOT NULL,
-    file_size BIGINT,
-    checksum VARCHAR(64) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    verified_at TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'completed'
-);
-
--- friend_messages (fixed: references users(user_id))
+-- friend_messages (fixed: references users(id))
 CREATE TABLE IF NOT EXISTS friend_messages (
     id SERIAL PRIMARY KEY,
-    sender_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    receiver_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    sender_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );

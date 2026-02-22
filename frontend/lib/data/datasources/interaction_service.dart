@@ -30,6 +30,7 @@ class InteractionService extends BaseService {
   }) async {
     final response = await post('/stones/$stoneId/boats', data: {
       'content': content,
+      if (isAnonymous) 'is_anonymous': true,
     });
     if (!response.success) return toMap(response);
 

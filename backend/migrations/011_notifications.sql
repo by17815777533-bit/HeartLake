@@ -2,7 +2,7 @@
 -- UP
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id VARCHAR(64) PRIMARY KEY,
-    user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type VARCHAR(32) NOT NULL,
     content TEXT NOT NULL,
     related_id VARCHAR(64),

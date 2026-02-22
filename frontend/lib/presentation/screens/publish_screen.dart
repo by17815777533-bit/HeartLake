@@ -325,6 +325,7 @@ class _PublishScreenState extends State<PublishScreen> {
           _emotionResult = null;
           _topEmotion = null;
         });
+        if (mounted) Navigator.pop(context, true);
       } else if (result['high_risk'] == true) {
         final tip = result['help_tip']?.toString();
         if (mounted) {
