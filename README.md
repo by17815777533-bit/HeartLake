@@ -446,15 +446,12 @@ docker-compose up -d
 
 | 指标 | 数值 |
 |------|------|
-| C++ 代码行数（后端） | 43,486 行 |
-| Vue/TS/JS 代码行数（管理后台） | 5,097 行 |
-| Dart 代码行数（移动端） | 21,290 行 |
-| 后端头文件数 | 98 个 |
+| C++ 代码行数（后端） | 38,055 行 |
+| Vue/TS/JS 代码行数（管理后台） | 7,194 行 |
+| Dart 代码行数（移动端） | 27,324 行 |
+| 后端头文件数 | 92 个 |
 | API 控制器数 | 21 个 |
 | 管理后台页面数 | 10 个 |
-| 后端测试文件数 | 14 个 |
-| 管理后台测试文件数 | 4 个 |
-| 移动端测试文件数 | 3 个 |
 | EdgeAI 子系统数 | 8 个 |
 | 通知类型数 | 8 种 |
 
@@ -465,7 +462,7 @@ docker-compose up -d
 本项目采用 [AGPL-3.0](LICENSE) 许可证开源。
 
 ```
-Copyright (C) 2024-2025 HeartLake Contributors
+Copyright (C) 2024-2026 HeartLake Contributors
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
