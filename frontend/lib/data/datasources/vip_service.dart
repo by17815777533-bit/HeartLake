@@ -43,15 +43,11 @@ class VIPService extends BaseService {
 
   /// 获取AI评论频率（小时）
   Future<double> getAICommentFrequency() async {
-    try {
-      final response = await get('/vip/ai-comment-frequency');
-      if (response.success) {
-        return (response.data?['frequency_hours'] ?? 2.0).toDouble();
-      }
-      return 2.0;
-    } catch (e) {
-      return 2.0;
+    final response = await get('/vip/ai-comment-frequency');
+    if (response.success) {
+      return (response.data?['frequency_hours'] ?? 2.0).toDouble();
     }
+    return 2.0;
   }
 
   /// 检查用户是否是VIP
