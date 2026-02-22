@@ -43,6 +43,10 @@
 
 #include "utils/HighPerformance.h"
 
+#ifdef HEARTLAKE_USE_ONNX
+#include "infrastructure/ai/OnnxSentimentEngine.h"
+#endif
+
 namespace heartlake {
 namespace ai {
 
@@ -635,6 +639,12 @@ private:
     std::atomic<size_t> totalModerationCalls_{0};
     std::atomic<size_t> totalHNSWSearches_{0};
     std::atomic<size_t> totalQuantizedOps_{0};
+
+#ifdef HEARTLAKE_USE_ONNX
+    // ---- ONNX 情感分析引擎 ----
+    std::unique_ptr<OnnxSentimentEngine> onnxEngine_;
+    bool onnxEnabled_ = false;
+#endif
 };
 
 } // namespace ai

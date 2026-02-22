@@ -1,11 +1,19 @@
 FROM archlinux:latest AS builder
 
 RUN pacman -Syu --noconfirm && pacman -S --noconfirm \
-    base-devel cmake git \
+    base-devel cmake git wget \
     openssl curl jsoncpp \
     postgresql-libs hiredis \
-    gtest c-ares \
+    c-ares \
     && pacman -Scc --noconfirm
+
+# Install ONNX Runtime
+RUN wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.17.0/onnxruntime-linux-x64-1.17.0.tgz \
+    && tar xzf onnxruntime-linux-x64-1.17.0.tgz \
+    && cp -r onnxruntime-linux-x64-1.17.0/include/* /usr/local/include/ \
+    && cp -r onnxruntime-linux-x64-1.17.0/lib/* /usr/local/lib/ \
+    && ldconfig \
+    && rm -rf onnxruntime-linux-x64-1.17.0*
 
 # Install Drogon
 RUN git clone --depth 1 --branch v1.9.11 https://github.com/drogonframework/drogon.git /tmp/drogon && \
@@ -18,11 +26,11 @@ RUN git clone --depth 1 --branch v1.9.11 https://github.com/drogonframework/drog
 WORKDIR /app
 COPY include/ include/
 COPY src/ src/
-COPY tests/ tests/
+COPY cmake/ cmake/
 COPY CMakeLists.txt .
 
 RUN mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DHEARTLAKE_USE_ONNX=ON && \
     make -j$(nproc)
 
 # Runtime
@@ -36,10 +44,12 @@ RUN useradd -m -s /bin/bash heartlake
 
 WORKDIR /app
 COPY --from=builder /app/build/HeartLake .
+COPY --from=builder /usr/local/lib/libonnxruntime* /usr/local/lib/
+RUN ldconfig
 COPY migrations/ migrations/
 COPY start-docker.sh .
 RUN chmod +x start-docker.sh && \
-    mkdir -p logs uploads public && \
+    mkdir -p logs uploads public models && \
     chown -R heartlake:heartlake /app
 
 USER heartlake

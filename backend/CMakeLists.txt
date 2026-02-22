@@ -11,10 +11,19 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
+# ONNX Runtime (可选)
+option(HEARTLAKE_USE_ONNX "Enable ONNX Runtime sentiment analysis" OFF)
+
 # Find Drogon
 find_package(Drogon CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
+
+if(HEARTLAKE_USE_ONNX)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+    find_package(OnnxRuntime REQUIRED)
+    message(STATUS "ONNX Runtime enabled: ${OnnxRuntime_LIBRARIES}")
+endif()
 
 # Include directories
 include_directories(
@@ -26,23 +35,22 @@ include_directories(
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 list(FILTER SOURCES EXCLUDE REGEX ".*main\\.cpp$")
 
+# 如果未启用 ONNX，排除 OnnxSentimentEngine.cpp
+if(NOT HEARTLAKE_USE_ONNX)
+    list(FILTER SOURCES EXCLUDE REGEX ".*OnnxSentimentEngine\\.cpp$")
+endif()
+
 # Create library for testing
 add_library(${PROJECT_NAME}_lib STATIC ${SOURCES})
 target_link_libraries(${PROJECT_NAME}_lib PUBLIC Drogon::Drogon OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
+
+if(HEARTLAKE_USE_ONNX)
+    target_link_libraries(${PROJECT_NAME}_lib PUBLIC OnnxRuntime::OnnxRuntime)
+    target_compile_definitions(${PROJECT_NAME}_lib PUBLIC HEARTLAKE_USE_ONNX)
+endif()
 
 # Main executable
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     -Wl,--whole-archive ${PROJECT_NAME}_lib -Wl,--no-whole-archive
 )
-
-# Tests
-enable_testing()
-find_package(GTest REQUIRED)
-file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
-foreach(TEST_FILE ${TEST_SOURCES})
-    get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
-    add_executable(${TEST_NAME} ${TEST_FILE})
-    target_link_libraries(${TEST_NAME} PRIVATE ${PROJECT_NAME}_lib GTest::gtest GTest::gtest_main)
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-endforeach()

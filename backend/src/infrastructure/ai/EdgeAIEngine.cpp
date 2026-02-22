@@ -96,6 +96,34 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
 
     initialized_ = true;
     LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully";
+
+#ifdef HEARTLAKE_USE_ONNX
+    // 初始化 ONNX 情感分析引擎
+    const char* onnxEnabledEnv = std::getenv("EDGE_AI_ONNX_ENABLED");
+    bool onnxWanted = onnxEnabledEnv ? (std::string(onnxEnabledEnv) == "true") : false;
+
+    if (onnxWanted) {
+        const char* modelPathEnv = std::getenv("EDGE_AI_MODEL_PATH");
+        const char* vocabPathEnv = std::getenv("EDGE_AI_VOCAB_PATH");
+        const char* onnxThreadsEnv = std::getenv("EDGE_AI_ONNX_THREADS");
+
+        std::string modelPath = modelPathEnv ? modelPathEnv : "./models/sentiment_zh.onnx";
+        std::string vocabPath = vocabPathEnv ? vocabPathEnv : "./models/vocab.txt";
+        int onnxThreads = onnxThreadsEnv ? std::atoi(onnxThreadsEnv) : 2;
+
+        onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
+        if (onnxEngine_->initialize(modelPath, vocabPath, onnxThreads)) {
+            onnxEnabled_ = true;
+            LOG_INFO << "[EdgeAI] ONNX sentiment engine enabled: " << modelPath;
+        } else {
+            LOG_WARN << "[EdgeAI] ONNX sentiment engine failed to initialize, using fallback";
+            onnxEngine_.reset();
+            onnxEnabled_ = false;
+        }
+    } else {
+        LOG_INFO << "[EdgeAI] ONNX sentiment engine disabled by config";
+    }
+#endif
 }
 
 bool EdgeAIEngine::isEnabled() const {
@@ -701,7 +729,24 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
 
-    // 分词
+#ifdef HEARTLAKE_USE_ONNX
+    // 优先使用 ONNX 神经网络模型
+    if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
+        auto onnxResult = onnxEngine_->analyze(text);
+        if (onnxResult.confidence > 0.65f) {
+            // 高置信度：直接使用 ONNX 结果
+            return {onnxResult.score, onnxResult.mood, onnxResult.confidence, "onnx"};
+        }
+        // 低置信度：ONNX 与词典融合
+        auto tokens = tokenizeUTF8(text);
+        float lexScore = lexiconSentiment(tokens);
+        float fusedScore = std::clamp(onnxResult.score * 0.6f + lexScore * 0.4f, -1.0f, 1.0f);
+        float fusedConf = std::clamp(onnxResult.confidence * 0.8f, 0.0f, 1.0f);
+        return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_ensemble"};
+    }
+#endif
+
+    // Fallback: 三层融合（rule + lexicon + statistical）
     auto tokens = tokenizeUTF8(text);
 
     // 三层分析

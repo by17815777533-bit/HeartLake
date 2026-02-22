@@ -1,0 +1,5 @@
+# 模型文件（ONNX、vocab等）不提交到 git
+*.onnx
+*.bin
+vocab.txt
+!.gitkeep

@@ -98,11 +98,16 @@ services:
       AI_MODEL: heartlake-qwen
       AI_TIMEOUT: 30
       ENV_MODE: production
+      EDGE_AI_ONNX_ENABLED: "true"
+      EDGE_AI_MODEL_PATH: /app/models/sentiment_zh.onnx
+      EDGE_AI_VOCAB_PATH: /app/models/vocab.txt
+      EDGE_AI_ONNX_THREADS: "2"
     ports:
       - "8080:8080"
     volumes:
       - backend-uploads:/app/uploads
       - backend-logs:/app/logs
+      - backend-models:/app/models
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 10s
@@ -114,7 +119,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1.5G
           cpus: "2.0"
 
   # Vue3 管理后台
@@ -170,6 +175,8 @@ volumes:
   backend-uploads:
     driver: local
   backend-logs:
+    driver: local
+  backend-models:
     driver: local
   ollama-models:
     driver: local
