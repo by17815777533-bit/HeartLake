@@ -9,12 +9,26 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 #include <sstream>
 #include <iomanip>
+#include <drogon/drogon.h>
 
 namespace heartlake {
 namespace utils {
+
+static std::string getSalt() {
+    static const std::string salt = []() {
+        const char* env = std::getenv("SHADOW_MAP_SALT");
+        if (env && env[0] != '\0') {
+            return std::string(env);
+        }
+        LOG_WARN << "SHADOW_MAP_SALT environment variable not set, using insecure default salt";
+        return std::string("heartlake_default_salt_CHANGE_ME");
+    }();
+    return salt;
+}
 
 IdentityShadowMap& IdentityShadowMap::getInstance() {
     static IdentityShadowMap instance;
@@ -37,15 +51,13 @@ std::string IdentityShadowMap::getOrCreateShadowId(const std::string& userId) {
 }
 
 std::string IdentityShadowMap::anonymizeIp(const std::string& ipAddress) {
-    // 使用固定盐值进行单向哈希，确保同一IP始终映射到同一匿名ID
-    static const std::string salt = "heartlake_ip_salt_v1";
-    auto hash = hmacSha256(ipAddress, salt);
+    // 使用环境变量盐值进行单向哈希，确保同一IP始终映射到同一匿名ID
+    auto hash = hmacSha256(ipAddress, getSalt());
     return "ip_" + hash.substr(0, 16);
 }
 
 std::string IdentityShadowMap::anonymizeFingerprint(const std::string& fingerprint) {
-    static const std::string salt = "heartlake_fp_salt_v1";
-    auto hash = hmacSha256(fingerprint, salt);
+    auto hash = hmacSha256(fingerprint, getSalt());
     return "fp_" + hash.substr(0, 16);
 }
 
