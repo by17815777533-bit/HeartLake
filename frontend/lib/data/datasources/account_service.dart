@@ -91,4 +91,28 @@ class AccountService extends BaseService {
     final response = await get('/account/export/$taskId');
     return toMap(response);
   }
+
+  /// 上传头像
+  Future<Map<String, dynamic>> uploadAvatar(dynamic avatarData) async {
+    final response = await post('/account/avatar', data: avatarData);
+    return toMap(response);
+  }
+
+  /// 更新个人资料
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> profile) async {
+    final response = await put('/account/profile', data: profile);
+    return toMap(response);
+  }
+
+  /// 停用账号
+  Future<Map<String, dynamic>> deactivateAccount() async {
+    final response = await post('/account/deactivate');
+    return toMap(response);
+  }
+
+  /// 永久删除账号
+  Future<Map<String, dynamic>> deleteAccountPermanently() async {
+    final response = await post('/account/delete-permanent');
+    return toMap(response);
+  }
 }

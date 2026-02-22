@@ -41,4 +41,18 @@ class TempFriendService extends BaseService {
   Future<Map<String, dynamic>> deleteTempFriend(String tempFriendId) async {
     return toMap(await delete('/temp-friends/$tempFriendId'));
   }
+
+  /// 创建临时好友
+  Future<Map<String, dynamic>> createTempFriend(String userId) async {
+    final response = await post('/temp-friends', data: {
+      'user_id': userId,
+    });
+    return toMap(response);
+  }
+
+  /// 检查临时好友状态
+  Future<Map<String, dynamic>> checkTempFriendStatus(String userId) async {
+    final response = await get('/temp-friends/check/$userId');
+    return toMap(response);
+  }
 }

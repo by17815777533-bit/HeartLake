@@ -23,4 +23,10 @@ class GuardianService extends BaseService {
     final response = await get('/guardian/insights');
     return toMap(response);
   }
+
+  /// 守望者对话
+  Future<Map<String, dynamic>> chat(Map<String, dynamic> data) async {
+    final response = await post('/guardian/chat', data: data);
+    return toMap(response);
+  }
 }
