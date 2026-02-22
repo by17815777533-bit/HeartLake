@@ -7,9 +7,10 @@
 
 #pragma once
 
-#include <drogon/drogon.h>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include <json/json.h>
-#include "infrastructure/realtime/WebSocketHub.h"
 
 namespace heartlake {
 namespace services {
@@ -68,71 +69,27 @@ public:
     /**
      * @brief 推送通知给指定用户
      */
-    bool pushToUser(const std::string& userId, const NotificationMessage& notification) {
-        // 使用 WebSocketHub（实际的连接管理器）而非废弃的 WebSocketConnectionManager
-        auto& hub = heartlake::realtime::WebSocketHub::getInstance();
-
-        try {
-            Json::Value message;
-            message["type"] = "notification";
-            message["data"] = notification.toJson();
-
-            Json::FastWriter writer;
-            hub.sendToUser(userId, writer.write(message));
-            LOG_INFO << "Notification pushed to user: " << userId;
-            return true;
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Failed to push notification: " << e.what();
-            return false;
-        }
-    }
+    bool pushToUser(const std::string& userId, const NotificationMessage& notification);
 
     /**
      * @brief 推送好友请求通知
      */
     void pushFriendRequestNotification(const std::string& receiverId,
                                        const std::string& requesterId,
-                                     const std::string& requesterNickname) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = receiverId;
-        notification.type = NotificationType::FRIEND_REQUEST;
-        notification.title = "新的好友请求";
-        notification.content = requesterNickname + " 想要添加你为好友";
-        notification.relatedId = requesterId;
-        notification.timestamp = std::time(nullptr);
-
-        pushToUser(receiverId, notification);
-    }
+                                       const std::string& requesterNickname);
 
     /**
      * @brief 推送系统通知
      */
     void pushSystemNotice(const std::string& userId,
                          const std::string& title,
-                         const std::string& content) {
-        NotificationMessage notification;
-        notification.notificationId = "notif_" + drogon::utils::getUuid();
-        notification.userId = userId;
-        notification.type = NotificationType::SYSTEM_NOTICE;
-        notification.title = title;
-        notification.content = content;
-        notification.timestamp = std::time(nullptr);
-
-        pushToUser(userId, notification);
-    }
+                         const std::string& content);
 
     /**
      * @brief 批量推送通知
      */
     void pushToMultipleUsers(const std::vector<std::string>& userIds,
-                            const NotificationMessage& notification) {
-        for (const auto& userId : userIds) {
-            auto userNotification = notification;
-            userNotification.userId = userId;
-            pushToUser(userId, userNotification);
-        }
-    }
+                            const NotificationMessage& notification);
 
 private:
     NotificationPushService() = default;

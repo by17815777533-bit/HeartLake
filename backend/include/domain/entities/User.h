@@ -11,7 +11,7 @@
 #include <json/json.h>
 
 namespace heartlake {
-namespace models {
+namespace domain {
 
 /**
  * @brief 用户模型
@@ -345,5 +345,5 @@ private:
     time_t last_active_at_ = 0;
 };
 
-} // namespace models
+} // namespace domain
 } // namespace heartlake

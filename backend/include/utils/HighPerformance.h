@@ -420,152 +420,15 @@ public:
         uint8_t level;
     };
 
-    ACAutomaton() { nodes_.emplace_back(); }
+    ACAutomaton();
 
-    /**
-     * @brief addPattern方法
-     *
-     * @param pattern 参数说明
-     * @param category 参数说明
-     * @param level 参数说明
-     */
-    void addPattern(std::string_view pattern, uint8_t category = 0, uint8_t level = 2) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        int cur = 0;
-        for (unsigned char c : pattern) {
-            if (!nodes_[cur].children[c]) {
-                nodes_[cur].children[c] = nodes_.size();
-                nodes_.emplace_back();
-                nodes_.back().depth = nodes_[cur].depth + 1;
-            }
-            cur = nodes_[cur].children[c];
-        }
-        nodes_[cur].isEnd = true;
-        nodes_[cur].patternId = patterns_.size();
-        nodes_[cur].category = category;
-        nodes_[cur].level = level;
-        patterns_.emplace_back(pattern);
-    }
-
-    /**
-     * @brief build方法
-     */
-    void build() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<int> queue;
-        queue.reserve(nodes_.size());
-        
-        for (int c = 0; c < CHARSET; ++c) {
-            if (nodes_[0].children[c]) {
-                queue.push_back(nodes_[0].children[c]);
-            }
-        }
-
-        for (size_t i = 0; i < queue.size(); ++i) {
-            int cur = queue[i];
-            for (int c = 0; c < CHARSET; ++c) {
-                int child = nodes_[cur].children[c];
-                if (!child) continue;
-                
-                int fail = nodes_[cur].fail;
-                while (fail && !nodes_[fail].children[c]) {
-                    fail = nodes_[fail].fail;
-                }
-                nodes_[child].fail = nodes_[fail].children[c];
-                if (nodes_[child].fail == child) nodes_[child].fail = 0;
-                
-                queue.push_back(child);
-            }
-        }
-        built_ = true;
-    }
-
-    /**
-     * @brief hasMatch方法
-     *
-     * @param text 参数说明
-     * @return 返回值说明
-     */
-    bool hasMatch(std::string_view text) const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!built_) return false;
-        
-        const size_t nodesSize = nodes_.size();
-        int cur = 0;
-        
-        for (unsigned char c : text) {
-            while (cur && !nodes_[cur].children[c]) {
-                cur = nodes_[cur].fail;
-            }
-            cur = nodes_[cur].children[c];
-            
-            if (static_cast<size_t>(cur) >= nodesSize) return false;
-            if (nodes_[cur].isEnd) return true;
-            
-            for (int t = nodes_[cur].fail; t; t = nodes_[t].fail) {
-                if (static_cast<size_t>(t) >= nodesSize) break;
-                if (nodes_[t].isEnd) return true;
-            }
-        }
-        return false;
-    }
-
-    std::vector<Match> match(std::string_view text) const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        std::vector<Match> results;
-        if (!built_) return results;
-        
-        const size_t nodesSize = nodes_.size();
-        int cur = 0;
-        
-        for (size_t i = 0; i < text.size(); ++i) {
-            unsigned char c = text[i];
-            while (cur && !nodes_[cur].children[c]) {
-                cur = nodes_[cur].fail;
-            }
-            cur = nodes_[cur].children[c];
-            
-            if (static_cast<size_t>(cur) >= nodesSize) break;
-            
-            for (int t = cur; t; t = nodes_[t].fail) {
-                if (static_cast<size_t>(t) >= nodesSize) break;
-                if (nodes_[t].isEnd) {
-                    results.push_back({
-                        nodes_[t].patternId,
-                        static_cast<int>(i - nodes_[t].depth + 1),
-                        nodes_[t].category,
-                        nodes_[t].level
-                    });
-                }
-            }
-        }
-        return results;
-    }
-
-    /**
-     * @brief patternCount方法
-     * @return 返回值说明
-     */
-    size_t patternCount() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return patterns_.size();
-    }
-
-    /**
-     * @brief 根据ID获取pattern字符串
-     */
-    std::string getPattern(uint16_t id) const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return id < patterns_.size() ? patterns_[id] : "";
-    }
-
-    void clear() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        nodes_.clear();
-        nodes_.emplace_back();
-        patterns_.clear();
-        built_ = false;
-    }
+    void addPattern(std::string_view pattern, uint8_t category = 0, uint8_t level = 2);
+    void build();
+    bool hasMatch(std::string_view text) const;
+    std::vector<Match> match(std::string_view text) const;
+    size_t patternCount() const;
+    std::string getPattern(uint16_t id) const;
+    void clear();
 
 private:
     mutable std::mutex mutex_;  // 保护所有数据结构
@@ -1060,91 +923,10 @@ private:
  */
 class SIMDString {
 public:
-    /**
-     * @brief toLowerSSE2方法
-     *
-     * @param str 参数说明
-     * @param len 参数说明
-     */
-    static void toLowerSSE2(char* str, size_t len) {
-        const __m128i A = _mm_set1_epi8('A');
-        const __m128i Z = _mm_set1_epi8('Z');
-        const __m128i diff = _mm_set1_epi8('a' - 'A');
-        
-        size_t i = 0;
-        for (; i + 16 <= len; i += 16) {
-            __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(str + i));
-            __m128i ge_A = _mm_cmpgt_epi8(chunk, _mm_sub_epi8(A, _mm_set1_epi8(1)));
-            __m128i le_Z = _mm_cmplt_epi8(chunk, _mm_add_epi8(Z, _mm_set1_epi8(1)));
-            __m128i mask = _mm_and_si128(ge_A, le_Z);
-            __m128i toAdd = _mm_and_si128(mask, diff);
-            chunk = _mm_add_epi8(chunk, toAdd);
-            _mm_storeu_si128(reinterpret_cast<__m128i*>(str + i), chunk);
-        }
-        
-        for (; i < len; ++i) {
-            if (str[i] >= 'A' && str[i] <= 'Z') {
-                str[i] += 32;
-            }
-        }
-    }
-
+    static void toLowerSSE2(char* str, size_t len);
     static const char* findSSE2(const char* haystack, size_t hlen,
-                                 const char* needle, size_t nlen) {
-        if (nlen == 0) return haystack;
-        if (nlen > hlen) return nullptr;
-        
-        __m128i first = _mm_set1_epi8(needle[0]);
-        
-        for (size_t i = 0; i + nlen <= hlen; ) {
-            if (i + 16 <= hlen) {
-                __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(haystack + i));
-                __m128i cmp = _mm_cmpeq_epi8(chunk, first);
-                int mask = _mm_movemask_epi8(cmp);
-                
-                if (mask == 0) {
-                    i += 16;
-                    continue;
-                }
-                
-                int offset = __builtin_ctz(mask);
-                i += offset;
-            }
-            
-            if (i + nlen <= hlen && std::memcmp(haystack + i, needle, nlen) == 0) {
-                return haystack + i;
-            }
-            ++i;
-        }
-        
-        return nullptr;
-    }
-
-    /**
-     * @brief countCharSSE2方法
-     *
-     * @param str 参数说明
-     * @param len 参数说明
-     * @param c 参数说明
-     * @return 返回值说明
-     */
-    static size_t countCharSSE2(const char* str, size_t len, char c) {
-        __m128i target = _mm_set1_epi8(c);
-        size_t count = 0;
-        
-        size_t i = 0;
-        for (; i + 16 <= len; i += 16) {
-            __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(str + i));
-            __m128i cmp = _mm_cmpeq_epi8(chunk, target);
-            count += __builtin_popcount(_mm_movemask_epi8(cmp));
-        }
-        
-        for (; i < len; ++i) {
-            if (str[i] == c) ++count;
-        }
-        
-        return count;
-    }
+                                 const char* needle, size_t nlen);
+    static size_t countCharSSE2(const char* str, size_t len, char c);
 };
 
 
@@ -1160,39 +942,19 @@ public:
  */
 class ThreadPool {
 public:
-    explicit ThreadPool(size_t threads = std::thread::hardware_concurrency())
-        : stop_(false) {
-        for (size_t i = 0; i < threads; ++i) {
-            workers_.emplace_back([this] {
-                while (true) {
-                    std::function<void()> task;
-                    {
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        condition_.wait(lock, [this] {
-                            return stop_ || !tasks_.empty();
-                        });
-                        
-                        if (stop_ && tasks_.empty()) return;
-                        
-                        task = std::move(tasks_.front());
-                        tasks_.pop();
-                    }
-                    task();
-                }
-            });
-        }
-    }
+    explicit ThreadPool(size_t threads = std::thread::hardware_concurrency());
+    ~ThreadPool();
 
     template<typename F, typename... Args>
     auto submit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
         using ReturnType = decltype(f(args...));
-        
+
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
-        
+
         std::future<ReturnType> future = task->get_future();
-        
+
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (stop_) {
@@ -1200,30 +962,12 @@ public:
             }
             tasks_.emplace([task]() { (*task)(); });
         }
-        
+
         condition_.notify_one();
         return future;
     }
 
-    ~ThreadPool() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            stop_ = true;
-        }
-        condition_.notify_all();
-        for (auto& worker : workers_) {
-            worker.join();
-        }
-    }
-
-    /**
-     * @brief queueSize方法
-     * @return 返回值说明
-     */
-    size_t queueSize() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return tasks_.size();
-    }
+    size_t queueSize() const;
 
 private:
     std::vector<std::thread> workers_;
@@ -1247,71 +991,14 @@ private:
  */
 class TokenBucket {
 public:
-    TokenBucket(double rate, double burst)
-        : rate_(rate), burst_(burst), tokens_(burst),
-          lastRefill_(std::chrono::steady_clock::now()) {}
+    TokenBucket(double rate, double burst);
 
-    /**
-     * @brief tryAcquire方法
-     *
-     * @param tokens 参数说明
-     * @return 返回值说明
-     */
-    bool tryAcquire(double tokens = 1.0) {
-        refill();
-        
-        double current = tokens_.load(std::memory_order_relaxed);
-        do {
-            if (current < tokens) return false;
-        } while (!tokens_.compare_exchange_weak(current, current - tokens,
-                                                 std::memory_order_release,
-                                                 std::memory_order_relaxed));
-        return true;
-    }
-
-    bool acquire(double tokens = 1.0, std::chrono::milliseconds timeout = std::chrono::milliseconds(1000)) {
-        auto deadline = std::chrono::steady_clock::now() + timeout;
-        
-        while (std::chrono::steady_clock::now() < deadline) {
-            if (tryAcquire(tokens)) return true;
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-        }
-        
-        return false;
-    }
-
-    /**
-     * @brief availableTokens方法
-     * @return 返回值说明
-     */
-    double availableTokens() {
-        refill();
-        return tokens_.load(std::memory_order_relaxed);
-    }
+    bool tryAcquire(double tokens = 1.0);
+    void acquire(double tokens = 1.0);
+    double availableTokens();
 
 private:
-    /**
-     * @brief refill方法
-     */
-    void refill() {
-        auto now = std::chrono::steady_clock::now();
-        auto last = lastRefill_.load(std::memory_order_relaxed);
-        
-        double elapsed = std::chrono::duration<double>(now - last).count();
-        double toAdd = elapsed * rate_;
-        
-        if (toAdd > 0.001 && lastRefill_.compare_exchange_weak(last, now,
-                                                                std::memory_order_release,
-                                                                std::memory_order_relaxed)) {
-            double current = tokens_.load(std::memory_order_relaxed);
-            double newTokens;
-            do {
-                newTokens = std::min(current + toAdd, burst_);
-            } while (!tokens_.compare_exchange_weak(current, newTokens,
-                                                     std::memory_order_release,
-                                                     std::memory_order_relaxed));
-        }
-    }
+    void refill();
 
     double rate_;
     double burst_;

@@ -7,10 +7,7 @@
 #pragma once
 
 #include <string>
-#include <random>
-#include <sstream>
-#include <iomanip>
-#include <chrono>
+#include <cstddef>
 
 namespace heartlake {
 namespace utils {
@@ -24,71 +21,21 @@ namespace utils {
  */
 class IdGenerator {
 public:
-    static std::string generateUserId() {
-        return "user_" + generateRandomId(16);
-    }
-
-    static std::string generateAnonymousId() {
-        return "anonymous_" + generateRandomId(12);
-    }
-
-    static std::string generateStoneId() {
-        return "stone_" + generateRandomId(16);
-    }
-
-    static std::string generateRippleId() {
-        return "ripple_" + generateRandomId(16);
-    }
-
-    static std::string generateBoatId() {
-        return "boat_" + generateRandomId(16);
-    }
-
-    static std::string generateNotificationId() {
-        return "notif_" + generateRandomId(16);
-    }
-
-    static std::string generateConnectionId() {
-        return "conn_" + generateRandomId(16);
-    }
-
-    static std::string generateMessageId() {
-        return "msg_" + generateRandomId(16);
-    }
-
-    static std::string generateReportId() {
-        return "report_" + generateRandomId(16);
-    }
-
-    static std::string generateSessionId() {
-        return "session_" + generateRandomId(16);
-    }
-
-    static std::string generateUUID() {
-        return generateRandomId(32);
-    }
-
-    static std::string generateNickname() {
-        int number = generateRandomNumber(1000, 9999);
-        return "旅人#" + std::to_string(number);
-    }
+    static std::string generateUserId();
+    static std::string generateAnonymousId();
+    static std::string generateStoneId();
+    static std::string generateRippleId();
+    static std::string generateBoatId();
+    static std::string generateNotificationId();
+    static std::string generateConnectionId();
+    static std::string generateMessageId();
+    static std::string generateReportId();
+    static std::string generateSessionId();
+    static std::string generateUUID();
+    static std::string generateNickname();
 
 private:
-    static std::string generateRandomId(size_t length) {
-        static const char hex_chars[] = "0123456789abcdef";
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        static std::uniform_int_distribution<> dis(0, 15);
-        
-        std::string id;
-        id.reserve(length);
-        
-        for (size_t i = 0; i < length; ++i) {
-            id += hex_chars[dis(gen)];
-        }
-        
-        return id;
-    }
+    static std::string generateRandomId(size_t length);
 
     /**
      * @brief generateRandomNumber方法
@@ -97,12 +44,7 @@ private:
      * @param max 参数说明
      * @return 返回值说明
      */
-    static int generateRandomNumber(int min, int max) {
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dis(min, max);
-        return dis(gen);
-    }
+    static int generateRandomNumber(int min, int max);
 };
 
 } // namespace utils
