@@ -72,14 +72,27 @@ class FriendService extends BaseService {
   }
 
   // 获取与好友的聊天记录
+  // 后端返回 { "code": 0, "data": [ {id, sender_id, receiver_id, content, created_at}, ... ] }
+  // data 直接是数组，不是 { "messages": [...] }
   Future<Map<String, dynamic>> getMessages(String friendId) async {
     final response = await get('/friends/$friendId/messages');
 
     if (!response.success) return toMap(response);
 
+    // response.data 可能是 List（后端直接返回数组）或 Map
+    final rawData = response.data;
+    List messages;
+    if (rawData is List) {
+      messages = rawData;
+    } else if (rawData is Map) {
+      messages = rawData['messages'] ?? [];
+    } else {
+      messages = [];
+    }
+
     return {
       'success': true,
-      'messages': response.data?['messages'] ?? [],
+      'messages': messages,
     };
   }
 

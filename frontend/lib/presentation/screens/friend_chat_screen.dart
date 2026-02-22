@@ -29,9 +29,13 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   @override
   void initState() {
     super.initState();
-    _initCurrentUser();
-    _loadMessages();
+    _init();
     _wsManager.on('new_friend_message', _onNewMessage);
+  }
+
+  Future<void> _init() async {
+    await _initCurrentUser();
+    await _loadMessages();
   }
 
   @override
@@ -66,8 +70,15 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     try {
       final result = await _friendService.getMessages(widget.friendId);
       if (mounted) {
+        final rawMessages = result['messages'] ?? [];
+        // 为每条消息计算 is_mine（后端只返回 sender_id，没有 is_mine）
+        final messages = (rawMessages as List).map((msg) {
+          final m = Map<String, dynamic>.from(msg as Map);
+          m['is_mine'] = m['sender_id']?.toString() == _currentUserId;
+          return m;
+        }).toList();
         setState(() {
-          _messages = result['messages'] ?? [];
+          _messages = messages;
           _isLoading = false;
         });
         _scrollToBottom();
