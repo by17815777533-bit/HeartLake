@@ -1,14 +1,39 @@
--- Migration: Base stones table
--- UP
+-- 002: 石头表（心湖核心实体）
 CREATE TABLE IF NOT EXISTS stones (
     stone_id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    stone_type VARCHAR(20) DEFAULT 'medium',
+    stone_color VARCHAR(10) DEFAULT '#ADA59E',
+    mood_type VARCHAR(20) DEFAULT 'neutral',
+    is_anonymous BOOLEAN DEFAULT TRUE,
+    nickname VARCHAR(64),
+    emotion_score FLOAT,
+    sentiment_score FLOAT,
+    ripple_count INT DEFAULT 0,
+    boat_count INT DEFAULT 0,
+    view_count INT DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'published',
+    tags TEXT[],
+    media_ids TEXT[],
+    ai_tags TEXT[],
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_stones_user ON stones(user_id);
+CREATE INDEX IF NOT EXISTS idx_stones_created ON stones(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stones_mood ON stones(mood_type);
+CREATE INDEX IF NOT EXISTS idx_stones_status ON stones(status);
+CREATE INDEX IF NOT EXISTS idx_stones_status_created ON stones(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stones_status_mood_created ON stones(status, mood_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stones_user_status_created ON stones(user_id, status, created_at DESC);
 
--- DOWN
--- DROP INDEX IF EXISTS idx_stones_user;
--- DROP TABLE IF EXISTS stones;
+-- 石头向量嵌入表（HNSW向量索引用）
+CREATE TABLE IF NOT EXISTS stone_embeddings (
+    stone_id VARCHAR(64) PRIMARY KEY REFERENCES stones(stone_id) ON DELETE CASCADE,
+    embedding TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stone_embeddings_created ON stone_embeddings(created_at);

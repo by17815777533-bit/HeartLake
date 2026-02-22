@@ -1,9 +1,7 @@
 /**
  * @file AccountController.h
- * @brief 账号管理控制器 - 企业级账号功能
- * @author 白洋
- * @date 2025-02-08
- * @copyright Copyright (c) 2025 HeartLake. All rights reserved.
+ * @brief 账号管理控制器
+ * Created by 白洋
  */
 
 #pragma once
@@ -16,91 +14,36 @@ using namespace drogon;
 namespace heartlake {
 namespace controllers {
 
-/**
- * @brief 账号管理HTTP控制器
- *
- * 提供完整的账号管理功能：
- * - 个人信息管理（头像、昵称、简介）
- * - 账号安全（密码、登录设备、安全日志）
- * - 隐私设置（可见性、黑名单）
- * - 数据管理（导出、删除）
- * - 统计信息（活跃度、内容统计）
- */
 class AccountController : public drogon::HttpController<AccountController> {
 public:
   METHOD_LIST_BEGIN
 
-  // ==================== 个人信息管理 ====================
-
-  /// 获取完整账号信息
+  // 个人信息
   ADD_METHOD_TO(AccountController::getAccountInfo, "/api/account/info", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 更新头像
   ADD_METHOD_TO(AccountController::updateAvatar, "/api/account/avatar", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 更新个人资料
   ADD_METHOD_TO(AccountController::updateProfile, "/api/account/profile", Put, "heartlake::filters::SecurityAuditFilter");
-
-  /// 获取账号统计数据
   ADD_METHOD_TO(AccountController::getAccountStats, "/api/account/stats", Get, "heartlake::filters::SecurityAuditFilter");
 
-  // ==================== 账号安全 ====================
-
-  /// 获取登录设备列表
+  // 设备管理
   ADD_METHOD_TO(AccountController::getLoginDevices, "/api/account/devices", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 移除登录设备
   ADD_METHOD_TO(AccountController::removeDevice, "/api/account/devices/{1}", Delete, "heartlake::filters::SecurityAuditFilter");
-
-  /// 获取登录日志
   ADD_METHOD_TO(AccountController::getLoginLogs, "/api/account/login-logs", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 获取安全事件
   ADD_METHOD_TO(AccountController::getSecurityEvents, "/api/account/security-events", Get, "heartlake::filters::SecurityAuditFilter");
 
-  /// 修改密码（需要旧密码）
-  ADD_METHOD_TO(AccountController::changePasswordSecure, "/api/account/change-password", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 绑定邮箱
-  ADD_METHOD_TO(AccountController::bindEmail, "/api/account/bind-email", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 解绑邮箱
-  ADD_METHOD_TO(AccountController::unbindEmail, "/api/account/unbind-email", Post, "heartlake::filters::SecurityAuditFilter");
-
-  // ==================== 隐私设置 ====================
-
-  /// 获取隐私设置
+  // 隐私设置
   ADD_METHOD_TO(AccountController::getPrivacySettings, "/api/account/privacy", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 更新隐私设置
   ADD_METHOD_TO(AccountController::updatePrivacySettings, "/api/account/privacy", Put, "heartlake::filters::SecurityAuditFilter");
-
-  /// 获取黑名单
   ADD_METHOD_TO(AccountController::getBlockedUsers, "/api/account/blocked-users", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 拉黑用户
   ADD_METHOD_TO(AccountController::blockUser, "/api/account/block/{1}", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 取消拉黑
   ADD_METHOD_TO(AccountController::unblockUser, "/api/account/unblock/{1}", Delete, "heartlake::filters::SecurityAuditFilter");
 
-  // ==================== 数据管理 ====================
-
-  /// 导出个人数据
+  // 数据管理
   ADD_METHOD_TO(AccountController::exportData, "/api/account/export", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 获取导出任务状态
   ADD_METHOD_TO(AccountController::getExportStatus, "/api/account/export/{1}", Get, "heartlake::filters::SecurityAuditFilter");
-
-  /// 注销账号（软删除）
   ADD_METHOD_TO(AccountController::deactivateAccount, "/api/account/deactivate", Post, "heartlake::filters::SecurityAuditFilter");
-
-  /// 永久删除账号
   ADD_METHOD_TO(AccountController::deleteAccountPermanently, "/api/account/delete-permanent", Post, "heartlake::filters::SecurityAuditFilter");
 
   METHOD_LIST_END
-
-  // ==================== 个人信息管理方法 ====================
 
   void getAccountInfo(const HttpRequestPtr &req,
                       std::function<void(const HttpResponsePtr &)> &&callback);
@@ -114,8 +57,6 @@ public:
   void getAccountStats(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback);
 
-  // ==================== 账号安全方法 ====================
-
   void getLoginDevices(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback);
 
@@ -128,17 +69,6 @@ public:
 
   void getSecurityEvents(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
-
-  void changePasswordSecure(const HttpRequestPtr &req,
-                            std::function<void(const HttpResponsePtr &)> &&callback);
-
-  void bindEmail(const HttpRequestPtr &req,
-                 std::function<void(const HttpResponsePtr &)> &&callback);
-
-  void unbindEmail(const HttpRequestPtr &req,
-                   std::function<void(const HttpResponsePtr &)> &&callback);
-
-  // ==================== 隐私设置方法 ====================
 
   void getPrivacySettings(const HttpRequestPtr &req,
                           std::function<void(const HttpResponsePtr &)> &&callback);
@@ -156,8 +86,6 @@ public:
   void unblockUser(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback,
                    const std::string &targetUserId);
-
-  // ==================== 数据管理方法 ====================
 
   void exportData(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);

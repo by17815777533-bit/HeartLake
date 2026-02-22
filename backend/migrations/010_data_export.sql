@@ -1,4 +1,5 @@
--- 数据导出任务表
+-- 010: 数据导出
+
 CREATE TABLE IF NOT EXISTS data_export_tasks (
     task_id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES users(id),
@@ -12,5 +13,5 @@ CREATE TABLE IF NOT EXISTS data_export_tasks (
     error_message TEXT
 );
 
-CREATE INDEX idx_export_tasks_user ON data_export_tasks(user_id);
-CREATE INDEX idx_export_tasks_status ON data_export_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_export_tasks_user ON data_export_tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_export_tasks_status ON data_export_tasks(status);

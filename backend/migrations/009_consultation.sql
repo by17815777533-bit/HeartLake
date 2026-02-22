@@ -1,6 +1,6 @@
--- 咨询室E2EE端到端加密表结构
--- Created by engineer-4
+-- 009: 心理咨询E2EE加密会话
 
+-- 咨询会话表
 CREATE TABLE IF NOT EXISTS consultation_sessions (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS consultation_sessions (
     CONSTRAINT fk_consultation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS idx_consultation_sessions_user ON consultation_sessions(user_id);
+
+-- 咨询消息表（端到端加密）
 CREATE TABLE IF NOT EXISTS consultation_messages (
     id SERIAL PRIMARY KEY,
     session_id VARCHAR(64) NOT NULL REFERENCES consultation_sessions(id) ON DELETE CASCADE,
@@ -24,11 +27,4 @@ CREATE TABLE IF NOT EXISTS consultation_messages (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_consultation_sessions_user ON consultation_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_messages_session ON consultation_messages(session_id);
-
--- DOWN
--- DROP INDEX IF EXISTS idx_consultation_messages_session;
--- DROP INDEX IF EXISTS idx_consultation_sessions_user;
--- DROP TABLE IF EXISTS consultation_messages;
--- DROP TABLE IF EXISTS consultation_sessions;

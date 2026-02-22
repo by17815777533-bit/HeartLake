@@ -32,35 +32,4 @@ class UserService extends BaseService {
     };
   }
 
-  /// 获取用户信息 (别名)
-  Future<Map<String, dynamic>> getUserProfile(String userId) async {
-    return getUserInfo(userId);
-  }
-
-  /// 获取当前用户信息
-  Future<Map<String, dynamic>> getCurrentUser() async {
-    final response = await get('/account/info');
-
-    if (!response.success) return toMap(response);
-
-    return {
-      'success': true,
-      'user': response.data,
-    };
-  }
-
-  /// 更新用户资料
-  Future<Map<String, dynamic>> updateProfile({
-    String? nickname,
-    String? bio,
-    String? avatarUrl,
-  }) async {
-    final data = <String, dynamic>{};
-    if (nickname != null) data['nickname'] = nickname;
-    if (bio != null) data['bio'] = bio;
-    if (avatarUrl != null) data['avatar_url'] = avatarUrl;
-
-    final response = await put('/account/profile', data: data);
-    return toMap(response);
-  }
 }

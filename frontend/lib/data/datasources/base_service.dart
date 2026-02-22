@@ -32,11 +32,12 @@ class ServiceResponse<T> {
     );
   }
 
-  factory ServiceResponse.error(String message, {int? code}) {
+  factory ServiceResponse.error(String message, {int? code, T? data}) {
     return ServiceResponse(
       success: false,
       message: message,
       code: code ?? 500,
+      data: data,
     );
   }
 
@@ -113,6 +114,14 @@ abstract class BaseService {
     return '遇到了一点小波澜，请稍后再试~';
   }
 
+  /// 从DioException响应体提取data字段（用于传递服务端附加数据，如心理援助信息）
+  dynamic _extractData(DioException e) {
+    if (e.response?.data is Map) {
+      return (e.response!.data as Map<String, dynamic>)['data'];
+    }
+    return null;
+  }
+
   /// GET请求
   Future<ServiceResponse<T>> get<T>(
     String path, {
@@ -125,7 +134,7 @@ abstract class BaseService {
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] GET失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode);
+      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] GET失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -143,7 +152,7 @@ abstract class BaseService {
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] POST失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode);
+      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] POST失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -161,7 +170,7 @@ abstract class BaseService {
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] PUT失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode);
+      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] PUT失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -179,7 +188,7 @@ abstract class BaseService {
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] DELETE失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode);
+      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] DELETE失败: $e');
       return ServiceResponse.error(_friendlyError(e));

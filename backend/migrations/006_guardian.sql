@@ -1,7 +1,6 @@
--- Migration: Guardian incentive and emotion tracking system
--- Created for Task #12: 负重救助与生态运营
+-- 006: 守望者系统（情绪追踪、共鸣积分、明灯传递、干预日志）
 
--- Emotion tracking table
+-- 情绪追踪表
 CREATE TABLE IF NOT EXISTS emotion_tracking (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -12,7 +11,7 @@ CREATE TABLE IF NOT EXISTS emotion_tracking (
 
 CREATE INDEX IF NOT EXISTS idx_emotion_tracking_user ON emotion_tracking(user_id, created_at);
 
--- Resonance points table
+-- 共鸣积分表
 CREATE TABLE IF NOT EXISTS resonance_points (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -23,7 +22,7 @@ CREATE TABLE IF NOT EXISTS resonance_points (
 
 CREATE INDEX IF NOT EXISTS idx_resonance_points_user ON resonance_points(user_id);
 
--- Lamp transfers table
+-- 明灯传递表
 CREATE TABLE IF NOT EXISTS lamp_transfers (
     id SERIAL PRIMARY KEY,
     from_user_id VARCHAR(64) NOT NULL,
@@ -31,7 +30,7 @@ CREATE TABLE IF NOT EXISTS lamp_transfers (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Intervention log table (prevents duplicate interventions)
+-- 干预日志表（防止重复干预）
 CREATE TABLE IF NOT EXISTS intervention_log (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
@@ -41,19 +40,16 @@ CREATE TABLE IF NOT EXISTS intervention_log (
 
 CREATE INDEX IF NOT EXISTS idx_intervention_log_user ON intervention_log(user_id, created_at);
 
--- Add guardian columns to users table
-ALTER TABLE users ADD COLUMN IF NOT EXISTS resonance_total INT DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_guardian BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS guardian_since TIMESTAMP;
+-- VIP升级日志表
+CREATE TABLE IF NOT EXISTS vip_upgrade_logs (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    old_vip_level INT DEFAULT 0,
+    new_vip_level INT DEFAULT 0,
+    upgrade_type VARCHAR(50) DEFAULT 'auto_emotion',
+    reason TEXT,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- DOWN
--- ALTER TABLE users DROP COLUMN IF EXISTS guardian_since;
--- ALTER TABLE users DROP COLUMN IF EXISTS is_guardian;
--- ALTER TABLE users DROP COLUMN IF EXISTS resonance_total;
--- DROP INDEX IF EXISTS idx_intervention_log_user;
--- DROP TABLE IF EXISTS intervention_log;
--- DROP TABLE IF EXISTS lamp_transfers;
--- DROP INDEX IF EXISTS idx_resonance_points_user;
--- DROP TABLE IF EXISTS resonance_points;
--- DROP INDEX IF EXISTS idx_emotion_tracking_user;
--- DROP TABLE IF EXISTS emotion_tracking;
+CREATE INDEX IF NOT EXISTS idx_vip_upgrade_logs_user ON vip_upgrade_logs(user_id);

@@ -7,9 +7,7 @@
 
 #include "interfaces/api/AccountController.h"
 #include "utils/ResponseUtil.h"
-#include "utils/PasswordUtil.h"
 #include "utils/IdGenerator.h"
-#include "infrastructure/services/VerificationService.h"
 #include "infrastructure/services/DataExportService.h"
 #include "utils/SecurityLogger.h"
 #include <drogon/drogon.h>
@@ -17,7 +15,6 @@
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
-using namespace heartlake::services;
 
 // BUG-4 修复：安全获取 user_id 的辅助函数，避免 attributes 不存在时抛异常
 static std::string safeGetUserId(const HttpRequestPtr &req) {
@@ -335,173 +332,6 @@ void AccountController::getSecurityEvents(const HttpRequestPtr &req,
     }
 }
 
-void AccountController::changePasswordSecure(const HttpRequestPtr &req,
-                                             std::function<void(const HttpResponsePtr &)> &&callback) {
-    try {
-        // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
-            callback(ResponseUtil::unauthorized("未登录"));
-            return;
-        }
-        auto json = req->getJsonObject();
-        if (!json) {
-            callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
-            return;
-        }
-
-        std::string oldPassword = (*json).get("old_password", "").asString();
-        std::string newPassword = (*json).get("new_password", "").asString();
-
-        if (oldPassword.empty() || newPassword.empty()) {
-            callback(ResponseUtil::badRequest("旧密码和新密码不能为空"));
-            return;
-        }
-        if (newPassword.length() < 6) {
-            callback(ResponseUtil::badRequest("新密码至少6个字符"));
-            return;
-        }
-
-        auto dbClient = app().getDbClient("default");
-
-        // 验证旧密码
-        auto result = dbClient->execSqlSync(
-            "SELECT password_hash, salt FROM users WHERE user_id = $1", userId);
-        if (result.empty()) {
-            callback(ResponseUtil::notFound("用户不存在"));
-            return;
-        }
-
-        std::string storedHash = result[0]["password_hash"].as<std::string>();
-        std::string salt = result[0]["salt"].as<std::string>();
-
-        if (!PasswordUtil::verifyPassword(oldPassword, salt, storedHash)) {
-            callback(ResponseUtil::badRequest("旧密码错误"));
-            return;
-        }
-
-        // 生成新密码哈希
-        std::string newSalt, newHash;
-        PasswordUtil::generatePasswordHash(newPassword, newSalt, newHash);
-
-        dbClient->execSqlSync(
-            "UPDATE users SET password_hash = $1, salt = $2 WHERE user_id = $3",
-            newHash, newSalt, userId);
-
-        // VUL-22: 记录密码修改安全事件
-        SecurityLogger::logEventFromRequest(req, userId,
-            SecurityEventType::PASSWORD_CHANGED, SecuritySeverity::MEDIUM,
-            "用户通过旧密码验证修改密码");
-
-        callback(ResponseUtil::success(Json::Value(), "密码修改成功"));
-    } catch (const std::exception &e) {
-        LOG_ERROR << "changePasswordSecure error: " << e.what();
-        callback(ResponseUtil::internalError());
-    }
-}
-
-void AccountController::bindEmail(const HttpRequestPtr &req,
-                                  std::function<void(const HttpResponsePtr &)> &&callback) {
-    try {
-        // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
-            callback(ResponseUtil::unauthorized("未登录"));
-            return;
-        }
-        auto json = req->getJsonObject();
-        if (!json) {
-            callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
-            return;
-        }
-
-        std::string email = (*json).get("email", "").asString();
-        std::string code = (*json).get("verification_code", "").asString();
-
-        if (email.empty() || code.empty()) {
-            callback(ResponseUtil::badRequest("邮箱和验证码不能为空"));
-            return;
-        }
-
-        // 验证验证码
-        if (!VerificationService::verifyCode(email, code, "bind_email")) {
-            callback(ResponseUtil::badRequest("验证码错误或已过期"));
-            return;
-        }
-
-        auto dbClient = app().getDbClient("default");
-
-        // 检查邮箱是否已被使用
-        auto checkResult = dbClient->execSqlSync(
-            "SELECT user_id FROM users WHERE email = $1 AND user_id != $2", email, userId);
-        if (!checkResult.empty()) {
-            callback(ResponseUtil::badRequest("该邮箱已被其他账号绑定"));
-            return;
-        }
-
-        dbClient->execSqlSync(
-            "UPDATE users SET email = $1 WHERE user_id = $2", email, userId);
-
-        callback(ResponseUtil::success(Json::Value(), "邮箱绑定成功"));
-    } catch (const std::exception &e) {
-        LOG_ERROR << "bindEmail error: " << e.what();
-        callback(ResponseUtil::internalError());
-    }
-}
-
-void AccountController::unbindEmail(const HttpRequestPtr &req,
-                                    std::function<void(const HttpResponsePtr &)> &&callback) {
-    try {
-        // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
-            callback(ResponseUtil::unauthorized("未登录"));
-            return;
-        }
-
-        // SEC-3 修复：解绑邮箱需要密码验证，防止未授权操作
-        auto json = req->getJsonObject();
-        if (!json) {
-            callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
-            return;
-        }
-        std::string password = (*json).get("password", "").asString();
-        if (password.empty()) {
-            callback(ResponseUtil::badRequest("请输入密码以确认解绑操作"));
-            return;
-        }
-
-        auto dbClient = app().getDbClient("default");
-
-        // 验证用户密码
-        auto userResult = dbClient->execSqlSync(
-            "SELECT salt, password_hash FROM users WHERE user_id = $1", userId);
-        if (userResult.empty() || userResult[0]["salt"].isNull() || userResult[0]["password_hash"].isNull()) {
-            callback(ResponseUtil::error(401, "密码验证失败"));
-            return;
-        }
-        std::string salt = userResult[0]["salt"].as<std::string>();
-        std::string storedHash = userResult[0]["password_hash"].as<std::string>();
-        if (!PasswordUtil::verifyPassword(password, salt, storedHash)) {
-            callback(ResponseUtil::error(401, "密码错误"));
-            return;
-        }
-
-        dbClient->execSqlSync(
-            "UPDATE users SET email = NULL WHERE user_id = $1", userId);
-
-        // VUL-22: 记录邮箱解绑安全日志
-        SecurityLogger::logEventFromRequest(req, userId,
-            SecurityEventType::EMAIL_CHANGED, SecuritySeverity::MEDIUM,
-            "用户解绑邮箱");
-
-        callback(ResponseUtil::success(Json::Value(), "邮箱解绑成功"));
-    } catch (const std::exception &e) {
-        LOG_ERROR << "unbindEmail error: " << e.what();
-        callback(ResponseUtil::internalError());
-    }
-}
-
 // ==================== 隐私设置 ====================
 
 void AccountController::getPrivacySettings(const HttpRequestPtr &req,
@@ -738,45 +568,27 @@ void AccountController::getExportStatus(const HttpRequestPtr &req,
 void AccountController::deactivateAccount(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
         auto userId = safeGetUserId(req);
         if (userId.empty()) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
 
-        // SEC-4 修复：注销账号需要密码确认，防止未授权操作
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
             return;
         }
-        std::string password = (*json).get("password", "").asString();
-        if (password.empty()) {
-            callback(ResponseUtil::badRequest("请输入密码以确认注销操作"));
+        std::string confirmation = (*json).get("confirmation", "").asString();
+        if (confirmation != "DEACTIVATE") {
+            callback(ResponseUtil::badRequest("请输入确认文本 'DEACTIVATE'"));
             return;
         }
 
         auto dbClient = app().getDbClient("default");
-
-        // 验证用户密码
-        auto userResult = dbClient->execSqlSync(
-            "SELECT salt, password_hash FROM users WHERE user_id = $1", userId);
-        if (userResult.empty() || userResult[0]["salt"].isNull() || userResult[0]["password_hash"].isNull()) {
-            callback(ResponseUtil::error(401, "密码验证失败"));
-            return;
-        }
-        std::string salt = userResult[0]["salt"].as<std::string>();
-        std::string storedHash = userResult[0]["password_hash"].as<std::string>();
-        if (!PasswordUtil::verifyPassword(password, salt, storedHash)) {
-            callback(ResponseUtil::error(401, "密码错误"));
-            return;
-        }
-
         dbClient->execSqlSync(
             "UPDATE users SET status = 'deactivated' WHERE user_id = $1", userId);
 
-        // VUL-22: 记录账号注销安全日志
         SecurityLogger::logEventFromRequest(req, userId,
             SecurityEventType::ACCOUNT_DELETED, SecuritySeverity::HIGH,
             "用户注销账号（30天内可恢复）");
@@ -791,7 +603,6 @@ void AccountController::deactivateAccount(const HttpRequestPtr &req,
 void AccountController::deleteAccountPermanently(const HttpRequestPtr &req,
                                                  std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
         auto userId = safeGetUserId(req);
         if (userId.empty()) {
             callback(ResponseUtil::unauthorized("未登录"));
@@ -803,36 +614,13 @@ void AccountController::deleteAccountPermanently(const HttpRequestPtr &req,
             return;
         }
 
-        std::string password = (*json).get("password", "").asString();
-        if (password.empty()) {
-            callback(ResponseUtil::badRequest("请输入密码确认删除"));
+        std::string confirmation = (*json).get("confirmation", "").asString();
+        if (confirmation != "DELETE") {
+            callback(ResponseUtil::badRequest("请输入确认文本 'DELETE'"));
             return;
         }
 
         auto dbClient = app().getDbClient("default");
-
-        // 验证密码
-        auto result = dbClient->execSqlSync(
-            "SELECT password_hash, salt FROM users WHERE user_id = $1", userId);
-        if (result.empty()) {
-            callback(ResponseUtil::notFound("用户不存在"));
-            return;
-        }
-
-        if (result[0]["password_hash"].isNull() || result[0]["salt"].isNull()) {
-            callback(ResponseUtil::badRequest("匿名用户无法使用密码删除账号"));
-            return;
-        }
-
-        std::string storedHash = result[0]["password_hash"].as<std::string>();
-        std::string salt = result[0]["salt"].as<std::string>();
-
-        if (!PasswordUtil::verifyPassword(password, salt, storedHash)) {
-            callback(ResponseUtil::badRequest("密码错误"));
-            return;
-        }
-
-        // 永久删除（实际上是标记为deleted）
         dbClient->execSqlSync(
             "UPDATE users SET status = 'deleted', deleted_at = NOW() WHERE user_id = $1", userId);
 
