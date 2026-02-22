@@ -69,10 +69,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
             for (final msg in history) {
               _messages.add({
                 'content': msg['content'] ?? '',
-                'is_mine': msg['is_mine'] == true ||
-                    msg['role'] == 'user' ||
-                    msg['sender'] == 'user',
+                'is_mine': msg['role'] == 'user',
                 'mood': msg['mood'],
+                'created_at': msg['created_at'],
               });
             }
           });
@@ -135,7 +134,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     });
   }
 
-  /// 发送消息：内容审核 -> 情感分析 -> 发送 -> 刷新脉搏
+  /// 发送消息：直接发送给湖神（后端内部已有内容审核）-> 刷新脉搏
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
@@ -146,65 +145,37 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     setState(() => _isSending = true);
 
     try {
-      // 1. 内容审核
-      final moderateResp = await _edgeAI.moderateContent(content);
-      if (moderateResp.success && moderateResp.data != null) {
-        final moderateData = moderateResp.data as Map<String, dynamic>;
-        if (moderateData['passed'] != true) {
-          final reason = moderateData['reason'] ?? '内容不太合适';
-          if (mounted) {
-            setState(() => _isSending = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('消息未发送：$reason'),
-                backgroundColor: AppTheme.warningColor,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      // 2. 情感分析
-      String? mood;
-      double? score;
-      try {
-        final sentimentResp = await _edgeAI.analyzeSentiment(content);
-        if (sentimentResp.success && sentimentResp.data != null) {
-          final sentimentData = sentimentResp.data as Map<String, dynamic>;
-          mood = sentimentData['mood'] as String?;
-          score = (sentimentData['score'] as num?)?.toDouble();
-        }
-      } catch (_) {
-        // 情感分析失败不阻塞发送
-      }
-
-      // 3. 添加用户消息到列表
+      // 1. 添加用户消息到列表
       setState(() {
         _messages.add({
           'content': content,
           'is_mine': true,
-          'mood': mood,
-          'score': score,
         });
       });
       _scrollToBottom();
 
-      // 4. 发送消息给湖神
+      // 2. 发送消息给湖神（后端 lakeGodChat 内部会做内容审核+情感分析+AI回复）
       final result = await _service.sendMessage(content);
 
       if (mounted) {
         setState(() {
           _isSending = false;
           if (result['success'] == true && result['data'] != null) {
+            final data = result['data'] as Map<String, dynamic>;
+            final reply = data['reply'] ??
+                data['response'] ??
+                data['content'] ??
+                '我在倾听...';
             _messages.add({
-              'content': result['data']['reply'] ?? '我在倾听...',
+              'content': reply,
               'is_mine': false,
+              'emotion': data['emotion'],
             });
           } else {
+            // 后端返回失败（如内容审核不通过）
+            final msg = result['message'] ?? '消息发送失败，请稍后再试~';
             _messages.add({
-              'content': '网络不太好，稍后再试试吧~',
+              'content': msg,
               'is_mine': false,
             });
           }
@@ -212,7 +183,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         _scrollToBottom();
       }
 
-      // 5. 异步刷新情绪脉搏
+      // 3. 异步刷新情绪脉搏
       _loadEmotionPulse();
     } catch (e) {
       if (mounted) {
