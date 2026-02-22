@@ -21,9 +21,8 @@ class FriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'request_id': response.data?['request_id'],
-      'data': response.data,
     };
   }
 
@@ -52,7 +51,7 @@ class FriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'friends': response.data?['friends'],
       'total': response.data?['total'],
     };
@@ -65,7 +64,7 @@ class FriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'requests': response.data?['requests'],
       'total': response.data?['total'],
     };
