@@ -10,6 +10,7 @@
 #include <drogon/orm/DbClient.h>
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
+#include "infrastructure/filters/SecurityAuditFilter.h"
 #include <json/json.h>
 #include <cmath>
 #include <algorithm>
@@ -46,7 +47,7 @@ public:
                   "/api/recommendations/emotion-trends", Get, "heartlake::filters::SecurityAuditFilter");
 
     ADD_METHOD_TO(RecommendationController::getTrendingContent,
-                  "/api/recommendations/trending", Get);
+                  "/api/recommendations/trending", Get, "heartlake::filters::SecurityAuditFilter");
 
     ADD_METHOD_TO(RecommendationController::searchRecommendations,
                   "/api/recommendations/search", Post, "heartlake::filters::SecurityAuditFilter");
