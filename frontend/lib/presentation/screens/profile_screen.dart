@@ -518,8 +518,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.sailing, color: AppTheme.skyBlue),
-                        title: const Text('漂流纸船'),
-                        subtitle: const Text('放漂和捞取纸船', style: TextStyle(fontSize: 12)),
+                        title: const Text('漂流瓶'),
+                        subtitle: const Text('匿名私信，等待有缘人', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaperBoatScreen())),
                       ),

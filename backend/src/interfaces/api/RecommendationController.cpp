@@ -151,6 +151,7 @@ void RecommendationController::calculateStoneRecommendations(
             stone["emotion_score"] = row["emotion_score"].as<double>();
             stone["author_name"] = row["author_name"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
+            stone["created_at"] = row["created_at"].as<std::string>();
             stone["recommendation_reason"] = "和你有相似感受的人也喜欢这个";
             stone["recommendation_type"] = "collaborative";
 
@@ -172,6 +173,7 @@ void RecommendationController::calculateStoneRecommendations(
             stone["emotion_score"] = row["emotion_score"].as<double>();
             stone["author_name"] = row["author_name"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
+            stone["created_at"] = row["created_at"].as<std::string>();
 
             // 生成温馨的推荐理由
             std::string relationshipType = row["relationship_type"].as<std::string>();
@@ -200,6 +202,7 @@ void RecommendationController::calculateStoneRecommendations(
             stone["emotion_score"] = row["emotion_score"].as<double>();
             stone["author_name"] = row["author_name"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
+            stone["created_at"] = row["created_at"].as<std::string>();
             stone["recommendation_reason"] = "也许你会喜欢这个意外的发现";
             stone["recommendation_type"] = "exploration";
 
@@ -880,6 +883,34 @@ void RecommendationController::getAdvancedRecommendations(
                     auto& resonanceEngine = heartlake::ai::EmotionResonanceEngine::getInstance();
                     auto resonanceResults = resonanceEngine.findResonance(userId, stoneId, limit / 2);
 
+                    // 批量查询共鸣石头的基本信息
+                    std::map<std::string, Json::Value> stoneInfoMap;
+                    if (!resonanceResults.empty()) {
+                        try {
+                            auto dbClient = drogon::app().getDbClient("default");
+                            for (const auto& res : resonanceResults) {
+                                auto rows = dbClient->execSqlSync(
+                                    "SELECT s.content, s.mood_type, s.emotion_score, s.created_at, "
+                                    "u.nickname as author_name, "
+                                    "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+                                    "FROM stones s JOIN users u ON s.user_id = u.user_id "
+                                    "WHERE s.stone_id = $1 LIMIT 1", res.stoneId);
+                                if (!rows.empty()) {
+                                    Json::Value info;
+                                    info["content"] = rows[0]["content"].as<std::string>();
+                                    info["mood_type"] = rows[0]["mood_type"].as<std::string>();
+                                    info["emotion_score"] = rows[0]["emotion_score"].as<double>();
+                                    info["author_name"] = rows[0]["author_name"].as<std::string>();
+                                    info["ripple_count"] = rows[0]["ripple_count"].as<int>();
+                                    info["created_at"] = rows[0]["created_at"].as<std::string>();
+                                    stoneInfoMap[res.stoneId] = info;
+                                }
+                            }
+                        } catch (const std::exception& e) {
+                            LOG_WARN << "查询共鸣石头信息失败: " << e.what();
+                        }
+                    }
+
                     for (const auto& res : resonanceResults) {
                         Json::Value item;
                         item["stone_id"] = res.stoneId;
@@ -890,6 +921,16 @@ void RecommendationController::getAdvancedRecommendations(
                         item["trajectory_score"] = res.trajectoryScore;
                         item["temporal_score"] = res.temporalScore;
                         item["diversity_score"] = res.diversityScore;
+                        // 补充石头基本信息
+                        auto it = stoneInfoMap.find(res.stoneId);
+                        if (it != stoneInfoMap.end()) {
+                            item["content"] = it->second["content"];
+                            item["mood_type"] = it->second["mood_type"];
+                            item["emotion_score"] = it->second["emotion_score"];
+                            item["author_name"] = it->second["author_name"];
+                            item["ripple_count"] = it->second["ripple_count"];
+                            item["created_at"] = it->second["created_at"];
+                        }
                         recommendations.append(item);
                         addedIds.insert(res.stoneId);
                     }

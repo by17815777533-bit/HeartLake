@@ -84,7 +84,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
           FocusScope.of(context).unfocus();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('纸船已放入湖中，静待有缘人'),
+              content: Text('漂流瓶已放入湖中，静待有缘人'),
               backgroundColor: AppTheme.secondaryColor,
             ),
           );
@@ -186,7 +186,7 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
           _showCatchAnimation = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('纸船已放回湖中')),
+          const SnackBar(content: Text('漂流瓶已放回湖中')),
         );
       }
     } catch (e) {
@@ -202,13 +202,13 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('漂流纸船'),
+        title: const Text('漂流瓶'),
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.send), text: '放纸船'),
-            Tab(icon: Icon(Icons.catching_pokemon), text: '捞纸船'),
+            Tab(icon: Icon(Icons.send), text: '放漂流瓶'),
+            Tab(icon: Icon(Icons.catching_pokemon), text: '捞漂流瓶'),
           ],
         ),
       ),
@@ -261,12 +261,12 @@ class _PaperBoatScreenState extends State<PaperBoatScreen>
                 const Icon(Icons.sailing, color: AppTheme.skyBlue, size: 28),
                 const SizedBox(height: 8),
                 const Text(
-                  '纸船漂流',
+                  '漂流瓶',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '写下心事折成纸船放入湖中，等待有缘人捞起并回应。\n不同于石头的匿名表达，纸船是一场温暖的漂流互动。',
+                  '石头是公开的心情广场，漂流瓶是私密的一对一。\n写下悄悄话放入湖中，只有捞到的人才能看见并回应。',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                 ),

@@ -6,6 +6,7 @@
 
 #include "application/FriendApplicationService.h"
 #include "infrastructure/services/FriendshipTTLEngine.h"
+#include <drogon/orm/DbClient.h>
 
 namespace heartlake::application {
 
@@ -158,14 +159,48 @@ drogon::Task<Json::Value> FriendApplicationService::getReceivedRequestsAsync(
     Json::Value result;
     result["requests"] = Json::Value(Json::arrayValue);
 
+    // 收集所有待处理请求的发起者ID
+    std::vector<std::pair<std::string, std::string>> pendingItems; // {friendshipId, fromUserId}
     for (const auto& f : friendships) {
         if (f.friendId == userId && f.status == "pending") {
-            Json::Value item;
-            item["friendship_id"] = f.friendshipId;
-            item["from_user_id"] = f.userId;
-            item["created_at"] = f.createdAt;
-            result["requests"].append(item);
+            pendingItems.emplace_back(f.friendshipId, f.userId);
         }
+    }
+
+    // 批量查询发起者的用户信息
+    std::map<std::string, std::pair<std::string, std::string>> userInfoMap; // userId -> {nickname, username}
+    if (!pendingItems.empty()) {
+        try {
+            auto dbClient = drogon::app().getDbClient();
+            for (const auto& [fid, fromId] : pendingItems) {
+                auto rows = co_await dbClient->execSqlCoro(
+                    "SELECT nickname, username FROM users WHERE user_id = $1 LIMIT 1", fromId);
+                if (!rows.empty()) {
+                    userInfoMap[fromId] = {
+                        rows[0]["nickname"].as<std::string>(),
+                        rows[0]["username"].isNull() ? "" : rows[0]["username"].as<std::string>()
+                    };
+                }
+            }
+        } catch (const std::exception& e) {
+            LOG_WARN << "查询好友请求用户信息失败: " << e.what();
+        }
+    }
+
+    for (const auto& [fid, fromId] : pendingItems) {
+        Json::Value item;
+        item["friendship_id"] = fid;
+        item["from_user_id"] = fromId;
+        auto it = userInfoMap.find(fromId);
+        if (it != userInfoMap.end()) {
+            item["nickname"] = it->second.first;
+            item["username"] = it->second.second;
+        } else {
+            item["nickname"] = "未知用户";
+            item["username"] = "";
+        }
+        item["created_at"] = ""; // friendships 中没有单独的 created_at，留空
+        result["requests"].append(item);
     }
 
     co_return result;

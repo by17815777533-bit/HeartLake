@@ -95,14 +95,11 @@ class Stone {
             : int.tryParse(json['boat_count']?.toString() ?? '0') ?? 0,
         tags: json['tags'] is List ? (json['tags'] as List).map((e) => e.toString()).toList() : [],
         createdAt: _parseDate(json['created_at']),
-        authorNickname: json['author']?['nickname'],
-        // AI 分析字段
+        // 兼容推荐API的平铺 author_name 和标准API的嵌套 author.nickname
+        authorNickname: json['author']?['nickname'] ?? json['author_name'] ?? json['nickname'],
+        // AI 分析字段 - 兼容 emotion_score 和 sentiment_score
         moodType: json['mood_type'],
-        sentimentScore: json['sentiment_score'] != null
-            ? (json['sentiment_score'] is num
-                ? (json['sentiment_score'] as num).toDouble()
-                : double.tryParse(json['sentiment_score'].toString()))
-            : null,
+        sentimentScore: _parseDouble(json['sentiment_score'] ?? json['emotion_score']),
         aiTags:
             json['ai_tags'] != null ? List<String>.from(json['ai_tags']) : null,
         // 媒体字段
@@ -119,6 +116,13 @@ class Stone {
         'Stone JSON 解析失败: $e, keys=${json.keys.toList()}',
       );
     }
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   static DateTime _parseDate(dynamic date) {
