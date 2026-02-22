@@ -363,7 +363,7 @@ float DualMemoryRAG::calculateVolatility(const std::vector<float>& scores) {
 }
 
 Json::Value DualMemoryRAG::getStats() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(mutex_));
+    std::lock_guard<std::mutex> lock(mutex_);
     Json::Value stats;
     stats["active_users"] = static_cast<int>(memories_.size());
     stats["max_short_term_entries"] = MAX_SHORT_TERM;

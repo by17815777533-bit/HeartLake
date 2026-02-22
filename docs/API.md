@@ -14,7 +14,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
   "code": 200,
   "message": "ok",
   "data": { ... },
-  "timestamp": "2026-02-21T12:00:00Z"
+  "timestamp": "2026-02-23T12:00:00Z"
 }
 ```
 
@@ -38,9 +38,134 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 
 ---
 
-## 2. 账号管理模块
+## 2. 认证与用户模块
 
-### 2.1 个人信息管理
+### 2.1 匿名登录
+- **Method**: `POST`
+- **Path**: `/api/auth/anonymous`
+- **描述**: 创建匿名用户并返回 token
+- **认证**: 无需认证
+
+### 2.2 用户注册
+- **Method**: `POST`
+- **Path**: `/api/auth/register`、`/api/v1/auth/register`
+- **描述**: 用户名+密码注册
+- **认证**: 无需认证
+- **请求体**: username, password, nickname
+
+### 2.3 邮箱注册
+- **Method**: `POST`
+- **Path**: `/api/auth/register/email`
+- **描述**: 邮箱+验证码注册
+- **认证**: 无需认证
+- **请求体**: email, password, verificationCode, nickname
+
+### 2.4 用户登录
+- **Method**: `POST`
+- **Path**: `/api/auth/login`、`/api/v1/auth/login`
+- **描述**: 用户名+密码登录
+- **认证**: 无需认证
+- **请求体**: username, password
+
+### 2.5 邮箱登录
+- **Method**: `POST`
+- **Path**: `/api/auth/login/email`
+- **描述**: 邮箱+密码登录
+- **认证**: 无需认证
+- **请求体**: email, password
+
+### 2.6 刷新令牌
+- **Method**: `POST`
+- **Path**: `/api/auth/refresh`
+- **描述**: 使用 refresh token 获取新的 access token
+- **认证**: 无需认证
+
+### 2.7 发送验证码（短信）
+- **Method**: `POST`
+- **Path**: `/api/auth/verification-code`
+- **描述**: 发送短信验证码
+- **认证**: 无需认证
+
+### 2.8 发送验证码（邮箱）
+- **Method**: `POST`
+- **Path**: `/api/auth/email/verification-code`
+- **描述**: 发送邮箱验证码
+- **认证**: 无需认证
+
+### 2.9 修改密码
+- **Method**: `POST`
+- **Path**: `/api/auth/change-password`
+- **描述**: 修改当前密码（需旧密码）
+- **认证**: 需要 PASETO Token
+- **请求体**: oldPassword, newPassword
+
+### 2.10 发送重置密码验证码
+- **Method**: `POST`
+- **Path**: `/api/auth/reset-password/code`
+- **描述**: 发送重置密码验证码
+- **认证**: 无需认证
+
+### 2.11 重置密码
+- **Method**: `POST`
+- **Path**: `/api/auth/reset-password`
+- **描述**: 通过验证码重置密码
+- **认证**: 无需认证
+- **请求体**: email, verificationCode, newPassword
+
+### 2.12 注销账号
+- **Method**: `POST`
+- **Path**: `/api/auth/delete-account`
+- **描述**: 注销当前账号
+- **认证**: 需要 PASETO Token
+
+### 2.13 搜索用户
+- **Method**: `GET`
+- **Path**: `/api/users/search?keyword=xxx&page=1&pageSize=20`
+- **描述**: 按关键词搜索用户
+- **认证**: 需要 PASETO Token
+
+### 2.14 获取用户信息
+- **Method**: `GET`
+- **Path**: `/api/users/{userId}`
+- **描述**: 获取指定用户信息
+- **认证**: 需要 PASETO Token
+
+### 2.15 获取用户统计
+- **Method**: `GET`
+- **Path**: `/api/users/{userId}/stats`
+- **描述**: 获取用户统计数据
+- **认证**: 需要 PASETO Token
+
+### 2.16 获取我的漂流瓶
+- **Method**: `GET`
+- **Path**: `/api/users/my/boats`
+- **描述**: 获取当前用户的漂流瓶列表
+- **认证**: 需要 PASETO Token
+
+### 2.17 获取我的情绪日历
+- **Method**: `GET`
+- **Path**: `/api/users/my/emotion-calendar`
+- **描述**: 获取情绪日历数据
+- **认证**: 需要 PASETO Token
+
+### 2.18 更新昵称
+- **Method**: `PUT`
+- **Path**: `/api/users/my/nickname`
+- **描述**: 更新当前用户昵称
+- **认证**: 需要 PASETO Token
+- **请求体**: nickname
+
+### 2.19 更新个人资料
+- **Method**: `PUT`
+- **Path**: `/api/users/my/profile`
+- **描述**: 更新当前用户个人资料
+- **认证**: 需要 PASETO Token
+
+---
+
+## 3. 账号管理模块
+
+### 3.1 个人信息管理
 
 #### 获取账号信息
 - **Method**: `GET`
@@ -66,7 +191,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 获取账号统计数据（活跃度、内容数量）
 - **认证**: 需要 PASETO Token
 
-### 2.2 账号安全
+### 3.2 账号安全
 
 #### 获取登录设备列表
 - **Method**: `GET`
@@ -110,7 +235,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 解除邮箱绑定
 - **认证**: 需要 PASETO Token
 
-### 2.3 隐私设置
+### 3.3 隐私设置
 
 #### 获取隐私设置
 - **Method**: `GET`
@@ -142,7 +267,7 @@ HeartLake 后端 API 基于 Drogon 框架构建，提供 RESTful 风格的接口
 - **描述**: 将用户从黑名单移除
 - **认证**: 需要 PASETO Token
 
-### 2.4 数据管理
+### 3.4 数据管理
 
 #### 导出个人数据
 - **Method**: `POST`

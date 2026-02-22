@@ -32,7 +32,7 @@ public:
     virtual drogon::Task<std::vector<FriendEntity>> findAllByUserIdAsync(const std::string& userId) = 0;
     virtual drogon::Task<void> updateStatusAsync(const std::string& friendshipId, const std::string& status) = 0;
     virtual drogon::Task<void> deleteByIdAsync(const std::string& friendshipId) = 0;
-    virtual drogon::Task<void> deleteBidirectionalAsync(const std::string& oderId, const std::string& friendId) = 0;
+    virtual drogon::Task<void> deleteBidirectionalAsync(const std::string& userId, const std::string& friendId) = 0;
 
     // Legacy sync methods (deprecated)
     virtual void save(const FriendEntity& friendship) = 0;

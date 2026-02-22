@@ -1019,9 +1019,9 @@ WS /ws/broadcast
 | 社交互动 | InteractionController | 15 |
 | 社交互动 | PaperBoatController | 10 |
 | 社交互动 | FriendController | 8 |
-| 社交互动 | TempFriendController | 6 |
-| 守望者与咨询 | GuardianController | 3 |
-| 守望者与咨询 | ConsultationController | 4 |
+| 社交互动 | TempFriendController | 8 |
+| 守望者与咨询 | GuardianController | 5 |
+| 守望者与咨询 | ConsultationController | 5 |
 | 推荐与搜索 | RecommendationController | 8 |
 | 推荐与搜索 | VectorSearchController | 3 |
 | 边缘AI | EdgeAIController | 10 |
@@ -1033,4 +1033,4 @@ WS /ws/broadcast
 | 系统 | BroadcastWebSocketController | 1 (WebSocket) |
 | 管理后台 | AdminController | 14 |
 | 管理后台 | AdminManagementController | 26 |
-| **合计** | **21 个 Controller** | **179+ 端点** |
+| **合计** | **21 个 Controller** | **184+ 端点** |

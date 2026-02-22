@@ -100,7 +100,7 @@ public:
 private:
     DualMemoryRAG() = default;
     std::unordered_map<std::string, EmotionMemory> memories_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
 
     static constexpr int MAX_SHORT_TERM = 5;
 
