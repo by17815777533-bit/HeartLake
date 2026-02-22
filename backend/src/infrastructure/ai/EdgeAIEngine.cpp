@@ -150,6 +150,54 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["自信"] = 0.7f;
     sentimentLexicon_["希望"] = 0.65f;
     sentimentLexicon_["勇敢"] = 0.7f;
+    // 扩充中文正面词
+    sentimentLexicon_["高兴"] = 0.8f;
+    sentimentLexicon_["愉快"] = 0.75f;
+    sentimentLexicon_["欣喜"] = 0.8f;
+    sentimentLexicon_["欢乐"] = 0.8f;
+    sentimentLexicon_["兴奋"] = 0.8f;
+    sentimentLexicon_["激动"] = 0.75f;
+    sentimentLexicon_["享受"] = 0.7f;
+    sentimentLexicon_["充实"] = 0.65f;
+    sentimentLexicon_["感恩"] = 0.75f;
+    sentimentLexicon_["幸运"] = 0.7f;
+    sentimentLexicon_["愉悦"] = 0.75f;
+    sentimentLexicon_["欣慰"] = 0.7f;
+    sentimentLexicon_["惊喜"] = 0.8f;
+    sentimentLexicon_["甜蜜"] = 0.8f;
+    sentimentLexicon_["浪漫"] = 0.7f;
+    sentimentLexicon_["舒心"] = 0.7f;
+    sentimentLexicon_["安心"] = 0.65f;
+    sentimentLexicon_["放松"] = 0.6f;
+    sentimentLexicon_["宁静"] = 0.6f;
+    sentimentLexicon_["平静"] = 0.55f;
+    sentimentLexicon_["从容"] = 0.6f;
+    sentimentLexicon_["淡定"] = 0.55f;
+    sentimentLexicon_["自在"] = 0.65f;
+    sentimentLexicon_["轻松"] = 0.6f;
+    sentimentLexicon_["惬意"] = 0.7f;
+    sentimentLexicon_["舒畅"] = 0.7f;
+    sentimentLexicon_["治愈"] = 0.75f;
+    sentimentLexicon_["暖心"] = 0.75f;
+    sentimentLexicon_["可爱"] = 0.7f;
+    sentimentLexicon_["有趣"] = 0.65f;
+    sentimentLexicon_["好玩"] = 0.65f;
+    sentimentLexicon_["期待"] = 0.65f;
+    sentimentLexicon_["向往"] = 0.6f;
+    sentimentLexicon_["珍惜"] = 0.65f;
+    sentimentLexicon_["值得"] = 0.6f;
+    sentimentLexicon_["成功"] = 0.75f;
+    sentimentLexicon_["进步"] = 0.65f;
+    sentimentLexicon_["成长"] = 0.6f;
+    sentimentLexicon_["收获"] = 0.7f;
+    sentimentLexicon_["骄傲"] = 0.7f;
+    sentimentLexicon_["自豪"] = 0.75f;
+    sentimentLexicon_["加油"] = 0.7f;
+    sentimentLexicon_["奥利给"] = 0.75f;
+    sentimentLexicon_["绝绝子"] = 0.7f;
+    sentimentLexicon_["yyds"] = 0.75f;
+    sentimentLexicon_["真香"] = 0.7f;
+    sentimentLexicon_["上头"] = 0.65f;
 
     // 英文正面补充
     sentimentLexicon_["hopeful"] = 0.7f;
@@ -198,6 +246,61 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["委屈"] = -0.65f;
     sentimentLexicon_["失落"] = -0.6f;
     sentimentLexicon_["崩溃"] = -0.85f;
+    // 扩充中文负面词
+    sentimentLexicon_["沮丧"] = -0.7f;
+    sentimentLexicon_["悲伤"] = -0.75f;
+    sentimentLexicon_["心痛"] = -0.75f;
+    sentimentLexicon_["心碎"] = -0.8f;
+    sentimentLexicon_["无助"] = -0.75f;
+    sentimentLexicon_["寂寞"] = -0.6f;
+    sentimentLexicon_["空虚"] = -0.6f;
+    sentimentLexicon_["心酸"] = -0.65f;
+    sentimentLexicon_["煎熬"] = -0.75f;
+    sentimentLexicon_["折磨"] = -0.8f;
+    sentimentLexicon_["难受"] = -0.7f;
+    sentimentLexicon_["郁闷"] = -0.65f;
+    sentimentLexicon_["无语"] = -0.5f;
+    sentimentLexicon_["心累"] = -0.65f;
+    sentimentLexicon_["emo"] = -0.6f;
+    sentimentLexicon_["破防"] = -0.7f;
+    sentimentLexicon_["裂开"] = -0.6f;
+    sentimentLexicon_["麻了"] = -0.55f;
+    sentimentLexicon_["无聊"] = -0.4f;
+    sentimentLexicon_["烦死"] = -0.75f;
+    sentimentLexicon_["受不了"] = -0.7f;
+    sentimentLexicon_["忍无可忍"] = -0.8f;
+    sentimentLexicon_["恼火"] = -0.65f;
+    sentimentLexicon_["气愤"] = -0.7f;
+    sentimentLexicon_["不爽"] = -0.6f;
+    sentimentLexicon_["火大"] = -0.7f;
+    sentimentLexicon_["暴怒"] = -0.85f;
+    sentimentLexicon_["担心"] = -0.5f;
+    sentimentLexicon_["不安"] = -0.55f;
+    sentimentLexicon_["紧张"] = -0.5f;
+    sentimentLexicon_["忧虑"] = -0.55f;
+    sentimentLexicon_["慌"] = -0.55f;
+    sentimentLexicon_["忐忑"] = -0.5f;
+    sentimentLexicon_["迷茫"] = -0.5f;
+    sentimentLexicon_["困惑"] = -0.45f;
+    sentimentLexicon_["纠结"] = -0.45f;
+    sentimentLexicon_["压力"] = -0.55f;
+    sentimentLexicon_["疲惫"] = -0.55f;
+    sentimentLexicon_["厌倦"] = -0.6f;
+    sentimentLexicon_["后悔"] = -0.65f;
+    sentimentLexicon_["遗憾"] = -0.55f;
+    sentimentLexicon_["可惜"] = -0.45f;
+    sentimentLexicon_["尴尬"] = -0.4f;
+    sentimentLexicon_["丢脸"] = -0.55f;
+    sentimentLexicon_["羞耻"] = -0.6f;
+    sentimentLexicon_["嫉妒"] = -0.55f;
+    sentimentLexicon_["悲催"] = -0.7f;
+    sentimentLexicon_["惨"] = -0.7f;
+    sentimentLexicon_["糟糕"] = -0.6f;
+    sentimentLexicon_["倒霉"] = -0.6f;
+    sentimentLexicon_["绷不住"] = -0.65f;
+    sentimentLexicon_["窒息"] = -0.75f;
+    sentimentLexicon_["社死"] = -0.6f;
+    sentimentLexicon_["摆烂"] = -0.5f;
 
     // 英文负面补充
     sentimentLexicon_["hopeless"] = -0.85f;
@@ -231,6 +334,20 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     intensifiers_["稍微"] = 0.5f;
     intensifiers_["真"] = 1.3f;
     intensifiers_["好"] = 1.2f;
+    // 扩充中文程度副词
+    intensifiers_["十分"] = 1.5f;
+    intensifiers_["格外"] = 1.5f;
+    intensifiers_["尤其"] = 1.4f;
+    intensifiers_["相当"] = 1.4f;
+    intensifiers_["挺"] = 1.2f;
+    intensifiers_["蛮"] = 1.1f;
+    intensifiers_["贼"] = 1.5f;
+    intensifiers_["巨"] = 1.6f;
+    intensifiers_["狠"] = 1.5f;
+    intensifiers_["死了"] = 1.7f;
+    intensifiers_["要命"] = 1.6f;
+    intensifiers_["透了"] = 1.5f;
+    intensifiers_["极了"] = 1.7f;
 
     // 否定词（翻转因子）
     negators_["not"] = -1.0f;
@@ -253,6 +370,19 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     negators_["别"] = -1.0f;
     negators_["未"] = -1.0f;
     negators_["无"] = -1.0f;
+    // 扩充中文否定词
+    negators_["非"] = -1.0f;
+    negators_["莫"] = -1.0f;
+    negators_["勿"] = -1.0f;
+    negators_["毫不"] = -1.0f;
+    negators_["并非"] = -1.0f;
+    negators_["绝非"] = -1.0f;
+    negators_["从未"] = -1.0f;
+    negators_["不是"] = -1.0f;
+    negators_["不会"] = -1.0f;
+    negators_["不能"] = -1.0f;
+    negators_["不想"] = -1.0f;
+    negators_["不要"] = -1.0f;
 
     LOG_INFO << "[EdgeAI] Sentiment lexicon loaded: "
              << sentimentLexicon_.size() << " words, "
@@ -487,7 +617,8 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
     }
 
     if (matchedCount == 0) return 0.0f;
-    return std::clamp(totalScore / std::sqrt(static_cast<float>(matchedCount)), -1.0f, 1.0f);
+    // 线性归一化，避免 sqrt 过度稀释多情感词文本
+    return std::clamp(totalScore / static_cast<float>(matchedCount), -1.0f, 1.0f);
 }
 
 float EdgeAIEngine::statisticalSentiment(const std::vector<std::string>& tokens,
@@ -556,12 +687,11 @@ float EdgeAIEngine::statisticalSentiment(const std::vector<std::string>& tokens,
 }
 
 std::string EdgeAIEngine::scoresToMood(float score) const {
-    if (score > 0.6f) return "joy";
-    if (score > 0.2f) return "surprise";  // 轻度正面 -> 惊喜
-    if (score > -0.2f) return "neutral";
-    if (score > -0.5f) return "sadness";
-    if (score > -0.7f) return "fear";
-    return "anger";
+    if (score > 0.6f) return "happy";
+    if (score > 0.3f) return "calm";
+    if (score > -0.3f) return "neutral";
+    if (score > -0.6f) return "anxious";
+    return "sad";
 }
 
 EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text) {
@@ -579,10 +709,10 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
     float lexScore = lexiconSentiment(tokens);
     float statScore = statisticalSentiment(tokens, text);
 
-    // 加权集成：词典权重最高，规则次之，统计辅助
-    const float wRule = 0.25f;
-    const float wLex = 0.50f;
-    const float wStat = 0.25f;
+    // 加权集成：词典权重最高，规则次之，统计辅助（降低统计层噪声）
+    const float wRule = 0.30f;
+    const float wLex = 0.60f;
+    const float wStat = 0.10f;
 
     float ensembleScore = wRule * ruleScore + wLex * lexScore + wStat * statScore;
     ensembleScore = std::clamp(ensembleScore, -1.0f, 1.0f);

@@ -9,10 +9,14 @@ import 'presentation/providers/user_provider.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'data/datasources/cache_service.dart';
 import 'data/datasources/websocket_manager.dart';
+import 'data/datasources/api_client.dart';
 import 'presentation/screens/splash_screen.dart';
 import 'presentation/screens/home_screen.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_config.dart';
+
+/// 全局 navigatorKey，用于在非 Widget 上下文中导航
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +29,12 @@ void main() {
 
   appConfig.initialize();
   cacheService.startAutoCleanup();
+
+  // 注册401未授权回调 - token过期且刷新失败时跳转登录
+  ApiClient().setOnUnauthorized(() {
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
+  });
+
   runApp(const HeartLakeApp());
 }
 
@@ -56,6 +66,7 @@ class _HeartLakeAppState extends State<HeartLakeApp> {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             title: '心湖 Heart Lake',
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,

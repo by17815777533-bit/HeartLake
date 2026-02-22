@@ -4,6 +4,7 @@
  * Created by 王璐瑶
  */
 #include "infrastructure/ai/AIService.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "infrastructure/ai/ImageModerationEngine.h"
 #include "utils/ContentFilter.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <unordered_set>
 
 using namespace drogon;
 
@@ -34,6 +36,10 @@ void AIService::initialize(const Json::Value& config) {
 
     // 初始化语义缓存
     SemanticCache::getInstance().initialize(0.92f, 5000, 86400);
+
+    // 创建复用的 HTTP 客户端
+    ollamaClient_ = HttpClient::newHttpClient(baseUrl_);
+    ollamaClient_->setUserAgent("HeartLake/2.0");
 
     LOG_INFO << "AIService initialized with provider: " << provider_;
 }
@@ -66,12 +72,95 @@ void AIService::analyzeSentiment(
     const std::string& text,
     std::function<void(float score, const std::string& mood, const std::string& error)> callback
 ) {
-    // 使用统一的EmotionManager进行情绪分析
-    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
-    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
-    
-    // 直接调用回调函数返回结果
-    callback(score, mood, "");
+    // 优先调用 Ollama 大模型进行情感分析
+    Json::Value payload;
+    payload["model"] = model_;
+    payload["messages"] = Json::arrayValue;
+
+    Json::Value systemMsg;
+    systemMsg["role"] = "system";
+    systemMsg["content"] = "情感分析。返回JSON: {\"score\":浮点数(-1到1),\"mood\":字符串}。"
+        "mood: happy/calm/neutral/anxious/sad/angry/surprised/confused。只返回JSON。";
+    payload["messages"].append(systemMsg);
+
+    Json::Value userMsg;
+    userMsg["role"] = "user";
+    userMsg["content"] = text;
+    payload["messages"].append(userMsg);
+
+    payload["temperature"] = 0.1;
+    payload["max_tokens"] = 30;
+
+    callAIAPI("/v1/chat/completions", payload,
+        [text, callback](const Json::Value& response, const std::string& error) {
+            if (!error.empty()) {
+                LOG_WARN << "Ollama sentiment failed, fallback to EdgeAIEngine: " << error;
+                // 降级到 EdgeAIEngine 三层融合分析（比 EmotionManager 更精确）
+                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+                if (edgeAI.isEnabled()) {
+                    auto result = edgeAI.analyzeSentimentLocal(text);
+                    callback(result.score, result.mood, "");
+                } else {
+                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
+                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
+                    callback(score, mood, "");
+                }
+                return;
+            }
+
+            // 解析大模型返回的 JSON
+            try {
+                std::string content = response["choices"][0]["message"]["content"].asString();
+                // 提取 JSON 部分（大模型可能返回 ```json ... ``` 包裹）
+                auto jsonStart = content.find('{');
+                auto jsonEnd = content.rfind('}');
+                if (jsonStart != std::string::npos && jsonEnd != std::string::npos && jsonEnd > jsonStart) {
+                    std::string jsonStr = content.substr(jsonStart, jsonEnd - jsonStart + 1);
+                    Json::Value parsed;
+                    Json::Reader reader;
+                    if (reader.parse(jsonStr, parsed)) {
+                        float score = parsed.get("score", 0.0f).asFloat();
+                        std::string mood = parsed.get("mood", "neutral").asString();
+                        score = std::clamp(score, -1.0f, 1.0f);
+
+                        // 校验 mood 合法性
+                        static const std::unordered_set<std::string> validMoods = {
+                            "happy", "calm", "neutral", "anxious", "sad", "angry", "surprised", "confused"
+                        };
+                        if (validMoods.find(mood) == validMoods.end()) {
+                            mood = "neutral";
+                        }
+
+                        LOG_INFO << "Ollama sentiment: score=" << score << " mood=" << mood << " text=" << text.substr(0, 50);
+                        callback(score, mood, "");
+                        return;
+                    }
+                }
+                // JSON 解析失败，降级
+                LOG_WARN << "Ollama sentiment JSON parse failed, content: " << content;
+                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+                if (edgeAI.isEnabled()) {
+                    auto result = edgeAI.analyzeSentimentLocal(text);
+                    callback(result.score, result.mood, "");
+                } else {
+                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
+                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
+                    callback(score, mood, "");
+                }
+            } catch (const std::exception& e) {
+                LOG_WARN << "Ollama sentiment parse error: " << e.what();
+                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+                if (edgeAI.isEnabled()) {
+                    auto result = edgeAI.analyzeSentimentLocal(text);
+                    callback(result.score, result.mood, "");
+                } else {
+                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
+                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
+                    callback(score, mood, "");
+                }
+            }
+        }
+    );
 }
 
 void AIService::moderateText(
@@ -128,7 +217,7 @@ void AIService::moderateText(
     payload["messages"].append(userMsg);
 
     payload["temperature"] = 0.1;
-    payload["max_tokens"] = 200;
+    payload["max_tokens"] = 50;
 
     callAIAPI("/v1/chat/completions", payload,
         [callback, textHash, this](const Json::Value& response, const std::string& error) {
@@ -294,7 +383,7 @@ void AIService::generateStoneComment(
     payload["messages"].append(userMsg);
 
     payload["temperature"] = 0.8;
-    payload["max_tokens"] = 200;
+    payload["max_tokens"] = 80;
 
     callAIAPI("/v1/chat/completions", payload,
         [callback](const Json::Value& response, const std::string& error) {
@@ -387,8 +476,7 @@ void AIService::callAIAPIWithRetry(
     std::function<void(const Json::Value& response, const std::string& error)> callback,
     int retryCount
 ) {
-    auto client = HttpClient::newHttpClient(baseUrl_);
-    client->setUserAgent("HeartLake/2.0");
+    auto client = ollamaClient_ ? ollamaClient_ : HttpClient::newHttpClient(baseUrl_);
 
     LOG_INFO << "Calling AI API: " << baseUrl_ << endpoint << " (attempt " << (retryCount + 1) << ")";
 
@@ -706,10 +794,19 @@ void AIService::analyzeSentimentBatch(
     std::vector<std::pair<float, std::string>> results;
     results.reserve(texts.size());
 
-    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
-    for (const auto& text : texts) {
-        auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
-        results.emplace_back(score, mood);
+    // 优先使用 EdgeAIEngine 三层融合分析
+    auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+    if (edgeAI.isEnabled()) {
+        for (const auto& text : texts) {
+            auto result = edgeAI.analyzeSentimentLocal(text);
+            results.emplace_back(result.score, result.mood);
+        }
+    } else {
+        auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
+        for (const auto& text : texts) {
+            auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
+            results.emplace_back(score, mood);
+        }
     }
 
     callback(results, "");

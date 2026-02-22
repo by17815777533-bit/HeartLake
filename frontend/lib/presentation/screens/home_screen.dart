@@ -36,8 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onTabTapped(int index) {
-    // 如果从投石页面切换到观湖页面，刷新列表
-    if (_selectedIndex == 2 && index == 0) {
+    // 切换到观湖页面时，刷新石头列表
+    if (index == 0 && _selectedIndex != 0) {
       _lakeScreenKey.currentState?.refreshStones();
     }
 
@@ -49,10 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-        child: KeyedSubtree(key: ValueKey(_selectedIndex), child: _screens[_selectedIndex]),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

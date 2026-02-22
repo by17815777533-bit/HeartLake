@@ -9,6 +9,7 @@ import '../widgets/psych_support_dialog.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../data/datasources/stone_service.dart';
+import '../../data/datasources/cache_service.dart';
 import '../../providers/edge_ai_provider.dart';
 
 class PublishScreen extends StatefulWidget {
@@ -42,6 +43,7 @@ class _PublishScreenState extends State<PublishScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         extendBodyBehindAppBar: true,
+        backgroundColor: const Color(0xFF0D1B2A),
         appBar: AppBar(
           title: const Text('投石',
               style:
@@ -53,6 +55,7 @@ class _PublishScreenState extends State<PublishScreen> {
           foregroundColor: Colors.white,
         ),
         body: Stack(
+          fit: StackFit.expand,
           children: [
             const Positioned.fill(child: WaterBackground()),
             SingleChildScrollView(
@@ -304,6 +307,10 @@ class _PublishScreenState extends State<PublishScreen> {
         if (result['stone_id'] == null) {
           debugPrint('Warning: stone_id is null in success response');
         }
+        // 清除石头列表缓存，确保刷新能拿到最新数据
+        CacheService().removeByPrefix('GET:/lake/stones');
+        CacheService().removeByPrefix('GET:/stones');
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('你的石头已投入湖中，等待涟漪...'),

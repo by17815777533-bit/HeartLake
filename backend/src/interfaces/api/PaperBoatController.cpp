@@ -181,6 +181,7 @@ void PaperBoatController::sendBoat(const HttpRequestPtr &req,
             broadcastMsg["sender_id"] = user_id;
             broadcastMsg["mood"] = mood;
             broadcastMsg["boat_style"] = boat_style;
+            broadcastMsg["triggered_by"] = user_id;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::broadcast(broadcastMsg);
         }
@@ -284,6 +285,18 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
             newBoatsCount = updateResult.empty() ? 0 : updateResult[0]["boat_count"].as<int>();
 
             // 事务在作用域结束时自动提交
+        }
+
+        // 广播 boat_update 事件，让所有客户端实时更新石头的纸船计数
+        {
+            Json::Value broadcastMsg;
+            broadcastMsg["type"] = "boat_update";
+            broadcastMsg["stone_id"] = stone_id;
+            broadcastMsg["boat_id"] = boat_id;
+            broadcastMsg["boat_count"] = newBoatsCount;
+            broadcastMsg["triggered_by"] = user_id;
+            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            BroadcastWebSocketController::broadcast(broadcastMsg);
         }
 
         // 通知石头主人

@@ -154,7 +154,7 @@ void FriendshipTTLEngine::startExpirationListener() {
                 auto expired = dbClient->execSqlSync(
                     "UPDATE temp_friends SET status = 'expired' "
                     "WHERE status = 'active' AND expires_at < NOW() "
-                    "RETURNING temp_friend_id, user1_id, user2_id"
+                    "RETURNING temp_friend_id, user_id_1, user_id_2"
                 );
                 for (const auto& row : expired) {
                     std::string friendshipId = row["temp_friend_id"].as<std::string>();

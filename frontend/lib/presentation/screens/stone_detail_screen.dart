@@ -94,13 +94,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   void _setupWebSocketListener() {
-    // 定义监听器函数 - 使用服务器返回的实际总数，跳过自己触发的
+    // 定义监听器函数 - 使用服务器返回的实际总数
     _rippleListener = (data) {
       if (data['stone_id'] == widget.stone.stoneId && mounted) {
-        // 跳过自己触发的更新（已通过乐观更新处理）
-        final triggeredBy = data['triggered_by']?.toString();
-        if (triggeredBy == _currentUserId) return;
-
         final serverCount = data['ripple_count'];
         if (serverCount is int) {
           setState(() {
@@ -112,10 +108,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
     _rippleDeletedListener = (data) {
       if (data['stone_id'] == widget.stone.stoneId && mounted) {
-        // 跳过自己触发的更新
-        final triggeredBy = data['triggered_by']?.toString();
-        if (triggeredBy == _currentUserId) return;
-
         final serverCount = data['ripple_count'];
         setState(() {
           if (serverCount is int) {
@@ -129,27 +121,19 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
     _boatListener = (data) {
       if (data['stone_id'] == widget.stone.stoneId && mounted) {
-        // 跳过自己触发的更新（已通过乐观更新处理）
-        final triggeredBy = data['triggered_by']?.toString();
-        if (triggeredBy == _currentUserId) return;
-
         final serverCount = data['boat_count'];
         if (serverCount is int) {
           setState(() {
             _localBoatsCount = serverCount;
           });
         }
-        // 重新加载评论列表（其他用户的更新）
+        // 重新加载评论列表
         _loadBoats();
       }
     };
 
     _boatDeletedListener = (data) {
       if (data['stone_id'] == widget.stone.stoneId && mounted) {
-        // 跳过自己触发的更新
-        final triggeredBy = data['triggered_by']?.toString();
-        if (triggeredBy == _currentUserId) return;
-
         final deletedBoatId = data['boat_id'];
         final serverCount = data['boat_count'];
         setState(() {

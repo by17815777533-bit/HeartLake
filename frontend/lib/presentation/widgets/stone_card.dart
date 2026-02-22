@@ -105,15 +105,12 @@ class _StoneCardState extends State<StoneCard>
   void _setupWebSocketListener() {
     final ws = WebSocketManager();
 
-    // 监听涟漪更新 - 使用服务器返回的实际总数，跳过自己触发的（防止乐观更新后重复计数）
+    // 监听涟漪更新 - 使用服务器返回的实际总数
     _rippleUpdateListener = (data) {
       final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
       if (stoneId == widget.stone.stoneId && mounted) {
-        final triggeredBy = data['triggered_by']?.toString();
         final serverCount = data['ripple_count'];
         if (serverCount is int) {
-          // 如果是自己触发的，跳过（已经乐观更新过了）
-          if (triggeredBy == _currentUserId) return;
           setState(() {
             _localRipplesCount = serverCount;
           });
@@ -126,10 +123,8 @@ class _StoneCardState extends State<StoneCard>
     _boatUpdateListener = (data) {
       final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
       if (stoneId == widget.stone.stoneId && mounted) {
-        final triggeredBy = data['triggered_by']?.toString();
         final serverCount = data['boat_count'];
         if (serverCount is int) {
-          if (triggeredBy == _currentUserId) return;
           setState(() {
             _localBoatsCount = serverCount;
           });
@@ -142,10 +137,8 @@ class _StoneCardState extends State<StoneCard>
     _boatDeletedListener = (data) {
       final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
       if (stoneId == widget.stone.stoneId && mounted) {
-        final triggeredBy = data['triggered_by']?.toString();
         final serverCount = data['boat_count'];
         if (serverCount is int) {
-          if (triggeredBy == _currentUserId) return;
           setState(() {
             _localBoatsCount = serverCount;
           });
@@ -158,10 +151,8 @@ class _StoneCardState extends State<StoneCard>
     _rippleDeletedListener = (data) {
       final stoneId = data['stone_id'];
       if (stoneId == widget.stone.stoneId && mounted) {
-        final triggeredBy = data['triggered_by']?.toString();
         final serverCount = data['ripple_count'];
         if (serverCount is int) {
-          if (triggeredBy == _currentUserId) return;
           setState(() {
             _localRipplesCount = serverCount;
           });

@@ -32,7 +32,9 @@ class ApiClient {
   String? _refreshToken;
   String? _userId;
   bool _isRefreshing = false;
+  bool _hasTriggeredUnauthorized = false;
   TokenRefreshCallback? _tokenRefreshCallback;
+  Function()? _onUnauthorized;
 
   /// 需要重试的HTTP状态码（预留用于自动重试功能）
   // ignore: unused_field
@@ -168,6 +170,12 @@ class ApiClient {
           logger.error('Token刷新后重试失败', category: LogCategory.network);
           // 重试也失败了，走正常错误流程
         }
+      } else {
+        // Token刷新失败，触发未授权回调跳转登录（防重复触发）
+        if (!_hasTriggeredUnauthorized) {
+          _hasTriggeredUnauthorized = true;
+          _onUnauthorized?.call();
+        }
       }
       return handler.next(error);
     }
@@ -267,6 +275,7 @@ class ApiClient {
   /// 设置Token
   void setToken(String token, {String? refreshToken}) {
     _token = token;
+    _hasTriggeredUnauthorized = false;
     StorageUtil.saveToken(token);
     if (refreshToken != null) {
       _refreshToken = refreshToken;
@@ -278,6 +287,11 @@ class ApiClient {
   /// 设置Token刷新回调
   void setTokenRefreshCallback(TokenRefreshCallback callback) {
     _tokenRefreshCallback = callback;
+  }
+
+  /// 设置未授权回调（token过期且刷新失败时触发）
+  void setOnUnauthorized(Function() callback) {
+    _onUnauthorized = callback;
   }
 
   /// 设置用户ID

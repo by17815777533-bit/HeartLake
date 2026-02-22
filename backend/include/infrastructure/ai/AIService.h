@@ -7,6 +7,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include <drogon/HttpClient.h>
 #include <string>
 #include <vector>
 #include <functional>
@@ -245,6 +246,7 @@ private:
     int getRetryDelay(int retryCount) const;
 
     int maxRetries_ = 3;
+    HttpClientPtr ollamaClient_;  // 复用连接
     
     std::string buildSentimentPrompt(const std::string& text);
     std::string buildModerationPrompt(const std::string& text);

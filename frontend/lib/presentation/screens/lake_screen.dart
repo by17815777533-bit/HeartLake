@@ -141,8 +141,6 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理纸船更新
   void _handleBoatUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final triggeredBy = data['triggered_by']?.toString();
-    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
 
@@ -161,8 +159,6 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理涟漪更新
   void _handleRippleUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final triggeredBy = data['triggered_by']?.toString();
-    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
 
@@ -192,8 +188,6 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理纸船删除
   void _handleBoatDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final triggeredBy = data['triggered_by']?.toString();
-    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
 
@@ -214,8 +208,6 @@ class LakeScreenState extends State<LakeScreen> {
   // 处理涟漪删除
   void _handleRippleDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final triggeredBy = data['triggered_by']?.toString();
-    if (triggeredBy != null && triggeredBy == _currentUserId) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
 
@@ -357,6 +349,7 @@ class LakeScreenState extends State<LakeScreen> {
       final response = await _apiClient.get(
         '/lake/stones',
         queryParameters: {'page': page, 'page_size': 20, 'sort': 'latest'},
+        useCache: !refresh,
       );
 
       if (response.statusCode == 200 && response.data['code'] == 0) {

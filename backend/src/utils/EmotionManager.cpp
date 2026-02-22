@@ -121,9 +121,16 @@ std::string EmotionManager::getEmotionFromScore(float score) const {
 }
 
 std::pair<float, std::string> EmotionManager::analyzeEmotionFromText(const std::string& text) const {
-    // 转小写用于匹配
-    std::string lowerText = text;
-    std::transform(lowerText.begin(), lowerText.end(), lowerText.begin(), ::tolower);
+    // 安全的小写转换：只转换ASCII字母，保留中文UTF-8字节不变
+    std::string lowerText;
+    lowerText.reserve(text.size());
+    for (unsigned char c : text) {
+        if (c >= 'A' && c <= 'Z') {
+            lowerText += static_cast<char>(c + 32);
+        } else {
+            lowerText += static_cast<char>(c);
+        }
+    }
 
     // 关键词匹配计分（使用加权计数）
     std::unordered_map<std::string, float> emotionScores;
@@ -135,14 +142,47 @@ std::pair<float, std::string> EmotionManager::analyzeEmotionFromText(const std::
     emotionScores["surprised"] = 0.0f;
     emotionScores["confused"] = 0.0f;
 
+    // 否定词列表
+    static const std::vector<std::string> negators = {
+        "不", "没", "没有", "别", "未", "无", "非", "莫", "勿", "毫不"
+    };
+
     // 统计每种情绪的关键词出现次数
     for (const auto& [emotion, config] : emotionConfigs_) {
         for (const auto& keyword : config.keywords) {
             size_t pos = 0;
             while ((pos = lowerText.find(keyword, pos)) != std::string::npos) {
-                // 根据关键词长度给予不同权重（长词权重更高）
-                float weight = 1.0f + (keyword.length() / 10.0f);
-                emotionScores[emotion] += weight;
+                // 检查关键词前是否有否定词（窗口：前9字节，约3个中文字符）
+                bool negated = false;
+                if (pos > 0) {
+                    size_t windowStart = pos > 9 ? pos - 9 : 0;
+                    std::string prefix = lowerText.substr(windowStart, pos - windowStart);
+                    for (const auto& neg : negators) {
+                        if (prefix.rfind(neg) != std::string::npos) {
+                            negated = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 用UTF-8字符数计算权重，而非字节数
+                size_t charCount = 0;
+                for (size_t ki = 0; ki < keyword.size(); ) {
+                    unsigned char c = static_cast<unsigned char>(keyword[ki]);
+                    if (c < 0x80) ki += 1;
+                    else if ((c & 0xE0) == 0xC0) ki += 2;
+                    else if ((c & 0xF0) == 0xE0) ki += 3;
+                    else ki += 4;
+                    ++charCount;
+                }
+                float weight = 1.0f + (charCount / 5.0f);
+
+                if (negated) {
+                    // 否定词翻转：给对立情绪加分而非当前情绪
+                    // 简单处理：不给当前情绪加分
+                } else {
+                    emotionScores[emotion] += weight;
+                }
                 pos += keyword.length();
             }
         }
