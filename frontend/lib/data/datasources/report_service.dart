@@ -23,7 +23,7 @@ class ReportService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'report_id': response.data?['report_id'],
     };
   }
@@ -39,7 +39,7 @@ class ReportService extends BaseService {
     if (!response.success) return toMap(response);
 
     return {
-      'success': true,
+      ...toMap(response),
       'reports': response.data?['reports'],
       'total': response.data?['total'],
     };
