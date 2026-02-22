@@ -344,6 +344,40 @@ void AIService::callAIAPI(
         return;
     }
 
+    // Ollama: 转换为原生 /api/chat 格式，关闭 thinking mode
+    if (provider_ == "ollama") {
+        Json::Value ollamaPayload;
+        ollamaPayload["model"] = payload.get("model", model_).asString();
+        ollamaPayload["messages"] = payload["messages"];
+        ollamaPayload["stream"] = false;
+        ollamaPayload["think"] = false;
+        if (payload.isMember("max_tokens")) {
+            ollamaPayload["options"]["num_predict"] = payload["max_tokens"];
+        }
+        if (payload.isMember("temperature")) {
+            ollamaPayload["options"]["temperature"] = payload["temperature"];
+        }
+        callAIAPIWithRetry("/api/chat", ollamaPayload,
+            [callback](const Json::Value& ollamaResp, const std::string& error) {
+                if (!error.empty()) {
+                    callback(Json::Value(), error);
+                    return;
+                }
+                // 转换 Ollama 原生响应为 OpenAI 格式
+                Json::Value openaiResp;
+                openaiResp["choices"] = Json::arrayValue;
+                Json::Value choice;
+                choice["index"] = 0;
+                choice["message"]["role"] = "assistant";
+                choice["message"]["content"] = ollamaResp.get("message", Json::Value()).get("content", "").asString();
+                choice["finish_reason"] = ollamaResp.get("done_reason", "stop").asString();
+                openaiResp["choices"].append(choice);
+                openaiResp["model"] = ollamaResp.get("model", "").asString();
+                callback(openaiResp, "");
+            }, 0);
+        return;
+    }
+
     callAIAPIWithRetry(endpoint, payload, callback, 0);
 }
 

@@ -95,7 +95,7 @@ services:
       REDIS_PORT: 6379
       AI_PROVIDER: ollama
       AI_BASE_URL: http://ollama:11434
-      AI_MODEL: qwen3:1.7b
+      AI_MODEL: heartlake-qwen
       AI_TIMEOUT: 30
       ENV_MODE: production
     ports:
