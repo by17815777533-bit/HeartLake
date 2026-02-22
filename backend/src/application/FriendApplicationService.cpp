@@ -39,9 +39,12 @@ drogon::Task<Json::Value> FriendApplicationService::acceptFriendRequestAsync(
         err["error"] = "Service not initialized";
         co_return err;
     }
-    // Get friendship data before accepting (include pending status)
+    // Get friendship data before accepting
     auto friendships = co_await repository_->findAllByUserIdAsync(userId);
     std::string friendId;
+    std::string actualFriendshipId = friendshipId;
+
+    // 先按 friendshipId 精确匹配
     for (const auto& f : friendships) {
         if (f.friendshipId == friendshipId) {
             friendId = (f.userId == userId) ? f.friendId : f.userId;
@@ -49,14 +52,33 @@ drogon::Task<Json::Value> FriendApplicationService::acceptFriendRequestAsync(
         }
     }
 
-    co_await friendService_->acceptFriendRequestAsync(friendshipId);
+    // 如果没匹配到，尝试按 from_user_id 查找 pending 请求
+    if (friendId.empty()) {
+        for (const auto& f : friendships) {
+            if (f.userId == friendshipId && f.friendId == userId && f.status == "pending") {
+                friendId = f.userId;
+                actualFriendshipId = f.friendshipId;
+                break;
+            }
+        }
+    }
+
+    if (friendId.empty()) {
+        Json::Value err;
+        err["error"] = "好友请求不存在";
+        co_return err;
+    }
+
+    co_await friendService_->acceptFriendRequestAsync(actualFriendshipId);
 
     // Create friendship with 24h TTL
     auto& ttlEngine = infrastructure::FriendshipTTLEngine::getInstance();
-    co_await ttlEngine.createFriendshipWithTTL(friendshipId, userId, friendId, 86400);
+    co_await ttlEngine.createFriendshipWithTTL(actualFriendshipId, userId, friendId, 86400);
 
     Json::Value result;
     result["success"] = true;
+    result["friendship_id"] = actualFriendshipId;
+    result["friend_id"] = friendId;
 
     co_return result;
 }
@@ -65,12 +87,40 @@ drogon::Task<Json::Value> FriendApplicationService::rejectFriendRequestAsync(
     [[maybe_unused]] const std::string& userId,
     const std::string& friendshipId
 ) {
-    if (!friendService_) {
+    if (!friendService_ || !repository_) {
         Json::Value err;
-        err["error"] = "FriendService not initialized";
+        err["error"] = "Service not initialized";
         co_return err;
     }
-    co_await friendService_->rejectFriendRequestAsync(friendshipId);
+
+    std::string actualFriendshipId = friendshipId;
+
+    // 先按 friendshipId 精确匹配，如果没匹配到则按 from_user_id 查找
+    auto friendships = co_await repository_->findAllByUserIdAsync(userId);
+    bool found = false;
+    for (const auto& f : friendships) {
+        if (f.friendshipId == friendshipId) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        for (const auto& f : friendships) {
+            if (f.userId == friendshipId && f.friendId == userId && f.status == "pending") {
+                actualFriendshipId = f.friendshipId;
+                found = true;
+                break;
+            }
+        }
+    }
+
+    if (!found) {
+        Json::Value err;
+        err["error"] = "好友请求不存在";
+        co_return err;
+    }
+
+    co_await friendService_->rejectFriendRequestAsync(actualFriendshipId);
 
     Json::Value result;
     result["success"] = true;

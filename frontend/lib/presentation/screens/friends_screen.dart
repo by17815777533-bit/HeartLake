@@ -586,7 +586,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                                     final messenger = ScaffoldMessenger.of(context);
                                     final result = await _friendService
                                         .rejectFriendRequest(
-                                      request['from_user_id'] ?? request['requester_id'] ?? '',
+                                      request['friendship_id'] ?? request['from_user_id'] ?? '',
                                     );
 
                                     if (mounted) {
@@ -606,7 +606,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
                                     final messenger = ScaffoldMessenger.of(context);
                                     final result = await _friendService
                                         .acceptFriendRequest(
-                                      request['from_user_id'] ?? request['requester_id'] ?? '',
+                                      request['friendship_id'] ?? request['from_user_id'] ?? '',
                                     );
 
                                     if (mounted) {
