@@ -132,8 +132,7 @@ class _AIContentPreviewState extends State<AIContentPreview>
 
       // 前端不做内容审核拦截，默认通过（后端发布时会二次审核）
       _status = ModerationStatus.passed;
-        _moderationMessage = null;
-      }
+      _moderationMessage = null;
 
       setState(() {});
       _notifyResult();
