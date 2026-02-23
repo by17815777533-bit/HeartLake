@@ -26,8 +26,8 @@ import 'safe_harbor_screen.dart';
 import 'my_stones_screen.dart';
 import 'my_boats_screen.dart';
 import 'my_ripples_screen.dart';
-import 'paper_boat_screen.dart';
 import 'emotion_trends_screen.dart';
+import 'emotion_heatmap_screen.dart';
 import 'received_boats_screen.dart';
 import 'consultation_screen.dart';
 
@@ -509,6 +509,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const Divider(height: 1),
                       ListTile(
+                        leading: const Icon(Icons.grid_view_rounded, color: AppTheme.skyBlue),
+                        title: const Text('情绪热力图'),
+                        subtitle: const Text('查看情绪密度与洞察', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionHeatmapScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
                         leading: const Icon(Icons.water, color: AppTheme.skyBlue),
                         title: const Text('我的涟漪'),
                         subtitle: const Text('查看发出的涟漪', style: TextStyle(fontSize: 12)),
@@ -517,17 +525,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.sailing, color: AppTheme.skyBlue),
-                        title: const Text('漂流瓶'),
-                        subtitle: const Text('匿名私信，等待有缘人', style: TextStyle(fontSize: 12)),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PaperBoatScreen())),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
                         leading: const Icon(Icons.lightbulb_outline, color: Color(0xFFFFB74D)),
-                        title: const Text('点灯人'),
-                        subtitle: const Text('守护心湖的温暖', style: TextStyle(fontSize: 12)),
+                        title: const Text('守护者'),
+                        subtitle: const Text('守护心湖的温暖与灯火', style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GuardianScreen())),
                       ),

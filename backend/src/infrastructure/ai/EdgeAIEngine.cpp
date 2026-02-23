@@ -18,7 +18,11 @@
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include <trantor/utils/Logger.h>
+#include <algorithm>
 #include <cstring>
+#include <cctype>
+#include <cstdlib>
+#include <filesystem>
 #include <sstream>
 #include <cassert>
 #include <set>
@@ -27,6 +31,141 @@
 
 namespace heartlake {
 namespace ai {
+
+namespace {
+
+std::string toLowerCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return value;
+}
+
+bool parseBoolLiteral(const std::string& raw, bool& value) {
+    const std::string normalized = toLowerCopy(raw);
+    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
+        value = true;
+        return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
+        value = false;
+        return true;
+    }
+    return false;
+}
+
+int parsePositiveIntEnv(const char* rawValue, int fallback) {
+    if (!rawValue) {
+        return fallback;
+    }
+    char* endPtr = nullptr;
+    long value = std::strtol(rawValue, &endPtr, 10);
+    if (endPtr == rawValue || *endPtr != '\0' || value <= 0) {
+        return fallback;
+    }
+    return static_cast<int>(value);
+}
+
+std::string getConfigOrEnvPath(const Json::Value& config,
+                               const char* configKey,
+                               const char* envKey,
+                               const std::string& fallback) {
+    if (config.isObject() && config.isMember(configKey) && config[configKey].isString()) {
+        const auto configured = config[configKey].asString();
+        if (!configured.empty()) {
+            return configured;
+        }
+    }
+    if (const char* envValue = std::getenv(envKey); envValue && *envValue != '\0') {
+        return envValue;
+    }
+    return fallback;
+}
+
+bool isRegularFile(const std::filesystem::path& path) {
+    std::error_code ec;
+    return std::filesystem::is_regular_file(path, ec);
+}
+
+bool isDirectory(const std::filesystem::path& path) {
+    std::error_code ec;
+    return std::filesystem::is_directory(path, ec);
+}
+
+bool containsAnyPhrase(const std::string& text, const std::vector<std::string>& markers) {
+    for (const auto& marker : markers) {
+        if (text.find(marker) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::filesystem::path resolveRuntimeRelativePath(const std::filesystem::path& path) {
+    if (path.empty() || path.is_absolute()) {
+        return path;
+    }
+
+    static const std::vector<std::filesystem::path> prefixes = {
+        {},
+        std::filesystem::path(".."),
+        std::filesystem::path("backend"),
+        std::filesystem::path("../backend")
+    };
+    for (const auto& prefix : prefixes) {
+        const auto candidate = prefix.empty() ? path : (prefix / path);
+        std::error_code ec;
+        if (std::filesystem::exists(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return path;
+}
+
+std::filesystem::path resolveModelPath(const std::string& configuredPath) {
+    std::filesystem::path modelPath = configuredPath.empty()
+        ? std::filesystem::path("./models/sentiment_zh.onnx")
+        : std::filesystem::path(configuredPath);
+    modelPath = resolveRuntimeRelativePath(modelPath);
+    if (isDirectory(modelPath) || (!modelPath.has_extension() && !isRegularFile(modelPath))) {
+        modelPath /= "sentiment_zh.onnx";
+    }
+    return modelPath;
+}
+
+std::filesystem::path resolveVocabPath(const std::string& configuredPath,
+                                       const std::filesystem::path& modelPath) {
+    std::filesystem::path vocabPath;
+    if (configuredPath.empty()) {
+        const auto modelDir = modelPath.parent_path();
+        vocabPath = modelDir.empty()
+            ? std::filesystem::path("./models/vocab.txt")
+            : modelDir / "vocab.txt";
+    } else {
+        vocabPath = configuredPath;
+    }
+    vocabPath = resolveRuntimeRelativePath(vocabPath);
+    if (isDirectory(vocabPath) || (!vocabPath.has_extension() && !isRegularFile(vocabPath))) {
+        vocabPath /= "vocab.txt";
+    }
+    return vocabPath;
+}
+
+float medianValue(std::vector<float> values) {
+    if (values.empty()) {
+        return 0.0f;
+    }
+    const size_t mid = values.size() / 2;
+    std::nth_element(values.begin(), values.begin() + mid, values.end());
+    if (values.size() % 2 == 1) {
+        return values[mid];
+    }
+    const float upper = values[mid];
+    std::nth_element(values.begin(), values.begin() + mid - 1, values.end());
+    const float lower = values[mid - 1];
+    return (lower + upper) * 0.5f;
+}
+
+} // namespace
 
 // ============================================================================
 // 单例 & 初始化
@@ -98,30 +237,62 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully";
 
 #ifdef HEARTLAKE_USE_ONNX
+    onnxEngine_.reset();
+    onnxEnabled_ = false;
+
     // 初始化 ONNX 情感分析引擎
     const char* onnxEnabledEnv = std::getenv("EDGE_AI_ONNX_ENABLED");
-    bool onnxWanted = onnxEnabledEnv ? (std::string(onnxEnabledEnv) == "true") : false;
+    bool onnxWanted = false;
+    const bool hasExplicitOnnxSwitch = (onnxEnabledEnv != nullptr);
+    if (hasExplicitOnnxSwitch) {
+        if (!parseBoolLiteral(onnxEnabledEnv, onnxWanted)) {
+            LOG_WARN << "[EdgeAI] Invalid EDGE_AI_ONNX_ENABLED=" << onnxEnabledEnv
+                     << ", expected true/false/1/0/on/off. ONNX will stay disabled.";
+            onnxWanted = false;
+        }
+    }
+
+    const std::string modelPathSetting = getConfigOrEnvPath(
+        config, "model_path", "EDGE_AI_MODEL_PATH", "./models/sentiment_zh.onnx");
+    const std::string vocabPathSetting = getConfigOrEnvPath(
+        config, "vocab_path", "EDGE_AI_VOCAB_PATH", "");
+    const std::filesystem::path resolvedModelPath = resolveModelPath(modelPathSetting);
+    const std::filesystem::path resolvedVocabPath = resolveVocabPath(vocabPathSetting, resolvedModelPath);
+    const bool modelExists = isRegularFile(resolvedModelPath);
+    const bool vocabExists = isRegularFile(resolvedVocabPath);
+
+    if (!hasExplicitOnnxSwitch) {
+        onnxWanted = modelExists && vocabExists;
+        if (onnxWanted) {
+            LOG_INFO << "[EdgeAI] EDGE_AI_ONNX_ENABLED not set, auto-enable ONNX with detected artifacts";
+        } else {
+            LOG_INFO << "[EdgeAI] ONNX sentiment engine not enabled (missing model/vocab artifacts). "
+                     << "Set EDGE_AI_ONNX_ENABLED=true to force ONNX attempt.";
+        }
+    }
 
     if (onnxWanted) {
-        const char* modelPathEnv = std::getenv("EDGE_AI_MODEL_PATH");
-        const char* vocabPathEnv = std::getenv("EDGE_AI_VOCAB_PATH");
-        const char* onnxThreadsEnv = std::getenv("EDGE_AI_ONNX_THREADS");
-
-        std::string modelPath = modelPathEnv ? modelPathEnv : "./models/sentiment_zh.onnx";
-        std::string vocabPath = vocabPathEnv ? vocabPathEnv : "./models/vocab.txt";
-        int onnxThreads = onnxThreadsEnv ? std::atoi(onnxThreadsEnv) : 2;
-
-        onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
-        if (onnxEngine_->initialize(modelPath, vocabPath, onnxThreads)) {
-            onnxEnabled_ = true;
-            LOG_INFO << "[EdgeAI] ONNX sentiment engine enabled: " << modelPath;
+        if (!modelExists || !vocabExists) {
+            LOG_WARN << "[EdgeAI] ONNX requested but artifacts are missing. "
+                     << "model=" << resolvedModelPath.string() << " exists=" << modelExists
+                     << ", vocab=" << resolvedVocabPath.string() << " exists=" << vocabExists
+                     << ". Fallback sentiment pipeline will be used.";
         } else {
-            LOG_WARN << "[EdgeAI] ONNX sentiment engine failed to initialize, using fallback";
-            onnxEngine_.reset();
-            onnxEnabled_ = false;
+            const int onnxThreads = parsePositiveIntEnv(std::getenv("EDGE_AI_ONNX_THREADS"), 2);
+            onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
+            if (onnxEngine_->initialize(resolvedModelPath.string(),
+                                        resolvedVocabPath.string(),
+                                        onnxThreads)) {
+                onnxEnabled_ = true;
+                LOG_INFO << "[EdgeAI] ONNX sentiment engine enabled: " << resolvedModelPath.string();
+            } else {
+                LOG_WARN << "[EdgeAI] ONNX sentiment engine failed to initialize, using fallback";
+                onnxEngine_.reset();
+                onnxEnabled_ = false;
+            }
         }
     } else {
-        LOG_INFO << "[EdgeAI] ONNX sentiment engine disabled by config";
+        LOG_INFO << "[EdgeAI] ONNX sentiment engine disabled by configuration";
     }
 #endif
 }
@@ -226,6 +397,19 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["yyds"] = 0.75f;
     sentimentLexicon_["真香"] = 0.7f;
     sentimentLexicon_["上头"] = 0.65f;
+    // 认可/被表扬语义（保证“被夸被肯定”不被低估为平静）
+    sentimentLexicon_["夸奖"] = 0.82f;
+    sentimentLexicon_["表扬"] = 0.85f;
+    sentimentLexicon_["认可"] = 0.82f;
+    sentimentLexicon_["肯定"] = 0.78f;
+    sentimentLexicon_["称赞"] = 0.80f;
+    sentimentLexicon_["赞扬"] = 0.80f;
+    sentimentLexicon_["赞许"] = 0.78f;
+    sentimentLexicon_["嘉奖"] = 0.86f;
+    sentimentLexicon_["鼓励"] = 0.72f;
+    sentimentLexicon_["夸"] = 0.58f;
+    sentimentLexicon_["被夸"] = 0.82f;
+    sentimentLexicon_["被表扬"] = 0.86f;
 
     // 英文正面补充
     sentimentLexicon_["hopeful"] = 0.7f;
@@ -329,6 +513,31 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["窒息"] = -0.75f;
     sentimentLexicon_["社死"] = -0.6f;
     sentimentLexicon_["摆烂"] = -0.5f;
+    sentimentLexicon_["失眠"] = -0.7f;
+    sentimentLexicon_["睡不着"] = -0.75f;
+    sentimentLexicon_["睡不好"] = -0.65f;
+    sentimentLexicon_["睡不醒"] = -0.5f;
+    sentimentLexicon_["难入睡"] = -0.75f;
+    sentimentLexicon_["夜醒"] = -0.65f;
+    sentimentLexicon_["浅眠"] = -0.5f;
+    sentimentLexicon_["多梦"] = -0.45f;
+    sentimentLexicon_["熬夜"] = -0.45f;
+    sentimentLexicon_["胸闷"] = -0.7f;
+    sentimentLexicon_["心慌"] = -0.75f;
+    sentimentLexicon_["压抑"] = -0.75f;
+    sentimentLexicon_["透不过气"] = -0.85f;
+    sentimentLexicon_["喘不过气"] = -0.85f;
+    sentimentLexicon_["提不起劲"] = -0.65f;
+    sentimentLexicon_["提不起精神"] = -0.7f;
+    sentimentLexicon_["精疲力尽"] = -0.75f;
+    sentimentLexicon_["焦躁"] = -0.65f;
+    sentimentLexicon_["崩了"] = -0.8f;
+    sentimentLexicon_["崩不住了"] = -0.85f;
+    sentimentLexicon_["快撑不住了"] = -0.9f;
+    sentimentLexicon_["压力山大"] = -0.7f;
+    sentimentLexicon_["没意义"] = -0.8f;
+    sentimentLexicon_["很累"] = -0.55f;
+    sentimentLexicon_["睡眠"] = -0.2f;
 
     // 英文负面补充
     sentimentLexicon_["hopeless"] = -0.85f;
@@ -337,6 +546,12 @@ void EdgeAIEngine::loadEdgeSentimentLexicon() {
     sentimentLexicon_["overwhelmed"] = -0.6f;
     sentimentLexicon_["exhausted"] = -0.55f;
     sentimentLexicon_["helpless"] = -0.75f;
+    sentimentLexicon_["insomnia"] = -0.75f;
+    sentimentLexicon_["sleepless"] = -0.7f;
+    sentimentLexicon_["panic"] = -0.8f;
+    sentimentLexicon_["burnout"] = -0.75f;
+    sentimentLexicon_["drained"] = -0.6f;
+    sentimentLexicon_["numb"] = -0.55f;
     sentimentLexicon_["失望"] = -0.65f;
     sentimentLexicon_["烦"] = -0.5f;
     sentimentLexicon_["累"] = -0.4f;
@@ -452,9 +667,9 @@ std::vector<std::string> EdgeAIEngine::tokenizeUTF8(const std::string& text) con
                 std::string utf8Char = text.substr(i, byteCount);
                 tokens.push_back(utf8Char);
 
-                // 同时尝试提取2-3字的中文词组
+                // 同时尝试提取2-6字的中文词组（覆盖“睡不着/提不起精神”等短语）
                 size_t j = i + byteCount;
-                for (int wordLen = 2; wordLen <= 3 && j < text.size(); ++wordLen) {
+                for (int wordLen = 2; wordLen <= 6 && j < text.size(); ++wordLen) {
                     unsigned char nc = static_cast<unsigned char>(text[j]);
                     if (nc < 0xC0) break;
                     int nb = 1;
@@ -606,7 +821,7 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
     float totalScore = 0.0f;
     int matchedCount = 0;
     float intensifierMult = 1.0f;
-    bool negated = false;
+    int negationWindow = 0;
 
     for (size_t i = 0; i < tokens.size(); ++i) {
         const auto& token = tokens[i];
@@ -614,7 +829,8 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
         // 检查是否为否定词
         auto negIt = negators_.find(token);
         if (negIt != negators_.end()) {
-            negated = true;
+            // 否定词仅影响后续少量 token，避免中文短语中的“不”污染整句。
+            negationWindow = 2;
             continue;
         }
 
@@ -629,7 +845,7 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
         auto lexIt = sentimentLexicon_.find(token);
         if (lexIt != sentimentLexicon_.end()) {
             float wordScore = lexIt->second * intensifierMult;
-            if (negated) {
+            if (negationWindow > 0) {
                 wordScore *= -0.75f;  // 否定翻转，但强度略减
             }
             totalScore += wordScore;
@@ -637,10 +853,12 @@ float EdgeAIEngine::lexiconSentiment(const std::vector<std::string>& tokens) con
 
             // 重置修饰状态
             intensifierMult = 1.0f;
-            negated = false;
+            negationWindow = 0;
         } else {
-            // 非情感词不立即重置修饰状态
-            // 让否定词和程度副词的作用范围延伸到下一个情感词
+            // 非情感词时，否定词作用窗口逐步衰减，避免跨短语误翻转。
+            if (negationWindow > 0) {
+                --negationWindow;
+            }
         }
     }
 
@@ -715,10 +933,10 @@ float EdgeAIEngine::statisticalSentiment(const std::vector<std::string>& tokens,
 }
 
 std::string EdgeAIEngine::scoresToMood(float score) const {
-    if (score > 0.6f) return "happy";
-    if (score > 0.3f) return "calm";
-    if (score > -0.3f) return "neutral";
-    if (score > -0.6f) return "anxious";
+    if (score > 0.58f) return "happy";
+    if (score > 0.25f) return "calm";
+    if (score > -0.2f) return "neutral";
+    if (score > -0.62f) return "anxious";
     return "sad";
 }
 
@@ -729,48 +947,149 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
 
-#ifdef HEARTLAKE_USE_ONNX
-    // 优先使用 ONNX 神经网络模型
-    if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
-        auto onnxResult = onnxEngine_->analyze(text);
-        if (onnxResult.confidence > 0.65f) {
-            // 高置信度：直接使用 ONNX 结果
-            return {onnxResult.score, onnxResult.mood, onnxResult.confidence, "onnx"};
-        }
-        // 低置信度：ONNX 与词典融合
-        auto tokens = tokenizeUTF8(text);
-        float lexScore = lexiconSentiment(tokens);
-        float fusedScore = std::clamp(onnxResult.score * 0.6f + lexScore * 0.4f, -1.0f, 1.0f);
-        float fusedConf = std::clamp(onnxResult.confidence * 0.8f, 0.0f, 1.0f);
-        return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_ensemble"};
-    }
-#endif
-
-    // Fallback: 三层融合（rule + lexicon + statistical）
     auto tokens = tokenizeUTF8(text);
 
-    // 三层分析
     float ruleScore = ruleSentiment(text);
     float lexScore = lexiconSentiment(tokens);
     float statScore = statisticalSentiment(tokens, text);
 
-    // 加权集成：词典权重最高，规则次之，统计辅助（降低统计层噪声）
     const float wRule = 0.30f;
     const float wLex = 0.60f;
     const float wStat = 0.10f;
-
     float ensembleScore = wRule * ruleScore + wLex * lexScore + wStat * statScore;
     ensembleScore = std::clamp(ensembleScore, -1.0f, 1.0f);
 
-    // 计算置信度：基于各层一致性
+    auto applyContrastBoost = [&](float baseScore) {
+        static const std::vector<std::string> contrastMarkers = {
+            "但是", "但", "不过", "然而", "可是", "只是"
+        };
+        size_t markerPos = std::string::npos;
+        size_t markerLen = 0;
+        for (const auto& marker : contrastMarkers) {
+            size_t pos = text.rfind(marker);
+            if (pos != std::string::npos && (markerPos == std::string::npos || pos > markerPos)) {
+                markerPos = pos;
+                markerLen = marker.size();
+            }
+        }
+        if (markerPos == std::string::npos || markerPos + markerLen >= text.size()) {
+            return baseScore;
+        }
+
+        std::string tailText = text.substr(markerPos + markerLen);
+        if (tailText.empty()) {
+            return baseScore;
+        }
+
+        auto tailTokens = tokenizeUTF8(tailText);
+        const float tailRule = ruleSentiment(tailText);
+        const float tailLex = lexiconSentiment(tailTokens);
+        const float tailStat = statisticalSentiment(tailTokens, tailText);
+        float tailScore = wRule * tailRule + wLex * tailLex + wStat * tailStat;
+        tailScore = std::clamp(tailScore, -1.0f, 1.0f);
+
+        if (std::abs(tailLex) < 0.12f && std::abs(tailScore) < 0.18f) {
+            return baseScore;
+        }
+
+        if (baseScore * tailScore < -0.06f) {
+            return std::clamp(baseScore * 0.25f + tailScore * 0.75f, -1.0f, 1.0f);
+        }
+        return std::clamp(baseScore * 0.45f + tailScore * 0.55f, -1.0f, 1.0f);
+    };
+    ensembleScore = applyContrastBoost(ensembleScore);
+
+    auto applyPraiseBoost = [&](float baseScore) {
+        static const std::vector<std::string> praiseMarkers = {
+            "夸", "夸奖", "表扬", "认可", "肯定", "称赞", "赞扬", "赞许", "嘉奖", "鼓励", "被夸", "被表扬"
+        };
+        static const std::vector<std::string> selfMarkers = {"我", "自己", "本人"};
+        static const std::vector<std::string> contrastMarkers = {"但是", "但", "不过", "然而", "可是", "只是"};
+        static const std::vector<std::string> negativeMarkers = {
+            "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃", "失眠"
+        };
+
+        bool hasPraise = false;
+        for (const auto& marker : praiseMarkers) {
+            if (text.find(marker) != std::string::npos) {
+                hasPraise = true;
+                break;
+            }
+        }
+        if (!hasPraise) {
+            return baseScore;
+        }
+
+        bool hasSelf = false;
+        for (const auto& marker : selfMarkers) {
+            if (text.find(marker) != std::string::npos) {
+                hasSelf = true;
+                break;
+            }
+        }
+        if (!hasSelf) {
+            return baseScore;
+        }
+
+        for (const auto& marker : contrastMarkers) {
+            if (text.find(marker) != std::string::npos) {
+                return baseScore;
+            }
+        }
+        for (const auto& marker : negativeMarkers) {
+            if (text.find(marker) != std::string::npos) {
+                return baseScore;
+            }
+        }
+        if (ruleScore < -0.2f || lexScore < -0.12f) {
+            return baseScore;
+        }
+        return std::max(baseScore, 0.64f);
+    };
+    ensembleScore = applyPraiseBoost(ensembleScore);
+
+    auto applyPositiveEventBoost = [&](float baseScore) {
+        static const std::vector<std::string> positiveEventMarkers = {
+            "收到", "收到了", "礼物", "表扬", "夸奖", "夸了我", "认可", "肯定", "赞扬",
+            "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
+        };
+        static const std::vector<std::string> negativeMarkers = {
+            "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁",
+            "痛苦", "绝望", "崩溃", "失眠", "失败", "糟糕", "后悔"
+        };
+        static const std::vector<std::string> contrastMarkers = {
+            "但是", "但", "不过", "然而", "可是", "只是"
+        };
+
+        if (!containsAnyPhrase(text, positiveEventMarkers)) {
+            return baseScore;
+        }
+        if (containsAnyPhrase(text, negativeMarkers)) {
+            return baseScore;
+        }
+
+        for (const auto& marker : contrastMarkers) {
+            const auto pos = text.rfind(marker);
+            if (pos == std::string::npos) continue;
+            if (pos + marker.size() >= text.size()) continue;
+            const auto tail = text.substr(pos + marker.size());
+            if (containsAnyPhrase(tail, negativeMarkers)) {
+                return baseScore;
+            }
+        }
+
+        // 正向事件语义在无负向上下文时，最低提升到开心区间，避免误判为焦虑/平静。
+        const float floorScore = text.find("礼物") != std::string::npos ? 0.74f : 0.68f;
+        return std::max(baseScore, floorScore);
+    };
+    ensembleScore = applyPositiveEventBoost(ensembleScore);
+
     float agreement = 1.0f;
-    // 如果三层结果符号一致，置信度高
     bool allPositive = (ruleScore >= 0 && lexScore >= 0 && statScore >= 0);
     bool allNegative = (ruleScore <= 0 && lexScore <= 0 && statScore <= 0);
     if (allPositive || allNegative) {
         agreement = 0.8f + 0.2f * std::min({std::abs(ruleScore), std::abs(lexScore), std::abs(statScore)});
     } else {
-        // 不一致时降低置信度
         float variance = ((ruleScore - ensembleScore) * (ruleScore - ensembleScore) +
                           (lexScore - ensembleScore) * (lexScore - ensembleScore) +
                           (statScore - ensembleScore) * (statScore - ensembleScore)) / 3.0f;
@@ -784,11 +1103,50 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
     }
     float coverageBoost = std::min(0.2f, static_cast<float>(lexMatches) * 0.05f);
     float confidence = std::clamp(agreement + coverageBoost, 0.0f, 1.0f);
+    static const std::vector<std::string> positiveEventHints = {
+        "收到", "收到了", "礼物", "表扬", "夸奖", "夸了我", "认可", "肯定", "赞扬",
+        "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜"
+    };
+    static const std::vector<std::string> negativeEventHints = {
+        "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃"
+    };
+    const bool positiveEventSignal =
+        containsAnyPhrase(text, positiveEventHints) && !containsAnyPhrase(text, negativeEventHints);
 
-    std::string mood = scoresToMood(ensembleScore);
-    std::string method = "ensemble";
+#ifdef HEARTLAKE_USE_ONNX
+    if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
+        auto onnxResult = onnxEngine_->analyze(text);
+        const float scoreGap = std::abs(onnxResult.score - ensembleScore);
+        const bool signConflict = (onnxResult.score * ensembleScore < -0.06f);
+        const bool lexSignalStrong = (lexMatches > 0 && std::abs(lexScore) >= 0.18f);
 
-    return {ensembleScore, mood, confidence, method};
+        if (signConflict && lexSignalStrong && scoreGap >= 0.45f) {
+            const float ensembleWeight = positiveEventSignal ? 0.90f : 0.75f;
+            const float onnxWeightGuarded = 1.0f - ensembleWeight;
+            const float fusedScore = std::clamp(
+                onnxResult.score * onnxWeightGuarded + ensembleScore * ensembleWeight,
+                -1.0f,
+                1.0f
+            );
+            const float fusedConf = std::clamp((onnxResult.confidence * 0.40f + confidence * 0.60f) - 0.10f, 0.15f, 0.95f);
+            return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_guarded_ensemble"};
+        }
+
+        float onnxWeight = std::clamp(0.35f + onnxResult.confidence * 0.35f, 0.35f, 0.75f);
+        if (lexSignalStrong) {
+            onnxWeight = std::max(0.25f, onnxWeight - 0.10f);
+        }
+        if (scoreGap < 0.20f) {
+            onnxWeight = std::min(0.82f, onnxWeight + 0.08f);
+        }
+
+        const float fusedScore = std::clamp(onnxResult.score * onnxWeight + ensembleScore * (1.0f - onnxWeight), -1.0f, 1.0f);
+        const float fusedConf = std::clamp((onnxResult.confidence * 0.55f + confidence * 0.45f) - scoreGap * 0.15f, 0.10f, 0.98f);
+        return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_ensemble"};
+    }
+#endif
+
+    return {ensembleScore, scoresToMood(ensembleScore), confidence, "ensemble"};
 }
 
 // ============================================================================
@@ -1051,40 +1409,69 @@ EmotionPulse EdgeAIEngine::computePulseFromWindow() const {
         return pulse;
     }
 
-    // 计算平均分
-    float sum = 0.0f;
+    const auto now = std::chrono::steady_clock::now();
+    const float tauSec = std::max(45.0f, static_cast<float>(pulseWindowSeconds_) * 0.45f);
+
+    // 计算时间衰减 + 置信度加权平均分（越新的样本、越高置信度样本权重越高）
+    float weightedSum = 0.0f;
+    float weightTotal = 0.0f;
     std::unordered_map<std::string, int> moodCounts;
+    std::unordered_map<std::string, float> moodWeights;
     for (const auto& s : emotionWindow_) {
-        sum += s.score;
+        const float ageSec = std::max(
+            0.0f,
+            static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - s.timestamp).count()) / 1000.0f);
+        const float confidenceWeight = std::clamp(s.weight, 0.1f, 1.0f);
+        const float weight = std::exp(-ageSec / tauSec) * confidenceWeight;
+        weightedSum += s.score * weight;
+        weightTotal += weight;
         moodCounts[s.mood]++;
+        moodWeights[s.mood] += weight;
     }
-    pulse.avgScore = sum / static_cast<float>(emotionWindow_.size());
+    pulse.avgScore = weightTotal > 0.0f ? (weightedSum / weightTotal) : 0.0f;
     pulse.moodDistribution = moodCounts;
 
-    // 计算标准差
+    // 计算加权标准差
     float varianceSum = 0.0f;
     for (const auto& s : emotionWindow_) {
+        const float ageSec = std::max(
+            0.0f,
+            static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - s.timestamp).count()) / 1000.0f);
+        const float confidenceWeight = std::clamp(s.weight, 0.1f, 1.0f);
+        const float weight = std::exp(-ageSec / tauSec) * confidenceWeight;
         float diff = s.score - pulse.avgScore;
-        varianceSum += diff * diff;
+        varianceSum += weight * diff * diff;
     }
-    pulse.stddev = std::sqrt(varianceSum / static_cast<float>(emotionWindow_.size()));
+    pulse.stddev = std::sqrt(varianceSum / std::max(weightTotal, 1e-6f));
 
-    // 计算趋势斜率（简单线性回归）
-    // y = score, x = 时间序列索引
-    if (emotionWindow_.size() >= 2) {
-        float n = static_cast<float>(emotionWindow_.size());
-        float sumX = 0.0f, sumY = 0.0f, sumXY = 0.0f, sumX2 = 0.0f;
-        for (size_t i = 0; i < emotionWindow_.size(); ++i) {
-            float x = static_cast<float>(i);
-            float y = emotionWindow_[i].score;
-            sumX += x;
-            sumY += y;
-            sumXY += x * y;
-            sumX2 += x * x;
+    // 计算趋势斜率（基于真实时间戳 + EWMA平滑 + 时间衰减加权回归，单位: 每分钟）
+    if (emotionWindow_.size() >= 4) {
+        float sumW = 0.0f, sumWX = 0.0f, sumWY = 0.0f, sumWXY = 0.0f, sumWXX = 0.0f;
+        const auto t0 = emotionWindow_.front().timestamp;
+        float ewma = emotionWindow_.front().score;
+        constexpr float ewmaAlpha = 0.35f;
+        for (const auto& sample : emotionWindow_) {
+            const float x = std::chrono::duration_cast<std::chrono::seconds>(
+                sample.timestamp - t0).count() / 60.0f;
+            ewma = ewmaAlpha * sample.score + (1.0f - ewmaAlpha) * ewma;
+            const float ageSec = std::max(
+                0.0f,
+                static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - sample.timestamp).count()) / 1000.0f);
+            const float confidenceWeight = std::clamp(sample.weight, 0.1f, 1.0f);
+            const float w = std::exp(-ageSec / tauSec) * confidenceWeight;
+
+            sumW += w;
+            sumWX += w * x;
+            sumWY += w * ewma;
+            sumWXY += w * x * ewma;
+            sumWXX += w * x * x;
         }
-        float denominator = n * sumX2 - sumX * sumX;
+        const float denominator = sumW * sumWXX - sumWX * sumWX;
         if (std::abs(denominator) > 1e-6f) {
-            pulse.trendSlope = (n * sumXY - sumX * sumY) / denominator;
+            pulse.trendSlope = (sumW * sumWXY - sumWX * sumWY) / denominator;
         } else {
             pulse.trendSlope = 0.0f;
         }
@@ -1094,10 +1481,10 @@ EmotionPulse EdgeAIEngine::computePulseFromWindow() const {
 
     // 找主导情绪
     std::string dominant = "neutral";
-    int maxCount = 0;
-    for (const auto& [mood, count] : moodCounts) {
-        if (count > maxCount) {
-            maxCount = count;
+    float maxWeight = -1.0f;
+    for (const auto& [mood, weight] : moodWeights) {
+        if (weight > maxWeight) {
+            maxWeight = weight;
             dominant = mood;
         }
     }
@@ -1106,14 +1493,45 @@ EmotionPulse EdgeAIEngine::computePulseFromWindow() const {
     return pulse;
 }
 
-void EdgeAIEngine::submitEmotionSample(float score, const std::string& mood) {
+void EdgeAIEngine::submitEmotionSample(float score, const std::string& mood, float confidence) {
     if (!isEnabled()) return;
 
     std::unique_lock<std::shared_mutex> lock(pulseMutex_);
 
+    float adjustedScore = std::clamp(score, -1.0f, 1.0f);
+    // 低置信度样本保留但降权，避免误判显著拉偏脉搏。
+    float normalizedConfidence = std::clamp(confidence, 0.0f, 1.0f);
+    float sampleWeight = 0.25f + 0.75f * normalizedConfidence;
+    // 鲁棒抗噪：使用最近窗口中位数 + MAD 限制离群点，避免脉搏被极端噪声污染。
+    if (emotionWindow_.size() >= 6) {
+        const size_t recentCount = std::min<size_t>(emotionWindow_.size(), 15);
+        std::vector<float> recentScores;
+        recentScores.reserve(recentCount);
+        const size_t beginIdx = emotionWindow_.size() - recentCount;
+        for (size_t i = beginIdx; i < emotionWindow_.size(); ++i) {
+            recentScores.push_back(emotionWindow_[i].score);
+        }
+        const float median = medianValue(recentScores);
+        std::vector<float> absDeviation;
+        absDeviation.reserve(recentScores.size());
+        for (float s : recentScores) {
+            absDeviation.push_back(std::abs(s - median));
+        }
+        const float mad = std::max(0.05f, medianValue(absDeviation));
+        // 低置信度样本采用更严格边界。
+        const float confidenceTightening = 1.0f - 0.35f * (1.0f - normalizedConfidence);
+        const float lower = median - 3.0f * mad * confidenceTightening;
+        const float upper = median + 3.0f * mad * confidenceTightening;
+        if (adjustedScore < lower || adjustedScore > upper) {
+            const float bounded = std::clamp(adjustedScore, lower, upper);
+            adjustedScore = 0.75f * bounded + 0.25f * median;
+        }
+    }
+
     EmotionSample sample;
-    sample.score = std::clamp(score, -1.0f, 1.0f);
+    sample.score = adjustedScore;
     sample.mood = mood;
+    sample.weight = sampleWeight;
     sample.timestamp = std::chrono::steady_clock::now();
 
     emotionWindow_.push_back(sample);
@@ -1576,10 +1994,25 @@ void EdgeAIEngine::hnswInsert(const std::string& id, const std::vector<float>& v
 
     std::unique_lock<std::shared_mutex> lock(hnswMutex_);
 
+    if (vec.empty()) {
+        LOG_WARN << "[EdgeAI] HNSW: empty vector for id '" << id << "', skipping";
+        return;
+    }
+
     // 检查是否已存在
     if (hnswIdMap_.count(id)) {
         LOG_WARN << "[EdgeAI] HNSW: vector '" << id << "' already exists, skipping";
         return;
+    }
+
+    if (!hnswNodes_.empty()) {
+        const size_t expectedDim = hnswNodes_.front().vector.size();
+        if (vec.size() != expectedDim) {
+            LOG_WARN << "[EdgeAI] HNSW: dimension mismatch for id '" << id
+                     << "', expected=" << expectedDim
+                     << ", got=" << vec.size() << ", skipping";
+            return;
+        }
     }
 
     int nodeLevel = randomLevel();
@@ -1641,12 +2074,20 @@ void EdgeAIEngine::hnswInsert(const std::string& id, const std::vector<float>& v
 std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float>& query,
                                                           int k) {
     if (!isEnabled()) return {};
+    if (query.empty()) return {};
 
     totalHNSWSearches_.fetch_add(1);
 
     std::shared_lock<std::shared_mutex> lock(hnswMutex_);
 
     if (hnswNodes_.empty()) return {};
+    const size_t expectedDim = hnswNodes_.front().vector.size();
+    if (expectedDim == 0 || query.size() != expectedDim) {
+        LOG_WARN << "[EdgeAI] HNSW search dimension mismatch: expected="
+                 << expectedDim << ", got=" << query.size();
+        return {};
+    }
+    const int requestedK = std::max(1, k);
 
     // 从最高层贪心搜索到第1层
     size_t currentEntry = hnswEntryPoint_;
@@ -1657,13 +2098,40 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
         }
     }
 
-    // 在第0层执行精确搜索
-    int ef = std::max(k, hnswEfSearch_);
-    auto candidates = searchLayer(query, currentEntry, ef, 0);
+    // 在第0层执行自适应搜索（Ada-EF思路）：
+    // 先用小规模pilot估计难度，再动态调整ef，兼顾召回与延迟。
+    int baseEf = std::max(requestedK, hnswEfSearch_);
+    int adaptiveEf = baseEf;
+    if (hnswNodes_.size() >= 256 && baseEf >= 24) {
+        const int pilotEf = std::clamp(std::max(requestedK * 2, 12), 12, std::min(baseEf, 32));
+        auto pilotCandidates = searchLayer(query, currentEntry, pilotEf, 0);
+        if (pilotCandidates.size() >= 2) {
+            const float best = vectorDistance(query, hnswNodes_[pilotCandidates[0]].vector);
+            const float secondBest = vectorDistance(query, hnswNodes_[pilotCandidates[1]].vector);
+            const float marginRatio = (secondBest - best) / (std::abs(best) + 1e-6f);
+
+            if (marginRatio < 0.08f) {
+                adaptiveEf = static_cast<int>(std::ceil(baseEf * 1.6f));
+            } else if (marginRatio > 0.20f) {
+                adaptiveEf = static_cast<int>(std::floor(baseEf * 0.75f));
+            }
+
+            const int entryDegree = (currentEntry < hnswNodes_.size() &&
+                                     !hnswNodes_[currentEntry].neighbors.empty())
+                ? static_cast<int>(hnswNodes_[currentEntry].neighbors[0].size())
+                : 0;
+            if (entryDegree >= hnswMMax0_ && marginRatio < 0.12f) {
+                adaptiveEf = static_cast<int>(std::ceil(adaptiveEf * 1.2f));
+            }
+        }
+        const int efCap = std::max(96, hnswEfSearch_ * 6);
+        adaptiveEf = std::clamp(adaptiveEf, requestedK, efCap);
+    }
+    auto candidates = searchLayer(query, currentEntry, adaptiveEf, 0);
 
     // 取 top-k
-    if (static_cast<int>(candidates.size()) > k) {
-        candidates.resize(k);
+    if (static_cast<int>(candidates.size()) > requestedK) {
+        candidates.resize(requestedK);
     }
 
     // 构建结果
@@ -1678,7 +2146,7 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
         r.id = hnswNodes_[idx].id;
         r.distance = sqrtDist;
         // 相似度：使用高斯核映射 sim = exp(-dist / (2 * dim))
-        float dim = static_cast<float>(query.size());
+        float dim = std::max(1.0f, static_cast<float>(query.size()));
         r.similarity = std::exp(-dist / (2.0f * dim));
         results.push_back(std::move(r));
     }

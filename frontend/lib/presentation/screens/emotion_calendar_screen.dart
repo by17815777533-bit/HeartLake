@@ -9,9 +9,8 @@ import '../../data/datasources/api_client.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../widgets/shimmer_loading.dart';
-import '../widgets/emotion_heatmap.dart';
-import '../widgets/emotion_insights_card.dart';
 import '../widgets/privacy_badge.dart';
+import 'emotion_heatmap_screen.dart';
 
 const _kRippleColorLow = Color(0xFF90CAF9);
 const _kRippleColorHigh = Color(0xFF7C4DFF);
@@ -30,15 +29,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   bool _isLoading = true;
   late AnimationController _animController;
   Map<String, dynamic>? _cachedStats;
-  Map<String, Map<String, dynamic>> _heatmapData = {};
-  List<String> _insights = [];
 
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
     _loadEmotionData();
-    _loadHeatmapData();
   }
 
   @override
@@ -86,103 +82,6 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _loadHeatmapData() async {
-    try {
-      final response = await _apiClient.get('/users/my/emotion-heatmap');
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final rawData = response.data['data']?['days'] as Map<String, dynamic>? ?? {};
-        final parsed = <String, Map<String, dynamic>>{};
-        for (final entry in rawData.entries) {
-          if (entry.value is Map) {
-            parsed[entry.key] = Map<String, dynamic>.from(entry.value as Map);
-          }
-        }
-        if (mounted) {
-          setState(() {
-            _heatmapData = parsed;
-            _insights = _generateInsights(parsed);
-          });
-        }
-      }
-    } catch (e) {
-      // 热力图加载失败不影响主日历，静默降级
-      debugPrint('Load heatmap data error: $e');
-      if (mounted) {
-        setState(() => _insights = _generateInsights(_heatmapData));
-      }
-    }
-  }
-
-  List<String> _generateInsights(Map<String, Map<String, dynamic>> data) {
-    if (data.isEmpty) return [];
-    final insights = <String>[];
-    final now = DateTime.now();
-
-    // 最近7天趋势
-    double recentTotal = 0;
-    int recentCount = 0;
-    for (int i = 0; i < 7; i++) {
-      final date = now.subtract(Duration(days: i));
-      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      final dayData = data[key];
-      if (dayData != null) {
-        recentTotal += (dayData['score'] ?? 0.5) as num;
-        recentCount++;
-      }
-    }
-    if (recentCount >= 3) {
-      final avg = recentTotal / recentCount;
-      if (avg >= 0.65) {
-        insights.add('你最近7天的情绪呈上升趋势 ↑');
-      } else if (avg <= 0.35) {
-        insights.add('最近情绪有些低落，记得照顾好自己 ♡');
-      } else {
-        insights.add('你最近7天的情绪比较平稳 →');
-      }
-    }
-
-    // 连续积极天数
-    int streak = 0;
-    for (int i = 0; i < 30; i++) {
-      final date = now.subtract(Duration(days: i));
-      final key = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      final dayData = data[key];
-      if (dayData != null && (dayData['score'] as num? ?? 0) >= 0.6) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    if (streak >= 2) {
-      insights.add('你已经连续$streak天保持积极情绪');
-    }
-
-    // 最佳星期几
-    final weekdayScores = <int, List<double>>{};
-    for (final entry in data.entries) {
-      try {
-        final date = DateTime.parse(entry.key);
-        final score = (entry.value['score'] ?? 0.5) as num;
-        weekdayScores.putIfAbsent(date.weekday, () => []).add(score.toDouble());
-      } catch (_) {}
-    }
-    if (weekdayScores.isNotEmpty) {
-      double bestAvg = -1;
-      int bestDay = 1;
-      for (final entry in weekdayScores.entries) {
-        final avg = entry.value.reduce((a, b) => a + b) / entry.value.length;
-        if (avg > bestAvg) {
-          bestAvg = avg;
-          bestDay = entry.key;
-        }
-      }
-      const dayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-      insights.add('你在${dayNames[bestDay]}通常心情最好');
-    }
-
-    return insights;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,23 +116,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                             ),
                       _buildWeeklySummary(),
                       _buildLegend(),
-                      // 热力图
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: EmotionHeatmap(
-                          data: _heatmapData,
-                          onDayTap: (date, data) {
-                            // 可选：点击热力图某天时的处理
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // 情绪洞察
-                      if (_insights.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: EmotionInsightsCard(insights: _insights),
-                        ),
+                      _buildHeatmapEntryCard(),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -522,6 +405,56 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildHeatmapEntryCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EmotionHeatmapScreen()),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _kRippleColorLow.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.grid_view_rounded, color: _kRippleColorHigh),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '查看情绪热力图',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '热力图已独立页面，避免和月历混在一起',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppTheme.textTertiary),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

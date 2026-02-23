@@ -48,13 +48,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _PageData(
       icon: Icons.sailing_outlined,
       title: '纸船',
-      subtitle: '漂流的心意',
-      description: '折一只纸船写下心事\n让它随波漂流，等待有缘人拾起',
+      subtitle: '石头下的回应',
+      description: '在石头下写一只纸船评论\n让温暖在公开互动中被看见',
       color: AppTheme.gentlePurple,
     ),
     _PageData(
       icon: Icons.lightbulb_outline,
-      title: '点灯人',
+      title: '守护者',
       subtitle: '守护心湖的光',
       description: '在他人需要时点亮一盏灯\n成为黑夜中温暖的陪伴',
       color: AppTheme.accentColor,

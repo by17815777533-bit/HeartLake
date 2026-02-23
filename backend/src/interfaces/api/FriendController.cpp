@@ -8,9 +8,11 @@
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "application/FriendApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
+#include "infrastructure/services/IntimacyService.h"
 #include "utils/ResponseUtil.h"
 #include <memory>
 #include <functional>
+#include <algorithm>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -18,6 +20,13 @@ using namespace heartlake::application;
 
 static std::shared_ptr<FriendApplicationService> getFriendService() {
     return heartlake::core::di::ServiceLocator::instance().resolve<FriendApplicationService>();
+}
+
+static std::string intimacyLevelZh(const std::string& level) {
+    if (level == "soulmate") return "灵魂同频";
+    if (level == "close") return "深度共鸣";
+    if (level == "warm") return "温暖连接";
+    return "初识";
 }
 
 /**
@@ -56,40 +65,34 @@ void FriendController::sendFriendRequest(
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
-    std::string targetUserId = (*json)["user_id"].asString();
-    std::string message = json->isMember("message") ? (*json)["message"].asString() : "";
-    if (message.size() > 500) {
-        callback(ResponseUtil::badRequest("message长度不能超过500"));
+    const std::string targetUserId = (*json)["user_id"].asString();
+    if (targetUserId.empty()) {
+        callback(ResponseUtil::badRequest("target user_id 不能为空"));
+        return;
+    }
+    if (targetUserId == userId) {
+        callback(ResponseUtil::badRequest("不能对自己操作"));
         return;
     }
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
+    try {
+        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+        const double score = intimacy.getIntimacyScore(userId, targetUserId);
+
+        Json::Value data;
+        data["mode"] = "intimacy_auto";
+        data["from_user_id"] = userId;
+        data["to_user_id"] = targetUserId;
+        data["intimacy_score"] = score;
+        data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
+        data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
+        data["can_chat"] = score >= 20.0;
+
+        callback(ResponseUtil::success(data, "已切换为亲密分自动关系，无需发送好友请求"));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Error in sendFriendRequest(auto mode): " << e.what();
+        callback(ResponseUtil::internalError("获取亲密分失败"));
     }
-
-    drogon::async_run([service, userId, targetUserId, message, callback]() -> drogon::Task<void> {
-        try {
-            auto result = co_await service->sendFriendRequestAsync(userId, targetUserId, message);
-
-            // 广播好友请求事件给目标用户
-            Json::Value broadcastMsg;
-            broadcastMsg["type"] = "friend_request";
-            broadcastMsg["from_user_id"] = userId;
-            broadcastMsg["message"] = message;
-            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::sendToUser(targetUserId, broadcastMsg);
-
-            callback(ResponseUtil::success(result, "好友请求已发送"));
-        } catch (const std::runtime_error& e) {
-            LOG_ERROR << "Error in sendFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, "好友请求发送失败"));
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Unexpected error in sendFriendRequest: " << e.what();
-            callback(ResponseUtil::internalError("发送好友请求失败"));
-        }
-    });
 }
 
 void FriendController::acceptFriendRequest(
@@ -97,41 +100,27 @@ void FriendController::acceptFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    std::string currentUserId = extractUserId(req);
+    const std::string currentUserId = extractUserId(req);
     if (currentUserId.empty()) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
+    try {
+        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+        const double score = intimacy.getIntimacyScore(currentUserId, userId);
+        Json::Value data;
+        data["mode"] = "intimacy_auto";
+        data["peer_id"] = userId;
+        data["intimacy_score"] = score;
+        data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
+        data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
+        data["can_chat"] = score >= 20.0;
+        callback(ResponseUtil::success(data, "无需接受：关系由互动亲密分自动判定"));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Error in acceptFriendRequest(auto mode): " << e.what();
+        callback(ResponseUtil::internalError("获取亲密分失败"));
     }
-
-    drogon::async_run([service, currentUserId, userId, callback]() -> drogon::Task<void> {
-        try {
-            auto result = co_await service->acceptFriendRequestAsync(currentUserId, userId);
-
-            // 广播好友接受事件给请求发起者
-            // result["friend_id"] 是实际的对方用户ID（兼容 friendship_id 和 from_user_id 两种传参）
-            std::string targetUserId = result.isMember("friend_id") ? result["friend_id"].asString() : userId;
-            Json::Value broadcastMsg;
-            broadcastMsg["type"] = "friend_accepted";
-            broadcastMsg["friendship_id"] = result.isMember("friendship_id") ? result["friendship_id"].asString() : userId;
-            broadcastMsg["from_user_id"] = currentUserId;
-            broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::sendToUser(targetUserId, broadcastMsg);
-
-            callback(ResponseUtil::success(result, "已接受好友请求"));
-        } catch (const std::runtime_error& e) {
-            LOG_ERROR << "Error in acceptFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, "接受好友请求失败"));
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Unexpected error in acceptFriendRequest: " << e.what();
-            callback(ResponseUtil::internalError("接受好友请求失败"));
-        }
-    });
 }
 
 void FriendController::rejectFriendRequest(
@@ -139,30 +128,22 @@ void FriendController::rejectFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    std::string currentUserId = extractUserId(req);
+    const std::string currentUserId = extractUserId(req);
     if (currentUserId.empty()) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
+    try {
+        Json::Value data;
+        data["mode"] = "intimacy_auto";
+        data["peer_id"] = userId;
+        data["note"] = "系统不再使用手动同意/拒绝流程";
+        callback(ResponseUtil::success(data, "无需拒绝：系统按互动亲密分自动判断关系"));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Error in rejectFriendRequest(auto mode): " << e.what();
+        callback(ResponseUtil::internalError("自动关系处理失败"));
     }
-
-    drogon::async_run([service, currentUserId, userId, callback]() -> drogon::Task<void> {
-        try {
-            auto result = co_await service->rejectFriendRequestAsync(currentUserId, userId);
-            callback(ResponseUtil::success(result, "已拒绝好友请求"));
-        } catch (const std::runtime_error& e) {
-            LOG_ERROR << "Error in rejectFriendRequest: " << e.what();
-            callback(ResponseUtil::error(400, "拒绝好友请求失败"));
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Unexpected error in rejectFriendRequest: " << e.what();
-            callback(ResponseUtil::internalError("拒绝好友请求失败"));
-        }
-    });
 }
 
 void FriendController::removeFriend(
@@ -202,54 +183,82 @@ void FriendController::getFriends(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
-    std::string userId = extractUserId(req);
+    const std::string userId = extractUserId(req);
     if (userId.empty()) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
-    }
-
-    drogon::async_run([service, userId, callback]() -> drogon::Task<void> {
-        try {
-            auto result = co_await service->getFriendsListAsync(userId);
-            callback(ResponseUtil::success(result));
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Error in getFriends: " << e.what();
-            callback(ResponseUtil::internalError("获取好友列表失败"));
+    try {
+        int limit = 80;
+        if (auto p = req->getParameter("limit"); !p.empty()) {
+            try {
+                limit = std::stoi(p);
+            } catch (...) {}
         }
-    });
+        limit = std::clamp(limit, 1, 200);
+
+        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+        auto peers = intimacy.getTopIntimacyPeers(userId, limit, 20.0);
+
+        Json::Value friends(Json::arrayValue);
+        for (const auto& peer : peers) {
+            Json::Value item;
+            item["friendship_id"] = "intimacy_auto:" + peer.userId;
+            item["friend_id"] = peer.userId;
+            item["user_id"] = peer.userId;
+            item["username"] = peer.username;
+            item["nickname"] = peer.nickname;
+            item["status"] = "intimacy_auto";
+            item["intimacy_score"] = peer.intimacyScore;
+            item["intimacy_level"] = peer.intimacyLevel;
+            item["intimacy_label"] = intimacyLevelZh(peer.intimacyLevel);
+            item["interaction_count"] = peer.interactionCount;
+            item["boat_comments"] = peer.boatComments;
+            item["ripple_count"] = peer.rippleCount;
+            item["last_interacted_at"] = peer.lastInteractedAt;
+            item["ai_compatibility"] = peer.aiCompatibility;
+            Json::Value breakdown;
+            breakdown["interaction_strength"] = peer.interactionStrength;
+            breakdown["reciprocity_score"] = peer.reciprocityScore;
+            breakdown["co_ripple_score"] = peer.coRippleScore;
+            breakdown["mood_resonance"] = peer.moodResonance;
+            breakdown["semantic_similarity"] = peer.semanticSimilarity;
+            breakdown["emotion_trend_alignment"] = peer.emotionTrendAlignment;
+            breakdown["freshness_score"] = peer.freshnessScore;
+            item["score_breakdown"] = breakdown;
+            item["can_chat"] = peer.canChat;
+            item["ttl_seconds"] = Json::Int64(-1);
+            friends.append(item);
+        }
+
+        Json::Value data;
+        data["mode"] = "intimacy_auto";
+        data["friends"] = friends;
+        data["total"] = static_cast<int>(peers.size());
+
+        callback(ResponseUtil::success(data, "好友关系已由亲密分自动生成"));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Error in getFriends(intimacy mode): " << e.what();
+        callback(ResponseUtil::internalError("获取亲密关系失败"));
+    }
 }
 
 void FriendController::getPendingRequests(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
-    std::string userId = extractUserId(req);
+    const std::string userId = extractUserId(req);
     if (userId.empty()) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
-    }
-
-    drogon::async_run([service, userId, callback]() -> drogon::Task<void> {
-        try {
-            auto result = co_await service->getReceivedRequestsAsync(userId);
-            callback(ResponseUtil::success(result));
-        } catch (const std::exception& e) {
-            LOG_ERROR << "Error in getPendingRequests: " << e.what();
-            callback(ResponseUtil::internalError("获取待处理请求失败"));
-        }
-    });
+    Json::Value data;
+    data["mode"] = "intimacy_auto";
+    data["requests"] = Json::arrayValue;
+    data["total"] = 0;
+    callback(ResponseUtil::success(data, "手动好友申请已下线，关系由互动亲密分自动判定"));
 }
 
 // ==================== 好友消息相关 ====================
@@ -280,16 +289,14 @@ void FriendController::sendMessage(
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, content, callback]() -> drogon::Task<void> {
         try {
-            auto db = drogon::app().getDbClient("default");
-            // 验证好友关系存在
-            auto r = co_await db->execSqlCoro(
-                "SELECT 1 FROM friends WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) AND status = 'accepted' LIMIT 1",
-                userId, friendId
-            );
-            if (r.empty()) {
-                callback(ResponseUtil::forbidden("你们还不是好友，无法发送消息"));
+            auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+            const double score = intimacy.getIntimacyScore(userId, friendId);
+            if (score < 20.0) {
+                callback(ResponseUtil::forbidden("亲密分不足，暂不可私聊（>=20可开启）"));
                 co_return;
             }
+
+            auto db = drogon::app().getDbClient("default");
             // 插入消息
             co_await db->execSqlCoro(
                 "INSERT INTO friend_messages (sender_id, receiver_id, content, created_at) VALUES ($1, $2, $3, NOW())",
@@ -327,16 +334,14 @@ void FriendController::getMessages(
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, callback]() -> drogon::Task<void> {
         try {
-            auto db = drogon::app().getDbClient("default");
-            // 验证好友关系存在
-            auto fr = co_await db->execSqlCoro(
-                "SELECT 1 FROM friends WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) AND status = 'accepted' LIMIT 1",
-                userId, friendId
-            );
-            if (fr.empty()) {
-                callback(ResponseUtil::forbidden("你们还不是好友，无法查看消息"));
+            auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+            const double score = intimacy.getIntimacyScore(userId, friendId);
+            if (score < 20.0) {
+                callback(ResponseUtil::forbidden("亲密分不足，暂不可查看私聊（>=20可开启）"));
                 co_return;
             }
+
+            auto db = drogon::app().getDbClient("default");
             // SEC-04: 查询消息记录 — 添加 LIMIT 防止海量数据拖垮服务
             auto r = co_await db->execSqlCoro(
                 "SELECT id, sender_id, receiver_id, content, created_at FROM friend_messages "
