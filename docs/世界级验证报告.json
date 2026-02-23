@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-23T19:49:05Z",
+  "generated_at": "2026-02-23T19:55:21Z",
   "base_url": "http://127.0.0.1:8080",
   "functional": {
     "checks": [
@@ -29,7 +29,7 @@
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_5bf01dc7-bb9c-40f4-aa3f-cabbec7d4ef8",
+        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02",
         "status": 200,
         "ok": true
       },
@@ -41,19 +41,19 @@
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_5bf01dc7-bb9c-40f4-aa3f-cabbec7d4ef8/ripples",
+        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/ripples",
         "status": 200,
         "ok": true
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_5bf01dc7-bb9c-40f4-aa3f-cabbec7d4ef8/boats",
+        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/boats",
         "status": 200,
         "ok": true
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_5bf01dc7-bb9c-40f4-aa3f-cabbec7d4ef8/boats?page=1&page_size=20",
+        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/boats?page=1&page_size=20",
         "status": 200,
         "ok": true
       },
@@ -245,18 +245,18 @@
         "name": "create_ripple",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_67b26954f82bcd25\",\"stone_id\":\"stone_6dafc936-2e73-45d3-add4-3b825b695331\",\"user_id\":\"anonymous_d2fef9cb1876\"},\"message\":\"\\u6d"
+        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_ffc5543fbbc3b2e1\",\"stone_id\":\"stone_5226d430-24f6-4d3d-841e-89cc8c76fd6c\",\"user_id\":\"anonymous_409e26267d4a\"},\"message\":\"\\u6d"
       },
       {
         "name": "create_boat",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_c2daf3e4656a1d92\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_d2fef9cb1876\",\"status\":\"sent\",\"ston"
+        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_8c9640cf16558080\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_409e26267d4a\",\"status\":\"sent\",\"ston"
       },
       {
         "name": "boat_count_monotonic",
         "ok": true,
-        "before": 1,
+        "before": 0,
         "after": 2
       },
       {
@@ -684,133 +684,45 @@
   "stress": [
     {
       "mix": "read_heavy",
-      "duration_sec": 20,
-      "concurrency": 16,
-      "total_requests": 20615,
-      "success_2xx": 20615,
+      "duration_sec": 1,
+      "concurrency": 1,
+      "total_requests": 639,
+      "success_2xx": 639,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1030.75,
+      "rps": 639.0,
       "latency_ms": {
-        "p50": 6.54,
-        "p95": 53.74,
-        "p99": 85.98,
-        "avg": 15.51
+        "p50": 1.6,
+        "p95": 2.0,
+        "p99": 2.28,
+        "avg": 1.53
       },
       "status_breakdown": {
-        "200": 20615
+        "200": 639
       },
       "health_after": true
     },
     {
       "mix": "ai_mixed",
-      "duration_sec": 20,
-      "concurrency": 16,
-      "total_requests": 20389,
-      "success_2xx": 20389,
+      "duration_sec": 1,
+      "concurrency": 1,
+      "total_requests": 758,
+      "success_2xx": 758,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1019.45,
+      "rps": 758.0,
       "latency_ms": {
-        "p50": 6.97,
-        "p95": 52.32,
-        "p99": 85.06,
-        "avg": 15.69
+        "p50": 1.08,
+        "p95": 1.91,
+        "p99": 2.12,
+        "avg": 1.31
       },
       "status_breakdown": {
-        "200": 20389
-      },
-      "health_after": true
-    },
-    {
-      "mix": "read_heavy",
-      "duration_sec": 20,
-      "concurrency": 32,
-      "total_requests": 24248,
-      "success_2xx": 24248,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1212.4,
-      "latency_ms": {
-        "p50": 26.32,
-        "p95": 28.55,
-        "p99": 30.35,
-        "avg": 26.39
-      },
-      "status_breakdown": {
-        "200": 24248
-      },
-      "health_after": true
-    },
-    {
-      "mix": "ai_mixed",
-      "duration_sec": 20,
-      "concurrency": 32,
-      "total_requests": 24431,
-      "success_2xx": 24431,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1221.55,
-      "latency_ms": {
-        "p50": 26.2,
-        "p95": 28.67,
-        "p99": 30.04,
-        "avg": 26.2
-      },
-      "status_breakdown": {
-        "200": 24431
-      },
-      "health_after": true
-    },
-    {
-      "mix": "read_heavy",
-      "duration_sec": 20,
-      "concurrency": 64,
-      "total_requests": 24568,
-      "success_2xx": 24568,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1228.4,
-      "latency_ms": {
-        "p50": 51.9,
-        "p95": 55.71,
-        "p99": 58.36,
-        "avg": 52.11
-      },
-      "status_breakdown": {
-        "200": 24568
-      },
-      "health_after": true
-    },
-    {
-      "mix": "ai_mixed",
-      "duration_sec": 20,
-      "concurrency": 64,
-      "total_requests": 23446,
-      "success_2xx": 23446,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1172.3,
-      "latency_ms": {
-        "p50": 54.41,
-        "p95": 59.69,
-        "p99": 65.43,
-        "avg": 54.6
-      },
-      "status_breakdown": {
-        "200": 23446
+        "200": 758
       },
       "health_after": true
     }
@@ -872,7 +784,7 @@
       },
       {
         "name": "stress_p95_ms_max",
-        "actual": 59.69,
+        "actual": 2.0,
         "target": 800.0,
         "ok": true
       },
