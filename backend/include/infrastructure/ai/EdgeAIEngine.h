@@ -32,6 +32,7 @@
 #include <chrono>
 #include <random>
 #include <queue>
+#include <future>
 #include <functional>
 #include <cmath>
 #include <algorithm>
@@ -359,7 +360,7 @@ public:
      * @param score 情感分数
      * @param mood 情绪类型
      */
-    void submitEmotionSample(float score, const std::string& mood);
+    void submitEmotionSample(float score, const std::string& mood, float confidence = 1.0f);
 
     /**
      * @brief 获取当前情绪脉搏快照
@@ -455,6 +456,17 @@ public:
      * @return Top-K最相似结果
      */
     std::vector<VectorSearchResult> hnswSearch(const std::vector<float>& query, int k = 10);
+
+    /**
+     * @brief 对HNSW候选集进行二阶段精排（粗召回后重算相似度）
+     * @param query 查询向量
+     * @param candidates 第一阶段召回候选
+     * @param topK 返回结果数
+     * @return 重新排序后的Top-K结果
+     */
+    std::vector<VectorSearchResult> rerankHNSWCandidates(const std::vector<float>& query,
+                                                         const std::vector<VectorSearchResult>& candidates,
+                                                         int topK) const;
 
     /**
      * @brief 获取HNSW索引统计
@@ -564,6 +576,20 @@ private:
     std::unordered_map<std::string, float> sentimentLexicon_;   ///< 情感词典
     std::unordered_map<std::string, float> intensifiers_;       ///< 程度副词
     std::unordered_map<std::string, float> negators_;           ///< 否定词
+    struct SentimentCacheEntry {
+        EdgeSentimentResult result;
+        std::chrono::steady_clock::time_point expiresAt;
+        uint64_t lastAccessTick = 0;
+    };
+    mutable std::shared_mutex sentimentCacheMutex_;
+    std::unordered_map<std::string, SentimentCacheEntry> sentimentCache_;
+    std::unordered_map<std::string, std::shared_future<EdgeSentimentResult>> sentimentInFlight_;
+    std::atomic<uint64_t> sentimentCacheTick_{0};
+    std::atomic<size_t> sentimentCacheHits_{0};
+    std::atomic<size_t> sentimentCacheMisses_{0};
+    size_t sentimentCacheMaxSize_ = 8192;
+    int sentimentCacheTTLSeconds_ = 180;
+
     void loadEdgeSentimentLexicon();
     std::vector<std::string> tokenizeUTF8(const std::string& text) const;
     float ruleSentiment(const std::string& text) const;
@@ -571,6 +597,11 @@ private:
     float statisticalSentiment(const std::vector<std::string>& tokens,
                                const std::string& text) const;
     std::string scoresToMood(float score) const;
+    std::string normalizeSentimentText(const std::string& text) const;
+    bool getSentimentCacheHit(const std::string& key, EdgeSentimentResult& result);
+    void putSentimentCache(const std::string& key, const EdgeSentimentResult& result);
+    void compactSentimentCacheLocked(std::unique_lock<std::shared_mutex>& lock);
+    EdgeSentimentResult analyzeSentimentLocalUncached(const std::string& text);
 
     // ---- 文本审核内部 ----
     perf::ACAutomaton moderationAC_;                            ///< AC自动机
@@ -584,6 +615,7 @@ private:
     struct EmotionSample {
         float score;
         std::string mood;
+        float weight;
         std::chrono::steady_clock::time_point timestamp;
     };
     std::deque<EmotionSample> emotionWindow_;                   ///< 滑动窗口

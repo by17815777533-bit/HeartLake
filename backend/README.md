@@ -12,7 +12,7 @@ HeartLake 匿名情感社交平台的后端服务，基于 C++20 + Drogon 异步
 | Drogon | 1.9.11+ (异步 HTTP/WebSocket 框架) |
 | PostgreSQL | 16 |
 | Redis | 7 |
-| ONNX Runtime | 1.17.0 (可选，中文情感分析模型推理) |
+| ONNX Runtime | 1.22.0（内置 CPU/GPU 包，默认优先 GPU） |
 | 认证 | PASETO v4 |
 | 加密 | X25519 / AES-256-GCM 端到端加密 |
 | 构建 | CMake 3.16+ |
@@ -63,7 +63,7 @@ backend/
 - GCC 12+ 或 Clang 15+（需支持 C++20）
 - CMake 3.16+
 - 系统依赖：OpenSSL, libcurl, jsoncpp, c-ares, hiredis, postgresql-libs
-- 可选：ONNX Runtime 1.17.0（启用本地情感分析模型）
+- 可选：ONNX Runtime 1.22.0（启用本地情感分析模型）
 
 ### Arch Linux
 
@@ -107,9 +107,51 @@ make -j$(nproc)
 cp ../.env.example ../.env
 # 编辑 .env 填入实际配置
 
-# 4. 运行
+# ONNX 小模型（可选）
+# - EDGE_AI_ONNX_ENABLED=true/false 时为显式开关
+# - 不设置 EDGE_AI_ONNX_ENABLED 时，服务会自动探测模型与词表是否存在，存在即启用
+# - EDGE_AI_MODEL_PATH 可写目录（例如 ./models）或模型文件路径
+EDGE_AI_MODEL_PATH=./models
+EDGE_AI_ONNX_THREADS=2
+# 强制 GPU（默认开启，可按需关闭）
+AI_OLLAMA_FORCE_GPU=true
+AI_OLLAMA_NUM_GPU=999
+AI_OLLAMA_MAIN_GPU=0
+# 情绪分析服务化（缓存 + 并发合并 + 自适应调度）
+AI_SENTIMENT_LOCAL_CONF_THRESHOLD=0.72
+AI_SENTIMENT_CACHE_TTL_SEC=7200
+AI_SENTIMENT_CACHE_MAX_SIZE=30000
+AI_SENTIMENT_ADAPTIVE_INFLIGHT_THRESHOLD=8
+AI_SENTIMENT_ADAPTIVE_LOCAL_CONF_DELTA=0.20
+# Edge 本地情绪分析高并发缓存（/api/edge-ai/analyze 热点路径）
+EDGE_AI_SENTIMENT_CACHE_TTL_SEC=180
+EDGE_AI_SENTIMENT_CACHE_MAX_SIZE=8192
+EDGE_AI_ONNX_FORCE_GPU=true
+EDGE_AI_ONNX_GPU_DEVICE=0
+EDGE_AI_ONNX_GPU_HARD_FAIL=false
+
+# 4. 运行（推荐统一入口）
+# - 自动加载 .env
+# - 自动生成 config.runtime.json
+# - 本地 PostgreSQL/Redis 不可用时自动拉起（数据持久化到项目根目录 .runtime）
+# - 自动执行 migrations
+# - AI_PROVIDER=ollama 时自动检查并拉取 AI_MODEL（默认 heartlake-qwen）
+cd ..
+./backend/start.sh
+
+# 停止本地运行栈
+./backend/stop.sh
+
+# 也可直接运行二进制（需自行保障依赖服务可用）
+cd backend/build
 ./HeartLake
 ```
+
+`start.sh` 运行时说明（与当前代码一致）：
+- 自动优先使用 `backend/third_party/onnxruntime-linux-x64-gpu-1.22.0`。
+- 若 GPU 包不存在，自动回退到 `onnxruntime-linux-x64-1.22.0`（CPU）。
+- 自动拼接 `LD_LIBRARY_PATH`（ONNX + Ollama CUDA 库路径）。
+- 若机器缺少 `libcurand.so.10` / `libcufft.so.11` / `libnvrtc.so.12`，ONNX 会记录日志并回退 CPU，不影响服务可用性。
 
 ### Docker 构建
 
@@ -130,7 +172,7 @@ docker compose up -d
 
 ## API 控制器列表
 
-共 21 个控制器，覆盖平台全部业务：
+共 20 个控制器，覆盖平台全部业务：
 
 | # | 控制器 | 职责 |
 |---|--------|------|
@@ -142,25 +184,24 @@ docker compose up -d
 | 6 | `TempFriendController` | 临时好友（限时匿名聊天） |
 | 7 | `PaperBoatController` | 纸船漂流（匿名信件） |
 | 8 | `ConsultationController` | 咨询室（E2EE 端到端加密通信） |
-| 9 | `MediaController` | 媒体文件上传与管理 |
-| 10 | `VIPController` | VIP 状态查询与管理 |
-| 11 | `RecommendationController` | 内容推荐（多算法融合） |
-| 12 | `VectorSearchController` | 向量相似度搜索（HNSW） |
-| 13 | `EdgeAIController` | 边缘 AI 推理、联邦学习、差分隐私接口 |
-| 14 | `PrivacyController` | 差分隐私统计、隐私预算报告 |
-| 15 | `GuardianController` | 守望者系统（灯火转赠与激励） |
-| 16 | `SafeHarborController` | 安全港湾（危机干预资源） |
-| 17 | `ReportController` | 举报处理 |
-| 18 | `AdminController` | 管理员认证与操作 |
-| 19 | `AdminManagementController` | 管理员账号管理 |
-| 20 | `HealthController` | 健康检查、服务状态监控 |
-| 21 | `BroadcastWebSocketController` | WebSocket 实时广播 |
+| 9 | `VIPController` | VIP 状态查询与管理 |
+| 10 | `RecommendationController` | 内容推荐（多算法融合） |
+| 11 | `VectorSearchController` | 向量相似度搜索（HNSW） |
+| 12 | `EdgeAIController` | 边缘 AI 推理、联邦学习、差分隐私接口 |
+| 13 | `PrivacyController` | 差分隐私统计、隐私预算报告 |
+| 14 | `GuardianController` | 守护者系统（灯火转赠与激励） |
+| 15 | `SafeHarborController` | 安全港湾（危机干预资源） |
+| 16 | `ReportController` | 举报处理 |
+| 17 | `AdminController` | 管理员认证与操作 |
+| 18 | `AdminManagementController` | 管理员账号管理 |
+| 19 | `HealthController` | 健康检查、服务状态监控 |
+| 20 | `BroadcastWebSocketController` | WebSocket 实时广播 |
 
 ---
 
 ## 数据库迁移
 
-共 10 个迁移文件，按序号执行：
+共 12 个迁移文件，按序号执行：
 
 | 文件 | 说明 |
 |------|------|
@@ -169,11 +210,13 @@ docker compose up -d
 | `003_social.sql` | 社交关系（好友、临时好友、纸船） |
 | `004_interactions.sql` | 互动（涟漪、点亮） |
 | `005_ai_system.sql` | AI 系统（情感分析、向量索引） |
-| `006_guardian.sql` | 守望者系统 |
+| `006_guardian.sql` | 守护者系统 |
 | `007_admin.sql` | 管理后台 |
 | `008_notifications.sql` | 通知系统 |
 | `009_consultation.sql` | 咨询室 |
 | `010_data_export.sql` | 数据导出 |
+| `011_performance_schema_hardening.sql` | 性能索引与表结构兼容增强 |
+| `012_users_username_compat.sql` | users 表兼容列补齐（`username`/`recovery_key_hash`） |
 
 ### 手动执行迁移
 
@@ -204,11 +247,16 @@ cp .env.example .env
 |------|------|------|
 | 服务 | `SERVER_PORT` | 监听端口，默认 `8080` |
 | 服务 | `SERVER_THREADS` | 工作线程数，默认 `4` |
+| 性能 | `EMBEDDING_WARMUP_ON_BOOT` | 启动时是否预热Embedding训练，默认 `false`（建议低配机保持关闭） |
+| 性能 | `ENABLE_LAKE_GOD_GUARDIAN` / `LAKE_GOD_STARTUP_DELAY_SEC` / `LAKE_GOD_SCAN_BATCH_SIZE` | 湖神服务开关 + 冷启动延迟 + 每轮批量 |
+| 性能 | `ENABLE_EMOTION_TRACKING` / `EMOTION_TRACKING_STARTUP_DELAY_SEC` | 情绪追踪开关 + 冷启动延迟 |
+| 性能 | `ENABLE_USER_FOLLOWUP` / `USER_FOLLOWUP_STARTUP_DELAY_SEC` | 回访服务开关 + 冷启动延迟 |
+| 性能 | `ENABLE_WS_HEARTBEAT` | WebSocket心跳开关，默认 `true` |
 | 数据库 | `DB_HOST` / `DB_PORT` / `DB_NAME` | PostgreSQL 连接信息 |
 | 数据库 | `DB_USER` / `DB_PASSWORD` | PostgreSQL 认证 |
 | 数据库 | `DB_POOL_SIZE` | 连接池大小，默认 `20` |
 | Redis | `REDIS_HOST` / `REDIS_PORT` | Redis 连接信息 |
-| Redis | `REDIS_POOL_SIZE` | 连接池大小，默认 `30` |
+| Redis | `REDIS_POOL_SIZE` / `REDIS_MAX_POOL_SIZE` | 初始/最大连接池大小，默认 `12/24` |
 | 安全 | `PASETO_KEY` | 用户 PASETO v4 签名密钥（生产环境必须更换） |
 | 安全 | `ADMIN_PASETO_KEY` | 管理员 PASETO v4 签名密钥 |
 | 管理 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 管理员初始账号 |
@@ -216,6 +264,10 @@ cp .env.example .env
 | AI | `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | AI API 配置 |
 | 限流 | `RATE_AI_PER_HOUR` | AI 接口每小时调用上限，默认 `30` |
 | CORS | `CORS_ALLOWED_ORIGIN` | 允许的跨域来源 |
+
+运行时补充说明：
+- 后端二进制启动时会自动尝试加载 `.env`（查找顺序：`.env` → `../.env` → `./backend/.env`，或 `HEARTLAKE_ENV_PATH` 指定路径）。
+- 若未显式配置 AI 变量，默认走本地优先：`AI_PROVIDER=ollama`、`AI_BASE_URL=http://127.0.0.1:11434`、`AI_MODEL=heartlake-qwen`。
 
 ### 配置文件
 
@@ -252,7 +304,7 @@ Domain (领域层)
 Infrastructure (基础设施层)
 ```
 
-- **Interfaces**：21 个控制器负责 HTTP/WebSocket 请求路由、参数校验、响应序列化
+- **Interfaces**：20 个控制器负责 HTTP/WebSocket 请求路由、参数校验、响应序列化
 - **Application**：应用服务编排业务流程，包含 `FriendApplicationService`、`InteractionApplicationService`、`StoneApplicationService`、`UserApplicationService` 及事件处理器
 - **Domain**：纯业务逻辑，划分为 `user`、`stone`、`friend` 三个子域，每个子域包含 entities、repositories（接口）、services
 - **Infrastructure**：技术实现层，提供 AI、缓存、事件总线、过滤器、隐私、实时通信、向量索引等基础能力

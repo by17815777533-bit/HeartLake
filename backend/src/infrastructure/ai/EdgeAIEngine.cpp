@@ -100,6 +100,198 @@ bool containsAnyPhrase(const std::string& text, const std::vector<std::string>& 
     return false;
 }
 
+struct AffectiveAnchorSignal {
+    float score{0.0f};      // [-1, 1]
+    float strength{0.0f};   // [0, 1]
+    float conflict{0.0f};   // [0, 1]
+};
+
+float weightedPhraseScore(const std::string& text,
+                          const std::vector<std::pair<std::string, float>>& lexicon) {
+    float score = 0.0f;
+    for (const auto& [phrase, weight] : lexicon) {
+        size_t pos = 0;
+        while ((pos = text.find(phrase, pos)) != std::string::npos) {
+            score += weight;
+            pos += phrase.size();
+        }
+    }
+    return score;
+}
+
+std::string refineMoodFromCues(const std::string& text,
+                               float score,
+                               const std::string& fallbackMood) {
+    static const std::vector<std::pair<std::string, float>> kHappyCues = {
+        {"开心", 1.2f}, {"高兴", 1.1f}, {"快乐", 1.1f}, {"喜悦", 1.0f},
+        {"幸福", 1.0f}, {"暖暖", 0.9f}, {"被认可", 0.95f}, {"认可", 0.75f},
+        {"被夸", 0.90f}, {"夸了我", 0.95f}, {"礼物", 0.90f}, {"惊喜", 0.85f}
+    };
+    static const std::vector<std::pair<std::string, float>> kCalmCues = {
+        {"平静", 1.3f}, {"放松", 1.1f}, {"放松下来", 1.2f}, {"安定", 1.2f},
+        {"安稳", 1.0f}, {"从容", 0.9f}, {"淡定", 0.9f}, {"舒缓", 0.95f},
+        {"慢下来", 0.8f}, {"继续努力", 0.95f}, {"散步聊天", 0.85f},
+        {"喝茶", 0.75f}, {"心里安定", 1.1f}
+    };
+    static const std::vector<std::pair<std::string, float>> kAnxiousCues = {
+        {"焦虑", 1.4f}, {"担心", 1.2f}, {"紧张", 1.1f}, {"不安", 1.1f},
+        {"压力", 1.0f}, {"发紧", 1.0f}, {"心跳很快", 1.1f}, {"慌", 0.95f},
+        {"害怕", 1.05f}, {"恐惧", 1.2f}
+    };
+    static const std::vector<std::pair<std::string, float>> kSadCues = {
+        {"难过", 1.3f}, {"伤心", 1.3f}, {"失落", 1.1f}, {"受挫", 1.0f},
+        {"低落", 1.0f}, {"沉默了很久", 0.95f}, {"难受", 1.1f}, {"痛苦", 1.2f}
+    };
+    static const std::vector<std::pair<std::string, float>> kAngryCues = {
+        {"生气", 1.4f}, {"愤怒", 1.5f}, {"恼火", 1.4f}, {"火大", 1.5f},
+        {"气炸", 1.3f}, {"抓狂", 1.1f}, {"气死", 1.2f}, {"被连续打断", 0.95f},
+        {"莫名否定", 0.95f}, {"连续否决", 0.95f}
+    };
+    static const std::vector<std::pair<std::string, float>> kSurprisedCues = {
+        {"震惊", 1.4f}, {"惊讶", 1.3f}, {"惊到", 1.3f}, {"惊到了", 1.3f},
+        {"出乎意料", 1.3f}, {"没反应过来", 1.2f}, {"太突然", 1.0f},
+        {"突然", 0.8f}, {"居然", 0.9f}, {"意外", 0.9f}
+    };
+    static const std::vector<std::pair<std::string, float>> kConfusedCues = {
+        {"困惑", 1.4f}, {"懵", 1.3f}, {"迷茫", 1.1f}, {"乱了", 1.2f},
+        {"搞不懂", 1.2f}, {"前后矛盾", 1.1f}, {"不知道该", 1.0f},
+        {"信息太多", 1.0f}, {"没头绪", 1.0f}
+    };
+    static const std::vector<std::pair<std::string, float>> kNeutralCues = {
+        {"没什么特别情绪", 1.5f}, {"心情平平", 1.4f}, {"日程正常", 1.2f},
+        {"按计划", 1.1f}, {"一般", 0.75f}, {"就这样", 0.8f},
+        {"发呆", 0.95f}, {"没有好消息也没有坏消息", 1.6f}, {"什么都没发生", 1.4f}
+    };
+
+    const float happyCue = weightedPhraseScore(text, kHappyCues);
+    const float calmCue = weightedPhraseScore(text, kCalmCues);
+    const float anxiousCue = weightedPhraseScore(text, kAnxiousCues);
+    const float sadCue = weightedPhraseScore(text, kSadCues);
+    const float angryCue = weightedPhraseScore(text, kAngryCues);
+    const float surprisedCue = weightedPhraseScore(text, kSurprisedCues);
+    const float confusedCue = weightedPhraseScore(text, kConfusedCues);
+    float neutralCue = weightedPhraseScore(text, kNeutralCues);
+
+    if (text.find("不开心") != std::string::npos &&
+        text.find("不难过") != std::string::npos) {
+        neutralCue += 1.6f;
+    }
+
+    const float maxCue = std::max(
+        {happyCue, calmCue, anxiousCue, sadCue, angryCue, surprisedCue, confusedCue, neutralCue});
+
+    if (neutralCue >= 1.1f &&
+        neutralCue >= calmCue &&
+        neutralCue >= anxiousCue &&
+        neutralCue >= sadCue &&
+        std::abs(score) <= 0.75f) {
+        return "neutral";
+    }
+    if (angryCue >= 1.0f && angryCue >= sadCue * 0.90f && angryCue >= anxiousCue * 0.90f) {
+        return "angry";
+    }
+    if (surprisedCue >= 1.0f && surprisedCue + 0.10f >= happyCue && surprisedCue >= anxiousCue) {
+        return "surprised";
+    }
+    if (confusedCue >= 1.0f && confusedCue + 0.10f >= anxiousCue && confusedCue + 0.10f >= sadCue) {
+        return "confused";
+    }
+    if (anxiousCue >= 0.95f && anxiousCue >= sadCue * 0.85f) {
+        return "anxious";
+    }
+    if (sadCue >= 0.95f && sadCue >= anxiousCue * 1.05f) {
+        return "sad";
+    }
+    if (calmCue >= 1.0f && calmCue >= happyCue * 0.90f && std::abs(score) <= 0.90f) {
+        return "calm";
+    }
+    if (happyCue >= 0.95f && score >= -0.20f) {
+        return "happy";
+    }
+    if (maxCue < 0.35f && std::abs(score) < 0.18f) {
+        return "neutral";
+    }
+
+    return fallbackMood;
+}
+
+float calibrateScoreByMoodCue(const std::string& text,
+                              const std::string& mood,
+                              float score) {
+    static const std::vector<std::string> kNeutralStrongSignals = {
+        "没什么特别情绪", "心情平平", "日程正常", "按计划", "没有好消息也没有坏消息",
+        "什么都没发生", "不开心，也不难过", "不开心也不难过", "就是发呆", "心情一般"
+    };
+
+    if (mood == "neutral") {
+        if (containsAnyPhrase(text, kNeutralStrongSignals)) {
+            return std::clamp(score, -0.08f, 0.08f);
+        }
+        return std::clamp(score, -0.15f, 0.15f);
+    }
+
+    if ((mood == "anxious" || mood == "sad" || mood == "angry" || mood == "confused") &&
+        score > -0.05f) {
+        return -std::max(0.12f, std::abs(score) * 0.45f);
+    }
+
+    if ((mood == "happy" || mood == "calm" || mood == "surprised") &&
+        score < 0.05f) {
+        return std::max(0.12f, std::abs(score) * 0.45f);
+    }
+
+    return score;
+}
+
+AffectiveAnchorSignal computeAffectiveAnchor(const std::string& text) {
+    static const std::vector<std::pair<std::string, float>> kPositiveAnchors = {
+        {"今天", 0.18f}, {"礼物", 0.95f}, {"收到了", 0.70f}, {"收到", 0.55f},
+        {"夸", 0.52f}, {"表扬", 0.92f}, {"认可", 0.82f}, {"肯定", 0.80f},
+        {"通过", 0.72f}, {"成功", 0.78f}, {"晋级", 0.70f}, {"获奖", 0.86f},
+        {"惊喜", 0.82f}, {"感谢", 0.66f}, {"幸福", 0.78f}, {"开心", 0.86f},
+        {"快乐", 0.84f}, {"好看", 0.50f}, {"喜欢", 0.58f}, {"治愈", 0.64f}
+    };
+    static const std::vector<std::pair<std::string, float>> kNegativeAnchors = {
+        {"焦虑", 0.95f}, {"担心", 0.75f}, {"不安", 0.72f}, {"紧张", 0.62f},
+        {"难过", 0.88f}, {"伤心", 0.92f}, {"失落", 0.72f}, {"害怕", 0.84f},
+        {"恐惧", 0.90f}, {"压力", 0.72f}, {"烦躁", 0.74f}, {"痛苦", 0.95f},
+        {"绝望", 1.00f}, {"崩溃", 1.00f}, {"失败", 0.72f}, {"后悔", 0.68f}
+    };
+    static const std::vector<std::string> kContrastMarkers = {
+        "但是", "但", "不过", "然而", "可是", "只是"
+    };
+
+    float posScore = weightedPhraseScore(text, kPositiveAnchors);
+    float negScore = weightedPhraseScore(text, kNegativeAnchors);
+
+    size_t markerPos = std::string::npos;
+    size_t markerLen = 0;
+    for (const auto& marker : kContrastMarkers) {
+        const auto pos = text.rfind(marker);
+        if (pos != std::string::npos && (markerPos == std::string::npos || pos > markerPos)) {
+            markerPos = pos;
+            markerLen = marker.size();
+        }
+    }
+    if (markerPos != std::string::npos && markerPos + markerLen < text.size()) {
+        const auto tail = text.substr(markerPos + markerLen);
+        posScore += 1.25f * weightedPhraseScore(tail, kPositiveAnchors);
+        negScore += 1.25f * weightedPhraseScore(tail, kNegativeAnchors);
+    }
+
+    const float evidence = posScore + negScore;
+    if (evidence <= 0.01f) {
+        return {};
+    }
+
+    const float score = std::clamp((posScore - negScore) / (evidence + 1.2f), -1.0f, 1.0f);
+    const float strength = std::clamp(std::tanh(evidence / 4.5f), 0.0f, 1.0f);
+    const float conflict = (posScore > 0.01f && negScore > 0.01f)
+        ? std::clamp(std::min(posScore, negScore) / std::max(posScore, negScore), 0.0f, 1.0f)
+        : 0.0f;
+    return {score, strength, conflict};
+}
+
 std::filesystem::path resolveRuntimeRelativePath(const std::filesystem::path& path) {
     if (path.empty() || path.is_absolute()) {
         return path;
@@ -205,6 +397,23 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     pulseWindowSeconds_ = config.get("pulse_window_seconds", 300).asInt();
     maxPulseHistory_ = config.get("max_pulse_history", 100).asInt();
 
+    // 情感分析缓存配置（高并发场景显著降低重复推理开销）
+    sentimentCacheTTLSeconds_ = std::max(
+        1,
+        config.get(
+            "sentiment_cache_ttl_sec",
+            parsePositiveIntEnv(std::getenv("EDGE_AI_SENTIMENT_CACHE_TTL_SEC"), sentimentCacheTTLSeconds_)
+        ).asInt()
+    );
+    sentimentCacheMaxSize_ = static_cast<size_t>(std::max(
+        128,
+        config.get(
+            "sentiment_cache_max_size",
+            parsePositiveIntEnv(std::getenv("EDGE_AI_SENTIMENT_CACHE_MAX_SIZE"),
+                                static_cast<int>(sentimentCacheMaxSize_))
+        ).asInt()
+    ));
+
     // 加载情感词典
     loadEdgeSentimentLexicon();
 
@@ -233,8 +442,20 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
         nodeRegistry_.clear();
     }
 
+    // 清空情感缓存与并发合并状态
+    {
+        std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+        sentimentCache_.clear();
+        sentimentInFlight_.clear();
+    }
+    sentimentCacheTick_.store(0);
+    sentimentCacheHits_.store(0);
+    sentimentCacheMisses_.store(0);
+
     initialized_ = true;
-    LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully";
+    LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully"
+             << ", sentiment_cache_ttl_sec=" << sentimentCacheTTLSeconds_
+             << ", sentiment_cache_max_size=" << sentimentCacheMaxSize_;
 
 #ifdef HEARTLAKE_USE_ONNX
     onnxEngine_.reset();
@@ -940,9 +1161,173 @@ std::string EdgeAIEngine::scoresToMood(float score) const {
     return "sad";
 }
 
+std::string EdgeAIEngine::normalizeSentimentText(const std::string& text) const {
+    std::string normalized;
+    normalized.reserve(text.size());
+
+    bool previousSpace = true;
+    for (unsigned char ch : text) {
+        if (ch < 0x80) {
+            if (std::isspace(ch)) {
+                if (!previousSpace) {
+                    normalized.push_back(' ');
+                }
+                previousSpace = true;
+                continue;
+            }
+            normalized.push_back(static_cast<char>(std::tolower(ch)));
+            previousSpace = false;
+            continue;
+        }
+        normalized.push_back(static_cast<char>(ch));
+        previousSpace = false;
+    }
+
+    while (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+bool EdgeAIEngine::getSentimentCacheHit(const std::string& key, EdgeSentimentResult& result) {
+    if (key.empty()) {
+        return false;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    {
+        std::shared_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+        auto it = sentimentCache_.find(key);
+        if (it != sentimentCache_.end() && it->second.expiresAt > now) {
+            result = it->second.result;
+            sentimentCacheHits_.fetch_add(1, std::memory_order_relaxed);
+            return true;
+        }
+    }
+
+    {
+        std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+        auto it = sentimentCache_.find(key);
+        if (it != sentimentCache_.end() && it->second.expiresAt <= now) {
+            sentimentCache_.erase(it);
+        }
+    }
+
+    sentimentCacheMisses_.fetch_add(1, std::memory_order_relaxed);
+    return false;
+}
+
+void EdgeAIEngine::compactSentimentCacheLocked(std::unique_lock<std::shared_mutex>& lock) {
+    (void)lock;
+    const auto now = std::chrono::steady_clock::now();
+    for (auto it = sentimentCache_.begin(); it != sentimentCache_.end();) {
+        if (it->second.expiresAt <= now) {
+            it = sentimentCache_.erase(it);
+            continue;
+        }
+        ++it;
+    }
+
+    while (sentimentCache_.size() > sentimentCacheMaxSize_) {
+        auto victim = sentimentCache_.begin();
+        for (auto it = sentimentCache_.begin(); it != sentimentCache_.end(); ++it) {
+            if (it->second.lastAccessTick < victim->second.lastAccessTick) {
+                victim = it;
+            }
+        }
+        if (victim == sentimentCache_.end()) {
+            break;
+        }
+        sentimentCache_.erase(victim);
+    }
+}
+
+void EdgeAIEngine::putSentimentCache(const std::string& key, const EdgeSentimentResult& result) {
+    if (key.empty() || sentimentCacheMaxSize_ == 0) {
+        return;
+    }
+
+    std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+    SentimentCacheEntry entry;
+    entry.result = result;
+    entry.expiresAt = std::chrono::steady_clock::now() + std::chrono::seconds(sentimentCacheTTLSeconds_);
+    entry.lastAccessTick = sentimentCacheTick_.fetch_add(1, std::memory_order_relaxed) + 1;
+    sentimentCache_[key] = std::move(entry);
+    compactSentimentCacheLocked(lock);
+}
+
 EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text) {
     ++totalSentimentCalls_;
 
+    if (!isEnabled() || text.empty()) {
+        return {0.0f, "neutral", 0.0f, "disabled"};
+    }
+
+    const std::string cacheKey = normalizeSentimentText(text);
+    if (cacheKey.empty()) {
+        return analyzeSentimentLocalUncached(text);
+    }
+
+    EdgeSentimentResult cached;
+    if (getSentimentCacheHit(cacheKey, cached)) {
+        return cached;
+    }
+
+    std::shared_future<EdgeSentimentResult> sharedFuture;
+    std::optional<std::promise<EdgeSentimentResult>> ownerPromise;
+    {
+        std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+        const auto now = std::chrono::steady_clock::now();
+        auto cacheIt = sentimentCache_.find(cacheKey);
+        if (cacheIt != sentimentCache_.end()) {
+            if (cacheIt->second.expiresAt > now) {
+                cacheIt->second.lastAccessTick = sentimentCacheTick_.fetch_add(1, std::memory_order_relaxed) + 1;
+                sentimentCacheHits_.fetch_add(1, std::memory_order_relaxed);
+                return cacheIt->second.result;
+            }
+            sentimentCache_.erase(cacheIt);
+        }
+
+        auto inflightIt = sentimentInFlight_.find(cacheKey);
+        if (inflightIt != sentimentInFlight_.end()) {
+            sharedFuture = inflightIt->second;
+        } else {
+            ownerPromise.emplace();
+            sharedFuture = ownerPromise->get_future().share();
+            sentimentInFlight_[cacheKey] = sharedFuture;
+        }
+    }
+
+    if (!ownerPromise.has_value()) {
+        try {
+            return sharedFuture.get();
+        } catch (...) {
+            // 仅在协同请求异常时回退，避免因为单个promise失败导致整体不可用。
+            return analyzeSentimentLocalUncached(text);
+        }
+    }
+
+    try {
+        auto computed = analyzeSentimentLocalUncached(text);
+        putSentimentCache(cacheKey, computed);
+        {
+            std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+            sentimentInFlight_.erase(cacheKey);
+        }
+        ownerPromise->set_value(computed);
+        return computed;
+    } catch (...) {
+        {
+            std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+            sentimentInFlight_.erase(cacheKey);
+        }
+        ownerPromise->set_exception(std::current_exception());
+        throw;
+    }
+}
+
+EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocalUncached(const std::string& text) {
     if (!isEnabled() || text.empty()) {
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
@@ -1050,8 +1435,8 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
 
     auto applyPositiveEventBoost = [&](float baseScore) {
         static const std::vector<std::string> positiveEventMarkers = {
-            "收到", "收到了", "礼物", "表扬", "夸奖", "夸了我", "认可", "肯定", "赞扬",
-            "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
+            "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬",
+            "认可", "肯定", "赞扬", "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
         };
         static const std::vector<std::string> negativeMarkers = {
             "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁",
@@ -1084,6 +1469,16 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
     };
     ensembleScore = applyPositiveEventBoost(ensembleScore);
 
+    const auto anchorSignal = computeAffectiveAnchor(text);
+    if (anchorSignal.strength > 0.08f) {
+        const float anchorWeight = std::clamp(0.16f + anchorSignal.strength * 0.24f, 0.16f, 0.40f);
+        ensembleScore = std::clamp(
+            ensembleScore * (1.0f - anchorWeight) + anchorSignal.score * anchorWeight,
+            -1.0f,
+            1.0f
+        );
+    }
+
     float agreement = 1.0f;
     bool allPositive = (ruleScore >= 0 && lexScore >= 0 && statScore >= 0);
     bool allNegative = (ruleScore <= 0 && lexScore <= 0 && statScore <= 0);
@@ -1103,15 +1498,30 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
     }
     float coverageBoost = std::min(0.2f, static_cast<float>(lexMatches) * 0.05f);
     float confidence = std::clamp(agreement + coverageBoost, 0.0f, 1.0f);
+    if (anchorSignal.strength > 0.10f) {
+        confidence = std::clamp(confidence * 0.82f + anchorSignal.strength * 0.18f, 0.0f, 1.0f);
+    }
+    if (anchorSignal.conflict > 0.42f && std::abs(ensembleScore) < 0.55f) {
+        const float penalty = std::clamp((anchorSignal.conflict - 0.42f) * 0.45f, 0.0f, 0.22f);
+        confidence = std::max(0.10f, confidence - penalty);
+    }
+
     static const std::vector<std::string> positiveEventHints = {
-        "收到", "收到了", "礼物", "表扬", "夸奖", "夸了我", "认可", "肯定", "赞扬",
+        "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬", "认可", "肯定", "赞扬",
         "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜"
     };
     static const std::vector<std::string> negativeEventHints = {
         "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃"
     };
     const bool positiveEventSignal =
-        containsAnyPhrase(text, positiveEventHints) && !containsAnyPhrase(text, negativeEventHints);
+        (containsAnyPhrase(text, positiveEventHints) && !containsAnyPhrase(text, negativeEventHints))
+        || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
+
+    auto finalizeSentiment = [&](float rawScore, float rawConfidence, const char* methodName) {
+        const std::string mood = refineMoodFromCues(text, rawScore, scoresToMood(rawScore));
+        const float calibratedScore = calibrateScoreByMoodCue(text, mood, rawScore);
+        return EdgeSentimentResult{calibratedScore, mood, rawConfidence, methodName};
+    };
 
 #ifdef HEARTLAKE_USE_ONNX
     if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
@@ -1129,12 +1539,24 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
                 1.0f
             );
             const float fusedConf = std::clamp((onnxResult.confidence * 0.40f + confidence * 0.60f) - 0.10f, 0.15f, 0.95f);
-            return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_guarded_ensemble"};
+            return finalizeSentiment(fusedScore, fusedConf, "onnx_guarded_ensemble");
         }
 
         float onnxWeight = std::clamp(0.35f + onnxResult.confidence * 0.35f, 0.35f, 0.75f);
         if (lexSignalStrong) {
             onnxWeight = std::max(0.25f, onnxWeight - 0.10f);
+        }
+        if (anchorSignal.strength > 0.20f && std::abs(anchorSignal.score) > 0.32f) {
+            const bool anchorConflictWithOnnx = (onnxResult.score * anchorSignal.score < -0.08f);
+            if (anchorConflictWithOnnx) {
+                onnxWeight = std::max(0.20f, onnxWeight - 0.18f);
+            } else {
+                onnxWeight = std::min(0.88f, onnxWeight + 0.06f);
+            }
+        }
+        if (positiveEventSignal && ensembleScore > 0.45f && onnxResult.score < -0.10f) {
+            // 正向事件语义明确时，避免ONNX异常负向结果主导最终判断。
+            onnxWeight = std::min(onnxWeight, 0.18f);
         }
         if (scoreGap < 0.20f) {
             onnxWeight = std::min(0.82f, onnxWeight + 0.08f);
@@ -1142,11 +1564,11 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
 
         const float fusedScore = std::clamp(onnxResult.score * onnxWeight + ensembleScore * (1.0f - onnxWeight), -1.0f, 1.0f);
         const float fusedConf = std::clamp((onnxResult.confidence * 0.55f + confidence * 0.45f) - scoreGap * 0.15f, 0.10f, 0.98f);
-        return {fusedScore, scoresToMood(fusedScore), fusedConf, "onnx_ensemble"};
+        return finalizeSentiment(fusedScore, fusedConf, "onnx_ensemble");
     }
 #endif
 
-    return {ensembleScore, scoresToMood(ensembleScore), confidence, "ensemble"};
+    return finalizeSentiment(ensembleScore, confidence, "ensemble");
 }
 
 // ============================================================================
@@ -2154,6 +2576,81 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
     return results;
 }
 
+std::vector<VectorSearchResult> EdgeAIEngine::rerankHNSWCandidates(
+    const std::vector<float>& query,
+    const std::vector<VectorSearchResult>& candidates,
+    int topK) const {
+    if (!isEnabled()) return {};
+    if (query.empty() || candidates.empty()) return {};
+
+    std::shared_lock<std::shared_mutex> lock(hnswMutex_);
+    if (hnswNodes_.empty()) return {};
+
+    const size_t expectedDim = hnswNodes_.front().vector.size();
+    if (expectedDim == 0 || query.size() != expectedDim) {
+        return {};
+    }
+
+    const int requestedTopK = std::max(1, topK);
+    const int coarseFromEnv = parsePositiveIntEnv(std::getenv("MATRYOSHKA_COARSE_DIM"), 64);
+    const size_t coarseDim = std::clamp<size_t>(
+        static_cast<size_t>(coarseFromEnv), 16, expectedDim);
+
+    auto cosinePrefix = [](const std::vector<float>& a,
+                           const std::vector<float>& b,
+                           size_t dim) -> float {
+        float dot = 0.0f;
+        float normA = 0.0f;
+        float normB = 0.0f;
+        for (size_t i = 0; i < dim; ++i) {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+        const float denom = std::sqrt(normA) * std::sqrt(normB);
+        return denom > 1e-6f ? dot / denom : 0.0f;
+    };
+
+    std::vector<VectorSearchResult> reranked;
+    reranked.reserve(candidates.size());
+
+    for (const auto& candidate : candidates) {
+        const auto it = hnswIdMap_.find(candidate.id);
+        if (it == hnswIdMap_.end()) {
+            continue;
+        }
+        const auto& node = hnswNodes_[it->second];
+        if (node.vector.size() != expectedDim) {
+            continue;
+        }
+
+        const float fullCosine = cosinePrefix(query, node.vector, expectedDim);
+        const float coarseCosine = cosinePrefix(query, node.vector, coarseDim);
+        const float fusedCosine = std::clamp(
+            fullCosine * 0.72f + coarseCosine * 0.28f, -1.0f, 1.0f);
+        const float similarity = std::clamp((fusedCosine + 1.0f) * 0.5f, 0.0f, 1.0f);
+
+        VectorSearchResult item;
+        item.id = candidate.id;
+        item.similarity = similarity;
+        item.distance = 1.0f - similarity;
+        reranked.push_back(std::move(item));
+    }
+
+    std::sort(reranked.begin(), reranked.end(),
+              [](const VectorSearchResult& a, const VectorSearchResult& b) {
+                  if (a.similarity == b.similarity) {
+                      return a.distance < b.distance;
+                  }
+                  return a.similarity > b.similarity;
+              });
+
+    if (static_cast<int>(reranked.size()) > requestedTopK) {
+        reranked.resize(requestedTopK);
+    }
+    return reranked;
+}
+
 Json::Value EdgeAIEngine::getHNSWStats() const {
     std::shared_lock<std::shared_mutex> lock(hnswMutex_);
 
@@ -2589,6 +3086,22 @@ Json::Value EdgeAIEngine::getEngineStats() const {
     calls["hnsw_searches"] = static_cast<Json::UInt64>(totalHNSWSearches_.load());
     calls["quantized_ops"] = static_cast<Json::UInt64>(totalQuantizedOps_.load());
     stats["call_counts"] = calls;
+
+    Json::Value sentimentCache;
+    sentimentCache["ttl_sec"] = sentimentCacheTTLSeconds_;
+    sentimentCache["max_size"] = static_cast<Json::UInt64>(sentimentCacheMaxSize_);
+    sentimentCache["hits"] = static_cast<Json::UInt64>(sentimentCacheHits_.load());
+    sentimentCache["misses"] = static_cast<Json::UInt64>(sentimentCacheMisses_.load());
+    const auto hitBase = sentimentCacheHits_.load() + sentimentCacheMisses_.load();
+    sentimentCache["hit_rate"] = hitBase == 0
+        ? 0.0
+        : static_cast<double>(sentimentCacheHits_.load()) / static_cast<double>(hitBase);
+    {
+        std::shared_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+        sentimentCache["entries"] = static_cast<Json::UInt64>(sentimentCache_.size());
+        sentimentCache["inflight"] = static_cast<Json::UInt64>(sentimentInFlight_.size());
+    }
+    stats["sentiment_cache"] = sentimentCache;
 
     // HNSW索引状态
     {

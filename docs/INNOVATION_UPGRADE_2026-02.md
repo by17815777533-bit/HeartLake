@@ -1,0 +1,161 @@
+# HeartLake 创新增强记录（2026-02）
+
+## 目标
+- 在不破坏现有分层架构的前提下，提升三项能力：
+  - 亲密分算法的先进性与抗刷分能力
+  - 湖神情绪分析的准确率与可解释性
+  - 发布页的人机协同体验与稳定性
+
+## 后端升级
+
+### 1) 好友亲密分：从单纯互动计数升级为多视角融合
+文件：
+- `backend/src/infrastructure/services/IntimacyService.cpp`
+- `backend/include/infrastructure/services/IntimacyService.h`
+- `backend/src/interfaces/api/FriendController.cpp`
+
+新增核心信号：
+- `dialogue_cohesion`：基于对话轮次切换与回复时延的会话连贯度
+- `response_agility`：互动响应速度（小时级）
+- `graph_affinity`：互动图的三角闭包/共同邻居亲和度
+- `emotion_synchrony`：按日对齐的情绪曲线同步度
+
+保留并强化原有信号：
+- 互动强度、互惠性、共涟漪、情绪共鸣、语义相似、趋势对齐、新鲜度、时间分散度、反刷分惩罚
+
+接口影响（向后兼容）：
+- `GET /api/friends`
+  - `score_breakdown` 新增：
+    - `dialogue_cohesion`
+    - `response_agility`
+    - `graph_affinity`
+    - `emotion_synchrony`
+  - 旧字段全部保留，前端旧版本不会中断
+
+### 2) 湖神情绪分析：多专家融合 + 锚点冲突抑制
+文件：
+- `backend/src/infrastructure/ai/EdgeAIEngine.cpp`
+- `backend/src/interfaces/api/EdgeAIController.cpp`
+
+新增机制：
+- 子句/事件“情绪锚点”融合（正负证据加权）
+- 对比转折语境增强（对“但是/不过”后的语义加权）
+- 冲突惩罚（正负锚点并存时下降置信）
+- ONNX 与规则融合时引入锚点一致性调权
+
+接口增强（保留旧字段）：
+- `POST /api/edge-ai/analyze` 新增：
+  - `calibrated_confidence`
+  - `confidence_gap`
+  - `signal_strength`
+  - `analysis_mode` (`multi_expert_fusion_v2`)
+- 旧字段 `confidence/raw_confidence/mood/score/method` 均保留
+
+### 3) 向量检索链路：两阶段检索 + 配置统一
+文件：
+- `backend/src/interfaces/api/EdgeAIController.cpp`
+- `backend/include/infrastructure/ai/EdgeAIEngine.h`
+- `backend/src/infrastructure/ai/EdgeAIEngine.cpp`
+- `backend/src/main.cpp`
+- `backend/src/infrastructure/services/ResonanceSearchService.cpp`
+- `backend/include/infrastructure/vector/MilvusClient.h`
+- `backend/src/infrastructure/vector/MilvusClient.cpp`
+
+升级点：
+- `vector-search` 从“哈希伪向量占位”升级为“真实 embedding 查询向量”
+- 新增两阶段检索：
+  - Stage-1：HNSW ANN 召回（支持候选池倍率）
+  - Stage-2：候选精排重算（coarse/full 融合相似度）
+- 引入统一 embedding 运行时配置：
+  - `EMBEDDING_DIM`（默认 256）
+  - `EMBEDDING_CACHE_SIZE`（默认 20000）
+- 修复 Milvus 惰性连接导致的误判问题：初始化阶段主动 `ping`，可用时进入 Milvus 主链路，不可用自动回落 DB。
+
+## 前端升级
+文件：
+- `frontend/lib/presentation/screens/publish_screen.dart`
+- `frontend/lib/presentation/widgets/ai_content_preview.dart`
+
+升级点：
+- 发布页接入 `AIContentPreview`（从“存在但未接线”变为实际生效）
+- 湖神自动建议心情并可自动联动到心情选择器
+- 自动联动增加高亮脉冲动画，支持用户手动接管
+- 加入异步防抖序列号，避免旧请求覆盖新结果
+- 显示可靠性提示：可信度档位、不确定性、推荐动作
+
+## 质量与验证
+
+已通过：
+- 后端编译：
+  - `cmake --build backend/build -j8`
+- 前端静态检查：
+  - `flutter analyze lib/presentation/screens/publish_screen.dart lib/presentation/widgets/ai_content_preview.dart lib/providers/edge_ai_provider.dart`
+- 运行期冒烟：
+  - `POST /api/auth/anonymous` 返回 200
+  - `POST /api/edge-ai/analyze` 返回 200，并包含新增字段
+  - 文本 `今天收到了礼物，礼物很好看` -> `mood=happy`
+  - 文本 `老师今天夸了我` -> `mood=happy`
+  - `GET /api/friends` 返回 200（亲密分自动模式）
+
+## 竞赛呈现建议（可直接用于答辩）
+- 关键词：`多视角亲密分融合`、`图结构社交信号`、`情绪锚点冲突抑制`、`可信度校准与弃权机制`、`人机协同心情联动`
+- 核心亮点：
+  - 不是“黑盒单模型”，而是“可解释多专家系统”
+  - 不是“点赞即好友”，而是“行为健康 + 对话质量 + 图结构”的高维关系建模
+  - 前后端形成闭环：AI 结果直接影响交互，同时保留用户主导权
+
+## 2026-02-24 论文驱动 C++ 推理优化（新增）
+
+### 目标
+- 在不变更既有分层架构（Controller/Application/Infrastructure）的前提下，降低推理链路尾延迟并提升并发稳定性。
+
+### 落地改动
+文件：
+- `backend/include/infrastructure/ai/AIService.h`
+- `backend/src/infrastructure/ai/AIService.cpp`
+- `backend/include/infrastructure/ai/EdgeAIEngine.h`
+- `backend/src/infrastructure/ai/EdgeAIEngine.cpp`
+- `backend/include/infrastructure/ai/SemanticCache.h`
+- `scripts/worldclass_validation.py`
+
+新增机制：
+- `L1 情绪缓存（精确命中）`
+  - 读多写少场景使用 `std::shared_mutex`，降低高并发读锁竞争。
+  - 引入文本归一化哈希（空白/标点归一化）提升命中率。
+- `In-flight Request Coalescing`
+  - 同一文本并发请求在服务内合并为单次推理，结果 fan-out 到全部等待回调，抑制惊群放大。
+- `Adaptive Local Bypass`
+  - 当 in-flight 超阈值时，按本地置信度动态旁路远端 LLM，优先守住 P95/P99。
+- `Edge 本地情绪缓存 + In-flight 合并`
+  - 在 `EdgeAIEngine::analyzeSentimentLocal` 上新增 L1 缓存与并发合并，压缩 `/api/edge-ai/analyze` 热点尾延迟。
+  - 暴露 `sentiment_cache` 统计（entries/hits/misses/inflight/hit_rate）用于可观测性。
+- `压测链路抗干扰`
+  - `worldclass_validation.py` 对 `127.0.0.1/localhost` 自动禁用系统代理，避免本地代理吞吐误差污染评测。
+- `死代码清理`
+  - 移除 `SemanticCache` 未使用状态字段 `initialized_`，避免无效状态维护。
+
+### 关键配置（默认可运行）
+- `AI_SENTIMENT_CACHE_TTL_SEC=7200`
+- `AI_SENTIMENT_CACHE_MAX_SIZE=30000`
+- `AI_SENTIMENT_ADAPTIVE_INFLIGHT_THRESHOLD=8`
+- `AI_SENTIMENT_ADAPTIVE_LOCAL_CONF_DELTA=0.20`
+- `EDGE_AI_SENTIMENT_CACHE_TTL_SEC=180`
+- `EDGE_AI_SENTIMENT_CACHE_MAX_SIZE=8192`
+
+### 验证结果（2026-02-23）
+- 命令：`python3 scripts/worldclass_validation.py --base-url http://127.0.0.1:8080 --stress-seconds 20 --stress-levels 16,32,64`
+- 结果：`gate_passed=11/11`，`stress_error_rate_max=0.0`，`stress_p95_ms_max=59.69ms`
+
+### 论文依据（近两年，按“契合度+可落地性”排序）
+1. Krites: Asynchronous Approximate Semantic Caching for LLM Serving (2026)
+   - arXiv: https://arxiv.org/abs/2602.13165
+   - 启发点：异步缓存/近似命中降低重复推理成本。
+2. vCache: Verified Semantic Prompt Caching (2025)
+   - arXiv: https://arxiv.org/abs/2502.03771
+   - 启发点：语义缓存阈值不再静态固定，强调“可验证”与错误率边界。
+3. Semantic Caching for Low-Cost LLM Serving: From Offline Learning to Online Adaptation (2025)
+   - arXiv: https://arxiv.org/abs/2508.07675
+   - 启发点：离线先验 + 在线自适应，动态优化缓存与开销。
+4. AugServe: Adaptive Request Scheduling for Augmented LLM Inference Serving (2025)
+   - arXiv: https://arxiv.org/abs/2512.04013
+   - 启发点：负载感知调度与动态批处理，重点优化 TTFT 与尾延迟。
