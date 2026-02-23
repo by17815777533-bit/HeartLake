@@ -10,10 +10,16 @@
 #include <ctime>
 #include <set>
 #include <sstream>
+#include <algorithm>
+#include <thread>
+#include <cctype>
+#include <cstdlib>
+#include <fstream>
+#include <filesystem>
+#include <vector>
 
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
-#include "infrastructure/ai/ImageModerationEngine.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
 #include "infrastructure/ai/RecommendationEngine.h"
@@ -28,6 +34,7 @@
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ArchitectureBootstrap.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/EnvUtils.h"
 
 using namespace drogon;
 
@@ -49,6 +56,133 @@ static HttpResponsePtr createErrorResponse(int code, const std::string& message)
     return resp;
 }
 
+static int getDefaultServerThreads() {
+    const unsigned int hw = std::thread::hardware_concurrency();
+    if (hw == 0) {
+        return 4;
+    }
+    // 低配环境优先：默认线程数随CPU核数变化，避免固定16线程造成过度抢占
+    const unsigned int capped = std::min(8u, hw);
+    return static_cast<int>(std::max(2u, capped));
+}
+
+static std::string trimWhitespace(std::string value) {
+    value.erase(value.begin(), std::find_if(value.begin(), value.end(),
+        [](unsigned char ch) { return !std::isspace(ch); }));
+    value.erase(std::find_if(value.rbegin(), value.rend(),
+        [](unsigned char ch) { return !std::isspace(ch); }).base(), value.end());
+    return value;
+}
+
+static std::string stripOptionalQuotes(const std::string& value) {
+    if (value.size() >= 2 &&
+        ((value.front() == '"' && value.back() == '"') ||
+         (value.front() == '\'' && value.back() == '\''))) {
+        return value.substr(1, value.size() - 2);
+    }
+    return value;
+}
+
+static bool loadEnvFileIfExists(const std::filesystem::path& path, bool overrideExisting = false) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    size_t loadedCount = 0;
+    std::string line;
+    while (std::getline(file, line)) {
+        std::string item = trimWhitespace(line);
+        if (item.empty() || item[0] == '#') {
+            continue;
+        }
+
+        if (item.rfind("export ", 0) == 0) {
+            item = trimWhitespace(item.substr(7));
+        }
+
+        const size_t eqPos = item.find('=');
+        if (eqPos == std::string::npos) {
+            continue;
+        }
+
+        std::string key = trimWhitespace(item.substr(0, eqPos));
+        std::string value = trimWhitespace(item.substr(eqPos + 1));
+        if (key.empty()) {
+            continue;
+        }
+
+        // 仅在非引号值中裁剪内联注释（例如 KEY=abc #comment）
+        if (!value.empty() && value.front() != '"' && value.front() != '\'') {
+            const size_t inlineComment = value.find(" #");
+            if (inlineComment != std::string::npos) {
+                value = trimWhitespace(value.substr(0, inlineComment));
+            }
+        }
+
+        value = stripOptionalQuotes(value);
+
+        if (!overrideExisting && std::getenv(key.c_str()) != nullptr) {
+            continue;
+        }
+
+        setenv(key.c_str(), value.c_str(), overrideExisting ? 1 : 0);
+        ++loadedCount;
+    }
+
+    LOG_INFO << "Loaded " << loadedCount << " env vars from " << path.string();
+    return true;
+}
+
+static void bootstrapEnvFromDotEnv() {
+    const char* explicitEnvPath = std::getenv("HEARTLAKE_ENV_PATH");
+    if (explicitEnvPath && *explicitEnvPath != '\0') {
+        if (!loadEnvFileIfExists(explicitEnvPath, false)) {
+            LOG_WARN << "HEARTLAKE_ENV_PATH is set but file not found: " << explicitEnvPath;
+        }
+        return;
+    }
+
+    static const std::vector<std::filesystem::path> candidates = {
+        ".env",
+        "../.env",
+        "./backend/.env"
+    };
+
+    for (const auto& candidate : candidates) {
+        std::error_code ec;
+        if (std::filesystem::exists(candidate, ec) && std::filesystem::is_regular_file(candidate, ec)) {
+            loadEnvFileIfExists(candidate, false);
+            return;
+        }
+    }
+}
+
+static std::string resolveConfigPath(std::string requestedPath) {
+    if (!requestedPath.empty()) {
+        std::error_code ec;
+        if (std::filesystem::exists(requestedPath, ec) &&
+            std::filesystem::is_regular_file(requestedPath, ec)) {
+            return requestedPath;
+        }
+    }
+
+    static const std::vector<std::string> fallbackCandidates = {
+        "../config.json",
+        "./config.json",
+        "./backend/config.json"
+    };
+    for (const auto& candidate : fallbackCandidates) {
+        std::error_code ec;
+        if (std::filesystem::exists(candidate, ec) &&
+            std::filesystem::is_regular_file(candidate, ec)) {
+            LOG_WARN << "Config path fallback: " << requestedPath << " -> " << candidate;
+            return candidate;
+        }
+    }
+    return requestedPath;
+}
+
 int main(int argc, char *argv[]) {
     std::cout.setf(std::ios::unitbuf);
     std::cerr.setf(std::ios::unitbuf);
@@ -64,12 +198,16 @@ int main(int argc, char *argv[]) {
     LOG_INFO << "Starting Heart Lake Server...";
 
     try {
+        // 允许直接运行二进制时自动加载 .env，避免本地模型/数据库配置丢失。
+        bootstrapEnvFromDotEnv();
+
         // 优先使用环境变量配置路径，支持绝对路径
         const char* config_path = std::getenv("HEARTLAKE_CONFIG_PATH");
         std::string configFile = config_path ? config_path : "../config.json";
         if (argc > 1) {
             configFile = argv[1];
         }
+        configFile = resolveConfigPath(configFile);
 
         auto& app = drogon::app();
 
@@ -80,6 +218,9 @@ int main(int argc, char *argv[]) {
         const char* db_user = std::getenv("DB_USER");
         const char* db_password = std::getenv("DB_PASSWORD");
         const char* db_pool_size_str = std::getenv("DB_CONNECTION_POOL_SIZE");
+        if (!db_pool_size_str || *db_pool_size_str == '\0') {
+            db_pool_size_str = std::getenv("DB_POOL_SIZE");
+        }
         const char* db_timeout_str = std::getenv("DB_TIMEOUT");
 
         const char* server_host = std::getenv("SERVER_HOST");
@@ -111,7 +252,17 @@ int main(int argc, char *argv[]) {
 
         std::string serverHost = server_host ? server_host : "0.0.0.0";
         int serverPort = server_port_str ? std::atoi(server_port_str) : 8080;
-        int serverThreads = server_threads_str ? std::atoi(server_threads_str) : 16;
+        const int defaultServerThreads = getDefaultServerThreads();
+        int serverThreads = defaultServerThreads;
+        if (server_threads_str) {
+            int configuredThreads = std::atoi(server_threads_str);
+            if (configuredThreads > 0) {
+                serverThreads = configuredThreads;
+            } else {
+                LOG_WARN << "Invalid SERVER_THREADS value, fallback to default: " << defaultServerThreads;
+            }
+        }
+        LOG_INFO << "Server threads set to " << serverThreads;
 
         // 配置服务器
         app.addListener(serverHost, serverPort);
@@ -197,8 +348,7 @@ int main(int argc, char *argv[]) {
             return "";
         };
 
-        // 安全响应头 + CORS 后处理中间件
-        app.registerPostHandlingAdvice([matchOrigin](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
+        auto applyCorsHeaders = [matchOrigin](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
             std::string origin = matchOrigin(req);
             if (!origin.empty()) {
                 resp->addHeader("Access-Control-Allow-Origin", origin);
@@ -209,28 +359,28 @@ int main(int argc, char *argv[]) {
                     resp->addHeader("Vary", "Origin");
                 }
             }
+        };
+        auto applySecurityHeaders = [](const HttpResponsePtr &resp) {
             // 安全响应头：防止 MIME 类型嗅探、点击劫持、强制 HTTPS
             resp->addHeader("X-Content-Type-Options", "nosniff");
             resp->addHeader("X-Frame-Options", "DENY");
             resp->addHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
             resp->addHeader("X-XSS-Protection", "1; mode=block");
             resp->addHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+        };
+
+        // 安全响应头 + CORS 后处理中间件
+        app.registerPostHandlingAdvice([applyCorsHeaders, applySecurityHeaders](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
+            applyCorsHeaders(req, resp);
+            applySecurityHeaders(resp);
         });
 
         // OPTIONS - 使用 PreRoutingAdvice 在路由匹配前处理 CORS 预检请求
-        app.registerPreRoutingAdvice([matchOrigin](const HttpRequestPtr &req, AdviceCallback &&acb, AdviceChainCallback &&accb) {
+        app.registerPreRoutingAdvice([applyCorsHeaders, applySecurityHeaders](const HttpRequestPtr &req, AdviceCallback &&acb, AdviceChainCallback &&accb) {
             if (req->method() == Options) {
                 auto resp = HttpResponse::newHttpResponse();
-                std::string origin = matchOrigin(req);
-                if (!origin.empty()) {
-                    resp->addHeader("Access-Control-Allow-Origin", origin);
-                    resp->addHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-                    resp->addHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-User-Id,X-Request-Id");
-                    resp->addHeader("Access-Control-Allow-Credentials", "true");
-                    if (origin != "*") {
-                        resp->addHeader("Vary", "Origin");
-                    }
-                }
+                applyCorsHeaders(req, resp);
+                applySecurityHeaders(resp);
                 resp->setStatusCode(k204NoContent);
                 acb(resp);
                 return;
@@ -239,7 +389,7 @@ int main(int argc, char *argv[]) {
         });
 
         // PASETO认证中间件
-        app.registerPreHandlingAdvice([matchOrigin](const HttpRequestPtr &req, AdviceCallback &&acb, AdviceChainCallback &&accb) {
+        app.registerPreHandlingAdvice([applyCorsHeaders, applySecurityHeaders](const HttpRequestPtr &req, AdviceCallback &&acb, AdviceChainCallback &&accb) {
 
             std::string path = req->path();
             bool needsAuth = true;
@@ -253,6 +403,7 @@ int main(int argc, char *argv[]) {
                 "/api/auth/login",
                 "/api/auth/verification-code",
                 "/api/auth/email/verification-code",
+                "/api/auth/recover",
                 "/api/auth/register/email",
                 "/api/auth/login/email",
                 "/api/auth/reset-password/code",
@@ -301,7 +452,10 @@ int main(int argc, char *argv[]) {
                 try {
                     std::string authHeader = req->getHeader("Authorization");
                     if (authHeader.empty()) {
-                        acb(createErrorResponse(401, "未登录"));
+                        auto resp = createErrorResponse(401, "未登录");
+                        applyCorsHeaders(req, resp);
+                        applySecurityHeaders(resp);
+                        acb(resp);
                         return;
                     }
 
@@ -309,20 +463,29 @@ int main(int argc, char *argv[]) {
                     if (authHeader.find("Bearer ") == 0) {
                         token = authHeader.substr(7);
                     } else {
-                        acb(createErrorResponse(401, "认证格式错误"));
+                        auto resp = createErrorResponse(401, "认证格式错误");
+                        applyCorsHeaders(req, resp);
+                        applySecurityHeaders(resp);
+                        acb(resp);
                         return;
                     }
 
                     std::string user_id = heartlake::utils::PasetoUtil::verifyToken(token, heartlake::utils::PasetoUtil::getKey());
                     if (user_id.empty()) {
-                        acb(createErrorResponse(401, "认证失败，请重新登录"));
+                        auto resp = createErrorResponse(401, "认证失败，请重新登录");
+                        applyCorsHeaders(req, resp);
+                        applySecurityHeaders(resp);
+                        acb(resp);
                         return;
                     }
                     req->getAttributes()->insert("user_id", user_id);
 
                 } catch (const std::exception& e) {
                     LOG_WARN << "Auth failed: " << e.what();
-                    acb(createErrorResponse(401, "认证失败，请重新登录"));
+                    auto resp = createErrorResponse(401, "认证失败，请重新登录");
+                    applyCorsHeaders(req, resp);
+                    applySecurityHeaders(resp);
+                    acb(resp);
                     return;
                 }
             }
@@ -330,117 +493,133 @@ int main(int argc, char *argv[]) {
             accb();
         });
 
-        // 注册服务启动后的初始化回调
-        app.registerBeginningAdvice([]() {
-            // 初始化整个架构（基础设施→领域→应用→事件处理器）
-            LOG_INFO << "Initializing Architecture...";
-            heartlake::ArchitectureBootstrap::initialize();
-            LOG_INFO << "Architecture initialized";
+        // 明确执行启动初始化，避免 registerBeginningAdvice 在不同运行模式下不触发。
+        // 初始化整个架构（基础设施→领域→应用→事件处理器）
+        LOG_INFO << "Initializing Architecture...";
+        heartlake::ArchitectureBootstrap::initialize();
+        LOG_INFO << "Architecture initialized";
 
-            // 初始化RBAC权限管理
-            LOG_INFO << "Initializing RBAC Manager...";
-            heartlake::utils::RBACManager::getInstance().initialize();
-            LOG_INFO << "RBAC Manager initialized";
+        // 初始化RBAC权限管理
+        LOG_INFO << "Initializing RBAC Manager...";
+        heartlake::utils::RBACManager::getInstance().initialize();
+        LOG_INFO << "RBAC Manager initialized";
 
-            // 初始化内容过滤器
-            LOG_INFO << "Initializing ContentFilter...";
-            heartlake::ContentFilter::getInstance().initialize();
-            LOG_INFO << "ContentFilter initialized";
+        // 初始化内容过滤器
+        LOG_INFO << "Initializing ContentFilter...";
+        heartlake::ContentFilter::getInstance().initialize();
+        LOG_INFO << "ContentFilter initialized";
 
-            // 初始化AI服务
-            LOG_INFO << "Initializing AI Service...";
-            Json::Value aiConfig;
-            const char* ai_provider = std::getenv("AI_PROVIDER");
-            const char* ai_key = std::getenv("AI_API_KEY");
-            const char* ai_url = std::getenv("AI_BASE_URL");
-            const char* ai_model = std::getenv("AI_MODEL");
-            const char* ai_timeout = std::getenv("AI_TIMEOUT");
-            aiConfig["provider"] = ai_provider ? ai_provider : "deepseek";
-            aiConfig["api_key"] = ai_key ? ai_key : "";
-            aiConfig["base_url"] = ai_url ? ai_url : "https://api.deepseek.com";
-            aiConfig["model"] = ai_model ? ai_model : "deepseek-chat";
-            aiConfig["timeout"] = ai_timeout ? std::atoi(ai_timeout) : 10;
-            heartlake::ai::AIService::getInstance().initialize(aiConfig);
+        // 初始化AI服务
+        LOG_INFO << "Initializing AI Service...";
+        Json::Value aiConfig;
+        const char* ai_provider = std::getenv("AI_PROVIDER");
+        const char* ai_key = std::getenv("AI_API_KEY");
+        const char* ai_url = std::getenv("AI_BASE_URL");
+        const char* ai_model = std::getenv("AI_MODEL");
+        const char* ai_timeout = std::getenv("AI_TIMEOUT");
+        aiConfig["provider"] = ai_provider ? ai_provider : "ollama";
+        aiConfig["api_key"] = ai_key ? ai_key : "";
+        aiConfig["base_url"] = ai_url ? ai_url : "http://127.0.0.1:11434";
+        aiConfig["model"] = ai_model ? ai_model : "heartlake-qwen";
+        aiConfig["timeout"] = ai_timeout ? std::atoi(ai_timeout) : 10;
+        heartlake::ai::AIService::getInstance().initialize(aiConfig);
 
-            // 初始化嵌入向量引擎
-            LOG_INFO << "Initializing Embedding Engine...";
-            heartlake::ai::AdvancedEmbeddingEngine::getInstance().initialize(128, 10000);
+        // 初始化嵌入向量引擎
+        LOG_INFO << "Initializing Embedding Engine...";
+        heartlake::ai::AdvancedEmbeddingEngine::getInstance().initialize(128, 10000);
 
-            // 初始化图片审核引擎
-            LOG_INFO << "Initializing Image Moderation Engine...";
-            heartlake::ai::ImageModerationEngine::getInstance().initialize();
+        // 初始化边缘AI引擎（情感分析、内容审核、HNSW、联邦学习、差分隐私）
+        LOG_INFO << "Initializing Edge AI Engine...";
+        Json::Value edgeAIConfig;
+        edgeAIConfig["enabled"] = true;
+        edgeAIConfig["hnsw_m"] = 16;
+        edgeAIConfig["hnsw_ef_construction"] = 200;
+        edgeAIConfig["hnsw_ef_search"] = 50;
+        edgeAIConfig["dp_epsilon"] = 1.0;
+        edgeAIConfig["dp_delta"] = 1e-5;
+        edgeAIConfig["dp_max_budget"] = 10.0;
+        if (const char* edgeModelPath = std::getenv("EDGE_AI_MODEL_PATH"); edgeModelPath && *edgeModelPath) {
+            edgeAIConfig["model_path"] = edgeModelPath;
+        }
+        if (const char* edgeVocabPath = std::getenv("EDGE_AI_VOCAB_PATH"); edgeVocabPath && *edgeVocabPath) {
+            edgeAIConfig["vocab_path"] = edgeVocabPath;
+        }
+        heartlake::ai::EdgeAIEngine::getInstance().initialize(edgeAIConfig);
 
-            // 初始化边缘AI引擎（情感分析、内容审核、HNSW、联邦学习、差分隐私）
-            LOG_INFO << "Initializing Edge AI Engine...";
-            Json::Value edgeAIConfig;
-            edgeAIConfig["enabled"] = true;
-            edgeAIConfig["hnsw_m"] = 16;
-            edgeAIConfig["hnsw_ef_construction"] = 200;
-            edgeAIConfig["hnsw_ef_search"] = 50;
-            edgeAIConfig["dp_epsilon"] = 1.0;
-            edgeAIConfig["dp_delta"] = 1e-5;
-            edgeAIConfig["dp_max_budget"] = 10.0;
-            heartlake::ai::EdgeAIEngine::getInstance().initialize(edgeAIConfig);
+        // 预热情感共鸣引擎（单例懒加载）
+        LOG_INFO << "Initializing Emotion Resonance Engine...";
+        heartlake::ai::EmotionResonanceEngine::getInstance();
 
-            // 预热情感共鸣引擎（单例懒加载）
-            LOG_INFO << "Initializing Emotion Resonance Engine...";
-            heartlake::ai::EmotionResonanceEngine::getInstance();
+        // 初始化推荐引擎
+        LOG_INFO << "Initializing Recommendation Engine...";
+        heartlake::ai::RecommendationEngine::getInstance().initialize(32);
 
-            // 初始化推荐引擎
-            LOG_INFO << "Initializing Recommendation Engine...";
-            heartlake::ai::RecommendationEngine::getInstance().initialize(32);
+        // 预热双记忆RAG（单例懒加载）
+        LOG_INFO << "Initializing Dual Memory RAG...";
+        heartlake::ai::DualMemoryRAG::getInstance();
 
-            // 预热双记忆RAG（单例懒加载）
-            LOG_INFO << "Initializing Dual Memory RAG...";
-            heartlake::ai::DualMemoryRAG::getInstance();
+        // 初始化限流器
+        LOG_INFO << "Initializing Rate Limiter...";
+        heartlake::middleware::RateLimiter::getInstance().initialize();
 
-            // 初始化限流器
-            LOG_INFO << "Initializing Rate Limiter...";
-            heartlake::middleware::RateLimiter::getInstance().initialize();
+        // 初始化Redis连接池（低配默认12连接，可通过环境变量调整）
+        LOG_INFO << "Initializing Redis with connection pool...";
+        heartlake::cache::RedisPoolConfig redisConfig;
+        const int redisPoolInitial = heartlake::utils::parsePositiveIntEnv("REDIS_POOL_SIZE", 12);
+        const int redisPoolMax = heartlake::utils::parsePositiveIntEnv(
+            "REDIS_MAX_POOL_SIZE", std::max(redisPoolInitial, 24));
+        redisConfig.initialSize = redisPoolInitial;
+        redisConfig.maxSize = redisPoolMax;
+        redisConfig.idleTimeoutMs = 30000;
+        const char* redis_host = std::getenv("REDIS_HOST");
+        const char* redis_port_str = std::getenv("REDIS_PORT");
+        const char* redis_password = std::getenv("REDIS_PASSWORD");
+        heartlake::cache::RedisCache::getInstance().initialize(
+            redis_host ? redis_host : "127.0.0.1",
+            redis_port_str ? std::atoi(redis_port_str) : 6379,
+            redis_password ? redis_password : "",
+            0,
+            redisConfig
+        );
 
-            // 初始化Redis连接池（初始30连接，动态扩容）
-            LOG_INFO << "Initializing Redis with connection pool...";
-            heartlake::cache::RedisPoolConfig redisConfig;
-            redisConfig.initialSize = 30;
-            redisConfig.maxSize = 100;
-            redisConfig.idleTimeoutMs = 30000;
-            const char* redis_host = std::getenv("REDIS_HOST");
-            const char* redis_port_str = std::getenv("REDIS_PORT");
-            const char* redis_password = std::getenv("REDIS_PASSWORD");
-            heartlake::cache::RedisCache::getInstance().initialize(
-                redis_host ? redis_host : "127.0.0.1",
-                redis_port_str ? std::atoi(redis_port_str) : 6379,
-                redis_password ? redis_password : "",
-                0,
-                redisConfig
-            );
+        // 初始化石友关系TTL引擎
+        LOG_INFO << "Initializing Friendship TTL Engine...";
+        heartlake::infrastructure::FriendshipTTLEngine::getInstance().initialize();
 
-            // 初始化石友关系TTL引擎
-            LOG_INFO << "Initializing Friendship TTL Engine...";
-            heartlake::infrastructure::FriendshipTTLEngine::getInstance().initialize();
+        // 初始化同频共鸣搜索服务
+        LOG_INFO << "Initializing Resonance Search Service...";
+        heartlake::infrastructure::ResonanceSearchService::getInstance().initialize(128);
 
-            // 初始化同频共鸣搜索服务
-            LOG_INFO << "Initializing Resonance Search Service...";
-            heartlake::infrastructure::ResonanceSearchService::getInstance().initialize(128);
-
-            // 启动湖神守护服务（自动为零互动石头派送暖心纸船）
+        // 后台任务默认全部启动，可通过环境变量关闭
+        if (heartlake::utils::parseBoolEnv(std::getenv("ENABLE_LAKE_GOD_GUARDIAN"), true)) {
             LOG_INFO << "Starting LakeGod Guardian Service...";
             heartlake::infrastructure::LakeGodGuardianService::getInstance().start();
+        } else {
+            LOG_INFO << "LakeGod Guardian Service disabled (set ENABLE_LAKE_GOD_GUARDIAN=true to enable)";
+        }
 
-            // 启动情绪追踪服务（72h负重者监测与关怀）
+        if (heartlake::utils::parseBoolEnv(std::getenv("ENABLE_EMOTION_TRACKING"), true)) {
             LOG_INFO << "Starting Emotion Tracking Service...";
             heartlake::infrastructure::EmotionTrackingService::getInstance().start();
+        } else {
+            LOG_INFO << "Emotion Tracking Service disabled (set ENABLE_EMOTION_TRACKING=true to enable)";
+        }
 
-            // 启动用户回访服务（定期关怀高风险用户）
+        if (heartlake::utils::parseBoolEnv(std::getenv("ENABLE_USER_FOLLOWUP"), true)) {
             LOG_INFO << "Starting User FollowUp Service...";
             heartlake::infrastructure::UserFollowUpService::getInstance().start();
+        } else {
+            LOG_INFO << "User FollowUp Service disabled (set ENABLE_USER_FOLLOWUP=true to enable)";
+        }
 
-            // 启动WebSocket心跳定时器，清理僵尸连接
+        if (heartlake::utils::parseBoolEnv(std::getenv("ENABLE_WS_HEARTBEAT"), true)) {
             LOG_INFO << "Starting WebSocket heartbeat timer...";
             heartlake::controllers::BroadcastWebSocketController::startHeartbeatTimer();
+        } else {
+            LOG_INFO << "WebSocket heartbeat timer disabled (set ENABLE_WS_HEARTBEAT=true to enable)";
+        }
 
-            LOG_INFO << "All services initialized successfully";
-        });
+        LOG_INFO << "All services initialized successfully";
 
         LOG_INFO << "Heart Lake Server starting...";
         LOG_INFO << "Listening on 0.0.0.0:8080";

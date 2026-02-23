@@ -11,6 +11,7 @@
 find_path(OnnxRuntime_INCLUDE_DIR
     NAMES onnxruntime_cxx_api.h
     PATHS
+        ${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.22.0/include
         /usr/local/include
         /usr/include
         /usr/local/include/onnxruntime
@@ -26,6 +27,7 @@ find_path(OnnxRuntime_INCLUDE_DIR
 find_library(OnnxRuntime_LIBRARY
     NAMES onnxruntime
     PATHS
+        ${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.22.0/lib
         /usr/local/lib
         /usr/lib
         /usr/local/lib64

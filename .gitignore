@@ -21,6 +21,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+.runtime/
 
 # Uploads
 uploads/
@@ -38,3 +39,4 @@ compile_commands.json
 
 # Sensitive config (use config.json.example as template)
 backend/config.json
+backend/config.runtime.json

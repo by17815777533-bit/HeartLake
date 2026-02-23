@@ -10,6 +10,7 @@
 #ifdef HEARTLAKE_USE_ONNX
 
 #include "infrastructure/ai/OnnxSentimentEngine.h"
+#include "utils/EnvUtils.h"
 #include <trantor/utils/Logger.h>
 #include <fstream>
 #include <sstream>
@@ -17,9 +18,27 @@
 #include <cmath>
 #include <chrono>
 #include <cctype>
+#include <cstdlib>
 
 namespace heartlake {
 namespace ai {
+
+namespace {
+
+int parseNonNegativeIntEnv(const char* envName, int defaultValue) {
+    const char* raw = std::getenv(envName);
+    if (!raw) {
+        return defaultValue;
+    }
+    char* end = nullptr;
+    long parsed = std::strtol(raw, &end, 10);
+    if (end == raw || *end != '\0' || parsed < 0) {
+        return defaultValue;
+    }
+    return static_cast<int>(parsed);
+}
+
+}  // namespace
 
 // ============================================================================
 // 初始化
@@ -46,6 +65,31 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
         sessionOptions_->SetInterOpNumThreads(1);
         sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
+        // 默认优先尝试 CUDA EP（若当前 ORT 不支持会自动降级到 CPU）
+        const bool forceGpu = heartlake::utils::parseBoolEnv(
+            std::getenv("EDGE_AI_ONNX_FORCE_GPU"), true);
+        const bool hardFail = heartlake::utils::parseBoolEnv(
+            std::getenv("EDGE_AI_ONNX_GPU_HARD_FAIL"), false);
+        const int gpuDeviceId = parseNonNegativeIntEnv("EDGE_AI_ONNX_GPU_DEVICE", 0);
+        bool gpuEnabled = false;
+
+        if (forceGpu) {
+            try {
+                OrtCUDAProviderOptions cudaOptions{};
+                cudaOptions.device_id = gpuDeviceId;
+                sessionOptions_->AppendExecutionProvider_CUDA(cudaOptions);
+                gpuEnabled = true;
+                LOG_INFO << "[OnnxSentiment] CUDA EP enabled, device=" << gpuDeviceId;
+            } catch (const Ort::Exception& e) {
+                LOG_WARN << "[OnnxSentiment] CUDA EP unavailable, fallback to CPU: " << e.what();
+                if (hardFail) {
+                    return false;
+                }
+            }
+        } else {
+            LOG_INFO << "[OnnxSentiment] CUDA EP disabled by EDGE_AI_ONNX_FORCE_GPU=false";
+        }
+
         // 创建 Session
         session_ = std::make_unique<Ort::Session>(*env_, modelPath.c_str(), *sessionOptions_);
 
@@ -67,7 +111,8 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
         initialized_.store(true);
         LOG_INFO << "[OnnxSentiment] Engine initialized successfully. "
                  << "Vocab size: " << vocab_.size()
-                 << ", Threads: " << numThreads;
+                 << ", Threads: " << numThreads
+                 << ", GPU: " << (gpuEnabled ? "on" : "off");
         return true;
 
     } catch (const Ort::Exception& e) {

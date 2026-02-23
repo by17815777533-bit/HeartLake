@@ -6,9 +6,9 @@
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
-#include "infrastructure/ai/ImageModerationEngine.h"
 #include "utils/ContentFilter.h"
 #include "utils/EmotionManager.h"
+#include "utils/EnvUtils.h"
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
 #include <regex>
@@ -16,11 +16,224 @@
 #include <sstream>
 #include <iomanip>
 #include <unordered_set>
+#include <cctype>
+#include <cstdlib>
 
 using namespace drogon;
 
 namespace heartlake {
 namespace ai {
+
+namespace {
+
+std::string trimCopy(const std::string& input) {
+    size_t start = 0;
+    while (start < input.size() &&
+           std::isspace(static_cast<unsigned char>(input[start]))) {
+        ++start;
+    }
+    size_t end = input.size();
+    while (end > start &&
+           std::isspace(static_cast<unsigned char>(input[end - 1]))) {
+        --end;
+    }
+    return input.substr(start, end - start);
+}
+
+std::string sanitizeModelText(std::string content) {
+    static const std::regex thinkRegex("<think>[\\s\\S]*?</think>\\s*");
+    content = std::regex_replace(content, thinkRegex, "");
+
+    static const std::regex fenceRegex("```(?:json)?|```");
+    content = std::regex_replace(content, fenceRegex, "");
+    return trimCopy(content);
+}
+
+std::string canonicalizeMood(std::string moodRaw) {
+    auto mood = trimCopy(moodRaw);
+    std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    if (mood == "joy" || mood == "excited" || mood == "love" || mood == "happiness") {
+        return "happy";
+    }
+    if (mood == "sadness" || mood == "depressed") {
+        return "sad";
+    }
+    if (mood == "fear" || mood == "fearful" || mood == "stressed" || mood == "worried") {
+        return "anxious";
+    }
+    if (mood == "surprise") {
+        return "surprised";
+    }
+    if (mood == "anger") {
+        return "angry";
+    }
+    if (mood == "peaceful") {
+        return "calm";
+    }
+    if (mood == "gratitude") {
+        return "grateful";
+    }
+    if (mood == "uncertain") {
+        return "confused";
+    }
+
+    return mood;
+}
+
+std::string normalizeForTemplateCheck(const std::string& raw) {
+    std::string normalized;
+    normalized.reserve(raw.size());
+    for (unsigned char ch : raw) {
+        if (std::isspace(ch)) {
+            continue;
+        }
+        if (ch == ',' || ch == '.' || ch == '!' || ch == '?' ||
+            ch == ';' || ch == ':' || ch == '"' || ch == '\'') {
+            continue;
+        }
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    return normalized;
+}
+
+bool isGenericLakeGodReply(const std::string& reply) {
+    if (reply.empty()) {
+        return true;
+    }
+    const std::string normalized = normalizeForTemplateCheck(reply);
+    static const std::vector<std::string> blocked = {
+        normalizeForTemplateCheck("我感受到了你此刻的心情"),
+        normalizeForTemplateCheck("无论如何，你并不孤单"),
+        normalizeForTemplateCheck("我理解你的感受，有什么想聊的吗"),
+        normalizeForTemplateCheck("我现在有点忙，稍后再聊好吗")
+    };
+
+    for (const auto& phrase : blocked) {
+        if (!phrase.empty() && normalized.find(phrase) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string briefUserHint(const std::string& userMessage) {
+    std::string hint = trimCopy(userMessage);
+    if (hint.size() > 20) {
+        hint = hint.substr(0, 20);
+    }
+    for (char& c : hint) {
+        if (c == '\n' || c == '\r' || c == '\t') {
+            c = ' ';
+        }
+    }
+    return hint;
+}
+
+std::string buildLakeGodFallbackReply(const std::string& userMessage) {
+    static const std::vector<std::string> opening = {
+        "我在，先陪你把这段感受放稳。",
+        "你这段话我认真看完了，我们慢慢说。",
+        "湖神在这儿，先和你一起把心口这块石头放下。"
+    };
+    static const std::vector<std::string> nextStep = {
+        "如果你愿意，先说说现在最刺痛你的那一件事。",
+        "我们先不求一次解决，先把最难受的那一层讲清楚就好。",
+        "你可以先告诉我：此刻最想被理解的是哪一句话。"
+    };
+
+    const size_t openIdx = std::hash<std::string>{}(userMessage + "|open") % opening.size();
+    const size_t stepIdx = std::hash<std::string>{}(userMessage + "|step") % nextStep.size();
+    std::ostringstream oss;
+    oss << opening[openIdx];
+    const auto hint = briefUserHint(userMessage);
+    if (!hint.empty()) {
+        oss << "你刚刚提到“" << hint << "”，这件事对你很重要。";
+    }
+    oss << nextStep[stepIdx];
+    return oss.str();
+}
+
+bool parseJsonObjectLenient(const std::string& raw, Json::Value& parsed) {
+    Json::Reader reader;
+    auto cleaned = sanitizeModelText(raw);
+    if (reader.parse(cleaned, parsed)) {
+        return true;
+    }
+
+    const auto start = cleaned.find('{');
+    const auto end = cleaned.rfind('}');
+    if (start == std::string::npos || end == std::string::npos || end <= start) {
+        return false;
+    }
+
+    return reader.parse(cleaned.substr(start, end - start + 1), parsed);
+}
+
+bool parseSentimentResult(const std::string& raw, float& score, std::string& mood) {
+    Json::Value parsed;
+    if (!parseJsonObjectLenient(raw, parsed)) {
+        return false;
+    }
+
+    score = std::clamp(parsed.get("score", 0.0f).asFloat(), -1.0f, 1.0f);
+    mood = canonicalizeMood(parsed.get("mood", "neutral").asString());
+
+    static const std::unordered_set<std::string> validMoods = {
+        "happy", "calm", "neutral", "anxious", "sad", "angry",
+        "surprised", "confused", "hopeful", "grateful", "lonely"
+    };
+    if (validMoods.find(mood) == validMoods.end()) {
+        mood = "neutral";
+    }
+    return true;
+}
+
+void runLocalSentimentFallback(
+    const std::string& text,
+    const std::function<void(float score, const std::string& mood, const std::string& error)>& callback
+) {
+    auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+    if (edgeAI.isEnabled()) {
+        auto result = edgeAI.analyzeSentimentLocal(text);
+        callback(result.score, result.mood, "");
+        return;
+    }
+
+    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
+    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
+    callback(score, mood, "");
+}
+
+int parseNonNegativeIntEnv(const char* envName, int defaultValue) {
+    const char* rawValue = std::getenv(envName);
+    if (!rawValue) {
+        return defaultValue;
+    }
+    char* end = nullptr;
+    long parsed = std::strtol(rawValue, &end, 10);
+    if (end == rawValue || *end != '\0' || parsed < 0) {
+        return defaultValue;
+    }
+    return static_cast<int>(parsed);
+}
+
+float parseFloatEnv(const char* envName, float defaultValue, float minValue, float maxValue) {
+    const char* rawValue = std::getenv(envName);
+    if (!rawValue) {
+        return defaultValue;
+    }
+    char* end = nullptr;
+    float parsed = std::strtof(rawValue, &end);
+    if (end == rawValue || *end != '\0') {
+        return defaultValue;
+    }
+    return std::clamp(parsed, minValue, maxValue);
+}
+
+}  // namespace
 
 AIService& AIService::getInstance() {
     static AIService instance;
@@ -33,6 +246,17 @@ void AIService::initialize(const Json::Value& config) {
     baseUrl_ = config.get("base_url", "https://api.deepseek.com").asString();
     model_ = config.get("model", "deepseek-chat").asString();
     timeout_ = config.get("timeout", 10).asInt();
+    const int defaultRetries = (provider_ == "ollama") ? 1 : 2;
+    maxRetries_ = parseNonNegativeIntEnv("AI_MAX_RETRIES", defaultRetries);
+    circuitFailureThreshold_ = heartlake::utils::parsePositiveIntEnv("AI_CIRCUIT_BREAKER_FAILURES", 3);
+    circuitCooldownSeconds_ = heartlake::utils::parsePositiveIntEnv("AI_CIRCUIT_BREAKER_COOLDOWN_SEC", 20);
+    localSentimentConfidenceThreshold_ = parseFloatEnv(
+        "AI_SENTIMENT_LOCAL_CONF_THRESHOLD", 0.72f, 0.50f, 0.95f);
+    {
+        std::lock_guard<std::mutex> lock(circuitMutex_);
+        circuitOpen_ = false;
+        consecutiveFailures_ = 0;
+    }
 
     // 初始化语义缓存
     SemanticCache::getInstance().initialize(0.92f, 5000, 86400);
@@ -41,7 +265,23 @@ void AIService::initialize(const Json::Value& config) {
     ollamaClient_ = HttpClient::newHttpClient(baseUrl_);
     ollamaClient_->setUserAgent("HeartLake/2.0");
 
-    LOG_INFO << "AIService initialized with provider: " << provider_;
+    const bool ollamaForceGpu = heartlake::utils::parseBoolEnv(
+        std::getenv("AI_OLLAMA_FORCE_GPU"), true);
+    const int ollamaNumGpu = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", 999);
+    const int ollamaMainGpu = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", 0);
+    const int ollamaNumThread = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", 0);
+    const int ollamaNumCtx = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", 0);
+
+    LOG_INFO << "AIService initialized with provider: " << provider_
+             << ", max_retries=" << maxRetries_
+             << ", circuit_threshold=" << circuitFailureThreshold_
+             << ", circuit_cooldown_sec=" << circuitCooldownSeconds_
+             << ", local_sentiment_conf_threshold=" << localSentimentConfidenceThreshold_
+             << ", ollama_force_gpu=" << (ollamaForceGpu ? "true" : "false")
+             << ", ollama_num_gpu=" << ollamaNumGpu
+             << ", ollama_main_gpu=" << ollamaMainGpu
+             << ", ollama_num_thread=" << ollamaNumThread
+             << ", ollama_num_ctx=" << ollamaNumCtx;
 }
 
 AIService::LocalModerationResult AIService::localModerate(const std::string& text) {
@@ -72,15 +312,33 @@ void AIService::analyzeSentiment(
     const std::string& text,
     std::function<void(float score, const std::string& mood, const std::string& error)> callback
 ) {
-    // 优先调用 Ollama 大模型进行情感分析
+    // 本地模型优先：高置信度直接返回，低置信度再调用大模型精修。
+    bool hasLocalCandidate = false;
+    float localScoreCandidate = 0.0f;
+    std::string localMoodCandidate = "neutral";
+    auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+    if (edgeAI.isEnabled()) {
+        auto local = edgeAI.analyzeSentimentLocal(text);
+        localScoreCandidate = local.score;
+        localMoodCandidate = local.mood;
+        hasLocalCandidate = true;
+        if (local.confidence >= localSentimentConfidenceThreshold_) {
+            callback(local.score, local.mood, "");
+            return;
+        }
+    }
+
+    // 低置信度时调用大模型做情感分析；失败时降级到本地候选结果
     Json::Value payload;
     payload["model"] = model_;
     payload["messages"] = Json::arrayValue;
 
     Json::Value systemMsg;
     systemMsg["role"] = "system";
-    systemMsg["content"] = "情感分析。返回JSON: {\"score\":浮点数(-1到1),\"mood\":字符串}。"
-        "mood: happy/calm/neutral/anxious/sad/angry/surprised/confused。只返回JSON。";
+    systemMsg["content"] =
+        "你是情绪分类器。只输出JSON对象，不要解释。\n"
+        "格式: {\"score\":-1到1浮点数,\"mood\":\"happy|calm|neutral|anxious|sad|angry|surprised|confused\"}\n"
+        "若不确定请输出 neutral，score 接近0。";
     payload["messages"].append(systemMsg);
 
     Json::Value userMsg;
@@ -88,76 +346,87 @@ void AIService::analyzeSentiment(
     userMsg["content"] = text;
     payload["messages"].append(userMsg);
 
-    payload["temperature"] = 0.1;
-    payload["max_tokens"] = 30;
+    payload["temperature"] = 0.05;
+    payload["top_p"] = 0.7;
+    payload["max_tokens"] = 40;
+    Json::Value responseFormat;
+    responseFormat["type"] = "json_object";
+    payload["response_format"] = responseFormat;
+
+    auto fallback = [text, callback, hasLocalCandidate, localScoreCandidate, localMoodCandidate]() {
+        if (hasLocalCandidate) {
+            LOG_WARN << "Sentiment fallback to local candidate";
+            callback(localScoreCandidate, localMoodCandidate, "");
+            return;
+        }
+        LOG_WARN << "Sentiment fallback to local model";
+        runLocalSentimentFallback(text, callback);
+    };
 
     callAIAPI("/v1/chat/completions", payload,
-        [text, callback](const Json::Value& response, const std::string& error) {
+        [this, text, callback, fallback](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                LOG_WARN << "Ollama sentiment failed, fallback to EdgeAIEngine: " << error;
-                // 降级到 EdgeAIEngine 三层融合分析（比 EmotionManager 更精确）
-                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
-                if (edgeAI.isEnabled()) {
-                    auto result = edgeAI.analyzeSentimentLocal(text);
-                    callback(result.score, result.mood, "");
-                } else {
-                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
-                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
-                    callback(score, mood, "");
-                }
+                LOG_WARN << "LLM sentiment request failed: " << error;
+                fallback();
                 return;
             }
 
-            // 解析大模型返回的 JSON
             try {
-                std::string content = response["choices"][0]["message"]["content"].asString();
-                // 提取 JSON 部分（大模型可能返回 ```json ... ``` 包裹）
-                auto jsonStart = content.find('{');
-                auto jsonEnd = content.rfind('}');
-                if (jsonStart != std::string::npos && jsonEnd != std::string::npos && jsonEnd > jsonStart) {
-                    std::string jsonStr = content.substr(jsonStart, jsonEnd - jsonStart + 1);
-                    Json::Value parsed;
-                    Json::Reader reader;
-                    if (reader.parse(jsonStr, parsed)) {
-                        float score = parsed.get("score", 0.0f).asFloat();
-                        std::string mood = parsed.get("mood", "neutral").asString();
-                        score = std::clamp(score, -1.0f, 1.0f);
+                const std::string content = response["choices"][0]["message"]["content"].asString();
+                float score = 0.0f;
+                std::string mood;
+                if (parseSentimentResult(content, score, mood)) {
+                    LOG_INFO << "LLM sentiment parsed: score=" << score
+                             << " mood=" << mood
+                             << " text=" << text.substr(0, 50);
+                    callback(score, mood, "");
+                    return;
+                }
 
-                        // 校验 mood 合法性
-                        static const std::unordered_set<std::string> validMoods = {
-                            "happy", "calm", "neutral", "anxious", "sad", "angry", "surprised", "confused"
-                        };
-                        if (validMoods.find(mood) == validMoods.end()) {
-                            mood = "neutral";
+                // 一次轻量修复重试：把模型输出规范化为JSON
+                Json::Value repairPayload;
+                repairPayload["model"] = model_;
+                repairPayload["messages"] = Json::arrayValue;
+                Json::Value repairSystem;
+                repairSystem["role"] = "system";
+                repairSystem["content"] =
+                    "将输入转换为合法JSON对象，字段仅保留 score,mood。"
+                    "mood 只能是 happy/calm/neutral/anxious/sad/angry/surprised/confused。"
+                    "只输出JSON。";
+                Json::Value repairUser;
+                repairUser["role"] = "user";
+                repairUser["content"] = content;
+                repairPayload["messages"].append(repairSystem);
+                repairPayload["messages"].append(repairUser);
+                repairPayload["temperature"] = 0.0;
+                repairPayload["top_p"] = 0.3;
+                repairPayload["max_tokens"] = 48;
+                Json::Value repairResponseFormat;
+                repairResponseFormat["type"] = "json_object";
+                repairPayload["response_format"] = repairResponseFormat;
+
+                callAIAPI("/v1/chat/completions", repairPayload,
+                    [callback, fallback](const Json::Value& repairResp, const std::string& repairErr) {
+                        if (!repairErr.empty()) {
+                            fallback();
+                            return;
                         }
-
-                        LOG_INFO << "Ollama sentiment: score=" << score << " mood=" << mood << " text=" << text.substr(0, 50);
-                        callback(score, mood, "");
-                        return;
-                    }
-                }
-                // JSON 解析失败，降级
-                LOG_WARN << "Ollama sentiment JSON parse failed, content: " << content;
-                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
-                if (edgeAI.isEnabled()) {
-                    auto result = edgeAI.analyzeSentimentLocal(text);
-                    callback(result.score, result.mood, "");
-                } else {
-                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
-                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
-                    callback(score, mood, "");
-                }
+                        try {
+                            const auto repaired = repairResp["choices"][0]["message"]["content"].asString();
+                            float repairedScore = 0.0f;
+                            std::string repairedMood;
+                            if (parseSentimentResult(repaired, repairedScore, repairedMood)) {
+                                callback(repairedScore, repairedMood, "");
+                                return;
+                            }
+                        } catch (...) {
+                            // 忽略并走降级
+                        }
+                        fallback();
+                    });
             } catch (const std::exception& e) {
-                LOG_WARN << "Ollama sentiment parse error: " << e.what();
-                auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
-                if (edgeAI.isEnabled()) {
-                    auto result = edgeAI.analyzeSentimentLocal(text);
-                    callback(result.score, result.mood, "");
-                } else {
-                    auto& emotionMgr = heartlake::emotion::EmotionManager::getInstance();
-                    auto [score, mood] = emotionMgr.analyzeEmotionFromText(text);
-                    callback(score, mood, "");
-                }
+                LOG_WARN << "Sentiment parse exception: " << e.what();
+                fallback();
             }
         }
     );
@@ -217,7 +486,9 @@ void AIService::moderateText(
     payload["messages"].append(userMsg);
 
     payload["temperature"] = 0.1;
-    payload["max_tokens"] = 50;
+    payload["top_p"] = 0.7;
+    payload["max_tokens"] = 64;
+    payload["response_format"] = "json_object";
 
     callAIAPI("/v1/chat/completions", payload,
         [callback, textHash, this](const Json::Value& response, const std::string& error) {
@@ -231,8 +502,7 @@ void AIService::moderateText(
                 std::string content = response["choices"][0]["message"]["content"].asString();
 
                 Json::Value parsed;
-                Json::Reader reader;
-                if (reader.parse(content, parsed)) {
+                if (parseJsonObjectLenient(content, parsed)) {
                     bool passed = parsed.get("safe", true).asBool();
                     float confidence = parsed.get("confidence", 0.9f).asFloat();
                     std::string reason = parsed.get("reason", "").asString();
@@ -269,13 +539,18 @@ void AIService::generateReply(
     const std::string& context,
     std::function<void(const std::string& reply, const std::string& error)> callback
 ) {
-    // 生成embedding用于语义缓存
-    auto& embeddingEngine = AdvancedEmbeddingEngine::getInstance();
-    auto queryEmbedding = embeddingEngine.generateEmbedding(userMessage);
+    // RAG/个性化上下文场景禁用语义缓存，避免跨上下文误命中同一回复。
+    const bool useSemanticCache = context.empty();
+    std::vector<float> queryEmbedding;
+    if (useSemanticCache) {
+        auto& embeddingEngine = AdvancedEmbeddingEngine::getInstance();
+        queryEmbedding = embeddingEngine.generateEmbedding(userMessage);
+    }
 
     // 检查语义缓存
     std::string cachedReply;
-    if (SemanticCache::getInstance().get(userMessage, queryEmbedding, cachedReply)) {
+    if (useSemanticCache &&
+        SemanticCache::getInstance().get(userMessage, queryEmbedding, cachedReply)) {
         callback(cachedReply, "");
         return;
     }
@@ -294,27 +569,31 @@ void AIService::generateReply(
     userMsg["content"] = userMessage;
     payload["messages"].append(userMsg);
 
-    payload["temperature"] = 0.7;
-    payload["max_tokens"] = 500;
+    payload["temperature"] = 0.5;
+    payload["top_p"] = 0.85;
+    payload["max_tokens"] = 320;
 
     callAIAPI("/v1/chat/completions", payload,
-        [callback, userMessage, queryEmbedding](const Json::Value& response, const std::string& error) {
+        [callback, userMessage, queryEmbedding, useSemanticCache](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                callback("我现在有点忙，稍后再聊好吗？", error);
+                callback(buildLakeGodFallbackReply(userMessage), error);
                 return;
             }
 
             try {
                 std::string reply = response["choices"][0]["message"]["content"].asString();
-                if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos) {
-                    callback("我理解你的感受，有什么想聊的吗？", "");
+                if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos ||
+                    isGenericLakeGodReply(reply)) {
+                    callback(buildLakeGodFallbackReply(userMessage), "");
                     return;
                 }
                 // 存入语义缓存
-                SemanticCache::getInstance().put(userMessage, queryEmbedding, reply);
+                if (useSemanticCache) {
+                    SemanticCache::getInstance().put(userMessage, queryEmbedding, reply);
+                }
                 callback(reply, "");
             } catch (const std::exception& e) {
-                callback("我理解你的感受，有什么想聊的吗？", e.what());
+                callback(buildLakeGodFallbackReply(userMessage), e.what());
             }
         }
     );
@@ -339,8 +618,9 @@ void AIService::generateBoatReply(
     userMsg["content"] = boatContent;
     payload["messages"].append(userMsg);
 
-    payload["temperature"] = 0.8;
-    payload["max_tokens"] = 300;
+    payload["temperature"] = 0.6;
+    payload["top_p"] = 0.9;
+    payload["max_tokens"] = 220;
 
     callAIAPI("/v1/chat/completions", payload,
         [callback](const Json::Value& response, const std::string& error) {
@@ -382,8 +662,9 @@ void AIService::generateStoneComment(
     userMsg["content"] = stoneContent;
     payload["messages"].append(userMsg);
 
-    payload["temperature"] = 0.8;
-    payload["max_tokens"] = 80;
+    payload["temperature"] = 0.55;
+    payload["top_p"] = 0.85;
+    payload["max_tokens"] = 120;
 
     callAIAPI("/v1/chat/completions", payload,
         [callback](const Json::Value& response, const std::string& error) {
@@ -426,6 +707,11 @@ void AIService::callAIAPI(
     const Json::Value& payload,
     std::function<void(const Json::Value& response, const std::string& error)> callback
 ) {
+    if (isCircuitOpen()) {
+        callback(Json::Value(), "AI service temporarily unavailable (circuit open)");
+        return;
+    }
+
     // 本地 ollama 不需要 API Key
     if (apiKey_.empty() && provider_ != "ollama") {
         LOG_ERROR << "AI API Key is empty! Please configure api_key in config.json";
@@ -445,6 +731,41 @@ void AIService::callAIAPI(
         }
         if (payload.isMember("temperature")) {
             ollamaPayload["options"]["temperature"] = payload["temperature"];
+        }
+        if (payload.isMember("top_p")) {
+            ollamaPayload["options"]["top_p"] = payload["top_p"];
+        }
+
+        // 默认强制走 GPU，若机器不支持由 Ollama 自动报错并可回退
+        const bool forceGpu = heartlake::utils::parseBoolEnv(
+            std::getenv("AI_OLLAMA_FORCE_GPU"), true);
+        if (forceGpu) {
+            ollamaPayload["options"]["num_gpu"] = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", 999);
+            ollamaPayload["options"]["main_gpu"] = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", 0);
+            ollamaPayload["options"]["low_vram"] = heartlake::utils::parseBoolEnv(
+                std::getenv("AI_OLLAMA_LOW_VRAM"), false);
+        }
+
+        const int numThread = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", 0);
+        if (numThread > 0) {
+            ollamaPayload["options"]["num_thread"] = numThread;
+        }
+
+        const int numCtx = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", 0);
+        if (numCtx > 0) {
+            ollamaPayload["options"]["num_ctx"] = numCtx;
+        }
+
+        if (payload.isMember("response_format")) {
+            const auto format = payload["response_format"];
+            if (format.isString() && format.asString() == "json_object") {
+                ollamaPayload["format"] = "json";
+            } else if (format.isObject()) {
+                ollamaPayload["format"] = format;
+            }
+        }
+        if (payload.isMember("format")) {
+            ollamaPayload["format"] = payload["format"];
         }
         callAIAPIWithRetry("/api/chat", ollamaPayload,
             [callback](const Json::Value& ollamaResp, const std::string& error) {
@@ -509,6 +830,7 @@ void AIService::callAIAPIWithRetry(
                 }
 
                 LOG_ERROR << "AI API failed after " << (retryCount + 1) << " attempts";
+                self->onRequestFailure();
                 callback(Json::Value(), errorMsg);
                 return;
             }
@@ -539,6 +861,7 @@ void AIService::callAIAPIWithRetry(
                     return;
                 }
 
+                self->onRequestFailure();
                 callback(Json::Value(), errorMsg);
                 return;
             }
@@ -557,9 +880,11 @@ void AIService::callAIAPIWithRetry(
                         }
                     }
                 }
+                self->onRequestSuccess();
                 callback(json, "");
             } else {
                 LOG_ERROR << "Invalid JSON response from AI API";
+                self->onRequestFailure();
                 callback(Json::Value(), "Invalid JSON response");
             }
         },
@@ -584,6 +909,41 @@ bool AIService::isRetryableError(ReqResult result) const {
 int AIService::getRetryDelay(int retryCount) const {
     // 指数退避: 1s, 2s, 4s
     return 1000 * (1 << retryCount);
+}
+
+bool AIService::isCircuitOpen() {
+    std::lock_guard<std::mutex> lock(circuitMutex_);
+    if (!circuitOpen_) {
+        return false;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const auto elapsedSec = std::chrono::duration_cast<std::chrono::seconds>(now - circuitOpenedAt_).count();
+    if (elapsedSec >= circuitCooldownSeconds_) {
+        circuitOpen_ = false;
+        consecutiveFailures_ = 0;
+        LOG_INFO << "AI circuit closed after cooldown";
+        return false;
+    }
+    return true;
+}
+
+void AIService::onRequestSuccess() {
+    std::lock_guard<std::mutex> lock(circuitMutex_);
+    consecutiveFailures_ = 0;
+    if (circuitOpen_) {
+        circuitOpen_ = false;
+        LOG_INFO << "AI circuit recovered to closed state";
+    }
+}
+
+void AIService::onRequestFailure() {
+    std::lock_guard<std::mutex> lock(circuitMutex_);
+    ++consecutiveFailures_;
+    if (!circuitOpen_ && consecutiveFailures_ >= circuitFailureThreshold_) {
+        circuitOpen_ = true;
+        circuitOpenedAt_ = std::chrono::steady_clock::now();
+        LOG_WARN << "AI circuit opened after consecutive failures: " << consecutiveFailures_;
+    }
 }
 
 std::string AIService::buildSentimentPrompt([[maybe_unused]] const std::string& text) {
@@ -623,7 +983,7 @@ std::string AIService::buildModerationPrompt([[maybe_unused]] const std::string&
 }
 
 std::string AIService::buildReplyPrompt([[maybe_unused]] const std::string& message, const std::string& context) {
-    return R"(你是「心湖湖神」，一位温暖而智慧的AI陪伴者。
+    return R"(你是「心湖湖神」，一位温暖而智慧的陪伴者。
 
 你的特点：
 - 善于倾听和理解用户的真实感受
@@ -633,11 +993,13 @@ std::string AIService::buildReplyPrompt([[maybe_unused]] const std::string& mess
 - 对于严重的心理问题，会建议寻求专业帮助
 
 回复要求：
-- 150-250字，简洁但有温度
+- 90-160字，简洁但有温度
 - 直接回复，不需要称呼
 - 使用自然、口语化的表达
-- 可以用emoji增加亲切感（适度）
+- emoji最多1个，避免花哨
 - 如果用户表达负面情绪，先共情再引导
+- 信息不足时，优先提出1个简短澄清问题
+- 禁止使用模板套话：不要出现“我感受到了你此刻的心情”“无论如何，你并不孤单”等陈词
 
 背景：)" + context + R"(
 
@@ -657,7 +1019,7 @@ std::string AIService::buildBoatReplyPrompt([[maybe_unused]] const std::string& 
 - 适当的幽默或诗意可以让回复更有温度
 
 📝 **回复要求**：
-- 120-200字
+- 90-150字
 - 真诚自然，像给朋友写信
 - 可以有个人色彩和情感温度
 - 避免说教，重在共鸣和陪伴
@@ -666,7 +1028,7 @@ std::string AIService::buildBoatReplyPrompt([[maybe_unused]] const std::string& 
 }
 
 std::string AIService::buildStoneCommentPrompt([[maybe_unused]] const std::string& content, const std::string& mood) {
-    return R"(你是「心湖」的AI陪伴者，看到有人在湖中投下了一颗石头，分享了他们的湖底。
+    return R"(你是「心湖」的湖神陪伴者，看到有人在湖中投下了一颗石头，分享了他们的湖底。
 
 石头作者的情绪状态：)" + mood + R"(
 
@@ -679,7 +1041,7 @@ std::string AIService::buildStoneCommentPrompt([[maybe_unused]] const std::strin
 - 可以用简单的比喻或诗意的表达增加温度
 
 ✨ **回复要求**：
-- 80-150字，简短但有温度
+- 70-120字，简短但有温度
 - 直接回复，不需要称呼
 - 语气自然、口语化，像朋友间的对话
 - 可以适度使用emoji增加亲切感（1-2个）
@@ -817,16 +1179,9 @@ void AIService::moderateImage(
     std::function<void(bool passed, const std::vector<std::string>& categories,
                       float confidence, const std::string& reason)> callback
 ) {
-    auto& imageEngine = heartlake::ai::ImageModerationEngine::getInstance();
-    imageEngine.moderateImageUrl(imageUrl,
-        [callback](const ImageModerationResult& result, const std::string& error) {
-            if (!error.empty()) {
-                callback(true, {"pending_review"}, 0.0f, error);
-                return;
-            }
-            callback(result.passed, result.categories, result.confidence, result.reason);
-        }
-    );
+    (void)imageUrl;
+    // 媒体链路已移除，统一放行并标记能力关闭
+    callback(true, {"media_disabled"}, 1.0f, "");
 }
 
 SemanticCacheStats AIService::getSemanticCacheStats() const {
