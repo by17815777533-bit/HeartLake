@@ -6,7 +6,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../domain/entities/recommended_stone.dart';
 import '../../domain/entities/stone.dart';
-import 'stone_card.dart';
+import 'stone_card/stone_card.dart';
 
 class RecommendedStoneCard extends StatelessWidget {
   final RecommendedStone recommendedStone;

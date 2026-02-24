@@ -4,7 +4,7 @@
 
 library;
 
-import 'package:heartlake/utils/mood_colors.dart';
+import 'package:heart_lake/utils/mood_colors.dart';
 
 /// 情绪标签辅助工具（桥接后端 emotion_tags 与前端 MoodType）
 class EmotionTags {

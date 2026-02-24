@@ -152,7 +152,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
                     children: [
-                      const Icon(Icons.error_outline,
+                      Icon(Icons.error_outline,
                           color: isDark ? const Color(0xFF9AA0A6) : Colors.grey, size: 32),
                       const SizedBox(height: 8),
                       Text(_insightsError!,
@@ -271,9 +271,9 @@ class _GuardianScreenState extends State<GuardianScreen>
     // 如果没有任何内容，显示默认提示
     if (widgets.isEmpty) {
       widgets.add(
-        const Center(
+        Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text('暂无洞察数据', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
           ),
         ),
@@ -297,7 +297,9 @@ class _GuardianScreenState extends State<GuardianScreen>
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
         title: const Text('转赠灯火'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -320,7 +322,8 @@ class _GuardianScreenState extends State<GuardianScreen>
             child: const Text('转赠'),
           ),
         ],
-      ),
+      );
+      },
     );
     controller.dispose();
     if (result != null && result.isNotEmpty && mounted) {
@@ -402,7 +405,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                                             fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(height: 8),
-                                      const Text('用温暖的涟漪，照亮他人的心湖',
+                                      Text('用温暖的涟漪，照亮他人的心湖',
                                           style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
                                     ],
                                   ),

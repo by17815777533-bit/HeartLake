@@ -276,7 +276,6 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -330,6 +329,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// AI情绪脉搏小组件
   Widget _buildEmotionPulseWidget() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -431,6 +431,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = message['is_mine'] == true;
     final mood = message['mood'] as String?;
     final moodText = _moodLabel(mood);
@@ -521,6 +522,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   }
 
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.only(
         left: 16,

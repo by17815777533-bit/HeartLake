@@ -210,12 +210,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final result = await _userService.getUserInfo(userId);
       if (result['success'] == true) {
         final userData = result['user'] as Map<String, dynamic>?;
-        if (mounted) {
+        if (mounted && userData != null) {
           setState(() {
             _avatarUrl = userData['avatar_url'];
             _bio = userData['bio'];
             _nickname = userData['nickname'];
-            // 如果本地也有更新，保存一下
             if (userData['nickname'] != null) {
               StorageUtil.saveNickname(userData['nickname']);
             }
@@ -345,7 +344,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final stonesCount = _stats?['stones_count']?.toString() ?? '0';
     final boatsReceived = _stats?['boats_received']?.toString() ?? '0';
@@ -658,8 +656,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildStatCard(
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
-    final card = Card(
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = Card(
       color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

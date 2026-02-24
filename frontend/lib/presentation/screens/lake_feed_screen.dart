@@ -227,7 +227,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                 children: [
                                   Text(
                                     _weather!['description'] ?? '湖面平静',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       color: isDark ? const Color(0xFFE8EAED) : const Color(0xFF526D82),
@@ -236,7 +236,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                   const SizedBox(height: 5),
                                   Text(
                                     '最近 ${_weather!['total_stones'] ?? 0} 颗石子',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       color: isDark ? const Color(0xFF9AA0A6) : const Color(0xFF9DB2BF),
                                     ),

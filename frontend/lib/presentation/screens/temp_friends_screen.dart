@@ -287,7 +287,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -296,7 +296,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.darkBlue,
+                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.darkBlue,
                                       ),
                                     ),
                                     SizedBox(height: 4),
@@ -304,7 +304,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                       '通过互动自动建立，24小时有效期',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: AppTheme.textTertiary,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
                                       ),
                                     ),
                                   ],
@@ -370,7 +370,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                 final isExpired = status == 'expired';
                 final isUpgraded = tempFriend['upgraded_to_friend'] == true;
 
-                return _buildFriendCard(friendIndex, tempFriend, isExpired, isUpgraded, expiresAt);
+                return _buildFriendCard(friendIndex, tempFriend, isExpired, isUpgraded, expiresAt, isDark);
               },
             ),
           ),
@@ -379,7 +379,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     );
   }
 
-  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired, bool isUpgraded, String expiresAt) {
+  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired, bool isUpgraded, String expiresAt, bool isDark) {
     return AnimatedBuilder(
       animation: _listAnimController,
       builder: (context, child) {
@@ -436,7 +436,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           ),
           title: Row(
             children: [
-              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? AppTheme.textTertiary : AppTheme.darkBlue))),
+              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? AppTheme.textTertiary : (isDark ? AppTheme.darkTextPrimary : AppTheme.darkBlue)))),
               if (isUpgraded)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

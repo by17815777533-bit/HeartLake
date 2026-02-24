@@ -392,8 +392,6 @@ class LakeScreenState extends State<LakeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -510,6 +508,7 @@ class LakeScreenState extends State<LakeScreen> {
   }
 
   Widget _buildContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // 1. 只有在没有生据且正在加载时，显示全屏Loading
     if (_stones.isEmpty && _isLoading) {
       return const StatusView(type: StatusType.loading, loadingMessage: '正在倾听湖面的声音...');

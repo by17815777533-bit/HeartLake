@@ -433,7 +433,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moodConfig = MoodColors.getConfig(_stoneMood);
 
     return PopScope(
@@ -939,8 +938,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   Widget _buildCommentInput(MoodColorConfig moodConfig) {
-    return Container(
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1B2838) : Colors.white,
