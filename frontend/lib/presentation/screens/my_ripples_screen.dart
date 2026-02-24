@@ -7,6 +7,7 @@ import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../utils/app_theme.dart';
 
 class MyRipplesScreen extends StatefulWidget {
   const MyRipplesScreen({super.key});
@@ -134,6 +135,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的涟漪'),
@@ -146,11 +148,11 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF0F8FF), Color(0xFFE8F0FA)],
+            colors: [isDark ? AppTheme.nightDeep : Color(0xFFF0F8FF), isDark ? AppTheme.nightSurface : Color(0xFFE8F0FA)],
           ),
         ),
         child: RefreshIndicator(
@@ -169,14 +171,14 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                               Icon(
                                 Icons.waves,
                                 size: 80,
-                                color: Colors.grey[300],
+                                color: isDark ? Colors.white24 : Colors.grey[300],
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '还没有涟漪，你的声音会被听见',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey[600],
+                                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
                                 ),
                               ),
                             ],

@@ -7,6 +7,7 @@ import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../utils/app_theme.dart';
 
 class MyStonesScreen extends StatefulWidget {
   const MyStonesScreen({super.key});
@@ -146,6 +147,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的石头'),
@@ -158,17 +160,17 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF5F0FF), Color(0xFFE8F4FD)],
+            colors: [isDark ? AppTheme.nightDeep : Color(0xFFF5F0FF), isDark ? AppTheme.nightSurface : Color(0xFFE8F4FD)],
           ),
         ),
         child: RefreshIndicator(
           onRefresh: _loadMyStones,
           child: _isLoading
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在寻找你的石头...', style: TextStyle(color: Colors.grey[600]))]))
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在寻找你的石头...', style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]))]))
             : _myStones.isEmpty
                 ? ListView(
                     children: [
@@ -181,14 +183,14 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
                               Icon(
                                 Icons.water_drop_outlined,
                                 size: 80,
-                                color: Colors.grey[300],
+                                color: isDark ? Colors.white24 : Colors.grey[300],
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '还没有投出石头，来投下你的第一颗吧',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey[600],
+                                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
                                 ),
                               ),
                             ],
