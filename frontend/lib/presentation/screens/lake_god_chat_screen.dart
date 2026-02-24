@@ -276,6 +276,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -386,7 +387,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                       Text(
                         '湖神情绪脉搏',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.9),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -451,7 +452,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.primaryColor
-                    : Colors.white.withValues(alpha: 0.9),
+                    : isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -469,7 +470,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
               child: Text(
                 message['content'] ?? '',
                 style: TextStyle(
-                  color: isMe ? Colors.white : AppTheme.textPrimary,
+                  color: isMe ? Colors.white : (isDark ? const Color(0xFFE8EAED) : AppTheme.textPrimary),
                   fontSize: 15,
                   height: 1.4,
                 ),
@@ -528,10 +529,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1B2838) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),

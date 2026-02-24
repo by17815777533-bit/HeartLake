@@ -401,6 +401,8 @@ class LakeScreenState extends State<LakeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -543,7 +545,7 @@ class LakeScreenState extends State<LakeScreen> {
     return RefreshIndicator(
       onRefresh: _onRefresh,
       color: Colors.blue[900],
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1B2838) : Colors.white,
       child: ListView.builder(
         controller: _scrollController,
         padding: EdgeInsets.only(

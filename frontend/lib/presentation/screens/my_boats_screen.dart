@@ -151,10 +151,13 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的纸船'),
         centerTitle: true,
+        backgroundColor: isDark ? const Color(0xFF16213E) : null,
+        foregroundColor: isDark ? Colors.white : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -163,11 +166,13 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF8F0), Color(0xFFFAF0E8)],
+            colors: isDark
+                ? [const Color(0xFF0D1B2E), const Color(0xFF1A1A2E)]
+                : [const Color(0xFFFFF8F0), const Color(0xFFFAF0E8)],
           ),
         ),
         child: RefreshIndicator(

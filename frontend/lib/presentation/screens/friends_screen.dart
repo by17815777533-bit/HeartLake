@@ -104,6 +104,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -145,7 +146,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               await _loadFriends();
             },
             color: Colors.blue[900],
-            backgroundColor: Colors.white,
+            backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
             child: ListView(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
@@ -156,7 +157,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               children: [
                 // 临时好友入口
                 Card(
-                  color: Colors.white.withValues(alpha: 0.95),
+                  color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(color: Colors.orange, width: 1.5),
@@ -205,7 +206,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                           '还没有好友，来寻找志同道合的人吧',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -236,7 +237,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                       },
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 8),
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),

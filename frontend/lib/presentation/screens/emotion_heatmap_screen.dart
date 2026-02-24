@@ -154,9 +154,9 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppTheme.skyBlue.withValues(alpha: 0.2)),
               ),
-              child: const Text(
+              child: Text(
                 '热力图聚焦长期波动，日历聚焦单日记录。已拆分展示，便于你分别查看。',
-                style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary, height: 1.5),
+                style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary, height: 1.5),
               ),
             ),
             const SizedBox(height: 16),

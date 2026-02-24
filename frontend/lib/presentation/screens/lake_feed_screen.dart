@@ -172,13 +172,16 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFE8F5E9), Color(0xFFE3F2FD)],
+            colors: isDark
+                ? [const Color(0xFF0D1B2E), const Color(0xFF1A1A2E)]
+                : [const Color(0xFFE8F5E9), const Color(0xFFE3F2FD)],
           ),
         ),
         child: _isLoading && _stones.isEmpty
@@ -197,14 +200,14 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF9DB2BF).withValues(alpha: 0.8),
-                              const Color(0xFFDDE6ED),
+                              isDark ? const Color(0xFF1B2838).withValues(alpha: 0.9) : const Color(0xFF9DB2BF).withValues(alpha: 0.8),
+                              isDark ? const Color(0xFF0D1B2A) : const Color(0xFFDDE6ED),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
+                              color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.1),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -227,7 +230,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF526D82),
+                                      color: isDark ? const Color(0xFFE8EAED) : const Color(0xFF526D82),
                                     ),
                                   ),
                                   const SizedBox(height: 5),
@@ -235,7 +238,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                     '最近 ${_weather!['total_stones'] ?? 0} 颗石子',
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF9DB2BF),
+                                      color: isDark ? const Color(0xFF9AA0A6) : const Color(0xFF9DB2BF),
                                     ),
                                   ),
                                 ],

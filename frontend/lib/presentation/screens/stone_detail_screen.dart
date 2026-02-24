@@ -432,6 +432,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moodConfig = MoodColors.getConfig(_stoneMood);
 
     return PopScope(

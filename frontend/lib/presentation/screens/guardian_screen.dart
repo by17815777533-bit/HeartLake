@@ -346,6 +346,7 @@ class _GuardianScreenState extends State<GuardianScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -372,7 +373,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                             padding: const EdgeInsets.all(16),
                             children: [
                               Card(
-                                color: Colors.white.withValues(alpha: 0.95),
+                                color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 child: Padding(
@@ -445,7 +446,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                               const SizedBox(height: 16),
                               // 湖神入口
                               Card(
-                                color: Colors.white.withValues(alpha: 0.95),
+                                color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 child: ListTile(

@@ -347,6 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stonesCount = _stats?['stones_count']?.toString() ?? '0';
     final boatsReceived = _stats?['boats_received']?.toString() ?? '0';
     final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
