@@ -71,7 +71,7 @@ npm run test
 | `/login` | Login | 管理员登录，PASETO v4 token 认证 |
 | `/dashboard` | Dashboard | 数据大屏，用户增长、心情分布、活跃时段、热门话题等 ECharts 图表，实时统计轮询 |
 | `/users` | Users | 用户管理，用户列表查询、封禁/解封操作 |
-| `/content` | Content | 内容管理，石头（stones）和漂流瓶（boats）的查看与删除 |
+| `/content` | Content | 内容管理，心石（stones）的查看与删除 |
 | `/moderation` | Moderation | 内容审核，待审内容列表、审核通过/拒绝、审核历史记录 |
 | `/reports` | Reports | 举报处理，查看用户举报并进行处理 |
 | `/sensitive-words` | SensitiveWords | 敏感词管理，敏感词的增删改查 |

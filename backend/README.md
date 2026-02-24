@@ -25,7 +25,7 @@ HeartLake 匿名情感社交平台的后端服务，基于 C++20 + Drogon 异步
 ```
 backend/
 ├── include/                    # 头文件（接口定义）
-│   ├── interfaces/api/         # 21 个 HTTP/WebSocket 控制器
+│   ├── interfaces/api/         # 20 个 HTTP/WebSocket 控制器
 │   ├── application/            # 应用服务 + 事件处理器
 │   │   └── handlers/
 │   ├── domain/                 # 领域层

@@ -35,6 +35,16 @@ make -j$(nproc)
 sudo make install
 ```
 
+**安装 ONNX Runtime**（可选，启用本地情感分析模型）:
+```bash
+# 下载 ONNX Runtime 1.22.0
+wget https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz
+tar xzf onnxruntime-linux-x64-1.22.0.tgz
+sudo cp -r onnxruntime-linux-x64-1.22.0/include/* /usr/local/include/
+sudo cp -r onnxruntime-linux-x64-1.22.0/lib/* /usr/local/lib/
+sudo ldconfig
+```
+
 **构建后端**:
 ```bash
 cd backend
@@ -43,21 +53,33 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make -j$(nproc)
 ```
 
-**运行后端**:
+**运行后端**（推荐使用统一启动脚本）:
 ```bash
-# 启动 PostgreSQL 和 Redis
-sudo systemctl start postgresql redis
+cd backend
 
-# 配置数据库（首次运行）
-psql -U postgres -c "CREATE DATABASE heartlake;"
+# 方式一：统一启动脚本（推荐）
+# 自动生成运行时配置、启动 PostgreSQL/Redis、执行迁移、检查 Ollama 模型
+./start.sh
 
-# 运行服务
-./heartlake_backend
+# 方式二：手动启动
+# 1. 确保 PostgreSQL 和 Redis 已运行
+# 2. 复制并编辑环境变量
+cp .env.example .env
+# 编辑 .env 填入数据库连接信息等
+
+# 3. 运行服务（自动加载 .env）
+./build/HeartLake
+```
+
+**停止后端**:
+```bash
+cd backend
+./stop.sh
 ```
 
 ### 管理后台开发环境
 
-**系统要求**: Node.js 20+
+**系统要求**: Node.js >= 18
 
 **安装依赖**:
 ```bash
@@ -82,12 +104,7 @@ npm run test:unit
 
 ### 移动端开发环境
 
-**系统要求**: Flutter 3.24.0+
-
-**安装 Flutter**:
-```bash
-# 参考官方文档: https://flutter.dev/docs/get-started/install
-```
+**系统要求**: Flutter 3.19+ / Dart 3.3+
 
 **安装依赖**:
 ```bash
@@ -95,243 +112,118 @@ cd frontend
 flutter pub get
 ```
 
-**运行应用**:
+**开发运行**:
 ```bash
 flutter run
 ```
 
-**代码分析**:
+**构建发布版**:
 ```bash
-flutter analyze
-flutter format .
+flutter build apk --release    # Android
+flutter build ios --release    # iOS
 ```
 
-## 代码规范
+### Docker 一键部署
 
-### C++ 代码规范
+```bash
+# 复制环境变量模板
+cp .env.example .env
+# 编辑 .env 填入必要配置
 
-- **命名约定**:
-  - 类名: `PascalCase` (例: `StoneController`)
-  - 函数名: `camelCase` (例: `createStone`)
-  - 变量名: `snake_case` (例: `user_id`)
-  - 常量: `UPPER_SNAKE_CASE` (例: `MAX_RETRY_COUNT`)
+# 启动所有服务
+docker compose up -d
 
-- **文件组织**:
-  - 头文件: `include/` 目录
-  - 实现文件: `src/` 目录
-  - 测试文件: `tests/` 目录
+# 查看服务状态
+docker compose ps
 
-- **注释规范**:
-  - 使用 Doxygen 风格注释
-  - 每个公开接口必须有文档注释
-  - 复杂逻辑需要行内注释说明
-
-- **代码风格**:
-  - 缩进: 4 空格
-  - 大括号: K&R 风格
-  - 每行最大 120 字符
-
-**示例**:
-```cpp
-/**
- * @brief 创建新的情绪石头
- * @param req HTTP 请求对象
- * @param callback 响应回调函数
- */
-void StoneController::createStone(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-    // 实现逻辑
-}
+# 查看日志
+docker compose logs -f backend
 ```
-
-### TypeScript/Vue 代码规范
-
-- **命名约定**:
-  - 组件名: `PascalCase` (例: `StoneCard.vue`)
-  - 函数名: `camelCase` (例: `fetchStones`)
-  - 变量名: `camelCase` (例: `userId`)
-  - 常量: `UPPER_SNAKE_CASE` (例: `API_BASE_URL`)
-
-- **Vue 组件结构**:
-```vue
-<script setup lang="ts">
-// 导入
-// 类型定义
-// 响应式状态
-// 计算属性
-// 方法
-// 生命周期钩子
-</script>
-
-<template>
-  <!-- 模板 -->
-</template>
-
-<style scoped>
-/* 样式 */
-</style>
-```
-
-- **代码风格**:
-  - 缩进: 2 空格
-  - 使用 ESLint + Prettier
-  - 优先使用 Composition API
-
-### Dart/Flutter 代码规范
-
-- **命名约定**:
-  - 类名: `PascalCase`
-  - 函数/变量: `camelCase`
-  - 常量: `lowerCamelCase`
-  - 私有成员: `_leadingUnderscore`
-
-- **代码风格**:
-  - 缩进: 2 空格
-  - 使用 `flutter format` 自动格式化
-  - 遵循 [Effective Dart](https://dart.dev/guides/language/effective-dart)
 
 ## Git 工作流
 
 ### 分支策略
 
-- `main`: 主分支，保持稳定可发布状态
-- `feature/*`: 功能分支 (例: `feature/add-emotion-analysis`)
-- `bugfix/*`: 修复分支 (例: `bugfix/fix-login-error`)
-- `hotfix/*`: 紧急修复分支
+- `main` — 主分支，保持可部署状态
+- `feature/*` — 功能分支
+- `fix/*` — 修复分支
+- `refactor/*` — 重构分支
 
 ### 提交规范
 
-**Commit Message 格式**:
+使用中文 commit message，格式：
+
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): <description>
 
-<body>
-
-<footer>
+[可选正文]
 ```
 
-**Type 类型**:
-- `feat`: 新功能
-- `fix`: 修复 bug
-- `docs`: 文档更新
-- `style`: 代码格式调整（不影响功能）
-- `refactor`: 重构
-- `test`: 测试相关
-- `chore`: 构建/工具链相关
+**type 类型**:
+- `feat` — 新功能
+- `fix` — 修复
+- `refactor` — 重构
+- `perf` — 性能优化
+- `docs` — 文档
+- `chore` — 杂项
+- `style` — 样式
+- `test` — 测试
 
 **示例**:
 ```
-feat(stone): 添加情绪共鸣搜索功能
-
-实现基于向量相似度的石头推荐算法，支持：
-- 语义相似度计算
-- 情绪兼容性匹配
-- 时间衰减因子
-
-Closes #123
+feat(EdgeAI): 集成 ONNX Runtime 本地情感分析
+fix(好友): 修复聊天消息退出即消失问题
+perf(WebSocket): 优化离线队列刷新性能 O(n²)→O(n)
+docs(README): 更新项目统计数据
 ```
 
-### Pull Request 流程
+### PR 流程
 
-1. **Fork 仓库** (外部贡献者) 或 **创建分支** (团队成员)
+1. 从 `main` 创建功能分支
+2. 开发完成后提交 PR
+3. 通过 CI 检查（构建 + 测试）
+4. 代码审查通过后合并
 
-2. **开发功能**:
-```bash
-git checkout -b feature/your-feature-name
-# 进行开发
-git add .
-git commit -m "feat: 添加新功能"
+## 代码规范
+
+### 后端 (C++20)
+
+- 遵循 DDD 四层架构：Interfaces → Application → Domain → Infrastructure
+- 使用智能指针管理内存，禁止裸 `new/delete`
+- 并发场景使用 `std::shared_mutex` / `std::mutex`
+- 异常处理使用 `try-catch`，不允许未捕获异常
+- 头文件与实现分离（`.h` 在 `include/`，`.cpp` 在 `src/`）
+- 命名规范：类名 `PascalCase`，方法名 `camelCase`，成员变量 `camelCase_` 后缀下划线
+
+### 管理后台 (Vue 3)
+
+- 使用 `<script setup>` 组合式 API
+- 事件处理函数命名 `handleXxx`，数据获取函数命名 `fetchXxx`
+- 统一使用 `errorHelper.js` 处理错误
+- 危险操作（删除、封禁）必须有二次确认弹窗
+
+### 移动端 (Flutter)
+
+- 遵循 DDD 分层：data/datasources → domain/entities → presentation
+- 使用 Provider 进行状态管理
+- 网络请求通过 Service 层封装，Screen 不直接调用 `ApiClient`
+- 使用 `ServiceResponse<T>` 统一封装 API 响应
+- 命名规范：文件名 `snake_case`，类名 `PascalCase`
+
+## 项目结构
+
 ```
-
-3. **保持同步**:
-```bash
-git fetch origin
-git rebase origin/main
-```
-
-4. **推送分支**:
-```bash
-git push origin feature/your-feature-name
-```
-
-5. **创建 Pull Request**:
-   - 标题清晰描述改动
-   - 详细说明实现思路
-   - 关联相关 Issue
-   - 添加截图/演示（如适用）
-
-6. **代码审查**:
-   - 至少需要 1 位团队成员审查
-   - 解决所有审查意见
-   - 确保 CI 通过
-
-7. **合并**:
-   - 使用 Squash and Merge（保持主分支历史清晰）
-   - 删除已合并的分支
-
-## 测试要求
-
-### 后端测试
-
-- **单元测试**: 使用 Google Test (GTest)
-- **测试覆盖率**: 核心业务逻辑 > 80%
-- **测试文件位置**: `backend/tests/`
-
-**运行测试**:
-```bash
-cd backend/build
-ctest --output-on-failure
-```
-
-**编写测试示例**:
-```cpp
-TEST(StoneServiceTest, CreateStone) {
-    StoneService service;
-    auto result = service.createStone("test content", "happy");
-    EXPECT_TRUE(result.success);
-    EXPECT_FALSE(result.stoneId.empty());
-}
-```
-
-### 前端测试
-
-- **单元测试**: Vitest
-- **组件测试**: Vue Test Utils
-- **测试文件**: `*.test.ts` 或 `*.spec.ts`
-
-**运行测试**:
-```bash
-cd admin
-npm run test:unit
-```
-
-**编写测试示例**:
-```typescript
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import StoneCard from '@/components/StoneCard.vue'
-
-describe('StoneCard', () => {
-  it('renders stone content', () => {
-    const wrapper = mount(StoneCard, {
-      props: { content: 'Test stone', mood: 'happy' }
-    })
-    expect(wrapper.text()).toContain('Test stone')
-  })
-})
-```
-
-### Flutter 测试
-
-- **单元测试**: `flutter test`
-- **Widget 测试**: Flutter Testing Framework
-- **测试文件**: `test/` 目录
-
-**运行测试**:
-```bash
-cd frontend
-flutter test
+heartlake/
+├── backend/          # C++20 + Drogon 后端（39,400 行）
+├── frontend/         # Flutter 移动端（26,950 行）
+├── admin/            # Vue 3 管理后台（7,808 行）
+├── nginx/            # Nginx 反向代理配置
+├── docker-compose.yml
+├── .env.example      # 环境变量模板
+├── README.md
+├── CONTRIBUTING.md   # 本文件
+├── CHANGELOG.md
+└── docs/             # 项目文档
 ```
 
 ## 代码审查清单
