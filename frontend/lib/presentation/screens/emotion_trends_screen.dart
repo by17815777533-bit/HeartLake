@@ -147,11 +147,11 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             const Icon(Icons.shield_outlined,
                 size: 14, color: AppTheme.secondaryColor),
             const SizedBox(width: 6),
-            const Text(
+            Text(
               '差分隐私保护中',
               style: TextStyle(
                 fontSize: 11,
-                color: AppTheme.textSecondary,
+                color: isDark ? Colors.white70 : AppTheme.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -170,6 +170,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   }
 
   Widget _buildTrendCards() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final distribution = _trends['distribution'] is Map
         ? Map<String, dynamic>.from(_trends['distribution'] as Map)
         : <String, dynamic>{};
@@ -178,12 +179,12 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     if (distribution.isEmpty && insights.isEmpty) {
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Padding(
-          padding: EdgeInsets.all(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Text(
             '最近还没有足够的情绪样本，继续记录几次心情后这里会自动更新。',
             style: TextStyle(
-                fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary, height: 1.5),
           ),
         ),
       );
@@ -194,12 +195,12 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       children: [
         // 情绪分布
         if (distribution.isNotEmpty) ...[
-          const Text(
+          Text(
             '情绪分布',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
+              color: isDark ? Colors.white : AppTheme.textPrimary,
               letterSpacing: 1,
             ),
           ),
@@ -222,9 +223,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                           width: 50,
                           child: Text(
                             _moodLabel(e.key),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppTheme.textSecondary,
+                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -260,9 +261,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                         const SizedBox(width: 8),
                         Text(
                           '${(value * 100).toInt()}%',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
-                            color: AppTheme.textTertiary,
+                            color: isDark ? Colors.white54 : AppTheme.textTertiary,
                           ),
                         ),
                       ],
@@ -276,12 +277,12 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
         const SizedBox(height: 24),
         // 湖神洞察
         if (insights.isNotEmpty) ...[
-          const Text(
+          Text(
             '湖神洞察',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
+              color: isDark ? Colors.white : AppTheme.textPrimary,
               letterSpacing: 1,
             ),
           ),
@@ -306,10 +307,10 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                         Expanded(
                           child: Text(
                             insight.toString(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               height: 1.5,
-                              color: AppTheme.textSecondary,
+                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
                             ),
                           ),
                         ),

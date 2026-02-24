@@ -381,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           RefreshIndicator(
             onRefresh: _refreshAll,
             color: AppTheme.lakeDeep,
-            backgroundColor: Colors.white,
+            backgroundColor: isDark ? AppTheme.nightSurface : Colors.white,
             child: ListView(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
@@ -392,7 +392,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // 个人信息卡片
                 Card(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: isDark ? AppTheme.nightSurface.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(

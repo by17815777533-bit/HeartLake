@@ -383,9 +383,11 @@ class _PublishScreenState extends State<PublishScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: config.primary.withValues(alpha: 0.10),
+        color: isDark
+            ? config.primary.withValues(alpha: 0.20)
+            : config.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: config.primary.withValues(alpha: 0.28)),
+        border: Border.all(color: config.primary.withValues(alpha: isDark ? 0.40 : 0.28)),
       ),
       child: Row(
         children: [

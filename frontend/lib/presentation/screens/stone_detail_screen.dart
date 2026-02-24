@@ -10,7 +10,7 @@ import '../../domain/entities/stone.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../utils/mood_colors.dart';
-import '../../utils/storage_util.dart';
+import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
 import '../widgets/similar_stones_section.dart';
@@ -46,9 +46,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _reconnectedListener;
 
-  // 当前用户ID（用于过滤自己触发的WebSocket更新）
-  String? _currentUserId;
-
   // 涟漪动画
   late AnimationController _heartAnimationController;
   late Animation<double> _heartScaleAnimation;
@@ -71,7 +68,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _localBoatsCount = widget.stone.boatCount;
     _hasRippled = widget.stone.hasRippled;
     _wsManager = WebSocketManager();
-    _loadCurrentUser();
     _loadBoats();
     _setupWebSocketListener();
 
@@ -86,11 +82,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         curve: Curves.easeOutBack,
       ),
     );
-  }
-
-  /// 获取当前用户ID，用于过滤自己触发的WebSocket更新
-  Future<void> _loadCurrentUser() async {
-    _currentUserId = await StorageUtil.getUserId();
   }
 
   void _setupWebSocketListener() {
@@ -496,7 +487,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     padding: const EdgeInsets.all(16),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
+                        color: isDark ? AppTheme.nightSurface.withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: moodConfig.primary.withValues(alpha: 0.3),

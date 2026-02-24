@@ -5,7 +5,7 @@
 library;
 
 import 'package:dio/dio.dart';
-import 'package:meta/meta.dart';
+import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/error_codes.dart';

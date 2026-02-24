@@ -19,7 +19,6 @@ import 'lake_god_chat_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
-import '../../utils/storage_util.dart';
 
 class LakeScreen extends StatefulWidget {
   const LakeScreen({super.key});
@@ -38,7 +37,6 @@ class LakeScreenState extends State<LakeScreen> {
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final WebSocketManager _wsManager = WebSocketManager();
-  String? _currentUserId;
 
   // 监听器引用
   late void Function(Map<String, dynamic>) _newStoneListener;
@@ -53,7 +51,6 @@ class LakeScreenState extends State<LakeScreen> {
   @override
   void initState() {
     super.initState();
-    StorageUtil.getUserId().then((id) { _currentUserId = id; });
     _loadStones();
     _scrollController.addListener(_onScroll);
     _initWebSocket();
