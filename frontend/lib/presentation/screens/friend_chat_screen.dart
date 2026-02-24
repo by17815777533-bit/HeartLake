@@ -160,10 +160,12 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       appBar: AppBar(
         title: Text(widget.friendName ?? '聊天'),
-        backgroundColor: AppTheme.primaryColor,
+        backgroundColor: isDark ? const Color(0xFF1A1A2E) : AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -187,6 +189,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   }
 
   Widget _buildMessageBubble(dynamic message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = message['is_mine'] == true;
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -195,25 +198,26 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryColor : Colors.grey[200],
+          color: isMe ? AppTheme.primaryColor : isDark ? const Color(0xFF16213E) : Colors.grey[200],
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           message['content'] ?? '',
-          style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 15),
+          style: TextStyle(color: isMe ? Colors.white : isDark ? Colors.white : Colors.black87, fontSize: 15),
         ),
       ),
     );
   }
 
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.only(
         left: 16, right: 8, top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF16213E) : Colors.white,
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))],
       ),
       child: Row(

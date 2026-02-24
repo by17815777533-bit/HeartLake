@@ -191,9 +191,10 @@ class _CounselorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.white.withValues(alpha: 0.92),
+      color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -224,8 +225,8 @@ class _CounselorCard extends StatelessWidget {
                               fontSize: 17, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
                       Text(specialty,
-                          style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textSecondary)),
+                          style: TextStyle(
+                              fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
                     ],
                   ),
                 ),
@@ -253,8 +254,8 @@ class _CounselorCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(description,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(
+                    fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -322,6 +323,7 @@ class _SessionListTabState extends State<_SessionListTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final topPadding =
         MediaQuery.of(context).padding.top + kToolbarHeight + 60;
 
@@ -401,7 +403,7 @@ class _SessionListTabState extends State<_SessionListTab> {
 
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
-            color: Colors.white.withValues(alpha: 0.92),
+            color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
             child: ListTile(
@@ -421,8 +423,8 @@ class _SessionListTabState extends State<_SessionListTab> {
                   Text(lastMessage,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppTheme.textSecondary)),
+                      style: TextStyle(
+                          fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
                   if (time.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(time,
@@ -721,6 +723,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   }
 
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.only(
         left: 12,
@@ -729,7 +732,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -788,6 +791,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -811,7 +815,7 @@ class _ChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.primaryColor.withValues(alpha: 0.9)
-                    : Colors.white.withValues(alpha: 0.92),
+                    : isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -833,7 +837,7 @@ class _ChatBubble extends StatelessWidget {
                     content,
                     style: TextStyle(
                       fontSize: 15,
-                      color: isMe ? Colors.white : AppTheme.textPrimary,
+                      color: isMe ? Colors.white : isDark ? Colors.white : AppTheme.textPrimary,
                       height: 1.4,
                     ),
                   ),
