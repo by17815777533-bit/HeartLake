@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
-import '../widgets/stone_card.dart';
+import '../widgets/stone_card/stone_card.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 

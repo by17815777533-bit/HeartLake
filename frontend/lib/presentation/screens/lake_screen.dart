@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/api_client.dart';
 import '../../data/datasources/websocket_manager.dart';
-import '../widgets/stone_card.dart';
+import '../widgets/stone_card/stone_card.dart';
 import '../widgets/water_background.dart';
 import '../widgets/animations/ripple_effect.dart';
 import '../widgets/animations/staggered_list.dart';

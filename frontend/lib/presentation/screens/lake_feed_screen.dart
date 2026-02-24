@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../domain/entities/stone.dart';
-import '../widgets/stone_card.dart';
+import '../widgets/stone_card/stone_card.dart';
 import 'dart:async';
 
 class LakeFeedScreen extends StatefulWidget {

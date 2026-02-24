@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/recommendation_service.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../domain/entities/stone.dart';
-import '../widgets/stone_card.dart';
+import '../widgets/stone_card/stone_card.dart';
 import '../widgets/water_background.dart';
 import '../widgets/deep_dive_layer.dart';
 import '../../utils/app_theme.dart';
