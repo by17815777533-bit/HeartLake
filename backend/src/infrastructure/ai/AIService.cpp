@@ -41,10 +41,11 @@ std::string trimCopy(const std::string& input) {
 }
 
 std::string sanitizeModelText(std::string content) {
-    static const std::regex thinkRegex("<think>[\\s\\S]*?</think>\\s*");
+    // thread_local 避免 std::regex 多线程并发匹配时的数据竞争
+    thread_local static const std::regex thinkRegex("<think>[\\s\\S]*?</think>\\s*");
     content = std::regex_replace(content, thinkRegex, "");
 
-    static const std::regex fenceRegex("```(?:json)?|```");
+    thread_local static const std::regex fenceRegex("```(?:json)?|```");
     content = std::regex_replace(content, fenceRegex, "");
     return trimCopy(content);
 }
@@ -252,6 +253,14 @@ void AIService::initialize(const Json::Value& config) {
     circuitCooldownSeconds_ = heartlake::utils::parsePositiveIntEnv("AI_CIRCUIT_BREAKER_COOLDOWN_SEC", 20);
     localSentimentConfidenceThreshold_ = parseFloatEnv(
         "AI_SENTIMENT_LOCAL_CONF_THRESHOLD", 0.72f, 0.50f, 0.95f);
+    sentimentCacheTTLSeconds_ = heartlake::utils::parsePositiveIntEnv(
+        "AI_SENTIMENT_CACHE_TTL_SEC", sentimentCacheTTLSeconds_);
+    sentimentCacheMaxSize_ = static_cast<size_t>(heartlake::utils::parsePositiveIntEnv(
+        "AI_SENTIMENT_CACHE_MAX_SIZE", static_cast<int>(sentimentCacheMaxSize_)));
+    sentimentAdaptiveInflightThreshold_ = heartlake::utils::parsePositiveIntEnv(
+        "AI_SENTIMENT_ADAPTIVE_INFLIGHT_THRESHOLD", sentimentAdaptiveInflightThreshold_);
+    sentimentAdaptiveLocalConfDelta_ = parseFloatEnv(
+        "AI_SENTIMENT_ADAPTIVE_LOCAL_CONF_DELTA", sentimentAdaptiveLocalConfDelta_, 0.0f, 0.25f);
     {
         std::lock_guard<std::mutex> lock(circuitMutex_);
         circuitOpen_ = false;
@@ -277,6 +286,10 @@ void AIService::initialize(const Json::Value& config) {
              << ", circuit_threshold=" << circuitFailureThreshold_
              << ", circuit_cooldown_sec=" << circuitCooldownSeconds_
              << ", local_sentiment_conf_threshold=" << localSentimentConfidenceThreshold_
+             << ", sentiment_cache_ttl_sec=" << sentimentCacheTTLSeconds_
+             << ", sentiment_cache_max_size=" << sentimentCacheMaxSize_
+             << ", sentiment_adaptive_inflight_threshold=" << sentimentAdaptiveInflightThreshold_
+             << ", sentiment_adaptive_local_conf_delta=" << sentimentAdaptiveLocalConfDelta_
              << ", ollama_force_gpu=" << (ollamaForceGpu ? "true" : "false")
              << ", ollama_num_gpu=" << ollamaNumGpu
              << ", ollama_main_gpu=" << ollamaMainGpu
@@ -312,20 +325,57 @@ void AIService::analyzeSentiment(
     const std::string& text,
     std::function<void(float score, const std::string& mood, const std::string& error)> callback
 ) {
-    // 本地模型优先：高置信度直接返回，低置信度再调用大模型精修。
+    const std::string normalizedText = normalizeSentimentText(text);
+    const std::string sentimentKey = computeTextHash(normalizedText);
+
+    float cachedScore = 0.0f;
+    std::string cachedMood;
+    if (getSentimentFromCache(sentimentKey, cachedScore, cachedMood)) {
+        callback(cachedScore, cachedMood, "");
+        return;
+    }
+
+    if (!registerSentimentInFlight(sentimentKey, std::move(callback))) {
+        return;
+    }
+
+    auto fanout = [this, sentimentKey](float score, const std::string& mood, const std::string& error) {
+        const std::string canonicalMood = canonicalizeMood(mood);
+        if (error.empty()) {
+            putSentimentToCache(sentimentKey, score, canonicalMood);
+        }
+        completeSentimentInFlight(sentimentKey, score, canonicalMood, error);
+    };
+
+    // 本地模型优先：高置信度直接返回；高并发下启用自适应阈值保护尾延迟。
     bool hasLocalCandidate = false;
     float localScoreCandidate = 0.0f;
     std::string localMoodCandidate = "neutral";
-    auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
-    if (edgeAI.isEnabled()) {
-        auto local = edgeAI.analyzeSentimentLocal(text);
-        localScoreCandidate = local.score;
-        localMoodCandidate = local.mood;
-        hasLocalCandidate = true;
-        if (local.confidence >= localSentimentConfidenceThreshold_) {
-            callback(local.score, local.mood, "");
-            return;
+    try {
+        auto& edgeAI = heartlake::ai::EdgeAIEngine::getInstance();
+        if (edgeAI.isEnabled()) {
+            auto local = edgeAI.analyzeSentimentLocal(text);
+            localScoreCandidate = local.score;
+            localMoodCandidate = local.mood;
+            hasLocalCandidate = true;
+
+            const float adaptiveThreshold = std::max(
+                0.50f, localSentimentConfidenceThreshold_ - sentimentAdaptiveLocalConfDelta_);
+            const bool highInflight = currentSentimentInFlightCount() >=
+                static_cast<size_t>(sentimentAdaptiveInflightThreshold_);
+            const bool adaptiveBypass = highInflight && (
+                local.confidence >= adaptiveThreshold || local.confidence >= 0.40f);
+
+            if (local.confidence >= localSentimentConfidenceThreshold_ || adaptiveBypass) {
+                if (adaptiveBypass && local.confidence < localSentimentConfidenceThreshold_) {
+                    LOG_WARN << "Adaptive sentiment bypass triggered, confidence=" << local.confidence;
+                }
+                fanout(local.score, local.mood, "");
+                return;
+            }
         }
+    } catch (const std::exception& e) {
+        LOG_WARN << "Local sentiment path exception: " << e.what();
     }
 
     // 低置信度时调用大模型做情感分析；失败时降级到本地候选结果
@@ -353,18 +403,23 @@ void AIService::analyzeSentiment(
     responseFormat["type"] = "json_object";
     payload["response_format"] = responseFormat;
 
-    auto fallback = [text, callback, hasLocalCandidate, localScoreCandidate, localMoodCandidate]() {
+    auto fallback = [text, fanout, hasLocalCandidate, localScoreCandidate, localMoodCandidate]() {
         if (hasLocalCandidate) {
             LOG_WARN << "Sentiment fallback to local candidate";
-            callback(localScoreCandidate, localMoodCandidate, "");
+            fanout(localScoreCandidate, localMoodCandidate, "");
             return;
         }
         LOG_WARN << "Sentiment fallback to local model";
-        runLocalSentimentFallback(text, callback);
+        runLocalSentimentFallback(
+            text,
+            [fanout](float score, const std::string& mood, const std::string& error) {
+                fanout(score, mood, error);
+            }
+        );
     };
 
     callAIAPI("/v1/chat/completions", payload,
-        [this, text, callback, fallback](const Json::Value& response, const std::string& error) {
+        [this, text, fanout, fallback](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
                 LOG_WARN << "LLM sentiment request failed: " << error;
                 fallback();
@@ -379,7 +434,7 @@ void AIService::analyzeSentiment(
                     LOG_INFO << "LLM sentiment parsed: score=" << score
                              << " mood=" << mood
                              << " text=" << text.substr(0, 50);
-                    callback(score, mood, "");
+                    fanout(score, mood, "");
                     return;
                 }
 
@@ -406,7 +461,7 @@ void AIService::analyzeSentiment(
                 repairPayload["response_format"] = repairResponseFormat;
 
                 callAIAPI("/v1/chat/completions", repairPayload,
-                    [callback, fallback](const Json::Value& repairResp, const std::string& repairErr) {
+                    [fanout, fallback](const Json::Value& repairResp, const std::string& repairErr) {
                         if (!repairErr.empty()) {
                             fallback();
                             return;
@@ -416,7 +471,7 @@ void AIService::analyzeSentiment(
                             float repairedScore = 0.0f;
                             std::string repairedMood;
                             if (parseSentimentResult(repaired, repairedScore, repairedMood)) {
-                                callback(repairedScore, repairedMood, "");
+                                fanout(repairedScore, repairedMood, "");
                                 return;
                             }
                         } catch (...) {
@@ -761,29 +816,71 @@ void AIService::callAIAPI(
             if (format.isString() && format.asString() == "json_object") {
                 ollamaPayload["format"] = "json";
             } else if (format.isObject()) {
-                ollamaPayload["format"] = format;
+                // Ollama /api/chat 不接受 OpenAI 的 response_format schema 对象，统一降维为 json。
+                ollamaPayload["format"] = "json";
             }
         }
         if (payload.isMember("format")) {
-            ollamaPayload["format"] = payload["format"];
+            const auto& explicitFormat = payload["format"];
+            if (explicitFormat.isString()) {
+                const auto formatValue = explicitFormat.asString();
+                if (formatValue == "json_object" || formatValue == "json_schema") {
+                    ollamaPayload["format"] = "json";
+                } else {
+                    ollamaPayload["format"] = formatValue;
+                }
+            } else if (explicitFormat.isObject()) {
+                ollamaPayload["format"] = "json";
+            }
         }
         callAIAPIWithRetry("/api/chat", ollamaPayload,
             [callback](const Json::Value& ollamaResp, const std::string& error) {
+                auto safeReturn = [&](const Json::Value& responseValue, const std::string& errorValue) {
+                    try {
+                        callback(responseValue, errorValue);
+                    } catch (const std::exception& cbEx) {
+                        LOG_ERROR << "AI callback threw exception: " << cbEx.what();
+                    } catch (...) {
+                        LOG_ERROR << "AI callback threw unknown exception";
+                    }
+                };
                 if (!error.empty()) {
-                    callback(Json::Value(), error);
+                    safeReturn(Json::Value(), error);
                     return;
                 }
-                // 转换 Ollama 原生响应为 OpenAI 格式
-                Json::Value openaiResp;
-                openaiResp["choices"] = Json::arrayValue;
-                Json::Value choice;
-                choice["index"] = 0;
-                choice["message"]["role"] = "assistant";
-                choice["message"]["content"] = ollamaResp.get("message", Json::Value()).get("content", "").asString();
-                choice["finish_reason"] = ollamaResp.get("done_reason", "stop").asString();
-                openaiResp["choices"].append(choice);
-                openaiResp["model"] = ollamaResp.get("model", "").asString();
-                callback(openaiResp, "");
+                try {
+                    if (!ollamaResp.isObject()) {
+                        safeReturn(Json::Value(), "Invalid Ollama response shape");
+                        return;
+                    }
+
+                    std::string content;
+                    if (ollamaResp.isMember("message")) {
+                        const auto& msg = ollamaResp["message"];
+                        if (msg.isObject()) {
+                            content = msg.get("content", "").asString();
+                        } else if (msg.isString()) {
+                            content = msg.asString();
+                        }
+                    }
+                    if (content.empty() && ollamaResp.isMember("response") && ollamaResp["response"].isString()) {
+                        content = ollamaResp["response"].asString();
+                    }
+
+                    // 转换 Ollama 原生响应为 OpenAI 格式
+                    Json::Value openaiResp;
+                    openaiResp["choices"] = Json::arrayValue;
+                    Json::Value choice;
+                    choice["index"] = 0;
+                    choice["message"]["role"] = "assistant";
+                    choice["message"]["content"] = content;
+                    choice["finish_reason"] = ollamaResp.get("done_reason", "stop").asString();
+                    openaiResp["choices"].append(choice);
+                    openaiResp["model"] = ollamaResp.get("model", "").asString();
+                    safeReturn(openaiResp, "");
+                } catch (const std::exception& e) {
+                    safeReturn(Json::Value(), std::string("Ollama response parse error: ") + e.what());
+                }
             }, 0);
         return;
     }
@@ -814,6 +911,16 @@ void AIService::callAIAPIWithRetry(
     auto self = this;
     client->sendRequest(req,
         [self, callback, endpoint, payload, retryCount](ReqResult result, const HttpResponsePtr& response) {
+            auto safeReturn = [&](const Json::Value& responseValue, const std::string& errorValue) {
+                try {
+                    callback(responseValue, errorValue);
+                } catch (const std::exception& cbEx) {
+                    LOG_ERROR << "AI callback threw exception: " << cbEx.what();
+                } catch (...) {
+                    LOG_ERROR << "AI callback threw unknown exception";
+                }
+            };
+
             // 网络层错误处理
             if (result != ReqResult::Ok) {
                 std::string errorMsg = self->getReqResultError(result);
@@ -831,7 +938,7 @@ void AIService::callAIAPIWithRetry(
 
                 LOG_ERROR << "AI API failed after " << (retryCount + 1) << " attempts";
                 self->onRequestFailure();
-                callback(Json::Value(), errorMsg);
+                safeReturn(Json::Value(), errorMsg);
                 return;
             }
 
@@ -845,8 +952,17 @@ void AIService::callAIAPIWithRetry(
                 // 解析API错误详情
                 Json::Value errJson;
                 Json::Reader reader;
-                if (reader.parse(std::string(body), errJson) && errJson.isMember("error")) {
-                    errorMsg += ": " + errJson["error"].get("message", "Unknown error").asString();
+                if (reader.parse(std::string(body), errJson) &&
+                    errJson.isObject() &&
+                    errJson.isMember("error")) {
+                    const auto& errorNode = errJson["error"];
+                    if (errorNode.isObject()) {
+                        errorMsg += ": " + errorNode.get("message", "Unknown error").asString();
+                    } else if (errorNode.isString()) {
+                        errorMsg += ": " + errorNode.asString();
+                    } else {
+                        errorMsg += ": Unknown error";
+                    }
                 }
 
                 LOG_ERROR << "AI API error: " << errorMsg;
@@ -862,7 +978,7 @@ void AIService::callAIAPIWithRetry(
                 }
 
                 self->onRequestFailure();
-                callback(Json::Value(), errorMsg);
+                safeReturn(Json::Value(), errorMsg);
                 return;
             }
 
@@ -870,22 +986,31 @@ void AIService::callAIAPIWithRetry(
             if (jsonPtr) {
                 // 清理 Qwen3 thinking mode 的 <think>...</think> 标签
                 auto& json = *jsonPtr;
-                if (json.isMember("choices") && json["choices"].isArray()) {
-                    for (auto& choice : json["choices"]) {
-                        if (choice.isMember("message") && choice["message"].isMember("content")) {
-                            std::string content = choice["message"]["content"].asString();
+                try {
+                    if (json.isObject() && json.isMember("choices") && json["choices"].isArray()) {
+                        for (auto& choice : json["choices"]) {
+                            if (!choice.isObject() || !choice.isMember("message")) {
+                                continue;
+                            }
+                            auto& message = choice["message"];
+                            if (!message.isObject() || !message.isMember("content")) {
+                                continue;
+                            }
+                            std::string content = message["content"].asString();
                             static const std::regex thinkRegex("<think>[\\s\\S]*?</think>\\s*");
                             content = std::regex_replace(content, thinkRegex, "");
-                            choice["message"]["content"] = content;
+                            message["content"] = content;
                         }
                     }
+                } catch (const std::exception& e) {
+                    LOG_WARN << "AI response post-process skipped: " << e.what();
                 }
                 self->onRequestSuccess();
-                callback(json, "");
+                safeReturn(json, "");
             } else {
                 LOG_ERROR << "Invalid JSON response from AI API";
                 self->onRequestFailure();
-                callback(Json::Value(), "Invalid JSON response");
+                safeReturn(Json::Value(), "Invalid JSON response");
             }
         },
         self->timeout_
@@ -1066,6 +1191,45 @@ std::string AIService::computeTextHash(const std::string& text) const {
     return oss.str();
 }
 
+std::string AIService::normalizeSentimentText(const std::string& text) const {
+    if (text.empty()) {
+        return text;
+    }
+
+    std::string normalized;
+    normalized.reserve(std::min<size_t>(text.size(), 2048));
+    bool prevSpace = false;
+
+    for (unsigned char ch : text) {
+        if (ch < 128) {
+            if (std::isspace(ch)) {
+                if (!prevSpace && !normalized.empty()) {
+                    normalized.push_back(' ');
+                }
+                prevSpace = true;
+                continue;
+            }
+            if (std::ispunct(ch)) {
+                continue;
+            }
+            normalized.push_back(static_cast<char>(std::tolower(ch)));
+            prevSpace = false;
+        } else {
+            normalized.push_back(static_cast<char>(ch));
+            prevSpace = false;
+        }
+
+        if (normalized.size() >= 2048) {
+            break;
+        }
+    }
+
+    if (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+    return normalized.empty() ? text : normalized;
+}
+
 // 从缓存获取审核结果
 bool AIService::getModerationFromCache(const std::string& textHash, ModerationCacheEntry& entry) {
     std::lock_guard<std::mutex> lock(moderationCacheMutex_);
@@ -1125,6 +1289,129 @@ void AIService::cleanExpiredCache() {
     }
 }
 
+bool AIService::getSentimentFromCache(const std::string& textHash, float& score, std::string& mood) {
+    {
+        std::shared_lock<std::shared_mutex> readLock(sentimentCacheMutex_);
+        auto it = sentimentCache_.find(textHash);
+        if (it != sentimentCache_.end()) {
+            auto now = std::chrono::steady_clock::now();
+            auto age = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.timestamp).count();
+            if (age <= sentimentCacheTTLSeconds_) {
+                score = it->second.score;
+                mood = it->second.mood;
+                sentimentCacheHits_++;
+                return true;
+            }
+        }
+    }
+
+    sentimentCacheMisses_++;
+
+    // 过期删除放到写锁中做，减少读路径锁冲突。
+    std::unique_lock<std::shared_mutex> writeLock(sentimentCacheMutex_);
+    auto it = sentimentCache_.find(textHash);
+    if (it != sentimentCache_.end()) {
+        auto now = std::chrono::steady_clock::now();
+        auto age = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.timestamp).count();
+        if (age > sentimentCacheTTLSeconds_) {
+            sentimentCache_.erase(it);
+        } else {
+            score = it->second.score;
+            mood = it->second.mood;
+            sentimentCacheHits_++;
+            return true;
+        }
+    }
+    return false;
+}
+
+void AIService::cleanExpiredSentimentCacheLocked() {
+    auto now = std::chrono::steady_clock::now();
+    for (auto it = sentimentCache_.begin(); it != sentimentCache_.end();) {
+        auto age = std::chrono::duration_cast<std::chrono::seconds>(now - it->second.timestamp).count();
+        if (age > sentimentCacheTTLSeconds_) {
+            it = sentimentCache_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void AIService::putSentimentToCache(const std::string& textHash, float score, const std::string& mood) {
+    std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
+
+    if (sentimentCache_.size() >= sentimentCacheMaxSize_) {
+        cleanExpiredSentimentCacheLocked();
+        if (sentimentCache_.size() >= sentimentCacheMaxSize_) {
+            auto oldest = sentimentCache_.begin();
+            for (auto it = sentimentCache_.begin(); it != sentimentCache_.end(); ++it) {
+                if (it->second.timestamp < oldest->second.timestamp) {
+                    oldest = it;
+                }
+            }
+            sentimentCache_.erase(oldest);
+        }
+    }
+
+    SentimentCacheEntry entry;
+    entry.score = score;
+    entry.mood = canonicalizeMood(mood);
+    entry.timestamp = std::chrono::steady_clock::now();
+    sentimentCache_[textHash] = std::move(entry);
+}
+
+bool AIService::registerSentimentInFlight(
+    const std::string& textHash,
+    std::function<void(float, const std::string&, const std::string&)> callback
+) {
+    std::lock_guard<std::mutex> lock(sentimentInFlightMutex_);
+    auto it = sentimentInFlight_.find(textHash);
+    if (it != sentimentInFlight_.end()) {
+        it->second.push_back(std::move(callback));
+        sentimentCoalesced_++;
+        return false;
+    }
+
+    std::vector<std::function<void(float, const std::string&, const std::string&)>> callbacks;
+    callbacks.reserve(2);
+    callbacks.push_back(std::move(callback));
+    sentimentInFlight_.emplace(textHash, std::move(callbacks));
+    return true;
+}
+
+void AIService::completeSentimentInFlight(
+    const std::string& textHash,
+    float score,
+    const std::string& mood,
+    const std::string& error
+) {
+    std::vector<std::function<void(float, const std::string&, const std::string&)>> callbacks;
+    {
+        std::lock_guard<std::mutex> lock(sentimentInFlightMutex_);
+        auto it = sentimentInFlight_.find(textHash);
+        if (it == sentimentInFlight_.end()) {
+            return;
+        }
+        callbacks = std::move(it->second);
+        sentimentInFlight_.erase(it);
+    }
+
+    for (auto& cb : callbacks) {
+        try {
+            cb(score, mood, error);
+        } catch (const std::exception& e) {
+            LOG_ERROR << "Sentiment callback threw exception: " << e.what();
+        } catch (...) {
+            LOG_ERROR << "Sentiment callback threw unknown exception";
+        }
+    }
+}
+
+size_t AIService::currentSentimentInFlightCount() {
+    std::lock_guard<std::mutex> lock(sentimentInFlightMutex_);
+    return sentimentInFlight_.size();
+}
+
 // 清除审核缓存
 void AIService::clearModerationCache() {
     std::lock_guard<std::mutex> lock(moderationCacheMutex_);
@@ -1180,8 +1467,8 @@ void AIService::moderateImage(
                       float confidence, const std::string& reason)> callback
 ) {
     (void)imageUrl;
-    // 媒体链路已移除，统一放行并标记能力关闭
-    callback(true, {"media_disabled"}, 1.0f, "");
+    // 媒体审核链路未就绪，默认拦截待人工复核
+    callback(false, {"media_disabled"}, 0.0f, "图片审核服务不可用，需人工复核");
 }
 
 SemanticCacheStats AIService::getSemanticCacheStats() const {

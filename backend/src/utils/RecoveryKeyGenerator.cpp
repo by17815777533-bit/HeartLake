@@ -12,7 +12,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <openssl/rand.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 
 namespace heartlake {
 namespace utils {
@@ -89,15 +89,70 @@ std::string RecoveryKeyGenerator::generate() {
     return oss.str();
 }
 
-std::string RecoveryKeyGenerator::hash(const std::string& key) {
-    unsigned char digest[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char*>(key.c_str()), key.size(), digest);
+namespace {
+constexpr int kPbkdf2Iterations = 100000;
+constexpr int kSaltLen = 16;
+constexpr int kDerivedKeyLen = 32;
 
+std::string bytesToHex(const unsigned char* data, int len) {
     std::ostringstream oss;
-    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
-        oss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(digest[i]);
+    for (int i = 0; i < len; ++i) {
+        oss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(data[i]);
     }
     return oss.str();
+}
+
+std::vector<unsigned char> hexToBytes(const std::string& hex) {
+    std::vector<unsigned char> bytes;
+    bytes.reserve(hex.size() / 2);
+    for (size_t i = 0; i + 1 < hex.size(); i += 2) {
+        auto byte = static_cast<unsigned char>(std::stoi(hex.substr(i, 2), nullptr, 16));
+        bytes.push_back(byte);
+    }
+    return bytes;
+}
+
+std::string pbkdf2(const std::string& key, const unsigned char* salt, int saltLen) {
+    unsigned char derived[kDerivedKeyLen];
+    if (PKCS5_PBKDF2_HMAC(key.c_str(), static_cast<int>(key.size()),
+                           salt, saltLen,
+                           kPbkdf2Iterations, EVP_sha256(),
+                           kDerivedKeyLen, derived) != 1) {
+        throw std::runtime_error("PKCS5_PBKDF2_HMAC failed");
+    }
+    return bytesToHex(derived, kDerivedKeyLen);
+}
+} // namespace
+
+std::string RecoveryKeyGenerator::hash(const std::string& key) {
+    // 生成随机盐
+    unsigned char salt[kSaltLen];
+    if (RAND_bytes(salt, kSaltLen) != 1) {
+        throw std::runtime_error("RAND_bytes failed: CSPRNG不可用");
+    }
+    std::string saltHex = bytesToHex(salt, kSaltLen);
+    std::string hashHex = pbkdf2(key, salt, kSaltLen);
+    // 存储格式: salt:hash
+    return saltHex + ":" + hashHex;
+}
+
+bool RecoveryKeyGenerator::verify(const std::string& key, const std::string& storedHash) {
+    auto sep = storedHash.find(':');
+    if (sep == std::string::npos) {
+        // 兼容旧版无盐SHA256格式：直接比较不再通过
+        return false;
+    }
+    std::string saltHex = storedHash.substr(0, sep);
+    std::string expectedHash = storedHash.substr(sep + 1);
+    auto saltBytes = hexToBytes(saltHex);
+    std::string actualHash = pbkdf2(key, saltBytes.data(), static_cast<int>(saltBytes.size()));
+    // 恒定时间比较，防止时序攻击
+    if (actualHash.size() != expectedHash.size()) return false;
+    unsigned char diff = 0;
+    for (size_t i = 0; i < actualHash.size(); ++i) {
+        diff |= static_cast<unsigned char>(actualHash[i]) ^ static_cast<unsigned char>(expectedHash[i]);
+    }
+    return diff == 0;
 }
 
 } // namespace utils

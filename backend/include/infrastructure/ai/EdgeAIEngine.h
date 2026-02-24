@@ -647,7 +647,7 @@ private:
     int hnswEfSearch_ = 50;                                     ///< 查询搜索宽度
     int hnswMaxLevel_ = 0;                                      ///< 当前最高层级
     size_t hnswEntryPoint_ = 0;                                 ///< 入口节点索引
-    float hnswLevelMult_ = 0.0f;                                ///< 层级生成因子
+    float hnswLevelMult_ = 1.0f / std::log(static_cast<float>(16)); ///< 层级生成因子 1/ln(M)
     mutable std::shared_mutex hnswMutex_;
     std::mt19937 hnswRng_;
 

@@ -10,6 +10,7 @@
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <ctime>
 
 using namespace drogon;
 
@@ -52,6 +53,7 @@ double RecommendationEngine::computeUCB(double avgReward, int itemCount, int tot
 
 double RecommendationEngine::thompsonSample(int successes, int failures) {
     // Beta分布采样 (使用Gamma分布近似)
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     std::gamma_distribution<double> gamma_a(successes + 1, 1.0);
     std::gamma_distribution<double> gamma_b(failures + 1, 1.0);
     double x = gamma_a(rng_);
@@ -99,30 +101,46 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
     int topK
 ) {
     if (candidates.empty()) return {};
+    if (topK <= 0) return {};
+
+    // 先按相关性截断候选池，降低大规模embedding开销。
+    std::vector<RecommendationCandidate> pool = candidates;
+    const size_t preselectLimit = static_cast<size_t>(std::max(topK * 4, topK));
+    if (pool.size() > preselectLimit) {
+        std::partial_sort(
+            pool.begin(),
+            pool.begin() + preselectLimit,
+            pool.end(),
+            [](const RecommendationCandidate& a, const RecommendationCandidate& b) {
+                return a.score > b.score;
+            });
+        pool.resize(preselectLimit);
+    }
 
     auto& embEngine = AdvancedEmbeddingEngine::getInstance();
 
     // 预计算所有embedding，避免重复生成
     std::vector<std::vector<float>> embeddings;
-    embeddings.reserve(candidates.size());
-    for (const auto& cand : candidates) {
+    embeddings.reserve(pool.size());
+    for (const auto& cand : pool) {
         embeddings.push_back(embEngine.generateEmbedding(
             cand.metadata.get("content", "").asString()));
     }
 
     std::vector<RecommendationCandidate> result;
-    std::vector<bool> selected(candidates.size(), false);
+    std::vector<bool> selected(pool.size(), false);
     std::vector<size_t> selectedIndices;
+    std::unordered_map<std::string, int> selectedAuthorCounts;
 
     // 贪心选择
-    while (result.size() < static_cast<size_t>(topK) && result.size() < candidates.size()) {
+    while (result.size() < static_cast<size_t>(topK) && result.size() < pool.size()) {
         double bestScore = -std::numeric_limits<double>::max();
         size_t bestIdx = 0;
 
-        for (size_t i = 0; i < candidates.size(); ++i) {
+        for (size_t i = 0; i < pool.size(); ++i) {
             if (selected[i]) continue;
 
-            double relevance = candidates[i].score;
+            double relevance = pool[i].score;
             double maxSim = 0.0;
 
             // 使用预计算的embedding
@@ -131,7 +149,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
                 maxSim = std::max(maxSim, sim);
             }
 
-            double mmrScore = lambda * relevance - (1.0 - lambda) * maxSim;
+            const std::string authorId = pool[i].metadata.get("author_id", "").asString();
+            const int repeatedAuthor = authorId.empty() ? 0 : selectedAuthorCounts[authorId];
+            const double authorPenalty = std::min(0.12, repeatedAuthor * 0.06);
+
+            double mmrScore = lambda * relevance - (1.0 - lambda) * maxSim - authorPenalty;
             if (mmrScore > bestScore) {
                 bestScore = mmrScore;
                 bestIdx = i;
@@ -140,7 +162,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
 
         selected[bestIdx] = true;
         selectedIndices.push_back(bestIdx);
-        result.push_back(candidates[bestIdx]);
+        const std::string authorId = pool[bestIdx].metadata.get("author_id", "").asString();
+        if (!authorId.empty()) {
+            selectedAuthorCounts[authorId]++;
+        }
+        result.push_back(pool[bestIdx]);
     }
 
     return result;
@@ -289,16 +315,19 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
 
     // 找相似用户喜欢但当前用户未交互的物品
     auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, s.mood_type, u.nickname, "
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "AVG(us.similarity_score) as avg_sim "
         "FROM stones s "
         "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
         "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1 "
         "JOIN users u ON s.user_id = u.user_id "
-        "WHERE us.similarity_score > 0.5 AND s.status = 'published' "
+        "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
-        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname "
-        "ORDER BY avg_sim DESC LIMIT $2",
+        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
         userId, (int64_t)topK
     );
 
@@ -312,6 +341,9 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
+        cand.metadata["author_id"] = row["author_id"].as<std::string>();
+        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
     return results;
@@ -329,7 +361,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "  WHERE user_id = $1 AND interaction_weight >= 1.0 "
         "  ORDER BY created_at DESC LIMIT 10"
         ") "
-        "SELECT s.stone_id, s.content, s.mood_type, u.nickname, "
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "COUNT(*) as co_occur "
         "FROM stones s "
         "JOIN users u ON s.user_id = u.user_id "
@@ -340,9 +375,9 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         ") "
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_items) "
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
-        "AND s.status = 'published' "
-        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname "
-        "ORDER BY co_occur DESC LIMIT $2",
+        "AND s.status = 'published' AND s.deleted_at IS NULL "
+        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
         userId, (int64_t)topK
     );
 
@@ -356,6 +391,9 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
+        cand.metadata["author_id"] = row["author_id"].as<std::string>();
+        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
     return results;
@@ -368,13 +406,17 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
 
     // 基于情绪向量的内容推荐
     auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, u.nickname "
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
         "FROM stones s "
         "JOIN users u ON s.user_id = u.user_id "
         "LEFT JOIN emotion_compatibility ec ON "
         "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
         "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
-        "WHERE s.user_id != $1 AND s.status = 'published' "
+        "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
         "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
         "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
         "LIMIT $3",
@@ -392,6 +434,9 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = itemMood;
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
+        cand.metadata["author_id"] = row["author_id"].as<std::string>();
+        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
     return results;
@@ -401,6 +446,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     const std::string& userId, int topK,
     double cfWeight, double contentWeight, double exploreWeight) {
 
+    topK = std::max(1, topK);
     auto dbClient = app().getDbClient("default");
     std::string userMood = "neutral";
     auto moodResult = dbClient->execSqlSync(
@@ -411,8 +457,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     }
 
     // 各算法获取候选（单个失败不影响整体）
-    int cfCount = static_cast<int>(topK * cfWeight * 2);
-    int contentCount = static_cast<int>(topK * contentWeight * 2);
+    int cfCount = std::max(2, static_cast<int>(topK * cfWeight * 2));
+    int contentCount = std::max(2, static_cast<int>(topK * contentWeight * 2));
 
     std::vector<RecommendationCandidate> userCFResults, itemCFResults, contentResults;
     try { userCFResults = userBasedCF(userId, cfCount / 2); }
@@ -440,10 +486,22 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
         else merged[c.itemId] = c;
     }
 
+    // 后处理：结合时效与热门抑制，降低“热门枢纽内容”垄断，提升长尾质量。
+    auto calibrateCandidateScore = [](RecommendationCandidate& cand) {
+        const double hoursOld = std::max(0.0, cand.metadata.get("hours_old", 72.0).asDouble());
+        const double recency = std::exp(-0.693 * hoursOld / 72.0);  // 72h半衰
+        const double rippleCount = std::max(0.0, cand.metadata.get("ripple_count", 0.0).asDouble());
+        const double popularityDamp = 1.0 / (1.0 + 0.08 * std::log1p(rippleCount));
+
+        cand.score *= popularityDamp;
+        cand.score = cand.score * 0.88 + recency * 0.12;
+    };
+
     // 转为vector并排序
     std::vector<RecommendationCandidate> results;
     results.reserve(merged.size());
     for (auto& [id, cand] : merged) {
+        calibrateCandidateScore(cand);
         results.push_back(std::move(cand));
     }
     std::sort(results.begin(), results.end(),
@@ -452,16 +510,46 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     // 添加探索项
     int exploreCount = static_cast<int>(topK * exploreWeight);
     if (exploreCount > 0) {
+        std::unordered_set<std::string> existingIds;
+        existingIds.reserve(results.size());
+        for (const auto& cand : results) {
+            existingIds.insert(cand.itemId);
+        }
+
+        const int exploreCandidateWindow = std::max(exploreCount * 8, 80);
         auto exploreRows = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, s.mood_type, u.nickname "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "u.nickname, u.user_id AS author_id, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
             "FROM stones s JOIN users u ON s.user_id = u.user_id "
-            "WHERE s.user_id != $1 AND s.status = 'published' "
+            "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
+            "AND s.created_at >= NOW() - INTERVAL '21 days' "
             "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
-            "ORDER BY RANDOM() LIMIT $2",
-            userId, (int64_t)exploreCount);
+            "ORDER BY s.created_at DESC LIMIT $2",
+            userId, (int64_t)exploreCandidateWindow);
+
+        std::vector<drogon::orm::Row> shuffledRows;
+        shuffledRows.reserve(exploreRows.size());
         for (const auto& row : exploreRows) {
+            shuffledRows.push_back(row);
+        }
+        const auto bucket = static_cast<long long>(std::time(nullptr) / 1800);
+        std::mt19937 exploreRng(static_cast<uint32_t>(
+            std::hash<std::string>{}(userId + ":" + std::to_string(bucket) + ":explore")));
+        std::shuffle(shuffledRows.begin(), shuffledRows.end(), exploreRng);
+
+        int addedExplore = 0;
+        for (const auto& row : shuffledRows) {
+            if (addedExplore >= exploreCount) {
+                break;
+            }
+            const std::string stoneId = row["stone_id"].as<std::string>();
+            if (existingIds.find(stoneId) != existingIds.end()) {
+                continue;
+            }
             RecommendationCandidate cand;
-            cand.itemId = row["stone_id"].as<std::string>();
+            cand.itemId = stoneId;
             cand.itemType = "stone";
             cand.score = exploreWeight * thompsonSample(1, 1);
             cand.reason = "为你发现的新内容";
@@ -469,7 +557,13 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             cand.metadata["content"] = row["content"].as<std::string>();
             cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
             cand.metadata["author_name"] = row["nickname"].as<std::string>();
+            cand.metadata["author_id"] = row["author_id"].as<std::string>();
+            cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+            cand.metadata["hours_old"] = row["hours_old"].as<double>();
+            calibrateCandidateScore(cand);
             results.push_back(cand);
+            existingIds.insert(stoneId);
+            ++addedExplore;
         }
     }
 

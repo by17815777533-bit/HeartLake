@@ -79,18 +79,23 @@ public:
 
     template<typename E>
     void publish(const E& event) {
-        std::lock_guard<std::recursive_mutex> lock(mutex_);
-        auto typeIdx = std::type_index(typeid(E));
-        auto it = handlers_.find(typeIdx);
-        if (it != handlers_.end()) {
-            for (auto& handler : it->second) {
-                try {
-                    handler(&event);
-                } catch (const std::exception& e) {
-                    LOG_ERROR << "EventBus handler error: " << e.what();
-                } catch (...) {
-                    LOG_ERROR << "EventBus handler unknown error";
-                }
+        // 拷贝handler列表后释放锁，避免回调中再次操作EventBus导致死锁
+        std::vector<std::function<void(const void*)>> snapshot;
+        {
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            auto typeIdx = std::type_index(typeid(E));
+            auto it = handlers_.find(typeIdx);
+            if (it != handlers_.end()) {
+                snapshot = it->second;
+            }
+        }
+        for (auto& handler : snapshot) {
+            try {
+                handler(&event);
+            } catch (const std::exception& e) {
+                LOG_ERROR << "EventBus handler error: " << e.what();
+            } catch (...) {
+                LOG_ERROR << "EventBus handler unknown error";
             }
         }
     }

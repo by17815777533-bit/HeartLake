@@ -34,6 +34,7 @@ frontend/build/
 
 # C++ build
 backend/build/
+backend/build-*/
 backend/.cache/
 compile_commands.json
 .github/workflows/ci.yml

@@ -19,8 +19,11 @@ public:
     /// 生成6个中文词组合的恢复关键词，格式如 "星辰-湖畔-微风-暖阳-碧海-飞鸟"
     static std::string generate();
 
-    /// 对关键词进行 SHA256 哈希
+    /// 对关键词进行 PBKDF2-HMAC-SHA256 加盐哈希，返回 "salt:hash" 格式
     static std::string hash(const std::string& key);
+
+    /// 验证明文关键词是否匹配已存储的 "salt:hash"
+    static bool verify(const std::string& key, const std::string& storedHash);
 };
 
 } // namespace utils

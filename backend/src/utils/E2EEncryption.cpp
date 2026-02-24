@@ -234,7 +234,9 @@ std::vector<unsigned char> E2EEncryption::base64Decode(const std::string& encode
 
 std::vector<unsigned char> E2EEncryption::generateRandomBytes(size_t length) {
     std::vector<unsigned char> bytes(length);
-    RAND_bytes(bytes.data(), static_cast<int>(length));
+    if (RAND_bytes(bytes.data(), static_cast<int>(length)) != 1) {
+        throw std::runtime_error("RAND_bytes failed: CSPRNG不可用");
+    }
     return bytes;
 }
 
