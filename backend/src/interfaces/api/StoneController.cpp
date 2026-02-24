@@ -9,14 +9,8 @@
 #include "infrastructure/di/ServiceLocator.h"
 #include "utils/ResponseUtil.h"
 #include "utils/ContentFilter.h"
-#include "utils/IdGenerator.h"
-#include "infrastructure/ai/AIService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
-#include "utils/PsychologicalRiskAssessment.h"
-#include "infrastructure/services/NotificationPushService.h"
-#include "infrastructure/services/ResonanceSearchService.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
-#include "infrastructure/services/WarmQuoteService.h"
 #include <memory>
 #include <regex>
 #include <set>

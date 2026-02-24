@@ -7,22 +7,49 @@
 <template>
   <div class="users-page">
     <!-- 搜索筛选 -->
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
+    <el-card
+      shadow="never"
+      class="filter-card"
+    >
+      <el-form
+        :model="filters"
+        inline
+      >
         <el-form-item label="用户ID">
-          <el-input v-model="filters.userId" placeholder="请输入用户ID" clearable />
+          <el-input
+            v-model="filters.userId"
+            placeholder="请输入用户ID"
+            clearable
+          />
         </el-form-item>
         <el-form-item label="昵称">
-          <el-input v-model="filters.nickname" placeholder="请输入昵称" clearable />
+          <el-input
+            v-model="filters.nickname"
+            placeholder="请输入昵称"
+            clearable
+          />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable>
-            <el-option label="正常" value="active" />
-            <el-option label="已封禁" value="banned" />
+          <el-select
+            v-model="filters.status"
+            placeholder="全部"
+            clearable
+          >
+            <el-option
+              label="正常"
+              value="active"
+            />
+            <el-option
+              label="已封禁"
+              value="banned"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
@@ -42,29 +69,63 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="user_id" label="用户ID" width="180" />
-        <el-table-column prop="nickname" label="昵称" width="150" />
-        <el-table-column prop="username" label="账号" width="120" />
-        <el-table-column label="统计" width="220">
+        <el-table-column
+          prop="user_id"
+          label="用户ID"
+          width="180"
+        />
+        <el-table-column
+          prop="nickname"
+          label="昵称"
+          width="150"
+        />
+        <el-table-column
+          prop="username"
+          label="账号"
+          width="120"
+        />
+        <el-table-column
+          label="统计"
+          width="220"
+        >
           <template #default="{ row }">
             <div class="user-stats">
-              <span class="stat-item"><i class="stat-dot stone"></i>投石 {{ row.stones_count || 0 }}</span>
-              <span class="stat-item"><i class="stat-dot boat"></i>纸船 {{ row.boat_count || 0 }}</span>
+              <span class="stat-item"><i class="stat-dot stone" />投石 {{ row.stones_count || 0 }}</span>
+              <span class="stat-item"><i class="stat-dot boat" />纸船 {{ row.boat_count || 0 }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
               {{ row.status === 'active' ? '正常' : '已封禁' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="注册时间" width="180" />
-        <el-table-column prop="last_active_at" label="最后活跃" width="180" />
-        <el-table-column label="操作" fixed="right" width="180">
+        <el-table-column
+          prop="created_at"
+          label="注册时间"
+          width="180"
+        />
+        <el-table-column
+          prop="last_active_at"
+          label="最后活跃"
+          width="180"
+        />
+        <el-table-column
+          label="操作"
+          fixed="right"
+          width="180"
+        >
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleViewDetail(row)">
+            <el-button
+              type="primary"
+              link
+              @click="handleViewDetail(row)"
+            >
               详情
             </el-button>
             <el-button
@@ -107,19 +168,37 @@
       title="用户详情"
       width="600px"
     >
-      <el-descriptions :column="2" border v-if="currentUser">
-        <el-descriptions-item label="用户ID">{{ currentUser.user_id }}</el-descriptions-item>
-        <el-descriptions-item label="昵称">{{ currentUser.nickname }}</el-descriptions-item>
-        <el-descriptions-item label="账号">{{ currentUser.username }}</el-descriptions-item>
+      <el-descriptions
+        v-if="currentUser"
+        :column="2"
+        border
+      >
+        <el-descriptions-item label="用户ID">
+          {{ currentUser.user_id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="昵称">
+          {{ currentUser.nickname }}
+        </el-descriptions-item>
+        <el-descriptions-item label="账号">
+          {{ currentUser.username }}
+        </el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="currentUser.status === 'active' ? 'success' : 'danger'">
             {{ currentUser.status === 'active' ? '正常' : '已封禁' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="投石数">{{ currentUser.stones_count }}</el-descriptions-item>
-        <el-descriptions-item label="纸船数">{{ currentUser.boat_count }}</el-descriptions-item>
-        <el-descriptions-item label="注册时间">{{ currentUser.created_at }}</el-descriptions-item>
-        <el-descriptions-item label="最后活跃">{{ currentUser.last_active_at }}</el-descriptions-item>
+        <el-descriptions-item label="投石数">
+          {{ currentUser.stones_count }}
+        </el-descriptions-item>
+        <el-descriptions-item label="纸船数">
+          {{ currentUser.boat_count }}
+        </el-descriptions-item>
+        <el-descriptions-item label="注册时间">
+          {{ currentUser.created_at }}
+        </el-descriptions-item>
+        <el-descriptions-item label="最后活跃">
+          {{ currentUser.last_active_at }}
+        </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -130,18 +209,20 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { usePagination } from '@/composables/usePagination'
+import { useTablePagination } from '@/composables/useTablePagination'
 
 const loading = ref(false)
 const users = ref([])
 const detailVisible = ref(false)
 const currentUser = ref(null)
 
-const filters = reactive({
+const defaultFilters = {
   userId: '',
   nickname: '',
   status: '',
-})
+}
+
+const filters = reactive({ ...defaultFilters })
 
 // 获取用户列表
 const fetchUsers = async () => {
@@ -170,34 +251,22 @@ const fetchUsers = async () => {
   }
 }
 
-const { pagination, handleSizeChange, handleCurrentChange, resetPage } = usePagination(fetchUsers)
-
-// 搜索（带输入校验）
-const handleSearch = () => {
-  // 清理输入：去除首尾空格
-  filters.userId = filters.userId.trim()
-  filters.nickname = filters.nickname.trim()
-  // 长度校验
-  if (filters.userId.length > 64) {
-    ElMessage.warning('用户ID过长，请检查输入')
-    return
-  }
-  if (filters.nickname.length > 50) {
-    ElMessage.warning('昵称过长，请检查输入')
-    return
-  }
-  resetPage()
-  fetchUsers()
-}
-
-// 重置
-const handleReset = () => {
-  filters.userId = ''
-  filters.nickname = ''
-  filters.status = ''
-  resetPage()
-  fetchUsers()
-}
+const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchUsers, {
+  filters,
+  defaultFilters,
+  beforeSearch: () => {
+    filters.userId = filters.userId.trim()
+    filters.nickname = filters.nickname.trim()
+    if (filters.userId.length > 64) {
+      ElMessage.warning('用户ID过长，请检查输入')
+      return false
+    }
+    if (filters.nickname.length > 50) {
+      ElMessage.warning('昵称过长，请检查输入')
+      return false
+    }
+  },
+})
 
 // 查看详情
 const handleViewDetail = (row) => {

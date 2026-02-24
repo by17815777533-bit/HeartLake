@@ -164,6 +164,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       ),
     );
     if (firstConfirm != true) return;
+    if (!mounted) return;
 
     // 二次确认
     final secondConfirm = await showDialog<bool>(

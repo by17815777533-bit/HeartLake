@@ -5,90 +5,233 @@
 
 <template>
   <div class="moderation-page">
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+    <el-tabs
+      v-model="activeTab"
+      @tab-change="handleTabChange"
+    >
       <!-- 待审核 -->
-      <el-tab-pane label="待审核" name="pending">
-        <el-table v-loading="loading" :data="pendingList" stripe>
-          <el-table-column prop="moderation_id" label="ID" width="80" />
-          <el-table-column label="类型" width="80">
+      <el-tab-pane
+        label="待审核"
+        name="pending"
+      >
+        <el-table
+          v-loading="loading"
+          :data="pendingList"
+          stripe
+        >
+          <el-table-column
+            prop="moderation_id"
+            label="ID"
+            width="80"
+          />
+          <el-table-column
+            label="类型"
+            width="80"
+          >
             <template #default="{ row }">
-              <el-tag :type="row.content_type === 'stone' ? 'primary' : 'success'" size="small">
+              <el-tag
+                :type="row.content_type === 'stone' ? 'primary' : 'success'"
+                size="small"
+              >
                 {{ row.content_type === 'stone' ? '石头' : '纸船' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="内容" min-width="250">
+          <el-table-column
+            label="内容"
+            min-width="250"
+          >
             <template #default="{ row }">
-              <p class="content-preview">{{ row.content?.substring(0, 80) }}{{ row.content?.length > 80 ? '...' : '' }}</p>
+              <p class="content-preview">
+                {{ row.content?.substring(0, 80) }}{{ row.content?.length > 80 ? '...' : '' }}
+              </p>
             </template>
           </el-table-column>
-          <el-table-column label="触发原因" width="150">
+          <el-table-column
+            label="触发原因"
+            width="150"
+          >
             <template #default="{ row }">
-              <el-tag type="warning" size="small">{{ row.ai_reason || 'AI检测' }}</el-tag>
+              <el-tag
+                type="warning"
+                size="small"
+              >
+                {{ row.ai_reason || 'AI检测' }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="提交时间" width="170" />
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column
+            prop="created_at"
+            label="提交时间"
+            width="170"
+          />
+          <el-table-column
+            label="操作"
+            width="180"
+            fixed="right"
+          >
             <template #default="{ row }">
-              <el-button type="success" link @click="handleApprove(row)">通过</el-button>
-              <el-button type="danger" link @click="handleReject(row)">拒绝</el-button>
-              <el-button type="primary" link @click="viewDetail(row)">详情</el-button>
+              <el-button
+                type="success"
+                link
+                @click="handleApprove(row)"
+              >
+                通过
+              </el-button>
+              <el-button
+                type="danger"
+                link
+                @click="handleReject(row)"
+              >
+                拒绝
+              </el-button>
+              <el-button
+                type="primary"
+                link
+                @click="viewDetail(row)"
+              >
+                详情
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
         <div class="pagination-wrapper">
-          <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize"
-            :total="pagination.total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next"
-            @size-change="handlePendingSizeChange" @current-change="fetchPending" />
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handlePendingSizeChange"
+            @current-change="fetchPending"
+          />
         </div>
       </el-tab-pane>
 
       <!-- 审核历史 -->
-      <el-tab-pane label="审核历史" name="history">
-        <el-card shadow="never" class="filter-card">
-          <el-form :model="historyFilters" inline>
+      <el-tab-pane
+        label="审核历史"
+        name="history"
+      >
+        <el-card
+          shadow="never"
+          class="filter-card"
+        >
+          <el-form
+            :model="historyFilters"
+            inline
+          >
             <el-form-item label="结果">
-              <el-select v-model="historyFilters.result" placeholder="全部" clearable style="width: 120px">
-                <el-option label="通过" value="approved" />
-                <el-option label="拒绝" value="rejected" />
+              <el-select
+                v-model="historyFilters.result"
+                placeholder="全部"
+                clearable
+                style="width: 120px"
+              >
+                <el-option
+                  label="通过"
+                  value="approved"
+                />
+                <el-option
+                  label="拒绝"
+                  value="rejected"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="fetchHistory">搜索</el-button>
+              <el-button
+                type="primary"
+                @click="fetchHistory"
+              >
+                搜索
+              </el-button>
             </el-form-item>
           </el-form>
         </el-card>
-        <el-table v-loading="historyLoading" :data="historyList" stripe>
-          <el-table-column prop="moderation_id" label="ID" width="80" />
-          <el-table-column label="内容摘要" min-width="200">
-            <template #default="{ row }">{{ row.content?.substring(0, 50) }}...</template>
-          </el-table-column>
-          <el-table-column label="审核结果" width="100">
+        <el-table
+          v-loading="historyLoading"
+          :data="historyList"
+          stripe
+        >
+          <el-table-column
+            prop="moderation_id"
+            label="ID"
+            width="80"
+          />
+          <el-table-column
+            label="内容摘要"
+            min-width="200"
+          >
             <template #default="{ row }">
-              <el-tag :type="row.result === 'approved' ? 'success' : 'danger'" size="small">
+              {{ row.content?.substring(0, 50) }}...
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="审核结果"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="row.result === 'approved' ? 'success' : 'danger'"
+                size="small"
+              >
                 {{ row.result === 'approved' ? '通过' : '拒绝' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="moderator" label="操作人" width="100" />
-          <el-table-column prop="moderated_at" label="处理时间" width="170" />
+          <el-table-column
+            prop="moderator"
+            label="操作人"
+            width="100"
+          />
+          <el-table-column
+            prop="moderated_at"
+            label="处理时间"
+            width="170"
+          />
         </el-table>
         <div class="pagination-wrapper">
-          <el-pagination v-model:current-page="historyPagination.page" :total="historyPagination.total"
-            :page-sizes="[20, 50]" layout="total, prev, pager, next" @current-change="fetchHistory" />
+          <el-pagination
+            v-model:current-page="historyPagination.page"
+            :total="historyPagination.total"
+            :page-sizes="[20, 50]"
+            layout="total, prev, pager, next"
+            @current-change="fetchHistory"
+          />
         </div>
       </el-tab-pane>
     </el-tabs>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="内容详情" width="600px">
+    <el-dialog
+      v-model="detailVisible"
+      title="内容详情"
+      width="600px"
+    >
       <div v-if="currentItem">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="ID">{{ currentItem.moderation_id || currentItem.content_id }}</el-descriptions-item>
-          <el-descriptions-item label="类型">{{ currentItem.content_type === 'stone' ? '石头' : '纸船' }}</el-descriptions-item>
-          <el-descriptions-item label="触发原因" :span="2">{{ currentItem.ai_reason || '自动检测' }}</el-descriptions-item>
-          <el-descriptions-item label="内容" :span="2">
-            <div class="detail-content">{{ currentItem.content }}</div>
+        <el-descriptions
+          :column="2"
+          border
+        >
+          <el-descriptions-item label="ID">
+            {{ currentItem.moderation_id || currentItem.content_id }}
+          </el-descriptions-item>
+          <el-descriptions-item label="类型">
+            {{ currentItem.content_type === 'stone' ? '石头' : '纸船' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="触发原因"
+            :span="2"
+          >
+            {{ currentItem.ai_reason || '自动检测' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="内容"
+            :span="2"
+          >
+            <div class="detail-content">
+              {{ currentItem.content }}
+            </div>
           </el-descriptions-item>
         </el-descriptions>
       </div>

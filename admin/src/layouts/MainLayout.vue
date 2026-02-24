@@ -7,15 +7,27 @@
 <template>
   <div class="main-layout">
     <!-- 全局加载进度条 -->
-    <div v-if="appStore.isGlobalLoading" class="global-loading-bar">
-      <div class="loading-progress"></div>
+    <div
+      v-if="appStore.isGlobalLoading"
+      class="global-loading-bar"
+    >
+      <div class="loading-progress" />
     </div>
 
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapsed ? '64px' : '220px'" class="sidebar">
+    <el-aside
+      :width="isCollapsed ? '64px' : '220px'"
+      class="sidebar"
+    >
       <div class="logo">
-        <img src="@/assets/logo.svg" alt="HeartLake" />
-        <span v-if="!isCollapsed" class="logo-text">心湖管理</span>
+        <img
+          src="@/assets/logo.svg"
+          alt="HeartLake"
+        >
+        <span
+          v-if="!isCollapsed"
+          class="logo-text"
+        >心湖管理</span>
       </div>
 
       <nav aria-label="主导航">
@@ -32,12 +44,17 @@
             :index="item.path"
           >
             <el-icon><component :is="item.icon" /></el-icon>
-            <template #title>{{ item.title }}</template>
+            <template #title>
+              {{ item.title }}
+            </template>
           </el-menu-item>
         </el-menu>
       </nav>
 
-      <div class="collapse-btn" @click="isCollapsed = !isCollapsed">
+      <div
+        class="collapse-btn"
+        @click="isCollapsed = !isCollapsed"
+      >
         <el-icon>
           <Fold v-if="!isCollapsed" />
           <Expand v-else />
@@ -51,7 +68,9 @@
       <el-header class="header">
         <div class="header-left">
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/' }">
+              首页
+            </el-breadcrumb-item>
             <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -59,22 +78,31 @@
         <div class="header-right">
           <!-- 实时数据 -->
           <div class="realtime-stats">
-            <el-tag type="success" effect="plain">
+            <el-tag
+              type="success"
+              effect="plain"
+            >
               <el-icon><User /></el-icon>
               在线: {{ realtimeStats.onlineCount }}
             </el-tag>
-            <el-tag type="info" effect="plain">
+            <el-tag
+              type="info"
+              effect="plain"
+            >
               今日投石: {{ realtimeStats.todayStones }}
             </el-tag>
           </div>
 
           <!-- 暗色模式切换 -->
-          <el-tooltip :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'" placement="bottom">
+          <el-tooltip
+            :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'"
+            placement="bottom"
+          >
             <el-button
               circle
               size="small"
-              @click="appStore.toggleDark()"
               class="dark-toggle"
+              @click="appStore.toggleDark()"
             >
               <el-icon :size="16">
                 <Sunny v-if="appStore.isDark" />
@@ -86,13 +114,22 @@
           <!-- 用户信息 -->
           <el-dropdown @command="handleCommand">
             <div class="user-info">
-              <el-avatar :size="32">{{ adminInfo.nickname?.charAt(0) || 'A' }}</el-avatar>
+              <el-avatar :size="32">
+                {{ adminInfo.nickname?.charAt(0) || 'A' }}
+              </el-avatar>
               <span class="username">{{ adminInfo.nickname || '管理员' }}</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人设置</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">
+                  个人设置
+                </el-dropdown-item>
+                <el-dropdown-item
+                  command="logout"
+                  divided
+                >
+                  退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -102,7 +139,10 @@
       <!-- 内容区 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
+          <transition
+            name="fade"
+            mode="out-in"
+          >
             <component :is="Component" />
           </transition>
         </router-view>

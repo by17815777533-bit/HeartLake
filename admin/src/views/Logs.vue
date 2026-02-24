@@ -5,53 +5,144 @@
 
 <template>
   <div class="logs-page">
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
+    <el-card
+      shadow="never"
+      class="filter-card"
+    >
+      <el-form
+        :model="filters"
+        inline
+      >
         <el-form-item label="操作人">
-          <el-input v-model="filters.operator" placeholder="管理员账号" clearable style="width: 140px" />
+          <el-input
+            v-model="filters.operator"
+            placeholder="管理员账号"
+            clearable
+            style="width: 140px"
+          />
         </el-form-item>
         <el-form-item label="操作类型">
-          <el-select v-model="filters.action" placeholder="全部" clearable style="width: 140px">
-            <el-option label="登录" value="login" />
-            <el-option label="封禁用户" value="ban_user" />
-            <el-option label="解封用户" value="unban_user" />
-            <el-option label="删除内容" value="delete_content" />
-            <el-option label="审核通过" value="approve" />
-            <el-option label="审核拒绝" value="reject" />
-            <el-option label="修改配置" value="config" />
+          <el-select
+            v-model="filters.action"
+            placeholder="全部"
+            clearable
+            style="width: 140px"
+          >
+            <el-option
+              label="登录"
+              value="login"
+            />
+            <el-option
+              label="封禁用户"
+              value="ban_user"
+            />
+            <el-option
+              label="解封用户"
+              value="unban_user"
+            />
+            <el-option
+              label="删除内容"
+              value="delete_content"
+            />
+            <el-option
+              label="审核通过"
+              value="approve"
+            />
+            <el-option
+              label="审核拒绝"
+              value="reject"
+            />
+            <el-option
+              label="修改配置"
+              value="config"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
-          <el-date-picker v-model="filters.dateRange" type="daterange" range-separator="至"
-            start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 240px" />
+          <el-date-picker
+            v-model="filters.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card shadow="never">
-      <el-table v-loading="loading" :data="logList" stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="admin_id" label="操作人" width="120" />
-        <el-table-column label="操作类型" width="120">
+      <el-table
+        v-loading="loading"
+        :data="logList"
+        stripe
+      >
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="80"
+        />
+        <el-table-column
+          prop="admin_id"
+          label="操作人"
+          width="120"
+        />
+        <el-table-column
+          label="操作类型"
+          width="120"
+        >
           <template #default="{ row }">
-            <el-tag :type="getActionType(row.action)" size="small">{{ getActionLabel(row.action) }}</el-tag>
+            <el-tag
+              :type="getActionType(row.action)"
+              size="small"
+            >
+              {{ getActionLabel(row.action) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作对象" width="150">
-          <template #default="{ row }">{{ row.target_type ? `${row.target_type}:${row.target_id}` : '-' }}</template>
+        <el-table-column
+          label="操作对象"
+          width="150"
+        >
+          <template #default="{ row }">
+            {{ row.target_type ? `${row.target_type}:${row.target_id}` : '-' }}
+          </template>
         </el-table-column>
-        <el-table-column prop="details" label="详情" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="操作时间" width="180" />
+        <el-table-column
+          prop="details"
+          label="详情"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="created_at"
+          label="操作时间"
+          width="180"
+        />
       </el-table>
 
       <div class="pagination-wrapper">
-        <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize"
-          :total="pagination.total" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next"
-          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
       </div>
     </el-card>
   </div>

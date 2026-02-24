@@ -17,7 +17,7 @@ namespace utils {
 static std::string toHex(const unsigned char* data, size_t len) {
     std::stringstream ss;
     for (size_t i = 0; i < len; ++i) {
-        ss << std::hex << std::setfill('0') << std::setw(2) << (int)data[i];
+        ss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(data[i]);
     }
     return ss.str();
 }

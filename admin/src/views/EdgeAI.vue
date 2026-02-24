@@ -10,10 +10,17 @@
     <div class="page-header">
       <div class="welcome-section">
         <h1>边缘AI管理</h1>
-        <p class="welcome-sub">Edge AI 引擎状态监控与管理 · {{ currentTime }}</p>
+        <p class="welcome-sub">
+          Edge AI 引擎状态监控与管理 · {{ currentTime }}
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" :icon="Refresh" @click="refreshAll" :loading="loading">
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="loading"
+          @click="refreshAll"
+        >
           刷新数据
         </el-button>
         <span class="update-time">最后更新: {{ lastUpdateTime }}</span>
@@ -22,23 +29,49 @@
 
     <!-- 技术标签 -->
     <div class="tech-badges">
-      <span class="tech-badge" v-for="badge in techBadges" :key="badge.label">
+      <span
+        v-for="badge in techBadges"
+        :key="badge.label"
+        class="tech-badge"
+      >
         <span class="badge-icon">{{ badge.icon }}</span>
         <span class="badge-label">{{ badge.label }}</span>
       </span>
     </div>
 
     <!-- 状态卡片 -->
-    <el-row :gutter="20" class="stats-cards">
-      <el-col :xs="24" :sm="12" :md="6" v-for="card in statusCards" :key="card.title">
-        <el-card shadow="hover" class="stat-card" :style="{ borderTop: `4px solid ${card.color}` }">
+    <el-row
+      :gutter="20"
+      class="stats-cards"
+    >
+      <el-col
+        v-for="card in statusCards"
+        :key="card.title"
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
+        <el-card
+          shadow="hover"
+          class="stat-card"
+          :style="{ borderTop: `4px solid ${card.color}` }"
+        >
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-value">{{ card.value }}</div>
-              <div class="stat-title">{{ card.title }}</div>
+              <div class="stat-value">
+                {{ card.value }}
+              </div>
+              <div class="stat-title">
+                {{ card.title }}
+              </div>
             </div>
-            <div class="stat-icon" :style="{ background: `${card.color}15`, color: card.color }">
-              <el-icon :size="32"><component :is="card.icon" /></el-icon>
+            <div
+              class="stat-icon"
+              :style="{ background: `${card.color}15`, color: card.color }"
+            >
+              <el-icon :size="32">
+                <component :is="card.icon" />
+              </el-icon>
             </div>
           </div>
         </el-card>
@@ -46,19 +79,44 @@
     </el-row>
 
     <!-- 性能指标 + 情绪脉搏 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>性能指标</span>
-              <el-tag type="success" size="small">30s 刷新</el-tag>
+              <el-tag
+                type="success"
+                size="small"
+              >
+                30s 刷新
+              </el-tag>
             </div>
           </template>
           <div class="metrics-grid">
-            <div class="metric-item" v-for="m in performanceMetrics" :key="m.label">
-              <div class="metric-value" :style="{ color: m.color }">{{ m.value }}</div>
-              <div class="metric-label">{{ m.label }}</div>
+            <div
+              v-for="m in performanceMetrics"
+              :key="m.label"
+              class="metric-item"
+            >
+              <div
+                class="metric-value"
+                :style="{ color: m.color }"
+              >
+                {{ m.value }}
+              </div>
+              <div class="metric-label">
+                {{ m.label }}
+              </div>
               <el-progress
                 :percentage="m.percent"
                 :color="m.color"
@@ -69,20 +127,39 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>情绪分析</span>
-              <el-tag type="warning" size="small">30s 刷新</el-tag>
+              <el-tag
+                type="warning"
+                size="small"
+              >
+                30s 刷新
+              </el-tag>
             </div>
           </template>
           <div class="emotion-pulse-container">
             <div class="gauge-wrapper">
-              <v-chart :option="emotionGaugeOption" autoresize style="height: 220px" />
+              <v-chart
+                :option="emotionGaugeOption"
+                autoresize
+                style="height: 220px"
+              />
             </div>
             <div class="pulse-line-wrapper">
-              <v-chart :option="emotionLineOption" autoresize style="height: 220px" />
+              <v-chart
+                :option="emotionLineOption"
+                autoresize
+                style="height: 220px"
+              />
             </div>
           </div>
         </el-card>
@@ -90,13 +167,25 @@
     </el-row>
 
     <!-- 联邦学习 + 隐私预算 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>联邦学习控制</span>
-              <el-tag :type="federated.status === 'aggregating' ? 'warning' : 'info'" size="small">
+              <el-tag
+                :type="federated.status === 'aggregating' ? 'warning' : 'info'"
+                size="small"
+              >
                 {{ federated.status === 'aggregating' ? '聚合中' : '就绪' }}
               </el-tag>
             </div>
@@ -133,29 +222,41 @@
             <div class="fed-actions">
               <el-button
                 type="primary"
-                @click="triggerAggregation"
                 :loading="federated.aggregating"
                 :disabled="federated.status === 'aggregating'"
+                @click="triggerAggregation"
               >
                 触发聚合
               </el-button>
-              <el-button @click="loadFederatedStatus">刷新状态</el-button>
+              <el-button @click="loadFederatedStatus">
+                刷新状态
+              </el-button>
             </div>
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>差分隐私预算</span>
-              <el-tag size="small">ε 监控</el-tag>
+              <el-tag size="small">
+                ε 监控
+              </el-tag>
             </div>
           </template>
           <div class="privacy-panel">
             <div class="budget-overview">
               <div class="budget-main">
-                <div class="epsilon">ε = {{ privacy.epsilonUsed }} / {{ privacy.epsilonTotal }}</div>
+                <div class="epsilon">
+                  ε = {{ privacy.epsilonUsed }} / {{ privacy.epsilonTotal }}
+                </div>
                 <el-progress
                   :percentage="privacy.epsilonPercent"
                   :stroke-width="16"
@@ -165,7 +266,11 @@
               </div>
             </div>
             <div class="budget-chart">
-              <v-chart :option="privacyPieOption" autoresize style="height: 200px" />
+              <v-chart
+                :option="privacyPieOption"
+                autoresize
+                style="height: 200px"
+              />
             </div>
           </div>
         </el-card>
@@ -173,13 +278,27 @@
     </el-row>
 
     <!-- 向量搜索测试 + 边缘节点列表 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>向量搜索测试</span>
-              <el-tag type="primary" size="small">语义检索</el-tag>
+              <el-tag
+                type="primary"
+                size="small"
+              >
+                语义检索
+              </el-tag>
             </div>
           </template>
           <div class="vector-search-panel">
@@ -191,49 +310,107 @@
                 clearable
                 @keyup.enter="doVectorSearch"
               />
-              <el-button type="primary" @click="doVectorSearch" :loading="vectorSearching">
+              <el-button
+                type="primary"
+                :loading="vectorSearching"
+                @click="doVectorSearch"
+              >
                 搜索
               </el-button>
             </div>
-            <div class="search-results" v-if="vectorResults.length">
-              <div class="search-result-item" v-for="(item, idx) in vectorResults" :key="idx">
+            <div
+              v-if="vectorResults.length"
+              class="search-results"
+            >
+              <div
+                v-for="(item, idx) in vectorResults"
+                :key="idx"
+                class="search-result-item"
+              >
                 <div class="result-score">
-                  <el-tag :type="item.score > 0.8 ? 'success' : item.score > 0.5 ? 'warning' : 'info'" size="small">
+                  <el-tag
+                    :type="item.score > 0.8 ? 'success' : item.score > 0.5 ? 'warning' : 'info'"
+                    size="small"
+                  >
                     {{ (item.score * 100).toFixed(1) }}%
                   </el-tag>
                 </div>
-                <div class="result-content">{{ item.content }}</div>
+                <div class="result-content">
+                  {{ item.content }}
+                </div>
               </div>
             </div>
-            <el-empty v-else-if="vectorSearched" description="未找到相似内容" :image-size="80" />
+            <el-empty
+              v-else-if="vectorSearched"
+              description="未找到相似内容"
+              :image-size="80"
+            />
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>边缘节点列表</span>
-              <el-tag size="small">{{ edgeNodes.length }} 个节点</el-tag>
+              <el-tag size="small">
+                {{ edgeNodes.length }} 个节点
+              </el-tag>
             </div>
           </template>
-          <el-table :data="edgeNodes" stripe style="width: 100%" max-height="320" size="small">
-            <el-table-column prop="nodeId" label="节点ID" width="100" />
-            <el-table-column prop="name" label="名称" min-width="100" />
-            <el-table-column label="状态" width="80">
+          <el-table
+            :data="edgeNodes"
+            stripe
+            style="width: 100%"
+            max-height="320"
+            size="small"
+          >
+            <el-table-column
+              prop="nodeId"
+              label="节点ID"
+              width="100"
+            />
+            <el-table-column
+              prop="name"
+              label="名称"
+              min-width="100"
+            />
+            <el-table-column
+              label="状态"
+              width="80"
+            >
               <template #default="{ row }">
-                <el-tag :type="row.status === 'online' ? 'success' : row.status === 'busy' ? 'warning' : 'danger'" size="small">
+                <el-tag
+                  :type="row.status === 'online' ? 'success' : row.status === 'busy' ? 'warning' : 'danger'"
+                  size="small"
+                >
                   {{ row.status === 'online' ? '在线' : row.status === 'busy' ? '繁忙' : '离线' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="负载" width="100">
+            <el-table-column
+              label="负载"
+              width="100"
+            >
               <template #default="{ row }">
-                <el-progress :percentage="row.load" :stroke-width="6" :show-text="true"
-                  :color="row.load > 80 ? '#C62828' : row.load > 50 ? '#E65100' : '#2E7D32'" />
+                <el-progress
+                  :percentage="row.load"
+                  :stroke-width="6"
+                  :show-text="true"
+                  :color="row.load > 80 ? '#C62828' : row.load > 50 ? '#E65100' : '#2E7D32'"
+                />
               </template>
             </el-table-column>
-            <el-table-column label="延迟" width="80">
+            <el-table-column
+              label="延迟"
+              width="80"
+            >
               <template #default="{ row }">
                 <span :style="{ color: row.latency > 100 ? '#C62828' : row.latency > 50 ? '#E65100' : '#2E7D32' }">
                   {{ row.latency }}ms
@@ -246,40 +423,83 @@
     </el-row>
 
     <!-- 双记忆RAG系统 -->
-    <el-row :gutter="20" class="charts-row">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
       <el-col :span="24">
-        <el-card shadow="hover" class="chart-card">
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>双记忆RAG系统</span>
-              <el-tag type="success" size="small">SoulSpeak架构</el-tag>
+              <el-tag
+                type="success"
+                size="small"
+              >
+                SoulSpeak架构
+              </el-tag>
             </div>
           </template>
           <el-row :gutter="20">
-            <el-col :xs="24" :md="6">
+            <el-col
+              :xs="24"
+              :md="6"
+            >
               <div class="rag-stat-item">
-                <div class="rag-stat-value">{{ ragStats.active_users || 0 }}</div>
-                <div class="rag-stat-label">活跃用户记忆</div>
+                <div class="rag-stat-value">
+                  {{ ragStats.active_users || 0 }}
+                </div>
+                <div class="rag-stat-label">
+                  活跃用户记忆
+                </div>
               </div>
             </el-col>
-            <el-col :xs="24" :md="6">
+            <el-col
+              :xs="24"
+              :md="6"
+            >
               <div class="rag-stat-item">
-                <div class="rag-stat-value">{{ ragStats.total_short_term_entries || 0 }}</div>
-                <div class="rag-stat-label">短期记忆条目</div>
-                <div class="rag-stat-desc">最近交互 (max {{ ragStats.max_short_term_entries || 5 }}/用户)</div>
+                <div class="rag-stat-value">
+                  {{ ragStats.total_short_term_entries || 0 }}
+                </div>
+                <div class="rag-stat-label">
+                  短期记忆条目
+                </div>
+                <div class="rag-stat-desc">
+                  最近交互 (max {{ ragStats.max_short_term_entries || 5 }}/用户)
+                </div>
               </div>
             </el-col>
-            <el-col :xs="24" :md="6">
+            <el-col
+              :xs="24"
+              :md="6"
+            >
               <div class="rag-stat-item">
-                <div class="rag-stat-value">{{ ragStats.users_with_long_term_profile || 0 }}</div>
-                <div class="rag-stat-label">长期画像用户</div>
-                <div class="rag-stat-desc">{{ ragStats.long_term_retention_days || 30 }}天情绪聚合</div>
+                <div class="rag-stat-value">
+                  {{ ragStats.users_with_long_term_profile || 0 }}
+                </div>
+                <div class="rag-stat-label">
+                  长期画像用户
+                </div>
+                <div class="rag-stat-desc">
+                  {{ ragStats.long_term_retention_days || 30 }}天情绪聚合
+                </div>
               </div>
             </el-col>
-            <el-col :xs="24" :md="6">
+            <el-col
+              :xs="24"
+              :md="6"
+            >
               <div class="rag-stat-item">
-                <div class="rag-stat-value">{{ (ragStats.avg_emotion_score || 0).toFixed(2) }}</div>
-                <div class="rag-stat-label">平均情绪分数</div>
+                <div class="rag-stat-value">
+                  {{ (ragStats.avg_emotion_score || 0).toFixed(2) }}
+                </div>
+                <div class="rag-stat-label">
+                  平均情绪分数
+                </div>
                 <el-progress
                   :percentage="Math.min(100, Math.round((ragStats.avg_emotion_score || 0) * 100))"
                   :stroke-width="8"
@@ -293,73 +513,181 @@
     </el-row>
 
     <!-- 配置管理 -->
-    <el-row :gutter="20" class="charts-row">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
       <el-col :span="24">
-        <el-card shadow="hover" class="chart-card">
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>Edge AI 配置管理</span>
-              <el-tag type="info" size="small">运行时参数</el-tag>
+              <el-tag
+                type="info"
+                size="small"
+              >
+                运行时参数
+              </el-tag>
             </div>
           </template>
-          <el-form :model="edgeConfig" label-width="160px" class="config-form" v-loading="configLoading">
+          <el-form
+            v-loading="configLoading"
+            :model="edgeConfig"
+            label-width="160px"
+            class="config-form"
+          >
             <el-row :gutter="24">
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="推理引擎">
-                  <el-select v-model="edgeConfig.inferenceEngine" style="width: 100%">
-                    <el-option label="ONNX Runtime" value="onnx" />
-                    <el-option label="TensorFlow Lite" value="tflite" />
-                    <el-option label="WASM" value="wasm" />
+                  <el-select
+                    v-model="edgeConfig.inferenceEngine"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      label="ONNX Runtime"
+                      value="onnx"
+                    />
+                    <el-option
+                      label="TensorFlow Lite"
+                      value="tflite"
+                    />
+                    <el-option
+                      label="WASM"
+                      value="wasm"
+                    />
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="缓存策略">
-                  <el-select v-model="edgeConfig.cacheStrategy" style="width: 100%">
-                    <el-option label="LRU" value="lru" />
-                    <el-option label="LFU" value="lfu" />
-                    <el-option label="TTL" value="ttl" />
+                  <el-select
+                    v-model="edgeConfig.cacheStrategy"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      label="LRU"
+                      value="lru"
+                    />
+                    <el-option
+                      label="LFU"
+                      value="lfu"
+                    />
+                    <el-option
+                      label="TTL"
+                      value="ttl"
+                    />
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="最大推理批次">
-                  <el-input-number v-model="edgeConfig.maxBatchSize" :min="1" :max="64" style="width: 100%" />
+                  <el-input-number
+                    v-model="edgeConfig.maxBatchSize"
+                    :min="1"
+                    :max="64"
+                    style="width: 100%"
+                  />
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="缓存大小 (MB)">
-                  <el-input-number v-model="edgeConfig.cacheSizeMB" :min="16" :max="1024" :step="16" style="width: 100%" />
+                  <el-input-number
+                    v-model="edgeConfig.cacheSizeMB"
+                    :min="16"
+                    :max="1024"
+                    :step="16"
+                    style="width: 100%"
+                  />
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="隐私预算上限 (ε)">
-                  <el-input-number v-model="edgeConfig.maxEpsilon" :min="0.1" :max="10" :step="0.1" :precision="1" style="width: 100%" />
+                  <el-input-number
+                    v-model="edgeConfig.maxEpsilon"
+                    :min="0.1"
+                    :max="10"
+                    :step="0.1"
+                    :precision="1"
+                    style="width: 100%"
+                  />
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="联邦学习轮次间隔 (s)">
-                  <el-input-number v-model="edgeConfig.federatedInterval" :min="60" :max="3600" :step="60" style="width: 100%" />
+                  <el-input-number
+                    v-model="edgeConfig.federatedInterval"
+                    :min="60"
+                    :max="3600"
+                    :step="60"
+                    style="width: 100%"
+                  />
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="情绪分析模型">
-                  <el-select v-model="edgeConfig.emotionModel" style="width: 100%">
-                    <el-option label="轻量级 (Fast)" value="fast" />
-                    <el-option label="标准 (Standard)" value="standard" />
-                    <el-option label="高精度 (Accurate)" value="accurate" />
+                  <el-select
+                    v-model="edgeConfig.emotionModel"
+                    style="width: 100%"
+                  >
+                    <el-option
+                      label="轻量级 (Fast)"
+                      value="fast"
+                    />
+                    <el-option
+                      label="标准 (Standard)"
+                      value="standard"
+                    />
+                    <el-option
+                      label="高精度 (Accurate)"
+                      value="accurate"
+                    />
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col :xs="24" :md="12">
+              <el-col
+                :xs="24"
+                :md="12"
+              >
                 <el-form-item label="启用向量搜索">
                   <el-switch v-model="edgeConfig.vectorSearchEnabled" />
                 </el-form-item>
               </el-col>
             </el-row>
             <div class="config-actions">
-              <el-button type="primary" @click="saveConfig" :loading="configSaving">保存配置</el-button>
-              <el-button @click="loadConfig">重置</el-button>
+              <el-button
+                type="primary"
+                :loading="configSaving"
+                @click="saveConfig"
+              >
+                保存配置
+              </el-button>
+              <el-button @click="loadConfig">
+                重置
+              </el-button>
             </div>
           </el-form>
         </el-card>
@@ -367,9 +695,18 @@
     </el-row>
 
     <!-- AI 工具箱 -->
-    <el-row :gutter="20" class="section-row">
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="module-card">
+    <el-row
+      :gutter="20"
+      class="section-row"
+    >
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="module-card"
+        >
           <template #header>
             <div class="card-header">
               <span><el-icon><DataAnalysis /></el-icon> 情感分析测试</span>
@@ -386,12 +723,17 @@
             />
             <el-button
               type="primary"
-              @click="doSentimentAnalysis"
               :loading="sentimentTool.loading"
               :disabled="!sentimentTool.text.trim()"
               style="margin-top: 12px"
-            >分析</el-button>
-            <div class="tool-result" v-if="sentimentTool.result">
+              @click="doSentimentAnalysis"
+            >
+              分析
+            </el-button>
+            <div
+              v-if="sentimentTool.result"
+              class="tool-result"
+            >
               <div class="result-item">
                 <span class="result-label">情感得分</span>
                 <el-progress
@@ -414,8 +756,14 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="hover" class="module-card">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="module-card"
+        >
           <template #header>
             <div class="card-header">
               <span><el-icon><CircleCheck /></el-icon> 内容审核测试</span>
@@ -432,15 +780,23 @@
             />
             <el-button
               type="primary"
-              @click="doContentModeration"
               :loading="moderationTool.loading"
               :disabled="!moderationTool.text.trim()"
               style="margin-top: 12px"
-            >审核</el-button>
-            <div class="tool-result" v-if="moderationTool.result">
+              @click="doContentModeration"
+            >
+              审核
+            </el-button>
+            <div
+              v-if="moderationTool.result"
+              class="tool-result"
+            >
               <div class="result-item">
                 <span class="result-label">审核结果</span>
-                <el-tag :type="moderationTool.result.pass ? 'success' : 'danger'" size="large">
+                <el-tag
+                  :type="moderationTool.result.pass ? 'success' : 'danger'"
+                  size="large"
+                >
                   {{ moderationTool.result.pass ? '通过' : '未通过' }}
                 </el-tag>
               </div>
@@ -450,7 +806,10 @@
                   {{ { low: '低风险', medium: '中风险', high: '高风险' }[moderationTool.result.risk] || moderationTool.result.risk || '-' }}
                 </el-tag>
               </div>
-              <div class="result-item" v-if="moderationTool.result.reason">
+              <div
+                v-if="moderationTool.result.reason"
+                class="result-item"
+              >
                 <span class="result-label">原因</span>
                 <span class="result-value reason-text">{{ moderationTool.result.reason }}</span>
               </div>
@@ -469,7 +828,7 @@ import api from '@/api'
 import dayjs from 'dayjs'
 import {
   Refresh, Cpu, Monitor, Connection, Stopwatch,
-  DataAnalysis, Setting, Search, CircleCheck
+  DataAnalysis, Search, CircleCheck
 } from '@element-plus/icons-vue'
 
 // ========== 响应式状态 ==========
@@ -951,15 +1310,6 @@ async function refreshAll() {
   }
 }
 
-function getNodeStatusType(status) {
-  const map = { online: 'success', offline: 'danger', syncing: 'warning', idle: 'info' }
-  return map[status] || 'info'
-}
-
-function getNodeStatusLabel(status) {
-  const map = { online: '在线', offline: '离线', syncing: '同步中', idle: '空闲' }
-  return map[status] || status
-}
 
 // ========== 生命周期 ==========
 let pulseTimer = null

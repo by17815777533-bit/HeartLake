@@ -7,64 +7,154 @@
 <template>
   <div class="content-page">
     <!-- 筛选 -->
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
+    <el-card
+      shadow="never"
+      class="filter-card"
+    >
+      <el-form
+        :model="filters"
+        inline
+      >
         <el-form-item label="类型">
-          <el-select v-model="filters.type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="石头" value="stone" />
-            <el-option label="纸船" value="boat" />
+          <el-select
+            v-model="filters.type"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option
+              label="石头"
+              value="stone"
+            />
+            <el-option
+              label="纸船"
+              value="boat"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="已发布" value="published" />
-            <el-option label="待审核" value="pending" />
-            <el-option label="已删除" value="deleted" />
+          <el-select
+            v-model="filters.status"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option
+              label="已发布"
+              value="published"
+            />
+            <el-option
+              label="待审核"
+              value="pending"
+            />
+            <el-option
+              label="已删除"
+              value="deleted"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
-          <el-input v-model="filters.keyword" placeholder="搜索内容" clearable />
+          <el-input
+            v-model="filters.keyword"
+            placeholder="搜索内容"
+            clearable
+          />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <!-- 内容列表 -->
     <el-card shadow="never">
-      <el-table v-loading="loading" :data="contentList" stripe>
-        <el-table-column prop="id" label="ID" width="100" />
-        <el-table-column label="类型" width="80">
+      <el-table
+        v-loading="loading"
+        :data="contentList"
+        stripe
+      >
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="100"
+        />
+        <el-table-column
+          label="类型"
+          width="80"
+        >
           <template #default="{ row }">
-            <el-tag :type="row.type === 'stone' ? 'primary' : 'success'" size="small">
+            <el-tag
+              :type="row.type === 'stone' ? 'primary' : 'success'"
+              size="small"
+            >
               {{ row.type === 'stone' ? '石头' : '纸船' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="内容" min-width="300">
+        <el-table-column
+          label="内容"
+          min-width="300"
+        >
           <template #default="{ row }">
-            <p class="content-text">{{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}</p>
+            <p class="content-text">
+              {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
+            </p>
           </template>
         </el-table-column>
-        <el-table-column label="作者" width="120">
+        <el-table-column
+          label="作者"
+          width="120"
+        >
           <template #default="{ row }">
             {{ row.user?.nickname || '匿名' }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
+            <el-tag
+              :type="getStatusType(row.status)"
+              size="small"
+            >
               {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="发布时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column
+          prop="created_at"
+          label="发布时间"
+          width="180"
+        />
+        <el-table-column
+          label="操作"
+          width="150"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <el-button type="primary" link @click="viewContent(row)">查看</el-button>
-            <el-button type="danger" link @click="deleteContent(row)">删除</el-button>
+            <el-button
+              type="primary"
+              link
+              @click="viewContent(row)"
+            >
+              查看
+            </el-button>
+            <el-button
+              type="danger"
+              link
+              @click="deleteContent(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -83,16 +173,41 @@
     </el-card>
 
     <!-- 内容详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="内容详情" width="600px">
+    <el-dialog
+      v-model="detailVisible"
+      title="内容详情"
+      width="600px"
+    >
       <div v-if="currentContent">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="ID">{{ currentContent.id }}</el-descriptions-item>
-          <el-descriptions-item label="类型">{{ currentContent.type === 'stone' ? '石头' : '纸船' }}</el-descriptions-item>
-          <el-descriptions-item label="作者">{{ currentContent.user?.nickname || '匿名' }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ getStatusLabel(currentContent.status) }}</el-descriptions-item>
-          <el-descriptions-item label="发布时间" :span="2">{{ currentContent.created_at }}</el-descriptions-item>
-          <el-descriptions-item label="内容" :span="2">
-            <div class="detail-content">{{ currentContent.content }}</div>
+        <el-descriptions
+          :column="2"
+          border
+        >
+          <el-descriptions-item label="ID">
+            {{ currentContent.id }}
+          </el-descriptions-item>
+          <el-descriptions-item label="类型">
+            {{ currentContent.type === 'stone' ? '石头' : '纸船' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="作者">
+            {{ currentContent.user?.nickname || '匿名' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">
+            {{ getStatusLabel(currentContent.status) }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="发布时间"
+            :span="2"
+          >
+            {{ currentContent.created_at }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="内容"
+            :span="2"
+          >
+            <div class="detail-content">
+              {{ currentContent.content }}
+            </div>
           </el-descriptions-item>
         </el-descriptions>
       </div>

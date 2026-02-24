@@ -24,7 +24,7 @@ const std::chrono::steady_clock::time_point HealthController::startTime_ =
  * 返回服务状态、版本号和当前时间戳
  */
 void HealthController::health(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr &/*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   Json::Value result;
   result["status"] = "ok";
@@ -41,7 +41,7 @@ void HealthController::health(
  * 包含数据库状态、Redis状态、运行时间和内存使用
  */
 void HealthController::healthDetailed(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr &/*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
   // 使用 shared_ptr 在异步回调间共享结果
@@ -107,7 +107,7 @@ void HealthController::healthDetailed(
             (*callbackPtr)(resp);
           }
         },
-        [result, callbackPtr](const drogon::orm::DrogonDbException &e) {
+        [result, callbackPtr](const drogon::orm::DrogonDbException &/*e*/) {
           // 数据库异常
           (*result)["db_status"] = "error";
           (*result)["db_error"] = "connection_failed";

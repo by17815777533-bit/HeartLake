@@ -111,7 +111,9 @@ drogon::Task<void> FriendshipTTLEngine::handleFriendshipExpired(const std::strin
     auto& redis = cache::RedisCache::getInstance();
     std::string dataKey = std::string(FRIENDSHIP_DATA_PREFIX) + friendshipId;
 
-    auto [dataStr, exists] = co_await redis.getCoro(dataKey);
+    auto getResult = co_await redis.getCoro(dataKey);
+    auto& dataStr = getResult.first;
+    auto& exists = getResult.second;
     if (!exists) co_return;
 
     Json::Value data;

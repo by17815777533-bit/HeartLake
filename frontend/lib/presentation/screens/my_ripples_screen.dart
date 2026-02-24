@@ -238,22 +238,20 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                           });
                           try {
                             await _interactionService.deleteRipple(rippleId);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('涟漪已取消')),
-                              );
-                            }
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('涟漪已取消')),
+                            );
                           } catch (e) {
                             // API 失败时回滚
-                            if (mounted) {
-                              setState(() {
-                                _ripplesData.insert(removedIndex, removedData);
-                                _ripples.insert(removedIndex, removedStone);
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('删除失败，请重试')),
-                              );
-                            }
+                            if (!context.mounted) return;
+                            setState(() {
+                              _ripplesData.insert(removedIndex, removedData);
+                              _ripples.insert(removedIndex, removedStone);
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('删除失败，请重试')),
+                            );
                           }
                         },
                         child: Padding(

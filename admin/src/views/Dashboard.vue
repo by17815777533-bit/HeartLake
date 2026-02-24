@@ -10,11 +10,24 @@
     <div class="page-header">
       <div class="welcome-section">
         <h1>{{ greeting }}，管理员</h1>
-        <p class="welcome-sub">{{ currentDateTime }} · 心湖管理后台</p>
+        <p class="welcome-sub">
+          {{ currentDateTime }} · 心湖管理后台
+        </p>
       </div>
       <div class="header-actions">
-        <el-button type="success" :icon="Download" @click="exportData">导出数据</el-button>
-        <el-button type="primary" :icon="Refresh" @click="refreshData" :loading="loading">
+        <el-button
+          type="success"
+          :icon="Download"
+          @click="exportData"
+        >
+          导出数据
+        </el-button>
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="loading"
+          @click="refreshData"
+        >
           刷新数据
         </el-button>
         <span class="update-time">最后更新: {{ lastUpdateTime }}</span>
@@ -23,24 +36,50 @@
 
     <!-- 创新技术标签 -->
     <div class="tech-badges">
-      <span class="tech-badge" v-for="badge in techBadges" :key="badge.label">
+      <span
+        v-for="badge in techBadges"
+        :key="badge.label"
+        class="tech-badge"
+      >
         <span class="badge-icon">{{ badge.icon }}</span>
         <span class="badge-label">{{ badge.label }}</span>
       </span>
     </div>
 
     <!-- 统计卡片 -->
-    <el-row :gutter="20" class="stats-cards">
+    <el-row
+      :gutter="20"
+      class="stats-cards"
+    >
       <!-- L-2: 响应式断点 -->
-      <el-col :xs="24" :sm="12" :md="6" v-for="stat in statsCards" :key="stat.title">
-        <el-card shadow="hover" class="stat-card" :style="{ borderTop: `4px solid ${stat.color}` }">
+      <el-col
+        v-for="stat in statsCards"
+        :key="stat.title"
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
+        <el-card
+          shadow="hover"
+          class="stat-card"
+          :style="{ borderTop: `4px solid ${stat.color}` }"
+        >
           <div class="stat-content">
             <div class="stat-info">
-              <div class="stat-value">{{ formatNumber(stat.value) }}</div>
-              <div class="stat-title">{{ stat.title }}</div>
+              <div class="stat-value">
+                {{ formatNumber(stat.value) }}
+              </div>
+              <div class="stat-title">
+                {{ stat.title }}
+              </div>
             </div>
-            <div class="stat-icon" :style="{ background: `${stat.color}15`, color: stat.color }">
-              <el-icon :size="32"><component :is="stat.icon" /></el-icon>
+            <div
+              class="stat-icon"
+              :style="{ background: `${stat.color}15`, color: stat.color }"
+            >
+              <el-icon :size="32">
+                <component :is="stat.icon" />
+              </el-icon>
             </div>
           </div>
         </el-card>
@@ -48,82 +87,178 @@
     </el-row>
 
     <!-- 图表区 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :sm="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>用户增长趋势</span>
-              <el-radio-group v-model="chartRange" size="small" @change="loadGrowthData">
-                <el-radio-button :value="7">7天</el-radio-button>
-                <el-radio-button :value="14">14天</el-radio-button>
-                <el-radio-button :value="30">30天</el-radio-button>
+              <el-radio-group
+                v-model="chartRange"
+                size="small"
+                @change="loadGrowthData"
+              >
+                <el-radio-button :value="7">
+                  7天
+                </el-radio-button>
+                <el-radio-button :value="14">
+                  14天
+                </el-radio-button>
+                <el-radio-button :value="30">
+                  30天
+                </el-radio-button>
               </el-radio-group>
             </div>
           </template>
-          <v-chart :option="userGrowthOption" autoresize style="height: 300px" />
+          <v-chart
+            :option="userGrowthOption"
+            autoresize
+            style="height: 300px"
+          />
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12">
-        <el-card shadow="hover" class="chart-card">
-          <template #header>情绪分布</template>
-          <v-chart :option="moodDistributionOption" autoresize style="height: 300px" />
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="12"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
+          <template #header>
+            情绪分布
+          </template>
+          <v-chart
+            :option="moodDistributionOption"
+            autoresize
+            style="height: 300px"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 情绪趋势分析 -->
-    <el-row :gutter="20" class="charts-row">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
       <el-col :span="24">
-        <el-card shadow="hover" class="chart-card">
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
           <template #header>
             <div class="card-header">
               <span>情绪趋势分析</span>
-              <el-radio-group v-model="moodTrendRange" size="small" @change="loadMoodTrend">
-                <el-radio-button :value="7">7天</el-radio-button>
-                <el-radio-button :value="14">14天</el-radio-button>
+              <el-radio-group
+                v-model="moodTrendRange"
+                size="small"
+                @change="loadMoodTrend"
+              >
+                <el-radio-button :value="7">
+                  7天
+                </el-radio-button>
+                <el-radio-button :value="14">
+                  14天
+                </el-radio-button>
               </el-radio-group>
             </div>
           </template>
-          <v-chart :option="moodTrendOption" autoresize style="height: 280px" />
+          <v-chart
+            :option="moodTrendOption"
+            autoresize
+            style="height: 280px"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 热门话题和活跃时段 -->
-    <el-row :gutter="20" class="charts-row">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
       <el-col :span="12">
-        <el-card shadow="hover" class="chart-card">
-          <template #header>热门话题</template>
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
+          <template #header>
+            热门话题
+          </template>
           <div class="topics-list">
-            <div v-for="(topic, i) in trendingTopics" :key="topic.topic" class="topic-item">
-              <span class="topic-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
+            <div
+              v-for="(topic, i) in trendingTopics"
+              :key="topic.topic"
+              class="topic-item"
+            >
+              <span
+                class="topic-rank"
+                :class="{ top: i < 3 }"
+              >{{ i + 1 }}</span>
               <span class="topic-name">{{ topic.topic }}</span>
               <span class="topic-count">{{ topic.count }} 条</span>
             </div>
-            <el-empty v-if="!trendingTopics.length" description="暂无数据" :image-size="60" />
+            <el-empty
+              v-if="!trendingTopics.length"
+              description="暂无数据"
+              :image-size="60"
+            />
           </div>
         </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="hover" class="chart-card">
-          <template #header>活跃时段分布</template>
-          <v-chart :option="activeTimeOption" autoresize style="height: 300px" />
+        <el-card
+          shadow="hover"
+          class="chart-card"
+        >
+          <template #header>
+            活跃时段分布
+          </template>
+          <v-chart
+            :option="activeTimeOption"
+            autoresize
+            style="height: 300px"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 隐私保护 + 情绪共鸣 + 情绪脉搏 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="chart-card innovation-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="8"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card innovation-card"
+        >
           <template #header>
             <div class="card-header">
               <span>🔒 隐私保护统计</span>
             </div>
           </template>
-          <div class="innovation-stats" v-loading="privacyLoading">
+          <div
+            v-loading="privacyLoading"
+            class="innovation-stats"
+          >
             <div class="inno-stat-item">
               <span class="inno-label">差分隐私查询次数</span>
               <span class="inno-value">{{ formatNumber(privacyStats.queryCount) }}</span>
@@ -149,14 +284,24 @@
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :sm="12" :md="8">
-        <el-card shadow="hover" class="chart-card innovation-card">
+      <el-col
+        :xs="24"
+        :sm="12"
+        :md="8"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card innovation-card"
+        >
           <template #header>
             <div class="card-header">
               <span>💫 情绪共鸣统计</span>
             </div>
           </template>
-          <div class="innovation-stats" v-loading="resonanceLoading">
+          <div
+            v-loading="resonanceLoading"
+            class="innovation-stats"
+          >
             <div class="inno-stat-item">
               <span class="inno-label">今日共鸣匹配数</span>
               <span class="inno-value">{{ formatNumber(resonanceStats.todayMatches) }}</span>
@@ -167,7 +312,12 @@
             </div>
             <div class="inno-stat-item">
               <span class="inno-label">最活跃的情绪类型</span>
-              <el-tag size="small" type="primary">{{ resonanceStats.topMood || '-' }}</el-tag>
+              <el-tag
+                size="small"
+                type="primary"
+              >
+                {{ resonanceStats.topMood || '-' }}
+              </el-tag>
             </div>
             <div class="inno-stat-item">
               <span class="inno-label">共鸣成功率</span>
@@ -177,47 +327,99 @@
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="8">
-        <el-card shadow="hover" class="chart-card innovation-card">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="8"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card innovation-card"
+        >
           <template #header>
             <div class="card-header">
               <span>🌊 湖面情绪温度</span>
               <span class="pulse-hint">每30秒更新</span>
             </div>
           </template>
-          <v-chart :option="emotionPulseOption" autoresize style="height: 260px" />
+          <v-chart
+            :option="emotionPulseOption"
+            autoresize
+            style="height: 260px"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 湖面天气可视化 -->
-    <el-row :gutter="20" class="charts-row">
-      <el-col :xs="24" :sm="24" :md="10">
-        <el-card shadow="hover" class="chart-card lake-weather-card">
+    <el-row
+      :gutter="20"
+      class="charts-row"
+    >
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="10"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card lake-weather-card"
+        >
           <template #header>
             <div class="card-header">
               <span>🌤️ 湖面天气</span>
-              <el-tag size="small" :color="lakeWeather.color" effect="dark" style="border: none; color: #fff;">
+              <el-tag
+                size="small"
+                :color="lakeWeather.color"
+                effect="dark"
+                style="border: none; color: #fff;"
+              >
                 {{ lakeWeather.label }}
               </el-tag>
             </div>
           </template>
           <div class="lake-weather-content">
-            <div class="weather-display" :style="{ background: lakeWeather.bg }">
-              <div class="weather-icon">{{ lakeWeather.icon }}</div>
+            <div
+              class="weather-display"
+              :style="{ background: lakeWeather.bg }"
+            >
+              <div class="weather-icon">
+                {{ lakeWeather.icon }}
+              </div>
               <div class="weather-info">
-                <div class="weather-temp">{{ lakeWeatherTemp.toFixed(0) }}°</div>
-                <div class="weather-label">{{ lakeWeather.label }}</div>
-                <div class="weather-desc">{{ lakeWeather.desc }}</div>
+                <div class="weather-temp">
+                  {{ lakeWeatherTemp.toFixed(0) }}°
+                </div>
+                <div class="weather-label">
+                  {{ lakeWeather.label }}
+                </div>
+                <div class="weather-desc">
+                  {{ lakeWeather.desc }}
+                </div>
               </div>
             </div>
             <div class="weather-scale">
               <div class="scale-bar">
-                <div class="scale-segment storm" style="width: 10%"></div>
-                <div class="scale-segment rain" style="width: 20%"></div>
-                <div class="scale-segment cloudy" style="width: 30%"></div>
-                <div class="scale-segment sunny" style="width: 40%"></div>
-                <div class="scale-pointer" :style="{ left: lakeWeatherTemp + '%' }"></div>
+                <div
+                  class="scale-segment storm"
+                  style="width: 10%"
+                />
+                <div
+                  class="scale-segment rain"
+                  style="width: 20%"
+                />
+                <div
+                  class="scale-segment cloudy"
+                  style="width: 30%"
+                />
+                <div
+                  class="scale-segment sunny"
+                  style="width: 40%"
+                />
+                <div
+                  class="scale-pointer"
+                  :style="{ left: lakeWeatherTemp + '%' }"
+                />
               </div>
               <div class="scale-labels">
                 <span>暴风雨</span>
@@ -229,65 +431,124 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="14">
-        <el-card shadow="hover" class="chart-card lake-weather-card">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="14"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card lake-weather-card"
+        >
           <template #header>
             <div class="card-header">
               <span>🎭 心情分布</span>
               <span class="pulse-hint">基于情绪脉搏数据</span>
             </div>
           </template>
-          <v-chart :option="weatherMoodPieOption" autoresize style="height: 260px" />
+          <v-chart
+            :option="weatherMoodPieOption"
+            autoresize
+            style="height: 260px"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- AI 趋势分析 -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
-      <el-col :xs="24" :sm="24" :md="14">
-        <el-card shadow="hover" class="chart-card ai-trends-card">
+    <el-row
+      :gutter="20"
+      style="margin-bottom: 20px"
+    >
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="14"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card ai-trends-card"
+        >
           <template #header>
             <div class="card-header">
               <span>📈 AI 情绪趋势</span>
-              <el-tag size="small" type="info">近7天</el-tag>
+              <el-tag
+                size="small"
+                type="info"
+              >
+                近7天
+              </el-tag>
             </div>
           </template>
-          <v-chart :option="emotionTrendsOption" autoresize style="height: 280px" />
+          <v-chart
+            :option="emotionTrendsOption"
+            autoresize
+            style="height: 280px"
+          />
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="10">
-        <el-card shadow="hover" class="chart-card ai-trending-card">
+      <el-col
+        :xs="24"
+        :sm="24"
+        :md="10"
+      >
+        <el-card
+          shadow="hover"
+          class="chart-card ai-trending-card"
+        >
           <template #header>
             <div class="card-header">
               <span>🔥 AI 热门内容</span>
-              <el-tag size="small" type="warning">推荐引擎</el-tag>
+              <el-tag
+                size="small"
+                type="warning"
+              >
+                推荐引擎
+              </el-tag>
             </div>
           </template>
           <div class="trending-content-list">
-            <div v-for="(item, i) in aiTrendingContent" :key="i" class="trending-item">
-              <span class="trending-rank" :class="{ top: i < 3 }">{{ i + 1 }}</span>
+            <div
+              v-for="(item, i) in aiTrendingContent"
+              :key="i"
+              class="trending-item"
+            >
+              <span
+                class="trending-rank"
+                :class="{ top: i < 3 }"
+              >{{ i + 1 }}</span>
               <div class="trending-info">
                 <span class="trending-title">{{ item.title || item.content || item.text || '未知内容' }}</span>
                 <div class="trending-meta">
-                  <el-tag v-if="item.emotion || item.mood" size="small" :type="(item.emotion || item.mood) === 'positive' ? 'success' : (item.emotion || item.mood) === 'negative' ? 'danger' : 'info'">
+                  <el-tag
+                    v-if="item.emotion || item.mood"
+                    size="small"
+                    :type="(item.emotion || item.mood) === 'positive' ? 'success' : (item.emotion || item.mood) === 'negative' ? 'danger' : 'info'"
+                  >
                     {{ item.emotion || item.mood || '中性' }}
                   </el-tag>
-                  <span v-if="item.score != null" class="trending-score">匹配度 {{ (item.score * 100).toFixed(0) }}%</span>
+                  <span
+                    v-if="item.score != null"
+                    class="trending-score"
+                  >匹配度 {{ (item.score * 100).toFixed(0) }}%</span>
                 </div>
               </div>
             </div>
-            <el-empty v-if="!aiTrendingContent.length" description="暂无推荐数据" :image-size="60" />
+            <el-empty
+              v-if="!aiTrendingContent.length"
+              description="暂无推荐数据"
+              :image-size="60"
+            />
           </div>
         </el-card>
       </el-col>
     </el-row>
-
   </div>
 </template>
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
-import { Refresh, Download, User, Edit, Connection, Warning } from '@element-plus/icons-vue'
+import { Refresh, Download } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'
 import dayjs from 'dayjs'
 import { useDashboardData } from '@/composables/useDashboardData'
@@ -296,7 +557,7 @@ const {
   loading, privacyLoading, resonanceLoading, lastUpdateTime,
   chartRange, moodTrendRange, trendingTopics, aiTrendingContent,
   currentDateTime, techBadges, greeting, formatNumber,
-  stats, statsCards,
+  statsCards,
   privacyStats, privacyBudgetPercent, privacyBudgetColor,
   resonanceStats,
   lakeWeather, lakeWeatherTemp, weatherMoodPieOption,

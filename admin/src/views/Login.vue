@@ -8,26 +8,59 @@
   <div class="login-page">
     <div class="login-card">
       <div class="logo-area">
-        <img src="@/assets/logo.svg" alt="HeartLake" class="logo-icon" />
-        <h1 class="title">心湖管理后台</h1>
-        <p class="subtitle">HeartLake Admin Console</p>
+        <img
+          src="@/assets/logo.svg"
+          alt="HeartLake"
+          class="logo-icon"
+        >
+        <h1 class="title">
+          心湖管理后台
+        </h1>
+        <p class="subtitle">
+          HeartLake Admin Console
+        </p>
       </div>
 
-      <el-form ref="formRef" :model="form" :rules="rules" class="login-form" aria-label="管理员登录">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        class="login-form"
+        aria-label="管理员登录"
+      >
         <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" size="large" />
+          <el-input
+            v-model="form.username"
+            placeholder="用户名"
+            size="large"
+          />
         </el-form-item>
 
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" size="large" show-password @keyup.enter="handleLogin" />
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="密码"
+            size="large"
+            show-password
+            @keyup.enter="handleLogin"
+          />
         </el-form-item>
 
-        <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
+        <el-button
+          type="primary"
+          size="large"
+          class="login-btn"
+          :loading="loading"
+          @click="handleLogin"
+        >
           {{ loading ? '登录中...' : '登 录' }}
         </el-button>
       </el-form>
 
-      <div class="footer">&copy; 2026 HeartLake</div>
+      <div class="footer">
+        &copy; 2026 HeartLake
+      </div>
     </div>
   </div>
 </template>

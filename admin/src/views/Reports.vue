@@ -7,67 +7,164 @@
 <template>
   <div class="reports-page">
     <!-- 筛选 -->
-    <el-card shadow="never" class="filter-card">
-      <el-form :model="filters" inline>
+    <el-card
+      shadow="never"
+      class="filter-card"
+    >
+      <el-form
+        :model="filters"
+        inline
+      >
         <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 120px">
-            <el-option label="待处理" value="pending" />
-            <el-option label="已处理" value="handled" />
-            <el-option label="已忽略" value="ignored" />
+          <el-select
+            v-model="filters.status"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option
+              label="待处理"
+              value="pending"
+            />
+            <el-option
+              label="已处理"
+              value="handled"
+            />
+            <el-option
+              label="已忽略"
+              value="ignored"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
-          <el-select v-model="filters.type" placeholder="全部" clearable style="width: 120px">
-            <el-option label="垃圾信息" value="spam" />
-            <el-option label="骚扰辱骂" value="harassment" />
-            <el-option label="不当内容" value="inappropriate" />
-            <el-option label="暴力内容" value="violence" />
-            <el-option label="其他" value="other" />
+          <el-select
+            v-model="filters.type"
+            placeholder="全部"
+            clearable
+            style="width: 120px"
+          >
+            <el-option
+              label="垃圾信息"
+              value="spam"
+            />
+            <el-option
+              label="骚扰辱骂"
+              value="harassment"
+            />
+            <el-option
+              label="不当内容"
+              value="inappropriate"
+            />
+            <el-option
+              label="暴力内容"
+              value="violence"
+            />
+            <el-option
+              label="其他"
+              value="other"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button
+            type="primary"
+            @click="handleSearch"
+          >
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <!-- 举报列表 -->
     <el-card shadow="never">
-      <el-table v-loading="loading" :data="reportList" stripe>
-        <el-table-column prop="id" label="ID" width="100" />
-        <el-table-column label="举报类型" width="100">
+      <el-table
+        v-loading="loading"
+        :data="reportList"
+        stripe
+      >
+        <el-table-column
+          prop="id"
+          label="ID"
+          width="100"
+        />
+        <el-table-column
+          label="举报类型"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :color="getTypeColor(row.type)" style="border:none;color:#fff">{{ getTypeLabel(row.type) }}</el-tag>
+            <el-tag
+              size="small"
+              :color="getTypeColor(row.type)"
+              style="border:none;color:#fff"
+            >
+              {{ getTypeLabel(row.type) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="举报原因" min-width="200">
-          <template #default="{ row }">{{ row.reason }}</template>
+        <el-table-column
+          label="举报原因"
+          min-width="200"
+        >
+          <template #default="{ row }">
+            {{ row.reason }}
+          </template>
         </el-table-column>
-        <el-table-column label="被举报内容" min-width="200">
+        <el-table-column
+          label="被举报内容"
+          min-width="200"
+        >
           <template #default="{ row }">
             {{ row.target_content?.substring(0, 50) }}{{ row.target_content?.length > 50 ? '...' : '' }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
+            <el-tag
+              :type="getStatusType(row.status)"
+              size="small"
+            >
               {{ getStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="举报时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column
+          prop="created_at"
+          label="举报时间"
+          width="180"
+        />
+        <el-table-column
+          label="操作"
+          width="200"
+          fixed="right"
+        >
           <template #default="{ row }">
             <template v-if="row.status === 'pending'">
-              <el-button type="success" link @click="handleReport(row, 'handled')">
+              <el-button
+                type="success"
+                link
+                @click="handleReport(row, 'handled')"
+              >
                 处理
               </el-button>
-              <el-button type="info" link @click="handleReport(row, 'ignored')">
+              <el-button
+                type="info"
+                link
+                @click="handleReport(row, 'ignored')"
+              >
                 忽略
               </el-button>
             </template>
-            <span v-else class="handled-text">已{{ getStatusLabel(row.status) }}</span>
+            <span
+              v-else
+              class="handled-text"
+            >已{{ getStatusLabel(row.status) }}</span>
           </template>
         </el-table-column>
       </el-table>

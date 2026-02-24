@@ -107,7 +107,7 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
             resp["status"] = "key_exchanged";
             callback(ResponseUtil::success(resp));
         },
-        [callback](const orm::DrogonDbException& e) {
+        [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "密钥交换失败"));
         },
         clientKey, salt, sessionId, userId
@@ -156,13 +156,13 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
                 [callback](const orm::Result&) {
                     callback(ResponseUtil::success("消息已发送"));
                 },
-                [callback](const orm::DrogonDbException& e) {
+                [callback](const orm::DrogonDbException&) {
                     callback(ResponseUtil::error(500, "发送失败"));
                 },
                 sessionId, shadowId, ciphertext, iv, tag
             );
         },
-        [callback](const orm::DrogonDbException& e) {
+        [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "验证会话权限失败"));
         },
         sessionId, userId
@@ -204,13 +204,13 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
                     }
                     callback(ResponseUtil::success(messages));
                 },
-                [callback](const orm::DrogonDbException& e) {
+                [callback](const orm::DrogonDbException&) {
                     callback(ResponseUtil::error(500, "获取消息失败"));
                 },
                 sessionId
             );
         },
-        [callback](const orm::DrogonDbException& e) {
+        [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "验证会话权限失败"));
         },
         sessionId, userId

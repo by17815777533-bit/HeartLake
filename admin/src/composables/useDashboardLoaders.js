@@ -1,9 +1,8 @@
 // @file useDashboardLoaders.js
 // @brief Dashboard 数据加载函数 composable
 import { ElMessage } from 'element-plus'
-import dayjs from 'dayjs'
 import api from '@/api'
-import { moodColors, moodNames, moodGradients } from './useChartOptions'
+import { moodNames, moodGradients } from './useChartOptions'
 
 export function useDashboardLoaders({
   stats, chartRange, moodTrendRange, trendingTopics, aiTrendingContent,

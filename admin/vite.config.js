@@ -22,6 +22,11 @@ export default defineConfig({
       '/ws': { target: 'ws://127.0.0.1:8080', ws: true, changeOrigin: true }
     }
   },
+  css: {
+    preprocessorOptions: {
+      scss: { api: 'modern-compiler' },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

@@ -8,14 +8,27 @@
   <div class="settings-page">
     <el-tabs v-model="activeTab">
       <!-- 系统配置 -->
-      <el-tab-pane label="系统配置" name="system">
+      <el-tab-pane
+        label="系统配置"
+        name="system"
+      >
         <el-card shadow="never">
-          <el-form :model="systemConfig" label-width="150px">
+          <el-form
+            :model="systemConfig"
+            label-width="150px"
+          >
             <el-form-item label="系统名称">
-              <el-input v-model="systemConfig.name" placeholder="心湖" />
+              <el-input
+                v-model="systemConfig.name"
+                placeholder="心湖"
+              />
             </el-form-item>
             <el-form-item label="系统描述">
-              <el-input v-model="systemConfig.description" type="textarea" :rows="2" />
+              <el-input
+                v-model="systemConfig.description"
+                type="textarea"
+                :rows="2"
+              />
             </el-form-item>
             <el-form-item label="开启注册">
               <el-switch v-model="systemConfig.allowRegister" />
@@ -24,7 +37,11 @@
               <el-switch v-model="systemConfig.allowAnonymous" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="saveConfig('system')" :loading="saving">
+              <el-button
+                type="primary"
+                :loading="saving"
+                @click="saveConfig('system')"
+              >
                 保存配置
               </el-button>
             </el-form-item>
@@ -33,17 +50,37 @@
       </el-tab-pane>
 
       <!-- AI配置 -->
-      <el-tab-pane label="AI配置" name="ai">
+      <el-tab-pane
+        label="AI配置"
+        name="ai"
+      >
         <el-card shadow="never">
           <!-- M-4: AI 配置添加表单验证 -->
-          <el-form ref="aiFormRef" :model="aiConfig" :rules="aiRules" label-width="150px">
-            <el-form-item label="AI服务提供商" prop="provider">
+          <el-form
+            ref="aiFormRef"
+            :model="aiConfig"
+            :rules="aiRules"
+            label-width="150px"
+          >
+            <el-form-item
+              label="AI服务提供商"
+              prop="provider"
+            >
               <el-select v-model="aiConfig.provider">
-                <el-option label="DeepSeek" value="deepseek" />
-                <el-option label="OpenAI" value="openai" />
+                <el-option
+                  label="DeepSeek"
+                  value="deepseek"
+                />
+                <el-option
+                  label="OpenAI"
+                  value="openai"
+                />
               </el-select>
             </el-form-item>
-            <el-form-item label="API Key" prop="apiKey">
+            <el-form-item
+              label="API Key"
+              prop="apiKey"
+            >
               <el-input
                 v-model="aiConfig.apiKey"
                 :type="apiKeyVisible ? 'text' : 'password'"
@@ -61,11 +98,23 @@
                 </template>
               </el-input>
             </el-form-item>
-            <el-form-item label="Base URL" prop="baseUrl">
-              <el-input v-model="aiConfig.baseUrl" placeholder="https://api.deepseek.com" />
+            <el-form-item
+              label="Base URL"
+              prop="baseUrl"
+            >
+              <el-input
+                v-model="aiConfig.baseUrl"
+                placeholder="https://api.deepseek.com"
+              />
             </el-form-item>
-            <el-form-item label="模型名称" prop="model">
-              <el-input v-model="aiConfig.model" placeholder="deepseek-chat" />
+            <el-form-item
+              label="模型名称"
+              prop="model"
+            >
+              <el-input
+                v-model="aiConfig.model"
+                placeholder="deepseek-chat"
+              />
             </el-form-item>
             <el-form-item label="开启情感分析">
               <el-switch v-model="aiConfig.enableSentiment" />
@@ -74,34 +123,84 @@
               <el-switch v-model="aiConfig.enableAutoReply" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="saveConfig('ai')" :loading="saving">
+              <el-button
+                type="primary"
+                :loading="saving"
+                @click="saveConfig('ai')"
+              >
                 保存配置
               </el-button>
-              <el-button @click="testAI" :loading="testing">测试连接</el-button>
+              <el-button
+                :loading="testing"
+                @click="testAI"
+              >
+                测试连接
+              </el-button>
             </el-form-item>
           </el-form>
         </el-card>
       </el-tab-pane>
 
       <!-- 限流配置 -->
-      <el-tab-pane label="限流配置" name="rate">
+      <el-tab-pane
+        label="限流配置"
+        name="rate"
+      >
         <el-card shadow="never">
           <!-- M-4: 限流配置添加表单验证 -->
-          <el-form ref="rateFormRef" :model="rateConfig" :rules="rateRules" label-width="180px">
-            <el-form-item label="每小时投石限制" prop="stonePerHour">
-              <el-input-number v-model="rateConfig.stonePerHour" :min="1" :max="100" />
+          <el-form
+            ref="rateFormRef"
+            :model="rateConfig"
+            :rules="rateRules"
+            label-width="180px"
+          >
+            <el-form-item
+              label="每小时投石限制"
+              prop="stonePerHour"
+            >
+              <el-input-number
+                v-model="rateConfig.stonePerHour"
+                :min="1"
+                :max="100"
+              />
             </el-form-item>
-            <el-form-item label="每小时纸船限制" prop="boatPerHour">
-              <el-input-number v-model="rateConfig.boatPerHour" :min="1" :max="100" />
+            <el-form-item
+              label="每小时纸船限制"
+              prop="boatPerHour"
+            >
+              <el-input-number
+                v-model="rateConfig.boatPerHour"
+                :min="1"
+                :max="100"
+              />
             </el-form-item>
-            <el-form-item label="每分钟消息限制" prop="messagePerMinute">
-              <el-input-number v-model="rateConfig.messagePerMinute" :min="1" :max="120" />
+            <el-form-item
+              label="每分钟消息限制"
+              prop="messagePerMinute"
+            >
+              <el-input-number
+                v-model="rateConfig.messagePerMinute"
+                :min="1"
+                :max="120"
+              />
             </el-form-item>
-            <el-form-item label="内容最大长度" prop="maxContentLength">
-              <el-input-number v-model="rateConfig.maxContentLength" :min="100" :max="5000" :step="100" />
+            <el-form-item
+              label="内容最大长度"
+              prop="maxContentLength"
+            >
+              <el-input-number
+                v-model="rateConfig.maxContentLength"
+                :min="100"
+                :max="5000"
+                :step="100"
+              />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="saveConfig('rate')" :loading="saving">
+              <el-button
+                type="primary"
+                :loading="saving"
+                @click="saveConfig('rate')"
+              >
                 保存配置
               </el-button>
             </el-form-item>
@@ -110,9 +209,15 @@
       </el-tab-pane>
 
       <!-- 广播配置 -->
-      <el-tab-pane label="广播" name="broadcast">
+      <el-tab-pane
+        label="广播"
+        name="broadcast"
+      >
         <el-card shadow="never">
-          <el-form :model="broadcastForm" label-width="120px">
+          <el-form
+            :model="broadcastForm"
+            label-width="120px"
+          >
             <el-form-item label="广播内容">
               <el-input
                 v-model="broadcastForm.message"
@@ -125,14 +230,30 @@
             </el-form-item>
             <el-form-item label="级别">
               <el-select v-model="broadcastForm.level">
-                <el-option label="信息" value="info" />
-                <el-option label="成功" value="success" />
-                <el-option label="警告" value="warning" />
-                <el-option label="错误" value="error" />
+                <el-option
+                  label="信息"
+                  value="info"
+                />
+                <el-option
+                  label="成功"
+                  value="success"
+                />
+                <el-option
+                  label="警告"
+                  value="warning"
+                />
+                <el-option
+                  label="错误"
+                  value="error"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="sendBroadcast" :loading="broadcasting">
+              <el-button
+                type="primary"
+                :loading="broadcasting"
+                @click="sendBroadcast"
+              >
                 发送广播
               </el-button>
             </el-form-item>

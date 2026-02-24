@@ -506,7 +506,7 @@ Json::Value InteractionApplicationService::getNotifications(
             "WHERE user_id = $1 "
             "ORDER BY created_at DESC "
             "LIMIT $2 OFFSET $3",
-            userId, (int64_t)pageSize, (int64_t)offset
+            userId, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
 
         Json::Value notifications(Json::arrayValue);
@@ -739,7 +739,7 @@ Json::Value InteractionApplicationService::getBoats(
             "LEFT JOIN users u ON pb.sender_id = u.user_id "
             "WHERE pb.stone_id = $1 "
             "ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3",
-            stoneId, (int64_t)pageSize, offset
+            stoneId, static_cast<int64_t>(pageSize), offset
         );
         Json::Value boats(Json::arrayValue);
         for (const auto& row : result) {
