@@ -30,3 +30,5 @@ CREATE TABLE IF NOT EXISTS consultation_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_consultation_messages_session ON consultation_messages(session_id);
+
+COMMIT;

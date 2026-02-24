@@ -179,3 +179,5 @@ CREATE TABLE IF NOT EXISTS vector_index_metadata (
     last_rebuilt_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+COMMIT;

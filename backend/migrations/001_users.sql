@@ -39,3 +39,5 @@ CREATE TABLE IF NOT EXISTS user_similarity (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_similarity_score ON user_similarity(user1_id, similarity_score DESC);
+
+COMMIT;

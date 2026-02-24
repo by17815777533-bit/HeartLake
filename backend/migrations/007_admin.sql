@@ -37,3 +37,5 @@ CREATE TABLE IF NOT EXISTS operation_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_operation_logs_admin ON operation_logs(admin_id, created_at DESC);
+
+COMMIT;

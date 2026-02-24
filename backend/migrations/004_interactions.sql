@@ -62,3 +62,5 @@ CREATE TABLE IF NOT EXISTS connection_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_connection_messages_conn ON connection_messages(connection_id);
+
+COMMIT;

@@ -23,6 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 记录哪些 Tab 曾经被访问过，按需创建页面
   final Set<int> _initializedTabs = {0};
+  // 缓存已创建的 Tab 页面，避免重复创建
+  final Map<int, Widget> _cachedTabs = {};
 
   void _onTabTapped(int index) {
     // 切换到观湖页面时，刷新石头列表
@@ -37,28 +39,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTab(int index) {
-    switch (index) {
-      case 0:
-        return LakeScreen(key: _lakeScreenKey);
-      case 1:
-        return const DiscoverScreen();
-      case 2:
-        return PublishScreen(
-          onPublished: () {
-            if (!mounted) return;
-            setState(() {
-              _selectedIndex = 0;
-            });
-            _lakeScreenKey.currentState?.refreshStones();
-          },
-        );
-      case 3:
-        return const FriendsScreen();
-      case 4:
-        return const ProfileScreen();
-      default:
-        return const SizedBox.shrink();
-    }
+    return _cachedTabs.putIfAbsent(index, () {
+      switch (index) {
+        case 0:
+          return LakeScreen(key: _lakeScreenKey);
+        case 1:
+          return const DiscoverScreen();
+        case 2:
+          return PublishScreen(
+            onPublished: () {
+              if (!mounted) return;
+              setState(() {
+                _selectedIndex = 0;
+              });
+              _lakeScreenKey.currentState?.refreshStones();
+            },
+          );
+        case 3:
+          return const FriendsScreen();
+        case 4:
+          return const ProfileScreen();
+        default:
+          return const SizedBox.shrink();
+      }
+    });
   }
 
   @override

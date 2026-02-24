@@ -45,3 +45,5 @@ CREATE TABLE IF NOT EXISTS friend_messages (
 
 CREATE INDEX IF NOT EXISTS idx_friend_messages_sender ON friend_messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_friend_messages_receiver ON friend_messages(receiver_id);
+
+COMMIT;

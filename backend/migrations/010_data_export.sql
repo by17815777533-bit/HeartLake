@@ -17,3 +17,5 @@ CREATE TABLE IF NOT EXISTS data_export_tasks (
 
 CREATE INDEX IF NOT EXISTS idx_export_tasks_user ON data_export_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_export_tasks_status ON data_export_tasks(status);
+
+COMMIT;

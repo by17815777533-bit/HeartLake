@@ -55,3 +55,5 @@ CREATE TABLE IF NOT EXISTS vip_upgrade_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_vip_upgrade_logs_user ON vip_upgrade_logs(user_id);
+
+COMMIT;

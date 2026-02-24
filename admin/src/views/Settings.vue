@@ -46,11 +46,20 @@
             <el-form-item label="API Key" prop="apiKey">
               <el-input
                 v-model="aiConfig.apiKey"
-                type="password"
-                show-password
+                :type="apiKeyVisible ? 'text' : 'password'"
                 placeholder="sk-..."
                 @focus="onApiKeyFocus"
-              />
+              >
+                <template #suffix>
+                  <el-icon
+                    style="cursor: pointer"
+                    @click="apiKeyVisible = !apiKeyVisible"
+                  >
+                    <View v-if="apiKeyVisible" />
+                    <Hide v-else />
+                  </el-icon>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item label="Base URL" prop="baseUrl">
               <el-input v-model="aiConfig.baseUrl" placeholder="https://api.deepseek.com" />
@@ -137,6 +146,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Hide } from '@element-plus/icons-vue'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 
@@ -147,6 +157,7 @@ const broadcasting = ref(false)
 const aiFormRef = ref(null)
 const rateFormRef = ref(null)
 const apiKeyEdited = ref(false)
+const apiKeyVisible = ref(false)
 
 // API Key 脱敏：前4 + **** + 后4
 function maskApiKey(key) {
@@ -177,6 +188,7 @@ const onApiKeyFocus = () => {
   if (!apiKeyEdited.value) {
     aiConfig.apiKey = ''
     apiKeyEdited.value = true
+    apiKeyVisible.value = true
   }
 }
 
@@ -238,6 +250,7 @@ const loadConfig = async () => {
       aiConfig.provider = ai.provider ?? 'deepseek'
       aiConfig.apiKey = maskApiKey(ai.api_key ?? ai.apiKey ?? '')
       apiKeyEdited.value = false
+      apiKeyVisible.value = false
       aiConfig.baseUrl = ai.base_url ?? ai.baseUrl ?? 'https://api.deepseek.com'
       aiConfig.model = ai.model ?? 'deepseek-chat'
       aiConfig.enableSentiment = ai.enable_sentiment ?? ai.enableSentiment ?? true

@@ -4,6 +4,7 @@
 -- 1) 修复代码与数据库表结构漂移，避免运行期SQL异常
 -- 2) 为高频/慢查询添加复合索引与部分索引
 -- 3) 在不破坏现有API的前提下提升低配服务器可用性
+BEGIN;
 
 -- =========================
 -- 通知表兼容性修复
@@ -79,3 +80,5 @@ CREATE INDEX IF NOT EXISTS idx_vip_upgrade_logs_reason_prefix_created
 
 CREATE INDEX IF NOT EXISTS idx_vip_upgrade_logs_created_user
     ON vip_upgrade_logs(created_at DESC, user_id);
+
+COMMIT;

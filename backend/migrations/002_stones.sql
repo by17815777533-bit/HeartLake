@@ -43,3 +43,5 @@ CREATE TABLE IF NOT EXISTS stone_embeddings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stone_embeddings_created ON stone_embeddings(created_at);
+
+COMMIT;
