@@ -1599,7 +1599,11 @@ void EdgeAIEngine::buildModerationAC() {
     moderationAC_.addPattern("beat you up", 2, 2);
     moderationAC_.addPattern("violence", 2, 2);
     moderationAC_.addPattern("attack", 2, 1);
-    moderationAC_.addPattern("杀", 2, 2);
+    moderationAC_.addPattern("杀人", 2, 3);
+    moderationAC_.addPattern("杀了", 2, 2);
+    moderationAC_.addPattern("杀掉", 2, 2);
+    moderationAC_.addPattern("想杀", 2, 3);
+    moderationAC_.addPattern("去杀", 2, 3);
     moderationAC_.addPattern("打死", 2, 3);
     moderationAC_.addPattern("暴力", 2, 2);
     moderationAC_.addPattern("殴打", 2, 2);
@@ -1618,7 +1622,9 @@ void EdgeAIEngine::buildModerationAC() {
     moderationAC_.addPattern("idiot", 0, 1);
     moderationAC_.addPattern("stupid", 0, 1);
     moderationAC_.addPattern("傻逼", 0, 2);
-    moderationAC_.addPattern("操", 0, 2);
+    moderationAC_.addPattern("操你", 0, 2);
+    moderationAC_.addPattern("我操", 0, 2);
+    moderationAC_.addPattern("操他", 0, 2);
     moderationAC_.addPattern("垃圾", 0, 1);
     moderationAC_.addPattern("白痴", 0, 1);
 
