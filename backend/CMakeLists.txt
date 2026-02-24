@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
+cmake_policy(SET CMP0144 NEW)
 project(HeartLake CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -53,4 +54,14 @@ endif()
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     -Wl,--whole-archive ${PROJECT_NAME}_lib -Wl,--no-whole-archive
+)
+
+# Compiler warning flags
+target_compile_options(${PROJECT_NAME}_lib PRIVATE
+    -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+    -Wunused-parameter -Wfloat-conversion
+)
+target_compile_options(${PROJECT_NAME} PRIVATE
+    -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+    -Wunused-parameter -Wfloat-conversion
 )

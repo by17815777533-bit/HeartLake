@@ -235,8 +235,8 @@ std::vector<float> AdvancedEmbeddingEngine::extractStatisticalFeatures(
     }
 
     // 文本长度特征
-    features[0] = std::log1p(tokens.size()) / 10.0f;
-    features[1] = std::log1p(text.length()) / 100.0f;
+    features[0] = static_cast<float>(std::log1p(tokens.size())) / 10.0f;
+    features[1] = static_cast<float>(std::log1p(text.length())) / 100.0f;
 
     // 词汇多样性
     std::unordered_set<std::string> uniqueWords(tokens.begin(), tokens.end());

@@ -234,10 +234,10 @@ void RecommendationEngine::updateLatentFactors(
     double regularization
 ) {
     for (size_t i = 0; i < userFactors.size(); ++i) {
-        float userGrad = error * itemFactors[i] - regularization * userFactors[i];
-        float itemGrad = error * userFactors[i] - regularization * itemFactors[i];
-        userFactors[i] += learningRate * userGrad;
-        itemFactors[i] += learningRate * itemGrad;
+        float userGrad = static_cast<float>(error * itemFactors[i] - regularization * userFactors[i]);
+        float itemGrad = static_cast<float>(error * userFactors[i] - regularization * itemFactors[i]);
+        userFactors[i] += static_cast<float>(learningRate * userGrad);
+        itemFactors[i] += static_cast<float>(learningRate * itemGrad);
     }
 }
 
@@ -378,7 +378,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "AND s.status = 'published' AND s.deleted_at IS NULL "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
-        userId, (int64_t)topK
+        userId, static_cast<int64_t>(topK)
     );
 
     for (const auto& row : rows) {
@@ -420,7 +420,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
         "LIMIT $3",
-        userId, userMood, (int64_t)topK
+        userId, userMood, static_cast<int64_t>(topK)
     );
 
     for (const auto& row : rows) {
@@ -527,7 +527,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             "AND s.created_at >= NOW() - INTERVAL '21 days' "
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY s.created_at DESC LIMIT $2",
-            userId, (int64_t)exploreCandidateWindow);
+            userId, static_cast<int64_t>(exploreCandidateWindow));
 
         std::vector<drogon::orm::Row> shuffledRows;
         shuffledRows.reserve(exploreRows.size());
