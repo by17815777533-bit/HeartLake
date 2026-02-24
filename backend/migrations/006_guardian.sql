@@ -1,4 +1,5 @@
 -- 006: 守望者系统（情绪追踪、共鸣积分、明灯传递、干预日志）
+-- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
 
 -- 情绪追踪表
 CREATE TABLE IF NOT EXISTS emotion_tracking (

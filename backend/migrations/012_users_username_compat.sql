@@ -1,4 +1,5 @@
 -- 012: users 表兼容列补齐
+-- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
 -- 目标：
 -- 1) 补齐 username 列，兼容历史代码中对 users.username 的查询
 -- 2) 补齐 recovery_key_hash 列，兼容关键词恢复流程

@@ -1,4 +1,5 @@
 -- 008: 通知系统
+-- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
 
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,

@@ -1,4 +1,5 @@
 -- 009: 心理咨询E2EE加密会话
+-- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
 
 -- 咨询会话表
 CREATE TABLE IF NOT EXISTS consultation_sessions (

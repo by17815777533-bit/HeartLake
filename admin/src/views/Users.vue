@@ -170,6 +170,8 @@ const fetchUsers = async () => {
   }
 }
 
+const { pagination, handleSizeChange, handleCurrentChange, resetPage } = usePagination(fetchUsers)
+
 // 搜索（带输入校验）
 const handleSearch = () => {
   // 清理输入：去除首尾空格
@@ -184,7 +186,7 @@ const handleSearch = () => {
     ElMessage.warning('昵称过长，请检查输入')
     return
   }
-  pagination.page = 1
+  resetPage()
   fetchUsers()
 }
 
@@ -193,7 +195,7 @@ const handleReset = () => {
   filters.userId = ''
   filters.nickname = ''
   filters.status = ''
-  pagination.page = 1
+  resetPage()
   fetchUsers()
 }
 
@@ -244,17 +246,6 @@ const handleUnban = async (row) => {
     // H-3: 使用统一错误处理
     ElMessage.error(getErrorMessage(e, '解封失败'))
   }
-}
-
-// 分页
-const handleSizeChange = (size) => {
-  pagination.pageSize = size
-  fetchUsers()
-}
-
-const handleCurrentChange = (page) => {
-  pagination.page = page
-  fetchUsers()
 }
 
 onMounted(() => {

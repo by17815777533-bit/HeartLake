@@ -1,4 +1,5 @@
 -- 004: 互动系统（涟漪、纸船、临时连接）
+-- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
 
 -- 涟漪表（类似点赞）
 CREATE TABLE IF NOT EXISTS ripples (
