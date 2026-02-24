@@ -213,7 +213,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                   child: Column(
                     children: [
                       _buildSwitch(
-                        icon: Icons.circle, iconColor: Colors.green,
+                        icon: Icons.circle, iconColor: isDark ? Colors.greenAccent : Colors.green,
                         title: '显示在线状态', subtitle: '其他用户可以看到你是否在线',
                         value: _showOnlineStatus,
                         onChanged: (v) { setState(() => _showOnlineStatus = v); _saveSettings(); },
@@ -276,7 +276,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.pause_circle_outline, color: Colors.orange),
+                        leading: Icon(Icons.pause_circle_outline, color: isDark ? Colors.orangeAccent : Colors.orange),
                         title: const Text('停用账号'),
                         subtitle: const Text('暂时隐藏你的资料，30 天内可恢复'),
                         trailing: const Icon(Icons.chevron_right),
