@@ -4,7 +4,7 @@
 
 library;
 import 'package:flutter/material.dart';
-import '../../data/datasources/recommendation_service.dart';
+import '../../domain/entities/recommended_stone.dart';
 import '../../domain/entities/stone.dart';
 import 'stone_card.dart';
 

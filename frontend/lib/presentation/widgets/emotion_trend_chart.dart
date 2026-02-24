@@ -5,7 +5,7 @@
 library;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../data/datasources/recommendation_service.dart';
+import '../../domain/entities/emotion_trend_point.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import 'package:intl/intl.dart';
