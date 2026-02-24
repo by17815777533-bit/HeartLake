@@ -43,32 +43,32 @@ void VectorSearchController::getSimilarStones(
                     "LEFT JOIN users u ON s.user_id = u.user_id "
                     "WHERE s.status = 'published' AND s.deleted_at IS NULL AND s.stone_id != $1 "
                     "ORDER BY RANDOM() LIMIT 5",
-                    [callback](const drogon::orm::Result &r) {
+                    [callback](const drogon::orm::Result &res) {
                         Json::Value resp;
                         resp["code"] = 0;
                         resp["message"] = "成功";
-                        
+
                         Json::Value data;
                         Json::Value stones = Json::arrayValue;
-                        
-                        for (const auto& row : r) {
+
+                        for (const auto& dbRow : res) {
                             Json::Value stone;
-                            stone["stone_id"] = row["stone_id"].as<std::string>();
-                            stone["content"] = row["content"].as<std::string>();
-                            stone["mood"] = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
-                            stone["ripple_count"] = row["ripple_count"].as<int>();
-                            stone["boat_count"] = row["boat_count"].as<int>();
-                            stone["created_at"] = row["created_at"].as<std::string>();
-                            stone["nickname"] = row["nickname"].isNull() ? "" : row["nickname"].as<std::string>();
+                            stone["stone_id"] = dbRow["stone_id"].as<std::string>();
+                            stone["content"] = dbRow["content"].as<std::string>();
+                            stone["mood"] = dbRow["mood_type"].isNull() ? "neutral" : dbRow["mood_type"].as<std::string>();
+                            stone["ripple_count"] = dbRow["ripple_count"].as<int>();
+                            stone["boat_count"] = dbRow["boat_count"].as<int>();
+                            stone["created_at"] = dbRow["created_at"].as<std::string>();
+                            stone["nickname"] = dbRow["nickname"].isNull() ? "" : dbRow["nickname"].as<std::string>();
                             stone["similarity"] = 0.0;
                             stones.append(stone);
                         }
-                        
+
                         data["stones"] = stones;
-                        data["total"] = (int)stones.size();
+                        data["total"] = static_cast<int>(stones.size());
                         data["method"] = "random";
                         resp["data"] = data;
-                        
+
                         auto httpResp = HttpResponse::newHttpJsonResponse(resp);
                         callback(httpResp);
                     },
@@ -85,7 +85,7 @@ void VectorSearchController::getSimilarStones(
                 );
                 return;
             }
-            
+
             // 使用向量搜索查找相似石头
             dbClient->execSqlAsync(
                 "SELECT s.stone_id, s.content, s.mood_type, s.ripple_count, s.boat_count, "
@@ -97,26 +97,26 @@ void VectorSearchController::getSimilarStones(
                 "AND s.embedding IS NOT NULL "
                 "ORDER BY s.embedding <=> (SELECT embedding FROM stones WHERE stone_id = $1) "
                 "LIMIT 10",
-                [callback](const drogon::orm::Result &r) {
+                [callback](const drogon::orm::Result &res) {
                     Json::Value resp;
                     resp["code"] = 0;
                     resp["message"] = "成功";
-                    
+
                     Json::Value data;
                     Json::Value stones = Json::arrayValue;
-                    
-                    for (const auto& row : r) {
+
+                    for (const auto& dbRow : res) {
                         Json::Value stone;
-                        stone["stone_id"] = row["stone_id"].as<std::string>();
-                        stone["content"] = row["content"].as<std::string>();
-                        stone["mood"] = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
-                        stone["ripple_count"] = row["ripple_count"].as<int>();
-                        stone["boat_count"] = row["boat_count"].as<int>();
-                        stone["created_at"] = row["created_at"].as<std::string>();
-                        stone["nickname"] = row["nickname"].isNull() ? "" : row["nickname"].as<std::string>();
-                        
-                        if (!row["similarity"].isNull()) {
-                            stone["similarity"] = row["similarity"].as<float>();
+                        stone["stone_id"] = dbRow["stone_id"].as<std::string>();
+                        stone["content"] = dbRow["content"].as<std::string>();
+                        stone["mood"] = dbRow["mood_type"].isNull() ? "neutral" : dbRow["mood_type"].as<std::string>();
+                        stone["ripple_count"] = dbRow["ripple_count"].as<int>();
+                        stone["boat_count"] = dbRow["boat_count"].as<int>();
+                        stone["created_at"] = dbRow["created_at"].as<std::string>();
+                        stone["nickname"] = dbRow["nickname"].isNull() ? "" : dbRow["nickname"].as<std::string>();
+
+                        if (!dbRow["similarity"].isNull()) {
+                            stone["similarity"] = dbRow["similarity"].as<float>();
                         } else {
                             stone["similarity"] = 0.0f;
                         }
@@ -125,7 +125,7 @@ void VectorSearchController::getSimilarStones(
                     }
                     
                     data["stones"] = stones;
-                    data["total"] = (int)stones.size();
+                    data["total"] = static_cast<int>(stones.size());
                     data["method"] = "vector_search";
                     resp["data"] = data;
                     
@@ -207,7 +207,7 @@ void VectorSearchController::getPersonalizedRecommendations(
             }
             
             data["stones"] = stones;
-            data["total"] = (int)stones.size();
+            data["total"] = static_cast<int>(stones.size());
             resp["data"] = data;
             
             auto httpResp = HttpResponse::newHttpJsonResponse(resp);

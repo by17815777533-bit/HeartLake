@@ -38,15 +38,6 @@ static std::string extractUserId(const HttpRequestPtr& req) {
     }
 }
 
-// 辅助函数：提取 user_id 并在为空时抛异常（兼容原有调用方式）
-static std::string extractUserIdOrThrow(const HttpRequestPtr& req) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
-        throw std::runtime_error("未登录");
-    }
-    return userId;
-}
-
 // ==================== 安全辅助函数 ====================
 
 // SEC-HTML: 对输出字符串进行 HTML 实体转义，防止 XSS

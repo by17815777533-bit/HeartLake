@@ -172,12 +172,12 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
                     db->execSqlAsync(
                         "SELECT admin_id FROM admins WHERE is_active = true AND role IN ('admin', 'moderator')",
                         [user_id, boat_id](const drogon::orm::Result& r) {
-                            auto& pushService = heartlake::services::NotificationPushService::getInstance();
+                            auto& pushSvc = heartlake::services::NotificationPushService::getInstance();
                             for (const auto& row : r) {
                                 std::string adminId = row["admin_id"].as<std::string>();
                                 std::string message = "用户 " + user_id + " 回复的纸船（ID: " + boat_id +
                                                     "）检测到危机级别心理风险，请及时关注。";
-                                pushService.pushSystemNotice(adminId, "⚠️ 危机预警", message);
+                                pushSvc.pushSystemNotice(adminId, "⚠️ 危机预警", message);
                             }
                         },
                         [](const drogon::orm::DrogonDbException& e) {

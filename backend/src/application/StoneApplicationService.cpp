@@ -437,10 +437,10 @@ void StoneApplicationService::processStoneAsync(
                 db->execSqlAsync(
                     "SELECT admin_id FROM admins WHERE is_active = true AND role IN ('admin', 'moderator')",
                     [userId, stoneId](const drogon::orm::Result& r) {
-                        auto& pushService = heartlake::services::NotificationPushService::getInstance();
+                        auto& pushSvc = heartlake::services::NotificationPushService::getInstance();
                         for (const auto& row : r) {
                             std::string adminId = row["admin_id"].as<std::string>();
-                            pushService.pushSystemNotice(adminId, "⚠️ 危机预警",
+                            pushSvc.pushSystemNotice(adminId, "⚠️ 危机预警",
                                 "用户 " + userId + " 发布的石头（ID: " + stoneId + "）检测到危机级别心理风险，请及时关注。");
                         }
                     },

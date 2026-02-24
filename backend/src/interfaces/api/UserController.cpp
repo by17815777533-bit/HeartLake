@@ -655,8 +655,8 @@ void UserController::getEmotionCalendar(
 
     if (month.empty()) {
       auto now = std::chrono::system_clock::now();
-      auto time_t = std::chrono::system_clock::to_time_t(now);
-      std::tm tm = *std::localtime(&time_t);
+      auto expiryTime = std::chrono::system_clock::to_time_t(now);
+      std::tm tm = *std::localtime(&expiryTime);
       char buf[8];
       std::strftime(buf, sizeof(buf), "%Y-%m", &tm);
       month = buf;
