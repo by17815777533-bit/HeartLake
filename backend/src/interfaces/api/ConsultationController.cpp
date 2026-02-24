@@ -24,7 +24,7 @@ namespace {
         std::ostringstream oss;
         oss << "sess_";
         for (int i = 0; i < 16; ++i)
-            oss << std::hex << std::setw(2) << std::setfill('0') << (int)bytes[i];
+            oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]);
         return oss.str();
     }
 }
@@ -62,7 +62,7 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
             resp["server_public_key"] = serverKey;
             callback(ResponseUtil::success(resp));
         },
-        [callback](const orm::DrogonDbException& e) {
+        [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "创建会话失败"));
         },
         sessionId, userId, counselorId, serverKey
@@ -191,9 +191,9 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
             db->execSqlAsync(
                 "SELECT sender_shadow_id, ciphertext, iv, tag, created_at FROM consultation_messages "
                 "WHERE session_id = $1 ORDER BY created_at ASC LIMIT 500",
-                [callback](const orm::Result& r) {
+                [callback](const orm::Result& dbResult) {
                     Json::Value messages(Json::arrayValue);
-                    for (const auto& row : r) {
+                    for (const auto& row : dbResult) {
                         Json::Value msg;
                         msg["sender"] = row["sender_shadow_id"].as<std::string>();
                         msg["encrypted"]["ciphertext"] = row["ciphertext"].as<std::string>();
@@ -246,7 +246,7 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
             data["total"] = static_cast<int>(r.size());
             callback(ResponseUtil::success(data));
         },
-        [callback](const orm::DrogonDbException& e) {
+        [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "获取会话列表失败"));
         },
         userId

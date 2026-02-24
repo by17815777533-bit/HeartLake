@@ -328,7 +328,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
-        userId, (int64_t)topK
+        userId, static_cast<int64_t>(topK)
     );
 
     for (const auto& row : rows) {

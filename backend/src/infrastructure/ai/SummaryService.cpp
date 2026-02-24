@@ -15,7 +15,7 @@ SummaryService& SummaryService::getInstance() {
     return instance;
 }
 
-void SummaryService::initialize(const Json::Value& config) {
+void SummaryService::initialize(const Json::Value& /*config*/) {
     initialized_ = true;
     LOG_INFO << "SummaryService initialized";
 }

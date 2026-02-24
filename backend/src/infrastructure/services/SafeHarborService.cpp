@@ -104,7 +104,7 @@ Json::Value SafeHarborService::getUserAccessHistory(const std::string& userId) c
     return result;
 }
 
-Json::Value SafeHarborService::recommendByEmotion(const std::string& userId, const std::string& emotion) const {
+Json::Value SafeHarborService::recommendByEmotion(const std::string& /*userId*/, const std::string& /*emotion*/) const {
     Json::Value result(Json::arrayValue);
     result.append(getSelfHelpTools()[0]);
     return result;

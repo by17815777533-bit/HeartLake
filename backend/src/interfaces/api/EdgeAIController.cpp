@@ -114,7 +114,7 @@ ConfidenceCalibration calibrateConfidence(float score, float confidence, size_t 
 // ==================== 公开接口处理函数 ====================
 
 void EdgeAIController::getStatus(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -145,7 +145,7 @@ void EdgeAIController::getStatus(
 }
 
 void EdgeAIController::getMetrics(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -290,7 +290,7 @@ void EdgeAIController::moderateLocal(
 // ==================== 社区情绪脉搏 ====================
 
 void EdgeAIController::getEmotionPulse(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -385,7 +385,7 @@ void EdgeAIController::federatedAggregate(
 // ==================== 差分隐私预算 ====================
 
 void EdgeAIController::getPrivacyBudget(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -532,7 +532,7 @@ void EdgeAIController::vectorSearch(
 // ==================== 管理员获取配置 ====================
 
 void EdgeAIController::getAdminConfig(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -991,7 +991,7 @@ void EdgeAIController::submitLocalModel(
 }
 
 void EdgeAIController::resetPrivacyBudget(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -1082,7 +1082,7 @@ void EdgeAIController::updateNodeStatus(
 }
 
 void EdgeAIController::selectBestNode(
-    const HttpRequestPtr &req,
+    const HttpRequestPtr & /*req*/,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();

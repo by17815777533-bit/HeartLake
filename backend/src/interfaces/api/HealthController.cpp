@@ -69,7 +69,7 @@ void HealthController::healthDetailed(
     auto dbClient = drogon::app().getDbClient("default");
     dbClient->execSqlAsync(
         "SELECT 1",
-        [result, callbackPtr](const drogon::orm::Result &r) {
+        [result, callbackPtr](const drogon::orm::Result &) {
           // 数据库正常
           (*result)["db_status"] = "ok";
 
@@ -77,7 +77,7 @@ void HealthController::healthDetailed(
           try {
             auto redisClient = drogon::app().getRedisClient("default");
             redisClient->execCommandAsync(
-                [result, callbackPtr](const drogon::nosql::RedisResult &r) {
+                [result, callbackPtr](const drogon::nosql::RedisResult &) {
                   // Redis 正常
                   (*result)["redis_status"] = "ok";
 
@@ -85,7 +85,7 @@ void HealthController::healthDetailed(
                   resp->setStatusCode(k200OK);
                   (*callbackPtr)(resp);
                 },
-                [result, callbackPtr](const std::exception &err) {
+                [result, callbackPtr](const std::exception &) {
                   // Redis 异常
                   (*result)["redis_status"] = "error";
                   (*result)["redis_error"] = "connection_failed";
@@ -117,14 +117,14 @@ void HealthController::healthDetailed(
           try {
             auto redisClient = drogon::app().getRedisClient("default");
             redisClient->execCommandAsync(
-                [result, callbackPtr](const drogon::nosql::RedisResult &r) {
+                [result, callbackPtr](const drogon::nosql::RedisResult &) {
                   (*result)["redis_status"] = "ok";
 
                   auto resp = HttpResponse::newHttpJsonResponse(*result);
                   resp->setStatusCode(k200OK);
                   (*callbackPtr)(resp);
                 },
-                [result, callbackPtr](const std::exception &err) {
+                [result, callbackPtr](const std::exception &) {
                   (*result)["redis_status"] = "error";
                   (*result)["redis_error"] = "connection_failed";
 
@@ -152,14 +152,14 @@ void HealthController::healthDetailed(
     try {
       auto redisClient = drogon::app().getRedisClient("default");
       redisClient->execCommandAsync(
-          [result, callbackPtr](const drogon::nosql::RedisResult &r) {
+          [result, callbackPtr](const drogon::nosql::RedisResult &) {
             (*result)["redis_status"] = "ok";
 
             auto resp = HttpResponse::newHttpJsonResponse(*result);
             resp->setStatusCode(k200OK);
             (*callbackPtr)(resp);
           },
-          [result, callbackPtr](const std::exception &err) {
+          [result, callbackPtr](const std::exception &) {
             (*result)["redis_status"] = "error";
             (*result)["redis_error"] = "connection_failed";
 
