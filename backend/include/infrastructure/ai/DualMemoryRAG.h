@@ -15,7 +15,7 @@
 #include <vector>
 #include <json/json.h>
 #include <drogon/drogon.h>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace heartlake::ai {
@@ -100,7 +100,7 @@ public:
 private:
     DualMemoryRAG() = default;
     std::unordered_map<std::string, EmotionMemory> memories_;
-    mutable std::mutex mutex_;
+    mutable std::shared_mutex mutex_;  // 读多写少，用共享锁提升并发
 
     static constexpr int MAX_SHORT_TERM = 5;
 

@@ -10,16 +10,282 @@
 
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/ai/AIService.h"
+#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "utils/IdentityShadowMap.h"
 #include <drogon/drogon.h>
+#include <shared_mutex>
 #include <sstream>
 #include <cmath>
 #include <numeric>
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <vector>
+#include <cctype>
+#include <memory>
 
 namespace heartlake::ai {
+
+namespace {
+
+float cosineSimilarity(const std::vector<float>& a, const std::vector<float>& b) {
+    if (a.empty() || b.empty() || a.size() != b.size()) {
+        return 0.0f;
+    }
+
+    double dot = 0.0;
+    double na = 0.0;
+    double nb = 0.0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        dot += static_cast<double>(a[i]) * static_cast<double>(b[i]);
+        na += static_cast<double>(a[i]) * static_cast<double>(a[i]);
+        nb += static_cast<double>(b[i]) * static_cast<double>(b[i]);
+    }
+    if (na <= 1e-9 || nb <= 1e-9) {
+        return 0.0f;
+    }
+    return static_cast<float>(dot / (std::sqrt(na) * std::sqrt(nb)));
+}
+
+double lexicalHint(const std::string& current, const std::string& history) {
+    if (current.empty() || history.empty()) {
+        return 0.0;
+    }
+    const size_t probeLen = std::min<size_t>(8, std::min(current.size(), history.size()));
+    if (probeLen < 4) {
+        return 0.0;
+    }
+    const std::string probe = history.substr(0, probeLen);
+    return current.find(probe) != std::string::npos ? 0.2 : 0.0;
+}
+
+std::vector<size_t> selectRelevantShortTermEntries(
+    const std::vector<EmotionMemory::ShortTermEntry>& entries,
+    const std::string& currentContent,
+    const std::string& currentEmotion
+) {
+    if (entries.empty()) {
+        return {};
+    }
+
+    std::vector<float> currentEmbedding;
+    bool embeddingReady = false;
+    try {
+        currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
+        embeddingReady = !currentEmbedding.empty();
+    } catch (...) {
+        embeddingReady = false;
+    }
+
+    struct ScoredEntry {
+        size_t index;
+        double score;
+    };
+    std::vector<ScoredEntry> scored;
+    scored.reserve(entries.size());
+
+    const auto n = entries.size();
+    for (size_t i = 0; i < n; ++i) {
+        const auto& entry = entries[i];
+        if (entry.content.empty() || entry.content == currentContent) {
+            continue;
+        }
+
+        // recency: 越新越高（0~0.6）
+        const double recencyScore = static_cast<double>(i + 1) / static_cast<double>(n);
+        double total = recencyScore * 0.6;
+
+        // 情绪一致性加权
+        if (!currentEmotion.empty() && entry.emotion == currentEmotion) {
+            total += 0.45;
+        }
+
+        // 轻量词面提示
+        total += lexicalHint(currentContent, entry.content);
+
+        // 语义相关度加权（0~1.2）
+        if (embeddingReady) {
+            try {
+                auto histEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(entry.content);
+                const float semantic = cosineSimilarity(currentEmbedding, histEmbedding);
+                if (semantic > 0.0f) {
+                    total += static_cast<double>(semantic) * 1.2;
+                }
+            } catch (...) {
+                // 忽略语义失败，保持轻量回退
+            }
+        }
+
+        scored.push_back({i, total});
+    }
+
+    if (scored.empty()) {
+        return {};
+    }
+
+    std::sort(scored.begin(), scored.end(),
+              [](const ScoredEntry& a, const ScoredEntry& b) {
+                  return a.score > b.score;
+              });
+
+    const size_t keep = std::min<size_t>(3, scored.size());
+    std::vector<size_t> picked;
+    picked.reserve(keep);
+    for (size_t i = 0; i < keep; ++i) {
+        picked.push_back(scored[i].index);
+    }
+
+    std::sort(picked.begin(), picked.end());
+    return picked;
+}
+
+size_t stableBucket(const std::string& userId,
+                    const std::string& content,
+                    const std::string& salt,
+                    size_t modulo) {
+    if (modulo == 0) return 0;
+    std::hash<std::string> hasher;
+    return hasher(userId + "|" + salt + "|" + content) % modulo;
+}
+
+std::string contentHint(const std::string& content) {
+    if (content.empty()) return "";
+    std::string hint = content.substr(0, std::min<size_t>(18, content.size()));
+    for (char& c : hint) {
+        if (c == '\n' || c == '\r' || c == '\t') {
+            c = ' ';
+        }
+    }
+    return hint;
+}
+
+bool isGenericTemplateReply(const std::string& text) {
+    auto normalize = [](const std::string& raw) {
+        std::string out;
+        out.reserve(raw.size());
+        for (unsigned char ch : raw) {
+            if (std::isspace(ch)) {
+                continue;
+            }
+            if (ch == ',' || ch == '.' || ch == '!' || ch == '?' ||
+                ch == ';' || ch == ':' || ch == '"' || ch == '\'') {
+                continue;
+            }
+            out.push_back(static_cast<char>(std::tolower(ch)));
+        }
+        return out;
+    };
+
+    static const std::vector<std::string> templates = {
+        "我感受到了你此刻的心情",
+        "我感受到你此刻的心情",
+        "无论如何，你并不孤单",
+        "无论如何你并不孤单",
+        "我理解你的感受，有什么想聊的吗",
+        "我理解你的感受有什么想聊的吗",
+        "我现在有点忙，稍后再聊好吗"
+    };
+    const std::string normalized = normalize(text);
+    for (const auto& t : templates) {
+        const auto normalizedTemplate = normalize(t);
+        if (!normalizedTemplate.empty() &&
+            normalized.find(normalizedTemplate) != std::string::npos) {
+            return true;
+        }
+    }
+    if (text.size() < 36 &&
+        (text.find("理解你的感受") != std::string::npos ||
+         text.find("并不孤单") != std::string::npos ||
+         text.find("想聊的吗") != std::string::npos)) {
+        return true;
+    }
+    return false;
+}
+
+std::string buildLocalCompanionReply(
+    const EmotionMemory::LongTermProfile& profile,
+    const std::string& userId,
+    const std::string& content,
+    const std::string& emotion,
+    float score
+) {
+    const bool isLowMood = score < -0.35f || emotion == "sad" || emotion == "anxious" || emotion == "lonely";
+    const bool isHighMood = score > 0.35f || emotion == "happy" || emotion == "grateful" || emotion == "hopeful";
+
+    std::vector<std::string> empathy;
+    if (isLowMood) {
+        empathy = {
+            "这段心情我认真看到了，先抱抱你。",
+            "你愿意把这些说出来，本身就很不容易。",
+            "看到你的描述，我能感到你正在扛着不小的压力。"
+        };
+    } else if (isHighMood) {
+        empathy = {
+            "从你的表达里能感觉到一些亮光，这很珍贵。",
+            "你现在的状态比前段时间更有力量了。",
+            "这种积极感受值得被好好记住。"
+        };
+    } else {
+        empathy = {
+            "谢谢你把这段感受交给我。",
+            "你说得很真诚，我在认真听。",
+            "你的心情变化我记下了。"
+        };
+    }
+
+    std::vector<std::string> trendCare;
+    if (profile.emotionTrend == "falling") {
+        trendCare = {
+            "最近状态有些下滑，我们先把节奏放慢一点。",
+            "这几天波动偏低，先把目标定得更小、更稳。",
+            "如果连续几天都很累，先照顾睡眠和饮食会更重要。"
+        };
+    } else if (profile.emotionTrend == "rising") {
+        trendCare = {
+            "你已经在慢慢回升，继续保持这个步幅就很好。",
+            "这段时间有在变好，说明你的方法是有效的。",
+            "你正在往更稳的方向走，可以给自己一点肯定。"
+        };
+    } else {
+        trendCare = {
+            "先从今天最在意的一件小事开始梳理就够了。",
+            "我们可以先把最困扰你的那一段拆开来说。",
+            "你不需要一下子解决全部问题，先照顾当下就好。"
+        };
+    }
+
+    std::vector<std::string> action;
+    if (isLowMood) {
+        action = {
+            "如果愿意，我可以陪你一起把\"现在最难的点\"说清楚。",
+            "你可以先做一个30秒深呼吸，再告诉我此刻最重的一件事。",
+            "先把这件事分成两步，我和你一起看第一步。"
+        };
+    } else {
+        action = {
+            "你愿意继续说说这一段里最关键的细节吗？",
+            "我们可以把这个变化记录下来，帮你找到可重复的方法。",
+            "如果你想，我可以继续陪你把下一步想清楚。"
+        };
+    }
+
+    const size_t eIdx = stableBucket(userId, content, "empathy", empathy.size());
+    const size_t tIdx = stableBucket(userId, content, "trend", trendCare.size());
+    const size_t aIdx = stableBucket(userId, content, "action", action.size());
+
+    std::ostringstream oss;
+    oss << empathy[eIdx] << trendCare[tIdx];
+
+    const auto hint = contentHint(content);
+    if (!hint.empty() && stableBucket(userId, content, "hint", 2) == 0) {
+        oss << "你刚刚提到“" << hint << "”，这件事对你很关键。";
+    }
+
+    oss << action[aIdx];
+    return oss.str();
+}
+
+}  // namespace
 
 DualMemoryRAG& DualMemoryRAG::getInstance() {
     static DualMemoryRAG instance;
@@ -42,7 +308,7 @@ void DualMemoryRAG::updateShortTermMemory(
     const std::string& emotion,
     float score
 ) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     auto& memory = getOrCreateMemory(userId);
 
     // 生成时间戳
@@ -65,7 +331,7 @@ void DualMemoryRAG::updateShortTermMemory(
 }
 
 void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     auto& memory = getOrCreateMemory(userId);
 
     try {
@@ -75,8 +341,34 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
         }
         auto result = db->execSqlSync(
             "SELECT COUNT(*) as total_posts, "
-            "AVG(emotion_score) as avg_score, "
-            "STDDEV(emotion_score) as score_stddev, "
+            "AVG(COALESCE(emotion_score, sentiment_score, "
+            "CASE COALESCE(mood_type, 'neutral') "
+            "  WHEN 'happy' THEN 0.70 "
+            "  WHEN 'calm' THEN 0.35 "
+            "  WHEN 'grateful' THEN 0.60 "
+            "  WHEN 'hopeful' THEN 0.45 "
+            "  WHEN 'neutral' THEN 0.0 "
+            "  WHEN 'confused' THEN -0.10 "
+            "  WHEN 'anxious' THEN -0.45 "
+            "  WHEN 'sad' THEN -0.65 "
+            "  WHEN 'angry' THEN -0.55 "
+            "  WHEN 'lonely' THEN -0.50 "
+            "  ELSE 0.0 END"
+            ")) as avg_score, "
+            "STDDEV(COALESCE(emotion_score, sentiment_score, "
+            "CASE COALESCE(mood_type, 'neutral') "
+            "  WHEN 'happy' THEN 0.70 "
+            "  WHEN 'calm' THEN 0.35 "
+            "  WHEN 'grateful' THEN 0.60 "
+            "  WHEN 'hopeful' THEN 0.45 "
+            "  WHEN 'neutral' THEN 0.0 "
+            "  WHEN 'confused' THEN -0.10 "
+            "  WHEN 'anxious' THEN -0.45 "
+            "  WHEN 'sad' THEN -0.65 "
+            "  WHEN 'angry' THEN -0.55 "
+            "  WHEN 'lonely' THEN -0.50 "
+            "  ELSE 0.0 END"
+            ")) as score_stddev, "
             "MAX(created_at)::text as last_active "
             "FROM stones WHERE user_id = $1 "
             "AND created_at > NOW() - INTERVAL '30 days' "
@@ -107,8 +399,36 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
         // 计算情绪趋势：对比最近7天 vs 前7-14天
         auto trendResult = db->execSqlSync(
             "SELECT "
-            "AVG(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN emotion_score END) as recent_avg, "
-            "AVG(CASE WHEN created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days' THEN emotion_score END) as prev_avg "
+            "AVG(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN "
+            "  COALESCE(emotion_score, sentiment_score, "
+            "    CASE COALESCE(mood_type, 'neutral') "
+            "      WHEN 'happy' THEN 0.70 "
+            "      WHEN 'calm' THEN 0.35 "
+            "      WHEN 'grateful' THEN 0.60 "
+            "      WHEN 'hopeful' THEN 0.45 "
+            "      WHEN 'neutral' THEN 0.0 "
+            "      WHEN 'confused' THEN -0.10 "
+            "      WHEN 'anxious' THEN -0.45 "
+            "      WHEN 'sad' THEN -0.65 "
+            "      WHEN 'angry' THEN -0.55 "
+            "      WHEN 'lonely' THEN -0.50 "
+            "      ELSE 0.0 END) "
+            "END) as recent_avg, "
+            "AVG(CASE WHEN created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days' THEN "
+            "  COALESCE(emotion_score, sentiment_score, "
+            "    CASE COALESCE(mood_type, 'neutral') "
+            "      WHEN 'happy' THEN 0.70 "
+            "      WHEN 'calm' THEN 0.35 "
+            "      WHEN 'grateful' THEN 0.60 "
+            "      WHEN 'hopeful' THEN 0.45 "
+            "      WHEN 'neutral' THEN 0.0 "
+            "      WHEN 'confused' THEN -0.10 "
+            "      WHEN 'anxious' THEN -0.45 "
+            "      WHEN 'sad' THEN -0.65 "
+            "      WHEN 'angry' THEN -0.55 "
+            "      WHEN 'lonely' THEN -0.50 "
+            "      ELSE 0.0 END) "
+            "END) as prev_avg "
             "FROM stones WHERE user_id = $1 "
             "AND created_at > NOW() - INTERVAL '14 days' AND deleted_at IS NULL",
             userId
@@ -124,7 +444,21 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
 
         // 连续负面天数
         auto negResult = db->execSqlSync(
-            "SELECT DATE(created_at) as d, AVG(emotion_score) as day_avg "
+            "SELECT DATE(created_at) as d, "
+            "AVG(COALESCE(emotion_score, sentiment_score, "
+            "CASE COALESCE(mood_type, 'neutral') "
+            "  WHEN 'happy' THEN 0.70 "
+            "  WHEN 'calm' THEN 0.35 "
+            "  WHEN 'grateful' THEN 0.60 "
+            "  WHEN 'hopeful' THEN 0.45 "
+            "  WHEN 'neutral' THEN 0.0 "
+            "  WHEN 'confused' THEN -0.10 "
+            "  WHEN 'anxious' THEN -0.45 "
+            "  WHEN 'sad' THEN -0.65 "
+            "  WHEN 'angry' THEN -0.55 "
+            "  WHEN 'lonely' THEN -0.50 "
+            "  ELSE 0.0 END"
+            ")) as day_avg "
             "FROM stones WHERE user_id = $1 "
             "AND created_at > NOW() - INTERVAL '14 days' AND deleted_at IS NULL "
             "GROUP BY DATE(created_at) ORDER BY d DESC",
@@ -153,35 +487,35 @@ std::string DualMemoryRAG::buildRAGPrompt(
 ) {
     std::ostringstream prompt;
 
-    prompt << "你是「心湖湖神」，一位具有专业心理咨询素养的AI情感守护者。\n\n";
+    prompt << "你是「心湖湖神」，一位具有专业心理咨询素养的情感守护者。\n\n";
 
     // === 长期记忆上下文 ===
-    prompt << "【用户情绪画像 - 长期记忆】\n";
+    prompt << "【用户情绪画像 - 长期记忆(结构化)】\n";
     const auto& lt = memory.longTerm;
     if (lt.totalPosts > 0) {
-        prompt << "- 近30天发布: " << lt.totalPosts << "条内容\n";
-        prompt << "- 平均情绪分数: " << std::fixed << std::setprecision(2) << lt.avgEmotionScore
-               << " (范围-1.0到1.0)\n";
-        prompt << "- 主导情绪: " << lt.dominantMood << "\n";
-        prompt << "- 情绪波动度: " << std::fixed << std::setprecision(2) << lt.emotionVolatility << "\n";
-        prompt << "- 情绪趋势: ";
+        prompt << "- posts_30d: " << lt.totalPosts << "\n";
+        prompt << "- avg_score: " << std::fixed << std::setprecision(2) << lt.avgEmotionScore << "\n";
+        prompt << "- dominant_mood: " << lt.dominantMood << "\n";
+        prompt << "- volatility: " << std::fixed << std::setprecision(2) << lt.emotionVolatility << "\n";
+        prompt << "- trend: ";
         if (lt.emotionTrend == "rising") prompt << "好转中 ↑\n";
         else if (lt.emotionTrend == "falling") prompt << "下降中 ↓\n";
         else prompt << "平稳 →\n";
-        if (lt.consecutiveNegativeDays > 0) {
-            prompt << "- ⚠️ 连续" << lt.consecutiveNegativeDays << "天情绪偏低\n";
-        }
+        prompt << "- consecutive_negative_days: " << lt.consecutiveNegativeDays << "\n";
     } else {
-        prompt << "- 新用户，暂无历史数据\n";
+        prompt << "- new_user: true\n";
     }
 
     // === 短期记忆上下文 ===
-    prompt << "\n【近期交互 - 短期记忆】\n";
-    if (memory.shortTerm.empty()) {
-        prompt << "- 这是用户的首次互动\n";
+    prompt << "\n【近期交互 - 短期记忆(相关检索)】\n";
+    const auto pickedShortTerm =
+        selectRelevantShortTermEntries(memory.shortTerm, currentContent, currentEmotion);
+    if (pickedShortTerm.empty()) {
+        prompt << "- 暂无可复用的高相关历史\n";
     } else {
-        for (size_t i = 0; i < memory.shortTerm.size(); ++i) {
-            const auto& entry = memory.shortTerm[i];
+        prompt << "- 已检索到 " << pickedShortTerm.size() << " 条高相关历史\n";
+        for (size_t i = 0; i < pickedShortTerm.size(); ++i) {
+            const auto& entry = memory.shortTerm[pickedShortTerm[i]];
             prompt << (i + 1) << ". [" << entry.emotion << " / "
                    << std::fixed << std::setprecision(1) << entry.score << "] "
                    << entry.content.substr(0, 80);
@@ -232,41 +566,72 @@ std::string DualMemoryRAG::generateResponse(
     // 3. 构建RAG提示词
     EmotionMemory memoryCopy;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         memoryCopy = getOrCreateMemory(userId);
     }
     std::string ragPrompt = buildRAGPrompt(memoryCopy, currentContent, currentEmotion);
 
     // 4. 调用AIService生成回复（同步等待）
+    struct ReplyWaitState {
+        std::mutex mutex;
+        std::condition_variable cv;
+        std::string result;
+        std::string error;
+        bool done = false;
+        bool abandoned = false;
+    };
+    auto waitState = std::make_shared<ReplyWaitState>();
     std::string result;
     std::string aiError;
-    std::mutex waitMutex;
-    std::condition_variable cv;
-    bool done = false;
 
     auto& aiService = AIService::getInstance();
     aiService.generateReply(currentContent, ragPrompt,
-        [&result, &aiError, &waitMutex, &cv, &done](const std::string& reply, const std::string& error) {
-            std::lock_guard<std::mutex> lock(waitMutex);
-            result = reply;
-            aiError = error;
-            done = true;
-            cv.notify_one();
+        [waitState](const std::string& reply, const std::string& error) {
+            std::lock_guard<std::mutex> lock(waitState->mutex);
+            if (waitState->done || waitState->abandoned) {
+                return;
+            }
+            waitState->result = reply;
+            waitState->error = error;
+            waitState->done = true;
+            waitState->cv.notify_one();
         }
     );
 
-    // 等待AI回复，最多10秒
+    // 等待回复，最多10秒
+    bool completed = false;
     {
-        std::unique_lock<std::mutex> lock(waitMutex);
-        cv.wait_for(lock, std::chrono::seconds(10), [&done]() { return done; });
+        std::unique_lock<std::mutex> lock(waitState->mutex);
+        completed = waitState->cv.wait_for(
+            lock,
+            std::chrono::seconds(10),
+            [waitState]() { return waitState->done; }
+        );
+        if (completed) {
+            result = waitState->result;
+            aiError = waitState->error;
+        } else {
+            // 超时后忽略迟到回调，避免异步写入已完成流程。
+            waitState->abandoned = true;
+        }
+    }
+
+    if (!completed) {
+        LOG_WARN << "DualMemoryRAG AI response timeout, fallback to local companion reply";
     }
 
     if (!aiError.empty()) {
         LOG_WARN << "DualMemoryRAG AI response error: " << aiError;
     }
 
-    if (result.empty()) {
-        result = "我感受到了你此刻的心情，无论如何，你并不孤单。";
+    if (!completed || !aiError.empty() || result.empty() || isGenericTemplateReply(result)) {
+        result = buildLocalCompanionReply(
+            memoryCopy.longTerm,
+            userId,
+            currentContent,
+            currentEmotion,
+            emotionScore
+        );
     }
 
     return result;
@@ -278,7 +643,7 @@ Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
 
     EmotionMemory memoryCopy;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         memoryCopy = getOrCreateMemory(userId);
     }
 
@@ -358,12 +723,12 @@ float DualMemoryRAG::calculateVolatility(const std::vector<float>& scores) {
     for (float s : scores) {
         variance += (s - mean) * (s - mean);
     }
-    variance /= scores.size();
+    variance /= (scores.size() - 1);  // 样本方差（Bessel 修正）
     return std::sqrt(variance);
 }
 
 Json::Value DualMemoryRAG::getStats() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     Json::Value stats;
     stats["active_users"] = static_cast<int>(memories_.size());
     stats["max_short_term_entries"] = MAX_SHORT_TERM;
