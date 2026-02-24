@@ -44,7 +44,13 @@
               </el-select>
             </el-form-item>
             <el-form-item label="API Key" prop="apiKey">
-              <el-input v-model="aiConfig.apiKey" type="password" show-password placeholder="sk-..." />
+              <el-input
+                v-model="aiConfig.apiKey"
+                type="password"
+                show-password
+                placeholder="sk-..."
+                @focus="onApiKeyFocus"
+              />
             </el-form-item>
             <el-form-item label="Base URL" prop="baseUrl">
               <el-input v-model="aiConfig.baseUrl" placeholder="https://api.deepseek.com" />
@@ -140,6 +146,13 @@ const testing = ref(false)
 const broadcasting = ref(false)
 const aiFormRef = ref(null)
 const rateFormRef = ref(null)
+const apiKeyEdited = ref(false)
+
+// API Key 脱敏：前4 + **** + 后4
+function maskApiKey(key) {
+  if (!key || key.length <= 8) return key
+  return key.slice(0, 4) + '****' + key.slice(-4)
+}
 
 // 系统配置
 const systemConfig = reactive({
@@ -159,12 +172,28 @@ const aiConfig = reactive({
   enableAutoReply: true,
 })
 
+// API Key 聚焦时清空脱敏值，让用户输入新 Key
+const onApiKeyFocus = () => {
+  if (!apiKeyEdited.value) {
+    aiConfig.apiKey = ''
+    apiKeyEdited.value = true
+  }
+}
+
 // M-4: AI 配置验证规则
 const aiRules = {
   provider: [{ required: true, message: '请选择 AI 服务提供商', trigger: 'change' }],
   apiKey: [
-    { required: true, message: '请输入 API Key', trigger: 'blur' },
-    { pattern: /^sk-/, message: 'API Key 应以 sk- 开头', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        // 未编辑时跳过校验（显示的是脱敏值）
+        if (!apiKeyEdited.value) return callback()
+        if (!value) return callback(new Error('请输入 API Key'))
+        if (!/^sk-/.test(value)) return callback(new Error('API Key 应以 sk- 开头'))
+        callback()
+      },
+      trigger: 'blur',
+    },
   ],
   baseUrl: [
     { required: true, message: '请输入 Base URL', trigger: 'blur' },
@@ -207,7 +236,8 @@ const loadConfig = async () => {
 
       const ai = res.data.ai || {}
       aiConfig.provider = ai.provider ?? 'deepseek'
-      aiConfig.apiKey = ai.api_key ?? ai.apiKey ?? ''
+      aiConfig.apiKey = maskApiKey(ai.api_key ?? ai.apiKey ?? '')
+      apiKeyEdited.value = false
       aiConfig.baseUrl = ai.base_url ?? ai.baseUrl ?? 'https://api.deepseek.com'
       aiConfig.model = ai.model ?? 'deepseek-chat'
       aiConfig.enableSentiment = ai.enable_sentiment ?? ai.enableSentiment ?? true
@@ -249,7 +279,8 @@ const saveConfig = async (type) => {
       },
       ai: {
         provider: aiConfig.provider,
-        api_key: aiConfig.apiKey,
+        // 未编辑 API Key 时不发送，避免把脱敏值写回后端
+        ...(apiKeyEdited.value ? { api_key: aiConfig.apiKey } : {}),
         base_url: aiConfig.baseUrl,
         model: aiConfig.model,
         enable_sentiment: aiConfig.enableSentiment,

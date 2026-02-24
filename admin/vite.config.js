@@ -1,11 +1,16 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
-  // TODO: 引入 unplugin-vue-components + unplugin-auto-import 实现 Element Plus 按需导入
-  // 届时替换 main.js 中的全量 import ElementPlus，并在此处配置 AutoImport + Components 插件
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    AutoImport({ resolvers: [ElementPlusResolver()] }),
+    Components({ resolvers: [ElementPlusResolver()] }),
+  ],
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') }
   },
@@ -21,7 +26,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'element-plus': ['element-plus'],
           echarts: ['echarts'],
         },
       },

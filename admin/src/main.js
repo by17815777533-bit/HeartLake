@@ -1,15 +1,17 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-// TODO: 考虑使用 unplugin-vue-components + unplugin-auto-import 实现 Element Plus 按需导入
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+// 命令式组件样式（ElMessage / ElMessageBox / ElNotification / ElLoading 不会被自动导入插件处理）
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/notification/style/css'
+import 'element-plus/es/components/loading/style/css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './styles/m3-theme.scss'
 import {
   Bell, ChatDotRound, ChatLineRound, Check, CircleCheck, Cloudy,
-  Connection, Cpu, DataAnalysis, Document, Download, Drizzling,
-  Expand, Foggy, Fold, HeavyRain, Histogram, Lightning, Monitor,
-  Moon, MostlyCloudy, PartlyCloudy, PieChart, Postcard, Pouring,
+  Connection, Cpu, DataAnalysis, Document, Download,
+  Expand, Fold, Histogram, Monitor,
+  Moon, PieChart, Postcard,
   Refresh, Search, Setting, Star, StarFilled, Stopwatch, Sunny,
   Sunrise, Sunset, Tickets, Timer, TrendCharts, TrophyBase, User,
   View, Warning, WindPower,
@@ -22,14 +24,13 @@ const app = createApp(App)
 const pinia = createPinia()
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus)
 
 // 按需注册实际使用的图标（tree-shaking 优化）
 const icons = {
   Bell, ChatDotRound, ChatLineRound, Check, CircleCheck, Cloudy,
-  Connection, Cpu, DataAnalysis, Document, Download, Drizzling,
-  Expand, Foggy, Fold, HeavyRain, Histogram, Lightning, Monitor,
-  Moon, MostlyCloudy, PartlyCloudy, PieChart, Postcard, Pouring,
+  Connection, Cpu, DataAnalysis, Document, Download,
+  Expand, Fold, Histogram, Monitor,
+  Moon, PieChart, Postcard,
   Refresh, Search, Setting, Star, StarFilled, Stopwatch, Sunny,
   Sunrise, Sunset, Tickets, Timer, TrendCharts, TrophyBase, User,
   View, Warning, WindPower,

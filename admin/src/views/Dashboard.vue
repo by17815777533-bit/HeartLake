@@ -1247,6 +1247,16 @@ onUnmounted(() => {
 }
 </style>
 
+<style lang="scss" scoped>
+// ── 星空主题色板 ──
+$sky-gold: #F2CC8F;
+$sky-amber: #E8A87C;
+$sky-sunset: #E07A5F;
+$sky-purple: #B8A9C9;
+$sky-bg-base: #1A1A3E;
+$sky-text-primary: #F0EDE6;
+$sky-text-secondary: rgba(240, 237, 230, 0.6);
+
 // 毛玻璃混入
 @mixin glass-card($bg: rgba(26, 26, 62, 0.7), $blur: 16px, $border-alpha: 0.1) {
   background: $bg;
