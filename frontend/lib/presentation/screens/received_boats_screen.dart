@@ -118,6 +118,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('收到的纸船'),
@@ -134,7 +135,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
+            colors: [isDark ? AppTheme.nightDeep : AppTheme.skyBlue.withValues(alpha: 0.1), isDark ? AppTheme.nightSurface : Colors.white],
           ),
         ),
         child: RefreshIndicator(
@@ -251,7 +252,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[100],
+                                      color: isDark ? AppTheme.nightSurface : Colors.grey[100],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Column(
@@ -262,7 +263,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                           '你的石头:',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[600],
+                                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
                                           ),
                                         ),
                                         const SizedBox(height: 4),
@@ -270,7 +271,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                           boat['stone_content'] ?? '',
                                           style: TextStyle(
                                             fontSize: 14,
-                                            color: Colors.grey[800],
+                                            color: isDark ? AppTheme.darkTextPrimary : Colors.grey[800],
                                           ),
                                           maxLines: 3,
                                           overflow: TextOverflow.ellipsis,

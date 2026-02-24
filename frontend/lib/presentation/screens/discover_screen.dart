@@ -135,17 +135,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('发现', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF5D4037))),
+        title: Text('发现', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF5D4037))),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Color(0xFF5D4037)),
+            icon: Icon(Icons.auto_awesome, color: isDark ? Colors.white : const Color(0xFF5D4037)),
             tooltip: '个性化推荐',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalizedScreen())),
           ),
@@ -154,8 +155,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           controller: _tabController,
           indicatorColor: AppTheme.accentColor,
           indicatorWeight: 3,
-          labelColor: const Color(0xFF5D4037),
-          unselectedLabelColor: const Color(0xFF8D6E63),
+          labelColor: isDark ? Colors.white : const Color(0xFF5D4037),
+          unselectedLabelColor: isDark ? Colors.white70 : const Color(0xFF8D6E63),
           tabs: const [
             Tab(icon: Icon(Icons.local_fire_department), text: '热门'),
             Tab(icon: Icon(Icons.search), text: '搜索'),
@@ -190,6 +191,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
   }
 
   Widget _buildSearchTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Padding(
@@ -198,7 +200,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
             controller: _searchController,
             hintText: '搜索石头（支持湖神语义搜索）...',
             elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.9)),
+            backgroundColor: WidgetStateProperty.all((isDark ? const Color(0xFF16213E) : Colors.white).withValues(alpha: 0.9)),
             trailing: [
               IconButton(
                 icon: const Icon(Icons.search),

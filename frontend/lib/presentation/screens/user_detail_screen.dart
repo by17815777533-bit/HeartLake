@@ -46,6 +46,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.nickname ?? '用户详情'),
@@ -56,7 +57,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
+            colors: [isDark ? AppTheme.nightDeep : AppTheme.skyBlue.withValues(alpha: 0.1), isDark ? AppTheme.nightSurface : Colors.white],
           ),
         ),
         child: _isLoading
@@ -87,7 +88,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                       ),
                       if (_user?['bio'] != null) ...[
                         const SizedBox(height: 8),
-                        Text(_user!['bio'], style: TextStyle(color: Colors.grey[600])),
+                        Text(_user!['bio'], style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600])),
                       ],
                       const SizedBox(height: 24),
                       Row(
@@ -149,10 +150,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Widget _buildStat(String label, int count) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Text('$count', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(color: Colors.grey[600])),
+        Text(label, style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600])),
       ],
     );
   }

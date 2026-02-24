@@ -84,13 +84,17 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppTheme.skyBlue.withValues(alpha: 0.1), Colors.white],
+            colors: [
+              isDark ? const Color(0xFF1A1A2E) : AppTheme.skyBlue.withValues(alpha: 0.1),
+              isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            ],
           ),
         ),
         child: SafeArea(
@@ -143,13 +147,14 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildMonthSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF16213E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -180,12 +185,17 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildEmotionSummary() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = _calculateStats();
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue]),
+        gradient: LinearGradient(
+          colors: isDark
+            ? [const Color(0xFF16213E), const Color(0xFF1E2D3D)]
+            : [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue],
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -233,18 +243,20 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildWeekdayHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: weekdays.map((d) => Expanded(
-          child: Center(child: Text(d, style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade600, fontSize: 13))),
+          child: Center(child: Text(d, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.grey.shade600, fontSize: 13))),
         )).toList(),
       ),
     );
   }
 
   Widget _buildCalendarGrid() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final lastDay = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
     final startWeekday = firstDay.weekday % 7;
@@ -270,7 +282,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           final config = MoodColors.getConfig(moodType);
           final hasData = emotion != null;
 
-          final rippleColor = hasData ? Color.lerp(_kRippleColorLow, _kRippleColorHigh, score.toDouble())! : Colors.grey.shade300;
+          final rippleColor = hasData ? Color.lerp(_kRippleColorLow, _kRippleColorHigh, score.toDouble())! : (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
           return FadeTransition(
             opacity: Tween<double>(begin: 0, end: 1).animate(
               CurvedAnimation(parent: _animController, curve: Interval((index - startWeekday) / totalDays * 0.5, 0.5 + (index - startWeekday) / totalDays * 0.5, curve: Curves.easeOut)),
@@ -285,7 +297,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                 child: Ink(
                   decoration: BoxDecoration(
                     gradient: hasData ? LinearGradient(colors: [config.gradientStart, config.gradientEnd], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                    color: hasData ? null : Colors.grey.shade100,
+                    color: hasData ? null : (isDark ? const Color(0xFF1E2D3D) : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(10),
                     border: isToday ? Border.all(color: AppTheme.skyBlue, width: 2) : null,
                     boxShadow: hasData ? [BoxShadow(color: config.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
@@ -293,7 +305,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Text('$day', style: TextStyle(color: hasData ? config.textColor : Colors.grey.shade400, fontWeight: isToday ? FontWeight.bold : FontWeight.w500, fontSize: 14)),
+                      Text('$day', style: TextStyle(color: hasData ? config.textColor : (isDark ? Colors.white54 : Colors.grey.shade400), fontWeight: isToday ? FontWeight.bold : FontWeight.w500, fontSize: 14)),
                       if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withValues(alpha: 0.7))),
                     ],
                   ),
@@ -347,6 +359,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildWeeklySummary() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday % 7));
     double weekTotal = 0;
@@ -368,7 +381,10 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(color: AppTheme.secondaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2D3D) : AppTheme.secondaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -381,6 +397,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildLegend() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moods = [MoodType.happy, MoodType.calm, MoodType.sad, MoodType.anxious];
     return Container(
       padding: const EdgeInsets.all(16),
@@ -400,7 +417,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                   ),
                 ),
                 const SizedBox(width: 4),
-                Text(config.name, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(config.name, style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.grey)),
               ],
             ),
           );
@@ -410,10 +427,11 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   }
 
   Widget _buildHeatmapEntryCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Material(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF16213E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -434,23 +452,23 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                   child: const Icon(Icons.grid_view_rounded, color: _kRippleColorHigh),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '查看情绪热力图',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimary),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         '热力图已独立页面，避免和月历混在一起',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : AppTheme.textSecondary),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppTheme.textTertiary),
+                Icon(Icons.chevron_right, color: isDark ? Colors.white54 : AppTheme.textTertiary),
               ],
             ),
           ),
