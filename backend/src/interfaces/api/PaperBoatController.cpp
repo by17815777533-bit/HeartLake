@@ -121,7 +121,7 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
             // 事务在作用域结束时自动提交
         }
 
-        // 广播 boat_update 事件，让所有客户端实时更新石头的纸船计数
+        // 广播 boat_update 事件到 stone 房间，让查看该石头的用户实时更新纸船计数
         {
             Json::Value broadcastMsg;
             broadcastMsg["type"] = "boat_update";
@@ -130,7 +130,7 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
             broadcastMsg["boat_count"] = newBoatsCount;
             broadcastMsg["triggered_by"] = user_id;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::broadcast(broadcastMsg);
+            BroadcastWebSocketController::sendToRoom("stone:" + stone_id, broadcastMsg);
         }
 
         // 通知石头主人
@@ -204,7 +204,7 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
             broadcastMsg["boat_id"] = boat_id;
             broadcastMsg["triggered_by"] = user_id;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::broadcast(broadcastMsg);
+            BroadcastWebSocketController::sendToRoom("stone:" + stone_id, broadcastMsg);
         }
 
         // 自动建立临时好友关系（纸船互动触发，24小时有效）

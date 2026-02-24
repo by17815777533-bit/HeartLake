@@ -94,6 +94,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   void _setupWebSocketListener() {
+    // 加入该石头的 WS 房间，只接收与此石头相关的实时消息
+    _wsManager.joinRoom('stone:${widget.stone.stoneId}');
+
     // 定义监听器函数 - 使用服务器返回的实际总数
     _rippleListener = (data) {
       if (data['stone_id'] == widget.stone.stoneId && mounted) {
@@ -173,9 +176,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager.on('boat_deleted', _boatDeletedListener);
     _wsManager.on('stone_deleted', _stoneDeletedListener);
 
-    // 监听重连成功，刷新数据
+    // 监听重连成功，重新加入房间并刷新数据
     _reconnectedListener = (data) {
       if (mounted) {
+        _wsManager.joinRoom('stone:${widget.stone.stoneId}');
         _loadBoats();
       }
     };
@@ -183,6 +187,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   void _removeWebSocketListener() {
+    // 离开该石头的 WS 房间
+    _wsManager.leaveRoom('stone:${widget.stone.stoneId}');
     // 使用具体的监听器引用移除
     _wsManager.off('ripple_update', _rippleListener);
     _wsManager.off('ripple_deleted', _rippleDeletedListener);

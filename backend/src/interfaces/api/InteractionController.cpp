@@ -137,7 +137,7 @@ void InteractionController::deleteRipple(
             broadcastMsg["ripple_count"] = rippleCount;
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::broadcast(broadcastMsg);
+            BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
         }
 
         callback(ResponseUtil::success(Json::Value(), "删除涟漪成功"));
@@ -213,7 +213,7 @@ void InteractionController::createBoat(
             broadcastMsg["boat_id"] = result["boat_id"].asString();
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::broadcast(broadcastMsg);
+            BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
 
             // 通知石头主人有新纸船评论
             auto dbClient = drogon::app().getDbClient("default");
@@ -306,7 +306,7 @@ void InteractionController::deleteBoat(
             broadcastMsg["boat_count"] = boatCount;
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::broadcast(broadcastMsg);
+            BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
         }
 
         callback(ResponseUtil::success(Json::Value(), "删除纸船成功"));

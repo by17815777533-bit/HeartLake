@@ -80,6 +80,9 @@ class LakeScreenState extends State<LakeScreen> {
     // 只使用 WebSocketManager（统一的WebSocket服务）
     await _wsManager.connect();
 
+    // 加入 lake 房间，只接收观湖相关的实时消息
+    _wsManager.joinRoom('lake');
+
     // 监听新石头广播
     _newStoneListener = (data) {
       if (kDebugMode) { debugPrint('🆕 [LakeScreen] 收到 new_stone: $data'); }
@@ -130,9 +133,10 @@ class LakeScreenState extends State<LakeScreen> {
     };
     _wsManager.on('disconnected', _disconnectedListener);
 
-    // 监听重连成功，刷新石头列表
+    // 监听重连成功，重新加入房间并刷新石头列表
     _reconnectedListener = (data) {
       if (kDebugMode) { debugPrint('🔄 [LakeScreen] WebSocket reconnected, refreshing stones'); }
+      _wsManager.joinRoom('lake');
       _loadStones(refresh: true);
     };
     _wsManager.on('reconnected', _reconnectedListener);
@@ -274,6 +278,8 @@ class LakeScreenState extends State<LakeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    // 离开 lake 房间
+    _wsManager.leaveRoom('lake');
     // 移除所有WebSocket监听器
     _wsManager.off('new_stone', _newStoneListener);
     _wsManager.off('boat_update', _boatUpdateListener);

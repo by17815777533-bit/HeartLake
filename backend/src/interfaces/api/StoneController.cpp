@@ -168,13 +168,13 @@ void StoneController::createStone(
         auto& cacheManager = heartlake::core::cache::CacheManager::getInstance();
         cacheManager.invalidatePattern("stone_list:*");
 
-        // 广播新石头事件，让所有在线用户实时看到
+        // 广播新石头事件到 lake 房间，只有观湖页面的用户收到
         Json::Value broadcastMsg;
         broadcastMsg["type"] = "new_stone";
         broadcastMsg["stone"] = result;
         broadcastMsg["triggered_by"] = userId;
         broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(broadcastMsg);
+        BroadcastWebSocketController::sendToRoom("lake", broadcastMsg);
 
         callback(ResponseUtil::success(result, "投石成功"));
 
@@ -331,13 +331,13 @@ void StoneController::deleteStone(
         auto service = getStoneService();
         service->deleteStone(stoneId, userId);
 
-        // 广播石头删除事件
+        // 广播石头删除事件到 lake 房间
         Json::Value broadcastMsg;
         broadcastMsg["type"] = "stone_deleted";
         broadcastMsg["stone_id"] = stoneId;
         broadcastMsg["triggered_by"] = userId;
         broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(broadcastMsg);
+        BroadcastWebSocketController::sendToRoom("lake", broadcastMsg);
 
         callback(ResponseUtil::success(Json::Value(), "删除成功"));
 

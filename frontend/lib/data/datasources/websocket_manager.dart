@@ -100,6 +100,16 @@ class WebSocketManager {
     _offlineQueue.clear();
   }
 
+  /// 加入 WS 房间（服务端房间隔离，只接收该房间的消息）
+  void joinRoom(String room) {
+    send({'type': 'join', 'room': room});
+  }
+
+  /// 离开 WS 房间
+  void leaveRoom(String room) {
+    send({'type': 'leave', 'room': room});
+  }
+
   void on(String eventType, Function(Map<String, dynamic>) listener) {
     _listeners[eventType] ??= [];
     _listeners[eventType]!.add(listener);

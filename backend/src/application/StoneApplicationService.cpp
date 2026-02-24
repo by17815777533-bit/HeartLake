@@ -562,8 +562,8 @@ void StoneApplicationService::processStoneAsync(
             broadcastMsg["triggered_by"] = "ai_lakegod_rag";
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
 
-            drogon::app().getLoop()->queueInLoop([msg = std::move(broadcastMsg)]() mutable {
-                heartlake::controllers::BroadcastWebSocketController::broadcast(msg);
+            drogon::app().getLoop()->queueInLoop([stoneId, msg = std::move(broadcastMsg)]() mutable {
+                heartlake::controllers::BroadcastWebSocketController::sendToRoom("stone:" + stoneId, msg);
             });
         } catch (const std::exception& e) {
             LOG_ERROR << "DualMemoryRAG comment creation failed: " << e.what();
