@@ -206,7 +206,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                           '还没有好友，来寻找志同道合的人吧',
                           style: TextStyle(
                             fontSize: 16,
-                            color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+                            color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF16213E).withValues(alpha: 0.9),
                           ),
                         ),
                       ],
