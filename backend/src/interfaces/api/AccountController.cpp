@@ -621,8 +621,30 @@ void AccountController::deleteAccountPermanently(const HttpRequestPtr &req,
         }
 
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync(
-            "UPDATE users SET status = 'deleted', deleted_at = NOW() WHERE user_id = $1", userId);
+        auto trans = dbClient->newTransaction();
+
+        // 按依赖顺序删除关联数据
+        trans->execSqlSync("DELETE FROM notification_reads WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM notifications WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM device_tokens WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM resonance_points WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM lamp_transfers WHERE from_user_id = $1 OR to_user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM vip_upgrade_logs WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_interaction_history WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_items WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM emotion_records WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM consultation_appointments WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1", userId);
+        trans->execSqlSync("DELETE FROM conversations WHERE user_id_1 = $1 OR user_id_2 = $1", userId);
+        trans->execSqlSync("DELETE FROM comments WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM likes WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM stones WHERE author_id = $1", userId);
+        trans->execSqlSync("DELETE FROM warm_boats WHERE sender_id = $1 OR receiver_id = $1", userId);
+        trans->execSqlSync("DELETE FROM ripples WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM reports WHERE reporter_id = $1", userId);
+        trans->execSqlSync("DELETE FROM feedback WHERE user_id = $1", userId);
+        // 最后删除用户记录
+        trans->execSqlSync("DELETE FROM users WHERE user_id = $1", userId);
 
         callback(ResponseUtil::success(Json::Value(), "账号已永久删除"));
     } catch (const std::exception &e) {

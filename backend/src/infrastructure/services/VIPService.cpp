@@ -65,7 +65,8 @@ bool VIPService::checkEmotionAndGrantVIP(
         // 3. 发放VIP（30天有效期）
         std::time_t expiresAt = std::time(nullptr) + (30 * 24 * 3600);
 
-        dbClient->execSqlSync(
+        auto trans = dbClient->newTransaction();
+        trans->execSqlSync(
             "UPDATE users SET vip_level = 1, vip_expires_at = to_timestamp($1), "
             "updated_at = CURRENT_TIMESTAMP WHERE user_id = $2",
             expiresAt,
@@ -73,7 +74,7 @@ bool VIPService::checkEmotionAndGrantVIP(
         );
 
         // 4. 记录升级日志
-        dbClient->execSqlSync(
+        trans->execSqlSync(
             "INSERT INTO vip_upgrade_logs (user_id, old_vip_level, new_vip_level, "
             "upgrade_type, reason, expires_at) VALUES ($1, 0, 1, $2, $3, to_timestamp($4))",
             userId,

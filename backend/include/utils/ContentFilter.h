@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_set>
 #include "utils/HighPerformance.h"
 
 namespace heartlake {
@@ -92,9 +93,12 @@ private:
     ContentFilter(const ContentFilter&) = delete;
     ContentFilter& operator=(const ContentFilter&) = delete;
 
+    bool isWhitelisted(const std::string& text, const ACAutomaton::Match& match) const;
+
     ACAutomaton acAutomaton_;
     CountingBloomFilter<> bloomFilter_;
     ShardedLRUCache<std::string, std::string> resultCache_;
+    std::unordered_set<std::string> whitelist_;
     std::mutex initMutex_;
     bool initialized_ = false;
     size_t wordCount_ = 0;

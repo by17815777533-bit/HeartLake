@@ -118,9 +118,7 @@ void RecommendationController::calculateStoneRecommendations(
             "AND s.user_id != $1 "
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
-            "AND s.stone_id NOT IN ( "
-            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-            ") "
+            "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
             "LIMIT 20",
             userId
@@ -149,9 +147,7 @@ void RecommendationController::calculateStoneRecommendations(
             "WHERE s.user_id != $1 "
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
-            "AND s.stone_id NOT IN ( "
-            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-            ") "
+            "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "AND ec.compatibility_score > 0.6 "
             "ORDER BY ec.compatibility_score DESC, s.created_at DESC "
             "LIMIT 20",
@@ -181,9 +177,7 @@ void RecommendationController::calculateStoneRecommendations(
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
             "AND s.created_at >= NOW() - INTERVAL '14 days' "
-            "AND s.stone_id NOT IN ( "
-            "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
-            ") "
+            "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY s.created_at DESC "
             "LIMIT 160",
             userId

@@ -325,7 +325,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1 "
         "JOIN users u ON s.user_id = u.user_id "
         "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
-        "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
         userId, (int64_t)topK
@@ -373,8 +373,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "  SELECT DISTINCT user_id FROM user_interaction_history "
         "  WHERE stone_id IN (SELECT stone_id FROM user_items)"
         ") "
-        "AND s.stone_id NOT IN (SELECT stone_id FROM user_items) "
-        "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
+        "AND NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.stone_id = s.stone_id) "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "AND s.status = 'published' AND s.deleted_at IS NULL "
         "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
@@ -417,7 +417,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
         "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
         "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
-        "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
         "LIMIT $3",
         userId, userMood, (int64_t)topK
@@ -525,7 +525,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             "FROM stones s JOIN users u ON s.user_id = u.user_id "
             "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
             "AND s.created_at >= NOW() - INTERVAL '21 days' "
-            "AND s.stone_id NOT IN (SELECT stone_id FROM user_interaction_history WHERE user_id = $1) "
+            "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY s.created_at DESC LIMIT $2",
             userId, (int64_t)exploreCandidateWindow);
 

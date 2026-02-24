@@ -2209,7 +2209,9 @@ std::vector<float> EdgeAIEngine::addLaplaceNoiseVec(const std::vector<float>& va
 
     float epsilon = std::min(dpConfig_.epsilon, remaining);
     if (epsilon < 1e-10f) epsilon = 1e-10f;  // 防止除零
-    float scale = sensitivity / epsilon;
+    // 组合定理：将总预算均分到每个维度，确保总隐私消耗为 epsilon
+    float perDimEpsilon = epsilon / static_cast<float>(values.size());
+    float scale = sensitivity / perDimEpsilon;
 
     std::vector<float> result(values.size());
     for (size_t i = 0; i < values.size(); ++i) {
@@ -3010,7 +3012,7 @@ void EdgeAIEngine::updateNodeStatus(const EdgeNodeStatus& status) {
 }
 
 std::optional<std::string> EdgeAIEngine::selectBestNode() {
-    std::shared_lock<std::shared_mutex> lock(nodeMutex_);
+    std::unique_lock<std::shared_mutex> lock(nodeMutex_);
 
     if (nodeRegistry_.empty()) return std::nullopt;
 

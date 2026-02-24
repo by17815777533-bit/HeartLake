@@ -30,6 +30,19 @@ void ContentFilter::initialize() {
     addWord("约炮", 3, 2);
     addWord("一夜情", 3, 2);
 
+    // 白名单：包含敏感字但属于正常用语的词汇
+    whitelist_.insert("杀毒");
+    whitelist_.insert("杀价");
+    whitelist_.insert("杀菌");
+    whitelist_.insert("杀青");
+    whitelist_.insert("厮杀");
+    whitelist_.insert("杀手锏");
+    whitelist_.insert("抹杀");
+    whitelist_.insert("杀熟");
+    whitelist_.insert("秒杀");
+    whitelist_.insert("扼杀");
+    whitelist_.insert("自杀式");  // "自杀式进攻"等体育用语
+
     acAutomaton_.build();
     initialized_ = true;
 }
@@ -39,6 +52,7 @@ void ContentFilter::reload(const std::vector<std::tuple<std::string, uint8_t, ui
     acAutomaton_.clear();
     bloomFilter_.clear();
     resultCache_.clear();
+    whitelist_.clear();
     wordCount_ = 0;
 
     for (const auto& [word, cat, lvl] : words) {
@@ -125,6 +139,7 @@ std::string ContentFilter::checkSafety(const std::string& content) {
 
     std::string result = "low_risk";
     for (const auto& m : matches) {
+        if (isWhitelisted(content, m) || isWhitelisted(normalized, m)) continue;
         if (m.level == 3) {  // critical
             result = "high_risk";
             break;
@@ -144,6 +159,27 @@ std::vector<ACAutomaton::Match> ContentFilter::getMatchedWords(const std::string
 
 std::string ContentFilter::getPattern(uint16_t id) const {
     return acAutomaton_.getPattern(id);
+}
+
+bool ContentFilter::isWhitelisted(const std::string& text, const ACAutomaton::Match& match) const {
+    // 检查匹配位置的上下文是否在白名单中
+    // match.position 是匹配结束位置，通过 patternId 获取匹配词长度
+    const std::string& normalized = text;
+    size_t matchLen = acAutomaton_.getPattern(match.patternId).size();
+    size_t matchStart = static_cast<size_t>(match.position) >= matchLen ? match.position - matchLen : 0;
+    size_t matchEnd = static_cast<size_t>(match.position);
+
+    // 扩展上下文窗口（UTF-8 中文字符通常 3 字节）
+    size_t contextStart = matchStart >= 9 ? matchStart - 9 : 0;
+    size_t contextEnd = std::min(matchEnd + 9, normalized.size());
+    std::string context = normalized.substr(contextStart, contextEnd - contextStart);
+
+    for (const auto& word : whitelist_) {
+        if (context.find(word) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool ContentFilter::containsHighRiskWords(const std::string& content) {

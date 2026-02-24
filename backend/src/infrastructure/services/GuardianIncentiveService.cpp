@@ -33,13 +33,14 @@ void GuardianIncentiveService::recordWarmBoat(const std::string& userId, const s
 void GuardianIncentiveService::addResonancePoints(const std::string& userId, int points, const std::string& reason) {
     auto db = drogon::app().getDbClient("default");
     try {
-        db->execSqlSync(
+        auto trans = db->newTransaction();
+        trans->execSqlSync(
             "INSERT INTO resonance_points (user_id, points, reason, created_at) "
             "VALUES ($1, $2, $3, NOW())",
             userId, points, reason
         );
 
-        db->execSqlSync(
+        trans->execSqlSync(
             "UPDATE users SET resonance_total = COALESCE(resonance_total, 0) + $1 WHERE user_id = $2",
             points, userId
         );
