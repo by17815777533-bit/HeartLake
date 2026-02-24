@@ -172,6 +172,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -291,7 +292,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             notification['created_at']?.toString() ?? '',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
                             ),
                           ),
                           trailing: isRead
