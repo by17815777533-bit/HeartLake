@@ -67,7 +67,17 @@ import { useTablePagination } from '@/composables/useTablePagination'
 const loading = ref(false)
 const logList = ref([])
 const filters = reactive({ operator: '', action: '', dateRange: null })
-const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchLogs)
+const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchLogs, {
+  filters,
+  defaultFilters: { operator: '', action: '', dateRange: null },
+  beforeSearch: () => {
+    filters.operator = filters.operator.trim()
+    if (filters.operator.length > 50) {
+      ElMessage.warning('操作人名称过长')
+      return false
+    }
+  },
+})
 
 const actionMap = {
   login: { label: '登录', type: 'info', icon: '🔑' },
@@ -102,17 +112,6 @@ const fetchLogs = async () => {
     loading.value = false
   }
 }
-
-const handleSearch = () => {
-  filters.operator = filters.operator.trim()
-  if (filters.operator.length > 50) {
-    ElMessage.warning('操作人名称过长')
-    return
-  }
-  pagination.page = 1
-  fetchLogs()
-}
-const handleReset = () => { Object.assign(filters, { operator: '', action: '', dateRange: null }); pagination.page = 1; fetchLogs() }
 
 onMounted(() => fetchLogs())
 </script>

@@ -102,7 +102,10 @@ const filters = reactive({
   type: '',
 })
 
-const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchReports)
+const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchReports, {
+  filters,
+  defaultFilters: { status: '', type: '' },
+})
 
 const getTypeLabel = (type) => {
   const map = { spam: '垃圾信息', harassment: '骚扰辱骂', inappropriate: '不当内容', violence: '暴力内容', other: '其他' }
@@ -142,17 +145,6 @@ const fetchReports = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleSearch = () => {
-  pagination.page = 1
-  fetchReports()
-}
-
-const handleReset = () => {
-  Object.assign(filters, { status: '', type: '' })
-  pagination.page = 1
-  fetchReports()
 }
 
 const handleReport = async (row, action) => {

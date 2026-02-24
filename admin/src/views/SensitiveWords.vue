@@ -109,7 +109,17 @@ const formRef = ref(null)
 const currentId = ref(null)
 
 const filters = reactive({ keyword: '', level: '' })
-const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchWords)
+const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchWords, {
+  filters,
+  defaultFilters: { keyword: '', level: '' },
+  beforeSearch: () => {
+    filters.keyword = filters.keyword.trim()
+    if (filters.keyword.length > 50) {
+      ElMessage.warning('搜索关键词过长')
+      return false
+    }
+  },
+})
 const form = reactive({ word: '', level: 'medium', replacement: '' })
 const rules = {
   word: [{ required: true, message: '请输入敏感词', trigger: 'blur' }],
@@ -135,17 +145,6 @@ const fetchWords = async () => {
     loading.value = false
   }
 }
-
-const handleSearch = () => {
-  filters.keyword = filters.keyword.trim()
-  if (filters.keyword.length > 50) {
-    ElMessage.warning('搜索关键词过长')
-    return
-  }
-  pagination.page = 1
-  fetchWords()
-}
-const handleReset = () => { Object.assign(filters, { keyword: '', level: '' }); pagination.page = 1; fetchWords() }
 
 const showAddDialog = () => {
   isEdit.value = false

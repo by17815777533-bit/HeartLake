@@ -118,7 +118,17 @@ const filters = reactive({
   keyword: '',
 })
 
-const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchContent)
+const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchContent, {
+  filters,
+  defaultFilters: { type: '', status: '', keyword: '' },
+  beforeSearch: () => {
+    filters.keyword = filters.keyword.trim()
+    if (filters.keyword.length > 100) {
+      ElMessage.warning('搜索关键词过长，请精简后重试')
+      return false
+    }
+  },
+})
 
 const getStatusType = (status) => {
   const map = { published: 'success', pending: 'warning', deleted: 'danger' }
@@ -165,22 +175,6 @@ const fetchContent = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleSearch = () => {
-  filters.keyword = filters.keyword.trim()
-  if (filters.keyword.length > 100) {
-    ElMessage.warning('搜索关键词过长，请精简后重试')
-    return
-  }
-  pagination.page = 1
-  fetchContent()
-}
-
-const handleReset = () => {
-  Object.assign(filters, { type: '', status: '', keyword: '' })
-  pagination.page = 1
-  fetchContent()
 }
 
 const viewContent = (row) => {
