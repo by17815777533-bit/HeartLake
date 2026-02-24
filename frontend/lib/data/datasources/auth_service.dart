@@ -37,10 +37,15 @@ class AuthService extends BaseService {
     if (!response.success) return toMap(response);
 
     final data = response.data as Map<String, dynamic>? ?? {};
-    await _saveAuthData(token: data['token'], userId: data['user_id'], nickname: data['nickname']);
+    final token = data['token'];
+    final userId = data['user_id'];
+    if (token == null || userId == null) {
+      return {'success': false, 'message': '服务器返回数据不完整'};
+    }
+    await _saveAuthData(token: token, userId: userId, nickname: data['nickname']);
     return {
       'success': true,
-      'user_id': data['user_id'],
+      'user_id': userId,
       'nickname': data['nickname'],
       'recovery_key': data['recovery_key'],
     };
@@ -52,12 +57,17 @@ class AuthService extends BaseService {
     if (!response.success) return toMap(response);
 
     final data = response.data as Map<String, dynamic>? ?? {};
+    final token = data['token'];
+    final userId = data['user_id'];
+    if (token == null || userId == null) {
+      return {'success': false, 'message': '服务器返回数据不完整'};
+    }
     await _saveAuthData(
-      token: data['token'],
-      userId: data['user_id'],
+      token: token,
+      userId: userId,
       nickname: data['nickname'],
     );
-    return {'success': true, 'user_id': data['user_id'], 'nickname': data['nickname']};
+    return {'success': true, 'user_id': userId, 'nickname': data['nickname']};
   }
 
   Future<bool> isLoggedIn() async {

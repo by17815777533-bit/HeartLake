@@ -225,15 +225,34 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                             ),
                           );
                         },
-                        onDismissed: (direction) {
-                          _interactionService.deleteRipple(rippleId);
+                        onDismissed: (direction) async {
+                          // 保存备份用于回滚
+                          final removedData = _ripplesData[index];
+                          final removedStone = _ripples[index];
+                          final removedIndex = index;
                           setState(() {
                             _ripplesData.removeAt(index);
                             _ripples.removeAt(index);
                           });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('涟漪已取消')),
-                          );
+                          try {
+                            await _interactionService.deleteRipple(rippleId);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('涟漪已取消')),
+                              );
+                            }
+                          } catch (e) {
+                            // API 失败时回滚
+                            if (mounted) {
+                              setState(() {
+                                _ripplesData.insert(removedIndex, removedData);
+                                _ripples.insert(removedIndex, removedStone);
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('删除失败，请重试')),
+                              );
+                            }
+                          }
                         },
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 16),

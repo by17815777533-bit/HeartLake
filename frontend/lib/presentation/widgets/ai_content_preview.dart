@@ -20,8 +20,7 @@ class AIPreviewResult {
   bool get canSubmit =>
       status == ModerationStatus.idle ||
       status == ModerationStatus.passed ||
-      status == ModerationStatus.warning ||
-      status == ModerationStatus.loading;
+      status == ModerationStatus.warning;
 }
 
 class AIContentPreview extends StatefulWidget {

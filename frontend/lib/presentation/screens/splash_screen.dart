@@ -157,7 +157,16 @@ class _SplashScreenState extends State<SplashScreen>
                       letterSpacing: 6,
                     ),
                   ),
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 16),
+                  Text(
+                    '把心事投到湖里',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 48),
                   const SizedBox(
                     width: 24,
                     height: 24,

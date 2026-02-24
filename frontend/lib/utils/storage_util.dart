@@ -3,6 +3,7 @@
 // Created by 王璐瑶
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 
 class StorageUtil {
@@ -13,6 +14,7 @@ class StorageUtil {
   static const String _usernameKey = 'username';
   static const String _nicknameKey = 'nickname';
 
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static SharedPreferences? _prefs;
 
   /// 获取缓存的SharedPreferences实例，避免重复异步调用
@@ -21,40 +23,34 @@ class StorageUtil {
     return _prefs!;
   }
 
-  // 保存 Token
+  // 保存 Token (安全存储)
   static Future<void> saveToken(String token) async {
-    final prefs = await _instance;
-    await prefs.setString(_tokenKey, token);
+    await _secureStorage.write(key: _tokenKey, value: token);
   }
 
-  // 获取 Token
+  // 获取 Token (安全存储)
   static Future<String?> getToken() async {
-    final prefs = await _instance;
-    return prefs.getString(_tokenKey);
+    return await _secureStorage.read(key: _tokenKey);
   }
 
-  // 清除 Token
+  // 清除 Token (安全存储)
   static Future<void> clearToken() async {
-    final prefs = await _instance;
-    await prefs.remove(_tokenKey);
+    await _secureStorage.delete(key: _tokenKey);
   }
 
-  // 保存 RefreshToken
+  // 保存 RefreshToken (安全存储)
   static Future<void> saveRefreshToken(String token) async {
-    final prefs = await _instance;
-    await prefs.setString(_refreshTokenKey, token);
+    await _secureStorage.write(key: _refreshTokenKey, value: token);
   }
 
-  // 获取 RefreshToken
+  // 获取 RefreshToken (安全存储)
   static Future<String?> getRefreshToken() async {
-    final prefs = await _instance;
-    return prefs.getString(_refreshTokenKey);
+    return await _secureStorage.read(key: _refreshTokenKey);
   }
 
-  // 清除 RefreshToken
+  // 清除 RefreshToken (安全存储)
   static Future<void> clearRefreshToken() async {
-    final prefs = await _instance;
-    await prefs.remove(_refreshTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
   }
 
   // 保存用户ID
@@ -119,13 +115,19 @@ class StorageUtil {
     return jsonDecode(jsonString);
   }
 
-  // 清除所有数据（保留引导页标记）
+  // 清除所有数据（保留引导页标记和设备ID）
   static Future<void> clearAll() async {
     final prefs = await _instance;
     final onboardingDone = prefs.getString('onboarding_done');
+    final deviceId = prefs.getString(_deviceIdKey);
     await prefs.clear();
+    // 清除安全存储中的 token
+    await _secureStorage.deleteAll();
     if (onboardingDone != null) {
       await prefs.setString('onboarding_done', onboardingDone);
+    }
+    if (deviceId != null) {
+      await prefs.setString(_deviceIdKey, deviceId);
     }
   }
 

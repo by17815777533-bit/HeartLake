@@ -8,7 +8,8 @@ import '../../utils/app_theme.dart';
 
 class WaterBackground extends StatefulWidget {
   final bool? forceDark;
-  const WaterBackground({super.key, this.forceDark});
+  final bool isActive;
+  const WaterBackground({super.key, this.forceDark, this.isActive = true});
 
   @override
   State<WaterBackground> createState() => _WaterBackgroundState();
@@ -24,7 +25,20 @@ class _WaterBackgroundState extends State<WaterBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8), // 更慢更柔和
-    )..repeat();
+    );
+    if (widget.isActive) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(WaterBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      _controller.repeat();
+    } else if (!widget.isActive && oldWidget.isActive) {
+      _controller.stop();
+    }
   }
 
   @override

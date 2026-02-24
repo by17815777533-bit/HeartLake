@@ -31,7 +31,7 @@ class WebSocketManager {
   bool get isConnected => _isConnected;
 
   /// 连接 WebSocket
-  /// 通过 URL query 参数传递 token，后端在 handleNewConnection 中验证
+  /// 连接后通过首条消息发送 token 认证（不在 URL 中暴露），避免 token 泄漏到日志
   Future<bool> connect() async {
     if (_isConnected) return true;
 
@@ -51,11 +51,14 @@ class WebSocketManager {
 
       final baseUrl = appConfig.apiBaseUrl.replaceFirst('/api', '');
       final wsUrl = baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-      // 通过 URL 参数传递 token 进行认证（后端在 handleNewConnection 中验证）
-      final uri = Uri.parse('$wsUrl/ws/broadcast?token=$token');
+      // 连接时不在 URL 中暴露 token，连接后通过首条消息认证
+      final uri = Uri.parse('$wsUrl/ws/broadcast');
 
       _channel = WebSocketChannel.connect(uri);
       _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDone, cancelOnError: false);
+
+      // 连接建立后立即发送认证消息
+      _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
 
       // 标记为已连接（WebSocket 通道已建立）
       _isConnected = true;
@@ -191,6 +194,12 @@ class WebSocketManager {
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _lastPongTime = DateTime.now();
+    // 连接建立后立即发送一次 ping，不等 30 秒
+    if (_isConnected && _channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode({'type': 'ping'}));
+      } catch (_) {}
+    }
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_isConnected && _channel != null) {
         // 检查 pong 超时：超过2个心跳周期（60秒）未收到 pong，判定半开连接

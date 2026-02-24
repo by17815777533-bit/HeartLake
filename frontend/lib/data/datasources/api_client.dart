@@ -67,6 +67,11 @@ class ApiClient {
         client.maxConnectionsPerHost = appConfig.maxConnections;
         client.idleTimeout = appConfig.idleTimeout;
         client.connectionTimeout = appConfig.connectTimeout;
+        // S-3: 生产环境拒绝无效证书，防止中间人攻击
+        if (appConfig.isProduction) {
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => false;
+        }
         return client;
       };
     }
