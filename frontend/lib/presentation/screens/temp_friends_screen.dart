@@ -249,8 +249,8 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
           // 内容区域
           RefreshIndicator(
             onRefresh: _loadTempFriends,
-            color: Colors.blue[900],
-            backgroundColor: Colors.white,
+            color: isDark ? AppTheme.primaryLightColor : Colors.blue[900],
+            backgroundColor: isDark ? AppTheme.nightSurface : Colors.white,
             child: ListView.builder(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
@@ -265,7 +265,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                   return Column(
                     children: [
                       Card(
-                        color: Colors.white.withValues(alpha: 0.95),
+                        color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
                         elevation: 4,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -401,7 +401,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        color: Colors.white.withValues(alpha: 0.95),
+        color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -449,7 +449,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              Text('来源: ${_getSourceText(tempFriend['source'])}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('来源: ${_getSourceText(tempFriend['source'])}', style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600])),
               const SizedBox(height: 4),
               Row(
                 children: [

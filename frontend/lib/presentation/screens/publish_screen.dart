@@ -49,11 +49,12 @@ class _PublishScreenState extends State<PublishScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         extendBodyBehindAppBar: true,
-        backgroundColor: const Color(0xFF0D1B2A),
+        backgroundColor: isDark ? const Color(0xFF0D1B2A) : const Color(0xFFF5F5F5),
         appBar: AppBar(
           title: const Text('投石',
               style:
@@ -373,6 +374,7 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 
   Widget _buildAIMoodSuggestionBanner() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final mood = _aiSuggestedMood;
     if (mood == null) return const SizedBox.shrink();
     final config = MoodColors.getConfig(mood);
@@ -517,6 +519,7 @@ class _PublishScreenState extends State<PublishScreen> {
 
   // 心情选择器UI
   Widget _buildMoodSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moods = [
       MoodType.happy,
       MoodType.calm,
@@ -556,7 +559,7 @@ class _PublishScreenState extends State<PublishScreen> {
                 color: isSelected ? config.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? config.primary : Colors.grey.shade300,
+                  color: isSelected ? config.primary : (isDark ? Colors.white24 : Colors.grey.shade300),
                   width: isSelected ? 2 : 1,
                 ),
                 boxShadow: isSuggested
@@ -583,7 +586,7 @@ class _PublishScreenState extends State<PublishScreen> {
                   Text(
                     config.name,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                      color: isSelected ? Colors.white : (isDark ? const Color(0xFF9AA0A6) : Colors.grey.shade700),
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       fontSize: 14,

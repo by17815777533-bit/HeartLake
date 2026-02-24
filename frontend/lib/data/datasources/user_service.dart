@@ -32,4 +32,45 @@ class UserService extends BaseService {
     };
   }
 
+  /// 获取用户统计
+  Future<Map<String, dynamic>> getUserStats(String userId) async {
+    final response = await get('/users/$userId/stats');
+    if (!response.success) return toMap(response);
+    return {'success': true, 'data': response.data};
+  }
+
+  /// 获取情绪热力图
+  Future<Map<String, dynamic>> getEmotionHeatmap() async {
+    final response = await get('/users/my/emotion-heatmap');
+    if (!response.success) return toMap(response);
+    return {'success': true, 'data': response.data};
+  }
+
+  /// 获取情绪日历
+  Future<Map<String, dynamic>> getEmotionCalendar(int year, int month) async {
+    final response = await get('/users/my/emotion-calendar', queryParameters: {'year': year, 'month': month});
+    if (!response.success) return toMap(response);
+    return {'success': true, 'data': response.data};
+  }
+
+  /// 获取我收到的纸船
+  Future<Map<String, dynamic>> getMyBoats({int page = 1, int pageSize = 100}) async {
+    final response = await get('/users/my/boats', queryParameters: {'page': page, 'page_size': pageSize});
+    if (!response.success) return toMap(response);
+    return {'success': true, 'data': response.data};
+  }
+
+  /// 上传文件（头像等）
+  Future<Map<String, dynamic>> uploadFile(dynamic file) async {
+    try {
+      final response = await client.uploadFile('/media/upload', file: file);
+      if (response.statusCode == 200 && response.data['code'] == 0) {
+        return {'success': true, 'data': response.data['data']};
+      }
+      return {'success': false, 'message': response.data['message'] ?? '上传失败'};
+    } catch (e) {
+      return {'success': false, 'message': '上传失败: $e'};
+    }
+  }
+
 }

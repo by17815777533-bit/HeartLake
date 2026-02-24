@@ -1,9 +1,8 @@
 // @file emotion_heatmap_screen.dart
 // @brief 情绪热力图页面（与情绪日历拆分）
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/user_service.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
@@ -17,7 +16,7 @@ class EmotionHeatmapScreen extends StatefulWidget {
 }
 
 class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final UserService _userService = UserService();
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
   bool _isLoading = true;
@@ -31,10 +30,10 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   Future<void> _loadHeatmapData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
-      final response = await _apiClient.get('/users/my/emotion-heatmap');
+      final result = await _userService.getEmotionHeatmap();
       if (!mounted) return;
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final rawData = response.data['data']?['days'] as Map<String, dynamic>? ?? {};
+      if (result['success'] == true) {
+        final rawData = (result['data'] as Map<String, dynamic>?)?['days'] as Map<String, dynamic>? ?? {};
         final parsed = <String, Map<String, dynamic>>{};
         for (final entry in rawData.entries) {
           if (entry.value is Map) {
@@ -48,8 +47,6 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
         });
         return;
       }
-    } on DioException catch (e) {
-      debugPrint('Load emotion heatmap error: $e');
     } catch (e) {
       debugPrint('Load emotion heatmap error: $e');
     }

@@ -348,6 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stonesCount = _stats?['stones_count']?.toString() ?? '0';
     final boatsReceived = _stats?['boats_received']?.toString() ?? '0';
     final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
@@ -660,7 +661,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
     final card = Card(
-      color: Colors.white.withValues(alpha: 0.9),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+      color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
@@ -681,7 +683,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(
               value,
               style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: isDark ? const Color(0xFFE8EAED) : AppTheme.textPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),

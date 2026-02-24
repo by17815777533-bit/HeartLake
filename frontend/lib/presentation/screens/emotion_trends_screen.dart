@@ -124,6 +124,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   }
 
   Widget _buildPrivacyBadge() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final consumed = (_privacyInfo?['consumed'] as num?)?.toDouble() ?? 0.0;
     final total = (_privacyInfo?['total_budget'] as num?)?.toDouble() ?? 10.0;
     final remaining = (_privacyInfo?['remaining_budget'] as num?)?.toDouble() ??

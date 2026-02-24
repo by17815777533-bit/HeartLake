@@ -4,8 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dio/dio.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/user_service.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../widgets/shimmer_loading.dart';
@@ -23,7 +22,7 @@ class EmotionCalendarScreen extends StatefulWidget {
 }
 
 class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with SingleTickerProviderStateMixin {
-  final ApiClient _apiClient = ApiClient();
+  final UserService _userService = UserService();
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;
@@ -48,33 +47,20 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     try {
       final year = _currentMonth.year;
       final month = _currentMonth.month;
-      final response = await _apiClient.get('/users/my/emotion-calendar?year=$year&month=$month');
+      final result = await _userService.getEmotionCalendar(year, month);
       if (!mounted) return;
-      if (response.statusCode == 200 && response.data['code'] == 0) {
+      if (result['success'] == true) {
         setState(() {
-          _emotionData = Map<String, dynamic>.from(response.data['data']?['days'] ?? {});
+          _emotionData = Map<String, dynamic>.from((result['data'] as Map<String, dynamic>?)?['days'] ?? {});
           _cachedStats = null;
           _isLoading = false;
         });
         _animController.forward(from: 0);
       } else {
-        // 非200或code!=0时，清空数据显示空日历
         setState(() {
           _emotionData = {};
           _cachedStats = null;
         });
-      }
-    } on DioException catch (e) {
-      // 404 表示新用户无数据，优雅降级为空日历而非报错
-      if (e.response?.statusCode == 404) {
-        if (mounted) {
-          setState(() {
-            _emotionData = {};
-            _cachedStats = null;
-          });
-        }
-      } else {
-        debugPrint('Load emotion data error: $e');
       }
     } catch (e) {
       debugPrint('Load emotion data error: $e');

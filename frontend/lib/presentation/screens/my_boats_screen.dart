@@ -178,7 +178,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         child: RefreshIndicator(
           onRefresh: _loadMyBoats,
           child: _isLoading
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在追踪纸船的漂流...', style: TextStyle(color: Colors.grey[600]))]))
+            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在追踪纸船的漂流...', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600]))]))
             : _boats.isEmpty
                 ? ListView(
                     children: [
@@ -191,14 +191,14 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                               Icon(
                                 Icons.sailing_outlined,
                                 size: 80,
-                                color: Colors.grey[300],
+                                color: isDark ? Colors.white24 : Colors.grey[300],
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '还没有纸船，试着给陌生人送去温暖',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey[600],
+                                  color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600],
                                 ),
                               ),
                             ],
@@ -296,7 +296,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Colors.white,
+                                    isDark ? const Color(0xFF1B2838) : Colors.white,
                                     moodConfig.primary.withValues(alpha: 0.05),
                                   ],
                                 ),
@@ -323,7 +323,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                         ),
                                         child: CircleAvatar(
                                           radius: 14,
-                                          backgroundColor: Colors.white,
+                                          backgroundColor: isDark ? const Color(0xFF1B2838) : Colors.white,
                                           child: Icon(
                                             Icons.sailing,
                                             color: moodConfig.primary,
@@ -345,7 +345,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                       IconButton(
                                         icon: Icon(
                                           Icons.delete_outline,
-                                          color: Colors.grey[400],
+                                          color: isDark ? Colors.white30 : Colors.grey[400],
                                           size: 20,
                                         ),
                                         onPressed: () =>
@@ -398,7 +398,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                                     boat['created_at'] ?? '',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[500],
+                                      color: isDark ? Colors.white38 : Colors.grey[500],
                                     ),
                                   ),
                                 ],

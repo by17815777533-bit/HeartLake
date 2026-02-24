@@ -3,7 +3,7 @@
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/user_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
@@ -18,7 +18,7 @@ class ReceivedBoatsScreen extends StatefulWidget {
 
 class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
-  final ApiClient _apiClient = ApiClient();
+  final UserService _userService = UserService();
   final WebSocketManager _wsManager = WebSocketManager();
   bool _isLoading = false;
 
@@ -89,15 +89,11 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await _apiClient.get(
-        '/users/my/boats',
-        queryParameters: {'page': 1, 'page_size': 100},
-      );
+      final result = await _userService.getMyBoats();
 
-      if (response.statusCode == 200 &&
-          response.data['code'] == 0 &&
-          mounted) {
-        final items = response.data['data']['items'] as List? ?? [];
+      if (result['success'] == true && mounted) {
+        final data = result['data'] as Map<String, dynamic>?;
+        final items = data?['items'] as List? ?? [];
         setState(() {
           _boats.clear();
           _boats.addAll(items.whereType<Map<String, dynamic>>());

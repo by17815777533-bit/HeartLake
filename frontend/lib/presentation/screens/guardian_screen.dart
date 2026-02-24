@@ -92,8 +92,9 @@ class _GuardianScreenState extends State<GuardianScreen>
   }
 
   Widget _buildInsightsCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      color: Colors.white.withValues(alpha: 0.95),
+      color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -121,7 +122,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                 if (!_insightsLoading && _insightsError == null)
                   IconButton(
                     icon:
-                        const Icon(Icons.refresh, size: 20, color: Colors.grey),
+                        Icon(Icons.refresh, size: 20, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey),
                     onPressed: () {
                       setState(() {
                         _insightsLoading = true;
@@ -152,10 +153,10 @@ class _GuardianScreenState extends State<GuardianScreen>
                   child: Column(
                     children: [
                       const Icon(Icons.error_outline,
-                          color: Colors.grey, size: 32),
+                          color: isDark ? const Color(0xFF9AA0A6) : Colors.grey, size: 32),
                       const SizedBox(height: 8),
                       Text(_insightsError!,
-                          style: const TextStyle(color: Colors.grey)),
+                          style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () {
@@ -180,6 +181,7 @@ class _GuardianScreenState extends State<GuardianScreen>
   }
 
   List<Widget> _buildInsightsContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final List<Widget> widgets = [];
     final profile = _insights?['profile'] is Map
         ? Map<String, dynamic>.from(_insights!['profile'] as Map)
@@ -272,7 +274,7 @@ class _GuardianScreenState extends State<GuardianScreen>
         const Center(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('暂无洞察数据', style: TextStyle(color: Colors.grey)),
+            child: Text('暂无洞察数据', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
           ),
         ),
       );
@@ -300,7 +302,7 @@ class _GuardianScreenState extends State<GuardianScreen>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('将你的温暖传递给需要的人', style: TextStyle(color: Colors.grey)),
+            Text('将你的温暖传递给需要的人', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -388,7 +390,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                                         size: 64,
                                         color: _stats!['is_guardian'] == true
                                             ? Colors.orange
-                                            : Colors.grey,
+                                            : isDark ? const Color(0xFF9AA0A6) : Colors.grey,
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
@@ -401,7 +403,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                                       ),
                                       const SizedBox(height: 8),
                                       const Text('用温暖的涟漪，照亮他人的心湖',
-                                          style: TextStyle(color: Colors.grey)),
+                                          style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
                                     ],
                                   ),
                                 ),
@@ -490,6 +492,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Card(
         child: Padding(
@@ -503,7 +506,7 @@ class _StatCard extends StatelessWidget {
                       color: AppTheme.skyBlue)),
               const SizedBox(height: 4),
               Text(label,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
             ],
           ),
         ),

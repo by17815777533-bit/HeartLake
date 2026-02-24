@@ -433,6 +433,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moodConfig = MoodColors.getConfig(_stoneMood);
 
     return PopScope(
@@ -796,6 +797,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   Widget _buildBoatCard(Map<String, dynamic> boat) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final moodConfig = MoodColors.getConfig(_stoneMood);
     final isTemp = boat['_isTemp'] == true;
 
@@ -851,7 +853,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 ),
                 child: CircleAvatar(
                   radius: 14,
-                  backgroundColor: Colors.white,
+                  backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
                   child: Icon(
                     isTemp ? Icons.hourglass_empty : Icons.person,
                     size: 14,
@@ -892,7 +894,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     DateTime.now()),
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: isDark ? Colors.white38 : Colors.grey[500],
                 ),
               ),
             ],
@@ -924,7 +926,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.5,
-                      color: Colors.grey[800],
+                      color: isDark ? const Color(0xFFE8EAED) : Colors.grey[800],
                     ),
                   ),
                 ),
@@ -938,12 +940,13 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
   Widget _buildCommentInput(MoodColorConfig moodConfig) {
     return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1B2838) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -960,7 +963,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 maxLength: 200,
                 decoration: InputDecoration(
                   hintText: '写一张纸船漂给TA...',
-                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey[400]),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide:
@@ -981,7 +984,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   ),
                   counterText: '',
                   filled: true,
-                  fillColor: Colors.grey[50],
+                  fillColor: isDark ? const Color(0xFF16213E) : Colors.grey[50],
                 ),
               ),
             ),

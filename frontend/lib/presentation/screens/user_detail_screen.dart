@@ -3,7 +3,7 @@
 // Created by 林子怡
 
 import 'package:flutter/material.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/user_service.dart';
 import '../../utils/app_theme.dart';
 import 'friend_chat_screen.dart';
 
@@ -18,7 +18,7 @@ class UserDetailScreen extends StatefulWidget {
 }
 
 class _UserDetailScreenState extends State<UserDetailScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final UserService _userService = UserService();
   Map<String, dynamic>? _user;
   bool _isLoading = true;
   bool _isFriend = false;
@@ -31,10 +31,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final response = await _apiClient.get('/users/${widget.userId}');
-      if (response.statusCode == 200 && response.data['code'] == 0 && mounted) {
+      final result = await _userService.getUserInfo(widget.userId);
+      if (result['success'] == true && mounted) {
         setState(() {
-          _user = response.data['data'];
+          _user = result['user'] as Map<String, dynamic>?;
           _isFriend = _user?['is_friend'] == true;
           _isLoading = false;
         });

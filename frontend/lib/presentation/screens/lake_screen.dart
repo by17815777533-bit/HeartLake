@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/stone.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../widgets/water_background.dart';
@@ -29,7 +29,7 @@ class LakeScreen extends StatefulWidget {
 }
 
 class LakeScreenState extends State<LakeScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final StoneService _stoneService = StoneService();
   List<Stone> _stones = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -312,14 +312,10 @@ class LakeScreenState extends State<LakeScreen> {
 
     try {
       final page = _currentPage + 1;
-      final response = await _apiClient.get(
-        '/lake/stones',
-        queryParameters: {'page': page, 'page_size': 20, 'sort': 'latest'},
-      );
+      final result = await _stoneService.getStones(page: page);
 
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final items = response.data['data']?['stones'] as List? ?? [];
-        final newStones = items.map((json) => Stone.fromJson(json)).toList();
+      if (result['success'] == true) {
+        final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
 
         setState(() {
           if (newStones.isEmpty) {
@@ -352,15 +348,10 @@ class LakeScreenState extends State<LakeScreen> {
 
     try {
       final page = refresh ? 1 : _currentPage;
-      final response = await _apiClient.get(
-        '/lake/stones',
-        queryParameters: {'page': page, 'page_size': 20, 'sort': 'latest'},
-        useCache: !refresh,
-      );
+      final result = await _stoneService.getStones(page: page);
 
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final items = response.data['data']['stones'] as List? ?? [];
-        final newStones = items.map((json) => Stone.fromJson(json)).toList();
+      if (result['success'] == true) {
+        final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
 
         setState(() {
           if (refresh) {
@@ -373,7 +364,7 @@ class LakeScreenState extends State<LakeScreen> {
           _errorMessage = null;
         });
       } else {
-        throw Exception(response.data['message'] ?? '加载失败');
+        throw Exception(result['message'] ?? '加载失败');
       }
     } catch (e) {
       if (kDebugMode) { debugPrint('Error loading stones: $e'); }
