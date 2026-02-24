@@ -2,6 +2,7 @@
 // @brief 应用入口
 // Created by 林子怡
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'presentation/providers/theme_provider.dart';
@@ -19,23 +20,52 @@ import 'utils/app_config.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // 全局错误处理，防止未捕获异常导致红屏
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    debugPrint('Flutter Error: ${details.exceptionAsString()}');
-  };
+    // 同步 Flutter 框架错误
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('Flutter Error: ${details.exceptionAsString()}');
+    };
 
-  appConfig.initialize();
-  cacheService.startAutoCleanup();
+    // 捕获未处理的异步错误，避免白屏无提示
+    WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+      debugPrint('Unhandled async error: $error');
+      debugPrint(stack.toString());
+      return true;
+    };
 
-  // 注册401未授权回调 - token过期且刷新失败时跳转登录
-  ApiClient().setOnUnauthorized(() {
-    navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
+    // 兜底错误组件，运行时异常时显示错误信息而非白屏
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Material(
+        color: Colors.white,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              '页面渲染异常，请刷新重试\\n${details.exceptionAsString()}',
+              style: const TextStyle(color: Colors.black87, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    };
+
+    appConfig.initialize();
+    CacheService().startAutoCleanup();
+
+    // 注册401未授权回调 - token过期且刷新失败时跳转登录
+    ApiClient().setOnUnauthorized(() {
+      navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
+    });
+
+    runApp(const HeartLakeApp());
+  }, (error, stack) {
+    debugPrint('runZonedGuarded caught: $error');
+    debugPrint(stack.toString());
   });
-
-  runApp(const HeartLakeApp());
 }
 
 class HeartLakeApp extends StatefulWidget {
@@ -50,7 +80,7 @@ class _HeartLakeAppState extends State<HeartLakeApp> {
   void dispose() {
     // P0-2 修复：App 销毁时清理 WebSocket 资源
     WebSocketManager().dispose();
-    cacheService.dispose();
+    CacheService().dispose();
     super.dispose();
   }
 

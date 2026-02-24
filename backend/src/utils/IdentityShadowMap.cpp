@@ -24,7 +24,7 @@ static std::string getSalt() {
         if (env && env[0] != '\0') {
             return std::string(env);
         }
-        LOG_WARN << "SHADOW_MAP_SALT environment variable not set, using insecure default salt";
+        LOG_ERROR << "[SECURITY] SHADOW_MAP_SALT 未配置，使用不安全的默认盐值，生产环境必须设置此变量";
         return std::string("heartlake_default_salt_CHANGE_ME");
     }();
     return salt;

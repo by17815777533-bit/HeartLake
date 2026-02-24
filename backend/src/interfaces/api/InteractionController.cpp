@@ -258,7 +258,24 @@ void InteractionController::getBoats(
         auto service = getInteractionService();
         auto result = service->getBoats(stoneId, page, pageSize);
 
-        callback(ResponseUtil::success(result));
+        Json::Value data(Json::objectValue);
+        if (result.isArray()) {
+            data["boats"] = result;
+            data["items"] = result;  // 兼容旧前端字段
+            data["total"] = static_cast<Json::UInt64>(result.size());
+        } else {
+            data = result;
+            if (!data.isMember("boats") && data.isMember("items") && data["items"].isArray()) {
+                data["boats"] = data["items"];
+            }
+            if (!data.isMember("total") && data.isMember("boats") && data["boats"].isArray()) {
+                data["total"] = static_cast<Json::UInt64>(data["boats"].size());
+            }
+        }
+        data["page"] = page;
+        data["page_size"] = pageSize;
+
+        callback(ResponseUtil::success(data));
 
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in getBoats: " << e.what();

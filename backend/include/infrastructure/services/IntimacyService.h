@@ -26,6 +26,13 @@ struct IntimacyProfile {
     double semanticSimilarity{0.5};
     double emotionTrendAlignment{0.5};
     double freshnessScore{0.0};
+    double temporalDiversity{0.0};
+    double antiGamingPenalty{0.0};
+    double behaviorHealth{1.0};
+    double dialogueCohesion{0.0};
+    double responseAgility{0.0};
+    double graphAffinity{0.5};
+    double emotionSynchrony{0.5};
     double aiCompatibility{0.5};
     std::string lastInteractedAt;
     bool canChat{false};

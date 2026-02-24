@@ -134,12 +134,18 @@ drogon::Task<void> FriendshipTTLEngine::handleFriendshipExpired(const std::strin
     // Cleanup Redis
     redis.del(dataKey, nullptr);
 
-    if (expirationCallback_) {
-        expirationCallback_(friendshipId, userId, friendId);
+    ExpirationCallback cb;
+    {
+        std::lock_guard<std::mutex> lock(callbackMutex_);
+        cb = expirationCallback_;
+    }
+    if (cb) {
+        cb(friendshipId, userId, friendId);
     }
 }
 
 void FriendshipTTLEngine::setExpirationCallback(ExpirationCallback callback) {
+    std::lock_guard<std::mutex> lock(callbackMutex_);
     expirationCallback_ = std::move(callback);
 }
 
@@ -154,7 +160,7 @@ void FriendshipTTLEngine::startExpirationListener() {
                 auto expired = dbClient->execSqlSync(
                     "UPDATE temp_friends SET status = 'expired' "
                     "WHERE status = 'active' AND expires_at < NOW() "
-                    "RETURNING temp_friend_id, user_id_1, user_id_2"
+                    "RETURNING temp_friend_id"
                 );
                 for (const auto& row : expired) {
                     std::string friendshipId = row["temp_friend_id"].as<std::string>();

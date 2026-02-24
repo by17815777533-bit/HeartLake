@@ -20,6 +20,7 @@ class AIPreviewResult {
   bool get canSubmit =>
       status == ModerationStatus.idle ||
       status == ModerationStatus.passed ||
+      status == ModerationStatus.warning ||
       status == ModerationStatus.loading;
 }
 
@@ -48,6 +49,10 @@ class _AIContentPreviewState extends State<AIContentPreview>
   String? _moderationMessage;
   bool _showCareHint = false;
   String? _careHintText;
+  double? _uncertainty;
+  String? _reliabilityTier;
+  bool _abstained = false;
+  String? _recommendedAction;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -89,6 +94,10 @@ class _AIContentPreviewState extends State<AIContentPreview>
         _sentimentScore = null;
         _moderationMessage = null;
         _showCareHint = false;
+        _uncertainty = null;
+        _reliabilityTier = null;
+        _abstained = false;
+        _recommendedAction = null;
       });
       _notifyResult();
       return;
@@ -111,28 +120,59 @@ class _AIContentPreviewState extends State<AIContentPreview>
       if (!mounted) return;
 
       // 解析情感分析结果
-      if (sentimentRes.success && sentimentRes.data is Map) {
-        final data = sentimentRes.data as Map;
-        _sentimentLabel = data['sentiment']?.toString() ?? data['label']?.toString();
-        final score = data['score'] ?? data['confidence'];
+      if (sentimentRes['success'] == true && sentimentRes['data'] is Map) {
+        final data = Map<String, dynamic>.from(sentimentRes['data'] as Map);
+        final rawMood = data['mood']?.toString() ??
+            data['sentiment']?.toString() ??
+            data['label']?.toString();
+        _sentimentLabel = _normalizeMoodLabel(rawMood);
+
+        final score = data['score'];
+        final confidence = data['calibrated_confidence'] ?? data['confidence'];
         if (score != null) {
-          _sentimentScore = (score is num) ? score.toDouble() : double.tryParse(score.toString());
+          _sentimentScore = (score is num)
+              ? score.toDouble()
+              : double.tryParse(score.toString());
+        } else if (confidence != null) {
+          _sentimentScore = (confidence is num)
+              ? confidence.toDouble()
+              : double.tryParse(confidence.toString());
+        }
+        final uncertaintyRaw = data['uncertainty'];
+        if (uncertaintyRaw is num) {
+          _uncertainty = uncertaintyRaw.toDouble().clamp(0.0, 1.0);
+        } else if (uncertaintyRaw != null) {
+          _uncertainty =
+              double.tryParse(uncertaintyRaw.toString())?.clamp(0.0, 1.0);
+        } else {
+          _uncertainty = null;
         }
 
+        _reliabilityTier = data['reliability_tier']?.toString();
+        final abstainedRaw = data['abstained'];
+        if (abstainedRaw is bool) {
+          _abstained = abstainedRaw;
+        } else {
+          final decision = data['decision']?.toString().toLowerCase();
+          _abstained = decision == 'abstain';
+        }
+        _recommendedAction = data['recommended_action']?.toString();
+
         // 检测心理风险（情感分析结果中可能包含风险标记）
-        final highRisk = data['high_risk'] == true || data['mental_risk'] == true;
+        final highRisk =
+            data['high_risk'] == true || data['mental_risk'] == true;
         if (highRisk) {
           _showCareHint = true;
           _careHintText = data['help_tip']?.toString() ??
-              '我们感受到你可能正在经历一些困难，你并不孤单。如果需要帮助，请拨打心理援助热线：400-161-9995';
+              '湖神看见你可能正承受很重的情绪。如果你愿意，请先联系可信任的人，也可以拨打心理援助热线：400-161-9995。';
         } else {
           _showCareHint = false;
         }
       }
 
-      // 前端不做内容审核拦截，默认通过（后端发布时会二次审核）
-      _status = ModerationStatus.passed;
-      _moderationMessage = null;
+      // 前端不做硬拦截：不确定时给 warning 提示，由用户决定
+      _status = _abstained ? ModerationStatus.warning : ModerationStatus.passed;
+      _moderationMessage = _abstained ? '湖神暂时不确定当前语境，建议补充更具体的事件与感受。' : null;
 
       setState(() {});
       _notifyResult();
@@ -141,6 +181,10 @@ class _AIContentPreviewState extends State<AIContentPreview>
       // 网络错误时默认通过
       setState(() {
         _status = ModerationStatus.passed;
+        _abstained = false;
+        _uncertainty = null;
+        _reliabilityTier = null;
+        _recommendedAction = null;
       });
       _notifyResult();
     }
@@ -222,12 +266,13 @@ class _AIContentPreviewState extends State<AIContentPreview>
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: const Color(0xFF90CAF9).withValues(alpha: _pulseAnimation.value),
+                  color: const Color(0xFF90CAF9)
+                      .withValues(alpha: _pulseAnimation.value),
                 ),
               ),
               const SizedBox(width: 10),
               Text(
-                'AI正在感知你的文字...',
+                '湖神正在感知你的文字...',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.white.withValues(alpha: 0.8),
@@ -251,6 +296,11 @@ class _AIContentPreviewState extends State<AIContentPreview>
         if (_sentimentLabel != null) ...[
           const SizedBox(height: 12),
           _buildSentimentBar(),
+        ],
+
+        if (_reliabilityTier != null || _uncertainty != null) ...[
+          const SizedBox(height: 10),
+          _buildReliabilityHint(),
         ],
 
         // 心理关怀提示
@@ -283,12 +333,12 @@ class _AIContentPreviewState extends State<AIContentPreview>
     switch (_status) {
       case ModerationStatus.passed:
         icon = Icons.check_circle_outline;
-        label = '内容安全，可以投入湖中';
+        label = '湖神分析完成，可继续发布';
         glowColor = const Color(0xFF4CAF50);
         break;
       case ModerationStatus.warning:
         icon = Icons.info_outline;
-        label = '内容需要注意';
+        label = '湖神信心不足，建议补充语境';
         glowColor = const Color(0xFFFF9800);
         break;
       case ModerationStatus.rejected:
@@ -329,8 +379,34 @@ class _AIContentPreviewState extends State<AIContentPreview>
     );
   }
 
+  String _normalizeMoodLabel(String? mood) {
+    if (mood == null || mood.trim().isEmpty) return 'neutral';
+    final key = mood.trim().toLowerCase();
+    const moodMap = {
+      'happy': '开心',
+      'calm': '平静',
+      'neutral': '中性',
+      'anxious': '焦虑',
+      'sad': '难过',
+      'angry': '愤怒',
+      'surprised': '惊讶',
+      'confused': '困惑',
+      'fear': '焦虑',
+      'fearful': '焦虑',
+    };
+    return moodMap[key] ?? mood;
+  }
+
+  double _normalizeSentimentScore(double? rawScore) {
+    if (rawScore == null) return 0.5;
+    if (rawScore >= -1.0 && rawScore <= 1.0) {
+      return ((rawScore + 1.0) / 2.0).clamp(0.0, 1.0);
+    }
+    return rawScore.clamp(0.0, 1.0);
+  }
+
   Widget _buildSentimentBar() {
-    final score = (_sentimentScore ?? 0.5).clamp(0.0, 1.0);
+    final score = _normalizeSentimentScore(_sentimentScore);
 
     // 情感渐变色：从冷色到暖色
     final gradientColors = [
@@ -400,6 +476,54 @@ class _AIContentPreviewState extends State<AIContentPreview>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildReliabilityHint() {
+    final tier = (_reliabilityTier ?? 'unknown').toLowerCase();
+    Color tierColor;
+    String tierText;
+    switch (tier) {
+      case 'high':
+        tierColor = const Color(0xFF66BB6A);
+        tierText = '高';
+        break;
+      case 'medium':
+        tierColor = const Color(0xFFFFD54F);
+        tierText = '中';
+        break;
+      default:
+        tierColor = const Color(0xFFFF8A65);
+        tierText = '低';
+    }
+    final uncertainty = ((_uncertainty ?? 0.0) * 100).toStringAsFixed(0);
+    final action = _recommendedAction == 'ask_for_more_context'
+        ? '建议补充具体事件、对象和结果'
+        : '可直接使用当前情绪建议';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.white.withValues(alpha: 0.08),
+        border: Border.all(color: tierColor.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.analytics_outlined, size: 15, color: tierColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '可信度 $tierText | 不确定性 $uncertainty% | $action',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.86),
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -73,7 +73,7 @@ class EmotionInsightsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
-                  'AI 分析',
+                  '湖神分析',
                   style: TextStyle(
                     fontSize: 10,
                     color: AppTheme.secondaryColor,

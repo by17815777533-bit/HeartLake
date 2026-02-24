@@ -75,11 +75,13 @@ export default {
     const token = appStore.getToken()
     if (!token) return
 
-    // 通过 URL query 参数传递 token，匹配后端 BroadcastWebSocketController 路径
+    // S-2: 连接时不带 token，避免凭据暴露在 URL / 日志中
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/broadcast?token=${encodeURIComponent(token)}`)
+    ws = new WebSocket(`${protocol}//${location.host}/ws/broadcast`)
 
     ws.onopen = () => {
+      // 连接后发送认证消息，避免 token 暴露在 URL 中
+      ws.send(JSON.stringify({ type: 'auth', token }))
       reconnectAttempts = 0
       lastPongTime = Date.now()
       // M-2: 启动心跳保活

@@ -40,15 +40,18 @@ class EdgeAIProvider extends ChangeNotifier {
           .toLowerCase();
       final confidence = _extractConfidence(remote);
       final normalizedMood = _normalizeMood(mood);
-      final corrected =
-          _applyContextCorrection(text, normalizedMood, confidence);
-      result = _buildDistribution(corrected.key, corrected.value);
+      final corrected = _applyContextCorrection(text, normalizedMood, confidence);
+      final shouldFallback = _shouldFallbackFromRemote(remote, corrected.value);
+      if (shouldFallback) {
+        final fallback = await _classifyFallback(text);
+        final remoteHint = _buildDistribution(corrected.key, corrected.value);
+        final hintWeight = _isRemoteAbstained(remote) ? 0.08 : 0.18;
+        result = _blendDistributions(fallback, remoteHint, hintWeight);
+      } else {
+        result = _buildDistribution(corrected.key, corrected.value);
+      }
     } else {
-      final ruleBased = _classifyByRules(text);
-      final features = _textToFeatures(text);
-      final localRaw = await _classifier.classifyWithPrivacy(features);
-      final localNormalized = _normalizeLocalDistribution(localRaw);
-      result = _mergeFallback(ruleBased, localNormalized);
+      result = await _classifyFallback(text);
     }
 
     _lastResult = result;
@@ -270,6 +273,48 @@ class EdgeAIProvider extends ChangeNotifier {
     return _normalizeDistribution(merged);
   }
 
+  Future<Map<String, double>> _classifyFallback(String text) async {
+    final ruleBased = _classifyByRules(text);
+    final features = _textToFeatures(text);
+    final localRaw = await _classifier.classifyWithPrivacy(features);
+    final localNormalized = _normalizeLocalDistribution(localRaw);
+    return _mergeFallback(ruleBased, localNormalized);
+  }
+
+  bool _isRemoteAbstained(Map<String, dynamic> remote) {
+    final abstained = remote['abstained'];
+    if (abstained is bool) return abstained;
+    if (abstained is String) {
+      final normalized = abstained.toLowerCase();
+      if (normalized == 'true' || normalized == '1') return true;
+    }
+    final decision = (remote['decision'] ?? '').toString().toLowerCase();
+    return decision == 'abstain';
+  }
+
+  bool _shouldFallbackFromRemote(Map<String, dynamic> remote, double confidence) {
+    if (_isRemoteAbstained(remote)) return true;
+    final uncertaintyRaw = remote['uncertainty'];
+    if (uncertaintyRaw is num && uncertaintyRaw.toDouble() > 0.62) return true;
+    final tier = (remote['reliability_tier'] ?? '').toString().toLowerCase();
+    if (tier == 'low' && confidence < 0.55) return true;
+    return confidence < 0.40;
+  }
+
+  Map<String, double> _blendDistributions(
+      Map<String, double> primary,
+      Map<String, double> secondary,
+      double secondaryWeight) {
+    final w2 = secondaryWeight.clamp(0.0, 0.4);
+    final w1 = 1.0 - w2;
+    final keys = <String>{...primary.keys, ...secondary.keys};
+    final merged = <String, double>{};
+    for (final key in keys) {
+      merged[key] = (primary[key] ?? 0.0) * w1 + (secondary[key] ?? 0.0) * w2;
+    }
+    return _normalizeDistribution(merged);
+  }
+
   MapEntry<String, double> _applyContextCorrection(
       String text, String mood, double confidence) {
     final lower = text.toLowerCase();
@@ -355,6 +400,10 @@ class EdgeAIProvider extends ChangeNotifier {
   }
 
   double _extractConfidence(Map<String, dynamic> remote) {
+    final calibratedRaw = remote['calibrated_confidence'];
+    if (calibratedRaw is num) {
+      return calibratedRaw.toDouble().clamp(0.0, 1.0);
+    }
     final confidenceRaw = remote['confidence'];
     if (confidenceRaw is num) {
       return confidenceRaw.toDouble().clamp(0.0, 1.0);

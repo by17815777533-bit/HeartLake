@@ -102,7 +102,8 @@ private:
     std::unordered_map<std::string, EmotionMemory> memories_;
     mutable std::shared_mutex mutex_;  // 读多写少，用共享锁提升并发
 
-    static constexpr int MAX_SHORT_TERM = 5;
+    static constexpr int MAX_SHORT_TERM = 5;          // 短期记忆保留条数
+    static constexpr int LONG_TERM_RETENTION_DAYS = 30; // 长期记忆聚合天数
 
     EmotionMemory& getOrCreateMemory(const std::string& userId);
     std::string calculateTrend(const std::vector<float>& scores);

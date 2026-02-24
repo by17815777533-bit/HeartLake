@@ -29,7 +29,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _screens = [
       LakeScreen(key: _lakeScreenKey),
       const DiscoverScreen(),
-      const PublishScreen(),
+      PublishScreen(
+        onPublished: () {
+          if (!mounted) return;
+          setState(() {
+            _selectedIndex = 0;
+          });
+          _lakeScreenKey.currentState?.refreshStones();
+        },
+      ),
       const FriendsScreen(),
       const ProfileScreen(),
     ];

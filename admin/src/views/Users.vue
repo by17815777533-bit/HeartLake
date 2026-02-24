@@ -130,6 +130,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { usePagination } from '@/composables/usePagination'
 
 const loading = ref(false)
 const users = ref([])
@@ -140,12 +141,6 @@ const filters = reactive({
   userId: '',
   nickname: '',
   status: '',
-})
-
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0,
 })
 
 // 获取用户列表

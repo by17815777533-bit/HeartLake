@@ -414,7 +414,6 @@ int main(int argc, char *argv[]) {
                 "/api/health",
                 "/api/health/detailed",
                 // VUL-17: /metrics 已移除，需要认证访问
-                "/api/boats/drifting/count",
             };
             // 前缀白名单：这些路径下的所有子路径都不需要认证
             static const std::vector<std::string> prefixWhitelist = {
@@ -524,9 +523,15 @@ int main(int argc, char *argv[]) {
         aiConfig["timeout"] = ai_timeout ? std::atoi(ai_timeout) : 10;
         heartlake::ai::AIService::getInstance().initialize(aiConfig);
 
-        // 初始化嵌入向量引擎
-        LOG_INFO << "Initializing Embedding Engine...";
-        heartlake::ai::AdvancedEmbeddingEngine::getInstance().initialize(128, 10000);
+        // 初始化嵌入向量引擎（统一配置，避免多服务维度漂移）
+        const int embeddingDim = std::clamp(
+            heartlake::utils::parsePositiveIntEnv("EMBEDDING_DIM", 256), 64, 1536);
+        const int embeddingCacheSize = std::clamp(
+            heartlake::utils::parsePositiveIntEnv("EMBEDDING_CACHE_SIZE", 20000), 1000, 200000);
+        LOG_INFO << "Initializing Embedding Engine... dim=" << embeddingDim
+                 << ", cache=" << embeddingCacheSize;
+        heartlake::ai::AdvancedEmbeddingEngine::getInstance().initialize(
+            static_cast<size_t>(embeddingDim), static_cast<size_t>(embeddingCacheSize));
 
         // 初始化边缘AI引擎（情感分析、内容审核、HNSW、联邦学习、差分隐私）
         LOG_INFO << "Initializing Edge AI Engine...";
@@ -588,7 +593,8 @@ int main(int argc, char *argv[]) {
 
         // 初始化同频共鸣搜索服务
         LOG_INFO << "Initializing Resonance Search Service...";
-        heartlake::infrastructure::ResonanceSearchService::getInstance().initialize(128);
+        heartlake::infrastructure::ResonanceSearchService::getInstance().initialize(
+            static_cast<size_t>(embeddingDim));
 
         // 后台任务默认全部启动，可通过环境变量关闭
         if (heartlake::utils::parseBoolEnv(std::getenv("ENABLE_LAKE_GOD_GUARDIAN"), true)) {

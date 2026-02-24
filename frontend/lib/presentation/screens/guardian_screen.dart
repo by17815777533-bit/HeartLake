@@ -52,7 +52,12 @@ class _GuardianScreenState extends State<GuardianScreen>
     try {
       final stats = await _service.getStats();
       if (!mounted) return;
-      setState(() { _stats = stats; _loading = false; });
+      setState(() {
+        _stats = (stats['success'] == true && stats['data'] is Map)
+            ? Map<String, dynamic>.from(stats['data'] as Map)
+            : null;
+        _loading = false;
+      });
       _animController.forward();
     } catch (e) {
       if (!mounted) return;
@@ -65,7 +70,14 @@ class _GuardianScreenState extends State<GuardianScreen>
       final insights = await _service.getEmotionInsights();
       if (mounted) {
         setState(() {
-          _insights = insights;
+          _insights = (insights['success'] == true && insights['data'] is Map)
+              ? Map<String, dynamic>.from(insights['data'] as Map)
+              : null;
+          _insightsError = _insights == null
+              ? (insights['message']?.toString().isNotEmpty == true
+                  ? insights['message'].toString()
+                  : '暂无情感洞察数据')
+              : null;
           _insightsLoading = false;
         });
       }
@@ -96,7 +108,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                     color: AppTheme.purpleColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.psychology, color: AppTheme.purpleColor),
+                  child:
+                      const Icon(Icons.psychology, color: AppTheme.purpleColor),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -107,7 +120,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                 ),
                 if (!_insightsLoading && _insightsError == null)
                   IconButton(
-                    icon: const Icon(Icons.refresh, size: 20, color: Colors.grey),
+                    icon:
+                        const Icon(Icons.refresh, size: 20, color: Colors.grey),
                     onPressed: () {
                       setState(() {
                         _insightsLoading = true;
@@ -126,7 +140,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                   child: SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.purpleColor),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppTheme.purpleColor),
                   ),
                 ),
               )
@@ -136,9 +151,11 @@ class _GuardianScreenState extends State<GuardianScreen>
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.grey, size: 32),
+                      const Icon(Icons.error_outline,
+                          color: Colors.grey, size: 32),
                       const SizedBox(height: 8),
-                      Text(_insightsError!, style: const TextStyle(color: Colors.grey)),
+                      Text(_insightsError!,
+                          style: const TextStyle(color: Colors.grey)),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () {
@@ -164,9 +181,18 @@ class _GuardianScreenState extends State<GuardianScreen>
 
   List<Widget> _buildInsightsContent() {
     final List<Widget> widgets = [];
+    final profile = _insights?['profile'] is Map
+        ? Map<String, dynamic>.from(_insights!['profile'] as Map)
+        : const <String, dynamic>{};
+    final longTermProfile = _insights?['long_term_profile'] is Map
+        ? Map<String, dynamic>.from(_insights!['long_term_profile'] as Map)
+        : const <String, dynamic>{};
 
     // 情感趋势
-    final trend = _insights!['emotion_trend'] ?? _insights!['trend'];
+    final trend = profile['emotion_trend'] ??
+        longTermProfile['emotion_trend'] ??
+        _insights!['emotion_trend'] ??
+        _insights!['trend'];
     if (trend != null) {
       widgets.add(
         Container(
@@ -181,8 +207,9 @@ class _GuardianScreenState extends State<GuardianScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '$trend',
-                  style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary),
+                  _trendLabel(trend.toString()),
+                  style: const TextStyle(
+                      fontSize: 14, color: AppTheme.textPrimary),
                 ),
               ),
             ],
@@ -193,12 +220,15 @@ class _GuardianScreenState extends State<GuardianScreen>
     }
 
     // 情感摘要
-    final summary = _insights!['summary'] ?? _insights!['emotion_summary'];
+    final summary = _insights!['summary'] ??
+        _insights!['emotion_summary'] ??
+        _insights!['trend_description'];
     if (summary != null) {
       widgets.add(
         Text(
           '$summary',
-          style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary, height: 1.5),
+          style: const TextStyle(
+              fontSize: 14, color: AppTheme.textSecondary, height: 1.5),
         ),
       );
       widgets.add(const SizedBox(height: 12));
@@ -216,13 +246,17 @@ class _GuardianScreenState extends State<GuardianScreen>
               children: [
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.lightbulb_outline, size: 18, color: AppTheme.accentColor),
+                  child: Icon(Icons.lightbulb_outline,
+                      size: 18, color: AppTheme.accentColor),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '$suggestion',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                        height: 1.4),
                   ),
                 ),
               ],
@@ -247,6 +281,16 @@ class _GuardianScreenState extends State<GuardianScreen>
     return widgets;
   }
 
+  String _trendLabel(String trend) {
+    const mapping = {
+      'stable': '最近情绪比较平稳',
+      'rising': '最近情绪正在回暖',
+      'falling': '最近情绪有些低落',
+      'volatile': '最近情绪波动较大',
+    };
+    return mapping[trend.toLowerCase()] ?? trend;
+  }
+
   Future<void> _showTransferDialog() async {
     final controller = TextEditingController();
     final result = await showDialog<String>(
@@ -260,12 +304,14 @@ class _GuardianScreenState extends State<GuardianScreen>
             const SizedBox(height: 16),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(labelText: '对方ID', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                  labelText: '对方ID', border: OutlineInputBorder()),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -281,14 +327,17 @@ class _GuardianScreenState extends State<GuardianScreen>
         final bool success = response['success'] == true;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(success ? '灯火已传递' : '转赠失败'), backgroundColor: success ? Colors.green : Colors.red),
+            SnackBar(
+                content: Text(success ? '灯火已传递' : '转赠失败'),
+                backgroundColor: success ? Colors.green : Colors.red),
           );
           if (success) _loadStats();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
+            const SnackBar(
+                content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
           );
         }
       }
@@ -299,92 +348,133 @@ class _GuardianScreenState extends State<GuardianScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text('点灯人'), backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Colors.white),
+      appBar: AppBar(
+          title: const Text('守护者'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: Colors.white),
       body: Stack(
         children: [
           const Positioned.fill(child: WaterBackground()),
           SafeArea(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white))
                 : _stats == null
-                    ? const Center(child: Text('暂无数据', style: TextStyle(color: Colors.white)))
+                    ? const Center(
+                        child:
+                            Text('暂无数据', style: TextStyle(color: Colors.white)))
                     : FadeTransition(
                         opacity: _fadeAnim,
                         child: ScaleTransition(
                           scale: _scaleAnim,
                           child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          Card(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              Card(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        _stats!['is_guardian'] == true
+                                            ? Icons.local_fire_department
+                                            : Icons
+                                                .local_fire_department_outlined,
+                                        size: 64,
+                                        color: _stats!['is_guardian'] == true
+                                            ? Colors.orange
+                                            : Colors.grey,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        _stats!['is_guardian'] == true
+                                            ? '你是一位守护者'
+                                            : '成为守护者',
+                                        style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      const Text('用温暖的涟漪，照亮他人的心湖',
+                                          style: TextStyle(color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
                                 children: [
-                                  Icon(
-                                    _stats!['is_guardian'] == true ? Icons.local_fire_department : Icons.local_fire_department_outlined,
-                                    size: 64,
-                                    color: _stats!['is_guardian'] == true ? Colors.orange : Colors.grey,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _stats!['is_guardian'] == true ? '你是一位点灯人' : '成为点灯人',
-                                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text('用温暖的涟漪，照亮他人的心湖', style: TextStyle(color: Colors.grey)),
+                                  _StatCard(
+                                      label: '共鸣点数',
+                                      value:
+                                          '${_stats!['resonance_points'] ?? 0}'),
+                                  const SizedBox(width: 12),
+                                  _StatCard(
+                                      label: '优质涟漪',
+                                      value:
+                                          '${_stats!['quality_ripples'] ?? 0}'),
+                                  const SizedBox(width: 12),
+                                  _StatCard(
+                                      label: '温暖纸船',
+                                      value: '${_stats!['warm_boats'] ?? 0}'),
                                 ],
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              _StatCard(label: '共鸣点数', value: '${_stats!['resonance_points'] ?? 0}'),
-                              const SizedBox(width: 12),
-                              _StatCard(label: '优质涟漪', value: '${_stats!['quality_ripples'] ?? 0}'),
-                              const SizedBox(width: 12),
-                              _StatCard(label: '温暖纸船', value: '${_stats!['warm_boats'] ?? 0}'),
+                              const SizedBox(height: 16),
+                              // 情感洞察卡片
+                              _buildInsightsCard(),
+                              const SizedBox(height: 24),
+                              if (_stats!['is_guardian'] == true)
+                                ElevatedButton.icon(
+                                  onPressed: _showTransferDialog,
+                                  icon: const Icon(Icons.volunteer_activism),
+                                  label: const Text('转赠灯火'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                              // 湖神入口
+                              Card(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                child: ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                        color: AppTheme.skyBlue
+                                            .withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
+                                    child: const Icon(Icons.auto_awesome,
+                                        color: AppTheme.skyBlue),
+                                  ),
+                                  title: const Text('与湖神对话',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  subtitle: const Text('倾诉心事，获得温暖陪伴'),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const LakeGodChatScreen())),
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          // 情感洞察卡片
-                          _buildInsightsCard(),
-                          const SizedBox(height: 24),
-                          if (_stats!['is_guardian'] == true)
-                            ElevatedButton.icon(
-                              onPressed: _showTransferDialog,
-                              icon: const Icon(Icons.volunteer_activism),
-                              label: const Text('转赠灯火'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          // 湖神入口
-                          Card(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            child: ListTile(
-                              leading: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: AppTheme.skyBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                                child: const Icon(Icons.auto_awesome, color: AppTheme.skyBlue),
-                              ),
-                              title: const Text('与湖神对话', style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: const Text('倾诉心事，获得温暖陪伴'),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
           ),
         ],
       ),
@@ -405,9 +495,14 @@ class _StatCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
             children: [
-              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.skyBlue)),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.skyBlue)),
               const SizedBox(height: 4),
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ),

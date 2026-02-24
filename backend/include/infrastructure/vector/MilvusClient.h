@@ -10,7 +10,11 @@
 #include <functional>
 #include <mutex>
 #include <atomic>
+#include <memory>
 #include <json/json.h>
+#include <drogon/HttpClient.h>
+#include <trantor/net/EventLoop.h>
+#include <trantor/net/EventLoopThread.h>
 
 namespace heartlake::infrastructure {
 
@@ -33,6 +37,12 @@ public:
     static MilvusClient& getInstance();
 
     void initialize(const MilvusConfig& config = MilvusConfig{});
+
+    /**
+     * @brief 主动探测 Milvus 健康状态并刷新连接标记
+     * @return true=可用，false=不可用
+     */
+    bool ping();
 
     // 集合管理
     bool createCollection(const std::string& collection, int dimension);
@@ -69,13 +79,15 @@ private:
     MilvusClient& operator=(const MilvusClient&) = delete;
 
     Json::Value httpRequest(const std::string& endpoint, const std::string& method, const Json::Value& body = {});
-    void tryReconnect();
 
     MilvusConfig config_;
     std::atomic<bool> connected_{false};
     std::atomic<bool> initialized_{false};
     std::mutex mutex_;
     std::string baseUrl_;
+    trantor::EventLoop* httpLoop_{nullptr};
+    std::unique_ptr<trantor::EventLoopThread> httpLoopThread_;
+    drogon::HttpClientPtr httpClient_;
 };
 
 } // namespace heartlake::infrastructure

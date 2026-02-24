@@ -5,10 +5,12 @@
  */
 
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/EnvUtils.h"
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <thread>
 #include <unordered_set>
 
 using namespace drogon;
@@ -37,36 +39,22 @@ void AdvancedEmbeddingEngine::initialize(size_t embeddingDim, size_t cacheSize) 
     // 加载情感词典
     loadSentimentLexicon();
 
-    // 从数据库加载历史数据进行训练（仅在应用运行时）
+    initialized_ = true;
+
+    // 应用启动前无需预热训练语料
     if (!app().isRunning()) {
-        LOG_INFO << "Drogon app not running, skipping database training data load";
-        initialized_ = true;
+        LOG_INFO << "Drogon app not running, skipping embedding warmup";
+        LOG_INFO << "AdvancedEmbeddingEngine initialized successfully";
         return;
     }
-    try {
-        auto dbClient = app().getDbClient("default");
-        auto result = dbClient->execSqlSync(
-            "SELECT content FROM stones WHERE content IS NOT NULL AND LENGTH(content) > 10 "
-            "ORDER BY created_at DESC LIMIT 5000"
-        );
 
-        std::vector<std::string> corpus;
-        corpus.reserve(result.size());
-        for (const auto& row : result) {
-            corpus.push_back(row["content"].as<std::string>());
-        }
-
-        if (!corpus.empty()) {
-            LOG_INFO << "Training embedding model with " << corpus.size() << " documents";
-            trainFromCorpus(corpus);
-        } else {
-            LOG_WARN << "No training data found, using default IDF weights";
-        }
-    } catch (const std::exception& e) {
-        LOG_WARN << "Failed to load training data: " << e.what();
+    const bool warmupOnBoot = heartlake::utils::parseBoolEnv(std::getenv("EMBEDDING_WARMUP_ON_BOOT"), false);
+    if (warmupOnBoot) {
+        warmupTrainingDataAsync();
+    } else {
+        LOG_INFO << "Embedding warmup disabled by default (set EMBEDDING_WARMUP_ON_BOOT=true to enable)";
     }
 
-    initialized_ = true;
     LOG_INFO << "AdvancedEmbeddingEngine initialized successfully";
 }
 
@@ -160,6 +148,7 @@ std::vector<float> AdvancedEmbeddingEngine::extractTFIDFFeatures(
     }
 
     // 计算TF-IDF并使用特征哈希
+    std::shared_lock<std::shared_mutex> lock(idfMutex_);
     for (const auto& [word, freq] : termFreq) {
         float tf = static_cast<float>(freq) / tokens.size();
 
@@ -431,12 +420,22 @@ float AdvancedEmbeddingEngine::cosineSimilarity(
 }
 
 void AdvancedEmbeddingEngine::trainFromCorpus(const std::vector<std::string>& texts) {
+    if (texts.empty()) {
+        LOG_WARN << "Empty corpus, skipping embedding training";
+        return;
+    }
+
     LOG_INFO << "Training embedding model from " << texts.size() << " documents";
 
-    totalDocs_ = texts.size();
     computeIDF(texts);
+    clearCache();
 
-    LOG_INFO << "Embedding model training completed, IDF weights: " << idfWeights_.size();
+    size_t idfSize = 0;
+    {
+        std::shared_lock<std::shared_mutex> lock(idfMutex_);
+        idfSize = idfWeights_.size();
+    }
+    LOG_INFO << "Embedding model training completed, IDF weights: " << idfSize;
 }
 
 void AdvancedEmbeddingEngine::computeIDF(const std::vector<std::string>& texts) {
@@ -453,15 +452,22 @@ void AdvancedEmbeddingEngine::computeIDF(const std::vector<std::string>& texts) 
     }
 
     // 计算IDF
-    idfWeights_.clear();
+    std::unordered_map<std::string, float> newIdfWeights;
+    newIdfWeights.reserve(docFreq.size());
     for (const auto& [word, df] : docFreq) {
         if (df > 0) {
             float idf = std::log(static_cast<float>(texts.size()) / df);
-            idfWeights_[word] = idf;
+            newIdfWeights[word] = idf;
         }
     }
 
-    LOG_INFO << "Computed IDF weights for " << idfWeights_.size() << " words";
+    {
+        std::unique_lock<std::shared_mutex> lock(idfMutex_);
+        idfWeights_ = std::move(newIdfWeights);
+        totalDocs_ = texts.size();
+    }
+
+    LOG_INFO << "Computed IDF weights for " << docFreq.size() << " words";
 }
 
 void AdvancedEmbeddingEngine::loadSentimentLexicon() {
@@ -496,6 +502,47 @@ void AdvancedEmbeddingEngine::clearCache() {
     std::lock_guard<std::mutex> lock(cacheMutex_);
     embeddingCache_->clear();
     LOG_INFO << "Embedding cache cleared";
+}
+
+void AdvancedEmbeddingEngine::warmupTrainingDataAsync() {
+    try {
+        auto dbClient = app().getDbClient("default");
+        if (!dbClient) {
+            LOG_WARN << "Embedding warmup skipped: DB client not available";
+            return;
+        }
+
+        LOG_INFO << "Scheduling embedding warmup query in background";
+        dbClient->execSqlAsync(
+            "SELECT content FROM stones WHERE content IS NOT NULL AND LENGTH(content) > 10 LIMIT 1000",
+            [this](const drogon::orm::Result& result) {
+                std::vector<std::string> corpus;
+                corpus.reserve(result.size());
+                for (const auto& row : result) {
+                    corpus.push_back(row["content"].as<std::string>());
+                }
+
+                if (corpus.empty()) {
+                    LOG_INFO << "Embedding warmup skipped: no training data found";
+                    return;
+                }
+
+                // 单例生命周期与进程一致，detach 不会导致 use-after-free
+                std::thread([this, corpus = std::move(corpus)]() mutable {
+                    try {
+                        trainFromCorpus(corpus);
+                    } catch (const std::exception& e) {
+                        LOG_WARN << "Embedding warmup training failed: " << e.what();
+                    }
+                }).detach();
+            },
+            [](const drogon::orm::DrogonDbException& e) {
+                LOG_WARN << "Embedding warmup query failed: " << e.base().what();
+            }
+        );
+    } catch (const std::exception& e) {
+        LOG_WARN << "Failed to schedule embedding warmup: " << e.what();
+    }
 }
 
 AdvancedEmbeddingEngine::CacheStats AdvancedEmbeddingEngine::getCacheStats() const {

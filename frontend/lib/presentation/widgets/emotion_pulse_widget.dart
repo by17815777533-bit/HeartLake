@@ -2,6 +2,7 @@
 // @brief 情绪脉搏 - 光遇风格呼吸光球
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../data/datasources/edge_ai_service.dart';
 
 /// 情绪脉搏光球 - 实时展示社区情绪状态
 class EmotionPulseWidget extends StatefulWidget {
@@ -15,6 +16,7 @@ class EmotionPulseWidget extends StatefulWidget {
 class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _breathController;
+  final EdgeAIService _edgeAIService = EdgeAIService();
   Map<String, dynamic>? _pulseData;
   String _dominantMood = 'neutral';
   double _intensity = 0.5;
@@ -28,6 +30,8 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     'angry': Color(0xFFEF5350),
     'fear': Color(0xFFB39DDB),
     'fearful': Color(0xFFB39DDB),
+    'anxious': Color(0xFFFFB74D),
+    'calm': Color(0xFF4DB6AC),
     'surprise': Color(0xFFFFAB40),
     'surprised': Color(0xFFFFAB40),
     'neutral': Color(0xFF90CAF9),
@@ -49,17 +53,46 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     super.dispose();
   }
 
-  // 情绪脉搏端点为admin专用(/api/admin/edge-ai/emotion-pulse)
-  // 前端使用默认情绪状态展示呼吸光球，不调用admin端点
+  // 公开端点：/api/edge-ai/emotion-pulse
   Future<void> _loadPulse() async {
-    // 使用默认值展示，无需调用admin端点
-    if (mounted) {
-      setState(() {
-        _pulseData = {'dominant_mood': 'neutral', 'intensity': 0.5};
-        _dominantMood = 'neutral';
-        _intensity = 0.5;
-      });
-    }
+    try {
+      final result = await _edgeAIService.getEmotionPulse();
+      if (!mounted) return;
+
+      if (result['success'] == true && result['data'] is Map) {
+        final data = Map<String, dynamic>.from(result['data'] as Map);
+        final dominantMood =
+            (data['dominant_mood'] ?? 'neutral').toString().toLowerCase();
+        final sampleCount = (data['sample_count'] as num?)?.toInt() ?? 0;
+        final distribution = data['mood_distribution'] is Map
+            ? data['mood_distribution'] as Map
+            : null;
+        final avgScore = (data['avg_score'] as num?)?.toDouble() ?? 0.0;
+
+        double intensity;
+        if (distribution != null && sampleCount > 0) {
+          final dominantCount =
+              (distribution[dominantMood] as num?)?.toDouble() ?? 0.0;
+          intensity = (dominantCount / sampleCount).clamp(0.25, 1.0);
+        } else {
+          intensity = (avgScore.abs() + 0.3).clamp(0.25, 1.0);
+        }
+
+        setState(() {
+          _pulseData = data;
+          _dominantMood = dominantMood;
+          _intensity = intensity;
+        });
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() {
+      _pulseData = {'dominant_mood': 'neutral', 'intensity': 0.5};
+      _dominantMood = 'neutral';
+      _intensity = 0.5;
+    });
   }
 
   Color get _glowColor => _moodColors[_dominantMood] ?? const Color(0xFF90CAF9);
@@ -142,11 +175,18 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
 
   String get _moodEmoji {
     const emojis = {
-      'joy': '☀️', 'happy': '☀️',
-      'sadness': '🌧️', 'sad': '🌧️',
-      'anger': '🌋', 'angry': '🌋',
-      'fear': '🌙', 'fearful': '🌙',
-      'surprise': '⭐', 'surprised': '⭐',
+      'joy': '☀️',
+      'happy': '☀️',
+      'sadness': '🌧️',
+      'sad': '🌧️',
+      'anger': '🌋',
+      'angry': '🌋',
+      'fear': '🌙',
+      'fearful': '🌙',
+      'anxious': '🌫️',
+      'calm': '💧',
+      'surprise': '⭐',
+      'surprised': '⭐',
       'neutral': '🌊',
     };
     return emojis[_dominantMood] ?? '🌊';
@@ -154,11 +194,18 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
 
   String get _moodLabel {
     const labels = {
-      'joy': '温暖', 'happy': '温暖',
-      'sadness': '宁静', 'sad': '宁静',
-      'anger': '炽热', 'angry': '炽热',
-      'fear': '幽深', 'fearful': '幽深',
-      'surprise': '惊喜', 'surprised': '惊喜',
+      'joy': '温暖',
+      'happy': '温暖',
+      'sadness': '宁静',
+      'sad': '宁静',
+      'anger': '炽热',
+      'angry': '炽热',
+      'fear': '幽深',
+      'fearful': '幽深',
+      'anxious': '波动',
+      'calm': '安定',
+      'surprise': '惊喜',
+      'surprised': '惊喜',
       'neutral': '平静',
     };
     return labels[_dominantMood] ?? '平静';
@@ -245,7 +292,8 @@ class _ParticleRingPainter extends CustomPainter {
       final x = center.dx + math.cos(angle) * r;
       final y = center.dy + math.sin(angle) * r;
       final particleSize = 1.5 + rng.nextDouble() * 2;
-      final alpha = 0.3 + math.sin(progress * math.pi * 2 + i * 0.5).abs() * 0.5;
+      final alpha =
+          0.3 + math.sin(progress * math.pi * 2 + i * 0.5).abs() * 0.5;
 
       canvas.drawCircle(
         Offset(x, y),

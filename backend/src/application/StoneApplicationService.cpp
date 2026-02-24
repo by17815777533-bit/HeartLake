@@ -478,12 +478,15 @@ void StoneApplicationService::processStoneAsync(
         vecStr += "]";
 
         drogon::app().getDbClient("default")->execSqlAsync(
-            "UPDATE stones SET embedding = $1::vector WHERE stone_id = $2",
+            // stone_embeddings 才是向量持久化表，避免误写 stones 导致连接进入 abort pipeline。
+            "INSERT INTO stone_embeddings (stone_id, embedding, created_at) "
+            "VALUES ($1, $2, NOW()) "
+            "ON CONFLICT (stone_id) DO UPDATE SET embedding = EXCLUDED.embedding",
             [](const drogon::orm::Result&) {},
             [stoneId](const drogon::orm::DrogonDbException& e) {
-                LOG_ERROR << "Failed to update embedding for stone " << stoneId << ": " << e.base().what();
+                LOG_ERROR << "Failed to persist embedding for stone " << stoneId << ": " << e.base().what();
             },
-            vecStr, stoneId
+            stoneId, vecStr
         );
 
         // 同步插入HNSW索引，使向量搜索可用
@@ -521,14 +524,14 @@ void StoneApplicationService::processStoneAsync(
     // 4. AI暖心评论（基于双记忆RAG）
     // 使用DualMemoryRAG生成个性化回复，融合用户长期情绪画像和近期交互上下文
     auto cacheManagerCopy = cacheManager_;
-    drogon::app().getLoop()->runInLoop([stoneId, userId, content, moodType, cacheManagerCopy]() {
+    drogon::async_run([stoneId, userId, content, moodType, cacheManagerCopy]() -> drogon::Task<void> {
         try {
             auto& dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
             std::string comment = dualMemory.generateResponse(userId, content, moodType, 0.0f);
 
             if (comment.empty()) {
                 LOG_WARN << "DualMemoryRAG returned empty for stone " << stoneId;
-                return;
+                co_return;
             }
 
             std::string aiBoatId = heartlake::utils::IdGenerator::generateBoatId();
@@ -545,7 +548,9 @@ void StoneApplicationService::processStoneAsync(
             );
             int newBoatsCount = updateResult.empty() ? 1 : updateResult[0]["boat_count"].as<int>();
 
-            if (cacheManagerCopy) cacheManagerCopy->invalidate("stone:" + stoneId);
+            if (cacheManagerCopy) {
+                cacheManagerCopy->invalidate("stone:" + stoneId);
+            }
 
             Json::Value broadcastMsg;
             broadcastMsg["type"] = "boat_update";
@@ -556,10 +561,14 @@ void StoneApplicationService::processStoneAsync(
             broadcastMsg["is_ai"] = true;
             broadcastMsg["triggered_by"] = "ai_lakegod_rag";
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            heartlake::controllers::BroadcastWebSocketController::broadcast(broadcastMsg);
+
+            drogon::app().getLoop()->queueInLoop([msg = std::move(broadcastMsg)]() mutable {
+                heartlake::controllers::BroadcastWebSocketController::broadcast(msg);
+            });
         } catch (const std::exception& e) {
             LOG_ERROR << "DualMemoryRAG comment creation failed: " << e.what();
         }
+        co_return;
     });
 }
 

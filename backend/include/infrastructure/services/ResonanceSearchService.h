@@ -30,7 +30,7 @@ class ResonanceSearchService {
 public:
     static ResonanceSearchService& getInstance();
 
-    void initialize(size_t embeddingDim = 128);
+    void initialize(size_t embeddingDim = 256);
 
     // 为石头生成并存储嵌入向量
     void indexStone(const std::string& stoneId, const std::string& content);
@@ -56,7 +56,7 @@ private:
     ResonanceSearchService& operator=(const ResonanceSearchService&) = delete;
 
     static constexpr const char* COLLECTION_NAME = "stone_embeddings";
-    size_t embeddingDim_ = 128;
+    size_t embeddingDim_ = 256;
     bool initialized_ = false;
     bool useMilvus_ = false;
 };

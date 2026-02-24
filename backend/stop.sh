@@ -18,8 +18,11 @@ stop_pid_file() {
 }
 
 # 停 backend
-pkill -f '/build/HeartLake' >/dev/null 2>&1 || true
+pkill -f '(^|/)HeartLake($| )' >/dev/null 2>&1 || true
 stop_pid_file "${RUNTIME_DIR}/backend.pid"
+
+# 停 Rust QUIC gateway
+stop_pid_file "${RUNTIME_DIR}/quic_gateway.pid"
 
 # 停 ollama（仅停止脚本拉起的实例）
 stop_pid_file "${RUNTIME_DIR}/ollama.pid"

@@ -19,8 +19,8 @@
       "port": 5432,
       "dbname": "heartlake",
       "user": "postgres",
-      "passwd": "YOUR_DB_PASSWORD_HERE",
-      "connection_number": 50,
+      "passwd": "CHANGE_ME_use_strong_random_password",
+      "connection_number": 12,
       "timeout": 30
     }
   ],
@@ -29,8 +29,8 @@
       "name": "default",
       "host": "127.0.0.1",
       "port": 6379,
-      "passwd": "YOUR_REDIS_PASSWORD_HERE",
-      "connection_number": 50
+      "passwd": "CHANGE_ME_use_strong_random_password",
+      "connection_number": 12
     }
   ]
 }

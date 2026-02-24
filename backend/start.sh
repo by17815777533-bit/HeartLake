@@ -42,9 +42,13 @@ export DB_TIMEOUT="${DB_TIMEOUT:-30}"
 export REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
 export REDIS_CONNECTION_POOL_SIZE="${REDIS_CONNECTION_POOL_SIZE:-${REDIS_POOL_SIZE:-12}}"
+export REALTIME_QUIC_ENABLED="${REALTIME_QUIC_ENABLED:-true}"
+export QUIC_GATEWAY_BIND="${QUIC_GATEWAY_BIND:-0.0.0.0:8443}"
 export AI_PROVIDER="${AI_PROVIDER:-ollama}"
 export AI_BASE_URL="${AI_BASE_URL:-http://127.0.0.1:11434}"
 export AI_MODEL="${AI_MODEL:-heartlake-qwen}"
+export EMBEDDING_DIM="${EMBEDDING_DIM:-256}"
+export EMBEDDING_CACHE_SIZE="${EMBEDDING_CACHE_SIZE:-20000}"
 
 # GPU strategy: default force GPU for heavy inference.
 export AI_OLLAMA_FORCE_GPU="${AI_OLLAMA_FORCE_GPU:-true}"
@@ -54,6 +58,8 @@ export AI_OLLAMA_LOW_VRAM="${AI_OLLAMA_LOW_VRAM:-false}"
 export EDGE_AI_ONNX_FORCE_GPU="${EDGE_AI_ONNX_FORCE_GPU:-true}"
 export EDGE_AI_ONNX_GPU_DEVICE="${EDGE_AI_ONNX_GPU_DEVICE:-0}"
 export EDGE_AI_ONNX_GPU_HARD_FAIL="${EDGE_AI_ONNX_GPU_HARD_FAIL:-false}"
+ORT_GPU_ROOT="${SCRIPT_DIR}/third_party/onnxruntime-linux-x64-gpu-1.22.0"
+ORT_CPU_ROOT="${SCRIPT_DIR}/third_party/onnxruntime-linux-x64-1.22.0"
 
 if [[ -z "${DB_PASSWORD:-}" ]]; then
     echo "FATAL: DB_PASSWORD is required"
@@ -101,8 +107,10 @@ CONF
 export HEARTLAKE_CONFIG_PATH="${RUNTIME_CONFIG}"
 
 wait_pg() {
-    for _ in $(seq 1 30); do
-        if pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" >/dev/null 2>&1; then
+    local retries="${1:-10}"
+    local timeout_sec="${2:-1}"
+    for _ in $(seq 1 "${retries}"); do
+        if pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -t "${timeout_sec}" >/dev/null 2>&1; then
             return 0
         fi
         sleep 1
@@ -114,28 +122,49 @@ local_addr() {
     [[ "$1" == "127.0.0.1" || "$1" == "localhost" ]]
 }
 
+prepend_ld_library_path() {
+    local dir="$1"
+    if [[ ! -d "${dir}" ]]; then
+        return 0
+    fi
+    if [[ -z "${LD_LIBRARY_PATH:-}" ]]; then
+        export LD_LIBRARY_PATH="${dir}"
+        return 0
+    fi
+    if [[ ":${LD_LIBRARY_PATH}:" != *":${dir}:"* ]]; then
+        export LD_LIBRARY_PATH="${dir}:${LD_LIBRARY_PATH}"
+    fi
+}
+
 # --------- PostgreSQL (persistent local runtime) ---------
-if ! wait_pg; then
+if ! wait_pg 5 1; then
     if local_addr "${DB_HOST}"; then
         PG_DATA_DIR="${RUNTIME_DIR}/postgres"
         PG_PW_FILE="${RUNTIME_DIR}/postgres_pw"
+        PG_SOCKET_DIR="${RUNTIME_DIR}/postgres_socket"
         printf '%s' "${DB_PASSWORD}" > "${PG_PW_FILE}"
         chmod 600 "${PG_PW_FILE}"
+        mkdir -p "${PG_SOCKET_DIR}"
 
         if [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
             rm -rf "${PG_DATA_DIR}"
             initdb -D "${PG_DATA_DIR}" --username="${DB_USER}" --pwfile="${PG_PW_FILE}" > "${LOG_DIR}/initdb.log" 2>&1
         fi
 
-        pg_ctl -D "${PG_DATA_DIR}" -l "${LOG_DIR}/postgres.log" -o "-h 127.0.0.1 -p ${DB_PORT}" start >/dev/null
+        if ! pg_ctl -D "${PG_DATA_DIR}" -l "${LOG_DIR}/postgres.log" -o "-h 127.0.0.1 -p ${DB_PORT} -k ${PG_SOCKET_DIR}" start >/dev/null; then
+            echo "FATAL: PostgreSQL startup command failed"
+            tail -n 40 "${LOG_DIR}/postgres.log" || true
+            exit 1
+        fi
     else
         echo "FATAL: PostgreSQL is not ready at ${DB_HOST}:${DB_PORT}"
         exit 1
     fi
 fi
 
-if ! wait_pg; then
+if ! wait_pg 20 1; then
     echo "FATAL: PostgreSQL startup failed"
+    tail -n 40 "${LOG_DIR}/postgres.log" || true
     exit 1
 fi
 
@@ -208,17 +237,89 @@ if [[ -d "${SCRIPT_DIR}/migrations" ]]; then
     done
 fi
 
-# --------- Build if needed ---------
-if [[ ! -x "${SCRIPT_DIR}/build/HeartLake" ]]; then
-    cmake -S "${SCRIPT_DIR}" -B "${SCRIPT_DIR}/build" -DCMAKE_BUILD_TYPE=Release -DHEARTLAKE_USE_ONNX=ON
+# --------- ONNX Runtime / CUDA loader path ---------
+if [[ -d "${ORT_GPU_ROOT}/lib" ]]; then
+    export ONNXRUNTIME_ROOT="${ORT_GPU_ROOT}"
+    prepend_ld_library_path "${ORT_GPU_ROOT}/lib"
+elif [[ -d "${ORT_CPU_ROOT}/lib" ]]; then
+    export ONNXRUNTIME_ROOT="${ORT_CPU_ROOT}"
+    prepend_ld_library_path "${ORT_CPU_ROOT}/lib"
+fi
+
+# Reuse existing local CUDA runtime shipped by Ollama first.
+prepend_ld_library_path "/usr/local/lib/ollama/cuda_v12"
+prepend_ld_library_path "/usr/local/lib/ollama/cuda_v13"
+prepend_ld_library_path "/usr/local/lib/ollama/mlx_cuda_v13"
+
+# Optional local CUDA deps (if user preinstalled into runtime venv).
+shopt -s nullglob
+for nvidia_lib_dir in "${ROOT_DIR}"/.runtime/venv-onnx/lib/python*/site-packages/nvidia/*/lib; do
+    prepend_ld_library_path "${nvidia_lib_dir}"
+done
+shopt -u nullglob
+
+# --------- Configure & Build ---------
+cmake -S "${SCRIPT_DIR}" -B "${SCRIPT_DIR}/build" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DHEARTLAKE_USE_ONNX=ON \
+    -DONNXRUNTIME_ROOT="${ONNXRUNTIME_ROOT:-}"
+
+if [[ "${HEARTLAKE_SKIP_BUILD:-false}" != "true" ]]; then
     cmake --build "${SCRIPT_DIR}/build" -j"$(nproc)"
 fi
 
-# Prefer bundled ONNX Runtime libs to avoid system mismatch.
-if [[ -d "${SCRIPT_DIR}/third_party/onnxruntime-linux-x64-1.22.0/lib" ]]; then
-    export LD_LIBRARY_PATH="${SCRIPT_DIR}/third_party/onnxruntime-linux-x64-1.22.0/lib:${LD_LIBRARY_PATH:-}"
+# --------- Rust QUIC gateway (dual-channel realtime) ---------
+if [[ "${REALTIME_QUIC_ENABLED}" == "true" ]]; then
+    QUIC_DIR="${SCRIPT_DIR}/quic_gateway"
+    QUIC_BIN="${QUIC_DIR}/target/release/heartlake-quic-gateway"
+    QUIC_LOG="${LOG_DIR}/quic_gateway.log"
+    QUIC_PID_FILE="${RUNTIME_DIR}/quic_gateway.pid"
+
+    if [[ ! -f "${QUIC_DIR}/Cargo.toml" ]]; then
+        echo "FATAL: QUIC gateway project missing: ${QUIC_DIR}"
+        exit 1
+    fi
+
+    if ! command -v cargo >/dev/null 2>&1; then
+        echo "FATAL: cargo is required when REALTIME_QUIC_ENABLED=true"
+        exit 1
+    fi
+
+    if [[ "${HEARTLAKE_SKIP_QUIC_BUILD:-false}" != "true" ]]; then
+        cargo build --release --manifest-path "${QUIC_DIR}/Cargo.toml" >> "${LOG_DIR}/quic_build.log" 2>&1
+    fi
+
+    if [[ ! -x "${QUIC_BIN}" ]]; then
+        echo "FATAL: QUIC gateway binary not found: ${QUIC_BIN}"
+        exit 1
+    fi
+
+    if [[ -f "${QUIC_PID_FILE}" ]]; then
+        old_pid="$(cat "${QUIC_PID_FILE}" || true)"
+        if [[ -n "${old_pid}" ]] && kill -0 "${old_pid}" 2>/dev/null; then
+            kill "${old_pid}" || true
+        fi
+        rm -f "${QUIC_PID_FILE}"
+    fi
+
+    nohup env \
+        PASETO_KEY="${PASETO_KEY}" \
+        REDIS_HOST="${REDIS_HOST}" \
+        REDIS_PORT="${REDIS_PORT}" \
+        REDIS_PASSWORD="${REDIS_PASSWORD:-}" \
+        REDIS_URL="${REDIS_URL:-}" \
+        QUIC_GATEWAY_BIND="${QUIC_GATEWAY_BIND}" \
+        "${QUIC_BIN}" >> "${QUIC_LOG}" 2>&1 &
+    echo $! > "${QUIC_PID_FILE}"
+    sleep 1
+    if ! kill -0 "$(cat "${QUIC_PID_FILE}")" 2>/dev/null; then
+        echo "FATAL: QUIC gateway startup failed"
+        tail -n 60 "${QUIC_LOG}" || true
+        exit 1
+    fi
 fi
 
 echo "HeartLake runtime ready. Starting backend..."
 cd "${SCRIPT_DIR}/build"
+echo $$ > "${RUNTIME_DIR}/backend.pid"
 exec ./HeartLake

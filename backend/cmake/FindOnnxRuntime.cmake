@@ -7,33 +7,42 @@
 #   OnnxRuntime_LIBRARIES    - 库文件
 #   OnnxRuntime::OnnxRuntime - imported target
 
-# 搜索头文件
+set(_ONNXRUNTIME_BUNDLED_GPU_ROOT "${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-gpu-1.22.0")
+set(_ONNXRUNTIME_BUNDLED_CPU_ROOT "${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.22.0")
+
+# Always refresh cache so switching CPU/GPU package works immediately.
+unset(OnnxRuntime_INCLUDE_DIR CACHE)
+unset(OnnxRuntime_LIBRARY CACHE)
+
+# 搜索头文件（优先 bundled GPU，再到 CPU，再到系统）
 find_path(OnnxRuntime_INCLUDE_DIR
     NAMES onnxruntime_cxx_api.h
     PATHS
-        ${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.22.0/include
+        ${ONNXRUNTIME_ROOT}/include
+        $ENV{ONNXRUNTIME_ROOT}/include
+        ${_ONNXRUNTIME_BUNDLED_GPU_ROOT}/include
+        ${_ONNXRUNTIME_BUNDLED_CPU_ROOT}/include
         /usr/local/include
         /usr/include
         /usr/local/include/onnxruntime
         /usr/include/onnxruntime
-        ${ONNXRUNTIME_ROOT}/include
-        $ENV{ONNXRUNTIME_ROOT}/include
     PATH_SUFFIXES
         onnxruntime
         onnxruntime/core/session
 )
 
-# 搜索库文件
+# 搜索库文件（优先 bundled GPU，再到 CPU，再到系统）
 find_library(OnnxRuntime_LIBRARY
     NAMES onnxruntime
     PATHS
-        ${CMAKE_SOURCE_DIR}/third_party/onnxruntime-linux-x64-1.22.0/lib
+        ${ONNXRUNTIME_ROOT}/lib
+        $ENV{ONNXRUNTIME_ROOT}/lib
+        ${_ONNXRUNTIME_BUNDLED_GPU_ROOT}/lib
+        ${_ONNXRUNTIME_BUNDLED_CPU_ROOT}/lib
         /usr/local/lib
         /usr/lib
         /usr/local/lib64
         /usr/lib64
-        ${ONNXRUNTIME_ROOT}/lib
-        $ENV{ONNXRUNTIME_ROOT}/lib
 )
 
 include(FindPackageHandleStandardArgs)
@@ -44,6 +53,14 @@ find_package_handle_standard_args(OnnxRuntime
 if(OnnxRuntime_FOUND)
     set(OnnxRuntime_INCLUDE_DIRS ${OnnxRuntime_INCLUDE_DIR})
     set(OnnxRuntime_LIBRARIES ${OnnxRuntime_LIBRARY})
+
+    get_filename_component(_ONNXRUNTIME_LIB_DIR "${OnnxRuntime_LIBRARY}" DIRECTORY)
+    if(EXISTS "${_ONNXRUNTIME_LIB_DIR}/libonnxruntime_providers_cuda.so")
+        set(OnnxRuntime_VARIANT "gpu")
+    else()
+        set(OnnxRuntime_VARIANT "cpu")
+    endif()
+    message(STATUS "OnnxRuntime variant: ${OnnxRuntime_VARIANT} (${_ONNXRUNTIME_LIB_DIR})")
 
     if(NOT TARGET OnnxRuntime::OnnxRuntime)
         add_library(OnnxRuntime::OnnxRuntime UNKNOWN IMPORTED)

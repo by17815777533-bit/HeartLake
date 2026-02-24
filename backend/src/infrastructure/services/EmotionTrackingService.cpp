@@ -8,6 +8,7 @@
 #include "infrastructure/services/WarmQuoteService.h"
 #include "infrastructure/services/NotificationPushService.h"
 #include "utils/IdentityShadowMap.h"
+#include "utils/EnvUtils.h"
 #include <drogon/drogon.h>
 #include <chrono>
 
@@ -40,6 +41,11 @@ void EmotionTrackingService::stop() {
 }
 
 void EmotionTrackingService::scanLoop() {
+    const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("EMOTION_TRACKING_STARTUP_DELAY_SEC", 90);
+    for (int i = 0; i < startupDelaySec && running_; ++i) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
     while (running_) {
         scanOnce();
         std::unique_lock<std::mutex> lock(cvMutex_);
@@ -64,7 +70,8 @@ void EmotionTrackingService::scanOnce() {
         auto result = db->execSqlSync(
             "SELECT DISTINCT user_id FROM stones "
             "WHERE created_at > NOW() - make_interval(hours => $1) "
-            "AND status = 'published'",
+            "AND status = 'published' "
+            "AND deleted_at IS NULL",
             TRACKING_HOURS
         );
 
@@ -106,10 +113,28 @@ EmotionTrackingResult EmotionTrackingService::checkUserBurden(const std::string&
     try {
         // 使用 make_interval 参数化查询，避免 SQL 字符串拼接
         auto queryResult = db->execSqlSync(
-            "SELECT COUNT(*) as post_count, AVG(emotion_score) as avg_score "
-            "FROM stones WHERE user_id = $1 "
-            "AND created_at > NOW() - make_interval(hours => $2) "
-            "AND status = 'published' AND emotion_score < 0",
+            "SELECT "
+            "COUNT(*) FILTER (WHERE base_score < 0) as post_count, "
+            "AVG(CASE WHEN base_score < 0 THEN base_score END) as avg_score "
+            "FROM ("
+            "  SELECT COALESCE(emotion_score, sentiment_score, "
+            "    CASE COALESCE(mood_type, 'neutral') "
+            "      WHEN 'happy' THEN 0.70 "
+            "      WHEN 'calm' THEN 0.35 "
+            "      WHEN 'grateful' THEN 0.60 "
+            "      WHEN 'hopeful' THEN 0.45 "
+            "      WHEN 'neutral' THEN 0.0 "
+            "      WHEN 'confused' THEN -0.10 "
+            "      WHEN 'anxious' THEN -0.45 "
+            "      WHEN 'sad' THEN -0.65 "
+            "      WHEN 'angry' THEN -0.55 "
+            "      WHEN 'lonely' THEN -0.50 "
+            "      ELSE 0.0 END"
+            "  ) as base_score "
+            "  FROM stones WHERE user_id = $1 "
+            "  AND created_at > NOW() - make_interval(hours => $2) "
+            "  AND status = 'published' AND deleted_at IS NULL"
+            ") score_view",
             userId, TRACKING_HOURS
         );
 

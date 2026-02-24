@@ -56,6 +56,13 @@ void BroadcastWebSocketController::handleNewMessage(
     const drogon::WebSocketMessageType& type
 ) {
     try {
+    // 限制单条消息大小，防止恶意客户端发送超大报文耗尽内存
+    static constexpr size_t MAX_WS_MESSAGE_SIZE = 64 * 1024;  // 64KB
+    if (message.size() > MAX_WS_MESSAGE_SIZE) {
+        conn->shutdown(drogon::CloseCode::kViolation, "message too large");
+        return;
+    }
+
     Hub::getInstance().updatePing(conn);
 
     if (type == drogon::WebSocketMessageType::Ping) {

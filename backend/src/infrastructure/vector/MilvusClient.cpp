@@ -33,19 +33,61 @@ MilvusClient& MilvusClient::getInstance() {
 
 void MilvusClient::initialize(const MilvusConfig& config) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (initialized_) return;
+    if (!initialized_) {
+        config_ = config;
+        baseUrl_ = "http://" + config_.host + ":" + std::to_string(config_.port);
+        connected_ = false;  // 懒加载，首次请求时检测连接状态
+        initialized_ = true;
+    }
 
-    config_ = config;
-    baseUrl_ = "http://" + config_.host + ":" + std::to_string(config_.port);
-    initialized_ = true;
-    connected_ = false;  // 懒加载，首次请求时检测连接状态
+    if (!httpLoopThread_) {
+        // 独立 EventLoop 避免在 Drogon I/O 线程里调用同步 sendRequest 触发死锁断言。
+        httpLoopThread_ = std::make_unique<trantor::EventLoopThread>("milvus-http-loop");
+        httpLoopThread_->run();
+        httpLoop_ = httpLoopThread_->getLoop();
+    }
+    if (!httpClient_) {
+        httpClient_ = drogon::HttpClient::newHttpClient(baseUrl_, httpLoop_);
+        httpClient_->setUserAgent("HeartLake/1.0");
+    }
 
-    LOG_INFO << "MilvusClient initialized (lazy connection to " << baseUrl_ << ")";
+    LOG_INFO << "MilvusClient initialized (dedicated loop, base url " << baseUrl_ << ")";
+}
+
+bool MilvusClient::ping() {
+    if (!initialized_) {
+        initialize();
+    }
+
+    Json::Value body;
+    body["collectionName"] = "__heartlake_ping__";
+
+    const auto result = httpRequest("/v2/vectordb/collections/has", "POST", body);
+    const bool reachable = result.isObject() && result.isMember("code");
+    connected_ = reachable;
+    return reachable;
 }
 
 Json::Value MilvusClient::httpRequest(const std::string& endpoint, const std::string& method, const Json::Value& body) {
-    auto client = drogon::HttpClient::newHttpClient(baseUrl_);
-    client->setUserAgent("HeartLake/1.0");
+    drogon::HttpClientPtr client;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!initialized_) {
+            config_ = MilvusConfig{};
+            baseUrl_ = "http://" + config_.host + ":" + std::to_string(config_.port);
+            initialized_ = true;
+        }
+        if (!httpLoopThread_) {
+            httpLoopThread_ = std::make_unique<trantor::EventLoopThread>("milvus-http-loop");
+            httpLoopThread_->run();
+            httpLoop_ = httpLoopThread_->getLoop();
+        }
+        if (!httpClient_) {
+            httpClient_ = drogon::HttpClient::newHttpClient(baseUrl_, httpLoop_);
+            httpClient_->setUserAgent("HeartLake/1.0");
+        }
+        client = httpClient_;
+    }
 
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setPath(endpoint);

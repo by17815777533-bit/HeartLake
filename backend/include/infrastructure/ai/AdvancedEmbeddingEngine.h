@@ -13,6 +13,7 @@
 #include <functional>
 #include <mutex>
 #include <list>
+#include <shared_mutex>
 
 namespace heartlake {
 namespace ai {
@@ -82,6 +83,9 @@ public:
     };
     CacheStats getCacheStats() const;
 
+    bool isInitialized() const { return initialized_; }
+    size_t getEmbeddingDimension() const { return embeddingDim_; }
+
 private:
     AdvancedEmbeddingEngine() = default;
     ~AdvancedEmbeddingEngine() = default;
@@ -96,6 +100,7 @@ private:
     // IDF权重（词 -> IDF值）
     std::unordered_map<std::string, float> idfWeights_;
     size_t totalDocs_ = 0;
+    mutable std::shared_mutex idfMutex_;
 
     // 情感词典
     std::unordered_map<std::string, float> sentimentLexicon_;
@@ -166,6 +171,7 @@ private:
     size_t featureHash(const std::string& feature, size_t numBuckets) const;
     void computeIDF(const std::vector<std::string>& texts);
     void loadSentimentLexicon();
+    void warmupTrainingDataAsync();
 };
 
 } // namespace ai

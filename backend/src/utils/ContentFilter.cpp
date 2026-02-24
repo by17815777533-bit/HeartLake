@@ -51,9 +51,47 @@ void ContentFilter::reload(const std::vector<std::tuple<std::string, uint8_t, ui
 std::string ContentFilter::normalize(const std::string& text) {
     std::string result;
     result.reserve(text.size());
-    for (unsigned char c : text) {
-        if (c == ' ' || c == '*' || c == '_' || c == '-' || c == '.') continue;
-        result += c;
+    size_t i = 0;
+    while (i < text.size()) {
+        unsigned char c = static_cast<unsigned char>(text[i]);
+        // 处理3字节UTF-8序列中的全角字符
+        if (c == 0xEF && i + 2 < text.size()) {
+            unsigned char c1 = static_cast<unsigned char>(text[i + 1]);
+            unsigned char c2 = static_cast<unsigned char>(text[i + 2]);
+            // 全角 U+FF01-U+FF5E → 半角 U+0021-U+007E
+            if (c1 == 0xBC && c2 >= 0x81 && c2 <= 0xBF) {
+                char half = static_cast<char>(c2 - 0x60);
+                if (half != ' ' && half != '*' && half != '_' && half != '-' && half != '.') {
+                    result += half;
+                }
+                i += 3;
+                continue;
+            }
+            if (c1 == 0xBD && c2 >= 0x80 && c2 <= 0x9E) {
+                char half = static_cast<char>(c2 + 0x20);
+                if (half != ' ' && half != '*' && half != '_' && half != '-' && half != '.') {
+                    result += half;
+                }
+                i += 3;
+                continue;
+            }
+        }
+        // 全角空格 U+3000 = 0xE3 0x80 0x80
+        if (c == 0xE3 && i + 2 < text.size()) {
+            unsigned char c1 = static_cast<unsigned char>(text[i + 1]);
+            unsigned char c2 = static_cast<unsigned char>(text[i + 2]);
+            if (c1 == 0x80 && c2 == 0x80) {
+                i += 3;
+                continue;
+            }
+        }
+        // 原有ASCII过滤逻辑
+        if (c == ' ' || c == '*' || c == '_' || c == '-' || c == '.') {
+            ++i;
+            continue;
+        }
+        result += text[i];
+        ++i;
     }
     return result;
 }
@@ -82,6 +120,8 @@ std::string ContentFilter::checkSafety(const std::string& content) {
     }
 
     auto matches = acAutomaton_.match(content);
+    auto normalizedMatches = acAutomaton_.match(normalized);
+    matches.insert(matches.end(), normalizedMatches.begin(), normalizedMatches.end());
 
     std::string result = "low_risk";
     for (const auto& m : matches) {

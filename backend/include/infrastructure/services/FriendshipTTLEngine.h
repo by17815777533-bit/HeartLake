@@ -10,6 +10,7 @@
 #include <memory>
 #include <atomic>
 #include <thread>
+#include <mutex>
 #include <drogon/drogon.h>
 
 namespace heartlake::infrastructure {
@@ -60,6 +61,7 @@ private:
     std::atomic<bool> running_{false};
     std::unique_ptr<std::thread> listenerThread_;
     ExpirationCallback expirationCallback_;
+    std::mutex callbackMutex_;
 
     static constexpr const char* FRIENDSHIP_TTL_PREFIX = "heartlake:friendship:ttl:";
     static constexpr const char* FRIENDSHIP_DATA_PREFIX = "heartlake:friendship:data:";

@@ -10,6 +10,17 @@
 namespace heartlake {
 namespace utils {
 
+// UTF-8 字符计数：统计非续字节（不以 10xxxxxx 开头）的个数
+static size_t utf8Length(const std::string& str) {
+    size_t count = 0;
+    for (unsigned char c : str) {
+        if ((c & 0xC0) != 0x80) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 ValidationResult Validator::validateJson(const drogon::HttpRequestPtr& req) {
     auto jsonPtr = req->getJsonObject();
     if (!jsonPtr) {
@@ -32,12 +43,14 @@ ValidationResult Validator::requiredString(const std::string& value, const std::
     return ValidationResult::valid();
 }
 
-ValidationResult Validator::length(const std::string& value, size_t min, size_t max, 
+ValidationResult Validator::length(const std::string& value, size_t min, size_t max,
                                    const std::string& fieldName) {
-    if (value.length() < min) {
+    // 按 UTF-8 字符计数，对中文等多字节字符更准确
+    size_t len = utf8Length(value);
+    if (len < min) {
         return ValidationResult::invalid(fieldName + " 至少需要 " + std::to_string(min) + " 个字符");
     }
-    if (value.length() > max) {
+    if (len > max) {
         return ValidationResult::invalid(fieldName + " 不能超过 " + std::to_string(max) + " 个字符");
     }
     return ValidationResult::valid();
@@ -47,12 +60,14 @@ ValidationResult Validator::email(const std::string& value) {
     if (value.empty()) {
         return ValidationResult::invalid("邮箱不能为空");
     }
-    
-    std::regex emailRegex(R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
+
+    // 预编译正则，避免每次调用重新构造
+    thread_local static const std::regex emailRegex(
+        R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
     if (!std::regex_match(value, emailRegex)) {
         return ValidationResult::invalid("邮箱格式不正确");
     }
-    
+
     return ValidationResult::valid();
 }
 
@@ -60,11 +75,21 @@ ValidationResult Validator::password(const std::string& value) {
     if (value.empty()) {
         return ValidationResult::invalid("密码不能为空");
     }
-    if (value.length() < 6) {
-        return ValidationResult::invalid("密码至少需要 6 个字符");
+    if (value.length() < 8) {
+        return ValidationResult::invalid("密码至少需要 8 个字符");
     }
-    if (value.length() > 20) {
-        return ValidationResult::invalid("密码不能超过 20 个字符");
+    if (value.length() > 64) {
+        return ValidationResult::invalid("密码不能超过 64 个字符");
+    }
+    // 复杂度要求：至少包含大写字母、小写字母、数字各一个
+    bool hasUpper = false, hasLower = false, hasDigit = false;
+    for (char c : value) {
+        if (std::isupper(static_cast<unsigned char>(c))) hasUpper = true;
+        else if (std::islower(static_cast<unsigned char>(c))) hasLower = true;
+        else if (std::isdigit(static_cast<unsigned char>(c))) hasDigit = true;
+    }
+    if (!hasUpper || !hasLower || !hasDigit) {
+        return ValidationResult::invalid("密码需要包含大写字母、小写字母和数字");
     }
     return ValidationResult::valid();
 }
@@ -73,15 +98,16 @@ ValidationResult Validator::userId(const std::string& value) {
     if (value.empty()) {
         return ValidationResult::invalid("用户ID不能为空");
     }
-    // UUID格式验证
-    std::regex uuidRegex(R"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
+    // 预编译正则
+    thread_local static const std::regex uuidRegex(
+        R"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
     if (!std::regex_match(value, uuidRegex)) {
         return ValidationResult::invalid("用户ID格式不正确");
     }
     return ValidationResult::valid();
 }
 
-ValidationResult Validator::arrayLength(const Json::Value& array, size_t max, 
+ValidationResult Validator::arrayLength(const Json::Value& array, size_t max,
                                        const std::string& fieldName) {
     if (!array.isArray()) {
         return ValidationResult::valid(); // 不是数组时跳过验证
@@ -92,11 +118,11 @@ ValidationResult Validator::arrayLength(const Json::Value& array, size_t max,
     return ValidationResult::valid();
 }
 
-ValidationResult Validator::numberRange(int value, int min, int max, 
+ValidationResult Validator::numberRange(int value, int min, int max,
                                        const std::string& fieldName) {
     if (value < min || value > max) {
-        return ValidationResult::invalid(fieldName + " 必须在 " + 
-                                       std::to_string(min) + " 到 " + 
+        return ValidationResult::invalid(fieldName + " 必须在 " +
+                                       std::to_string(min) + " 到 " +
                                        std::to_string(max) + " 之间");
     }
     return ValidationResult::valid();
@@ -105,10 +131,10 @@ ValidationResult Validator::numberRange(int value, int min, int max,
 ValidationResult Validator::paginationParams(int page, int pageSize) {
     auto pageResult = numberRange(page, 1, 1000, "页码");
     if (!pageResult) return pageResult;
-    
+
     auto sizeResult = numberRange(pageSize, 1, 100, "每页数量");
     if (!sizeResult) return sizeResult;
-    
+
     return ValidationResult::valid();
 }
 

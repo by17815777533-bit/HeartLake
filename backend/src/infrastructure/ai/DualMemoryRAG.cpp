@@ -371,7 +371,7 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
             ")) as score_stddev, "
             "MAX(created_at)::text as last_active "
             "FROM stones WHERE user_id = $1 "
-            "AND created_at > NOW() - INTERVAL '30 days' "
+            "AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
             "AND deleted_at IS NULL",
             userId
         );
@@ -387,7 +387,7 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
         // 获取主导情绪
         auto moodResult = db->execSqlSync(
             "SELECT mood_type, COUNT(*) as cnt FROM stones "
-            "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '30 days' "
+            "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
             "AND deleted_at IS NULL AND mood_type IS NOT NULL "
             "GROUP BY mood_type ORDER BY cnt DESC LIMIT 1",
             userId
@@ -732,7 +732,7 @@ Json::Value DualMemoryRAG::getStats() const {
     Json::Value stats;
     stats["active_users"] = static_cast<int>(memories_.size());
     stats["max_short_term_entries"] = MAX_SHORT_TERM;
-    stats["long_term_retention_days"] = 30;
+    stats["long_term_retention_days"] = LONG_TERM_RETENTION_DAYS;
 
     int totalShortTermEntries = 0;
     int usersWithLongTerm = 0;

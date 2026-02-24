@@ -14,6 +14,47 @@ using namespace drogon;
 namespace heartlake {
 namespace utils {
 
+namespace {
+
+std::string utf8SafePrefix(const std::string& text, std::size_t maxBytes) {
+    if (text.size() <= maxBytes) {
+        return text;
+    }
+
+    std::size_t i = 0;
+    std::size_t safeEnd = 0;
+    while (i < text.size() && i < maxBytes) {
+        const unsigned char ch = static_cast<unsigned char>(text[i]);
+        std::size_t charLen = 1;
+        if ((ch & 0x80) == 0x00) {
+            charLen = 1;
+        } else if ((ch & 0xE0) == 0xC0) {
+            charLen = 2;
+        } else if ((ch & 0xF0) == 0xE0) {
+            charLen = 3;
+        } else if ((ch & 0xF8) == 0xF0) {
+            charLen = 4;
+        } else {
+            // 非法起始字节，保守按单字节跳过，避免死循环。
+            ++i;
+            continue;
+        }
+
+        if (i + charLen > text.size() || i + charLen > maxBytes) {
+            break;
+        }
+        safeEnd = i + charLen;
+        i += charLen;
+    }
+
+    if (safeEnd == 0) {
+        return text.substr(0, maxBytes);
+    }
+    return text.substr(0, safeEnd);
+}
+
+}  // namespace
+
 PsychologicalRiskAssessment& PsychologicalRiskAssessment::getInstance() {
     static PsychologicalRiskAssessment instance;
     return instance;
@@ -304,12 +345,14 @@ void PsychologicalRiskAssessment::recordEmotionHistory(
     auto dbClient = app().getDbClient();
     if (!dbClient) return;
 
-    // 只记录前50个字符，保护隐私
-    std::string contentPreview = content.length() > 50 ?
-        content.substr(0, 50) + "..." : content;
+    // 只记录前50个字节，并保证 UTF-8 不截断半个字符，避免数据库编码错误。
+    std::string contentPreview = utf8SafePrefix(content, 50);
+    if (contentPreview.size() < content.size()) {
+        contentPreview += "...";
+    }
 
     dbClient->execSqlAsync(
-        "INSERT INTO user_emotion_history (user_id, sentiment_score, emotion, content_preview, created_at) "
+        "INSERT INTO user_emotion_history (user_id, sentiment_score, mood_type, content_snippet, created_at) "
         "VALUES ($1, $2, $3, $4, NOW())",
         [](const drogon::orm::Result&) {},
         [](const drogon::orm::DrogonDbException& e) {
@@ -329,7 +372,7 @@ void PsychologicalRiskAssessment::analyzeBehaviorPattern(
 
     // 查询最近7天的情绪历史
     dbClient->execSqlAsync(
-        "SELECT sentiment_score, emotion, EXTRACT(HOUR FROM created_at) as hour, created_at "
+        "SELECT sentiment_score, mood_type, EXTRACT(HOUR FROM created_at) as hour, created_at "
         "FROM user_emotion_history "
         "WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '7 days' "
         "ORDER BY created_at DESC",

@@ -10,6 +10,9 @@
 #include <shared_mutex>
 #include <chrono>
 #include <functional>
+#include <vector>
+#include <ctime>
+#include <json/json.h>
 
 namespace heartlake::realtime {
 
@@ -22,6 +25,14 @@ struct ConnectionInfo {
 
 class WebSocketHub {
 public:
+    struct RealtimeEvent {
+        uint64_t seq = 0;
+        int64_t tsMs = 0;
+        std::string scope;
+        std::string target;
+        std::string payload;
+    };
+
     static WebSocketHub& getInstance() {
         static WebSocketHub instance;
         return instance;
@@ -70,43 +81,67 @@ public:
 
     // 消息发送
     void sendToUser(const std::string& userId, const std::string& message) {
-        std::shared_lock lock(mutex_);
-        if (auto it = userConnections_.find(userId); it != userConnections_.end()) {
-            for (const auto& conn : it->second) {
-                try {
-                    conn->send(message);
-                } catch (const std::exception& e) {
-                    LOG_WARN << "Failed to send to user " << userId << ": " << e.what();
-                }
-            }
-        }
-    }
-
-    void sendToRoom(const std::string& room, const std::string& message,
-                    const drogon::WebSocketConnectionPtr& exclude = nullptr) {
-        std::shared_lock lock(mutex_);
-        if (auto it = rooms_.find(room); it != rooms_.end()) {
-            for (const auto& conn : it->second) {
-                if (conn != exclude) {
+        {
+            std::shared_lock lock(mutex_);
+            if (auto it = userConnections_.find(userId); it != userConnections_.end()) {
+                for (const auto& conn : it->second) {
                     try {
                         conn->send(message);
                     } catch (const std::exception& e) {
-                        LOG_WARN << "Failed to send to room " << room << ": " << e.what();
+                        LOG_WARN << "Failed to send to user " << userId << ": " << e.what();
                     }
                 }
             }
         }
+        RealtimeEvent event;
+        {
+            std::unique_lock lock(mutex_);
+            event = appendEventLocked("user", userId, message);
+        }
+        publishEventAsync(event);
+    }
+
+    void sendToRoom(const std::string& room, const std::string& message,
+                    const drogon::WebSocketConnectionPtr& exclude = nullptr) {
+        {
+            std::shared_lock lock(mutex_);
+            if (auto it = rooms_.find(room); it != rooms_.end()) {
+                for (const auto& conn : it->second) {
+                    if (conn != exclude) {
+                        try {
+                            conn->send(message);
+                        } catch (const std::exception& e) {
+                            LOG_WARN << "Failed to send to room " << room << ": " << e.what();
+                        }
+                    }
+                }
+            }
+        }
+        RealtimeEvent event;
+        {
+            std::unique_lock lock(mutex_);
+            event = appendEventLocked("room", room, message);
+        }
+        publishEventAsync(event);
     }
 
     void broadcast(const std::string& message) {
-        std::shared_lock lock(mutex_);
-        for (const auto& [conn, _] : connections_) {
-            try {
-                conn->send(message);
-            } catch (const std::exception& e) {
-                LOG_WARN << "Failed to broadcast to connection: " << e.what();
+        {
+            std::shared_lock lock(mutex_);
+            for (const auto& [conn, _] : connections_) {
+                try {
+                    conn->send(message);
+                } catch (const std::exception& e) {
+                    LOG_WARN << "Failed to broadcast to connection: " << e.what();
+                }
             }
         }
+        RealtimeEvent event;
+        {
+            std::unique_lock lock(mutex_);
+            event = appendEventLocked("broadcast", "", message);
+        }
+        publishEventAsync(event);
     }
 
     // 心跳处理
@@ -173,10 +208,65 @@ public:
 private:
     WebSocketHub() = default;
 
+    static int64_t nowMs() {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    }
+
+    RealtimeEvent appendEventLocked(const std::string& scope,
+                                    const std::string& target,
+                                    const std::string& payload) {
+        RealtimeEvent event;
+        event.seq = nextEventSeq_++;
+        event.tsMs = nowMs();
+        event.scope = scope;
+        event.target = target;
+        event.payload = payload;
+        return event;
+    }
+
+    static void publishEventAsync(const RealtimeEvent& event) {
+        try {
+            Json::Value envelope;
+            envelope["seq"] = static_cast<Json::UInt64>(event.seq);
+            envelope["ts_ms"] = static_cast<Json::Int64>(event.tsMs);
+            envelope["scope"] = event.scope;
+            envelope["target"] = event.target;
+            envelope["payload"] = event.payload;
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "";
+            std::string message = Json::writeString(builder, envelope);
+
+            // RedisClientImpl 在高并发跨线程 submit 时存在稳定性风险；
+            // 统一切到主 loop 串行发布，避免回调对象并发竞争。
+            auto* loop = drogon::app().getLoop();
+            loop->queueInLoop([msg = std::move(message)]() {
+                try {
+                    auto redisClient = drogon::app().getRedisClient("default");
+                    redisClient->execCommandAsync(
+                        [](const drogon::nosql::RedisResult&) {},
+                        [](const std::exception& e) {
+                            LOG_WARN << "Realtime event publish failed: " << e.what();
+                        },
+                        "PUBLISH %s %s",
+                        "heartlake:realtime",
+                        msg.c_str()
+                    );
+                } catch (const std::exception& e) {
+                    LOG_WARN << "Realtime publish skipped in loop: " << e.what();
+                }
+            });
+        } catch (const std::exception& e) {
+            LOG_WARN << "Realtime publish skipped: " << e.what();
+        }
+    }
+
     mutable std::shared_mutex mutex_;
     std::unordered_map<drogon::WebSocketConnectionPtr, ConnectionInfo> connections_;
     std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> userConnections_;
     std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> rooms_;
+    uint64_t nextEventSeq_ = 1;
 };
 
 } // namespace heartlake::realtime

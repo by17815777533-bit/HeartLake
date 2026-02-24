@@ -19,15 +19,31 @@ ResonanceSearchService& ResonanceSearchService::getInstance() {
 
 void ResonanceSearchService::initialize(size_t embeddingDim) {
     embeddingDim_ = embeddingDim;
-    ai::AdvancedEmbeddingEngine::getInstance().initialize(embeddingDim);
+    auto& embeddingEngine = ai::AdvancedEmbeddingEngine::getInstance();
+    if (!embeddingEngine.isInitialized()) {
+        embeddingEngine.initialize(embeddingDim);
+    } else if (embeddingEngine.getEmbeddingDimension() != embeddingDim) {
+        LOG_WARN << "ResonanceSearchService embedding dim mismatch, requested="
+                 << embeddingDim << ", active="
+                 << embeddingEngine.getEmbeddingDimension()
+                 << ". Using active dimension.";
+        embeddingDim_ = embeddingEngine.getEmbeddingDimension();
+    }
 
     auto& milvus = MilvusClient::getInstance();
-    if (milvus.isConnected()) {
-        if (!milvus.hasCollection(COLLECTION_NAME)) {
-            milvus.createCollection(COLLECTION_NAME, embeddingDim);
-            milvus.createIndex(COLLECTION_NAME);
+    if (milvus.ping()) {
+        bool collectionReady = milvus.hasCollection(COLLECTION_NAME);
+        if (!collectionReady) {
+            const bool created = milvus.createCollection(COLLECTION_NAME, static_cast<int>(embeddingDim_));
+            const bool indexed = created && milvus.createIndex(COLLECTION_NAME);
+            collectionReady = created && indexed;
+            if (!collectionReady) {
+                LOG_WARN << "Milvus collection bootstrap failed, fallback to DB embeddings";
+            }
         }
-        useMilvus_ = true;
+        useMilvus_ = collectionReady;
+    } else {
+        LOG_WARN << "Milvus ping failed, fallback to DB embeddings";
     }
 
     initialized_ = true;

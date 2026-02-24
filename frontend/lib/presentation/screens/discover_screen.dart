@@ -103,7 +103,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     }
   }
 
-  /// 加载AI个性化推荐
+  /// 加载湖神个性化推荐
   Future<void> _loadAIRecommendations() async {
     setState(() => _isLoading = true);
     try {
@@ -125,7 +125,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载AI推荐失败，请稍后再试')),
+          const SnackBar(content: Text('加载湖神推荐失败，请稍后再试')),
         );
       }
     } finally {
@@ -159,7 +159,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           tabs: const [
             Tab(icon: Icon(Icons.local_fire_department), text: '热门'),
             Tab(icon: Icon(Icons.search), text: '搜索'),
-            Tab(icon: Icon(Icons.auto_awesome), text: 'AI推荐'),
+            Tab(icon: Icon(Icons.auto_awesome), text: '湖神推荐'),
           ],
         ),
       ),
@@ -196,7 +196,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           padding: const EdgeInsets.all(16),
           child: SearchBar(
             controller: _searchController,
-            hintText: '搜索石头（支持AI语义搜索）...',
+            hintText: '搜索石头（支持湖神语义搜索）...',
             elevation: WidgetStateProperty.all(0),
             backgroundColor: WidgetStateProperty.all(Colors.white.withValues(alpha: 0.9)),
             trailing: [
@@ -288,7 +288,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     );
   }
 
-  /// AI推荐Tab
+  /// 湖神推荐Tab
   Widget _buildAITab() {
     if (_isLoading) return _buildLoadingIndicator();
     if (_aiRecommendations.isEmpty) {
@@ -302,7 +302,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
               children: [
                 Icon(Icons.auto_awesome, size: 64, color: Colors.white.withValues(alpha: 0.5)),
                 const SizedBox(height: 16),
-                Text('暂无AI推荐，多投石头解锁更多', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                Text('暂无湖神推荐，多投石头解锁更多', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.push(
@@ -331,7 +331,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildResultSectionHeader(
-            'AI为你推荐',
+            '湖神为你推荐',
             Icons.auto_awesome,
             '${_aiRecommendations.length}条',
           );
@@ -400,7 +400,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
               children: [
                 Icon(Icons.explore_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
                 const SizedBox(height: 16),
-                Text('暂无内容，试试搜索或AI推荐', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                Text('暂无内容，试试搜索或湖神推荐', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
               ],
             ),
           ),

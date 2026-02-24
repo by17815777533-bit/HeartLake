@@ -47,7 +47,6 @@ public:
         similarityThreshold_ = similarityThreshold;
         maxSize_ = maxSize;
         ttlSeconds_ = ttlSeconds;
-        initialized_ = true;
     }
 
     /**
@@ -70,7 +69,6 @@ private:
     float similarityThreshold_ = 0.92f;
     size_t maxSize_ = 5000;
     int ttlSeconds_ = 86400;
-    bool initialized_ = false;
 
     std::unordered_map<std::string, CacheEntry> exactCache_;
     std::vector<CacheEntry> semanticIndex_;

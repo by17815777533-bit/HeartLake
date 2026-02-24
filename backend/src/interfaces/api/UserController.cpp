@@ -135,17 +135,14 @@ void UserController::recoverWithKey(
 
         // 加盐哈希无法通过SQL等值匹配，需在应用层逐条验证
         // 优先用 device_id 缩小范围；无 device_id 时扫描全部持有恢复密钥的活跃用户
-        drogon::orm::Result result;
-        if (!deviceId.empty()) {
-            result = dbClient->execSqlSync(
+        auto result = !deviceId.empty()
+            ? dbClient->execSqlSync(
                 "SELECT user_id, nickname, is_anonymous, recovery_key_hash FROM users "
                 "WHERE device_id = $1 AND recovery_key_hash IS NOT NULL AND status = 'active'",
-                deviceId);
-        } else {
-            result = dbClient->execSqlSync(
+                deviceId)
+            : dbClient->execSqlSync(
                 "SELECT user_id, nickname, is_anonymous, recovery_key_hash FROM users "
                 "WHERE recovery_key_hash IS NOT NULL AND status = 'active'");
-        }
 
         if (result.empty()) {
             callback(ResponseUtil::notFound("关键词无效，请检查后重试"));

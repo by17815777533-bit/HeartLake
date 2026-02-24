@@ -1,7 +1,15 @@
 build/
 .env
+.env.*
 logs/
 uploads/
 *.o
 *.d
 compile_commands.json
+.git
+.gitignore
+*.md
+tests/
+.vscode/
+.idea/
+third_party/

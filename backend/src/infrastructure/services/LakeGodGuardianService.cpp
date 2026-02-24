@@ -8,6 +8,7 @@
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/IdGenerator.h"
 #include "utils/PsychologicalRiskAssessment.h"
+#include "utils/EnvUtils.h"
 #include <drogon/drogon.h>
 #include <chrono>
 
@@ -39,6 +40,11 @@ void LakeGodGuardianService::stop() {
 }
 
 void LakeGodGuardianService::scanLoop() {
+    const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("LAKE_GOD_STARTUP_DELAY_SEC", 60);
+    for (int i = 0; i < startupDelaySec && running_; ++i) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
     while (running_) {
         cleanStalePendingBoats();
         processZeroInteractionStones();
@@ -71,6 +77,7 @@ void LakeGodGuardianService::scanOnce() {
 void LakeGodGuardianService::processZeroInteractionStones() {
     std::lock_guard<std::mutex> lock(mutex_);
     auto db = drogon::app().getDbClient("default");
+    const int batchSize = heartlake::utils::parsePositiveIntEnv("LAKE_GOD_SCAN_BATCH_SIZE", 3);
 
     try {
         // 查找零互动石头：无涟漪、无纸船、超过阈值时间
@@ -78,9 +85,11 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             "SELECT stone_id, content, mood_type FROM stones "
             "WHERE status = 'published' "
             "AND ripple_count = 0 AND boat_count = 0 "
-            "AND created_at < NOW() - INTERVAL '" + std::to_string(ZERO_INTERACTION_THRESHOLD_HOURS) + " hours' "
+            "AND deleted_at IS NULL "
+            "AND created_at < NOW() - make_interval(hours => CAST($1 AS INT)) "
             "AND NOT EXISTS (SELECT 1 FROM paper_boats WHERE stone_id = stones.stone_id AND sender_id = 'lake_god') "
-            "LIMIT 10"
+            "LIMIT CAST($2 AS INT)",
+            ZERO_INTERACTION_THRESHOLD_HOURS, batchSize
         );
 
         for (const auto& row : result) {
@@ -92,8 +101,8 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             try {
                 std::string boatId = utils::IdGenerator::generateBoatId();
                 db->execSqlSync(
-                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, is_ai_reply, status, created_at) "
-                    "VALUES ($1, $2, 'lake_god', '', true, true, 'pending', NOW())",
+                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, status, created_at) "
+                    "VALUES ($1, $2, 'lake_god', '', true, 'pending', NOW())",
                     boatId, stoneId
                 );
                 sendAutoBoat(stoneId, content, mood, boatId);

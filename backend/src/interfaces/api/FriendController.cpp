@@ -225,7 +225,14 @@ void FriendController::getFriends(
             breakdown["mood_resonance"] = peer.moodResonance;
             breakdown["semantic_similarity"] = peer.semanticSimilarity;
             breakdown["emotion_trend_alignment"] = peer.emotionTrendAlignment;
+            breakdown["dialogue_cohesion"] = peer.dialogueCohesion;
+            breakdown["response_agility"] = peer.responseAgility;
+            breakdown["graph_affinity"] = peer.graphAffinity;
+            breakdown["emotion_synchrony"] = peer.emotionSynchrony;
             breakdown["freshness_score"] = peer.freshnessScore;
+            breakdown["temporal_diversity"] = peer.temporalDiversity;
+            breakdown["anti_gaming_penalty"] = peer.antiGamingPenalty;
+            breakdown["behavior_health"] = peer.behaviorHealth;
             item["score_breakdown"] = breakdown;
             item["can_chat"] = peer.canChat;
             item["ttl_seconds"] = Json::Int64(-1);

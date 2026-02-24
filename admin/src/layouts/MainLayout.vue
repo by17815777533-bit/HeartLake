@@ -18,22 +18,24 @@
         <span v-if="!isCollapsed" class="logo-text">心湖管理</span>
       </div>
 
-      <el-menu
-        :default-active="$route.path"
-        :collapse="isCollapsed"
-        :collapse-transition="false"
-        router
-        class="sidebar-menu"
-      >
-        <el-menu-item
-          v-for="item in menuItems"
-          :key="item.path"
-          :index="item.path"
+      <nav aria-label="主导航">
+        <el-menu
+          :default-active="$route.path"
+          :collapse="isCollapsed"
+          :collapse-transition="false"
+          router
+          class="sidebar-menu"
         >
-          <el-icon><component :is="item.icon" /></el-icon>
-          <template #title>{{ item.title }}</template>
-        </el-menu-item>
-      </el-menu>
+          <el-menu-item
+            v-for="item in menuItems"
+            :key="item.path"
+            :index="item.path"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
+          </el-menu-item>
+        </el-menu>
+      </nav>
 
       <div class="collapse-btn" @click="isCollapsed = !isCollapsed">
         <el-icon>
@@ -327,12 +329,15 @@ onUnmounted(() => {
     }
   }
 
-  .sidebar-menu {
+  nav[aria-label="主导航"] {
     flex: 1;
+    overflow-y: auto;
+  }
+
+  .sidebar-menu {
     border: none;
     background: transparent;
     padding: 12px 8px;
-    overflow-y: auto;
 
     &::-webkit-scrollbar {
       width: 4px;

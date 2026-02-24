@@ -1,6 +1,7 @@
 // @file lake_god_chat_screen.dart
 // @brief 湖神聊天界面 - 温馨治愈风格的AI咨询，集成EdgeAI情感分析与内容审核
 import 'package:flutter/material.dart';
+import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
@@ -14,12 +15,12 @@ class LakeGodChatScreen extends StatefulWidget {
 
 class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final LakeGodService _service = LakeGodService();
+  final EdgeAIService _edgeAIService = EdgeAIService();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
   bool _isLoadingHistory = false;
-
 
   // 情绪脉搏数据
   Map<String, dynamic>? _emotionPulse;
@@ -83,14 +84,25 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     }
   }
 
-  /// 加载情绪脉搏（admin专用端点，前端使用默认值）
+  /// 加载情绪脉搏（公开端点）
   Future<void> _loadEmotionPulse() async {
     if (mounted) setState(() => _isPulseLoading = true);
     try {
-      // emotion-pulse 为admin端点(/api/admin/edge-ai/emotion-pulse)
-      // 前端使用默认情绪状态
+      final result = await _edgeAIService.getEmotionPulse();
+      if (!mounted) return;
+
+      if (result['success'] == true && result['data'] is Map) {
+        setState(() {
+          _emotionPulse = Map<String, dynamic>.from(result['data'] as Map);
+        });
+      } else {
+        setState(() {
+          _emotionPulse = null;
+        });
+      }
+    } catch (_) {
       if (mounted) {
-        setState(() => _emotionPulse = {'dominant_mood': 'neutral', 'intensity': 0.5});
+        setState(() => _emotionPulse = null);
       }
     } finally {
       if (mounted) setState(() => _isPulseLoading = false);
@@ -162,10 +174,14 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                 data['response'] ??
                 data['content'] ??
                 '我在倾听...';
+            final mood = data['mood']?.toString();
+            if (_messages.isNotEmpty && mood != null) {
+              _messages[_messages.length - 1]['mood'] = mood;
+            }
             _messages.add({
               'content': reply,
               'is_mine': false,
-              'emotion': data['emotion'],
+              'mood': mood,
             });
           } else {
             // 后端返回失败（如内容审核不通过）
@@ -228,6 +244,13 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     };
     if (trend == null) return '未知';
     return map[trend.toLowerCase()] ?? trend;
+  }
+
+  String _trendFromSlope(dynamic slopeRaw) {
+    final slope = slopeRaw is num ? slopeRaw.toDouble() : 0.0;
+    if (slope > 0.03) return 'rising';
+    if (slope < -0.03) return 'falling';
+    return 'stable';
   }
 
   /// 情绪对应颜色
@@ -361,7 +384,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'AI情绪脉搏',
+                        '湖神情绪脉搏',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 12,
@@ -371,9 +394,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                       const SizedBox(height: 2),
                       Text(
                         _emotionPulse != null
-                            ? '情绪均值 ${((_emotionPulse!['avgScore'] ?? 0) as num).toStringAsFixed(1)}'
-                                '  ·  趋势${_trendLabel(_emotionPulse!['trend'] as String?)}'
-                                '  ·  ${_emotionPulse!['sampleCount'] ?? 0}条样本'
+                            ? '情绪均值 ${((_emotionPulse!['avg_score'] ?? 0) as num).toStringAsFixed(1)}'
+                                '  ·  趋势${_trendLabel(_trendFromSlope(_emotionPulse!['trend_slope']))}'
+                                '  ·  ${_emotionPulse!['sample_count'] ?? 0}条样本'
                             : '暂无数据',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.65),
@@ -400,9 +423,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   /// 脉搏颜色：根据avgScore映射
   Color get _pulseColor {
     if (_emotionPulse == null) return Colors.white70;
-    final avg = ((_emotionPulse!['avgScore'] ?? 0.5) as num).toDouble();
-    if (avg >= 0.7) return const Color(0xFF66BB6A); // 积极
-    if (avg >= 0.4) return const Color(0xFF26C6DA); // 平和
+    final avg = ((_emotionPulse!['avg_score'] ?? 0.0) as num).toDouble();
+    if (avg >= 0.35) return const Color(0xFF66BB6A); // 积极
+    if (avg >= -0.2) return const Color(0xFF26C6DA); // 平和
     return const Color(0xFFFF7043); // 低落
   }
 
@@ -421,8 +444,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
           Align(
             alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.7,
               ),

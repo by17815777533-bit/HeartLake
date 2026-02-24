@@ -5,6 +5,7 @@
 
 #include "utils/IdGenerator.h"
 #include <random>
+#include <openssl/rand.h>
 
 namespace heartlake {
 namespace utils {
@@ -46,7 +47,8 @@ std::string IdGenerator::generateReportId() {
 }
 
 std::string IdGenerator::generateSessionId() {
-    return "session_" + generateRandomId(16);
+    // 会话 ID 是安全敏感的，使用 CSPRNG 生成
+    return "session_" + generateSecureRandomId(32);
 }
 
 std::string IdGenerator::generateUUID() {
@@ -79,6 +81,22 @@ int IdGenerator::generateRandomNumber(int min, int max) {
     thread_local std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(min, max);
     return dis(gen);
+}
+
+std::string IdGenerator::generateSecureRandomId(size_t length) {
+    static const char hex_chars[] = "0123456789abcdef";
+    std::vector<unsigned char> buf((length + 1) / 2);
+    RAND_bytes(buf.data(), static_cast<int>(buf.size()));
+
+    std::string id;
+    id.reserve(length);
+    for (size_t i = 0; i < buf.size() && id.size() < length; ++i) {
+        id += hex_chars[(buf[i] >> 4) & 0x0F];
+        if (id.size() < length) {
+            id += hex_chars[buf[i] & 0x0F];
+        }
+    }
+    return id;
 }
 
 } // namespace utils

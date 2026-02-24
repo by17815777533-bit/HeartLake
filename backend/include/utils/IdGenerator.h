@@ -36,6 +36,7 @@ public:
 
 private:
     static std::string generateRandomId(size_t length);
+    static std::string generateSecureRandomId(size_t length);  // CSPRNG，用于安全敏感的 ID
 
     /**
      * @brief generateRandomNumber方法

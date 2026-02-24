@@ -26,7 +26,8 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   void initState() {
     super.initState();
     _fadeController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 800),
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
     _loadData();
   }
@@ -43,10 +44,15 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
         _aiService.getEmotionTrends(),
         _edgeService.getPrivacyBudget(),
       ]);
+      final trendPayload = results[0];
+      final privacyPayload = results[1];
       if (mounted) {
         setState(() {
-          _trends = results[0] as Map<String, dynamic>;
-          _privacyInfo = results[1] as Map<String, dynamic>;
+          _trends = _normalizeTrendPayload(trendPayload);
+          _privacyInfo = (privacyPayload['success'] == true &&
+                  privacyPayload['data'] is Map)
+              ? Map<String, dynamic>.from(privacyPayload['data'] as Map)
+              : null;
           _loading = false;
         });
         _fadeController.forward();
@@ -117,20 +123,27 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   }
 
   Widget _buildPrivacyBadge() {
-    final epsilon = (_privacyInfo?['epsilon_used'] ?? 0.0).toDouble();
-    final total = (_privacyInfo?['epsilon_total'] ?? 10.0).toDouble();
-    final percent = total > 0 ? (epsilon / total * 100).clamp(0.0, 100.0) : 0.0;
+    final consumed = (_privacyInfo?['consumed'] as num?)?.toDouble() ?? 0.0;
+    final total = (_privacyInfo?['total_budget'] as num?)?.toDouble() ?? 10.0;
+    final remaining = (_privacyInfo?['remaining_budget'] as num?)?.toDouble() ??
+        (total - consumed);
+    final percent =
+        total > 0 ? (consumed / total * 100).clamp(0.0, 100.0) : 0.0;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.7),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.shield_outlined, size: 14, color: AppTheme.secondaryColor),
+            const Icon(Icons.shield_outlined,
+                size: 14, color: AppTheme.secondaryColor),
             const SizedBox(width: 6),
             const Text(
               '差分隐私保护中',
@@ -142,7 +155,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
             ),
             const SizedBox(width: 8),
             Text(
-              'ε ${percent.toStringAsFixed(0)}%',
+              '已用 ${percent.toStringAsFixed(0)}% · 剩余${remaining.toStringAsFixed(1)}',
               style: TextStyle(
                 fontSize: 11,
                 color: AppTheme.secondaryColor.withValues(alpha: 0.8),
@@ -155,8 +168,24 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   }
 
   Widget _buildTrendCards() {
-    final distribution = _trends['distribution'] as Map<String, dynamic>? ?? {};
+    final distribution = _trends['distribution'] is Map
+        ? Map<String, dynamic>.from(_trends['distribution'] as Map)
+        : <String, dynamic>{};
     final insights = _trends['insights'] as List? ?? [];
+
+    if (distribution.isEmpty && insights.isEmpty) {
+      return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            '最近还没有足够的情绪样本，继续记录几次心情后这里会自动更新。',
+            style: TextStyle(
+                fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+          ),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +203,8 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           ),
           const SizedBox(height: 12),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 1,
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -200,7 +230,8 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                           child: Container(
                             height: 6,
                             decoration: BoxDecoration(
-                              color: AppTheme.textTertiary.withValues(alpha: 0.15),
+                              color:
+                                  AppTheme.textTertiary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: FractionallySizedBox(
@@ -241,10 +272,10 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           ),
         ],
         const SizedBox(height: 24),
-        // AI 洞察
+        // 湖神洞察
         if (insights.isNotEmpty) ...[
           const Text(
-            'AI 洞察',
+            '湖神洞察',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -254,36 +285,37 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           ),
           const SizedBox(height: 12),
           ...insights.map((insight) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 1,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: AppTheme.primaryColor.withValues(alpha: 0.7),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        insight.toString(),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          color: AppTheme.textSecondary,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 14,
+                          color: AppTheme.primaryColor.withValues(alpha: 0.7),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            insight.toString(),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          )),
+              )),
         ],
       ],
     );
@@ -291,22 +323,96 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   Color _moodColor(String mood) {
     const colors = {
-      'happy': Color(0xFFFFD54F), 'joy': Color(0xFFFFD54F),
-      'sad': Color(0xFF64B5F6), 'sadness': Color(0xFF64B5F6),
-      'angry': Color(0xFFEF5350), 'anger': Color(0xFFEF5350),
-      'fear': Color(0xFFB39DDB), 'fearful': Color(0xFFB39DDB),
-      'surprise': Color(0xFFFFAB40), 'surprised': Color(0xFFFFAB40),
-      'neutral': Color(0xFF90CAF9), 'calm': Color(0xFF80CBC4),
+      'happy': Color(0xFFFFD54F),
+      'joy': Color(0xFFFFD54F),
+      'sad': Color(0xFF64B5F6),
+      'sadness': Color(0xFF64B5F6),
+      'angry': Color(0xFFEF5350),
+      'anger': Color(0xFFEF5350),
+      'fear': Color(0xFFB39DDB),
+      'fearful': Color(0xFFB39DDB),
+      'surprise': Color(0xFFFFAB40),
+      'surprised': Color(0xFFFFAB40),
+      'neutral': Color(0xFF90CAF9),
+      'calm': Color(0xFF80CBC4),
     };
     return colors[mood] ?? const Color(0xFF90CAF9);
   }
 
   String _moodLabel(String mood) {
     const labels = {
-      'happy': '开心', 'joy': '开心', 'sad': '忧伤', 'sadness': '忧伤',
-      'angry': '愤怒', 'anger': '愤怒', 'fear': '恐惧', 'fearful': '恐惧',
-      'surprise': '惊喜', 'surprised': '惊喜', 'neutral': '平静', 'calm': '平静',
+      'happy': '开心',
+      'joy': '开心',
+      'sad': '忧伤',
+      'sadness': '忧伤',
+      'angry': '愤怒',
+      'anger': '愤怒',
+      'fear': '恐惧',
+      'fearful': '恐惧',
+      'surprise': '惊喜',
+      'surprised': '惊喜',
+      'neutral': '平静',
+      'calm': '平静',
     };
     return labels[mood] ?? mood;
+  }
+
+  Map<String, dynamic> _normalizeTrendPayload(Map<String, dynamic> raw) {
+    if (raw['distribution'] is Map && raw['insights'] is List) {
+      return raw;
+    }
+
+    final trends = raw['trends'] is List ? (raw['trends'] as List) : const [];
+    final counts = <String, int>{};
+    double scoreSum = 0;
+    int scoreCount = 0;
+
+    for (final item in trends) {
+      if (item is! Map) continue;
+      final row = Map<String, dynamic>.from(item);
+      final mood = (row['mood'] ?? row['mood_type'] ?? 'neutral').toString();
+      final weight = (row['stone_count'] as num?)?.toInt() ?? 1;
+      counts[mood] = (counts[mood] ?? 0) + weight;
+
+      final score = row['emotion_score'];
+      if (score is num) {
+        scoreSum += score.toDouble() * weight;
+        scoreCount += weight;
+      }
+    }
+
+    final total = counts.values.fold<int>(0, (a, b) => a + b);
+    final distribution = <String, double>{};
+    if (total > 0) {
+      counts.forEach((mood, count) {
+        distribution[mood] = count / total;
+      });
+    }
+
+    final insights = <String>[];
+    if (total == 0) {
+      insights.add('最近还没有足够的情绪样本，继续记录会生成更准确的趋势分析。');
+    } else {
+      final dominant =
+          counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+      insights.add('最近的主导情绪是 ${_moodLabel(dominant)}。');
+      if (scoreCount > 0) {
+        final avg = scoreSum / scoreCount;
+        if (avg >= 0.35) {
+          insights.add('整体情绪偏积极，继续保持当前节奏。');
+        } else if (avg <= -0.35) {
+          insights.add('最近情绪偏低，建议先照顾好作息并多和可信任的人聊聊。');
+        } else {
+          insights.add('整体情绪较平稳，适合保持规律记录。');
+        }
+      }
+    }
+
+    return {
+      'distribution': distribution,
+      'insights': insights,
+      'period_days': raw['period_days'] ?? 30,
+      'trends': trends,
+    };
   }
 }

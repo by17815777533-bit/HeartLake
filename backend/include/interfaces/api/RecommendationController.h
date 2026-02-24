@@ -128,30 +128,6 @@ private:
                                       std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 计算两个用户的相似度
-     * 基于共同的交互模式
-     */
-    double calculateUserSimilarity(const std::string &userId1,
-                                   const std::string &userId2,
-                        const orm::DbClientPtr &dbClient);
-
-    /**
-     * 获取用户的情绪兼容性分数
-     * 基于情绪兼容性矩阵
-     */
-    double getEmotionCompatibility(const std::string &mood1,
-                                   const std::string &mood2,
-                                   const orm::DbClientPtr &dbClient);
-
-    /**
-     * 计算内容推荐分数
-     * 综合考虑：向量相似度、情绪匹配、时间衰减
-     */
-    double calculateContentScore(const Json::Value &stone,
-                                 const Json::Value &userProfile,
-                                 const orm::DbClientPtr &dbClient);
-
-    /**
      * 更新用户偏好
      * 基于最近的交互自动学习
      */

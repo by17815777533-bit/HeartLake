@@ -53,18 +53,26 @@ std::string SecurityLogger::severityToString(SecuritySeverity severity) {
 }
 
 std::string SecurityLogger::extractIpAddress(const drogon::HttpRequestPtr& req) {
-    // 优先检查X-Forwarded-For（代理/负载均衡器）
+    // X-Forwarded-For 格式: client, proxy1, proxy2
+    // 取最右侧 IP（最近一跳代理追加的），左侧的可被客户端伪造
     std::string xForwardedFor = req->getHeader("X-Forwarded-For");
     if (!xForwardedFor.empty()) {
-        // X-Forwarded-For可能包含多个IP，取第一个
-        size_t commaPos = xForwardedFor.find(',');
-        if (commaPos != std::string::npos) {
-            return xForwardedFor.substr(0, commaPos);
+        size_t lastComma = xForwardedFor.rfind(',');
+        std::string ip;
+        if (lastComma != std::string::npos) {
+            ip = xForwardedFor.substr(lastComma + 1);
+        } else {
+            ip = xForwardedFor;
         }
-        return xForwardedFor;
+        // 去除首尾空格
+        size_t start = ip.find_first_not_of(' ');
+        size_t end = ip.find_last_not_of(' ');
+        if (start != std::string::npos) {
+            return ip.substr(start, end - start + 1);
+        }
     }
 
-    // 检查X-Real-IP
+    // 检查X-Real-IP（Nginx 设置的真实客户端 IP）
     std::string xRealIp = req->getHeader("X-Real-IP");
     if (!xRealIp.empty()) {
         return xRealIp;

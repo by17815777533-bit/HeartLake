@@ -35,6 +35,7 @@ class ApiClient {
   bool _hasTriggeredUnauthorized = false;
   TokenRefreshCallback? _tokenRefreshCallback;
   Function()? _onUnauthorized;
+  final CacheService cacheService = CacheService();
 
   ApiClient._internal() {
     _initializeDio();

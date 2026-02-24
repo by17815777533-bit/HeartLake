@@ -7,6 +7,8 @@
 #include "infrastructure/services/NotificationPushService.h"
 #include "infrastructure/services/VIPService.h"
 #include <drogon/drogon.h>
+#include <algorithm>
+#include <cmath>
 
 namespace heartlake::infrastructure {
 
@@ -21,7 +23,8 @@ void GuardianIncentiveService::recordQualityRipple(const std::string& userId, co
 }
 
 void GuardianIncentiveService::recordWarmBoat(const std::string& userId, const std::string& boatId, float warmthScore) {
-    int points = static_cast<int>(WARM_BOAT_POINTS * warmthScore);
+    const float clamped = std::clamp(warmthScore, 0.2f, 1.0f);
+    int points = std::max(1, static_cast<int>(std::round(WARM_BOAT_POINTS * clamped)));
     if (points > 0) {
         addResonancePoints(userId, points, "warm_boat:" + boatId);
         checkAndGrantGuardian(userId);
@@ -103,8 +106,8 @@ bool GuardianIncentiveService::checkAndGrantGuardian(const std::string& userId) 
             auto& pushService = services::NotificationPushService::getInstance();
             pushService.pushSystemNotice(
                 userId,
-                "守望者成就达成",
-                "感谢你在心湖中传递的温暖。你已成为守望者，解锁了「转赠灯火」功能，可以将你的灯火传递给需要的人。"
+                "守护者成就达成",
+                "感谢你在心湖中传递的温暖。你已成为守护者，解锁了「转赠灯火」功能，可以将你的灯火传递给需要的人。"
             );
 
             LOG_INFO << "User " << userId << " granted Guardian status";
@@ -125,13 +128,16 @@ bool GuardianIncentiveService::transferLamp(const std::string& fromUserId, const
 
     auto db = drogon::app().getDbClient("default");
     try {
-        db->execSqlSync(
+        // 灯火转赠涉及多表写入，必须在事务中执行
+        auto trans = db->newTransaction();
+
+        trans->execSqlSync(
             "INSERT INTO lamp_transfers (from_user_id, to_user_id, created_at) VALUES ($1, $2, NOW())",
             fromUserId, toUserId
         );
 
         // 扣除积分
-        db->execSqlSync(
+        trans->execSqlSync(
             "UPDATE users SET resonance_total = resonance_total - $1 WHERE user_id = $2",
             GUARDIAN_THRESHOLD, fromUserId
         );
@@ -143,7 +149,7 @@ bool GuardianIncentiveService::transferLamp(const std::string& fromUserId, const
         pushService.pushSystemNotice(
             toUserId,
             "收到一盏灯火",
-            "一位守望者将灯火传递给了你。这盏灯为你点亮7天，你可以免费预约心理咨询。"
+            "一位守护者将灯火传递给了你。这盏灯为你点亮7天，你可以免费预约心理咨询。"
         );
 
         LOG_INFO << "Lamp transferred from " << fromUserId << " to " << toUserId;

@@ -65,7 +65,10 @@ class AppConfig {
   /// 获取开发环境API URL（根据平台自动切换）
   String _getDevelopmentApiUrl() {
     if (kIsWeb) {
-      return 'http://localhost:8080/api';
+      final scheme = Uri.base.scheme.isNotEmpty ? Uri.base.scheme : 'http';
+      final rawHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
+      final host = rawHost == '0.0.0.0' ? 'localhost' : rawHost;
+      return '$scheme://$host:8080/api';
     }
 
     // 优先使用环境变量
@@ -225,13 +228,29 @@ class AppConfig {
   }) {
     if (environment != null) {
       _environment = environment;
-    }
-
-    // 根据编译模式自动设置环境
-    if (kReleaseMode) {
-      _environment = AppEnvironment.production;
-    } else if (kProfileMode) {
-      _environment = AppEnvironment.staging;
+    } else if (kIsWeb) {
+      // Web 场景下优先按访问域名判断环境，避免本地 --release 被误判为生产环境
+      final host = Uri.base.host;
+      final isPrivateIp = RegExp(
+        r'^(127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$',
+      ).hasMatch(host);
+      final isLocalHost = host == 'localhost' || isPrivateIp;
+      _environment = isLocalHost
+          ? AppEnvironment.development
+          : (kReleaseMode
+                ? AppEnvironment.production
+                : (kProfileMode
+                      ? AppEnvironment.staging
+                      : AppEnvironment.development));
+    } else {
+      // 非 Web 端维持原有编译模式策略
+      if (kReleaseMode) {
+        _environment = AppEnvironment.production;
+      } else if (kProfileMode) {
+        _environment = AppEnvironment.staging;
+      } else {
+        _environment = AppEnvironment.development;
+      }
     }
 
     debugPrint('🔧 AppConfig initialized');

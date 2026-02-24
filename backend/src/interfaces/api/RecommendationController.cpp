@@ -7,8 +7,10 @@
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
+#include <atomic>
 #include <random>
 #include <sstream>
+#include <ctime>
 
 using namespace heartlake::controllers;
 using namespace heartlake::cache;
@@ -101,9 +103,10 @@ void RecommendationController::calculateStoneRecommendations(
     // 2. 协同过滤：找到相似用户喜欢的内容（40%）
     try {
         auto collaborativeStones = dbClient->execSqlSync(
-            "SELECT DISTINCT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-            "s.created_at, u.nickname as author_name, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "SELECT DISTINCT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "s.created_at, u.nickname AS author_name, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
@@ -114,10 +117,11 @@ void RecommendationController::calculateStoneRecommendations(
             ") "
             "AND s.user_id != $1 "
             "AND s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.stone_id NOT IN ( "
             "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
             ") "
-            "ORDER BY s.created_at DESC, ripple_count DESC "
+            "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
             "LIMIT 20",
             userId
         );
@@ -132,9 +136,10 @@ void RecommendationController::calculateStoneRecommendations(
     // 4. 内容过滤：基于情绪兼容性的内容（40%）
     try {
         auto contentStones = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-            "s.created_at, u.nickname as author_name, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count, "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "s.created_at, u.nickname AS author_name, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count, "
             "ec.compatibility_score, ec.relationship_type "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
@@ -143,6 +148,7 @@ void RecommendationController::calculateStoneRecommendations(
             "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
             "WHERE s.user_id != $1 "
             "AND s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.stone_id NOT IN ( "
             "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
             ") "
@@ -165,22 +171,36 @@ void RecommendationController::calculateStoneRecommendations(
     // 5. 随机探索：发现新内容（20%）
     try {
         auto explorationStones = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-            "s.created_at, u.nickname as author_name, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "s.created_at, u.nickname AS author_name, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.user_id != $1 "
             "AND s.status = 'published' "
+            "AND s.deleted_at IS NULL "
+            "AND s.created_at >= NOW() - INTERVAL '14 days' "
             "AND s.stone_id NOT IN ( "
             "  SELECT stone_id FROM user_interaction_history WHERE user_id = $1 "
             ") "
-            "ORDER BY RANDOM() "
-            "LIMIT 10",
+            "ORDER BY s.created_at DESC "
+            "LIMIT 160",
             userId
         );
-        for (size_t i = 0; i < explorationStones.size() && recommendations.size() < 20; ++i) {
-            appendStone(explorationStones[i],
+
+        std::vector<orm::Row> explorationCandidates;
+        explorationCandidates.reserve(explorationStones.size());
+        for (const auto& row : explorationStones) {
+            explorationCandidates.push_back(row);
+        }
+        const auto bucket = static_cast<long long>(std::time(nullptr) / 1800);
+        std::mt19937 rng(static_cast<uint32_t>(
+            std::hash<std::string>{}(userId + ":" + std::to_string(bucket))));
+        std::shuffle(explorationCandidates.begin(), explorationCandidates.end(), rng);
+
+        for (size_t i = 0; i < explorationCandidates.size() && recommendations.size() < 20; ++i) {
+            appendStone(explorationCandidates[i],
                         "也许你会喜欢这个意外的发现", "exploration");
         }
     } catch (const std::exception &e) {
@@ -188,19 +208,30 @@ void RecommendationController::calculateStoneRecommendations(
         // 降级：不依赖 user_interaction_history 表
         try {
             auto fallbackStones = dbClient->execSqlSync(
-                "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-                "s.created_at, u.nickname as author_name, "
-                "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+                "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+                "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+                "s.created_at, u.nickname AS author_name, "
+                "COALESCE(s.ripple_count, 0) AS ripple_count "
                 "FROM stones s "
                 "JOIN users u ON s.user_id = u.user_id "
                 "WHERE s.user_id != $1 "
                 "AND s.status = 'published' "
-                "ORDER BY RANDOM() "
-                "LIMIT 10",
+                "AND s.deleted_at IS NULL "
+                "ORDER BY s.created_at DESC "
+                "LIMIT 160",
                 userId
             );
-            for (size_t i = 0; i < fallbackStones.size() && recommendations.size() < 20; ++i) {
-                appendStone(fallbackStones[i],
+            std::vector<orm::Row> fallbackCandidates;
+            fallbackCandidates.reserve(fallbackStones.size());
+            for (const auto& row : fallbackStones) {
+                fallbackCandidates.push_back(row);
+            }
+            const auto bucket = static_cast<long long>(std::time(nullptr) / 1800);
+            std::mt19937 rng(static_cast<uint32_t>(
+                std::hash<std::string>{}(userId + ":" + std::to_string(bucket) + ":fallback")));
+            std::shuffle(fallbackCandidates.begin(), fallbackCandidates.end(), rng);
+            for (size_t i = 0; i < fallbackCandidates.size() && recommendations.size() < 20; ++i) {
+                appendStone(fallbackCandidates[i],
                             "也许你会喜欢这个意外的发现", "exploration");
             }
         } catch (const std::exception &e2) {
@@ -361,13 +392,30 @@ void RecommendationController::getEmotionTrends(
         auto userId = req->getAttributes()->get<std::string>("user_id");
         auto dbClient = drogon::app().getDbClient("default");
 
-        // 获取最近30天的情绪数据
+        // 获取最近30天情绪数据（优先 emotion_score，缺失时按 mood_type 回退估算）
         auto trendsResult = dbClient->execSqlSync(
-            "SELECT date, mood_type, avg_emotion_score, COUNT(*) as stone_count "
-            "FROM user_emotion_profile "
+            "SELECT DATE(created_at) as date, "
+            "COALESCE(mood_type, 'neutral') as mood_type, "
+            "AVG(COALESCE(emotion_score, "
+            "CASE COALESCE(mood_type, 'neutral') "
+            "WHEN 'happy' THEN 0.75 "
+            "WHEN 'calm' THEN 0.35 "
+            "WHEN 'neutral' THEN 0.0 "
+            "WHEN 'hopeful' THEN 0.55 "
+            "WHEN 'grateful' THEN 0.65 "
+            "WHEN 'sad' THEN -0.75 "
+            "WHEN 'anxious' THEN -0.45 "
+            "WHEN 'angry' THEN -0.65 "
+            "WHEN 'lonely' THEN -0.55 "
+            "WHEN 'confused' THEN -0.1 "
+            "ELSE 0.0 END)) as avg_emotion_score, "
+            "COUNT(*) as stone_count "
+            "FROM stones "
             "WHERE user_id = $1 "
-            "AND date >= CURRENT_DATE - INTERVAL '30 days' "
-            "GROUP BY date, mood_type, avg_emotion_score "
+            "AND status = 'published' "
+            "AND deleted_at IS NULL "
+            "AND created_at >= CURRENT_DATE - INTERVAL '30 days' "
+            "GROUP BY DATE(created_at), COALESCE(mood_type, 'neutral') "
             "ORDER BY date ASC",
             userId
         );
@@ -413,13 +461,15 @@ void RecommendationController::discoverByMood(
 
         // 查找当前处于该情绪的用户和内容
         auto stonesResult = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
             "s.created_at, u.nickname as author_name, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "COALESCE(s.ripple_count, 0) as ripple_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.mood_type = $1 "
             "AND s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.user_id != $2 "
             "ORDER BY s.created_at DESC "
             "LIMIT 20",
@@ -504,14 +554,16 @@ void RecommendationController::calculateTrendingContent(
 
         // 获取最近24小时的热门石头
         auto trendingStonesResult = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
-            "s.created_at, u.nickname as author_name, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "s.created_at, u.nickname AS author_name, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.created_at >= NOW() - INTERVAL '24 hours' "
-            "ORDER BY ripple_count DESC, s.created_at DESC "
+            "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
             "LIMIT 10"
         );
 
@@ -534,6 +586,7 @@ void RecommendationController::calculateTrendingContent(
             "SELECT mood_type, COUNT(*) as count "
             "FROM stones "
             "WHERE status = 'published' "
+            "AND deleted_at IS NULL "
             "AND created_at >= NOW() - INTERVAL '24 hours' "
             "GROUP BY mood_type "
             "ORDER BY count DESC "
@@ -597,13 +650,15 @@ void RecommendationController::searchRecommendations(
 
         // 构建搜索SQL
         std::string searchSql =
-            "SELECT s.stone_id, s.content, s.mood_type, s.emotion_score, "
+            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
             "s.created_at, u.nickname as author_name, u.user_id as author_id, "
-            "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count, "
-            "(SELECT COUNT(*) FROM paper_boats WHERE stone_id = s.stone_id) as boat_count "
+            "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "COALESCE(s.boat_count, 0) AS boat_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.user_id != $1 "
             "AND s.content ILIKE $2 ESCAPE '\\' ";
 
@@ -628,7 +683,7 @@ void RecommendationController::searchRecommendations(
         int offset = (page - 1) * pageSize;
 
         // 执行搜索
-        auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, std::to_string(pageSize), std::to_string(offset));
+        auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, pageSize, offset);
 
         Json::Value results(Json::arrayValue);
         for (size_t i = 0; i < searchResult.size(); ++i) {
@@ -652,6 +707,7 @@ void RecommendationController::searchRecommendations(
         std::string countSql =
             "SELECT COUNT(*) as total FROM stones s "
             "WHERE s.status = 'published' "
+            "AND s.deleted_at IS NULL "
             "AND s.user_id != $1 "
             "AND s.content ILIKE $2 ESCAPE '\\'";
 
@@ -680,23 +736,32 @@ void RecommendationController::trackBatchInteractions(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
     try {
         auto userId = req->getAttributes()->get<std::string>("user_id");
         auto json = req->getJsonObject();
 
         if (!json || !json->isMember("interactions")) {
-            callback(ResponseUtil::badRequest("请求体不能为空"));
+            (*cb)(ResponseUtil::badRequest("请求体不能为空"));
             return;
         }
 
         const auto& interactions = (*json)["interactions"];
         if (!interactions.isArray() || interactions.size() == 0) {
-            callback(ResponseUtil::badRequest("交互数据不能为空"));
+            (*cb)(ResponseUtil::badRequest("交互数据不能为空"));
             return;
         }
 
         auto dbClient = drogon::app().getDbClient("default");
-        int successCount = 0;
+
+        struct InteractionPayload {
+            std::string stoneId;
+            std::string interactionType;
+            double weight{0.1};
+            int dwellTime{0};
+        };
+        std::vector<InteractionPayload> validInteractions;
+        validInteractions.reserve(interactions.size());
 
         // 批量插入交互记录
         for (size_t i = 0; i < interactions.size(); ++i) {
@@ -715,121 +780,68 @@ void RecommendationController::trackBatchInteractions(
             if (interactionType == "ripple") weight = 1.0;
             else if (interactionType == "boat") weight = 2.0;
             else if (interactionType == "share") weight = 3.0;
+            validInteractions.push_back({stoneId, interactionType, weight, dwellTime});
+        }
 
+        if (validInteractions.empty()) {
+            Json::Value responseData;
+            responseData["tracked"] = 0;
+            responseData["total"] = static_cast<int>(interactions.size());
+            (*cb)(ResponseUtil::success(responseData, "批量追踪成功"));
+            return;
+        }
+
+        auto pendingCount = std::make_shared<std::atomic<int>>(
+            static_cast<int>(validInteractions.size()));
+        auto successCount = std::make_shared<std::atomic<int>>(0);
+        auto responded = std::make_shared<std::atomic<bool>>(false);
+        const int totalCount = static_cast<int>(interactions.size());
+
+        auto finishOne = [this, userId, dbClient, cb, pendingCount, successCount, responded, totalCount]() {
+            int left = pendingCount->fetch_sub(1) - 1;
+            if (left > 0) {
+                return;
+            }
+            bool expected = false;
+            if (!responded->compare_exchange_strong(expected, true)) {
+                return;
+            }
+
+            // 所有插入完成后再更新偏好，确保统计口径真实。
+            updateUserPreferences(userId, dbClient);
+
+            Json::Value responseData;
+            responseData["tracked"] = successCount->load();
+            responseData["total"] = totalCount;
+            (*cb)(ResponseUtil::success(responseData, "批量追踪成功"));
+        };
+
+        for (const auto& payload : validInteractions) {
             try {
                 dbClient->execSqlAsync(
                     "INSERT INTO user_interaction_history "
                     "(user_id, stone_id, interaction_type, interaction_weight, dwell_time_seconds) "
                     "VALUES ($1, $2, $3, $4, $5)",
-                    [](const orm::Result &) {},
-                    [](const orm::DrogonDbException &e) {
-                        LOG_ERROR << "Failed to insert interaction: " << e.base().what();
+                    [successCount, finishOne](const orm::Result &) {
+                        successCount->fetch_add(1);
+                        finishOne();
                     },
-                    userId, stoneId, interactionType, weight, dwellTime
+                    [finishOne](const orm::DrogonDbException &e) {
+                        LOG_ERROR << "Failed to insert interaction: " << e.base().what();
+                        finishOne();
+                    },
+                    userId, payload.stoneId, payload.interactionType, payload.weight, payload.dwellTime
                 );
-                successCount++;
-            } catch (...) {
-                // 继续处理下一条
+            } catch (const std::exception& e) {
+                LOG_ERROR << "Failed to schedule interaction insert: " << e.what();
+                finishOne();
             }
         }
 
-        // 异步更新用户偏好
-        updateUserPreferences(userId, dbClient);
-
-        Json::Value responseData;
-        responseData["tracked"] = successCount;
-        responseData["total"] = static_cast<int>(interactions.size());
-
-        callback(ResponseUtil::success(responseData, "批量追踪成功"));
-
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in trackBatchInteractions: " << e.what();
-        callback(ResponseUtil::internalError("批量追踪失败"));
+        (*cb)(ResponseUtil::internalError("批量追踪失败"));
     }
-}
-
-/**
- * 计算两个用户的相似度
- */
-double RecommendationController::calculateUserSimilarity(
-    const std::string &userId1,
-    const std::string &userId2,
-    const orm::DbClientPtr &dbClient) {
-    try {
-        // 基于共同交互的石头计算Jaccard相似度
-        auto result = dbClient->execSqlSync(
-            "SELECT "
-            "  COUNT(DISTINCT CASE WHEN u1.stone_id = u2.stone_id THEN u1.stone_id END)::float / "
-            "  NULLIF(COUNT(DISTINCT u1.stone_id) + COUNT(DISTINCT u2.stone_id) - "
-            "         COUNT(DISTINCT CASE WHEN u1.stone_id = u2.stone_id THEN u1.stone_id END), 0) as similarity "
-            "FROM user_interaction_history u1 "
-            "CROSS JOIN user_interaction_history u2 "
-            "WHERE u1.user_id = $1 AND u2.user_id = $2",
-            userId1, userId2
-        );
-        if (!result.empty() && !result[0]["similarity"].isNull()) {
-            return result[0]["similarity"].as<double>();
-        }
-    } catch (const std::exception &e) {
-        LOG_ERROR << "Error calculating user similarity: " << e.what();
-    }
-    return 0.0;
-}
-
-/**
- * 获取情绪兼容性分数
- */
-double RecommendationController::getEmotionCompatibility(
-    const std::string &mood1,
-    const std::string &mood2,
-    const orm::DbClientPtr& /*dbClient*/) {
-    // 情绪兼容性矩阵（静态定义）
-    static const std::unordered_map<std::string, std::unordered_map<std::string, double>> compatibilityMatrix = {
-        {"happy", {{"happy", 1.0}, {"grateful", 0.9}, {"hopeful", 0.85}, {"neutral", 0.7}, {"anxious", 0.5}, {"sad", 0.4}, {"angry", 0.3}}},
-        {"sad", {{"sad", 0.8}, {"anxious", 0.7}, {"neutral", 0.6}, {"hopeful", 0.75}, {"grateful", 0.6}, {"happy", 0.4}, {"angry", 0.5}}},
-        {"anxious", {{"anxious", 0.7}, {"sad", 0.7}, {"neutral", 0.6}, {"hopeful", 0.8}, {"grateful", 0.65}, {"happy", 0.5}, {"angry", 0.6}}},
-        {"angry", {{"angry", 0.5}, {"anxious", 0.6}, {"sad", 0.5}, {"neutral", 0.5}, {"hopeful", 0.6}, {"grateful", 0.4}, {"happy", 0.3}}},
-        {"grateful", {{"grateful", 1.0}, {"happy", 0.9}, {"hopeful", 0.9}, {"neutral", 0.7}, {"sad", 0.6}, {"anxious", 0.65}, {"angry", 0.4}}},
-        {"hopeful", {{"hopeful", 1.0}, {"grateful", 0.9}, {"happy", 0.85}, {"neutral", 0.7}, {"anxious", 0.8}, {"sad", 0.75}, {"angry", 0.6}}},
-        {"neutral", {{"neutral", 0.8}, {"happy", 0.7}, {"grateful", 0.7}, {"hopeful", 0.7}, {"sad", 0.6}, {"anxious", 0.6}, {"angry", 0.5}}}
-    };
-
-    auto it1 = compatibilityMatrix.find(mood1);
-    if (it1 != compatibilityMatrix.end()) {
-        auto it2 = it1->second.find(mood2);
-        if (it2 != it1->second.end()) {
-            return it2->second;
-        }
-    }
-    return 0.5; // 默认中等兼容性
-}
-
-/**
- * 计算内容推荐分数
- */
-double RecommendationController::calculateContentScore(
-    const Json::Value &stone,
-    const Json::Value &userProfile,
-    const orm::DbClientPtr &dbClient) {
-    double score = 0.0;
-
-    // 1. 情绪匹配分数 (40%)
-    std::string stoneMood = stone.get("mood_type", "neutral").asString();
-    std::string userMood = userProfile.get("current_mood", "neutral").asString();
-    double emotionScore = getEmotionCompatibility(stoneMood, userMood, dbClient);
-    score += emotionScore * 0.4;
-
-    // 2. 时间衰减分数 (30%) - 越新的内容分数越高
-    double hoursOld = stone.get("hours_old", 24.0).asDouble();
-    double timeScore = std::exp(-hoursOld / 168.0); // 一周衰减
-    score += timeScore * 0.3;
-
-    // 3. 互动热度分数 (30%)
-    int rippleCount = stone.get("ripple_count", 0).asInt();
-    double popularityScore = std::min(1.0, rippleCount / 50.0);
-    score += popularityScore * 0.3;
-
-    return score;
 }
 
 /**
@@ -887,11 +899,12 @@ void RecommendationController::getAdvancedRecommendations(
                             auto dbClient = drogon::app().getDbClient("default");
                             for (const auto& res : resonanceResults) {
                                 auto rows = dbClient->execSqlSync(
-                                    "SELECT s.content, s.mood_type, s.emotion_score, s.created_at, "
+                                    "SELECT s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+                                    "COALESCE(s.emotion_score, 0.0) AS emotion_score, s.created_at, "
                                     "u.nickname as author_name, "
-                                    "(SELECT COUNT(*) FROM ripples WHERE stone_id = s.stone_id) as ripple_count "
+                                    "COALESCE(s.ripple_count, 0) as ripple_count "
                                     "FROM stones s JOIN users u ON s.user_id = u.user_id "
-                                    "WHERE s.stone_id = $1 LIMIT 1", res.stoneId);
+                                    "WHERE s.stone_id = $1 AND s.status = 'published' AND s.deleted_at IS NULL LIMIT 1", res.stoneId);
                                 if (!rows.empty()) {
                                     Json::Value info;
                                     info["content"] = rows[0]["content"].as<std::string>();

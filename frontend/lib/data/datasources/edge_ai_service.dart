@@ -31,4 +31,10 @@ class EdgeAIService extends BaseService {
     final response = await get('/edge-ai/privacy-budget');
     return toMap(response);
   }
+
+  /// 获取社区情绪脉搏
+  Future<Map<String, dynamic>> getEmotionPulse() async {
+    final response = await get('/edge-ai/emotion-pulse');
+    return toMap(response);
+  }
 }

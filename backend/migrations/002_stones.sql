@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS stones (
     updated_at TIMESTAMP
 );
 
+ALTER TABLE stones ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+
 CREATE INDEX IF NOT EXISTS idx_stones_user ON stones(user_id);
 CREATE INDEX IF NOT EXISTS idx_stones_created ON stones(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stones_mood ON stones(mood_type);
@@ -28,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_stones_status ON stones(status);
 CREATE INDEX IF NOT EXISTS idx_stones_status_created ON stones(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stones_status_mood_created ON stones(status, mood_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stones_user_status_created ON stones(user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stones_deleted_at ON stones(deleted_at);
 
 -- 石头向量嵌入表（HNSW向量索引用）
 CREATE TABLE IF NOT EXISTS stone_embeddings (

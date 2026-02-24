@@ -6,7 +6,10 @@
 
 #include "application/InteractionApplicationService.h"
 #include "utils/IdGenerator.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
+#include "infrastructure/services/GuardianIncentiveService.h"
 #include <drogon/drogon.h>
+#include <algorithm>
 
 namespace heartlake {
 namespace application {
@@ -58,6 +61,10 @@ Json::Value InteractionApplicationService::createRipple(
         event.stoneId = stoneId;
         event.userId = userId;
         eventBus_->publish(event);
+
+        // 共鸣激励：记录优质涟漪积分
+        heartlake::infrastructure::GuardianIncentiveService::getInstance()
+            .recordQualityRipple(userId, stoneId);
 
         // 查询最新计数返回给前端
         auto countResult = trans->execSqlSync(
@@ -362,6 +369,13 @@ Json::Value InteractionApplicationService::createBoat(
         auto countResult = dbClient->execSqlSync(
             "SELECT boat_count FROM stones WHERE stone_id = $1", stoneId);
         int boatCount = countResult.empty() ? 1 : countResult[0]["boat_count"].as<int>();
+
+        // 温暖纸船激励：用本地情绪模型估算暖意分，按比例发放积分
+        auto& edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
+        auto sentiment = edgeEngine.analyzeSentimentLocal(content);
+        const float warmthScore = std::clamp((sentiment.score + 1.0f) / 2.0f, 0.2f, 1.0f);
+        heartlake::infrastructure::GuardianIncentiveService::getInstance()
+            .recordWarmBoat(userId, boatId, warmthScore);
 
         // 3. 返回结果
         Json::Value result;

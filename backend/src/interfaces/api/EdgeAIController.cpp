@@ -13,16 +13,103 @@
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/ai/AIService.h"
+#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 
 #include <drogon/drogon.h>
 #include <json/json.h>
 #include <algorithm>
 #include <chrono>
+#include <cctype>
+#include <cmath>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace heartlake {
 namespace controllers {
+
+namespace {
+
+std::string trimAscii(const std::string& input) {
+    size_t start = 0;
+    while (start < input.size() &&
+           std::isspace(static_cast<unsigned char>(input[start]))) {
+        ++start;
+    }
+    size_t end = input.size();
+    while (end > start &&
+           std::isspace(static_cast<unsigned char>(input[end - 1]))) {
+        --end;
+    }
+    return input.substr(start, end - start);
+}
+
+std::string normalizeMoodInput(std::string moodRaw) {
+    std::string mood = trimAscii(moodRaw);
+    std::transform(mood.begin(), mood.end(), mood.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    static const std::unordered_map<std::string, std::string> aliases = {
+        {"joy", "happy"},
+        {"happiness", "happy"},
+        {"excited", "happy"},
+        {"sadness", "sad"},
+        {"depressed", "sad"},
+        {"fear", "anxious"},
+        {"fearful", "anxious"},
+        {"stressed", "anxious"},
+        {"worried", "anxious"},
+        {"anger", "angry"},
+        {"peaceful", "calm"},
+        {"gratitude", "grateful"},
+        {"uncertain", "confused"}
+    };
+    auto it = aliases.find(mood);
+    if (it != aliases.end()) {
+        mood = it->second;
+    }
+
+    static const std::unordered_set<std::string> validMoods = {
+        "happy", "calm", "neutral", "anxious", "sad", "angry",
+        "surprised", "confused", "hopeful", "grateful", "lonely"
+    };
+    if (validMoods.find(mood) == validMoods.end()) {
+        return "neutral";
+    }
+    return mood;
+}
+
+float clampUnit(float value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+struct ConfidenceCalibration {
+    float calibratedConfidence{0.0f};
+    float uncertainty{1.0f};
+    bool abstained{false};
+    std::string reliabilityTier{"low"};
+};
+
+ConfidenceCalibration calibrateConfidence(float score, float confidence, size_t textLength) {
+    const float margin = std::min(1.0f, std::abs(score));
+    const float lengthFactor = textLength < 6 ? 0.82f : (textLength < 12 ? 0.90f : 1.0f);
+    const float neutralPenalty = std::max(0.0f, 0.18f - margin) * 1.8f;
+    const float calibrated = clampUnit(confidence * (0.60f + 0.40f * margin) * lengthFactor - neutralPenalty);
+    const float uncertainty = clampUnit(1.0f - calibrated + std::max(0.0f, 0.16f - margin) * 1.2f);
+    const bool abstained = calibrated < 0.42f || (margin < 0.12f && calibrated < 0.62f);
+
+    std::string tier = "low";
+    if (calibrated >= 0.78f) {
+        tier = "high";
+    } else if (calibrated >= 0.55f) {
+        tier = "medium";
+    }
+
+    return {calibrated, uncertainty, abstained, tier};
+}
+
+}  // namespace
 
 // ==================== 公开接口处理函数 ====================
 
@@ -135,10 +222,21 @@ void EdgeAIController::analyzeLocal(
         auto result = engine.analyzeSentimentLocal(text);
 
         Json::Value data;
+        const auto calibrated = calibrateConfidence(result.score, result.confidence, text.size());
         data["score"] = result.score;
         data["mood"] = result.mood;
-        data["confidence"] = result.confidence;
+        data["confidence"] = calibrated.calibratedConfidence;
+        data["calibrated_confidence"] = calibrated.calibratedConfidence;
+        data["raw_confidence"] = result.confidence;
+        data["confidence_gap"] = std::max(0.0f, result.confidence - calibrated.calibratedConfidence);
+        data["signal_strength"] = std::abs(result.score);
+        data["uncertainty"] = calibrated.uncertainty;
+        data["abstained"] = calibrated.abstained;
+        data["reliability_tier"] = calibrated.reliabilityTier;
+        data["decision"] = calibrated.abstained ? "abstain" : "accept";
+        data["recommended_action"] = calibrated.abstained ? "ask_for_more_context" : "use_as_reference";
         data["method"] = result.method;
+        data["analysis_mode"] = "multi_expert_fusion_v2";
         // EdgeSentimentResult 使用 toJson() 序列化
 
         callback(ResponseUtil::success(data, "本地情感分析完成"));
@@ -205,9 +303,17 @@ void EdgeAIController::getEmotionPulse(
 
         Json::Value data;
         data["avg_score"] = pulse.avgScore;
+        data["normalized_score"] = std::clamp((pulse.avgScore + 1.0f) / 2.0f, 0.0f, 1.0f);
         data["dominant_mood"] = pulse.dominantMood;
         data["sample_count"] = pulse.sampleCount;
         data["trend_slope"] = pulse.trendSlope;
+        if (pulse.trendSlope > 0.01f) {
+            data["trend"] = "rising";
+        } else if (pulse.trendSlope < -0.01f) {
+            data["trend"] = "falling";
+        } else {
+            data["trend"] = "stable";
+        }
         Json::Value dist;
         for (const auto &[mood, count] : pulse.moodDistribution) {
             dist[mood] = count;
@@ -333,13 +439,27 @@ void EdgeAIController::vectorSearch(
         }
         double threshold = (*jsonPtr).get("threshold", 0.0).asDouble();
 
-        if (query.empty() || query.size() > 5000) {
-            callback(ResponseUtil::badRequest("query/text长度必须在1-5000之间"));
-            return;
-        }
         if (topK < 1 || topK > 100) {
             callback(ResponseUtil::badRequest("topK必须在1-100之间"));
             return;
+        }
+
+        int candidateMultiplier = (*jsonPtr).get("candidate_multiplier", 4).asInt();
+        candidateMultiplier = std::clamp(candidateMultiplier, 1, 8);
+
+        bool enableSecondStage = true;
+        if (jsonPtr->isMember("enable_second_stage")) {
+            const auto& v = (*jsonPtr)["enable_second_stage"];
+            if (v.isBool()) {
+                enableSecondStage = v.asBool();
+            } else if (v.isInt()) {
+                enableSecondStage = v.asInt() != 0;
+            } else if (v.isString()) {
+                auto flag = trimAscii(v.asString());
+                std::transform(flag.begin(), flag.end(), flag.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                enableSecondStage = !(flag == "0" || flag == "false" || flag == "off");
+            }
         }
 
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -348,23 +468,41 @@ void EdgeAIController::vectorSearch(
             return;
         }
 
-        // 如果请求中提供了预计算向量则直接使用，否则用查询文本的简单哈希生成伪向量
+        // 如果请求中提供了预计算向量则直接使用，否则使用真实 embedding 生成查询向量。
         std::vector<float> queryVec;
         if (jsonPtr->isMember("vector") && (*jsonPtr)["vector"].isArray()) {
             for (const auto &v : (*jsonPtr)["vector"]) {
                 queryVec.push_back(v.asFloat());
             }
-        } else {
-            // 简单哈希伪向量（占位实现，生产环境应接入嵌入服务）
-            std::hash<std::string> hasher;
-            size_t h = hasher(query);
-            queryVec.resize(128);
-            for (size_t i = 0; i < queryVec.size(); ++i) {
-                h ^= (h << 13) ^ (i * 2654435761ULL);
-                queryVec[i] = static_cast<float>(static_cast<int>(h % 2000) - 1000) / 1000.0f;
-            }
         }
-        auto results = engine.hnswSearch(queryVec, topK);
+        if (queryVec.empty()) {
+            if (query.empty() || query.size() > 5000) {
+                callback(ResponseUtil::badRequest("query/text长度必须在1-5000之间，或提供vector"));
+                return;
+            }
+            queryVec = heartlake::ai::AdvancedEmbeddingEngine::getInstance().generateEmbedding(query);
+            if (queryVec.empty()) {
+                callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "查询向量生成失败"));
+                return;
+            }
+        } else if (!query.empty() && query.size() > 5000) {
+            callback(ResponseUtil::badRequest("query/text长度必须在1-5000之间"));
+            return;
+        }
+
+        const size_t hnswDim = engine.getHNSWVectorDimension();
+        if (hnswDim > 0 && queryVec.size() != hnswDim) {
+            callback(ResponseUtil::badRequest("查询向量维度不匹配"));
+            return;
+        }
+
+        const int candidateK = std::min(400, std::max(topK, topK * candidateMultiplier));
+        auto results = engine.hnswSearch(queryVec, enableSecondStage ? candidateK : topK);
+        if (enableSecondStage && !results.empty()) {
+            results = engine.rerankHNSWCandidates(queryVec, results, topK);
+        } else if (static_cast<int>(results.size()) > topK) {
+            results.resize(static_cast<size_t>(topK));
+        }
 
         Json::Value data;
         Json::Value resultArray(Json::arrayValue);
@@ -380,6 +518,8 @@ void EdgeAIController::vectorSearch(
         data["results"] = resultArray;
         data["total"] = static_cast<int>(resultArray.size());
         data["query_length"] = static_cast<int>(query.size());
+        data["retrieval_mode"] = enableSecondStage ? "two_stage_ann_rerank" : "single_stage_ann";
+        data["candidate_count"] = candidateK;
 
         callback(ResponseUtil::success(data, "向量搜索完成"));
     } catch (const std::exception &e) {
@@ -410,8 +550,15 @@ void EdgeAIController::getAdminConfig(
 
         Json::Value config;
         config["edge_ai_enabled"] = getEnvOr("EDGE_AI_ENABLED", "false");
+        config["onnx_enabled"] = getEnvOr("EDGE_AI_ONNX_ENABLED", "auto");
         config["model_path"] = getEnvOr("EDGE_AI_MODEL_PATH", "./models");
+        config["vocab_path"] = getEnvOr("EDGE_AI_VOCAB_PATH", "");
         config["onnx_threads"] = getEnvOr("EDGE_AI_ONNX_THREADS", "2");
+#ifdef HEARTLAKE_USE_ONNX
+        config["onnx_compiled"] = true;
+#else
+        config["onnx_compiled"] = false;
+#endif
         data["config"] = config;
 
         callback(ResponseUtil::success(data, "边缘AI配置获取成功"));
@@ -715,10 +862,26 @@ void EdgeAIController::submitEmotionSample(
         }
 
         float score = (*jsonPtr).get("score", 0.0f).asFloat();
-        std::string mood = (*jsonPtr).get("mood", "neutral").asString();
+        std::string mood = normalizeMoodInput((*jsonPtr).get("mood", "neutral").asString());
+        float confidence = std::clamp((*jsonPtr).get("confidence", 1.0f).asFloat(), 0.0f, 1.0f);
+        std::string scoreScale = (*jsonPtr).get("score_scale", "").asString();
 
-        if (score < 0.0f || score > 1.0f) {
-            callback(ResponseUtil::badRequest("score必须在0-1之间"));
+        // 兼容两种分数口径：
+        // -1~1（推荐，signed）
+        // 0~1（历史客户端，可通过 score_scale=zero_one 显式声明）
+        if (scoreScale == "zero_one") {
+            score = score * 2.0f - 1.0f;
+        } else if (scoreScale.empty() && score >= 0.0f && score <= 1.0f) {
+            static const std::unordered_set<std::string> negativeMoods = {
+                "sad", "anxious", "angry", "lonely"
+            };
+            if (negativeMoods.find(mood) != negativeMoods.end()) {
+                score = score * 2.0f - 1.0f;
+            }
+        }
+
+        if (score < -1.0f || score > 1.0f) {
+            callback(ResponseUtil::badRequest("score必须在-1到1之间"));
             return;
         }
 
@@ -728,11 +891,13 @@ void EdgeAIController::submitEmotionSample(
             return;
         }
 
-        engine.submitEmotionSample(score, mood);
+        engine.submitEmotionSample(score, mood, confidence);
 
         Json::Value data;
         data["score"] = score;
+        data["normalized_score"] = std::clamp((score + 1.0f) / 2.0f, 0.0f, 1.0f);
         data["mood"] = mood;
+        data["confidence"] = confidence;
         callback(ResponseUtil::success(data, "情绪样本已提交"));
     } catch (const std::exception &e) {
         LOG_ERROR << "submitEmotionSample error: " << e.what();
@@ -1095,13 +1260,19 @@ void EdgeAIController::lakeGodChat(
         try {
             auto userId = req->getAttributes()->get<std::string>("user_id");
             auto jsonPtr = req->getJsonObject();
-            if (!jsonPtr || !jsonPtr->isMember("content")) {
-                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "缺少content字段"));
+            if (!jsonPtr) {
+                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "请求体不能为空"));
                 co_return;
             }
-            auto content = (*jsonPtr)["content"].asString();
+
+            // 兼容历史客户端: 支持 content / message 双字段。
+            std::string content = jsonPtr->get("content", "").asString();
             if (content.empty()) {
-                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content不能为空"));
+                content = jsonPtr->get("message", "").asString();
+            }
+
+            if (content.empty()) {
+                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content/message不能为空"));
                 co_return;
             }
 
@@ -1117,8 +1288,9 @@ void EdgeAIController::lakeGodChat(
 
             // 情感分析
             auto sentiment = engine.analyzeSentimentLocal(content);
+            engine.submitEmotionSample(sentiment.score, sentiment.mood, sentiment.confidence);
 
-            // 生成AI回复
+            // 生成湖神回复
             auto &rag = heartlake::ai::DualMemoryRAG::getInstance();
             auto aiReply = rag.generateResponse(userId, content, sentiment.mood, sentiment.score);
 
@@ -1145,6 +1317,8 @@ void EdgeAIController::lakeGodChat(
             data["reply"] = aiReply;
             data["mood"] = sentiment.mood;
             data["score"] = sentiment.score;
+            data["agent"] = "lake_god";
+            data["agent_name"] = "湖神";
             callback(ResponseUtil::success(data, "湖神回复成功"));
         } catch (const std::exception &e) {
             LOG_ERROR << "lakeGodChat error: " << e.what();

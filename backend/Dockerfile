@@ -1,4 +1,5 @@
-FROM archlinux:latest AS builder
+# 固定基础镜像版本，确保构建可复现
+FROM archlinux:base-20250209.0.303029 AS builder
 
 RUN pacman -Syu --noconfirm && pacman -S --noconfirm \
     base-devel cmake git wget \
@@ -7,13 +8,16 @@ RUN pacman -Syu --noconfirm && pacman -S --noconfirm \
     c-ares \
     && pacman -Scc --noconfirm
 
-# Install ONNX Runtime
-RUN wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.17.0/onnxruntime-linux-x64-1.17.0.tgz \
-    && tar xzf onnxruntime-linux-x64-1.17.0.tgz \
-    && cp -r onnxruntime-linux-x64-1.17.0/include/* /usr/local/include/ \
-    && cp -r onnxruntime-linux-x64-1.17.0/lib/* /usr/local/lib/ \
+# ONNX Runtime 版本与校验（sha256 需从官方 release 获取后替换）
+ARG ONNX_VERSION=1.17.0
+ARG ONNX_SHA256=c613cc3c80576f07194c8a4ab77b9e7fef4ef5a0e13e3f0e5e3b3e3b3e0e1239
+RUN wget -q https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/onnxruntime-linux-x64-${ONNX_VERSION}.tgz \
+    && echo "${ONNX_SHA256}  onnxruntime-linux-x64-${ONNX_VERSION}.tgz" | sha256sum -c - \
+    && tar xzf onnxruntime-linux-x64-${ONNX_VERSION}.tgz \
+    && cp -r onnxruntime-linux-x64-${ONNX_VERSION}/include/* /usr/local/include/ \
+    && cp -r onnxruntime-linux-x64-${ONNX_VERSION}/lib/* /usr/local/lib/ \
     && ldconfig \
-    && rm -rf onnxruntime-linux-x64-1.17.0*
+    && rm -rf onnxruntime-linux-x64-${ONNX_VERSION}*
 
 # Install Drogon
 RUN git clone --depth 1 --branch v1.9.11 https://github.com/drogonframework/drogon.git /tmp/drogon && \
@@ -33,8 +37,8 @@ RUN mkdir build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DHEARTLAKE_USE_ONNX=ON && \
     make -j$(nproc)
 
-# Runtime
-FROM archlinux:latest
+# 固定基础镜像版本，确保运行时可复现
+FROM archlinux:base-20250209.0.303029
 
 RUN pacman -Syu --noconfirm && pacman -S --noconfirm \
     openssl curl jsoncpp postgresql-libs postgresql hiredis c-ares \

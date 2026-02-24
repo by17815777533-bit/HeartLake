@@ -13,7 +13,7 @@
         <p class="subtitle">HeartLake Admin Console</p>
       </div>
 
-      <el-form ref="formRef" :model="form" :rules="rules" class="login-form">
+      <el-form ref="formRef" :model="form" :rules="rules" class="login-form" aria-label="管理员登录">
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="用户名" size="large" />
         </el-form-item>

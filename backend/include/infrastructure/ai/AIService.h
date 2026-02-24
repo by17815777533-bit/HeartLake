@@ -14,6 +14,7 @@
 #include <json/json.h>
 #include <unordered_map>
 #include <mutex>
+#include <shared_mutex>
 #include <chrono>
 #include <atomic>
 #include "SemanticCache.h"
@@ -222,11 +223,32 @@ private:
     size_t moderationCacheMaxSize_ = 10000;
     int moderationCacheTTLSeconds_ = 3600;  // 1小时
 
+    // 情绪分析缓存（L1 精确命中）+ 并发合并（in-flight coalescing）
+    struct SentimentCacheEntry {
+        float score{0.0f};
+        std::string mood{"neutral"};
+        std::chrono::steady_clock::time_point timestamp;
+    };
+    std::unordered_map<std::string, SentimentCacheEntry> sentimentCache_;
+    mutable std::shared_mutex sentimentCacheMutex_;
+    size_t sentimentCacheMaxSize_ = 30000;
+    int sentimentCacheTTLSeconds_ = 7200;  // 2小时
+    std::unordered_map<
+        std::string,
+        std::vector<std::function<void(float, const std::string&, const std::string&)>>
+    > sentimentInFlight_;
+    mutable std::mutex sentimentInFlightMutex_;
+    int sentimentAdaptiveInflightThreshold_ = 8;
+    float sentimentAdaptiveLocalConfDelta_ = 0.20f;
+
     // 统计信息 - 使用原子变量避免数据竞争
     std::atomic<size_t> totalAPICalls_{0};
     std::atomic<size_t> totalLocalCalls_{0};
     std::atomic<size_t> moderationCacheHits_{0};
     std::atomic<size_t> moderationCacheMisses_{0};
+    std::atomic<size_t> sentimentCacheHits_{0};
+    std::atomic<size_t> sentimentCacheMisses_{0};
+    std::atomic<size_t> sentimentCoalesced_{0};
 
     void callAIAPI(
         const std::string& endpoint,
@@ -245,8 +267,19 @@ private:
     bool isRetryableError(ReqResult result) const;
     int getRetryDelay(int retryCount) const;
 
+    bool isCircuitOpen();
+    void onRequestSuccess();
+    void onRequestFailure();
+
     int maxRetries_ = 3;
+    int circuitFailureThreshold_ = 3;
+    int circuitCooldownSeconds_ = 20;
+    float localSentimentConfidenceThreshold_ = 0.72f;
     HttpClientPtr ollamaClient_;  // 复用连接
+    std::mutex circuitMutex_;
+    bool circuitOpen_ = false;
+    int consecutiveFailures_ = 0;
+    std::chrono::steady_clock::time_point circuitOpenedAt_{};
     
     std::string buildSentimentPrompt(const std::string& text);
     std::string buildModerationPrompt(const std::string& text);
@@ -258,9 +291,24 @@ private:
 
     // 辅助方法
     std::string computeTextHash(const std::string& text) const;
+    std::string normalizeSentimentText(const std::string& text) const;
     bool getModerationFromCache(const std::string& textHash, ModerationCacheEntry& entry);
     void putModerationToCache(const std::string& textHash, const ModerationCacheEntry& entry);
     void cleanExpiredCache();
+    bool getSentimentFromCache(const std::string& textHash, float& score, std::string& mood);
+    void putSentimentToCache(const std::string& textHash, float score, const std::string& mood);
+    void cleanExpiredSentimentCacheLocked();
+    bool registerSentimentInFlight(
+        const std::string& textHash,
+        std::function<void(float, const std::string&, const std::string&)> callback
+    );
+    void completeSentimentInFlight(
+        const std::string& textHash,
+        float score,
+        const std::string& mood,
+        const std::string& error
+    );
+    size_t currentSentimentInFlightCount();
 };
 
 } // namespace ai

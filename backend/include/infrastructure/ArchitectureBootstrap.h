@@ -26,7 +26,6 @@
 #include "infrastructure/vector/MilvusClient.h"
 #include "infrastructure/services/EmotionTrackingService.h"
 #include "infrastructure/services/GuardianIncentiveService.h"
-#include "infrastructure/ai/EdgeAIEngine.h"
 
 // 前向声明实现类
 namespace heartlake::domain::stone {
@@ -100,18 +99,9 @@ private:
         ai::SummaryService::getInstance().initialize(Json::Value());
 
         // 注意: ResonanceSearchService、LakeGodGuardianService、EmotionTrackingService
-        // 在 main.cpp 的 registerBeginningAdvice 中按正确顺序启动（Redis初始化之后）
+        // 在 main.cpp 启动初始化阶段按正确顺序启动（Redis初始化之后）
 
-        // 初始化边缘AI引擎
-        const char* edgeAiEnabled = std::getenv("EDGE_AI_ENABLED");
-        if (edgeAiEnabled && std::string(edgeAiEnabled) == "true") {
-            LOG_INFO << "Initializing Edge AI Engine...";
-            auto& edgeAI = ai::EdgeAIEngine::getInstance();
-            edgeAI.initialize();
-            LOG_INFO << "Edge AI Engine initialized successfully";
-        } else {
-            LOG_INFO << "Edge AI Engine disabled (set EDGE_AI_ENABLED=true to enable)";
-        }
+        // EdgeAIEngine 在 main.cpp 中集中初始化，避免重复初始化导致冷启动抖动。
 
         LOG_INFO << "Infrastructure Layer initialized";
     }

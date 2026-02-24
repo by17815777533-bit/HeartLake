@@ -7,6 +7,7 @@
 #include "infrastructure/services/VIPService.h"
 #include "utils/IdGenerator.h"
 #include <drogon/drogon.h>
+#include <json/json.h>
 
 using namespace heartlake::services;
 using namespace drogon;
@@ -38,12 +39,12 @@ bool VIPService::checkEmotionAndGrantVIP(
 
         // 2. 计算全网情绪值的20%百分位数
         auto percentileResult = dbClient->execSqlSync(
-            "SELECT percentile_cont(0.20) WITHIN GROUP (ORDER BY emotion_score) as p20 "
+            "SELECT percentile_cont(0.20) WITHIN GROUP (ORDER BY avg_emotion_score) as p20 "
             "FROM user_emotion_profile "
             "WHERE date >= CURRENT_DATE - INTERVAL '7 days' AND avg_emotion_score IS NOT NULL"
         );
 
-        if (percentileResult.size() == 0) {
+        if (percentileResult.size() == 0 || percentileResult[0]["p20"].isNull()) {
             LOG_WARN << "Cannot calculate emotion percentile, using default threshold";
             // 使用默认阈值
             if (emotionScore >= -0.3f) {
@@ -574,8 +575,12 @@ std::string VIPService::bookCounseling(
 
         // 4. 如果是免费VIP预约，记录权益使用
         if (isFreeVIP) {
+            Json::Value meta;
+            meta["appointment_id"] = appointmentId;
+            Json::StreamWriterBuilder writer;
+            writer["indentation"] = "";
             checkAndRecordPrivilegeUsage(userId, "free_counseling",
-                "{\"appointment_id\": \"" + appointmentId + "\"}");
+                Json::writeString(writer, meta));
         }
 
         // 5. 发送预约确认通知

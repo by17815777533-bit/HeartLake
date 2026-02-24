@@ -6,6 +6,7 @@
 #include "infrastructure/services/UserFollowUpService.h"
 #include "infrastructure/services/WarmQuoteService.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "utils/EnvUtils.h"
 #include <drogon/drogon.h>
 #include <chrono>
 
@@ -37,6 +38,11 @@ void UserFollowUpService::stop() {
 }
 
 void UserFollowUpService::scanLoop() {
+    const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("USER_FOLLOWUP_STARTUP_DELAY_SEC", 120);
+    for (int i = 0; i < startupDelaySec && running_; ++i) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
     while (running_) {
         scanOnce();
         for (int i = 0; i < SCAN_INTERVAL_HOURS * 3600 && running_; ++i) {
@@ -52,11 +58,11 @@ void UserFollowUpService::scanOnce() {
     try {
         // 查找需要回访的用户（曾被识别为负重者）
         auto result = db->execSqlSync(
-            "SELECT user_id, EXTRACT(DAY FROM NOW() - created_at)::int as days "
+            "SELECT user_id, EXTRACT(DAY FROM NOW() - MAX(created_at))::int as days "
             "FROM vip_upgrade_logs "
-            "WHERE (reason LIKE '%extreme_burden%' OR reason LIKE '%lamp%') "
+            "WHERE (reason LIKE 'extreme_burden%' OR reason LIKE 'lamp%') "
             "AND created_at > NOW() - INTERVAL '14 days' "
-            "GROUP BY user_id, created_at"
+            "GROUP BY user_id"
         );
 
         for (const auto& row : result) {

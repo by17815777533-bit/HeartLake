@@ -2,12 +2,13 @@
  * @file RecoveryKeyGenerator.cpp
  * @brief 恢复关键词生成器实现
  *
- * 词库256个词，6词组合，使用 OpenSSL RAND_bytes (CSPRNG) 选词
- * 熵: log2(256^6) = 48 bit
+ * 词库256个词，8词组合，使用 OpenSSL RAND_bytes (CSPRNG) 选词
+ * 熵: log2(256^8) = 64 bit
  */
 
 #include "utils/RecoveryKeyGenerator.h"
 #include <array>
+#include <vector>
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
@@ -17,7 +18,7 @@
 namespace heartlake {
 namespace utils {
 
-static constexpr int kWordCount = 6;
+static constexpr int kWordCount = 8;   // 8词组合，熵 = log2(256^8) = 64 bit
 static constexpr int kDictSize = 256;
 
 // 256个中文词，涵盖自然、天气、动物、植物、颜色、情感等类别

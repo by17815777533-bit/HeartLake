@@ -10,15 +10,15 @@ const router = createRouter({
       component: () => import('@/layouts/MainLayout.vue'),
       redirect: '/dashboard',
       children: [
-        { path: 'dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '数据大屏' } },
-        { path: 'users', component: () => import('@/views/Users.vue'), meta: { title: '用户管理' } },
-        { path: 'content', component: () => import('@/views/Content.vue'), meta: { title: '内容管理' } },
-        { path: 'moderation', component: () => import('@/views/Moderation.vue'), meta: { title: '内容审核' } },
-        { path: 'reports', component: () => import('@/views/Reports.vue'), meta: { title: '举报处理' } },
-        { path: 'sensitive-words', component: () => import('@/views/SensitiveWords.vue'), meta: { title: '敏感词' } },
-        { path: 'logs', component: () => import('@/views/Logs.vue'), meta: { title: '操作日志' } },
-        { path: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '系统设置' } },
-        { path: 'edge-ai', component: () => import('@/views/EdgeAI.vue'), meta: { title: '边缘AI' } },
+        { path: 'dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '数据大屏', requiresAuth: true } },
+        { path: 'users', component: () => import('@/views/Users.vue'), meta: { title: '用户管理', requiresAuth: true } },
+        { path: 'content', component: () => import('@/views/Content.vue'), meta: { title: '内容管理', requiresAuth: true } },
+        { path: 'moderation', component: () => import('@/views/Moderation.vue'), meta: { title: '内容审核', requiresAuth: true } },
+        { path: 'reports', component: () => import('@/views/Reports.vue'), meta: { title: '举报处理', requiresAuth: true } },
+        { path: 'sensitive-words', component: () => import('@/views/SensitiveWords.vue'), meta: { title: '敏感词', requiresAuth: true } },
+        { path: 'logs', component: () => import('@/views/Logs.vue'), meta: { title: '操作日志', requiresAuth: true } },
+        { path: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '系统设置', requiresAuth: true } },
+        { path: 'edge-ai', component: () => import('@/views/EdgeAI.vue'), meta: { title: '边缘AI', requiresAuth: true } },
       ]
     },
     // L-3: 404 catch-all 路由，重定向到 dashboard
@@ -30,7 +30,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const appStore = useAppStore()
 
-  if (to.path !== '/login' && !appStore.checkTokenValid()) {
+  if (to.meta.requiresAuth && !appStore.checkTokenValid()) {
     // token 无效或过期，清除并跳转登录
     appStore.clearToken()
     next('/login')

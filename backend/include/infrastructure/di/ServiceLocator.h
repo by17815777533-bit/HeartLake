@@ -11,6 +11,7 @@
 #include <typeindex>
 #include <mutex>
 #include <stdexcept>
+#include <cxxabi.h>
 
 namespace heartlake::core::di {
 
@@ -67,7 +68,12 @@ public:
     std::shared_ptr<T> resolveRequired() {
         auto result = resolve<T>();
         if (!result) {
-            throw std::runtime_error("Service not registered: " + std::string(typeid(T).name()));
+            // demangle C++ 类型名，方便排查未注册的服务
+            int status = 0;
+            std::unique_ptr<char, decltype(&std::free)> demangled(
+                abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), std::free);
+            throw std::runtime_error("Service not registered: " +
+                std::string(status == 0 ? demangled.get() : typeid(T).name()));
         }
         return result;
     }

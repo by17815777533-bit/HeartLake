@@ -249,7 +249,7 @@ void PaperBoatController::getBoatDetail(const HttpRequestPtr &/*req*/,
         auto dbClient = drogon::app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
-            "SELECT b.boat_id, b.stone_id, b.content, b.boat_color, b.is_anonymous, "
+            "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.is_anonymous, "
             "b.is_ai_reply, b.status, "
             "EXTRACT(EPOCH FROM b.created_at) as created_at_ts, "
             "u.nickname "
@@ -328,8 +328,7 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
                     user_id, status_filter);
                 int t = countResult[0]["total"].as<int>();
                 auto r = dbClient->execSqlSync(
-                    "SELECT b.boat_id, b.stone_id, b.content, b.boat_color, b.status, "
-                    "b.is_ai_reply, "
+                    "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.status, "
                     "EXTRACT(EPOCH FROM b.created_at) as created_at_ts "
                     "FROM paper_boats b "
                     "WHERE b.sender_id = $1 AND b.status = $2 "
@@ -343,8 +342,7 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
                     user_id);
                 int t = countResult[0]["total"].as<int>();
                 auto r = dbClient->execSqlSync(
-                    "SELECT b.boat_id, b.stone_id, b.content, b.boat_color, b.status, "
-                    "b.is_ai_reply, "
+                    "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.status, "
                     "EXTRACT(EPOCH FROM b.created_at) as created_at_ts "
                     "FROM paper_boats b "
                     "WHERE b.sender_id = $1 "
@@ -364,7 +362,7 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
             boat["content"] = row["content"].as<std::string>();
             boat["boat_color"] = row["boat_color"].isNull() ? "#F5EFE7" : row["boat_color"].as<std::string>();
             boat["status"] = row["status"].as<std::string>();
-            boat["is_ai_reply"] = row["is_ai_reply"].isNull() ? false : row["is_ai_reply"].as<bool>();
+            boat["is_ai_reply"] = false;
             boat["created_at"] = static_cast<Json::Int64>(row["created_at_ts"].as<double>());
             boats.append(boat);
         }
@@ -413,8 +411,7 @@ void PaperBoatController::getMyReceivedBoats(const HttpRequestPtr &req,
 
         int offset = (page - 1) * page_size;
         auto result = dbClient->execSqlSync(
-            "SELECT b.boat_id, b.stone_id, b.content, b.boat_color, b.status, "
-            "b.is_ai_reply, "
+            "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.status, "
             "EXTRACT(EPOCH FROM b.created_at) as created_at_ts, "
             "s.content as stone_content, "
             "u.nickname as sender_nickname "
@@ -434,7 +431,7 @@ void PaperBoatController::getMyReceivedBoats(const HttpRequestPtr &req,
             boat["content"] = row["content"].as<std::string>();
             boat["boat_color"] = row["boat_color"].isNull() ? "#F5EFE7" : row["boat_color"].as<std::string>();
             boat["status"] = row["status"].as<std::string>();
-            boat["is_ai_reply"] = row["is_ai_reply"].isNull() ? false : row["is_ai_reply"].as<bool>();
+            boat["is_ai_reply"] = false;
             boat["created_at"] = static_cast<Json::Int64>(row["created_at_ts"].as<double>());
             boat["stone_content"] = row["stone_content"].as<std::string>();
 
