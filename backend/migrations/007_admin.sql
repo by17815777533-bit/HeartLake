@@ -1,5 +1,6 @@
 -- 007: 管理后台（管理员、敏感词、操作日志）
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
 
 -- 管理员表
 CREATE TABLE IF NOT EXISTS admin_users (

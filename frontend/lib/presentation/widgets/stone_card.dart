@@ -9,7 +9,6 @@ import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../data/datasources/interaction_service.dart';
-import '../../data/datasources/websocket_manager.dart';
 import '../screens/stone_detail_screen.dart';
 import '../../utils/storage_util.dart';
 
@@ -59,7 +58,6 @@ class _StoneCardState extends State<StoneCard>
     _localRipplesCount = widget.stone.rippleCount;
     _localBoatsCount = widget.stone.boatCount;
     _checkCurrentUser();
-    _setupWebSocketListener();
 
     // 先初始化 controller
     _controller = AnimationController(
@@ -96,72 +94,6 @@ class _StoneCardState extends State<StoneCard>
     }
   }
 
-  // WebSocket 监听器引用
-  late Function(Map<String, dynamic>) _rippleUpdateListener;
-  late Function(Map<String, dynamic>) _boatUpdateListener;
-  late Function(Map<String, dynamic>) _boatDeletedListener;
-  late Function(Map<String, dynamic>) _rippleDeletedListener;
-
-  void _setupWebSocketListener() {
-    final ws = WebSocketManager();
-
-    // 监听涟漪更新 - 使用服务器返回的实际总数
-    _rippleUpdateListener = (data) {
-      final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
-      if (stoneId == widget.stone.stoneId && mounted) {
-        final serverCount = data['ripple_count'];
-        if (serverCount is int) {
-          setState(() {
-            _localRipplesCount = serverCount;
-          });
-        }
-      }
-    };
-    ws.on('ripple_update', _rippleUpdateListener);
-
-    // 监听纸船更新 - 使用服务器返回的实际总数
-    _boatUpdateListener = (data) {
-      final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
-      if (stoneId == widget.stone.stoneId && mounted) {
-        final serverCount = data['boat_count'];
-        if (serverCount is int) {
-          setState(() {
-            _localBoatsCount = serverCount;
-          });
-        }
-      }
-    };
-    ws.on('boat_update', _boatUpdateListener);
-
-    // 监听纸船删除 - 使用服务器返回的实际总数
-    _boatDeletedListener = (data) {
-      final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
-      if (stoneId == widget.stone.stoneId && mounted) {
-        final serverCount = data['boat_count'];
-        if (serverCount is int) {
-          setState(() {
-            _localBoatsCount = serverCount;
-          });
-        }
-      }
-    };
-    ws.on('boat_deleted', _boatDeletedListener);
-
-    // 监听涟漪删除 - 使用服务器返回的实际总数
-    _rippleDeletedListener = (data) {
-      final stoneId = data['stone_id'];
-      if (stoneId == widget.stone.stoneId && mounted) {
-        final serverCount = data['ripple_count'];
-        if (serverCount is int) {
-          setState(() {
-            _localRipplesCount = serverCount;
-          });
-        }
-      }
-    };
-    ws.on('ripple_deleted', _rippleDeletedListener);
-  }
-
   // 外部调用更新计数
   void updateCounts(int ripples, int boats) {
     if (mounted) {
@@ -189,12 +121,6 @@ class _StoneCardState extends State<StoneCard>
   @override
   void dispose() {
     _controller.dispose();
-    // 清理WebSocket监听器
-    final ws = WebSocketManager();
-    ws.off('ripple_update', _rippleUpdateListener);
-    ws.off('boat_update', _boatUpdateListener);
-    ws.off('boat_deleted', _boatDeletedListener);
-    ws.off('ripple_deleted', _rippleDeletedListener);
     super.dispose();
   }
 

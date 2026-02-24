@@ -1,5 +1,7 @@
 -- 001: 用户表（匿名登录，无密码）
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(64) PRIMARY KEY,
     shadow_id VARCHAR(64) UNIQUE NOT NULL,

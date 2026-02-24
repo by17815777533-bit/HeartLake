@@ -1,5 +1,6 @@
 -- 010: 数据导出
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
 
 CREATE TABLE IF NOT EXISTS data_export_tasks (
     task_id VARCHAR(64) PRIMARY KEY,

@@ -1,5 +1,6 @@
 -- 005: AI系统（情感分析、向量索引、湖神对话、推荐、联邦学习、差分隐私）
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
 
 -- 湖神AI对话消息表
 CREATE TABLE IF NOT EXISTS lake_god_messages (

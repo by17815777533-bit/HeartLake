@@ -634,15 +634,37 @@ void AccountController::deleteAccountPermanently(const HttpRequestPtr &req,
         trans->execSqlSync("DELETE FROM user_items WHERE user_id = $1", userId);
         trans->execSqlSync("DELETE FROM emotion_records WHERE user_id = $1", userId);
         trans->execSqlSync("DELETE FROM consultation_appointments WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM consultation_messages WHERE session_id IN (SELECT session_id FROM consultation_sessions WHERE user_id = $1)", userId);
+        trans->execSqlSync("DELETE FROM consultation_sessions WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM connection_messages WHERE connection_id IN (SELECT connection_id FROM connections WHERE user_id_1 = $1 OR user_id_2 = $1)", userId);
+        trans->execSqlSync("DELETE FROM connections WHERE user_id_1 = $1 OR user_id_2 = $1", userId);
+        trans->execSqlSync("DELETE FROM friend_messages WHERE sender_id = $1 OR receiver_id = $1", userId);
+        trans->execSqlSync("DELETE FROM temp_friends WHERE user1_id = $1 OR user2_id = $1", userId);
+        trans->execSqlSync("DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", userId);
         trans->execSqlSync("DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1", userId);
         trans->execSqlSync("DELETE FROM conversations WHERE user_id_1 = $1 OR user_id_2 = $1", userId);
         trans->execSqlSync("DELETE FROM comments WHERE user_id = $1", userId);
         trans->execSqlSync("DELETE FROM likes WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM paper_boats WHERE sender_id = $1", userId);
+        trans->execSqlSync("DELETE FROM ripples WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM stone_embeddings WHERE stone_id IN (SELECT stone_id FROM stones WHERE author_id = $1)", userId);
         trans->execSqlSync("DELETE FROM stones WHERE author_id = $1", userId);
         trans->execSqlSync("DELETE FROM warm_boats WHERE sender_id = $1 OR receiver_id = $1", userId);
-        trans->execSqlSync("DELETE FROM ripples WHERE user_id = $1", userId);
         trans->execSqlSync("DELETE FROM reports WHERE reporter_id = $1", userId);
         trans->execSqlSync("DELETE FROM feedback WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM lake_god_messages WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_emotion_history WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM emotion_tracking WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM intervention_log WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_followups WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM differential_privacy_budget WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM data_export_tasks WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_sessions WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM login_logs WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM security_events WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_privacy_settings WHERE user_id = $1", userId);
+        trans->execSqlSync("DELETE FROM user_similarity WHERE user_id_1 = $1 OR user_id_2 = $1", userId);
+        trans->execSqlSync("DELETE FROM operation_logs WHERE operator_id = $1", userId);
         // 最后删除用户记录
         trans->execSqlSync("DELETE FROM users WHERE user_id = $1", userId);
 

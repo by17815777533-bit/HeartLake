@@ -1,5 +1,7 @@
 -- 002: 石头表（心湖核心实体）
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS stones (
     stone_id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,

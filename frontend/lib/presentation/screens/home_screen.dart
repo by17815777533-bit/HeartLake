@@ -21,27 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<LakeScreenState> _lakeScreenKey =
       GlobalKey<LakeScreenState>();
 
-  late final List<Widget> _screens;
-
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      LakeScreen(key: _lakeScreenKey),
-      const DiscoverScreen(),
-      PublishScreen(
-        onPublished: () {
-          if (!mounted) return;
-          setState(() {
-            _selectedIndex = 0;
-          });
-          _lakeScreenKey.currentState?.refreshStones();
-        },
-      ),
-      const FriendsScreen(),
-      const ProfileScreen(),
-    ];
-  }
+  // 记录哪些 Tab 曾经被访问过，按需创建页面
+  final Set<int> _initializedTabs = {0};
 
   void _onTabTapped(int index) {
     // 切换到观湖页面时，刷新石头列表
@@ -51,7 +32,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _selectedIndex = index;
+      _initializedTabs.add(index);
     });
+  }
+
+  Widget _buildTab(int index) {
+    switch (index) {
+      case 0:
+        return LakeScreen(key: _lakeScreenKey);
+      case 1:
+        return const DiscoverScreen();
+      case 2:
+        return PublishScreen(
+          onPublished: () {
+            if (!mounted) return;
+            setState(() {
+              _selectedIndex = 0;
+            });
+            _lakeScreenKey.currentState?.refreshStones();
+          },
+        );
+      case 3:
+        return const FriendsScreen();
+      case 4:
+        return const ProfileScreen();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
@@ -59,7 +66,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: List.generate(5, (index) {
+          if (_initializedTabs.contains(index)) {
+            return _buildTab(index);
+          }
+          return const SizedBox.shrink();
+        }),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

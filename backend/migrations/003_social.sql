@@ -1,5 +1,6 @@
 -- 003: 社交系统（好友、临时好友、消息）
 -- 注意: 生产环境建议将 CREATE INDEX 改为 CREATE INDEX CONCURRENTLY 以避免锁表
+BEGIN;
 
 -- 好友关系表
 CREATE TABLE IF NOT EXISTS friends (
