@@ -490,6 +490,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
 
   @override
   void dispose() {
+    _service.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -511,6 +512,9 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         return;
       }
     }
+
+    // 初始化 E2E 加密
+    await _service.initE2E(_sessionId!);
 
     // 加载历史消息
     await _loadMessages();

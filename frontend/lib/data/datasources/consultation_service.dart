@@ -1,10 +1,16 @@
 // @file consultation_service.dart
 // @brief 心理咨询服务 - 预约咨询和E2E加密会话
+import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
 import 'base_service.dart';
+import '../../utils/e2e_encryption.dart';
 
 class ConsultationService extends BaseService {
   @override
   String get serviceName => 'ConsultationService';
+
+  final E2EEncryption _e2e = E2EEncryption();
+  SimpleKeyPair? _keyPair;
 
   /// 创建咨询会话
   Future<Map<String, dynamic>> createSession({String? counselorId}) async {
@@ -14,22 +20,76 @@ class ConsultationService extends BaseService {
     return toMap(resp);
   }
 
-  /// 发送消息
+  /// 初始化 E2E 加密：生成密钥对、交换公钥、派生共享密钥
+  Future<bool> initE2E(String sessionId) async {
+    try {
+      _keyPair = await _e2e.generateKeyPair();
+      final myPublicKey = await _e2e.exportPublicKey(_keyPair!);
+
+      final resp = await exchangeKey(
+        sessionId: sessionId,
+        publicKey: myPublicKey,
+      );
+
+      final peerPublicKey = resp['data']?['peer_public_key'] as String?;
+      if (peerPublicKey == null || peerPublicKey.isEmpty) return false;
+
+      await _e2e.deriveSharedSecret(_keyPair!, peerPublicKey);
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('E2E初始化失败: $e');
+      return false;
+    }
+  }
+
+  /// 发送消息（加密就绪时自动加密）
   Future<Map<String, dynamic>> sendMessage({
     required String sessionId,
     required String content,
   }) async {
+    String payload = content;
+    bool encrypted = false;
+
+    if (_e2e.isReady) {
+      try {
+        payload = await _e2e.encrypt(content);
+        encrypted = true;
+      } catch (e) {
+        if (kDebugMode) debugPrint('消息加密失败，回退明文: $e');
+      }
+    }
+
     final resp = await post('/consultation/message', data: {
       'session_id': sessionId,
-      'content': content,
+      'content': payload,
+      'encrypted': encrypted,
     });
     return toMap(resp);
   }
 
-  /// 获取消息历史
+  /// 获取消息历史（加密消息自动解密）
   Future<Map<String, dynamic>> getMessages(String sessionId) async {
     final resp = await get('/consultation/messages/$sessionId');
-    return toMap(resp);
+    final result = toMap(resp);
+
+    // 解密消息
+    if (_e2e.isReady && result['data'] != null) {
+      final messages = result['data']['messages'] as List?;
+      if (messages != null) {
+        for (int i = 0; i < messages.length; i++) {
+          final msg = messages[i] as Map<String, dynamic>;
+          if (msg['encrypted'] == true) {
+            try {
+              msg['content'] = await _e2e.decrypt(msg['content'] as String);
+            } catch (e) {
+              msg['content'] = '[无法解密]';
+            }
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   /// 获取咨询历史会话列表
@@ -48,5 +108,12 @@ class ConsultationService extends BaseService {
       'public_key': publicKey,
     });
     return toMap(resp);
+  }
+
+  bool get isE2EReady => _e2e.isReady;
+
+  void dispose() {
+    _e2e.dispose();
+    _keyPair = null;
   }
 }
