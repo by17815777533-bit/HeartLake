@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:meta/meta.dart';
 import 'api_client.dart';
 import '../../utils/app_logger.dart';
+import '../../utils/error_codes.dart';
 
 /// 统一的响应格式
 class ServiceResponse<T> {
@@ -91,14 +92,19 @@ abstract class BaseService {
       if (e.type == DioExceptionType.connectionError) {
         return '与心湖的连接暂时中断，请检查网络后再试~';
       }
-      // HTTP响应错误 - 从响应体提取服务端消息
+      // HTTP响应错误 - 优先使用业务错误码
       if (e.response?.data is Map) {
-        final msg = (e.response!.data as Map)['message'];
+        final respData = e.response!.data as Map;
+        final businessCode = respData['code'] as int?;
+        if (businessCode != null && businessCode != 0) {
+          return ErrorCodes.friendlyMessage(businessCode);
+        }
+        final msg = respData['message'];
         if (msg != null && msg.toString().isNotEmpty) {
           return msg.toString();
         }
       }
-      // 按状态码返回友好消息
+      // 按HTTP状态码返回友好消息
       switch (e.response?.statusCode) {
         case 401:
           return '需要重新登录才能继续哦~';
