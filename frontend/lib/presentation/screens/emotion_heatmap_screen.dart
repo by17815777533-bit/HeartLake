@@ -133,11 +133,13 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       appBar: AppBar(
         title: const Text('情绪热力图'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimary,
+        backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
+        foregroundColor: isDark ? Colors.white : AppTheme.textPrimary,
       ),
       body: RefreshIndicator(
         onRefresh: _loadHeatmapData,
@@ -154,7 +156,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
               ),
               child: const Text(
                 '热力图聚焦长期波动，日历聚焦单日记录。已拆分展示，便于你分别查看。',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                style: TextStyle(fontSize: 13, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary, height: 1.5),
               ),
             ),
             const SizedBox(height: 16),

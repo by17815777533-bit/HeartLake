@@ -64,12 +64,13 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
+        foregroundColor: isDark ? Colors.white : AppTheme.textPrimary,
         title: const Text(
           '情绪趋势',
           style: TextStyle(
