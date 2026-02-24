@@ -61,19 +61,8 @@ std::string IdGenerator::generateNickname() {
 }
 
 std::string IdGenerator::generateRandomId(size_t length) {
-    static const char hex_chars[] = "0123456789abcdef";
-    thread_local std::random_device rd;
-    thread_local std::mt19937 gen(rd());
-    thread_local std::uniform_int_distribution<> dis(0, 15);
-
-    std::string id;
-    id.reserve(length);
-
-    for (size_t i = 0; i < length; ++i) {
-        id += hex_chars[dis(gen)];
-    }
-
-    return id;
+    // 统一使用 CSPRNG，避免 mt19937 熵不足的风险
+    return generateSecureRandomId(length);
 }
 
 int IdGenerator::generateRandomNumber(int min, int max) {

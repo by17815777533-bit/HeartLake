@@ -24,8 +24,14 @@ static std::string getSalt() {
         if (env && env[0] != '\0') {
             return std::string(env);
         }
-        LOG_ERROR << "[SECURITY] SHADOW_MAP_SALT 未配置，使用不安全的默认盐值，生产环境必须设置此变量";
-        return std::string("heartlake_default_salt_CHANGE_ME");
+        // 非生产环境允许降级，生产环境直接拒绝启动
+        const char* runEnv = std::getenv("HEARTLAKE_ENV");
+        if (runEnv && std::string(runEnv) == "production") {
+            LOG_FATAL << "[SECURITY] 生产环境必须配置 SHADOW_MAP_SALT，拒绝使用默认盐值";
+            throw std::runtime_error("SHADOW_MAP_SALT not configured in production");
+        }
+        LOG_WARN << "[SECURITY] SHADOW_MAP_SALT 未配置，使用开发默认盐值，切勿用于生产";
+        return std::string("heartlake_dev_salt_DO_NOT_USE_IN_PROD");
     }();
     return salt;
 }

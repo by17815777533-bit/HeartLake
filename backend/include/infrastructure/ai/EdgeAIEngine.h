@@ -641,13 +641,19 @@ private:
     // ---- HNSW内部 ----
     std::vector<HNSWNode> hnswNodes_;                           ///< 所有节点
     std::unordered_map<std::string, size_t> hnswIdMap_;         ///< ID到索引映射
-    int hnswM_ = 16;                                            ///< 每层最大邻居数
-    int hnswMMax0_ = 32;                                        ///< 第0层最大邻居数
-    int hnswEfConstruction_ = 200;                              ///< 构建搜索宽度
-    int hnswEfSearch_ = 50;                                     ///< 查询搜索宽度
+    // HNSW 索引默认参数，可通过配置覆盖
+    static constexpr int DEFAULT_HNSW_M = 16;
+    static constexpr int DEFAULT_HNSW_M_MAX0 = 32;
+    static constexpr int DEFAULT_HNSW_EF_CONSTRUCTION = 200;
+    static constexpr int DEFAULT_HNSW_EF_SEARCH = 50;
+
+    int hnswM_ = DEFAULT_HNSW_M;                               ///< 每层最大邻居数
+    int hnswMMax0_ = DEFAULT_HNSW_M_MAX0;                      ///< 第0层最大邻居数
+    int hnswEfConstruction_ = DEFAULT_HNSW_EF_CONSTRUCTION;    ///< 构建搜索宽度
+    int hnswEfSearch_ = DEFAULT_HNSW_EF_SEARCH;                ///< 查询搜索宽度
     int hnswMaxLevel_ = 0;                                      ///< 当前最高层级
     size_t hnswEntryPoint_ = 0;                                 ///< 入口节点索引
-    float hnswLevelMult_ = 1.0f / std::log(static_cast<float>(16)); ///< 层级生成因子 1/ln(M)
+    float hnswLevelMult_ = 1.0f / std::log(static_cast<float>(DEFAULT_HNSW_M)); ///< 层级生成因子 1/ln(M)
     mutable std::shared_mutex hnswMutex_;
     std::mt19937 hnswRng_;
 

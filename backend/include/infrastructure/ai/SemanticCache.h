@@ -64,7 +64,8 @@ private:
     SemanticCache() = default;
 
     std::string computeHash(const std::string& query);
-    void evictLRU();
+    void evictLFU();
+    void purgeExpired();
 
     float similarityThreshold_ = 0.92f;
     size_t maxSize_ = 5000;

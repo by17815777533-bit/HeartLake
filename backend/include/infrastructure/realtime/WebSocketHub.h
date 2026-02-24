@@ -81,6 +81,10 @@ public:
 
     // 消息发送
     void sendToUser(const std::string& userId, const std::string& message) {
+        if (message.size() > MAX_MESSAGE_SIZE) {
+            LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
+            return;
+        }
         {
             std::shared_lock lock(mutex_);
             if (auto it = userConnections_.find(userId); it != userConnections_.end()) {
@@ -103,6 +107,10 @@ public:
 
     void sendToRoom(const std::string& room, const std::string& message,
                     const drogon::WebSocketConnectionPtr& exclude = nullptr) {
+        if (message.size() > MAX_MESSAGE_SIZE) {
+            LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
+            return;
+        }
         {
             std::shared_lock lock(mutex_);
             if (auto it = rooms_.find(room); it != rooms_.end()) {
@@ -126,6 +134,10 @@ public:
     }
 
     void broadcast(const std::string& message) {
+        if (message.size() > MAX_MESSAGE_SIZE) {
+            LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
+            return;
+        }
         {
             std::shared_lock lock(mutex_);
             for (const auto& [conn, _] : connections_) {
@@ -261,6 +273,8 @@ private:
             LOG_WARN << "Realtime publish skipped: " << e.what();
         }
     }
+
+    static constexpr size_t MAX_MESSAGE_SIZE = 64 * 1024;  // 单条消息上限 64KB
 
     mutable std::shared_mutex mutex_;
     std::unordered_map<drogon::WebSocketConnectionPtr, ConnectionInfo> connections_;

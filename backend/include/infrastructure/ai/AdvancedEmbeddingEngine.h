@@ -14,6 +14,7 @@
 #include <mutex>
 #include <list>
 #include <shared_mutex>
+#include <thread>
 
 namespace heartlake {
 namespace ai {
@@ -172,6 +173,9 @@ private:
     void computeIDF(const std::vector<std::string>& texts);
     void loadSentimentLexicon();
     void warmupTrainingDataAsync();
+
+    // 后台预热训练线程，jthread 析构时自动 request_stop + join
+    std::jthread warmupThread_;
 };
 
 } // namespace ai

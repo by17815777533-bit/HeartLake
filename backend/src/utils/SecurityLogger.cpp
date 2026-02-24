@@ -52,6 +52,19 @@ std::string SecurityLogger::severityToString(SecuritySeverity severity) {
     }
 }
 
+static bool isValidIpFormat(const std::string& ip) {
+    // 基本长度和字符集校验，拦截明显的注入尝试
+    if (ip.empty() || ip.size() > 45) return false;  // IPv6 最长 45 字符
+    for (char c : ip) {
+        if (!std::isdigit(c) && c != '.' && c != ':' && c != 'a' && c != 'b' &&
+            c != 'c' && c != 'd' && c != 'e' && c != 'f' && c != 'A' && c != 'B' &&
+            c != 'C' && c != 'D' && c != 'E' && c != 'F') {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::string SecurityLogger::extractIpAddress(const drogon::HttpRequestPtr& req) {
     // X-Forwarded-For 格式: client, proxy1, proxy2
     // 取最右侧 IP（最近一跳代理追加的），左侧的可被客户端伪造
@@ -68,13 +81,15 @@ std::string SecurityLogger::extractIpAddress(const drogon::HttpRequestPtr& req) 
         size_t start = ip.find_first_not_of(' ');
         size_t end = ip.find_last_not_of(' ');
         if (start != std::string::npos) {
-            return ip.substr(start, end - start + 1);
+            std::string candidate = ip.substr(start, end - start + 1);
+            if (isValidIpFormat(candidate)) return candidate;
+            // 格式异常，跳过该 header，降级到下一来源
         }
     }
 
     // 检查X-Real-IP（Nginx 设置的真实客户端 IP）
     std::string xRealIp = req->getHeader("X-Real-IP");
-    if (!xRealIp.empty()) {
+    if (!xRealIp.empty() && isValidIpFormat(xRealIp)) {
         return xRealIp;
     }
 

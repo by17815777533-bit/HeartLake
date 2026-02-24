@@ -19,7 +19,7 @@ public:
     ADD_METHOD_TO(GuardianController::getStats, "/api/guardian", Get, "heartlake::filters::SecurityAuditFilter");
     ADD_METHOD_TO(GuardianController::transferLamp, "/api/guardian/transfer-lamp", Post, "heartlake::filters::SecurityAuditFilter");
     ADD_METHOD_TO(GuardianController::getEmotionInsights, "/api/guardian/insights", Get, "heartlake::filters::SecurityAuditFilter");
-    ADD_METHOD_TO(GuardianController::chat, "/api/guardian/chat", Post, "heartlake::filters::SecurityAuditFilter");
+    ADD_METHOD_TO(GuardianController::chat, "/api/guardian/chat", Post, "heartlake::filters::SecurityAuditFilter", "heartlake::filters::RateLimitFilter");
 
     METHOD_LIST_END
 

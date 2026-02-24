@@ -29,6 +29,7 @@ bool SemanticCache::get(const std::string& query, const std::vector<float>& quer
     // L2: 语义匹配
     float maxSim = 0;
     CacheEntry* bestMatch = nullptr;
+    // L2 语义匹配：线性扫描 O(n)，当前规模（maxSize_=5000）可接受；若后续扩容需替换为 ANN 索引
     for (auto& entry : semanticIndex_) {
         if ((currentTime - entry.timestamp) >= ttlSeconds_) continue;
 
@@ -62,8 +63,9 @@ void SemanticCache::put(const std::string& query, const std::vector<float>& embe
     exactCache_[computeHash(query)] = entry;
 
     // L2: 语义索引
+    purgeExpired();
     if (semanticIndex_.size() >= maxSize_) {
-        evictLRU();
+        evictLFU();
     }
     semanticIndex_.push_back(entry);
 }
@@ -74,13 +76,34 @@ std::string SemanticCache::computeHash(const std::string& query) {
     return std::to_string(hasher(query));
 }
 
-void SemanticCache::evictLRU() {
+void SemanticCache::evictLFU() {
     if (semanticIndex_.empty()) return;
     auto minIt = semanticIndex_.begin();
     for (auto it = semanticIndex_.begin(); it != semanticIndex_.end(); ++it) {
         if (it->hitCount < minIt->hitCount) minIt = it;
     }
     semanticIndex_.erase(minIt);
+}
+
+void SemanticCache::purgeExpired() {
+    auto now = std::chrono::system_clock::now().time_since_epoch();
+    int64_t currentTime = std::chrono::duration_cast<std::chrono::seconds>(now).count();
+
+    // 清理 exactCache_ 中过期条目
+    for (auto it = exactCache_.begin(); it != exactCache_.end(); ) {
+        if ((currentTime - it->second.timestamp) >= ttlSeconds_) {
+            it = exactCache_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // 清理 semanticIndex_ 中过期条目
+    semanticIndex_.erase(
+        std::remove_if(semanticIndex_.begin(), semanticIndex_.end(),
+            [&](const CacheEntry& e) { return (currentTime - e.timestamp) >= ttlSeconds_; }),
+        semanticIndex_.end()
+    );
 }
 
 } // namespace ai

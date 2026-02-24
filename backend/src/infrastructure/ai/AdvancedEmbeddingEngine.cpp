@@ -527,14 +527,14 @@ void AdvancedEmbeddingEngine::warmupTrainingDataAsync() {
                     return;
                 }
 
-                // 单例生命周期与进程一致，detach 不会导致 use-after-free
-                std::thread([this, corpus = std::move(corpus)]() mutable {
+                // 用 jthread 管理后台训练线程，析构时自动 join
+                warmupThread_ = std::jthread([this, corpus = std::move(corpus)](std::stop_token) mutable {
                     try {
                         trainFromCorpus(corpus);
                     } catch (const std::exception& e) {
                         LOG_WARN << "Embedding warmup training failed: " << e.what();
                     }
-                }).detach();
+                });
             },
             [](const drogon::orm::DrogonDbException& e) {
                 LOG_WARN << "Embedding warmup query failed: " << e.base().what();

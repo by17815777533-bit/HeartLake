@@ -5,7 +5,6 @@
 
 #include "infrastructure/services/GuardianIncentiveService.h"
 #include "infrastructure/services/NotificationPushService.h"
-#include "infrastructure/services/VIPService.h"
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>
@@ -142,8 +141,19 @@ bool GuardianIncentiveService::transferLamp(const std::string& fromUserId, const
             GUARDIAN_THRESHOLD, fromUserId
         );
 
-        // 给接收者发放灯
-        heartlake::services::VIPService::upgradeVIP(toUserId, 1, 7, "lamp_transfer_from:" + fromUserId);
+        // 给接收者发放灯——内联 VIP 升级 SQL，避免 upgradeVIP() 走独立连接绕过事务
+        trans->execSqlSync(
+            "UPDATE users SET vip_level = GREATEST(vip_level, 1), "
+            "vip_expires_at = COALESCE(vip_expires_at, NOW()) + INTERVAL '7 days', "
+            "updated_at = CURRENT_TIMESTAMP WHERE user_id = $1",
+            toUserId
+        );
+        trans->execSqlSync(
+            "INSERT INTO vip_upgrade_logs (user_id, old_vip_level, new_vip_level, "
+            "upgrade_type, reason, expires_at) "
+            "VALUES ($1, 0, 1, 'lamp_transfer', $2, NOW() + INTERVAL '7 days')",
+            toUserId, "lamp_transfer_from:" + fromUserId
+        );
 
         auto& pushService = heartlake::services::NotificationPushService::getInstance();
         pushService.pushSystemNotice(

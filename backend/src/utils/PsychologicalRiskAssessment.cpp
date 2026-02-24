@@ -14,6 +14,19 @@ using namespace drogon;
 namespace heartlake {
 namespace utils {
 
+// 风险维度权重
+static constexpr float WEIGHT_LINGUISTIC = 0.3f;
+static constexpr float WEIGHT_SELF_HARM = 0.9f;
+static constexpr float WEIGHT_HOPELESSNESS = 0.6f;
+static constexpr float WEIGHT_ISOLATION = 0.1f;
+static constexpr float WEIGHT_TEMPORAL_URGENCY = 0.5f;
+static constexpr float WEIGHT_NEGATIVE_SENTIMENT = 0.15f;
+
+// 风险等级阈值
+static constexpr float THRESHOLD_CRITICAL = 0.8f;
+static constexpr float THRESHOLD_HIGH = 0.6f;
+static constexpr float THRESHOLD_MEDIUM = 0.3f;
+
 namespace {
 
 std::string utf8SafePrefix(const std::string& text, std::size_t maxBytes) {
@@ -103,93 +116,93 @@ PsychologicalRiskResult PsychologicalRiskAssessment::assessRisk(
     result.overallScore = 0.0f;
     result.needsImmediateAttention = false;
 
-    // 1. 语言学标记分析 (权重: 0.3)
+    // 1. 语言学标记分析
     float linguisticScore = analyzeLinguisticMarkers(text, result.factors);
-    result.overallScore += linguisticScore * 0.3f;
+    result.overallScore += linguisticScore * WEIGHT_LINGUISTIC;
 
-    // 2. 自伤倾向检测 (权重: 0.9)
+    // 2. 自伤倾向检测
     float selfHarmScore = detectSelfHarmIntent(text, result.keywords);
     if (selfHarmScore > 0.0f) {
         RiskFactor factor;
         factor.category = "linguistic";
         factor.name = "self_harm_intent";
         factor.score = selfHarmScore;
-        factor.weight = 0.9f;
+        factor.weight = WEIGHT_SELF_HARM;
         factor.description = "检测到自伤/自杀倾向";
         result.factors.push_back(factor);
-        result.overallScore += selfHarmScore * 0.9f;
+        result.overallScore += selfHarmScore * WEIGHT_SELF_HARM;
         result.primaryConcern = "self_harm";
     }
 
-    // 3. 绝望感检测 (权重: 0.6)
+    // 3. 绝望感检测
     float hopelessnessScore = detectHopelessness(text);
     if (hopelessnessScore > 0.0f) {
         RiskFactor factor;
         factor.category = "linguistic";
         factor.name = "hopelessness";
         factor.score = hopelessnessScore;
-        factor.weight = 0.6f;
+        factor.weight = WEIGHT_HOPELESSNESS;
         factor.description = "检测到绝望情绪";
         result.factors.push_back(factor);
-        result.overallScore += hopelessnessScore * 0.6f;
+        result.overallScore += hopelessnessScore * WEIGHT_HOPELESSNESS;
         if (result.primaryConcern.empty()) {
             result.primaryConcern = "hopelessness";
         }
     }
 
-    // 4. 孤立感检测 (权重: 0.1)
+    // 4. 孤立感检测
     float isolationScore = detectIsolation(text);
     if (isolationScore > 0.0f) {
         RiskFactor factor;
         factor.category = "linguistic";
         factor.name = "isolation";
         factor.score = isolationScore;
-        factor.weight = 0.1f;
+        factor.weight = WEIGHT_ISOLATION;
         factor.description = "检测到孤立感";
         result.factors.push_back(factor);
-        result.overallScore += isolationScore * 0.1f;
+        result.overallScore += isolationScore * WEIGHT_ISOLATION;
         if (result.primaryConcern.empty()) {
             result.primaryConcern = "isolation";
         }
     }
 
-    // 5. 时间紧迫性检测 (权重: 0.5)
+    // 5. 时间紧迫性检测
     float urgencyScore = detectTemporalUrgency(text);
     if (urgencyScore > 0.0f) {
         RiskFactor factor;
         factor.category = "linguistic";
         factor.name = "temporal_urgency";
         factor.score = urgencyScore;
-        factor.weight = 0.5f;
+        factor.weight = WEIGHT_TEMPORAL_URGENCY;
         factor.description = "检测到时间紧迫性";
         result.factors.push_back(factor);
-        result.overallScore += urgencyScore * 0.5f;
+        result.overallScore += urgencyScore * WEIGHT_TEMPORAL_URGENCY;
     }
 
-    // 6. 情感分数因素 (权重: 0.15)
+    // 6. 情感分数因素
     if (sentimentScore < -0.6f) {
         float emotionRisk = std::abs(sentimentScore + 0.6f) / 0.4f; // 归一化到0-1
         RiskFactor factor;
         factor.category = "emotional";
         factor.name = "negative_sentiment";
         factor.score = emotionRisk;
-        factor.weight = 0.15f;
+        factor.weight = WEIGHT_NEGATIVE_SENTIMENT;
         factor.description = "持续负面情绪";
         result.factors.push_back(factor);
-        result.overallScore += emotionRisk * 0.15f;
+        result.overallScore += emotionRisk * WEIGHT_NEGATIVE_SENTIMENT;
     }
 
     // 确保分数在0-1范围内
     result.overallScore = std::min(1.0f, std::max(0.0f, result.overallScore));
 
     // 确定风险等级
-    if (result.overallScore >= 0.8f) {
+    if (result.overallScore >= THRESHOLD_CRITICAL) {
         result.riskLevel = RiskLevel::CRITICAL;
         result.needsImmediateAttention = true;
-    } else if (result.overallScore >= 0.6f) {
+    } else if (result.overallScore >= THRESHOLD_HIGH) {
         result.riskLevel = RiskLevel::HIGH;
         result.needsImmediateAttention = true;
-    } else if (result.overallScore >= 0.3f) {
+    } else if (result.overallScore >= THRESHOLD_MEDIUM) {
         result.riskLevel = RiskLevel::MEDIUM;
     } else if (result.overallScore > 0.0f) {
         result.riskLevel = RiskLevel::LOW;
