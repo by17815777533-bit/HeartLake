@@ -87,8 +87,12 @@ interaction_agg AS (
         SUM(CASE WHEN is_outbound = 1 THEN decayed_weight ELSE 0 END) AS out_weight,
         SUM(CASE WHEN is_outbound = 0 THEN decayed_weight ELSE 0 END) AS in_weight,
         COUNT(*)::int AS interaction_count,
+        COUNT(*) FILTER (WHERE ts >= NOW() - INTERVAL '1 hour')::int AS recent_1h_count,
+        COUNT(*) FILTER (WHERE ts >= NOW() - INTERVAL '24 hours')::int AS recent_24h_count,
+        COUNT(DISTINCT DATE(ts))::int AS active_days,
         SUM(CASE WHEN kind = 'boat_comment' THEN 1 ELSE 0 END)::int AS boat_comments,
         SUM(CASE WHEN kind = 'ripple' THEN 1 ELSE 0 END)::int AS ripple_count,
+        MIN(ts) AS first_interacted_at,
         MAX(ts) AS last_interacted_at
     FROM interaction_scored
     GROUP BY peer_id
@@ -236,6 +240,183 @@ emotion_alignment AS (
     CROSS JOIN emotion_self es
     LEFT JOIN emotion_peer ep ON ep.peer_id = cp.peer_id
 ),
+dialogue_events AS (
+    SELECT
+        iss.peer_id,
+        CASE WHEN iss.is_outbound = 1 THEN $1 ELSE iss.peer_id END AS actor_id,
+        iss.ts,
+        LAG(CASE WHEN iss.is_outbound = 1 THEN $1 ELSE iss.peer_id END)
+            OVER (PARTITION BY iss.peer_id ORDER BY iss.ts) AS prev_actor_id,
+        EXTRACT(EPOCH FROM (
+            iss.ts - LAG(iss.ts) OVER (PARTITION BY iss.peer_id ORDER BY iss.ts)
+        )) / 3600.0 AS gap_hours
+    FROM interaction_scored iss
+),
+dialogue_quality AS (
+    SELECT
+        de.peer_id,
+        LEAST(
+            1.0,
+            COUNT(*) FILTER (
+                WHERE de.prev_actor_id IS NOT NULL
+                  AND de.prev_actor_id <> de.actor_id
+            )::double precision / 12.0
+        ) AS turn_taking,
+        COALESCE(
+            1.0 - LEAST(
+                1.0,
+                AVG(
+                    CASE
+                        WHEN de.prev_actor_id IS NOT NULL
+                          AND de.prev_actor_id <> de.actor_id
+                          AND de.gap_hours >= 0
+                        THEN LEAST(de.gap_hours, 72.0)
+                        ELSE NULL
+                    END
+                ) / 36.0
+            ),
+            0.5
+        ) AS response_agility
+    FROM dialogue_events de
+    GROUP BY de.peer_id
+),
+graph_interactions AS (
+    SELECT
+        pb.sender_id AS actor_id,
+        s.user_id AS peer_id
+    FROM paper_boats pb
+    JOIN stones s ON s.stone_id = pb.stone_id
+    WHERE pb.sender_id IS NOT NULL
+      AND s.user_id IS NOT NULL
+      AND pb.sender_id <> s.user_id
+      AND COALESCE(pb.status, 'active') <> 'deleted'
+      AND pb.created_at >= NOW() - INTERVAL '120 days'
+      AND (
+          pb.sender_id = $1 OR s.user_id = $1
+          OR pb.sender_id IN (SELECT peer_id FROM candidate_peers)
+          OR s.user_id IN (SELECT peer_id FROM candidate_peers)
+      )
+
+    UNION ALL
+
+    SELECT
+        r.user_id AS actor_id,
+        s.user_id AS peer_id
+    FROM ripples r
+    JOIN stones s ON s.stone_id = r.stone_id
+    WHERE r.user_id <> s.user_id
+      AND r.created_at >= NOW() - INTERVAL '120 days'
+      AND (
+          r.user_id = $1 OR s.user_id = $1
+          OR r.user_id IN (SELECT peer_id FROM candidate_peers)
+          OR s.user_id IN (SELECT peer_id FROM candidate_peers)
+      )
+
+    UNION ALL
+
+    SELECT
+        fm.sender_id AS actor_id,
+        fm.receiver_id AS peer_id
+    FROM friend_messages fm
+    WHERE fm.sender_id <> fm.receiver_id
+      AND fm.created_at >= NOW() - INTERVAL '120 days'
+      AND (
+          fm.sender_id = $1 OR fm.receiver_id = $1
+          OR fm.sender_id IN (SELECT peer_id FROM candidate_peers)
+          OR fm.receiver_id IN (SELECT peer_id FROM candidate_peers)
+      )
+),
+graph_neighbors AS (
+    SELECT
+        gi.actor_id AS user_id,
+        gi.peer_id AS neighbor_id
+    FROM graph_interactions gi
+    UNION ALL
+    SELECT
+        gi.peer_id AS user_id,
+        gi.actor_id AS neighbor_id
+    FROM graph_interactions gi
+),
+user_neighbor_set AS (
+    SELECT DISTINCT gn.neighbor_id
+    FROM graph_neighbors gn
+    WHERE gn.user_id = $1
+      AND gn.neighbor_id <> $1
+),
+user_neighbor_count AS (
+    SELECT COUNT(*)::double precision AS neighbor_count
+    FROM user_neighbor_set
+),
+peer_neighbor_stats AS (
+    SELECT
+        cp.peer_id,
+        COUNT(DISTINCT gn.neighbor_id) FILTER (
+            WHERE gn.neighbor_id <> cp.peer_id
+              AND gn.neighbor_id <> $1
+              AND uns.neighbor_id IS NOT NULL
+        )::double precision AS common_neighbors,
+        COUNT(DISTINCT gn.neighbor_id) FILTER (
+            WHERE gn.neighbor_id <> cp.peer_id
+              AND gn.neighbor_id <> $1
+        )::double precision AS peer_neighbor_count
+    FROM candidate_peers cp
+    LEFT JOIN graph_neighbors gn ON gn.user_id = cp.peer_id
+    LEFT JOIN user_neighbor_set uns ON uns.neighbor_id = gn.neighbor_id
+    GROUP BY cp.peer_id
+),
+graph_affinity AS (
+    SELECT
+        pns.peer_id,
+        CASE
+            WHEN COALESCE(unc.neighbor_count, 0.0) = 0.0
+              AND pns.peer_neighbor_count = 0.0 THEN 0.5
+            ELSE COALESCE(
+                LEAST(
+                    1.0,
+                    pns.common_neighbors /
+                    NULLIF(unc.neighbor_count + pns.peer_neighbor_count - pns.common_neighbors, 0.0)
+                    * 2.6
+                ),
+                0.5
+            )
+        END AS triadic_affinity
+    FROM peer_neighbor_stats pns
+    CROSS JOIN user_neighbor_count unc
+),
+emotion_daily_self AS (
+    SELECT
+        DATE(h.created_at) AS day_key,
+        AVG(h.sentiment_score) AS avg_score
+    FROM user_emotion_history h
+    WHERE h.user_id = $1
+      AND h.created_at >= NOW() - INTERVAL '45 days'
+    GROUP BY DATE(h.created_at)
+),
+emotion_daily_peer AS (
+    SELECT
+        h.user_id AS peer_id,
+        DATE(h.created_at) AS day_key,
+        AVG(h.sentiment_score) AS avg_score
+    FROM user_emotion_history h
+    WHERE h.user_id IN (SELECT peer_id FROM candidate_peers)
+      AND h.created_at >= NOW() - INTERVAL '45 days'
+    GROUP BY h.user_id, DATE(h.created_at)
+),
+emotion_synchrony AS (
+    SELECT
+        cp.peer_id,
+        COALESCE(
+            1.0 - LEAST(
+                1.0,
+                AVG(ABS(edp.avg_score - eds.avg_score)) / 1.4
+            ),
+            0.5
+        ) AS emotion_synchrony
+    FROM candidate_peers cp
+    LEFT JOIN emotion_daily_peer edp ON edp.peer_id = cp.peer_id
+    LEFT JOIN emotion_daily_self eds ON eds.day_key = edp.day_key
+    GROUP BY cp.peer_id
+),
 feature_frame AS (
     SELECT
         ia.peer_id,
@@ -243,13 +424,24 @@ feature_frame AS (
         ia.out_weight,
         ia.in_weight,
         ia.interaction_count,
+        ia.recent_1h_count,
+        ia.recent_24h_count,
+        ia.active_days,
         ia.boat_comments,
         ia.ripple_count,
+        ia.first_interacted_at,
         ia.last_interacted_at,
         COALESCE(cr.co_ripple_count, 0.0) AS co_ripple_count,
         COALESCE(mc.mood_resonance, 0.5) AS mood_resonance,
         COALESCE(ss.semantic_similarity, 0.5) AS semantic_similarity,
         COALESCE(ea.emotion_alignment, 0.5) AS emotion_alignment,
+        COALESCE(
+            dq.turn_taking * 0.62 + dq.response_agility * 0.38,
+            0.5
+        ) AS dialogue_cohesion,
+        COALESCE(dq.response_agility, 0.5) AS response_agility,
+        COALESCE(ga.triadic_affinity, 0.5) AS graph_affinity,
+        COALESCE(esy.emotion_synchrony, 0.5) AS emotion_synchrony,
         EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - ia.last_interacted_at)), 0) / 86400.0 / 35.0) AS freshness
     FROM interaction_agg ia
     JOIN candidate_peers cp ON cp.peer_id = ia.peer_id
@@ -257,6 +449,9 @@ feature_frame AS (
     LEFT JOIN mood_compat mc ON mc.peer_id = ia.peer_id
     LEFT JOIN semantic_similarity ss ON ss.peer_id = ia.peer_id
     LEFT JOIN emotion_alignment ea ON ea.peer_id = ia.peer_id
+    LEFT JOIN dialogue_quality dq ON dq.peer_id = ia.peer_id
+    LEFT JOIN graph_affinity ga ON ga.peer_id = ia.peer_id
+    LEFT JOIN emotion_synchrony esy ON esy.peer_id = ia.peer_id
 ),
 scored AS (
     SELECT
@@ -274,25 +469,80 @@ scored AS (
         LEAST(GREATEST(ff.mood_resonance, 0.0), 1.0) AS mood_resonance,
         LEAST(GREATEST(ff.semantic_similarity, 0.0), 1.0) AS semantic_similarity,
         LEAST(GREATEST(ff.emotion_alignment, 0.0), 1.0) AS emotion_alignment,
+        LEAST(GREATEST(ff.dialogue_cohesion, 0.0), 1.0) AS dialogue_cohesion,
+        LEAST(GREATEST(ff.response_agility, 0.0), 1.0) AS response_agility,
+        LEAST(GREATEST(ff.graph_affinity, 0.0), 1.0) AS graph_affinity,
+        LEAST(GREATEST(ff.emotion_synchrony, 0.0), 1.0) AS emotion_synchrony,
         LEAST(GREATEST(ff.freshness, 0.0), 1.0) AS freshness,
         LEAST(1.0, ff.interaction_count / 10.0) AS stability,
+        LEAST(
+            1.0,
+            ff.active_days::double precision / GREATEST(
+                1.0,
+                EXTRACT(EPOCH FROM (ff.last_interacted_at - ff.first_interacted_at)) / 86400.0 + 1.0
+            )
+        ) AS temporal_diversity,
+        LEAST(
+            0.55,
+            GREATEST(
+                0.0,
+                (
+                    GREATEST(
+                        ff.recent_1h_count::double precision /
+                        NULLIF(ff.interaction_count::double precision, 0.0) - 0.55,
+                        0.0
+                    ) * 0.80
+                )
+                +
+                (
+                    GREATEST(
+                        ff.recent_24h_count::double precision /
+                        NULLIF(ff.interaction_count::double precision, 0.0) - 0.85,
+                        0.0
+                    ) * 0.60
+                )
+                +
+                (
+                    GREATEST(
+                        0.25 - LEAST(
+                            1.0,
+                            ff.active_days::double precision / GREATEST(
+                                1.0,
+                                EXTRACT(EPOCH FROM (ff.last_interacted_at - ff.first_interacted_at)) / 86400.0 + 1.0
+                            )
+                        ),
+                        0.0
+                    ) * 0.90
+                )
+            )
+        ) AS anti_gaming_penalty,
         (
             (
-                0.45 * (1.0 - EXP(-ff.interaction_weight / 14.0)) +
-                0.15 * COALESCE(
+                0.40 * (1.0 - EXP(-ff.interaction_weight / 14.0)) +
+                0.13 * COALESCE(
                     LEAST(ff.out_weight, ff.in_weight) / NULLIF(GREATEST(ff.out_weight, ff.in_weight), 0.0),
                     0.0
                 ) +
-                0.09 * (1.0 - EXP(-COALESCE(ff.co_ripple_count, 0.0) / 4.0)) +
-                0.11 * LEAST(GREATEST(ff.mood_resonance, 0.0), 1.0) +
+                0.08 * (1.0 - EXP(-COALESCE(ff.co_ripple_count, 0.0) / 4.0)) +
+                0.10 * LEAST(GREATEST(ff.mood_resonance, 0.0), 1.0) +
                 0.08 * LEAST(GREATEST(ff.semantic_similarity, 0.0), 1.0) +
-                0.07 * LEAST(GREATEST(ff.emotion_alignment, 0.0), 1.0) +
-                0.05 * LEAST(GREATEST(ff.freshness, 0.0), 1.0)
+                0.06 * LEAST(GREATEST(ff.emotion_alignment, 0.0), 1.0) +
+                0.05 * LEAST(GREATEST(ff.dialogue_cohesion, 0.0), 1.0) +
+                0.04 * LEAST(GREATEST(ff.graph_affinity, 0.0), 1.0) +
+                0.04 * LEAST(GREATEST(ff.emotion_synchrony, 0.0), 1.0) +
+                0.06 * LEAST(GREATEST(ff.freshness, 0.0), 1.0)
             ) * (0.80 + 0.20 * LEAST(1.0, ff.interaction_count / 10.0))
             + 0.04 * SQRT(
                 GREATEST(
                     LEAST(GREATEST(ff.mood_resonance, 0.0), 1.0) *
                     LEAST(GREATEST(ff.semantic_similarity, 0.0), 1.0),
+                    0.0
+                )
+            )
+            + 0.02 * SQRT(
+                GREATEST(
+                    LEAST(GREATEST(ff.dialogue_cohesion, 0.0), 1.0) *
+                    LEAST(GREATEST(ff.graph_affinity, 0.0), 1.0),
                     0.0
                 )
             )
@@ -302,11 +552,13 @@ scored AS (
 final_score AS (
     SELECT
         s.peer_id,
-        CASE
-            WHEN s.interaction_count <= 1 THEN LEAST(28.0, GREATEST(0.0, 100.0 * s.fused_signal))
-            WHEN s.interaction_count <= 3 THEN LEAST(58.0, GREATEST(0.0, 100.0 * s.fused_signal))
-            ELSE LEAST(100.0, GREATEST(0.0, 100.0 * s.fused_signal))
-        END AS intimacy_score,
+        (
+            CASE
+                WHEN s.interaction_count <= 1 THEN LEAST(28.0, GREATEST(0.0, 100.0 * s.fused_signal))
+                WHEN s.interaction_count <= 3 THEN LEAST(58.0, GREATEST(0.0, 100.0 * s.fused_signal))
+                ELSE LEAST(100.0, GREATEST(0.0, 100.0 * s.fused_signal))
+            END
+        ) * (1.0 - s.anti_gaming_penalty) AS intimacy_score,
         s.interaction_count,
         s.boat_comments,
         s.ripple_count,
@@ -317,24 +569,16 @@ final_score AS (
         s.mood_resonance,
         s.semantic_similarity,
         s.emotion_alignment,
-        s.freshness
+        s.dialogue_cohesion,
+        s.response_agility,
+        s.graph_affinity,
+        s.emotion_synchrony,
+        s.freshness,
+        s.temporal_diversity,
+        s.anti_gaming_penalty,
+        (1.0 - s.anti_gaming_penalty) AS behavior_health
     FROM scored s
 )
-SELECT
-    fs.peer_id,
-    ROUND(fs.intimacy_score::numeric, 2) AS intimacy_score,
-    fs.interaction_count,
-    fs.boat_comments,
-    fs.ripple_count,
-    COALESCE(to_char(fs.last_interacted_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS last_interacted_at,
-    ROUND(fs.interaction_strength::numeric, 4) AS interaction_strength,
-    ROUND(fs.reciprocity_score::numeric, 4) AS reciprocity_score,
-    ROUND(fs.co_ripple_score::numeric, 4) AS co_ripple_score,
-    ROUND(fs.mood_resonance::numeric, 4) AS mood_resonance,
-    ROUND(fs.semantic_similarity::numeric, 4) AS semantic_similarity,
-    ROUND(fs.emotion_alignment::numeric, 4) AS emotion_alignment,
-    ROUND(fs.freshness::numeric, 4) AS freshness
-FROM final_score fs
 )SQL";
 
 }  // namespace
@@ -356,6 +600,7 @@ std::vector<IntimacyProfile> IntimacyService::getTopIntimacyPeers(
         const int safeLimit = std::clamp(limit, 1, 200);
         const double safeMinScore = std::max(0.0, minScore);
 
+        // 非协程上下文，使用同步查询
         auto result = db->execSqlSync(
             kIntimacyBaseQuery +
             "SELECT "
@@ -373,13 +618,20 @@ std::vector<IntimacyProfile> IntimacyService::getTopIntimacyPeers(
             "  fs.mood_resonance, "
             "  fs.semantic_similarity, "
             "  fs.emotion_alignment, "
-            "  fs.freshness "
+            "  fs.dialogue_cohesion, "
+            "  fs.response_agility, "
+            "  fs.graph_affinity, "
+            "  fs.emotion_synchrony, "
+            "  fs.freshness, "
+            "  fs.temporal_diversity, "
+            "  fs.anti_gaming_penalty, "
+            "  fs.behavior_health "
             "FROM final_score fs "
             "JOIN users u ON u.id = fs.peer_id "
             "WHERE u.status = 'active' "
-            "  AND fs.intimacy_score >= $2 "
+            "  AND fs.intimacy_score >= CAST($2 AS DOUBLE PRECISION) "
             "ORDER BY fs.intimacy_score DESC, fs.last_interacted_at DESC "
-            "LIMIT $3",
+            "LIMIT CAST($3 AS INTEGER)",
             userId, safeMinScore, safeLimit
         );
 
@@ -401,11 +653,21 @@ std::vector<IntimacyProfile> IntimacyService::getTopIntimacyPeers(
             profile.moodResonance = row["mood_resonance"].as<double>();
             profile.semanticSimilarity = row["semantic_similarity"].as<double>();
             profile.emotionTrendAlignment = row["emotion_alignment"].as<double>();
+            profile.dialogueCohesion = row["dialogue_cohesion"].as<double>();
+            profile.responseAgility = row["response_agility"].as<double>();
+            profile.graphAffinity = row["graph_affinity"].as<double>();
+            profile.emotionSynchrony = row["emotion_synchrony"].as<double>();
             profile.freshnessScore = row["freshness"].as<double>();
+            profile.temporalDiversity = row["temporal_diversity"].as<double>();
+            profile.antiGamingPenalty = row["anti_gaming_penalty"].as<double>();
+            profile.behaviorHealth = row["behavior_health"].as<double>();
             profile.aiCompatibility = clamp01(
-                0.40 * profile.moodResonance
-                + 0.35 * profile.semanticSimilarity
-                + 0.25 * profile.emotionTrendAlignment
+                0.27 * profile.moodResonance
+                + 0.24 * profile.semanticSimilarity
+                + 0.18 * profile.emotionTrendAlignment
+                + 0.15 * profile.dialogueCohesion
+                + 0.10 * profile.graphAffinity
+                + 0.06 * profile.emotionSynchrony
             );
             profile.canChat = profile.intimacyScore >= kDefaultMinFriendScore;
             peers.push_back(std::move(profile));
@@ -424,6 +686,7 @@ double IntimacyService::getIntimacyScore(
     auto db = drogon::app().getDbClient("default");
 
     try {
+        // 非协程上下文，使用同步查询
         auto result = db->execSqlSync(
             kIntimacyBaseQuery +
             "SELECT fs.intimacy_score "
