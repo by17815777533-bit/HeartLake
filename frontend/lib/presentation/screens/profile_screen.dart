@@ -15,7 +15,6 @@ import '../../data/datasources/vip_service.dart';
 import '../widgets/atmospheric_background.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../../data/datasources/media_service.dart';
 import 'auth_screen.dart';
 import 'help_screen.dart';
 import 'vip_screen.dart';
@@ -244,8 +243,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       final file = File(image.path);
-      final mediaService = MediaService();
-      final result = await mediaService.uploadMedia(file);
+      final response = await _apiClient.uploadFile('/media/upload', file: file);
+      final result = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'success': false, 'message': '上传失败'};
 
       if (result['success']) {
         final avatarUrl = result['data']['url'];

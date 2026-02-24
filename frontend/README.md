@@ -40,7 +40,6 @@ lib/
 │   │   ├── notification_service.dart      # 通知服务
 │   │   ├── user_service.dart              # 用户信息
 │   │   ├── report_service.dart            # 举报
-│   │   ├── media_service.dart             # 媒体上传
 │   │   └── cache_service.dart             # 本地缓存
 │   └── repositories/                      # 仓储层（预留）
 ├── domain/
