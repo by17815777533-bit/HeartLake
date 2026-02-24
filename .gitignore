@@ -39,6 +39,9 @@ backend/.cache/
 compile_commands.json
 .github/workflows/ci.yml
 
+# Rust build
+backend/quic_gateway/target/
+
 # Sensitive config (use config.json.example as template)
 backend/config.json
 backend/config.runtime.json
