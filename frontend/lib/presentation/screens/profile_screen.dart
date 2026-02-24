@@ -18,6 +18,7 @@ import 'dart:io';
 import 'auth_screen.dart';
 import 'help_screen.dart';
 import 'vip_screen.dart';
+import 'privacy_settings_screen.dart';
 import 'emotion_calendar_screen.dart';
 import 'notification_screen.dart';
 import 'guardian_screen.dart';
@@ -562,6 +563,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: const Text('消息通知'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.shield_outlined, color: AppTheme.skyBlue),
+                        title: const Text('隐私与安全'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacySettingsScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
