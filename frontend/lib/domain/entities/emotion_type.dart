@@ -25,6 +25,10 @@ class EmotionType {
       EmotionType('惊喜', 'surprised', 'surprised');
   static const EmotionType confused = EmotionType('迷茫', 'confused', 'confused');
   static const EmotionType neutral = EmotionType('中性', 'neutral', 'neutral');
+  static const EmotionType hopeful = EmotionType('希望', 'hopeful', 'hopeful');
+  static const EmotionType grateful = EmotionType('感恩', 'grateful', 'grateful');
+  static const EmotionType lonely = EmotionType('孤独', 'lonely', 'lonely');
+  static const EmotionType peaceful = EmotionType('平和', 'peaceful', 'peaceful');
 
   // 所有情绪类型列表
   static const List<EmotionType> all = [
@@ -36,6 +40,10 @@ class EmotionType {
     surprised,
     confused,
     neutral,
+    hopeful,
+    grateful,
+    lonely,
+    peaceful,
   ];
 
   /// 从后端值获取情绪类型

@@ -16,7 +16,7 @@ bool NotificationPushService::pushToUser(const std::string& userId, const Notifi
 
     try {
         Json::Value message;
-        message["type"] = "notification";
+        message["type"] = "new_notification";
         message["data"] = notification.toJson();
 
         Json::FastWriter writer;

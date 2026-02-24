@@ -66,11 +66,14 @@ class _FriendsScreenState extends State<FriendsScreen>
       wsManager.connect();
     }
     wsManager.on('friend_removed', _onFriendRemoved);
+    // 监听好友请求被接受事件，刷新好友列表
+    wsManager.on('friend_accepted', _onFriendRemoved);
   }
 
   void _removeWebSocketListeners() {
     final wsManager = WebSocketManager();
     wsManager.off('friend_removed', _onFriendRemoved);
+    wsManager.off('friend_accepted', _onFriendRemoved);
   }
 
   Future<void> _loadFriends() async {
