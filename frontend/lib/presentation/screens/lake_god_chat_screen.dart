@@ -387,7 +387,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                       Text(
                         '湖神情绪脉搏',
                         style: TextStyle(
-                          color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.9),
+                          color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1B2838).withValues(alpha: 0.95),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
