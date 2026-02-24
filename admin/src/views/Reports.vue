@@ -80,7 +80,7 @@
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next"
           @size-change="handleSizeChange"
-          @current-change="fetchReports"
+          @current-change="handleCurrentChange"
         />
       </div>
     </el-card>
@@ -92,6 +92,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { usePagination } from '@/composables/usePagination'
 
 const loading = ref(false)
 const reportList = ref([])
@@ -101,11 +102,7 @@ const filters = reactive({
   type: '',
 })
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0,
-})
+const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchReports)
 
 const getTypeLabel = (type) => {
   const map = { spam: '垃圾信息', harassment: '骚扰辱骂', inappropriate: '不当内容', violence: '暴力内容', other: '其他' }
@@ -145,11 +142,6 @@ const fetchReports = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleSizeChange = () => {
-  pagination.page = 1
-  fetchReports()
 }
 
 const handleSearch = () => {

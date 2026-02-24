@@ -77,7 +77,7 @@
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next"
           @size-change="handleSizeChange"
-          @current-change="fetchContent"
+          @current-change="handleCurrentChange"
         />
       </div>
     </el-card>
@@ -105,6 +105,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { usePagination } from '@/composables/usePagination'
 
 const loading = ref(false)
 const contentList = ref([])
@@ -117,11 +118,7 @@ const filters = reactive({
   keyword: '',
 })
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0,
-})
+const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchContent)
 
 const getStatusType = (status) => {
   const map = { published: 'success', pending: 'warning', deleted: 'danger' }
@@ -168,11 +165,6 @@ const fetchContent = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleSizeChange = () => {
-  pagination.page = 1
-  fetchContent()
 }
 
 const handleSearch = () => {

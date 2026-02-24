@@ -51,7 +51,7 @@
       <div class="pagination-wrapper">
         <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize"
           :total="pagination.total" :page-sizes="[20, 50, 100]" layout="total, sizes, prev, pager, next"
-          @size-change="handleSizeChange" @current-change="fetchLogs" />
+          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </div>
     </el-card>
   </div>
@@ -62,11 +62,12 @@ import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { usePagination } from '@/composables/usePagination'
 
 const loading = ref(false)
 const logList = ref([])
 const filters = reactive({ operator: '', action: '', dateRange: null })
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchLogs)
 
 const actionMap = {
   login: { label: '登录', type: 'info', icon: '🔑' },
@@ -102,7 +103,6 @@ const fetchLogs = async () => {
   }
 }
 
-const handleSizeChange = () => { pagination.page = 1; fetchLogs() }
 const handleSearch = () => {
   filters.operator = filters.operator.trim()
   if (filters.operator.length > 50) {

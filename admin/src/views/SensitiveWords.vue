@@ -62,7 +62,7 @@
           :page-sizes="[20, 50, 100]"
           layout="total, sizes, prev, pager, next"
           @size-change="handleSizeChange"
-          @current-change="fetchWords"
+          @current-change="handleCurrentChange"
         />
       </div>
     </el-card>
@@ -98,6 +98,7 @@ import { ElMessage } from 'element-plus'
 import api from '@/api'
 
 import { getErrorMessage } from '@/utils/errorHelper'
+import { usePagination } from '@/composables/usePagination'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -108,7 +109,7 @@ const formRef = ref(null)
 const currentId = ref(null)
 
 const filters = reactive({ keyword: '', level: '' })
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const { pagination, handleSizeChange, handleCurrentChange } = usePagination(fetchWords)
 const form = reactive({ word: '', level: 'medium', replacement: '' })
 const rules = {
   word: [{ required: true, message: '请输入敏感词', trigger: 'blur' }],
@@ -135,7 +136,6 @@ const fetchWords = async () => {
   }
 }
 
-const handleSizeChange = () => { pagination.page = 1; fetchWords() }
 const handleSearch = () => {
   filters.keyword = filters.keyword.trim()
   if (filters.keyword.length > 50) {
