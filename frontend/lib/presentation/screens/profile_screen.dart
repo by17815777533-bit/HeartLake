@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/storage_util.dart';
-import '../../data/datasources/api_client.dart';
+import '../../data/datasources/user_service.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/vip_service.dart';
@@ -39,7 +39,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final UserService _userService = UserService();
   final WebSocketManager _wsManager = WebSocketManager();
   Map<String, dynamic>? _stats;
   String? _username;
@@ -192,9 +192,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final token = await StorageUtil.getToken();
       final userId = await StorageUtil.getUserId();
       if (token != null && userId != null) {
-        final response = await _apiClient.get('/users/$userId/stats', useCache: false);
-        if (response.statusCode == 200 && response.data['code'] == 0 && mounted) {
-          setState(() => _stats = response.data['data']);
+        final result = await _userService.getUserStats(userId);
+        if (result['success'] == true && mounted) {
+          setState(() => _stats = result['data']);
         }
       }
     } catch (e) {
@@ -207,9 +207,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userId = await StorageUtil.getUserId();
       if (userId == null) return;
 
-      final response = await _apiClient.get('/users/$userId');
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final userData = response.data['data'];
+      final result = await _userService.getUserInfo(userId);
+      if (result['success'] == true) {
+        final userData = result['user'] as Map<String, dynamic>?;
         if (mounted) {
           setState(() {
             _avatarUrl = userData['avatar_url'];
@@ -244,13 +244,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       final file = File(image.path);
-      final response = await _apiClient.uploadFile('/media/upload', file: file);
-      final result = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : <String, dynamic>{'success': false, 'message': '上传失败'};
+      final result = await _userService.uploadFile(file);
 
-      if (result['success']) {
-        final avatarUrl = result['data']['url'];
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>?;
+        final avatarUrl = data?['url'];
 
         // 更新个人资料
         final authService = AuthService();
@@ -626,7 +624,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // 清除本地存储
                             await StorageUtil.clearToken();
-                            ApiClient().clearToken();
+                            AuthService().logout();
 
                             // 清除用户状态
                             if (context.mounted) {
