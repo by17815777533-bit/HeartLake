@@ -2,8 +2,6 @@
 // @brief 推荐服务 - 封装热门/搜索/情绪发现等推荐API
 
 import 'base_service.dart';
-import '../../domain/entities/recommended_stone.dart';
-import '../../domain/entities/emotion_trend_point.dart';
 
 export '../../domain/entities/recommended_stone.dart';
 export '../../domain/entities/emotion_trend_point.dart';

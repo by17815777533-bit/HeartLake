@@ -299,7 +299,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                         color: isDark ? AppTheme.darkTextPrimary : AppTheme.darkBlue,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
                                       '通过互动自动建立，24小时有效期',
                                       style: TextStyle(

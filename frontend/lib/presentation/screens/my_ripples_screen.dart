@@ -152,7 +152,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? AppTheme.nightDeep : Color(0xFFF0F8FF), isDark ? AppTheme.nightSurface : Color(0xFFE8F0FA)],
+            colors: [isDark ? AppTheme.nightDeep : const Color(0xFFF0F8FF), isDark ? AppTheme.nightSurface : const Color(0xFFE8F0FA)],
           ),
         ),
         child: RefreshIndicator(

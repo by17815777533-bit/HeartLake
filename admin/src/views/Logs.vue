@@ -62,7 +62,7 @@ import { ref, reactive, onMounted } from 'vue'
 import api from '@/api'
 import { ElMessage } from 'element-plus'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { usePagination } from '@/composables/usePagination'
+import { useTablePagination } from '@/composables/useTablePagination'
 
 const loading = ref(false)
 const logList = ref([])

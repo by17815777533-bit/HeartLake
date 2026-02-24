@@ -164,7 +164,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? AppTheme.nightDeep : Color(0xFFF5F0FF), isDark ? AppTheme.nightSurface : Color(0xFFE8F4FD)],
+            colors: [isDark ? AppTheme.nightDeep : const Color(0xFFF5F0FF), isDark ? AppTheme.nightSurface : const Color(0xFFE8F4FD)],
           ),
         ),
         child: RefreshIndicator(

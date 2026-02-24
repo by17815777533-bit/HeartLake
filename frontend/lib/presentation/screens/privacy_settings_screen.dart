@@ -257,7 +257,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: Icon(Icons.download_outlined, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.download_outlined, color: AppTheme.skyBlue),
                         title: const Text('导出我的数据'),
                         subtitle: const Text('下载你在心湖的所有数据'),
                         trailing: _isExporting
