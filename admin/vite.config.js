@@ -3,6 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig({
+  // TODO: 引入 unplugin-vue-components + unplugin-auto-import 实现 Element Plus 按需导入
+  // 届时替换 main.js 中的全量 import ElementPlus，并在此处配置 AutoImport + Components 插件
   plugins: [vue()],
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') }

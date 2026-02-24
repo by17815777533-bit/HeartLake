@@ -37,7 +37,6 @@ backend/build/
 backend/build-*/
 backend/.cache/
 compile_commands.json
-.github/workflows/ci.yml
 
 # Rust build
 backend/quic_gateway/target/

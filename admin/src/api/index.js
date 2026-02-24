@@ -13,11 +13,33 @@ const http = axios.create({
 // 防止 401 重复跳转的标志
 let isRedirectingToLogin = false
 
-// 请求拦截器：注入 token + 全局 loading
+// 请求取消机制：基于 AbortController
+const pendingRequests = new Map()
+
+function getRequestKey(config) {
+  return `${config.method}:${config.url}`
+}
+
+export function cancelAllRequests() {
+  pendingRequests.forEach(controller => controller.abort())
+  pendingRequests.clear()
+}
+
+// 请求拦截器：注入 token + 全局 loading + 请求去重
 http.interceptors.request.use(config => {
   const appStore = useAppStore()
   const token = appStore.getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+
+  // 请求去重：相同 method:url 自动取消前一个
+  const key = getRequestKey(config)
+  if (pendingRequests.has(key)) {
+    pendingRequests.get(key).abort()
+  }
+  const controller = new AbortController()
+  config.signal = controller.signal
+  pendingRequests.set(key, controller)
+
   // 全局 loading（可通过 config.skipLoading 跳过）
   if (!config.skipLoading) {
     appStore.startLoading()
@@ -25,9 +47,10 @@ http.interceptors.request.use(config => {
   return config
 })
 
-// 响应拦截器：统一处理错误 + 全局 loading
+// 响应拦截器：统一处理错误 + 全局 loading + 清理 pending
 http.interceptors.response.use(
   response => {
+    pendingRequests.delete(getRequestKey(response.config))
     const appStore = useAppStore()
     if (!response.config.skipLoading) {
       appStore.stopLoading()
@@ -35,6 +58,13 @@ http.interceptors.response.use(
     return response
   },
   error => {
+    if (error.config) {
+      pendingRequests.delete(getRequestKey(error.config))
+    }
+    // 被取消的请求不显示错误提示
+    if (axios.isCancel(error) || error.name === 'CanceledError') {
+      return Promise.reject(error)
+    }
     const appStore = useAppStore()
     if (!error.config?.skipLoading) {
       appStore.stopLoading()

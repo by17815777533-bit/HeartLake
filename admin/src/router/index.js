@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAppStore } from '@/stores'
+import { cancelAllRequests } from '@/api'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +29,7 @@ const router = createRouter({
 
 // H-1: 路由守卫 - 添加 token 有效性检查
 router.beforeEach((to, from, next) => {
+  cancelAllRequests()
   const appStore = useAppStore()
 
   if (to.meta.requiresAuth && !appStore.checkTokenValid()) {
