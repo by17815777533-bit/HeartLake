@@ -119,10 +119,14 @@ class StorageUtil {
     return jsonDecode(jsonString);
   }
 
-  // 清除所有数据
+  // 清除所有数据（保留引导页标记）
   static Future<void> clearAll() async {
     final prefs = await _instance;
+    final onboardingDone = prefs.getString('onboarding_done');
     await prefs.clear();
+    if (onboardingDone != null) {
+      await prefs.setString('onboarding_done', onboardingDone);
+    }
   }
 
   // 通用字符串保存方法
