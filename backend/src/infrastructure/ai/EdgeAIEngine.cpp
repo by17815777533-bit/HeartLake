@@ -2533,7 +2533,9 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
     int baseEf = std::max(requestedK, hnswEfSearch_);
     int adaptiveEf = baseEf;
     if (hnswNodes_.size() >= 256 && baseEf >= 24) {
-        const int pilotEf = std::clamp(std::max(requestedK * 2, 12), 12, std::min(baseEf, 32));
+        const int pilotLo = 12;
+        const int pilotHi = std::max(pilotLo, std::min(baseEf, 32));
+        const int pilotEf = std::clamp(std::max(requestedK * 2, 12), pilotLo, pilotHi);
         auto pilotCandidates = searchLayer(query, currentEntry, pilotEf, 0);
         if (pilotCandidates.size() >= 2) {
             const float best = vectorDistance(query, hnswNodes_[pilotCandidates[0]].vector);
@@ -2555,7 +2557,7 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
             }
         }
         const int efCap = std::max(96, hnswEfSearch_ * 6);
-        adaptiveEf = std::clamp(adaptiveEf, requestedK, efCap);
+        adaptiveEf = std::clamp(adaptiveEf, requestedK, std::max(requestedK, efCap));
     }
     auto candidates = searchLayer(query, currentEntry, adaptiveEf, 0);
 

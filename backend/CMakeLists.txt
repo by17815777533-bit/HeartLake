@@ -86,6 +86,18 @@ set(TEST_SOURCES
     tests/controllers/stone_controller_test.cpp
     tests/services/stone_service_test.cpp
     tests/services/safe_harbor_service_test.cpp
+    tests/test_validator_extended.cpp
+    tests/test_id_generator_extended.cpp
+    tests/test_edge_ai_engine_extended.cpp
+    tests/test_security_crypto_extended.cpp
+    tests/test_differential_privacy_extended.cpp
+    tests/test_circuit_breaker_extended.cpp
+    tests/test_dual_memory_rag_extended.cpp
+    tests/test_emotion_resonance_extended.cpp
+    tests/test_psychological_risk_extended.cpp
+    tests/test_ai_torture.cpp
+    tests/test_security_torture.cpp
+    tests/test_concurrency_torture.cpp
 )
 
 foreach(test_source ${TEST_SOURCES})

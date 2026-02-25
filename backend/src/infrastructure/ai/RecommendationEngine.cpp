@@ -312,6 +312,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
     auto dbClient = app().getDbClient("default");
+    if (!dbClient) {
+        LOG_ERROR << "userBasedCF: failed to get db client";
+        return {};
+    }
 
     // 找相似用户喜欢但当前用户未交互的物品
     auto rows = dbClient->execSqlSync(
@@ -353,6 +357,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
     auto dbClient = app().getDbClient("default");
+    if (!dbClient) {
+        LOG_ERROR << "itemBasedCF: failed to get db client";
+        return {};
+    }
 
     // 基于用户历史交互物品找相似物品
     auto rows = dbClient->execSqlSync(
@@ -403,6 +411,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
     const std::string& userId, const std::string& userMood, int topK) {
     std::vector<RecommendationCandidate> results;
     auto dbClient = app().getDbClient("default");
+    if (!dbClient) {
+        LOG_ERROR << "contentBasedRecommend: failed to get db client";
+        return {};
+    }
 
     // 基于情绪向量的内容推荐
     auto rows = dbClient->execSqlSync(
@@ -448,6 +460,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
 
     topK = std::max(1, topK);
     auto dbClient = app().getDbClient("default");
+    if (!dbClient) {
+        LOG_ERROR << "hybridRecommend: failed to get db client";
+        return {};
+    }
     std::string userMood = "neutral";
     auto moodResult = dbClient->execSqlSync(
         "SELECT mood_type FROM user_emotion_profile WHERE user_id = $1 "
