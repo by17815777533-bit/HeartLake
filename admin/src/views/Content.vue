@@ -14,6 +14,7 @@
       <el-form
         :model="filters"
         inline
+        aria-label="内容筛选"
       >
         <el-form-item label="类型">
           <el-select
@@ -80,6 +81,7 @@
         v-loading="loading"
         :data="contentList"
         stripe
+        aria-label="内容列表"
       >
         <el-table-column
           prop="id"

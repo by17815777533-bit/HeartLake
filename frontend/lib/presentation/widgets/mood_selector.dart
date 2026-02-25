@@ -121,7 +121,11 @@ class _MoodItemState extends State<_MoodItem>
         widget.onTap();
       },
       onTapCancel: () => _scaleController.reverse(),
-      child: AnimatedBuilder(
+      child: Semantics(
+        label: '${widget.config.label}情绪${widget.isSelected ? '，已选中' : ''}',
+        button: true,
+        selected: widget.isSelected,
+        child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
           return Transform.scale(
@@ -190,6 +194,7 @@ class _MoodItemState extends State<_MoodItem>
             ],
           ),
         ),
+      ),
       ),
     );
   }

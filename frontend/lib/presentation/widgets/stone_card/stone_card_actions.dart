@@ -89,25 +89,29 @@ class _ActionButtonState extends State<_ActionButton> with SingleTickerProviderS
       child: AnimatedBuilder(
         animation: _scale,
         builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: widget.isActive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, size: 18, color: widget.isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant),
-              const SizedBox(width: 4),
-              Text(
-                widget.count > 0 ? widget.count.toString() : widget.label,
-                style: TextStyle(
-                  color: widget.isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
+        child: Semantics(
+          label: '${widget.label}${widget.count > 0 ? ' ${widget.count}' : ''}',
+          button: true,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: widget.isActive ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, size: 18, color: widget.isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(
+                  widget.count > 0 ? widget.count.toString() : widget.label,
+                  style: TextStyle(
+                    color: widget.isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

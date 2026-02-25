@@ -32,6 +32,7 @@ class StoneCardHeader extends StatelessWidget {
         IconButton.filledTonal(
           icon: const Icon(Icons.more_horiz_rounded, size: 20),
           onPressed: onMorePressed,
+          tooltip: '更多操作',
           style: IconButton.styleFrom(
             minimumSize: const Size(32, 32),
             padding: EdgeInsets.zero,

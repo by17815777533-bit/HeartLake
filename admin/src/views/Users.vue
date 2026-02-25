@@ -14,6 +14,7 @@
       <el-form
         :model="filters"
         inline
+        aria-label="用户筛选"
       >
         <el-form-item label="用户ID">
           <el-input
@@ -68,6 +69,7 @@
         :data="users"
         stripe
         style="width: 100%"
+        aria-label="用户列表"
       >
         <el-table-column
           prop="user_id"
