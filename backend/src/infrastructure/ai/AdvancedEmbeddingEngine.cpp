@@ -249,42 +249,33 @@ std::vector<float> AdvancedEmbeddingEngine::extractStatisticalFeatures(
     features[0] = static_cast<float>(std::log1p(tokens.size())) / 10.0f;
     features[1] = static_cast<float>(std::log1p(text.length())) / 100.0f;
 
-    // 词汇多样性
-    std::unordered_set<std::string> uniqueWords(tokens.begin(), tokens.end());
-    features[2] = static_cast<float>(uniqueWords.size()) / tokens.size();
-
-    // 平均词长
-    float avgWordLen = 0.0f;
-    for (const auto& token : tokens) {
-        avgWordLen += token.length();
-    }
-    features[3] = avgWordLen / tokens.size() / 10.0f;
-
-    // 词频分布熵
+    // 一次遍历同时计算词频、平均词长（freq map 的 size 即 unique count）
     std::unordered_map<std::string, int> freq;
+    float totalWordLen = 0.0f;
     for (const auto& token : tokens) {
         freq[token]++;
+        totalWordLen += token.length();
     }
+
+    // 词汇多样性（用 freq.size() 代替 uniqueWords.size()）
+    features[2] = static_cast<float>(freq.size()) / tokens.size();
+
+    // 平均词长
+    features[3] = totalWordLen / tokens.size() / 10.0f;
+
+    // 词频分布熵 + 最高词频 + 单次词比例（一次遍历 freq）
     float entropy = 0.0f;
+    int maxFreq = 0;
+    int singletonCount = 0;
     for (const auto& [word, count] : freq) {
         float p = static_cast<float>(count) / tokens.size();
         entropy -= p * std::log2(p + 1e-10f);
-    }
-    features[4] = entropy / 10.0f;
-
-    // 最高词频
-    int maxFreq = 0;
-    for (const auto& [word, count] : freq) {
         maxFreq = std::max(maxFreq, count);
-    }
-    features[5] = static_cast<float>(maxFreq) / tokens.size();
-
-    // 单次词比例
-    int singletonCount = 0;
-    for (const auto& [word, count] : freq) {
         if (count == 1) singletonCount++;
     }
-    features[6] = static_cast<float>(singletonCount) / uniqueWords.size();
+    features[4] = entropy / 10.0f;
+    features[5] = static_cast<float>(maxFreq) / tokens.size();
+    features[6] = static_cast<float>(singletonCount) / freq.size();
 
     return features;
 }
@@ -328,31 +319,44 @@ std::vector<float> AdvancedEmbeddingEngine::combineFeatures(
     const std::vector<float>& statistical,
     const std::vector<float>& ngram
 ) const {
-    std::vector<float> combined;
-    combined.reserve(embeddingDim_);
+    std::vector<float> combined(embeddingDim_, 0.0f);
 
-    // 组合所有特征
-    combined.insert(combined.end(), tfidf.begin(), tfidf.end());
-    combined.insert(combined.end(), sentiment.begin(), sentiment.end());
-    combined.insert(combined.end(), statistical.begin(), statistical.end());
-    combined.insert(combined.end(), ngram.begin(), ngram.end());
-
-    // 确保维度正确
-    combined.resize(embeddingDim_, 0.0f);
+    // 直接写入对应偏移，避免多次 push_back/insert
+    size_t offset = 0;
+    auto copyBlock = [&](const std::vector<float>& src) {
+        size_t n = std::min(src.size(), embeddingDim_ - offset);
+        std::copy_n(src.begin(), n, combined.begin() + offset);
+        offset += n;
+    };
+    copyBlock(tfidf);
+    copyBlock(sentiment);
+    copyBlock(statistical);
+    copyBlock(ngram);
 
     return combined;
 }
 
 void AdvancedEmbeddingEngine::normalizeVector(std::vector<float>& vec) {
-    float norm = 0.0f;
-    for (float val : vec) {
-        norm += val * val;
+    // double 累加 + 4路展开，减少浮点累加误差
+    const size_t n = vec.size();
+    const size_t n4 = n - (n % 4);
+
+    double s0 = 0.0, s1 = 0.0, s2 = 0.0, s3 = 0.0;
+    for (size_t i = 0; i < n4; i += 4) {
+        double v0 = vec[i], v1 = vec[i+1], v2 = vec[i+2], v3 = vec[i+3];
+        s0 += v0 * v0; s1 += v1 * v1; s2 += v2 * v2; s3 += v3 * v3;
+    }
+    double norm = (s0 + s1) + (s2 + s3);
+    for (size_t i = n4; i < n; ++i) {
+        double v = vec[i];
+        norm += v * v;
     }
     norm = std::sqrt(norm);
 
-    if (norm > 1e-6f) {
+    if (norm > 1e-12) {
+        float invNorm = static_cast<float>(1.0 / norm);
         for (float& val : vec) {
-            val /= norm;
+            val *= invNorm;
         }
     }
 }
@@ -386,14 +390,14 @@ std::vector<float> AdvancedEmbeddingEngine::generateEmbedding(const std::string&
     // L2归一化
     normalizeVector(embedding);
 
-    // 缓存结果并返回（move进缓存，返回预存副本）
-    auto result = embedding;
+    // 缓存结果并返回（保留原件返回，拷贝给缓存 move 进去）
     {
         std::lock_guard<std::mutex> lock(cacheMutex_);
-        embeddingCache_->put(text, std::move(embedding));
+        auto copy = embedding;
+        embeddingCache_->put(text, std::move(copy));
     }
 
-    return result;
+    return embedding;
 }
 
 std::vector<std::vector<float>> AdvancedEmbeddingEngine::generateEmbeddingBatch(
@@ -418,18 +422,35 @@ float AdvancedEmbeddingEngine::cosineSimilarity(
         return 0.0f;
     }
 
-    float dotProduct = 0.0f;
-    float norm1 = 0.0f;
-    float norm2 = 0.0f;
+    // double 累加 + 4路展开，减少128维浮点累加误差
+    double dotProduct = 0.0, norm1 = 0.0, norm2 = 0.0;
+    const size_t n = vec1.size();
+    const size_t n4 = n - (n % 4);
 
-    for (size_t i = 0; i < vec1.size(); ++i) {
-        dotProduct += vec1[i] * vec2[i];
-        norm1 += vec1[i] * vec1[i];
-        norm2 += vec2[i] * vec2[i];
+    double dot0 = 0.0, dot1 = 0.0, dot2 = 0.0, dot3 = 0.0;
+    double n1_0 = 0.0, n1_1 = 0.0, n1_2 = 0.0, n1_3 = 0.0;
+    double n2_0 = 0.0, n2_1 = 0.0, n2_2 = 0.0, n2_3 = 0.0;
+
+    for (size_t i = 0; i < n4; i += 4) {
+        double a0 = vec1[i], a1 = vec1[i+1], a2 = vec1[i+2], a3 = vec1[i+3];
+        double b0 = vec2[i], b1 = vec2[i+1], b2 = vec2[i+2], b3 = vec2[i+3];
+        dot0 += a0 * b0; dot1 += a1 * b1; dot2 += a2 * b2; dot3 += a3 * b3;
+        n1_0 += a0 * a0; n1_1 += a1 * a1; n1_2 += a2 * a2; n1_3 += a3 * a3;
+        n2_0 += b0 * b0; n2_1 += b1 * b1; n2_2 += b2 * b2; n2_3 += b3 * b3;
+    }
+    dotProduct = (dot0 + dot1) + (dot2 + dot3);
+    norm1 = (n1_0 + n1_1) + (n1_2 + n1_3);
+    norm2 = (n2_0 + n2_1) + (n2_2 + n2_3);
+
+    for (size_t i = n4; i < n; ++i) {
+        double a = vec1[i], b = vec2[i];
+        dotProduct += a * b;
+        norm1 += a * a;
+        norm2 += b * b;
     }
 
-    float denominator = std::sqrt(norm1) * std::sqrt(norm2);
-    return denominator > 1e-6f ? dotProduct / denominator : 0.0f;
+    double denominator = std::sqrt(norm1) * std::sqrt(norm2);
+    return denominator > 1e-12 ? static_cast<float>(dotProduct / denominator) : 0.0f;
 }
 
 void AdvancedEmbeddingEngine::trainFromCorpus(const std::vector<std::string>& texts) {

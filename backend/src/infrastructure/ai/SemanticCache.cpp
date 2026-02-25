@@ -26,18 +26,27 @@ bool SemanticCache::get(const std::string& query, const std::vector<float>& quer
         return true;
     }
 
-    // L2: 语义匹配
+    // L2: 语义匹配（线性扫描 + early termination）
     float maxSim = 0;
     CacheEntry* bestMatch = nullptr;
-    // L2 语义匹配：线性扫描 O(n)，当前规模（maxSize_=5000）可接受；若后续扩容需替换为 ANN 索引
-    for (auto& entry : semanticIndex_) {
-        if ((currentTime - entry.timestamp) >= ttlSeconds_) continue;
+    std::vector<size_t> expiredIndices;
+    for (size_t idx = 0; idx < semanticIndex_.size(); ++idx) {
+        auto& entry = semanticIndex_[idx];
+        if ((currentTime - entry.timestamp) >= ttlSeconds_) {
+            expiredIndices.push_back(idx);
+            continue;
+        }
 
         float sim = AdvancedEmbeddingEngine::cosineSimilarity(queryEmbedding, entry.embedding);
         if (sim > maxSim && sim >= similarityThreshold_) {
             maxSim = sim;
             bestMatch = &entry;
+            if (sim >= 0.99f) break;  // 近似完美匹配，提前终止
         }
+    }
+    // 惰性清理扫描中发现的过期条目（逆序删除保持索引有效）
+    for (auto rit = expiredIndices.rbegin(); rit != expiredIndices.rend(); ++rit) {
+        semanticIndex_.erase(semanticIndex_.begin() + static_cast<std::ptrdiff_t>(*rit));
     }
 
     if (bestMatch) {

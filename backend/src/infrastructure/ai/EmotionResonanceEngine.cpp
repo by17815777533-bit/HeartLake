@@ -44,21 +44,21 @@ float EmotionResonanceEngine::trajectorySimDTW(
         return trajectorySimDTW(t1, t2);
     }
 
-    constexpr float INF = std::numeric_limits<float>::max();
+    constexpr double INF = std::numeric_limits<double>::max();
 
     // thread_local 滚动数组：避免每次调用堆分配，空间 O(m) 替代 O(n*m)
-    // 保留完整DTW计算（无band约束），确保零精度损失
-    thread_local std::vector<float> prev_buf, curr_buf;
+    // 使用 double 累加避免长序列精度损失
+    thread_local std::vector<double> prev_buf, curr_buf;
     prev_buf.assign(m + 1, INF);
-    curr_buf.assign(m + 1, INF);
-    prev_buf[0] = 0.0f;
+    curr_buf.resize(m + 1);
+    prev_buf[0] = 0.0;
 
     for (size_t i = 1; i <= n; ++i) {
-        curr_buf.assign(m + 1, INF);
+        curr_buf[0] = INF;
 
         for (size_t j = 1; j <= m; ++j) {
-            float cost = std::abs(traj1[i - 1] - traj2[j - 1]);
-            float min_prev = prev_buf[j - 1];
+            double cost = std::abs(static_cast<double>(traj1[i - 1]) - static_cast<double>(traj2[j - 1]));
+            double min_prev = prev_buf[j - 1];
             if (prev_buf[j] < min_prev) min_prev = prev_buf[j];
             if (curr_buf[j - 1] < min_prev) min_prev = curr_buf[j - 1];
             curr_buf[j] = cost + min_prev;
@@ -68,10 +68,10 @@ float EmotionResonanceEngine::trajectorySimDTW(
     }
 
     // swap 后结果在 prev_buf 中
-    float maxLen = static_cast<float>(std::max(n, m));
-    float normalizedDist = prev_buf[m] / maxLen;
+    double maxLen = static_cast<double>(std::max(n, m));
+    double normalizedDist = prev_buf[m] / maxLen;
     // 距离越小相似度越高，使用高斯核转换
-    return std::exp(-normalizedDist * normalizedDist / 2.0f);
+    return static_cast<float>(std::exp(-normalizedDist * normalizedDist / 2.0));
 }
 
 // ===== 时间衰减 =====

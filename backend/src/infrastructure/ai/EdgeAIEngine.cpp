@@ -2317,25 +2317,26 @@ int EdgeAIEngine::randomLevel() {
 float EdgeAIEngine::vectorDistance(const std::vector<float>& a,
                                     const std::vector<float>& b) const {
     // L2 (欧氏) 距离的平方 — 避免开方以提升性能
+    // 使用 double 累加避免 128 维 float 累加的精度损失
     if (a.size() != b.size()) return std::numeric_limits<float>::max();
 
-    float dist = 0.0f;
+    double dist = 0.0;
     size_t dim = a.size();
 
     // 4路展开减少循环开销
     size_t i = 0;
     for (; i + 3 < dim; i += 4) {
-        float d0 = a[i]     - b[i];
-        float d1 = a[i + 1] - b[i + 1];
-        float d2 = a[i + 2] - b[i + 2];
-        float d3 = a[i + 3] - b[i + 3];
+        double d0 = a[i]     - b[i];
+        double d1 = a[i + 1] - b[i + 1];
+        double d2 = a[i + 2] - b[i + 2];
+        double d3 = a[i + 3] - b[i + 3];
         dist += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
     }
     for (; i < dim; ++i) {
-        float d = a[i] - b[i];
+        double d = a[i] - b[i];
         dist += d * d;
     }
-    return dist;
+    return static_cast<float>(dist);
 }
 
 std::vector<std::pair<float, size_t>> EdgeAIEngine::searchLayer(const std::vector<float>& query,
@@ -2356,12 +2357,13 @@ std::vector<std::pair<float, size_t>> EdgeAIEngine::searchLayer(const std::vecto
     // 候选集：min-heap（距离最小的在顶部）
     std::priority_queue<DistIdx, std::vector<DistIdx>, std::greater<DistIdx>> candidates;
 
-    std::unordered_set<size_t> visited;
+    // 位图替代 unordered_set，避免哈希开销
+    std::vector<bool> visited(hnswNodes_.size(), false);
 
     float entryDist = vectorDistance(query, hnswNodes_[entryPoint].vector);
     results.push({entryDist, entryPoint});
     candidates.push({entryDist, entryPoint});
-    visited.insert(entryPoint);
+    visited[entryPoint] = true;
 
     while (!candidates.empty()) {
         auto [candDist, candIdx] = candidates.top();
@@ -2376,8 +2378,8 @@ std::vector<std::pair<float, size_t>> EdgeAIEngine::searchLayer(const std::vecto
         // 扩展该候选的邻居
         if (level < static_cast<int>(hnswNodes_[candIdx].neighbors.size())) {
             for (size_t neighborIdx : hnswNodes_[candIdx].neighbors[level]) {
-                if (visited.count(neighborIdx)) continue;
-                visited.insert(neighborIdx);
+                if (visited[neighborIdx]) continue;
+                visited[neighborIdx] = true;
 
                 float neighborDist = vectorDistance(query, hnswNodes_[neighborIdx].vector);
                 worstResult = results.top().first;
