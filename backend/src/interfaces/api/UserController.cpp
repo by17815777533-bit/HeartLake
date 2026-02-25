@@ -8,6 +8,8 @@
 #include "utils/PasetoUtil.h"
 #include "utils/RecoveryKeyGenerator.h"
 #include "utils/ResponseUtil.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <algorithm>
 #include <chrono>
 #include <ctime>
@@ -17,14 +19,6 @@
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
-
-static std::string extractUserIdSafe(const HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
-}
 
 void UserController::anonymousLogin(
     const HttpRequestPtr &req,
@@ -52,8 +46,8 @@ void UserController::anonymousLogin(
     Json::Value responseData;
     std::string user_id;
 
-    if (!result.empty()) {
-      auto row = result[0];
+    if (auto rowOpt = safeRow(result)) {
+      auto row = *rowOpt;
       user_id = row["user_id"].as<std::string>();
 
       dbClient->execSqlSync(
@@ -198,11 +192,12 @@ void UserController::refreshToken(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(user_id, key, 24);
@@ -222,11 +217,12 @@ void UserController::deleteAccount(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     auto json = req->getJsonObject();
     if (!json) {
@@ -288,7 +284,7 @@ void UserController::getUserInfo(
       return;
     }
 
-    auto row = result[0];
+    auto row = *safeRow(result);
     Json::Value user;
     user["user_id"] = row["user_id"].as<std::string>();
     user["username"] = row["username"].as<std::string>();
@@ -348,7 +344,7 @@ void UserController::getUserStats(
       return;
     }
 
-    auto row = result[0];
+    auto row = *safeRow(result);
     Json::Value data;
     data["stones_count"] = row["stones_count"].as<int>();
     data["ripples_received"] = row["ripples_received"].as<int>();
@@ -372,11 +368,12 @@ void UserController::searchUsers(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     std::string query = req->getParameter("q");
     if (query.empty()) {
@@ -433,17 +430,14 @@ void UserController::getMyBoats(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
-    int page = 1, page_size = 20;
-    if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-    if (auto p = req->getParameter("page_size"); !p.empty()) { try { page_size = std::stoi(p); } catch (...) {} }
-    if (page < 1) page = 1;
-    if (page_size < 1 || page_size > 100) page_size = 20;
+    auto [page, page_size] = safePagination(req);
 
     auto dbClient = drogon::app().getDbClient("default");
 
@@ -504,11 +498,12 @@ void UserController::updateNickname(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     auto json = req->getJsonObject();
     if (!json) {
@@ -544,11 +539,12 @@ void UserController::updateProfile(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     auto json = req->getJsonObject();
     if (!json) {
@@ -603,7 +599,7 @@ void UserController::updateProfile(
       return;
     }
 
-    auto row = result[0];
+    auto row = *safeRow(result);
     Json::Value responseData;
     responseData["user_id"] = row["user_id"].as<std::string>();
     responseData["nickname"] = row["nickname"].as<std::string>();
@@ -625,11 +621,12 @@ void UserController::getEmotionCalendar(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
     std::string month;
     const std::string monthParam = req->getParameter("month");
@@ -728,16 +725,14 @@ void UserController::getEmotionHeatmap(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    std::string user_id = extractUserIdSafe(req);
-    if (user_id.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
+    auto user_id = *userIdOpt;
 
-    int days_count = 30;
-    if (auto p = req->getParameter("days"); !p.empty()) {
-      try { days_count = std::stoi(p); } catch (...) {}
-    }
+    int days_count = safeInt(req->getParameter("days"), 30);
     if (days_count < 1 || days_count > 365) days_count = 30;
 
     auto dbClient = drogon::app().getDbClient("default");

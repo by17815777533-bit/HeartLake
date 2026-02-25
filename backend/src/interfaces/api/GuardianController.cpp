@@ -8,28 +8,22 @@
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "utils/ResponseUtil.h"
 #include "utils/PasetoUtil.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::infrastructure;
 using namespace heartlake::utils;
 
-static std::string extractUserId(const HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
-}
-
 void GuardianController::getStats(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
 
     try {
-        auto stats = GuardianIncentiveService::getInstance().getGuardianStats(userId);
+        auto stats = GuardianIncentiveService::getInstance().getGuardianStats(*userId);
         Json::Value response;
         response["resonance_points"] = stats.totalResonancePoints;
         response["quality_ripples"] = stats.qualityRipples;
@@ -47,8 +41,8 @@ void GuardianController::getStats(const HttpRequestPtr& req, std::function<void(
 }
 
 void GuardianController::transferLamp(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -61,7 +55,7 @@ void GuardianController::transferLamp(const HttpRequestPtr& req, std::function<v
 
     try {
         std::string toUserId = (*jsonBody)["to_user_id"].asString();
-        bool success = GuardianIncentiveService::getInstance().transferLamp(userId, toUserId);
+        bool success = GuardianIncentiveService::getInstance().transferLamp(*userId, toUserId);
 
         if (success) {
             callback(ResponseUtil::success("灯火转赠成功"));
@@ -75,25 +69,25 @@ void GuardianController::transferLamp(const HttpRequestPtr& req, std::function<v
 }
 
 void GuardianController::getEmotionInsights(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
 
     try {
         auto& dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
-        auto insights = dualMemory.getEmotionInsights(userId);
+        auto insights = dualMemory.getEmotionInsights(*userId);
         callback(ResponseUtil::success(insights));
     } catch (const std::exception& e) {
-        LOG_ERROR << "Failed to get emotion insights for user " << userId << ": " << e.what();
+        LOG_ERROR << "Failed to get emotion insights for user " << *userId << ": " << e.what();
         callback(ResponseUtil::internalError("获取情绪洞察失败"));
     }
 }
 
 void GuardianController::chat(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -118,7 +112,7 @@ void GuardianController::chat(const HttpRequestPtr& req, std::function<void(cons
         float emotionScore = jsonBody->get("emotion_score", 0.5f).asFloat();
 
         auto& dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
-        std::string reply = dualMemory.generateResponse(userId, content, emotion, emotionScore);
+        std::string reply = dualMemory.generateResponse(*userId, content, emotion, emotionScore);
 
         Json::Value response;
         response["reply"] = reply;
@@ -126,7 +120,7 @@ void GuardianController::chat(const HttpRequestPtr& req, std::function<void(cons
         response["agent_name"] = "湖神";
         callback(ResponseUtil::success(response));
     } catch (const std::exception& e) {
-        LOG_ERROR << "Failed to chat with lake god for user " << userId << ": " << e.what();
+        LOG_ERROR << "Failed to chat with lake god for user " << *userId << ": " << e.what();
         callback(ResponseUtil::internalError("湖神暂时无法回应"));
     }
 }

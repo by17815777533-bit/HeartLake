@@ -5,6 +5,7 @@
 
 #include "infrastructure/services/GuardianIncentiveService.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>

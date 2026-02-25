@@ -6,6 +6,7 @@
 
 #include "application/InteractionApplicationService.h"
 #include "utils/IdGenerator.h"
+#include "utils/RequestHelper.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/services/GuardianIncentiveService.h"
 #include <drogon/drogon.h>

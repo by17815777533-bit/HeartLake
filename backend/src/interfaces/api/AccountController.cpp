@@ -10,31 +10,25 @@
 #include "utils/IdGenerator.h"
 #include "infrastructure/services/DataExportService.h"
 #include "utils/SecurityLogger.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <drogon/drogon.h>
 #include <thread>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
-// BUG-4 修复：安全获取 user_id 的辅助函数，避免 attributes 不存在时抛异常
-static std::string safeGetUserId(const HttpRequestPtr &req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
-}
-
 // ==================== 个人信息管理 ====================
 
 void AccountController::getAccountInfo(const HttpRequestPtr &req,
                                        std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -47,7 +41,7 @@ void AccountController::getAccountInfo(const HttpRequestPtr &req,
             return;
         }
 
-        auto row = result[0];
+        auto row = *safeRow(result);
         Json::Value data;
         data["user_id"] = row["user_id"].as<std::string>();
         data["username"] = row["username"].isNull() ? "" : row["username"].as<std::string>();
@@ -71,11 +65,12 @@ void AccountController::getAccountInfo(const HttpRequestPtr &req,
 void AccountController::updateAvatar(const HttpRequestPtr &req,
                                      std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("用户未认证"));
             return;
         }
+        auto userId = *userIdOpt;
         auto json = req->getJsonObject();
         if (!json || !json->isMember("avatar_url")) {
             callback(ResponseUtil::badRequest("缺少avatar_url参数"));
@@ -102,11 +97,12 @@ void AccountController::updateProfile(const HttpRequestPtr &req,
                                       std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
@@ -168,11 +164,12 @@ void AccountController::getAccountStats(const HttpRequestPtr &req,
                                         std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免 attributes 不存在时抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         Json::Value data;
@@ -201,11 +198,12 @@ void AccountController::getLoginDevices(const HttpRequestPtr &req,
                                         std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -238,11 +236,12 @@ void AccountController::removeDevice(const HttpRequestPtr &req,
                                      const std::string &sessionId) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         // BUG-FIX: user_sessions 表没有 is_active 列，改用 DELETE 删除会话记录
@@ -265,11 +264,12 @@ void AccountController::getLoginLogs(const HttpRequestPtr &req,
                                      std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -301,11 +301,12 @@ void AccountController::getSecurityEvents(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -338,11 +339,12 @@ void AccountController::getPrivacySettings(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -356,7 +358,7 @@ void AccountController::getPrivacySettings(const HttpRequestPtr &req,
             data["allow_friend_request"] = true;
             data["allow_message_from_stranger"] = false;
         } else {
-            auto row = result[0];
+            auto row = *safeRow(result);
             data["profile_visibility"] = row["profile_visibility"].as<std::string>();
             data["show_online_status"] = row["show_online_status"].as<bool>();
             data["allow_friend_request"] = row["allow_friend_request"].as<bool>();
@@ -374,11 +376,12 @@ void AccountController::updatePrivacySettings(const HttpRequestPtr &req,
                                               std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
@@ -410,11 +413,12 @@ void AccountController::getBlockedUsers(const HttpRequestPtr &req,
                                         std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -446,11 +450,12 @@ void AccountController::blockUser(const HttpRequestPtr &req,
                                   const std::string &targetUserId) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         if (userId == targetUserId) {
             callback(ResponseUtil::badRequest("不能拉黑自己"));
             return;
@@ -474,11 +479,12 @@ void AccountController::unblockUser(const HttpRequestPtr &req,
                                     const std::string &targetUserId) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         dbClient->execSqlSync(
@@ -498,11 +504,12 @@ void AccountController::exportData(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         std::string taskId = IdGenerator::generateUserId();
@@ -534,11 +541,12 @@ void AccountController::getExportStatus(const HttpRequestPtr &req,
                                         const std::string &taskId) {
     try {
         // BUG-FIX: 使用安全的 safeGetUserId 替代直接 get，避免抛异常导致 500
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto dbClient = app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -550,7 +558,7 @@ void AccountController::getExportStatus(const HttpRequestPtr &req,
             return;
         }
 
-        auto row = result[0];
+        auto row = *safeRow(result);
         Json::Value data;
         data["task_id"] = row["task_id"].as<std::string>();
         data["status"] = row["status"].as<std::string>();
@@ -568,11 +576,12 @@ void AccountController::getExportStatus(const HttpRequestPtr &req,
 void AccountController::deactivateAccount(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
 
         auto json = req->getJsonObject();
         if (!json) {
@@ -603,11 +612,12 @@ void AccountController::deactivateAccount(const HttpRequestPtr &req,
 void AccountController::deleteAccountPermanently(const HttpRequestPtr &req,
                                                  std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto userId = safeGetUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto userId = *userIdOpt;
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是JSON格式"));

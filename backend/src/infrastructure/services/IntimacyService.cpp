@@ -4,6 +4,7 @@
  */
 
 #include "infrastructure/services/IntimacyService.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <algorithm>
 

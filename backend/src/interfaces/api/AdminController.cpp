@@ -9,6 +9,8 @@
 #include "utils/PasetoUtil.h"
 #include "utils/PasswordUtil.h"
 #include "utils/SecurityLogger.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -258,13 +260,11 @@ void AdminController::getUserGrowthStats(const HttpRequestPtr &req,
                                         std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         int days = 7;
-        try {
+        {
             std::string daysParam = req->getParameter("days");
             if (!daysParam.empty()) {
-                days = std::stoi(daysParam);
+                days = safeInt(daysParam, 7);
             }
-        } catch (...) {
-            days = 7; // 默认值
         }
         if (days < 1 || days > 365) days = 7;
 
@@ -418,13 +418,11 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
         std::string status = req->getParameter("status");
         int limit = 50;
         int offset = 0;
-        try {
+        {
             std::string limitStr = req->getParameter("limit");
             std::string offsetStr = req->getParameter("offset");
-            if (!limitStr.empty()) limit = std::stoi(limitStr);
-            if (!offsetStr.empty()) offset = std::stoi(offsetStr);
-        } catch (...) {
-            // 使用默认值
+            if (!limitStr.empty()) limit = safeInt(limitStr, 50);
+            if (!offsetStr.empty()) offset = safeInt(offsetStr, 0);
         }
         if (limit < 1 || limit > 1000) limit = 50;
         if (offset < 0) offset = 0;
@@ -484,7 +482,7 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
                     "SELECT COUNT(*) as total FROM high_risk_events");
             }
         }();
-        int total = countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         Json::Value response;
         response["events"] = data;
@@ -596,13 +594,12 @@ void AdminController::handleRiskEvent(const HttpRequestPtr &req,
         std::string action = (*json).get("action", "").asString();
         std::string notes = (*json).get("notes", "").asString();
         // SEC: 从认证属性中获取 admin_id，而非可伪造的请求头
-        std::string admin_id;
-        try {
-            admin_id = req->getAttributes()->get<std::string>("admin_id");
-        } catch (...) {
+        auto adminIdOpt = Validator::getUserId(req);
+        if (!adminIdOpt) {
             callback(ResponseUtil::unauthorized("未授权的管理员操作"));
             return;
         }
+        auto& admin_id = *adminIdOpt;
 
         if (action.empty()) {
             callback(ResponseUtil::badRequest("action 不能为空"));

@@ -7,18 +7,11 @@
 #include "infrastructure/services/SafeHarborService.h"
 #include "utils/ResponseUtil.h"
 #include "utils/PasetoUtil.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
-
-static std::string extractUserId(const drogon::HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        LOG_WARN << "Failed to extract user_id from request attributes";
-        return "";
-    }
-}
 
 void SafeHarborController::getHotlines(
     const drogon::HttpRequestPtr& req,
@@ -67,8 +60,8 @@ void SafeHarborController::addResource(
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
     // SEC-05: 认证检查 — 防止未登录用户篡改危机干预资源
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -94,8 +87,8 @@ void SafeHarborController::updateResource(
     const std::string& resourceId
 ) {
     // SEC-05: 认证检查 — 防止未登录用户篡改危机干预资源
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -125,8 +118,8 @@ void SafeHarborController::deleteResource(
     const std::string& resourceId
 ) {
     // SEC-05: 认证检查 — 防止未登录用户删除危机干预资源
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -164,8 +157,8 @@ void SafeHarborController::recordAccess(
     const drogon::HttpRequestPtr& req,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
@@ -176,7 +169,7 @@ void SafeHarborController::recordAccess(
     }
     try {
         auto& service = heartlake::infrastructure::SafeHarborService::getInstance();
-        service.recordUserAccess(userId, (*json)["resource_id"].asString());
+        service.recordUserAccess(*userId, (*json)["resource_id"].asString());
         callback(ResponseUtil::success("访问已记录"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Failed to record access: " << e.what();
@@ -188,14 +181,14 @@ void SafeHarborController::getAccessHistory(
     const drogon::HttpRequestPtr& req,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未登录"));
         return;
     }
     try {
         auto& service = heartlake::infrastructure::SafeHarborService::getInstance();
-        callback(ResponseUtil::success(service.getUserAccessHistory(userId)));
+        callback(ResponseUtil::success(service.getUserAccessHistory(*userId)));
     } catch (const std::exception& e) {
         LOG_ERROR << "Failed to get access history: " << e.what();
         callback(ResponseUtil::internalError("获取访问记录失败"));
@@ -208,11 +201,11 @@ void SafeHarborController::recommendResources(
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
+        auto userId = Validator::getUserId(req);
         std::string emotion = req->getParameter("emotion");
         if (emotion.empty()) emotion = "neutral";
         auto& service = heartlake::infrastructure::SafeHarborService::getInstance();
-        callback(ResponseUtil::success(service.recommendByEmotion(userId, emotion)));
+        callback(ResponseUtil::success(service.recommendByEmotion(userId ? *userId : "", emotion)));
     } catch (const std::exception& e) {
         LOG_ERROR << "Failed to recommend resources: " << e.what();
         callback(ResponseUtil::internalError("获取推荐资源失败"));

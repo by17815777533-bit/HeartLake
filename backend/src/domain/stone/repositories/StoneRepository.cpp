@@ -5,9 +5,11 @@
 
 #include "domain/stone/repositories/StoneRepository.h"
 #include "utils/IdGenerator.h"
+#include "utils/RequestHelper.h"
 #include <set>
 
 namespace heartlake::domain::stone {
+using namespace heartlake::utils;
 
 StoneEntity StoneRepository::rowToEntity(const drogon::orm::Row& row) {
     StoneEntity entity;
@@ -49,8 +51,9 @@ std::optional<StoneEntity> StoneRepository::findById(const std::string& stoneId)
     auto result = db->execSqlSync(
         "SELECT * FROM stones WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL", stoneId
     );
-    if (result.empty()) return std::nullopt;
-    return rowToEntity(result[0]);
+    auto row = safeRow(result);
+    if (!row) return std::nullopt;
+    return rowToEntity(*row);
 }
 
 std::vector<StoneEntity> StoneRepository::findByUserId(const std::string& userId, int page, int pageSize) {
@@ -96,12 +99,10 @@ int StoneRepository::countAll(const std::string& filterMood) {
     auto db = drogon::app().getDbClient("default");
     if (!filterMood.empty()) {
         auto result = db->execSqlSync("SELECT COUNT(*) as total FROM stones WHERE status = 'published' AND deleted_at IS NULL AND mood_type = $1", filterMood);
-        if (result.empty()) return 0;
-        return result[0]["total"].as<int>();
+        return safeCount(result);
     }
     auto result = db->execSqlSync("SELECT COUNT(*) as total FROM stones WHERE status = 'published' AND deleted_at IS NULL");
-    if (result.empty()) return 0;
-    return result[0]["total"].as<int>();
+    return safeCount(result);
 }
 
 int StoneRepository::countByUserId(const std::string& userId) {
@@ -109,8 +110,7 @@ int StoneRepository::countByUserId(const std::string& userId) {
     auto result = db->execSqlSync(
         "SELECT COUNT(*) as total FROM stones WHERE user_id = $1 AND status = 'published' AND deleted_at IS NULL", userId
     );
-    if (result.empty()) return 0;
-    return result[0]["total"].as<int>();
+    return safeCount(result);
 }
 
 void StoneRepository::deleteById(const std::string& stoneId) {

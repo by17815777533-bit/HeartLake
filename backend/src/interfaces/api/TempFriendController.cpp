@@ -5,11 +5,14 @@
  */
 #include "interfaces/api/TempFriendController.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <drogon/HttpResponse.h>
 #include <drogon/utils/Utilities.h>
 #include <trantor/utils/Logger.h>
 
 using namespace heartlake::controllers;
+using namespace heartlake::utils;
 using namespace drogon;
 
 void TempFriendController::createTempFriend(const HttpRequestPtr &req,
@@ -26,11 +29,8 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
         }
         
         // SEC-03: 安全提取用户ID — 防止未认证请求导致异常
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -39,6 +39,7 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt;
 
         if (!jsonPtr->isMember("target_user_id") || (*jsonPtr)["target_user_id"].asString().empty()) {
             Json::Value ret;
@@ -71,7 +72,7 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
                        "AND status = 'active'";
         
         auto result = dbClient->execSqlSync(checkSql, currentUserId, targetUserId);
-        if (result.size() > 0 && result[0]["cnt"].as<int>() > 0) {
+        if (safeCount(result, "cnt") > 0) {
             Json::Value ret;
             ret["code"] = 400;
             ret["message"] = "已经是临时好友";
@@ -131,11 +132,8 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
 void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt2 = Validator::getUserId(req);
+        if (!userIdOpt2) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -144,8 +142,9 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt2;
         auto dbClient = app().getDbClient("default");
-        
+
         // 首先清理过期的临时好友
         auto cleanupSql = "UPDATE temp_friends SET status = 'expired' "
                          "WHERE status = 'active' AND expires_at < NOW()";
@@ -216,11 +215,8 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
                                               std::function<void(const HttpResponsePtr &)> &&callback,
                                               const std::string &tempFriendId) {
     try {
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt4 = Validator::getUserId(req);
+        if (!userIdOpt4) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -229,6 +225,7 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt4;
         auto dbClient = app().getDbClient("default");
 
         auto querySql = "SELECT tf.*, "
@@ -252,7 +249,7 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
             return;
         }
         
-        auto row = result[0];
+        auto row = *safeRow(result);
         Json::Value ret;
         ret["code"] = 0;
         ret["message"] = "获取成功";
@@ -303,11 +300,8 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
                                              std::function<void(const HttpResponsePtr &)> &&callback,
                                              const std::string &tempFriendId) {
     try {
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt3 = Validator::getUserId(req);
+        if (!userIdOpt3) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -316,9 +310,8 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt3;
         auto dbClient = app().getDbClient("default");
-
-        // 获取临时好友信息
         auto querySql = "SELECT * FROM temp_friends "
                        "WHERE temp_friend_id = $1 "
                        "AND (user1_id = $2 OR user2_id = $2) "
@@ -335,7 +328,7 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
             return;
         }
         
-        auto row = result[0];
+        auto row = *safeRow(result);
         auto user1 = row["user1_id"].as<std::string>();
         auto user2 = row["user2_id"].as<std::string>();
         
@@ -394,11 +387,8 @@ void TempFriendController::deleteTempFriend(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback,
                                            const std::string &tempFriendId) {
     try {
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt5 = Validator::getUserId(req);
+        if (!userIdOpt5) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -407,6 +397,7 @@ void TempFriendController::deleteTempFriend(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt5;
         auto dbClient = app().getDbClient("default");
 
         // 更新状态为expired而不是删除
@@ -446,11 +437,8 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
                                                 std::function<void(const HttpResponsePtr &)> &&callback,
                                                 const std::string &targetUserId) {
     try {
-        std::string currentUserId;
-        try {
-            currentUserId = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (currentUserId.empty()) {
+        auto userIdOpt6 = Validator::getUserId(req);
+        if (!userIdOpt6) {
             Json::Value ret;
             ret["code"] = 401;
             ret["message"] = "未登录";
@@ -459,6 +447,7 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+        auto& currentUserId = *userIdOpt6;
         auto dbClient = app().getDbClient("default");
 
         // 检查临时好友关系
@@ -474,8 +463,8 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
         Json::Value ret;
         ret["code"] = 0;
         
-        if (result.size() > 0) {
-            auto row = result[0];
+        if (auto rowOpt = safeRow(result)) {
+            auto row = *rowOpt;
             Json::Value data;
             data["is_temp_friend"] = true;
             data["temp_friend_id"] = row["temp_friend_id"].as<std::string>();

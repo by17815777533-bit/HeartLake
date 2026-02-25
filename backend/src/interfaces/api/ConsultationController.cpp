@@ -7,7 +7,9 @@
 #include "interfaces/api/ConsultationController.h"
 #include "utils/E2EEncryption.h"
 #include "utils/IdentityShadowMap.h"
+#include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/Validator.h"
 #include <drogon/drogon.h>
 #include <openssl/rand.h>
 #include <sstream>
@@ -31,9 +33,8 @@ namespace {
 
 void ConsultationController::createSession(const HttpRequestPtr& req,
                                            std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId;
-    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
@@ -65,15 +66,14 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "创建会话失败"));
         },
-        sessionId, userId, counselorId, serverKey
+        sessionId, *userId, counselorId, serverKey
     );
 }
 
 void ConsultationController::exchangeKey(const HttpRequestPtr& req,
                                          std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId;
-    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
@@ -110,15 +110,14 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "密钥交换失败"));
         },
-        clientKey, salt, sessionId, userId
+        clientKey, salt, sessionId, *userId
     );
 }
 
 void ConsultationController::sendMessage(const HttpRequestPtr& req,
                                          std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId;
-    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
@@ -139,7 +138,7 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
         return;
     }
 
-    auto shadowId = IdentityShadowMap::getInstance().getOrCreateShadowId(userId);
+    auto shadowId = IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
 
     // 验证用户是会话参与者后才允许发送消息
     auto db = app().getDbClient("default");
@@ -165,16 +164,15 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "验证会话权限失败"));
         },
-        sessionId, userId
+        sessionId, *userId
     );
 }
 
 void ConsultationController::getMessages(const HttpRequestPtr& req,
                                          std::function<void(const HttpResponsePtr&)>&& callback,
                                          const std::string& sessionId) {
-    std::string userId;
-    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
@@ -213,15 +211,14 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "验证会话权限失败"));
         },
-        sessionId, userId
+        sessionId, *userId
     );
 }
 
 void ConsultationController::getSessions(const HttpRequestPtr& req,
                                          std::function<void(const HttpResponsePtr&)>&& callback) {
-    std::string userId;
-    try { userId = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-    if (userId.empty()) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
@@ -249,6 +246,6 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "获取会话列表失败"));
         },
-        userId
+        *userId
     );
 }

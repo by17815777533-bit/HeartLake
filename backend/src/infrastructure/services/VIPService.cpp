@@ -6,10 +6,12 @@
 
 #include "infrastructure/services/VIPService.h"
 #include "utils/IdGenerator.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <json/json.h>
 
 using namespace heartlake::services;
+using namespace heartlake::utils;
 using namespace drogon;
 
 bool VIPService::checkEmotionAndGrantVIP(
@@ -27,9 +29,10 @@ bool VIPService::checkEmotionAndGrantVIP(
         );
 
         if (vipCheckResult.size() > 0) {
-            int vipLevel = vipCheckResult[0]["vip_level"].as<int>();
-            if (vipLevel > 0 && !vipCheckResult[0]["vip_expires_at"].isNull()) {
-                auto expiresAt = vipCheckResult[0]["vip_expires_at"].as<std::time_t>();
+            auto vipRow = vipCheckResult[0];
+            int vipLevel = vipRow["vip_level"].as<int>();
+            if (vipLevel > 0 && !vipRow["vip_expires_at"].isNull()) {
+                auto expiresAt = vipRow["vip_expires_at"].as<std::time_t>();
                 if (expiresAt > std::time(nullptr)) {
                     LOG_DEBUG << "User " << userId << " is already VIP, skip grant";
                     return false;
@@ -307,7 +310,8 @@ int VIPService::batchCheckEmotionsForVIP() {
             "SELECT batch_check_emotions_for_vip()"
         );
 
-        int count = result[0][0].as<int>();
+        int count = 0;
+        if (!result.empty()) count = result[0][0].as<int>();
         LOG_INFO << "Batch VIP emotion check completed. Granted VIP to " << count << " users.";
         return count;
     } catch (const std::exception& e) {
@@ -472,7 +476,7 @@ bool VIPService::checkAndRecordPrivilegeUsage(
                     privilegeKey
                 );
 
-                int currentUsage = usageResult[0]["total"].as<int>();
+                int currentUsage = safeCount(usageResult);
                 if (currentUsage >= maxUsage) {
                     LOG_WARN << "User " << userId << " exceeded usage limit for " << privilegeKey;
                     return false;
@@ -536,7 +540,7 @@ bool VIPService::hasFreeCounselingQuota(const std::string& userId) {
             userId
         );
 
-        int usedCount = usageResult[0]["count"].as<int>();
+        int usedCount = safeCount(usageResult, "count");
 
         // VIP用户有1次免费咨询机会
         return usedCount < 1;

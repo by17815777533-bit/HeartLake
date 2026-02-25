@@ -5,6 +5,7 @@
  */
 
 #include "application/UserApplicationService.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 
 namespace heartlake {

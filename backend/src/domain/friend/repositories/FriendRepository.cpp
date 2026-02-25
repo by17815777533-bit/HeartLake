@@ -4,8 +4,10 @@
  */
 
 #include "domain/friend/repositories/FriendRepository.h"
+#include "utils/RequestHelper.h"
 
 namespace heartlake::domain::friend_domain {
+using namespace heartlake::utils;
 
 FriendEntity FriendRepository::rowToEntity(const drogon::orm::Row& row) {
     FriendEntity entity;
@@ -37,8 +39,9 @@ drogon::Task<std::optional<FriendEntity>> FriendRepository::findByUserAndFriendA
         "SELECT * FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
         userId, friendId
     );
-    if (result.empty()) co_return std::nullopt;
-    co_return rowToEntity(result[0]);
+    auto row = safeRow(result);
+    if (!row) co_return std::nullopt;
+    co_return rowToEntity(*row);
 }
 
 drogon::Task<std::vector<FriendEntity>> FriendRepository::findByUserIdAsync(const std::string& userId) {
@@ -100,8 +103,9 @@ std::optional<FriendEntity> FriendRepository::findByUserAndFriend(const std::str
         "SELECT * FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
         userId, friendId
     );
-    if (result.empty()) return std::nullopt;
-    return rowToEntity(result[0]);
+    auto row = safeRow(result);
+    if (!row) return std::nullopt;
+    return rowToEntity(*row);
 }
 
 std::vector<FriendEntity> FriendRepository::findByUserId(const std::string& userId) {

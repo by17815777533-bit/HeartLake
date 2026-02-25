@@ -8,6 +8,8 @@
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/AdminConfigStore.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include "infrastructure/ai/AIService.h"
 #include <drogon/orm/Exception.h>
 #include <json/json.h>
@@ -17,28 +19,6 @@ using namespace heartlake::utils;
 using namespace heartlake::controllers;
 
 namespace {
-int parsePage(const HttpRequestPtr &req) {
-    int page = 1;
-    auto p = req->getParameter("page");
-    if (!p.empty()) {
-        try { page = std::max(1, std::stoi(p)); } catch (...) {}
-    }
-    return page;
-}
-
-int parsePageSize(const HttpRequestPtr &req, int maxSize = 100) {
-    int size = 20;
-    auto p = req->getParameter("page_size");
-    if (!p.empty()) {
-        try {
-            size = std::stoi(p);
-            if (size < 1) size = 20;
-            if (size > maxSize) size = maxSize;
-        } catch (...) {}
-    }
-    return size;
-}
-
 std::string escapeLike(const std::string &value) {
     std::string result;
     result.reserve(value.size() * 2);
@@ -65,8 +45,7 @@ bool isValidReportStatus(const std::string &s) {
 void AdminManagementController::getUsers(const HttpRequestPtr &req,
                                          std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         const auto userId = req->getParameter("userId");
@@ -133,7 +112,7 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         auto countResult = execWithParams(countSql);
         auto result = execWithParams(querySql);
 
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         Json::Value users(Json::arrayValue);
         for (const auto &row : result) {
@@ -176,15 +155,16 @@ void AdminManagementController::getUserDetail(const HttpRequestPtr &,
             return;
         }
 
+        auto row = *safeRow(result);
         Json::Value user;
-        user["user_id"] = result[0]["user_id"].as<std::string>();
-        user["username"] = result[0]["username"].as<std::string>();
-        user["nickname"] = result[0]["nickname"].as<std::string>();
-        user["status"] = result[0]["status"].as<std::string>();
-        user["created_at"] = result[0]["created_at"].as<std::string>();
-        user["last_active_at"] = result[0]["last_active_at"].as<std::string>();
-        user["stones_count"] = result[0]["stones_count"].as<int>();
-        user["boat_count"] = result[0]["boat_count"].as<int>();
+        user["user_id"] = row["user_id"].as<std::string>();
+        user["username"] = row["username"].as<std::string>();
+        user["nickname"] = row["nickname"].as<std::string>();
+        user["status"] = row["status"].as<std::string>();
+        user["created_at"] = row["created_at"].as<std::string>();
+        user["last_active_at"] = row["last_active_at"].as<std::string>();
+        user["stones_count"] = row["stones_count"].as<int>();
+        user["boat_count"] = row["boat_count"].as<int>();
 
         callback(ResponseUtil::success(user));
     } catch (const std::exception &e) {
@@ -246,13 +226,12 @@ void AdminManagementController::unbanUser(const HttpRequestPtr &,
 void AdminManagementController::getStones(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM stones");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT s.stone_id, s.content, s.mood_type, s.is_anonymous, "
@@ -303,16 +282,17 @@ void AdminManagementController::getStoneDetail(const HttpRequestPtr &,
             callback(ResponseUtil::notFound("石头不存在"));
             return;
         }
+        auto row = *safeRow(result);
         Json::Value item;
-        item["stone_id"] = result[0]["stone_id"].as<std::string>();
-        item["content"] = result[0]["content"].isNull() ? "" : result[0]["content"].as<std::string>();
-        item["mood_type"] = result[0]["mood_type"].isNull() ? "" : result[0]["mood_type"].as<std::string>();
-        item["is_anonymous"] = result[0]["is_anonymous"].isNull() ? false : result[0]["is_anonymous"].as<bool>();
-        item["status"] = result[0]["status"].isNull() ? "published" : result[0]["status"].as<std::string>();
-        item["ripple_count"] = result[0]["ripple_count"].isNull() ? 0 : result[0]["ripple_count"].as<int>();
-        item["boat_count"] = result[0]["boat_count"].isNull() ? 0 : result[0]["boat_count"].as<int>();
-        item["created_at"] = result[0]["created_at"].isNull() ? "" : result[0]["created_at"].as<std::string>();
-        item["author_nickname"] = result[0]["nickname"].isNull() ? "匿名" : result[0]["nickname"].as<std::string>();
+        item["stone_id"] = row["stone_id"].as<std::string>();
+        item["content"] = row["content"].isNull() ? "" : row["content"].as<std::string>();
+        item["mood_type"] = row["mood_type"].isNull() ? "" : row["mood_type"].as<std::string>();
+        item["is_anonymous"] = row["is_anonymous"].isNull() ? false : row["is_anonymous"].as<bool>();
+        item["status"] = row["status"].isNull() ? "published" : row["status"].as<std::string>();
+        item["ripple_count"] = row["ripple_count"].isNull() ? 0 : row["ripple_count"].as<int>();
+        item["boat_count"] = row["boat_count"].isNull() ? 0 : row["boat_count"].as<int>();
+        item["created_at"] = row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+        item["author_nickname"] = row["nickname"].isNull() ? "匿名" : row["nickname"].as<std::string>();
         callback(ResponseUtil::success(item));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getStoneDetail error: " << e.what();
@@ -336,13 +316,12 @@ void AdminManagementController::deleteStone(const HttpRequestPtr &,
 void AdminManagementController::getBoats(const HttpRequestPtr &req,
                                          std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM paper_boats");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT b.boat_id, b.content, b.is_anonymous, b.status, b.created_at, u.nickname "
@@ -390,13 +369,12 @@ void AdminManagementController::deleteBoat(const HttpRequestPtr &,
 void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
                                                      std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports WHERE status = 'pending'");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.created_at, "
@@ -486,13 +464,12 @@ void AdminManagementController::rejectContent(const HttpRequestPtr &req,
 void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
                                                      std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM moderation_logs");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT action, reason, operator_id, created_at, target_type, target_id FROM moderation_logs "
@@ -526,8 +503,7 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
 void AdminManagementController::getReports(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         const auto status = req->getParameter("status");
@@ -582,7 +558,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
                 std::to_string(pageSize), std::to_string(offset));
         }
-        int total = (!countResult || countResult->empty()) ? 0 : (*countResult)[0]["total"].as<int>();
+        int total = (!countResult || countResult->empty()) ? 0 : safeCount(*countResult);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : *result) {
@@ -622,15 +598,16 @@ void AdminManagementController::getReportDetail(const HttpRequestPtr &,
             callback(ResponseUtil::notFound("举报不存在"));
             return;
         }
+        auto row = *safeRow(result);
         Json::Value item;
-        item["report_id"] = result[0]["report_id"].as<std::string>();
-        item["reporter_id"] = result[0]["reporter_id"].as<std::string>();
-        item["target_type"] = result[0]["target_type"].as<std::string>();
-        item["target_id"] = result[0]["target_id"].as<std::string>();
-        item["reason"] = result[0]["reason"].as<std::string>();
-        item["description"] = result[0]["description"].as<std::string>();
-        item["status"] = result[0]["status"].as<std::string>();
-        item["created_at"] = result[0]["created_at"].as<std::string>();
+        item["report_id"] = row["report_id"].as<std::string>();
+        item["reporter_id"] = row["reporter_id"].as<std::string>();
+        item["target_type"] = row["target_type"].as<std::string>();
+        item["target_id"] = row["target_id"].as<std::string>();
+        item["reason"] = row["reason"].as<std::string>();
+        item["description"] = row["description"].as<std::string>();
+        item["status"] = row["status"].as<std::string>();
+        item["created_at"] = row["created_at"].as<std::string>();
         callback(ResponseUtil::success(item));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getReportDetail error: " << e.what();
@@ -667,13 +644,12 @@ void AdminManagementController::handleReport(const HttpRequestPtr &req,
 void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
                                                   std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        int page = parsePage(req);
-        int pageSize = parsePageSize(req);
+        auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM sensitive_words");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT id, word, level, category, action, created_at FROM sensitive_words "
@@ -831,14 +807,10 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
                                                     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto dbClient = app().getDbClient("default");
-        int page = 1, pageSize = 20;
-        try {
-            if (auto p = req->getParameter("page"); !p.empty()) page = std::stoi(p);
-            if (auto p = req->getParameter("page_size"); !p.empty()) pageSize = std::stoi(p);
-        } catch (...) {}
+        auto [page, pageSize] = safePagination(req);
 
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM broadcast_messages");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT * FROM broadcast_messages ORDER BY created_at DESC LIMIT $1 OFFSET $2",
@@ -873,17 +845,10 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
                                                  std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto dbClient = app().getDbClient("default");
-        int page = 1, pageSize = 20;
-        try {
-            if (auto p = req->getParameter("page"); !p.empty()) page = std::stoi(p);
-            if (auto p = req->getParameter("page_size"); !p.empty()) pageSize = std::stoi(p);
-        } catch (...) {}
-
-        if (page < 1 || page > 10000) page = 1;
-        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+        auto [page, pageSize] = safePagination(req);
 
         auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM admin_operation_logs");
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         auto result = dbClient->execSqlSync(
             "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT $1 OFFSET $2",

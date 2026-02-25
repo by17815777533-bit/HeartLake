@@ -8,6 +8,8 @@
 #include "application/StoneApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "utils/ResponseUtil.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include "utils/ContentFilter.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
@@ -21,15 +23,6 @@ using namespace heartlake::application;
 
 static std::shared_ptr<StoneApplicationService> getStoneService() {
     return heartlake::core::di::ServiceLocator::instance().resolve<StoneApplicationService>();
-}
-
-// SEC-1: 安全地从 attributes 获取 user_id（由认证中间件注入），避免直接读取可伪造的 Header
-static std::string extractUserId(const HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
 }
 
 // ==================== 安全辅助函数 ====================
@@ -90,11 +83,12 @@ void StoneController::createStone(
         }
 
         // SEC-AUTH: 必须登录
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录，请先登录"));
             return;
         }
+        auto userId = *userIdOpt;
 
         // 验证必填字段
         if (!json->isMember("content") || !(*json)["content"].isString() || (*json)["content"].asString().empty()) {
@@ -187,14 +181,9 @@ void StoneController::getStones(
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] getStones called";
 
-        int page = 1, pageSize = 20;
-        if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-        if (auto p = req->getParameter("page_size"); !p.empty()) { try { pageSize = std::stoi(p); } catch (...) {} }
+        auto [page, pageSize] = safePagination(req);
         std::string sort = req->getParameter("sort").empty() ? "created_at" : req->getParameter("sort");
         std::string filterMood = req->getParameter("mood");
-
-        if (page < 1) page = 1;
-        if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
         // SEC-WHITELIST: sort 参数白名单校验，防止 SQL 注入
         if (VALID_SORT_VALUES.find(sort) == VALID_SORT_VALUES.end()) {
@@ -215,7 +204,7 @@ void StoneController::getStones(
             sortBy = "created_at";
         }
 
-        std::string currentUserId = extractUserId(req);
+        std::string currentUserId = Validator::getUserId(req).value_or("");
 
         auto service = getStoneService();
         auto result = service->getStoneList(page, pageSize, sortBy, filterMood, "", currentUserId);
@@ -245,7 +234,7 @@ void StoneController::getStoneById(
             return;
         }
 
-        std::string currentUserId = extractUserId(req);
+        std::string currentUserId = Validator::getUserId(req).value_or("");
 
         auto service = getStoneService();
         auto result = service->getStoneDetail(stoneId, currentUserId);
@@ -275,19 +264,15 @@ void StoneController::getMyStones(
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] getMyStones called";
 
-        std::string userId = extractUserId(req);
+        auto userIdOpt = Validator::getUserId(req);
         // SEC-AUTH: 必须登录
-        if (userId.empty()) {
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录，请先登录"));
             return;
         }
+        auto userId = *userIdOpt;
 
-        int page = 1, pageSize = 20;
-        if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-        if (auto p = req->getParameter("page_size"); !p.empty()) { try { pageSize = std::stoi(p); } catch (...) {} }
-
-        if (page < 1) page = 1;
-        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+        auto [page, pageSize] = safePagination(req);
 
         auto service = getStoneService();
         auto result = service->getStoneList(page, pageSize, "created_at", "", userId, userId);
@@ -315,12 +300,13 @@ void StoneController::deleteStone(
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] deleteStone id=" << stoneId;
 
-        std::string userId = extractUserId(req);
+        auto userIdOpt = Validator::getUserId(req);
         // SEC-AUTH: 必须登录
-        if (userId.empty()) {
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录，请先登录"));
             return;
         }
+        auto userId = *userIdOpt;
 
         // SEC-VALIDATE: stoneId 格式校验
         if (!isValidStoneId(stoneId)) {
@@ -448,12 +434,13 @@ void StoneController::searchResonance(
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] searchResonance stoneId=" << stoneId;
 
-        std::string userId = extractUserId(req);
+        auto userIdOpt = Validator::getUserId(req);
         // SEC-AUTH: 必须登录
-        if (userId.empty()) {
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录，请先登录"));
             return;
         }
+        auto userId = *userIdOpt;
 
         // SEC-VALIDATE: stoneId 格式校验
         if (!isValidStoneId(stoneId)) {
@@ -461,10 +448,7 @@ void StoneController::searchResonance(
             return;
         }
 
-        int limit = 10;
-        if (auto l = req->getParameter("limit"); !l.empty()) {
-            try { limit = std::stoi(l); } catch (...) {}
-        }
+        int limit = safeInt(req->getParameter("limit"), 10);
         // SEC-06: limit 范围约束 — 防止客户端传入超大值导致性能问题
         if (limit < 1) limit = 1;
         if (limit > 50) limit = 50;

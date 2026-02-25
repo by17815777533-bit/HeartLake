@@ -14,6 +14,7 @@
 #include "infrastructure/services/WarmQuoteService.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/IdGenerator.h"
+#include "utils/RequestHelper.h"
 #include "infrastructure/services/EmotionTrackingService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include <drogon/drogon.h>
@@ -74,8 +75,8 @@ Json::Value StoneApplicationService::publishStone(
             auto& aiEngine = heartlake::ai::EdgeAIEngine::getInstance();
             auto sentiment = aiEngine.analyzeSentimentLocal(content);
             emotionTracker.recordEmotion(userId, sentiment.score, content);
-        } catch (...) {
-            LOG_WARN << "EmotionTracking recordEmotion failed for user: " << userId;
+        } catch (const std::exception& e) {
+            LOG_WARN << "EmotionTracking recordEmotion failed for user: " << userId << ": " << e.what();
         }
 
         // 清除缓存
@@ -177,7 +178,8 @@ Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId, 
                 stoneId, currentUserId
             );
             result["has_rippled"] = !rippleResult.empty();
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Check has_rippled failed: " << e.what();
             result["has_rippled"] = false;
         }
     } else {
@@ -284,7 +286,8 @@ Json::Value StoneApplicationService::getStoneList(
                         row["stone_id"].as<std::string>(), currentUserId
                     );
                     stone["has_rippled"] = !rippleCheck.empty();
-                } catch (...) {
+                } catch (const std::exception& e) {
+                    LOG_WARN << "Check has_rippled in list failed: " << e.what();
                     stone["has_rippled"] = false;
                 }
             } else {

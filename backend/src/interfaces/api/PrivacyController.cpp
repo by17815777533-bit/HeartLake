@@ -6,6 +6,7 @@
 #include "interfaces/api/PrivacyController.h"
 #include "infrastructure/privacy/DifferentialPrivacyEngine.h"
 #include "utils/ResponseUtil.h"
+#include "utils/RequestHelper.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -18,7 +19,7 @@ void PrivacyController::getPrivacyStats(
         // 可选参数：epsilon（隐私预算），默认2.0
         double epsilon = 2.0;
         if (auto e = req->getParameter("epsilon"); !e.empty()) {
-            try { epsilon = std::stod(e); } catch (...) {}
+            epsilon = safeDouble(e, 2.0);
         }
         // 限制 epsilon 范围 [0.1, 10.0]
         epsilon = std::clamp(epsilon, 0.1, 10.0);

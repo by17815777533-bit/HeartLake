@@ -7,6 +7,8 @@
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <atomic>
 #include <random>
 #include <sstream>
@@ -14,6 +16,7 @@
 
 using namespace heartlake::controllers;
 using namespace heartlake::cache;
+using namespace heartlake::utils;
 
 /**
  * 获取推荐的石头
@@ -23,9 +26,15 @@ void RecommendationController::getRecommendedStones(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
+
     auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
         auto dbClient = drogon::app().getDbClient("default");
 
         // 检查缓存
@@ -255,8 +264,14 @@ void RecommendationController::trackInteraction(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
+
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
         auto json = req->getJsonObject();
 
         if (!json) {
@@ -857,8 +872,7 @@ void RecommendationController::getAdvancedRecommendations(
         int limit = 20;
         auto params = req->getParameters();
         if (params.count("limit")) {
-            try { limit = std::clamp(std::stoi(params.at("limit")), 1, 50); }
-            catch (...) {}
+            limit = std::clamp(safeInt(params.at("limit"), 20), 1, 50);
         }
 
         // 如果提供了stone_id，融合情绪共鸣引擎结果

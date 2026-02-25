@@ -8,34 +8,27 @@
 #include "infrastructure/services/VIPService.h"
 #include "utils/ResponseUtil.h"
 #include "utils/PasetoUtil.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <drogon/drogon.h>
 
 using namespace heartlake::controllers;
 using namespace heartlake::services;
 using namespace heartlake::utils;
 
-// 辅助函数：从请求属性中提取用户ID（由auth中间件注入）
-static std::string extractUserId(const HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
-}
-
 void VIPController::getVIPStatus(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userId = Validator::getUserId(req);
+        if (!userId) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
 
         // 获取VIP状态
-        Json::Value status = VIPService::getVIPStatus(userId);
+        Json::Value status = VIPService::getVIPStatus(*userId);
 
         callback(ResponseUtil::success(status));
     } catch (const std::exception& e) {
@@ -49,14 +42,14 @@ void VIPController::getPrivileges(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userId = Validator::getUserId(req);
+        if (!userId) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
 
         // 获取用户权益列表
-        auto privileges = VIPService::getUserPrivileges(userId);
+        auto privileges = VIPService::getUserPrivileges(*userId);
 
         // 直接返回权益列表
         Json::Value privilegeList(Json::arrayValue);
@@ -80,14 +73,14 @@ void VIPController::checkFreeCounseling(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userId = Validator::getUserId(req);
+        if (!userId) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
 
         // 检查免费咨询额度
-        bool hasQuota = VIPService::hasFreeCounselingQuota(userId);
+        bool hasQuota = VIPService::hasFreeCounselingQuota(*userId);
 
         Json::Value response;
         response["has_quota"] = hasQuota;
@@ -110,8 +103,8 @@ void VIPController::bookCounseling(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userId = Validator::getUserId(req);
+        if (!userId) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
@@ -133,7 +126,7 @@ void VIPController::bookCounseling(
         bool isFreeVIP = (*jsonBody).get("is_free_vip", false).asBool();
 
         // 预约咨询
-        std::string appointmentId = VIPService::bookCounseling(userId, appointmentTime, isFreeVIP);
+        std::string appointmentId = VIPService::bookCounseling(*userId, appointmentTime, isFreeVIP);
 
         if (appointmentId.empty()) {
             callback(ResponseUtil::error(400, "预约失败，请检查您的VIP权益"));
@@ -158,14 +151,14 @@ void VIPController::getAICommentFrequency(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
-        std::string userId = extractUserId(req);
-        if (userId.empty()) {
+        auto userId = Validator::getUserId(req);
+        if (!userId) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
 
         // 获取AI评论频率
-        float frequency = VIPService::getAICommentFrequency(userId);
+        float frequency = VIPService::getAICommentFrequency(*userId);
 
         Json::Value response;
         response["frequency_hours"] = frequency;

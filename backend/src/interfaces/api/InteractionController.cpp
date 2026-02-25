@@ -7,7 +7,9 @@
 #include "interfaces/api/InteractionController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "application/InteractionApplicationService.h"
+#include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/Validator.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include <memory>
 
@@ -20,34 +22,6 @@ static std::shared_ptr<InteractionApplicationService> getInteractionService() {
     return heartlake::core::di::ServiceLocator::instance().resolve<InteractionApplicationService>();
 }
 
-// 辅助函数：从请求中提取用户ID
-static std::string extractUserId(const HttpRequestPtr& req) {
-    try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
-        if (userId.empty()) {
-            throw std::runtime_error("未登录");
-        }
-        return userId;
-    } catch (...) {
-        throw std::runtime_error("未登录");
-    }
-}
-
-// 辅助函数：安全解析分页参数，防止溢出
-static void parsePaginationParams(const HttpRequestPtr& req, int& page, int& pageSize) {
-    page = 1;
-    pageSize = 20;
-    if (auto p = req->getParameter("page"); !p.empty()) {
-        try { page = std::stoi(p); } catch (...) {}
-    }
-    if (auto p = req->getParameter("page_size"); !p.empty()) {
-        try { pageSize = std::stoi(p); } catch (...) {}
-    }
-    // 边界验证防止溢出
-    if (page < 1 || page > 10000) page = 1;
-    if (pageSize < 1 || pageSize > 100) pageSize = 20;
-}
-
 // ==================== 涟漪相关 ====================
 
 void InteractionController::createRipple(
@@ -55,9 +29,13 @@ void InteractionController::createRipple(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& stoneId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         auto result = service->createRipple(stoneId, userId);
 
@@ -112,9 +90,13 @@ void InteractionController::deleteRipple(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& rippleId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         // 先查出 stone_id 用于广播
         auto dbClient = drogon::app().getDbClient("default");
         auto rippleInfo = dbClient->execSqlSync(
@@ -155,11 +137,14 @@ void InteractionController::getMyRipples(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
-        int page, pageSize;
-        parsePaginationParams(req, page, pageSize);
+        auto [page, pageSize] = safePagination(req);
 
         auto service = getInteractionService();
         auto result = service->getMyRipples(userId, page, pageSize);
@@ -179,6 +164,12 @@ void InteractionController::createBoat(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& stoneId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
         auto json = req->getJsonObject();
         if (!json) {
@@ -196,8 +187,6 @@ void InteractionController::createBoat(
             callback(ResponseUtil::badRequest("content不能为空"));
             return;
         }
-
-        std::string userId = extractUserId(req);
 
         auto service = getInteractionService();
         auto result = service->createBoat(stoneId, userId, content);
@@ -252,8 +241,7 @@ void InteractionController::getBoats(
     const std::string& stoneId
 ) {
     try {
-        int page, pageSize;
-        parsePaginationParams(req, page, pageSize);
+        auto [page, pageSize] = safePagination(req);
 
         auto service = getInteractionService();
         auto result = service->getBoats(stoneId, page, pageSize);
@@ -288,9 +276,13 @@ void InteractionController::deleteBoat(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& boatId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         auto result = service->deleteBoat(boatId, userId);
 
@@ -324,11 +316,14 @@ void InteractionController::getMyBoats(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
-        int page, pageSize;
-        parsePaginationParams(req, page, pageSize);
+        auto [page, pageSize] = safePagination(req);
 
         auto service = getInteractionService();
         auto result = service->getMyBoats(userId, page, pageSize);
@@ -347,11 +342,14 @@ void InteractionController::getNotifications(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
-        int page, pageSize;
-        parsePaginationParams(req, page, pageSize);
+        auto [page, pageSize] = safePagination(req);
 
         auto service = getInteractionService();
         auto result = service->getNotifications(userId, page, pageSize);
@@ -369,9 +367,13 @@ void InteractionController::markNotificationRead(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& notificationId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         service->markNotificationRead(notificationId, userId);
 
@@ -390,9 +392,13 @@ void InteractionController::markAllNotificationsRead(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         service->markAllNotificationsRead(userId);
 
@@ -408,9 +414,13 @@ void InteractionController::getUnreadCount(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto dbClient = drogon::app().getDbClient("default");
         auto result = dbClient->execSqlSync(
             "SELECT COUNT(*) as unread_count FROM notifications "
@@ -418,8 +428,8 @@ void InteractionController::getUnreadCount(
             userId);
 
         int unreadCount = 0;
-        if (!result.empty()) {
-            unreadCount = result[0]["unread_count"].as<int>();
+        if (auto rowOpt = safeRow(result)) {
+            unreadCount = (*rowOpt)["unread_count"].as<int>();
         }
 
         Json::Value response;
@@ -443,9 +453,13 @@ void InteractionController::createConnectionForStone(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& stoneId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         auto result = service->createConnectionForStone(stoneId, userId);
 
@@ -464,8 +478,13 @@ void InteractionController::createConnection(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
@@ -497,9 +516,13 @@ void InteractionController::upgradeConnectionToFriend(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& connectionId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
-        std::string userId = extractUserId(req);
-
         auto service = getInteractionService();
         auto result = service->upgradeConnectionToFriend(connectionId, userId);
 
@@ -530,8 +553,7 @@ void InteractionController::getConnectionMessages(
     const std::string& connectionId
 ) {
     try {
-        int page, pageSize;
-        parsePaginationParams(req, page, pageSize);
+        auto [page, pageSize] = safePagination(req);
         if (pageSize > 50) pageSize = 50; // 消息列表限制更严格
 
         auto service = getInteractionService();
@@ -550,6 +572,12 @@ void InteractionController::createConnectionMessage(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& connectionId
 ) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
     try {
         auto json = req->getJsonObject();
         if (!json) {
@@ -567,8 +595,6 @@ void InteractionController::createConnectionMessage(
             callback(ResponseUtil::badRequest("content不能为空"));
             return;
         }
-
-        std::string userId = extractUserId(req);
 
         auto service = getInteractionService();
         auto result = service->createConnectionMessage(connectionId, userId, content);

@@ -5,7 +5,11 @@
  */
 #include "interfaces/api/VectorSearchController.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include <json/json.h>
+
+using namespace heartlake::utils;
 
 namespace heartlake {
 namespace controllers {
@@ -162,10 +166,8 @@ void VectorSearchController::getPersonalizedRecommendations(
     std::function<void(const HttpResponsePtr &)> &&callback
 ) {
     // 获取当前用户ID
-    std::string userId;
-    try {
-        userId = req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         Json::Value resp;
         resp["code"] = 401;
         resp["message"] = "未登录";
@@ -174,7 +176,8 @@ void VectorSearchController::getPersonalizedRecommendations(
         callback(httpResp);
         return;
     }
-    
+    auto& userId = *userIdOpt;
+
     auto dbClient = drogon::app().getDbClient("default");
     
     // 获取最近的石头推荐
@@ -232,11 +235,8 @@ void VectorSearchController::updateStoneEmbedding(
     const std::string &stoneId
 ) {
     // SEC-01: 认证检查 — 防止未登录用户更新任意石头的向量嵌入
-    std::string userId;
-    try {
-        userId = req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {}
-    if (userId.empty()) {
+    auto userIdOpt2 = Validator::getUserId(req);
+    if (!userIdOpt2) {
         Json::Value resp;
         resp["code"] = 401;
         resp["message"] = "未登录";

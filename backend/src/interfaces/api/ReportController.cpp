@@ -6,6 +6,8 @@
 #include "interfaces/api/ReportController.h"
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -14,11 +16,12 @@ void ReportController::createReport(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         std::string user_id;
-        try { user_id = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-        if (user_id.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        user_id = *userIdOpt;
 
         auto json = req->getJsonObject();
         if (!json) {
@@ -85,27 +88,23 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         std::string user_id;
-        try { user_id = req->getAttributes()->get<std::string>("user_id"); } catch (...) {}
-        if (user_id.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
-        
-        int page = 1, page_size = 20;
-        if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-        if (auto p = req->getParameter("page_size"); !p.empty()) { try { page_size = std::stoi(p); } catch (...) {} }
-        
-        if (page < 1) page = 1;
-        if (page_size < 1 || page_size > 100) page_size = 20;
-        
+        user_id = *userIdOpt;
+
+        auto [page, page_size] = safePagination(req);
+
         auto dbClient = drogon::app().getDbClient("default");
-        
+
         // 获取总数
         auto countResult = dbClient->execSqlSync(
             "SELECT COUNT(*) as total FROM reports WHERE reporter_id = $1",
             user_id
         );
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         // 获取列表
         int offset = (page - 1) * page_size;

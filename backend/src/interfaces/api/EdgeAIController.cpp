@@ -14,6 +14,7 @@
 #include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/RequestHelper.h"
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -946,12 +947,8 @@ void EdgeAIController::getPulseHistory(
         int count = 10;
         auto countParam = req->getParameter("count");
         if (!countParam.empty()) {
-            try {
-                count = std::stoi(countParam);
-                if (count < 1 || count > 100) count = 10;
-            } catch (const std::exception&) {
-                count = 10;
-            }
+            count = safeInt(countParam, 10);
+            if (count < 1 || count > 100) count = 10;
         }
 
         auto history = engine.getPulseHistory(count);

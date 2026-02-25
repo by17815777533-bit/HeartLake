@@ -9,7 +9,9 @@
 #include "application/FriendApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "infrastructure/services/IntimacyService.h"
+#include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/Validator.h"
 #include <memory>
 #include <functional>
 #include <algorithm>
@@ -29,19 +31,6 @@ static std::string intimacyLevelZh(const std::string& level) {
     return "初识";
 }
 
-/**
- * @brief 从请求头中提取用户ID
- * @param req HTTP请求对象
- * @return 用户ID，未认证时返回空字符串
- */
-// SEC-1: 安全地从 attributes 获取 user_id（由认证中间件注入），避免直接读取可伪造的 Header
-static std::string extractUserId(const HttpRequestPtr& req) {
-    try {
-        return req->getAttributes()->get<std::string>("user_id");
-    } catch (...) {
-        return "";
-    }
-}
 
 // ==================== 好友请求相关 ====================
 
@@ -60,11 +49,12 @@ void FriendController::sendFriendRequest(
         return;
     }
 
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto userId = *userIdOpt;
     const std::string targetUserId = (*json)["user_id"].asString();
     if (targetUserId.empty()) {
         callback(ResponseUtil::badRequest("target user_id 不能为空"));
@@ -100,11 +90,12 @@ void FriendController::acceptFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    const std::string currentUserId = extractUserId(req);
-    if (currentUserId.empty()) {
+    auto currentUserIdOpt = Validator::getUserId(req);
+    if (!currentUserIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto currentUserId = *currentUserIdOpt;
 
     try {
         auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
@@ -128,11 +119,12 @@ void FriendController::rejectFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    const std::string currentUserId = extractUserId(req);
-    if (currentUserId.empty()) {
+    auto currentUserIdOpt = Validator::getUserId(req);
+    if (!currentUserIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto currentUserId = *currentUserIdOpt;
 
     try {
         Json::Value data;
@@ -151,11 +143,12 @@ void FriendController::removeFriend(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& friendId
 ) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto userId = *userIdOpt;
 
     auto service = getFriendService();
     if (!service) {
@@ -183,11 +176,12 @@ void FriendController::getFriends(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
-    const std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    const auto userId = *userIdOpt;
 
     try {
         int limit = 80;
@@ -255,11 +249,12 @@ void FriendController::getPendingRequests(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
-    const std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    const auto userId = *userIdOpt;
 
     Json::Value data;
     data["mode"] = "intimacy_auto";
@@ -275,11 +270,12 @@ void FriendController::sendMessage(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& friendId
 ) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto userId = *userIdOpt;
 
     auto json = req->getJsonObject();
     if (!json || !json->isMember("content")) {
@@ -332,11 +328,12 @@ void FriendController::getMessages(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& friendId
 ) {
-    std::string userId = extractUserId(req);
-    if (userId.empty()) {
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
+    auto userId = *userIdOpt;
 
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, callback]() -> drogon::Task<void> {

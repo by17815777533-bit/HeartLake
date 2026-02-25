@@ -12,6 +12,7 @@
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "utils/IdentityShadowMap.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <shared_mutex>
 #include <sstream>
@@ -73,7 +74,8 @@ std::vector<size_t> selectRelevantShortTermEntries(
     try {
         currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
         embeddingReady = !currentEmbedding.empty();
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Embedding generation failed: " << e.what();
         embeddingReady = false;
     }
 
@@ -111,7 +113,8 @@ std::vector<size_t> selectRelevantShortTermEntries(
                 if (semantic > 0.0f) {
                     total += static_cast<double>(semantic) * 1.2;
                 }
-            } catch (...) {
+            } catch (const std::exception& e) {
+                LOG_WARN << "Semantic scoring failed: " << e.what();
                 // 忽略语义失败，保持轻量回退
             }
         }
@@ -349,7 +352,8 @@ void DualMemoryRAG::evictLeastRelevant(
     try {
         currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
         embeddingReady = !currentEmbedding.empty();
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Embedding generation failed: " << e.what();
         embeddingReady = false;
     }
 
@@ -376,7 +380,9 @@ void DualMemoryRAG::evictLeastRelevant(
                 auto emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
                 float sim = cosineSimilarity(currentEmbedding, emb);
                 retainScore += alpha * std::max(0.0f, sim);
-            } catch (...) {}
+            } catch (const std::exception& e) {
+                LOG_WARN << "Embedding similarity failed: " << e.what();
+            }
         }
         // 词面回退
         retainScore += alpha * lexicalHint(currentContent, e.content);

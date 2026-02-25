@@ -5,6 +5,7 @@
  */
 
 #include "utils/SecurityLogger.h"
+#include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <json/json.h>
 

@@ -7,6 +7,8 @@
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/ContentFilter.h"
+#include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "infrastructure/services/NotificationPushService.h"
@@ -62,14 +64,12 @@ void PaperBoatController::replyToStone(const HttpRequestPtr &req,
         }
 
         // SEC-1: 从 attributes 安全获取 user_id（由认证中间件注入）
-        std::string user_id;
-        try {
-            user_id = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (user_id.empty()) {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto& user_id = *userIdOpt;
 
         // 内容安全检查
         std::string safety_level = ContentFilter::checkContentSafety(content);
@@ -264,7 +264,7 @@ void PaperBoatController::getBoatDetail(const HttpRequestPtr &/*req*/,
             return;
         }
 
-        auto row = result[0];
+        auto row = *safeRow(result);
 
         Json::Value boat;
         boat["boat_id"] = row["boat_id"].as<std::string>();
@@ -296,22 +296,15 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
                                          std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // SEC-1: 从 attributes 安全获取 user_id（由认证中间件注入）
-        std::string user_id;
-        try {
-            user_id = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (user_id.empty()) {
+        auto userIdOpt2 = Validator::getUserId(req);
+        if (!userIdOpt2) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto& user_id = *userIdOpt2;
 
-        int page = 1, page_size = 20;
-        if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-        if (auto p = req->getParameter("page_size"); !p.empty()) { try { page_size = std::stoi(p); } catch (...) {} }
+        auto [page, page_size] = safePagination(req);
         std::string status_filter = req->getParameter("status");
-
-        if (page < 1) page = 1;
-        if (page_size < 1 || page_size > 100) page_size = 20;
 
         auto dbClient = drogon::app().getDbClient("default");
 
@@ -326,7 +319,7 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
                 auto countResult = dbClient->execSqlSync(
                     "SELECT COUNT(*) as total FROM paper_boats b WHERE b.sender_id = $1 AND b.status = $2",
                     user_id, status_filter);
-                int t = countResult[0]["total"].as<int>();
+                int t = safeCount(countResult);
                 auto r = dbClient->execSqlSync(
                     "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.status, "
                     "EXTRACT(EPOCH FROM b.created_at) as created_at_ts "
@@ -340,7 +333,7 @@ void PaperBoatController::getMySentBoats(const HttpRequestPtr &req,
                 auto countResult = dbClient->execSqlSync(
                     "SELECT COUNT(*) as total FROM paper_boats b WHERE b.sender_id = $1",
                     user_id);
-                int t = countResult[0]["total"].as<int>();
+                int t = safeCount(countResult);
                 auto r = dbClient->execSqlSync(
                     "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, b.status, "
                     "EXTRACT(EPOCH FROM b.created_at) as created_at_ts "
@@ -382,21 +375,14 @@ void PaperBoatController::getMyReceivedBoats(const HttpRequestPtr &req,
                                              std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         // SEC-1: 从 attributes 安全获取 user_id（由认证中间件注入）
-        std::string user_id;
-        try {
-            user_id = req->getAttributes()->get<std::string>("user_id");
-        } catch (...) {}
-        if (user_id.empty()) {
+        auto userIdOpt3 = Validator::getUserId(req);
+        if (!userIdOpt3) {
             callback(ResponseUtil::unauthorized("未登录"));
             return;
         }
+        auto& user_id = *userIdOpt3;
 
-        int page = 1, page_size = 20;
-        if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
-        if (auto p = req->getParameter("page_size"); !p.empty()) { try { page_size = std::stoi(p); } catch (...) {} }
-
-        if (page < 1) page = 1;
-        if (page_size < 1 || page_size > 100) page_size = 20;
+        auto [page, page_size] = safePagination(req);
 
         auto dbClient = drogon::app().getDbClient("default");
 
@@ -407,7 +393,7 @@ void PaperBoatController::getMyReceivedBoats(const HttpRequestPtr &req,
             "WHERE s.user_id = $1 AND b.sender_id != $1",
             user_id
         );
-        int total = countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         int offset = (page - 1) * page_size;
         auto result = dbClient->execSqlSync(

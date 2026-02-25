@@ -4,8 +4,10 @@
  */
 
 #include "domain/user/repositories/UserRepository.h"
+#include "utils/RequestHelper.h"
 
 namespace heartlake::domain::user {
+using namespace heartlake::utils;
 
 std::optional<UserEntity> UserRepository::findById(const std::string& userId) {
     auto db = drogon::app().getDbClient("default");
@@ -13,14 +15,15 @@ std::optional<UserEntity> UserRepository::findById(const std::string& userId) {
         "SELECT user_id, username, nickname, email, is_anonymous, status, created_at "
         "FROM users WHERE user_id = $1 AND status = 'active'", userId
     );
-    if (result.empty()) return std::nullopt;
+    auto row = safeRow(result);
+    if (!row) return std::nullopt;
 
     UserEntity entity;
-    entity.userId = result[0]["user_id"].as<std::string>();
-    entity.username = result[0]["username"].as<std::string>();
-    entity.nickname = result[0]["nickname"].as<std::string>();
-    entity.isAnonymous = result[0]["is_anonymous"].as<bool>();
-    entity.status = result[0]["status"].as<std::string>();
+    entity.userId = (*row)["user_id"].as<std::string>();
+    entity.username = (*row)["username"].as<std::string>();
+    entity.nickname = (*row)["nickname"].as<std::string>();
+    entity.isAnonymous = (*row)["is_anonymous"].as<bool>();
+    entity.status = (*row)["status"].as<std::string>();
     return entity;
 }
 
@@ -30,14 +33,15 @@ std::optional<UserEntity> UserRepository::findByUsername(const std::string& user
         "SELECT user_id, username, nickname, email, is_anonymous, status, created_at "
         "FROM users WHERE username = $1 AND status = 'active'", username
     );
-    if (result.empty()) return std::nullopt;
+    auto row = safeRow(result);
+    if (!row) return std::nullopt;
 
     UserEntity entity;
-    entity.userId = result[0]["user_id"].as<std::string>();
-    entity.username = result[0]["username"].as<std::string>();
-    entity.nickname = result[0]["nickname"].as<std::string>();
-    entity.isAnonymous = result[0]["is_anonymous"].as<bool>();
-    entity.status = result[0]["status"].as<std::string>();
+    entity.userId = (*row)["user_id"].as<std::string>();
+    entity.username = (*row)["username"].as<std::string>();
+    entity.nickname = (*row)["nickname"].as<std::string>();
+    entity.isAnonymous = (*row)["is_anonymous"].as<bool>();
+    entity.status = (*row)["status"].as<std::string>();
     return entity;
 }
 
@@ -61,14 +65,15 @@ drogon::Task<std::optional<UserEntity>> UserRepository::findByIdAsync(const std:
         "SELECT user_id, username, nickname, email, is_anonymous, status, created_at "
         "FROM users WHERE user_id = $1 AND status = 'active'", userId
     );
-    if (result.empty()) co_return std::nullopt;
+    auto row = safeRow(result);
+    if (!row) co_return std::nullopt;
 
     UserEntity entity;
-    entity.userId = result[0]["user_id"].as<std::string>();
-    entity.username = result[0]["username"].as<std::string>();
-    entity.nickname = result[0]["nickname"].as<std::string>();
-    entity.isAnonymous = result[0]["is_anonymous"].as<bool>();
-    entity.status = result[0]["status"].as<std::string>();
+    entity.userId = (*row)["user_id"].as<std::string>();
+    entity.username = (*row)["username"].as<std::string>();
+    entity.nickname = (*row)["nickname"].as<std::string>();
+    entity.isAnonymous = (*row)["is_anonymous"].as<bool>();
+    entity.status = (*row)["status"].as<std::string>();
     co_return entity;
 }
 
@@ -78,14 +83,15 @@ drogon::Task<std::optional<UserEntity>> UserRepository::findByUsernameAsync(cons
         "SELECT user_id, username, nickname, email, is_anonymous, status, created_at "
         "FROM users WHERE username = $1 AND status = 'active'", username
     );
-    if (result.empty()) co_return std::nullopt;
+    auto row = safeRow(result);
+    if (!row) co_return std::nullopt;
 
     UserEntity entity;
-    entity.userId = result[0]["user_id"].as<std::string>();
-    entity.username = result[0]["username"].as<std::string>();
-    entity.nickname = result[0]["nickname"].as<std::string>();
-    entity.isAnonymous = result[0]["is_anonymous"].as<bool>();
-    entity.status = result[0]["status"].as<std::string>();
+    entity.userId = (*row)["user_id"].as<std::string>();
+    entity.username = (*row)["username"].as<std::string>();
+    entity.nickname = (*row)["nickname"].as<std::string>();
+    entity.isAnonymous = (*row)["is_anonymous"].as<bool>();
+    entity.status = (*row)["status"].as<std::string>();
     co_return entity;
 }
 
