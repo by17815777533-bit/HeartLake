@@ -22,6 +22,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -574,9 +575,19 @@ private:
     bool enabled_ = false;
 
     // ---- 情感分析内部 ----
-    std::unordered_map<std::string, float> sentimentLexicon_;   ///< 情感词典
-    std::unordered_map<std::string, float> intensifiers_;       ///< 程度副词
-    std::unordered_map<std::string, float> negators_;           ///< 否定词
+    struct StringHash {
+        using is_transparent = void;
+        size_t operator()(std::string_view sv) const noexcept {
+            return std::hash<std::string_view>{}(sv);
+        }
+        size_t operator()(const std::string& s) const noexcept {
+            return std::hash<std::string_view>{}(std::string_view{s});
+        }
+    };
+    using SentimentMap = std::unordered_map<std::string, float, StringHash, std::equal_to<>>;
+    SentimentMap sentimentLexicon_;   ///< 情感词典
+    SentimentMap intensifiers_;       ///< 程度副词
+    SentimentMap negators_;           ///< 否定词
     struct SentimentCacheEntry {
         std::string key;
         EdgeSentimentResult result;
@@ -662,8 +673,8 @@ private:
 
     int randomLevel();
     float vectorDistance(const std::vector<float>& a, const std::vector<float>& b) const;
-    std::vector<size_t> searchLayer(const std::vector<float>& query,
-                                     size_t entryPoint, int ef, int level) const;
+    std::vector<std::pair<float, size_t>> searchLayer(const std::vector<float>& query,
+                                                       size_t entryPoint, int ef, int level) const;
     void connectNeighbors(size_t nodeIdx, const std::vector<size_t>& neighbors,
                           int level, int maxM);
 

@@ -888,8 +888,10 @@ std::vector<std::string> EdgeAIEngine::tokenizeUTF8(const std::string& text) con
                 std::string utf8Char = text.substr(i, byteCount);
                 tokens.push_back(utf8Char);
 
-                // 同时尝试提取2-6字的中文词组（覆盖“睡不着/提不起精神”等短语）
+                // 同时尝试提取2-6字的中文词组（覆盖”睡不着/提不起精神”等短语）
                 size_t j = i + byteCount;
+                std::string compound;
+                compound.reserve(24); // 最多6字 * 4字节，复用缓冲区避免重复分配
                 for (int wordLen = 2; wordLen <= 6 && j < text.size(); ++wordLen) {
                     unsigned char nc = static_cast<unsigned char>(text[j]);
                     if (nc < 0xC0) break;
@@ -899,12 +901,12 @@ std::vector<std::string> EdgeAIEngine::tokenizeUTF8(const std::string& text) con
                     else if ((nc & 0xF8) == 0xF0) nb = 4;
                     if (j + nb > text.size()) break;
 
-                    std::string compound = text.substr(i, (j + nb) - i);
-                    // 只有在词典中存在的组合才加入
-                    if (sentimentLexicon_.count(compound) ||
-                        intensifiers_.count(compound) ||
-                        negators_.count(compound)) {
-                        tokens.push_back(compound);
+                    // 透明哈希: 用 string_view 查找避免非匹配时的 string 构造开销
+                    std::string_view compoundView(text.data() + i, (j + nb) - i);
+                    if (sentimentLexicon_.count(compoundView) ||
+                        intensifiers_.count(compoundView) ||
+                        negators_.count(compoundView)) {
+                        tokens.emplace_back(compoundView);
                     }
                     j += nb;
                 }
@@ -927,32 +929,37 @@ float EdgeAIEngine::ruleSentiment(const std::string& text) const {
     float score = 0.0f;
     int signals = 0;
 
-    // 表情符号检测
-    // 正面表情
-    const std::vector<std::string> positiveEmojis = {
-        "😊", "😄", "😃", "🥰", "❤", "💕", "👍", "🎉", "✨", "😁",
-        "🤗", "💪", "🌟", "😍", "🥳", "💖", "😘", "🙂", "☺", "💯"
+    // 表情符号检测 — 单次扫描，O(N) 替代 O(N*E)
+    static const std::unordered_map<std::string, float> emojiScores = {
+        {"😊", 0.3f}, {"😄", 0.3f}, {"😃", 0.3f}, {"🥰", 0.3f}, {"❤", 0.3f},
+        {"💕", 0.3f}, {"👍", 0.3f}, {"🎉", 0.3f}, {"✨", 0.3f}, {"😁", 0.3f},
+        {"🤗", 0.3f}, {"💪", 0.3f}, {"🌟", 0.3f}, {"😍", 0.3f}, {"🥳", 0.3f},
+        {"💖", 0.3f}, {"😘", 0.3f}, {"🙂", 0.3f}, {"☺", 0.3f}, {"💯", 0.3f},
+        {"😢", -0.3f}, {"😭", -0.3f}, {"😡", -0.3f}, {"😠", -0.3f}, {"💔", -0.3f},
+        {"😞", -0.3f}, {"😔", -0.3f}, {"😤", -0.3f}, {"😰", -0.3f}, {"😱", -0.3f},
+        {"🤮", -0.3f}, {"👎", -0.3f}, {"😩", -0.3f}, {"😫", -0.3f}, {"😣", -0.3f},
+        {"😖", -0.3f}, {"😿", -0.3f}, {"🥺", -0.3f}, {"😥", -0.3f}, {"😓", -0.3f}
     };
-    for (const auto& emoji : positiveEmojis) {
-        size_t pos = 0;
-        while ((pos = text.find(emoji, pos)) != std::string::npos) {
-            score += 0.3f;
-            ++signals;
-            pos += emoji.size();
-        }
-    }
-
-    // 负面表情
-    const std::vector<std::string> negativeEmojis = {
-        "😢", "😭", "😡", "😠", "💔", "😞", "😔", "😤", "😰", "😱",
-        "🤮", "👎", "😩", "😫", "😣", "😖", "😿", "🥺", "😥", "😓"
-    };
-    for (const auto& emoji : negativeEmojis) {
-        size_t pos = 0;
-        while ((pos = text.find(emoji, pos)) != std::string::npos) {
-            score -= 0.3f;
-            ++signals;
-            pos += emoji.size();
+    {
+        size_t ei = 0;
+        while (ei < text.size()) {
+            unsigned char uc = static_cast<unsigned char>(text[ei]);
+            if (uc >= 0xC0) {
+                int bc = 1;
+                if ((uc & 0xE0) == 0xC0) bc = 2;
+                else if ((uc & 0xF0) == 0xE0) bc = 3;
+                else if ((uc & 0xF8) == 0xF0) bc = 4;
+                if (ei + bc <= text.size()) {
+                    auto it = emojiScores.find(text.substr(ei, bc));
+                    if (it != emojiScores.end()) {
+                        score += it->second;
+                        ++signals;
+                    }
+                }
+                ei += bc;
+            } else {
+                ++ei;
+            }
         }
     }
 
@@ -1021,7 +1028,7 @@ float EdgeAIEngine::ruleSentiment(const std::string& text) const {
     }
 
     // 文本颜文字检测
-    const std::vector<std::pair<std::string, float>> kaomoji = {
+    static const std::vector<std::pair<std::string, float>> kaomoji = {
         {"(^_^)", 0.4f}, {"(^^)", 0.3f}, {"(≧▽≦)", 0.5f}, {"(╥_╥)", -0.5f},
         {"(T_T)", -0.4f}, {"(>_<)", -0.3f}, {":)", 0.3f}, {":(", -0.3f},
         {":D", 0.4f}, {";)", 0.2f}, {"XD", 0.4f}, {"orz", -0.3f},
@@ -1347,27 +1354,50 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocalUncached(const std::strin
     float ensembleScore = wRule * ruleScore + wLex * lexScore + wStat * statScore;
     ensembleScore = std::clamp(ensembleScore, -1.0f, 1.0f);
 
-    auto applyContrastBoost = [&](float baseScore) {
-        static const std::vector<std::string> contrastMarkers = {
-            "但是", "但", "不过", "然而", "可是", "只是"
-        };
-        size_t markerPos = std::string::npos;
-        size_t markerLen = 0;
-        for (const auto& marker : contrastMarkers) {
+    // ── 共享 marker 列表（消除3个lambda中的重复定义）──
+    static const std::vector<std::string> sharedContrastMarkers = {
+        "但是", "但", "不过", "然而", "可是", "只是"
+    };
+    static const std::vector<std::string> sharedNegativeMarkers = {
+        "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁",
+        "痛苦", "绝望", "崩溃", "失眠", "失败", "糟糕", "后悔"
+    };
+    static const std::vector<std::string> praiseMarkers = {
+        "夸", "夸奖", "表扬", "认可", "肯定", "称赞", "赞扬", "赞许", "嘉奖", "鼓励", "被夸", "被表扬"
+    };
+    static const std::vector<std::string> selfMarkers = {"我", "自己", "本人"};
+    static const std::vector<std::string> positiveEventMarkers = {
+        "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬",
+        "认可", "肯定", "赞扬", "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
+    };
+
+    // ── 一次扫描预计算所有 marker flags ──
+    const bool hasContrast = containsAnyPhrase(text, sharedContrastMarkers);
+    const bool hasNegative = containsAnyPhrase(text, sharedNegativeMarkers);
+    const bool hasPraise = containsAnyPhrase(text, praiseMarkers);
+    const bool hasSelf = containsAnyPhrase(text, selfMarkers);
+    const bool hasPositiveEvent = containsAnyPhrase(text, positiveEventMarkers);
+
+    // 找最后一个转折词位置（contrastBoost 和 positiveEventBoost 共用）
+    size_t lastContrastPos = std::string::npos;
+    size_t lastContrastLen = 0;
+    if (hasContrast) {
+        for (const auto& marker : sharedContrastMarkers) {
             size_t pos = text.rfind(marker);
-            if (pos != std::string::npos && (markerPos == std::string::npos || pos > markerPos)) {
-                markerPos = pos;
-                markerLen = marker.size();
+            if (pos != std::string::npos && (lastContrastPos == std::string::npos || pos > lastContrastPos)) {
+                lastContrastPos = pos;
+                lastContrastLen = marker.size();
             }
         }
-        if (markerPos == std::string::npos || markerPos + markerLen >= text.size()) {
-            return baseScore;
-        }
+    }
 
-        std::string tailText = text.substr(markerPos + markerLen);
-        if (tailText.empty()) {
+    // ── applyContrastBoost ──
+    auto applyContrastBoost = [&](float baseScore) {
+        if (lastContrastPos == std::string::npos || lastContrastPos + lastContrastLen >= text.size()) {
             return baseScore;
         }
+        std::string tailText = text.substr(lastContrastPos + lastContrastLen);
+        if (tailText.empty()) return baseScore;
 
         auto tailTokens = tokenizeUTF8(tailText);
         const float tailRule = ruleSentiment(tailText);
@@ -1376,10 +1406,7 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocalUncached(const std::strin
         float tailScore = wRule * tailRule + wLex * tailLex + wStat * tailStat;
         tailScore = std::clamp(tailScore, -1.0f, 1.0f);
 
-        if (std::abs(tailLex) < 0.12f && std::abs(tailScore) < 0.18f) {
-            return baseScore;
-        }
-
+        if (std::abs(tailLex) < 0.12f && std::abs(tailScore) < 0.18f) return baseScore;
         if (baseScore * tailScore < -0.06f) {
             return std::clamp(baseScore * 0.25f + tailScore * 0.75f, -1.0f, 1.0f);
         }
@@ -1387,86 +1414,24 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocalUncached(const std::strin
     };
     ensembleScore = applyContrastBoost(ensembleScore);
 
+    // ── applyPraiseBoost（使用预计算flags，无需重复扫描）──
     auto applyPraiseBoost = [&](float baseScore) {
-        static const std::vector<std::string> praiseMarkers = {
-            "夸", "夸奖", "表扬", "认可", "肯定", "称赞", "赞扬", "赞许", "嘉奖", "鼓励", "被夸", "被表扬"
-        };
-        static const std::vector<std::string> selfMarkers = {"我", "自己", "本人"};
-        static const std::vector<std::string> contrastMarkers = {"但是", "但", "不过", "然而", "可是", "只是"};
-        static const std::vector<std::string> negativeMarkers = {
-            "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃", "失眠"
-        };
-
-        bool hasPraise = false;
-        for (const auto& marker : praiseMarkers) {
-            if (text.find(marker) != std::string::npos) {
-                hasPraise = true;
-                break;
-            }
-        }
-        if (!hasPraise) {
-            return baseScore;
-        }
-
-        bool hasSelf = false;
-        for (const auto& marker : selfMarkers) {
-            if (text.find(marker) != std::string::npos) {
-                hasSelf = true;
-                break;
-            }
-        }
-        if (!hasSelf) {
-            return baseScore;
-        }
-
-        for (const auto& marker : contrastMarkers) {
-            if (text.find(marker) != std::string::npos) {
-                return baseScore;
-            }
-        }
-        for (const auto& marker : negativeMarkers) {
-            if (text.find(marker) != std::string::npos) {
-                return baseScore;
-            }
-        }
-        if (ruleScore < -0.2f || lexScore < -0.12f) {
-            return baseScore;
-        }
+        if (!hasPraise || !hasSelf || hasContrast || hasNegative) return baseScore;
+        if (ruleScore < -0.2f || lexScore < -0.12f) return baseScore;
         return std::max(baseScore, 0.64f);
     };
     ensembleScore = applyPraiseBoost(ensembleScore);
 
+    // ── applyPositiveEventBoost（使用预计算flags）──
     auto applyPositiveEventBoost = [&](float baseScore) {
-        static const std::vector<std::string> positiveEventMarkers = {
-            "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬",
-            "认可", "肯定", "赞扬", "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
-        };
-        static const std::vector<std::string> negativeMarkers = {
-            "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁",
-            "痛苦", "绝望", "崩溃", "失眠", "失败", "糟糕", "后悔"
-        };
-        static const std::vector<std::string> contrastMarkers = {
-            "但是", "但", "不过", "然而", "可是", "只是"
-        };
+        if (!hasPositiveEvent || hasNegative) return baseScore;
 
-        if (!containsAnyPhrase(text, positiveEventMarkers)) {
-            return baseScore;
-        }
-        if (containsAnyPhrase(text, negativeMarkers)) {
-            return baseScore;
+        // 检查转折词后是否有负面内容
+        if (lastContrastPos != std::string::npos && lastContrastPos + lastContrastLen < text.size()) {
+            const auto tail = text.substr(lastContrastPos + lastContrastLen);
+            if (containsAnyPhrase(tail, sharedNegativeMarkers)) return baseScore;
         }
 
-        for (const auto& marker : contrastMarkers) {
-            const auto pos = text.rfind(marker);
-            if (pos == std::string::npos) continue;
-            if (pos + marker.size() >= text.size()) continue;
-            const auto tail = text.substr(pos + marker.size());
-            if (containsAnyPhrase(tail, negativeMarkers)) {
-                return baseScore;
-            }
-        }
-
-        // 正向事件语义在无负向上下文时，最低提升到开心区间，避免误判为焦虑/平静。
         const float floorScore = text.find("礼物") != std::string::npos ? 0.74f : 0.68f;
         return std::max(baseScore, floorScore);
     };
@@ -2282,7 +2247,7 @@ float EdgeAIEngine::vectorDistance(const std::vector<float>& a,
     return dist;
 }
 
-std::vector<size_t> EdgeAIEngine::searchLayer(const std::vector<float>& query,
+std::vector<std::pair<float, size_t>> EdgeAIEngine::searchLayer(const std::vector<float>& query,
                                                size_t entryPoint, int ef,
                                                int level) const {
     // 贪心搜索 + 动态候选列表（beam search 变体）
@@ -2348,12 +2313,7 @@ std::vector<size_t> EdgeAIEngine::searchLayer(const std::vector<float>& query,
     }
     std::sort(sorted.begin(), sorted.end());
 
-    std::vector<size_t> result;
-    result.reserve(sorted.size());
-    for (const auto& [d, idx] : sorted) {
-        result.push_back(idx);
-    }
-    return result;
+    return sorted;
 }
 
 void EdgeAIEngine::connectNeighbors(size_t nodeIdx,
@@ -2474,26 +2434,33 @@ void EdgeAIEngine::hnswInsert(const std::string& id, const std::vector<float>& v
     for (int lv = hnswMaxLevel_; lv > nodeLevel; --lv) {
         auto nearest = searchLayer(vec, currentEntry, 1, lv);
         if (!nearest.empty()) {
-            currentEntry = nearest[0];
+            currentEntry = nearest[0].second;
         }
     }
 
     // 从 min(nodeLevel, hnswMaxLevel_) 层到第0层，搜索并连接邻居
     for (int lv = std::min(nodeLevel, hnswMaxLevel_); lv >= 0; --lv) {
         int efConstruction = hnswEfConstruction_;
-        auto neighbors = searchLayer(vec, currentEntry, efConstruction, lv);
+        auto neighborPairs = searchLayer(vec, currentEntry, efConstruction, lv);
 
         int maxM = (lv == 0) ? hnswMMax0_ : hnswM_;
 
         // 取最近的 maxM 个作为邻居
-        if (static_cast<int>(neighbors.size()) > maxM) {
-            neighbors.resize(maxM);
+        if (static_cast<int>(neighborPairs.size()) > maxM) {
+            neighborPairs.resize(maxM);
         }
 
-        connectNeighbors(nodeIdx, neighbors, lv, maxM);
+        // 提取索引用于连接
+        std::vector<size_t> neighborIndices;
+        neighborIndices.reserve(neighborPairs.size());
+        for (const auto& [d, idx] : neighborPairs) {
+            neighborIndices.push_back(idx);
+        }
 
-        if (!neighbors.empty()) {
-            currentEntry = neighbors[0];
+        connectNeighbors(nodeIdx, neighborIndices, lv, maxM);
+
+        if (!neighborPairs.empty()) {
+            currentEntry = neighborPairs[0].second;
         }
     }
 
@@ -2527,7 +2494,7 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
     for (int lv = hnswMaxLevel_; lv > 0; --lv) {
         auto nearest = searchLayer(query, currentEntry, 1, lv);
         if (!nearest.empty()) {
-            currentEntry = nearest[0];
+            currentEntry = nearest[0].second;
         }
     }
 
@@ -2541,8 +2508,8 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
         const int pilotEf = std::clamp(std::max(requestedK * 2, 12), pilotLo, pilotHi);
         auto pilotCandidates = searchLayer(query, currentEntry, pilotEf, 0);
         if (pilotCandidates.size() >= 2) {
-            const float best = vectorDistance(query, hnswNodes_[pilotCandidates[0]].vector);
-            const float secondBest = vectorDistance(query, hnswNodes_[pilotCandidates[1]].vector);
+            const float best = pilotCandidates[0].first;
+            const float secondBest = pilotCandidates[1].first;
             const float marginRatio = (secondBest - best) / (std::abs(best) + 1e-6f);
 
             if (marginRatio < 0.08f) {
@@ -2569,19 +2536,16 @@ std::vector<VectorSearchResult> EdgeAIEngine::hnswSearch(const std::vector<float
         candidates.resize(requestedK);
     }
 
-    // 构建结果
+    // 构建结果（直接使用 searchLayer 保留的距离，避免重复计算）
     std::vector<VectorSearchResult> results;
     results.reserve(candidates.size());
 
-    for (size_t idx : candidates) {
-        float dist = vectorDistance(query, hnswNodes_[idx].vector);
-        float sqrtDist = std::sqrt(dist);
-
+    const float dim = std::max(1.0f, static_cast<float>(query.size()));
+    for (const auto& [dist, idx] : candidates) {
         VectorSearchResult r;
         r.id = hnswNodes_[idx].id;
-        r.distance = sqrtDist;
+        r.distance = std::sqrt(dist);
         // 相似度：使用高斯核映射 sim = exp(-dist / (2 * dim))
-        float dim = std::max(1.0f, static_cast<float>(query.size()));
         r.similarity = std::exp(-dist / (2.0f * dim));
         results.push_back(std::move(r));
     }
@@ -2609,19 +2573,28 @@ std::vector<VectorSearchResult> EdgeAIEngine::rerankHNSWCandidates(
     const size_t coarseDim = std::clamp<size_t>(
         static_cast<size_t>(coarseFromEnv), 16, expectedDim);
 
-    auto cosinePrefix = [](const std::vector<float>& a,
-                           const std::vector<float>& b,
-                           size_t dim) -> float {
-        float dot = 0.0f;
-        float normA = 0.0f;
-        float normB = 0.0f;
-        for (size_t i = 0; i < dim; ++i) {
+    // 融合cosine：一次遍历同时计算 coarse 和 full 维度的余弦相似度
+    auto cosinePrefixFused = [](const std::vector<float>& a,
+                                const std::vector<float>& b,
+                                size_t fullDim, size_t coarseDim,
+                                float& outFull, float& outCoarse) {
+        float dot = 0.0f, normA = 0.0f, normB = 0.0f;
+        // 先累积到 coarseDim，快照 coarse cosine
+        for (size_t i = 0; i < coarseDim; ++i) {
             dot += a[i] * b[i];
             normA += a[i] * a[i];
             normB += b[i] * b[i];
         }
-        const float denom = std::sqrt(normA) * std::sqrt(normB);
-        return denom > 1e-6f ? dot / denom : 0.0f;
+        const float denomCoarse = std::sqrt(normA) * std::sqrt(normB);
+        outCoarse = denomCoarse > 1e-6f ? dot / denomCoarse : 0.0f;
+        // 继续累积到 fullDim
+        for (size_t i = coarseDim; i < fullDim; ++i) {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+        const float denomFull = std::sqrt(normA) * std::sqrt(normB);
+        outFull = denomFull > 1e-6f ? dot / denomFull : 0.0f;
     };
 
     std::vector<VectorSearchResult> reranked;
@@ -2637,8 +2610,8 @@ std::vector<VectorSearchResult> EdgeAIEngine::rerankHNSWCandidates(
             continue;
         }
 
-        const float fullCosine = cosinePrefix(query, node.vector, expectedDim);
-        const float coarseCosine = cosinePrefix(query, node.vector, coarseDim);
+        float fullCosine, coarseCosine;
+        cosinePrefixFused(query, node.vector, expectedDim, coarseDim, fullCosine, coarseCosine);
         const float fusedCosine = std::clamp(
             fullCosine * 0.72f + coarseCosine * 0.28f, -1.0f, 1.0f);
         const float similarity = std::clamp((fusedCosine + 1.0f) * 0.5f, 0.0f, 1.0f);

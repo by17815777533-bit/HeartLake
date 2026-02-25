@@ -100,15 +100,12 @@ double RecommendationEngine::emotionCompatibilityScore(
 }
 
 std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
-    const std::vector<RecommendationCandidate>& candidates,
+    std::vector<RecommendationCandidate> pool,
     double lambda,
     int topK
 ) {
-    if (candidates.empty()) return {};
+    if (pool.empty()) return {};
     if (topK <= 0) return {};
-
-    // 先按相关性截断候选池，降低大规模embedding开销。
-    std::vector<RecommendationCandidate> pool = candidates;
     const size_t preselectLimit = static_cast<size_t>(std::max(topK * 4, topK));
     if (pool.size() > preselectLimit) {
         std::partial_sort(

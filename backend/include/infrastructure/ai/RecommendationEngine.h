@@ -166,7 +166,7 @@ private:
      * 多样性感知重排序 (MMR - Maximal Marginal Relevance)
      */
     std::vector<RecommendationCandidate> mmrRerank(
-        const std::vector<RecommendationCandidate>& candidates,
+        std::vector<RecommendationCandidate> pool,
         double lambda,
         int topK
     );
