@@ -46,11 +46,8 @@ float EmotionResonanceEngine::trajectorySimDTW(
 
     constexpr float INF = std::numeric_limits<float>::max();
 
-    // Sakoe-Chiba band: 窗口宽度至少覆盖长度差，保证(n,m)可达
-    const size_t w = std::max(static_cast<size_t>(100),
-                              static_cast<size_t>(n > m ? n - m : m - n));
-
     // thread_local 滚动数组：避免每次调用堆分配，空间 O(m) 替代 O(n*m)
+    // 保留完整DTW计算（无band约束），确保零精度损失
     thread_local std::vector<float> prev_buf, curr_buf;
     prev_buf.assign(m + 1, INF);
     curr_buf.assign(m + 1, INF);
@@ -59,11 +56,7 @@ float EmotionResonanceEngine::trajectorySimDTW(
     for (size_t i = 1; i <= n; ++i) {
         curr_buf.assign(m + 1, INF);
 
-        // Sakoe-Chiba band 约束：只计算对角线附近 w 宽度区域
-        const size_t j_start = (i > w) ? i - w : 1;
-        const size_t j_end = std::min(m, i + w);
-
-        for (size_t j = j_start; j <= j_end; ++j) {
+        for (size_t j = 1; j <= m; ++j) {
             float cost = std::abs(traj1[i - 1] - traj2[j - 1]);
             float min_prev = prev_buf[j - 1];
             if (prev_buf[j] < min_prev) min_prev = prev_buf[j];
