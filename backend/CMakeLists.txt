@@ -65,3 +65,32 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
     -Wunused-parameter -Wfloat-conversion
 )
+
+# Tests
+find_package(GTest REQUIRED)
+enable_testing()
+
+set(TEST_SOURCES
+    tests/test_edge_ai_engine.cpp
+    tests/test_utils.cpp
+    tests/test_security_crypto.cpp
+    tests/test_differential_privacy.cpp
+    tests/test_dual_memory_rag.cpp
+    tests/test_emotion_resonance.cpp
+    tests/test_advanced_embedding.cpp
+    tests/test_circuit_breaker.cpp
+    tests/test_psychological_risk_assessment.cpp
+    tests/benchmark_edge_ai.cpp
+    tests/stress_test.cpp
+    tests/integration_test.cpp
+    tests/controllers/stone_controller_test.cpp
+    tests/services/stone_service_test.cpp
+    tests/services/safe_harbor_service_test.cpp
+)
+
+foreach(test_source ${TEST_SOURCES})
+    get_filename_component(test_name ${test_source} NAME_WE)
+    add_executable(${test_name} ${test_source})
+    target_link_libraries(${test_name} PRIVATE ${PROJECT_NAME}_lib GTest::gtest GTest::gtest_main)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endforeach()

@@ -4,6 +4,7 @@
  * Created by 林子怡
  */
 #include "utils/Validator.h"
+#include <algorithm>
 #include <regex>
 #include <drogon/drogon.h>
 
@@ -92,6 +93,170 @@ ValidationResult Validator::password(const std::string& value) {
         return ValidationResult::invalid("密码需要包含大写字母、小写字母和数字");
     }
     return ValidationResult::valid();
+}
+
+ValidationResult Validator::passwordStrong(const std::string& value) {
+    if (value.empty()) {
+        return ValidationResult::invalid("密码不能为空");
+    }
+    if (value.length() < 8) {
+        return ValidationResult::invalid("密码至少需要 8 个字符");
+    }
+    if (value.length() > 64) {
+        return ValidationResult::invalid("密码不能超过 64 个字符");
+    }
+    // 至少包含大小写字母、数字、特殊字符中的3种
+    int categories = 0;
+    bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+    for (char c : value) {
+        if (std::isupper(static_cast<unsigned char>(c))) hasUpper = true;
+        else if (std::islower(static_cast<unsigned char>(c))) hasLower = true;
+        else if (std::isdigit(static_cast<unsigned char>(c))) hasDigit = true;
+        else hasSpecial = true;
+    }
+    if (hasUpper) categories++;
+    if (hasLower) categories++;
+    if (hasDigit) categories++;
+    if (hasSpecial) categories++;
+    if (categories < 3) {
+        return ValidationResult::invalid("密码需要包含大小写字母、数字、特殊字符中的至少3种");
+    }
+    return ValidationResult::valid();
+}
+
+int Validator::calculatePasswordStrength(const std::string& value) {
+    if (value.empty()) return 0;
+    int score = 0;
+    // 长度加分
+    if (value.length() >= 8) score++;
+    if (value.length() >= 12) score++;
+    // 字符种类加分
+    bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+    for (char c : value) {
+        if (std::isupper(static_cast<unsigned char>(c))) hasUpper = true;
+        else if (std::islower(static_cast<unsigned char>(c))) hasLower = true;
+        else if (std::isdigit(static_cast<unsigned char>(c))) hasDigit = true;
+        else hasSpecial = true;
+    }
+    if (hasUpper) score++;
+    if (hasLower) score++;
+    if (hasDigit) score++;
+    if (hasSpecial) score++;
+    return score;
+}
+
+std::string Validator::sanitizeHtml(const std::string& input) {
+    std::string result;
+    result.reserve(input.size());
+    for (char c : input) {
+        switch (c) {
+            case '<': result += "&lt;"; break;
+            case '>': result += "&gt;"; break;
+            case '&': result += "&amp;"; break;
+            case '"': result += "&quot;"; break;
+            case '\'': result += "&#39;"; break;
+            default: result += c; break;
+        }
+    }
+    return result;
+}
+
+ValidationResult Validator::checkSqlInjection(const std::string& input, const std::string& fieldName) {
+    // 转小写检测
+    std::string lower = input;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    static const std::vector<std::string> dangerousKeywords = {
+        "drop ", "delete ", "insert ", "update ", "union ", "select ",
+        "--", ";--", "/*", "*/", "xp_", "exec ", "execute "
+    };
+    for (const auto& keyword : dangerousKeywords) {
+        if (lower.find(keyword) != std::string::npos) {
+            return ValidationResult::invalid(fieldName + " 包含不安全的内容");
+        }
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::checkPathTraversal(const std::string& path, const std::string& fieldName) {
+    if (path.find("..") != std::string::npos) {
+        return ValidationResult::invalid(fieldName + " 包含不安全的路径");
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::url(const std::string& value, const std::string& fieldName) {
+    if (value.empty()) {
+        return ValidationResult::invalid(fieldName + " 不能为空");
+    }
+    thread_local static const std::regex urlRegex(
+        R"(https?://[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+)");
+    if (!std::regex_match(value, urlRegex)) {
+        return ValidationResult::invalid(fieldName + " 格式不正确");
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::phoneNumber(const std::string& value) {
+    if (value.empty()) {
+        return ValidationResult::invalid("手机号不能为空");
+    }
+    thread_local static const std::regex phoneRegex(R"(1[3-9]\d{9})");
+    if (!std::regex_match(value, phoneRegex)) {
+        return ValidationResult::invalid("手机号格式不正确");
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::verificationCode(const std::string& code) {
+    if (code.empty()) {
+        return ValidationResult::invalid("验证码不能为空");
+    }
+    thread_local static const std::regex codeRegex(R"(\d{6})");
+    if (!std::regex_match(code, codeRegex)) {
+        return ValidationResult::invalid("验证码格式不正确");
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::fileExtension(const std::string& filename,
+                                          const std::vector<std::string>& allowedExtensions,
+                                          const std::string& fieldName) {
+    auto dotPos = filename.rfind('.');
+    if (dotPos == std::string::npos) {
+        return ValidationResult::invalid(fieldName + " 缺少扩展名");
+    }
+    std::string ext = filename.substr(dotPos + 1);
+    // 转小写
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    for (const auto& allowed : allowedExtensions) {
+        std::string lowerAllowed = allowed;
+        std::transform(lowerAllowed.begin(), lowerAllowed.end(), lowerAllowed.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (ext == lowerAllowed) {
+            return ValidationResult::valid();
+        }
+    }
+    return ValidationResult::invalid(fieldName + " 扩展名不允许");
+}
+
+ValidationResult Validator::hasField(const Json::Value& json, const std::string& fieldName) {
+    if (!json.isMember(fieldName)) {
+        return ValidationResult::invalid("缺少字段: " + fieldName);
+    }
+    return ValidationResult::valid();
+}
+
+ValidationResult Validator::inEnum(const std::string& value,
+                                   const std::vector<std::string>& allowedValues,
+                                   const std::string& fieldName) {
+    for (const auto& allowed : allowedValues) {
+        if (value == allowed) {
+            return ValidationResult::valid();
+        }
+    }
+    return ValidationResult::invalid(fieldName + " 的值不在允许范围内");
 }
 
 ValidationResult Validator::userId(const std::string& value) {

@@ -44,6 +44,7 @@
             placeholder="密码"
             size="large"
             show-password
+            aria-label="密码"
             @keyup.enter="handleLogin"
           />
         </el-form-item>
@@ -53,6 +54,7 @@
           size="large"
           class="login-btn"
           :loading="loading"
+          aria-label="登录"
           @click="handleLogin"
         >
           {{ loading ? '登录中...' : '登 录' }}
