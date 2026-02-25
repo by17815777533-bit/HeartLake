@@ -19,8 +19,6 @@
 #include <atomic>
 #include "SemanticCache.h"
 
-using namespace drogon;
-
 namespace heartlake {
 namespace ai {
 
@@ -263,8 +261,8 @@ private:
         int retryCount
     );
 
-    std::string getReqResultError(ReqResult result) const;
-    bool isRetryableError(ReqResult result) const;
+    std::string getReqResultError(drogon::ReqResult result) const;
+    bool isRetryableError(drogon::ReqResult result) const;
     int getRetryDelay(int retryCount) const;
 
     bool isCircuitOpen();
@@ -275,7 +273,7 @@ private:
     int circuitFailureThreshold_ = 3;
     int circuitCooldownSeconds_ = 20;
     float localSentimentConfidenceThreshold_ = 0.72f;
-    HttpClientPtr ollamaClient_;  // 复用连接
+    drogon::HttpClientPtr ollamaClient_;  // 复用连接
     std::mutex circuitMutex_;
     bool circuitOpen_ = false;
     int consecutiveFailures_ = 0;

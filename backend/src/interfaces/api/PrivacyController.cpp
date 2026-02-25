@@ -7,6 +7,7 @@
 #include "infrastructure/privacy/DifferentialPrivacyEngine.h"
 #include "utils/ResponseUtil.h"
 #include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -15,6 +16,12 @@ void PrivacyController::getPrivacyStats(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+
     try {
         // 可选参数：epsilon（隐私预算），默认2.0
         double epsilon = 2.0;
@@ -39,6 +46,12 @@ void PrivacyController::getPrivacyReport(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
+    auto userId = Validator::getUserId(req);
+    if (!userId) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+
     try {
         auto& engine = heartlake::privacy::DifferentialPrivacyEngine::getInstance();
         auto report = engine.getPrivacyReport();

@@ -141,14 +141,14 @@ public:
     Json::Value getEngineStats() const;
 
     // ---- 子系统直接访问（高级用法）----
-    SentimentAnalyzer& getSentimentAnalyzer() { return *sentiment_; }
-    ContentModerator& getContentModerator() { return *moderator_; }
-    EmotionPulseDetector& getEmotionPulseDetector() { return *pulse_; }
-    FederatedLearner& getFederatedLearner() { return *federated_; }
-    EdgeDifferentialPrivacy& getDifferentialPrivacy() { return *dp_; }
-    HNSWIndex& getHNSWIndex() { return *hnsw_; }
-    ModelQuantizer& getModelQuantizer() { return *quantizer_; }
-    EdgeNodeMonitor& getEdgeNodeMonitor() { return *monitor_; }
+    SentimentAnalyzer& getSentimentAnalyzer() { if (!sentiment_) throw std::runtime_error("EdgeAIEngine not initialized"); return *sentiment_; }
+    ContentModerator& getContentModerator() { if (!moderator_) throw std::runtime_error("EdgeAIEngine not initialized"); return *moderator_; }
+    EmotionPulseDetector& getEmotionPulseDetector() { if (!pulse_) throw std::runtime_error("EdgeAIEngine not initialized"); return *pulse_; }
+    FederatedLearner& getFederatedLearner() { if (!federated_) throw std::runtime_error("EdgeAIEngine not initialized"); return *federated_; }
+    EdgeDifferentialPrivacy& getDifferentialPrivacy() { if (!dp_) throw std::runtime_error("EdgeAIEngine not initialized"); return *dp_; }
+    HNSWIndex& getHNSWIndex() { if (!hnsw_) throw std::runtime_error("EdgeAIEngine not initialized"); return *hnsw_; }
+    ModelQuantizer& getModelQuantizer() { if (!quantizer_) throw std::runtime_error("EdgeAIEngine not initialized"); return *quantizer_; }
+    EdgeNodeMonitor& getEdgeNodeMonitor() { if (!monitor_) throw std::runtime_error("EdgeAIEngine not initialized"); return *monitor_; }
 
 private:
     EdgeAIEngine() = default;

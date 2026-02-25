@@ -85,11 +85,10 @@ void AdminController::login(const HttpRequestPtr &req,
                 passwordMatch = PasswordUtil::verifyPassword(password, salt, storedHash);
             }
         } else {
-            // 兼容旧配置：用 PBKDF2 对明文密码做哈希后比较
-            // 生产环境应迁移到 ADMIN_PASSWORD_HASH
-            LOG_WARN << "Using ADMIN_PASSWORD (plaintext env) - please migrate to ADMIN_PASSWORD_HASH";
-            std::string admin_password = env_admin_pass;
-            passwordMatch = constantTimeCompare(password, admin_password);
+            // 明文密码回退已禁用 — 生产环境必须配置 ADMIN_PASSWORD_HASH
+            LOG_ERROR << "ADMIN_PASSWORD_HASH not configured, plaintext fallback disabled";
+            callback(ResponseUtil::internalError("服务器配置错误：请配置 ADMIN_PASSWORD_HASH"));
+            return;
         }
 
         if (usernameMatch && passwordMatch) {

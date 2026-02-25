@@ -448,6 +448,11 @@ void EdgeAIController::vectorSearch(
             query = (*jsonPtr)["text"].asString();
         }
 
+        if (query.empty() || query.size() > 10000) {
+            callback(ResponseUtil::badRequest("query长度必须在1-10000之间"));
+            return;
+        }
+
         int topK = 10;
         if (jsonPtr->isMember("topK")) {
             topK = (*jsonPtr)["topK"].asInt();
@@ -1323,8 +1328,8 @@ void EdgeAIController::lakeGodChat(
                 content = jsonPtr->get("message", "").asString();
             }
 
-            if (content.empty()) {
-                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content/message不能为空"));
+            if (content.empty() || content.size() > 10000) {
+                callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "content长度必须在1-10000之间"));
                 co_return;
             }
 

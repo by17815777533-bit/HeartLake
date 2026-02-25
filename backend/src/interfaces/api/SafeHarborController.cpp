@@ -59,10 +59,10 @@ void SafeHarborController::addResource(
     const drogon::HttpRequestPtr& req,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
-    // SEC-05: 认证检查 — 防止未登录用户篡改危机干预资源
-    auto userId = Validator::getUserId(req);
-    if (!userId) {
-        callback(ResponseUtil::unauthorized("未登录"));
+    // 管理员权限校验（AdminAuthFilter 已在路由层过滤，此处为纵深防御）
+    auto adminId = req->getAttributes()->get<std::string>("admin_id");
+    if (adminId.empty()) {
+        callback(ResponseUtil::forbidden("需要管理员权限"));
         return;
     }
 
@@ -86,10 +86,10 @@ void SafeHarborController::updateResource(
     std::function<void(const drogon::HttpResponsePtr&)>&& callback,
     const std::string& resourceId
 ) {
-    // SEC-05: 认证检查 — 防止未登录用户篡改危机干预资源
-    auto userId = Validator::getUserId(req);
-    if (!userId) {
-        callback(ResponseUtil::unauthorized("未登录"));
+    // 管理员权限校验（AdminAuthFilter 已在路由层过滤，此处为纵深防御）
+    auto adminId = req->getAttributes()->get<std::string>("admin_id");
+    if (adminId.empty()) {
+        callback(ResponseUtil::forbidden("需要管理员权限"));
         return;
     }
 
@@ -117,10 +117,10 @@ void SafeHarborController::deleteResource(
     std::function<void(const drogon::HttpResponsePtr&)>&& callback,
     const std::string& resourceId
 ) {
-    // SEC-05: 认证检查 — 防止未登录用户删除危机干预资源
-    auto userId = Validator::getUserId(req);
-    if (!userId) {
-        callback(ResponseUtil::unauthorized("未登录"));
+    // 管理员权限校验（AdminAuthFilter 已在路由层过滤，此处为纵深防御）
+    auto adminId = req->getAttributes()->get<std::string>("admin_id");
+    if (adminId.empty()) {
+        callback(ResponseUtil::forbidden("需要管理员权限"));
         return;
     }
 

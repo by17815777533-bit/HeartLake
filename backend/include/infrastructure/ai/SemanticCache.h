@@ -57,8 +57,14 @@ public:
 
     void put(const std::string& query, const std::vector<float>& embedding, const std::string& response);
 
-    SemanticCacheStats getStats() const { return stats_; }
-    void clearStats() { stats_ = SemanticCacheStats{}; }
+    SemanticCacheStats getStats() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return stats_;
+    }
+    void clearStats() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stats_ = SemanticCacheStats{};
+    }
 
 private:
     SemanticCache() = default;

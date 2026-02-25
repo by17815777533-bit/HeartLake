@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <atomic>
 #include <json/json.h>
 #include <drogon/drogon.h>
 
@@ -96,11 +97,17 @@ public:
         const std::string& candidateMood
     );
 
-    // 权重参数
-    float alpha = 0.30f;  // 语义相似度权重
-    float beta  = 0.35f;  // 情绪轨迹权重
-    float gamma = 0.20f;  // 时间衰减权重
-    float delta = 0.15f;  // 多样性权重
+    // 权重参数（初始化后不应修改，findResonance 中只读访问）
+    float getAlpha() const { return alpha_.load(std::memory_order_relaxed); }
+    float getBeta() const { return beta_.load(std::memory_order_relaxed); }
+    float getGamma() const { return gamma_.load(std::memory_order_relaxed); }
+    float getDelta() const { return delta_.load(std::memory_order_relaxed); }
+    void setWeights(float a, float b, float g, float d) {
+        alpha_.store(a, std::memory_order_relaxed);
+        beta_.store(b, std::memory_order_relaxed);
+        gamma_.store(g, std::memory_order_relaxed);
+        delta_.store(d, std::memory_order_relaxed);
+    }
 
 private:
     EmotionResonanceEngine() = default;
@@ -109,6 +116,11 @@ private:
     EmotionResonanceEngine& operator=(const EmotionResonanceEngine&) = delete;
 
     EmotionTrajectory loadTrajectory(const std::string& userId, int days = 7);
+
+    std::atomic<float> alpha_{0.30f};  // 语义相似度权重
+    std::atomic<float> beta_{0.35f};   // 情绪轨迹权重
+    std::atomic<float> gamma_{0.20f};  // 时间衰减权重
+    std::atomic<float> delta_{0.15f};  // 多样性权重
 };
 
 } // namespace heartlake::ai

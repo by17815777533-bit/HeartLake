@@ -188,15 +188,15 @@ TEST_F(EmotionResonanceTest, ResonanceReason_DifferentMoods_MentionsDiversity) {
 // ==================== 权重参数测试 ====================
 
 TEST_F(EmotionResonanceTest, Weights_SumToOne) {
-    float sum = engine->alpha + engine->beta + engine->gamma + engine->delta;
+    float sum = engine->getAlpha() + engine->getBeta() + engine->getGamma() + engine->getDelta();
     EXPECT_NEAR(sum, 1.0f, 0.001f);
 }
 
 TEST_F(EmotionResonanceTest, Weights_AllPositive) {
-    EXPECT_GT(engine->alpha, 0.0f);
-    EXPECT_GT(engine->beta, 0.0f);
-    EXPECT_GT(engine->gamma, 0.0f);
-    EXPECT_GT(engine->delta, 0.0f);
+    EXPECT_GT(engine->getAlpha(), 0.0f);
+    EXPECT_GT(engine->getBeta(), 0.0f);
+    EXPECT_GT(engine->getGamma(), 0.0f);
+    EXPECT_GT(engine->getDelta(), 0.0f);
 }
 
 int main(int argc, char **argv) {

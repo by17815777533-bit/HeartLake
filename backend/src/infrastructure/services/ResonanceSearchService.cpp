@@ -243,10 +243,10 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         m.diversityScore = resonanceEngine.diversityBonus(sourceMood, candMood, recommendedMoods);
 
         // 加权总分: α=0.30, β=0.35, γ=0.20, δ=0.15
-        m.resonanceTotal = resonanceEngine.alpha * m.semanticScore
-                         + resonanceEngine.beta  * m.trajectoryScore
-                         + resonanceEngine.gamma * m.temporalScore
-                         + resonanceEngine.delta * m.diversityScore;
+        m.resonanceTotal = resonanceEngine.getAlpha() * m.semanticScore
+                         + resonanceEngine.getBeta()  * m.trajectoryScore
+                         + resonanceEngine.getGamma() * m.temporalScore
+                         + resonanceEngine.getDelta() * m.diversityScore;
 
         // 生成共鸣原因
         ai::ResonanceResult rr;

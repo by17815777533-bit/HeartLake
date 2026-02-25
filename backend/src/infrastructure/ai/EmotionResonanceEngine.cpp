@@ -370,10 +370,14 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             // 维度4: 多样性奖励
             res.diversityScore = diversityBonus(sourceMood, candMood, recommendedMoods);
             // 加权总分
-            res.totalScore = alpha * res.semanticScore
-                           + beta  * res.trajectoryScore
-                           + gamma * res.temporalScore
-                           + delta * res.diversityScore;
+            const float a = alpha_.load(std::memory_order_relaxed);
+            const float b = beta_.load(std::memory_order_relaxed);
+            const float g = gamma_.load(std::memory_order_relaxed);
+            const float d = delta_.load(std::memory_order_relaxed);
+            res.totalScore = a * res.semanticScore
+                           + b * res.trajectoryScore
+                           + g * res.temporalScore
+                           + d * res.diversityScore;
 
             // 生成共鸣原因
             res.resonanceReason = generateResonanceReason(res, sourceMood, candMood);

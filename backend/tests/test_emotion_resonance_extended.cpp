@@ -279,31 +279,31 @@ TEST_F(EmotionResExtTest, Reason_AllZeroScores) {
 // =====================================================================
 
 TEST_F(EmotionResExtTest, Weights_SumToOne) {
-    float sum = engine->alpha + engine->beta + engine->gamma + engine->delta;
+    float sum = engine->getAlpha() + engine->getBeta() + engine->getGamma() + engine->getDelta();
     EXPECT_NEAR(sum, 1.0f, 0.001f);
 }
 
 TEST_F(EmotionResExtTest, Weights_AllPositive) {
-    EXPECT_GT(engine->alpha, 0.0f);
-    EXPECT_GT(engine->beta, 0.0f);
-    EXPECT_GT(engine->gamma, 0.0f);
-    EXPECT_GT(engine->delta, 0.0f);
+    EXPECT_GT(engine->getAlpha(), 0.0f);
+    EXPECT_GT(engine->getBeta(), 0.0f);
+    EXPECT_GT(engine->getGamma(), 0.0f);
+    EXPECT_GT(engine->getDelta(), 0.0f);
 }
 
 TEST_F(EmotionResExtTest, Weights_AlphaValue) {
-    EXPECT_NEAR(engine->alpha, 0.30f, 0.01f);
+    EXPECT_NEAR(engine->getAlpha(), 0.30f, 0.01f);
 }
 
 TEST_F(EmotionResExtTest, Weights_BetaValue) {
-    EXPECT_NEAR(engine->beta, 0.35f, 0.01f);
+    EXPECT_NEAR(engine->getBeta(), 0.35f, 0.01f);
 }
 
 TEST_F(EmotionResExtTest, Weights_GammaValue) {
-    EXPECT_NEAR(engine->gamma, 0.20f, 0.01f);
+    EXPECT_NEAR(engine->getGamma(), 0.20f, 0.01f);
 }
 
 TEST_F(EmotionResExtTest, Weights_DeltaValue) {
-    EXPECT_NEAR(engine->delta, 0.15f, 0.01f);
+    EXPECT_NEAR(engine->getDelta(), 0.15f, 0.01f);
 }
 
 int main(int argc, char **argv) {

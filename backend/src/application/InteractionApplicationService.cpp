@@ -612,6 +612,15 @@ Json::Value InteractionApplicationService::createConnectionMessage(
     auto dbClient = drogon::app().getDbClient("default");
 
     try {
+        // 0. 验证用户是 connection 的参与者（防止 IDOR）
+        auto connCheck = dbClient->execSqlSync(
+            "SELECT connection_id FROM connections WHERE connection_id = $1 AND (user_id_1 = $2 OR user_id_2 = $2)",
+            connectionId, userId
+        );
+        if (connCheck.empty()) {
+            throw std::runtime_error("无权操作此连接");
+        }
+
         // 1. 生成消息 ID
         std::string messageId = utils::IdGenerator::generateMessageId();
 
