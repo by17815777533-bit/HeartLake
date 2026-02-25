@@ -445,10 +445,10 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     // 清空情感缓存与并发合并状态
     {
         std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
-        sentimentCache_.clear();
+        sentimentCacheLRU_.clear();
+        sentimentCacheMap_.clear();
         sentimentInFlight_.clear();
     }
-    sentimentCacheTick_.store(0);
     sentimentCacheHits_.store(0);
     sentimentCacheMisses_.store(0);
 
@@ -1196,21 +1196,30 @@ bool EdgeAIEngine::getSentimentCacheHit(const std::string& key, EdgeSentimentRes
     }
 
     const auto now = std::chrono::steady_clock::now();
+
+    // Try read-only path first (no LRU promotion, but avoids write lock)
     {
         std::shared_lock<std::shared_mutex> lock(sentimentCacheMutex_);
-        auto it = sentimentCache_.find(key);
-        if (it != sentimentCache_.end() && it->second.expiresAt > now) {
-            result = it->second.result;
+        auto it = sentimentCacheMap_.find(key);
+        if (it == sentimentCacheMap_.end()) {
+            sentimentCacheMisses_.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
+        if (it->second->expiresAt > now) {
+            result = it->second->result;
             sentimentCacheHits_.fetch_add(1, std::memory_order_relaxed);
+            // Skip LRU promotion under shared_lock — acceptable trade-off
             return true;
         }
     }
 
+    // Expired entry: acquire write lock to remove it
     {
         std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
-        auto it = sentimentCache_.find(key);
-        if (it != sentimentCache_.end() && it->second.expiresAt <= now) {
-            sentimentCache_.erase(it);
+        auto it = sentimentCacheMap_.find(key);
+        if (it != sentimentCacheMap_.end() && it->second->expiresAt <= now) {
+            sentimentCacheLRU_.erase(it->second);
+            sentimentCacheMap_.erase(it);
         }
     }
 
@@ -1220,26 +1229,11 @@ bool EdgeAIEngine::getSentimentCacheHit(const std::string& key, EdgeSentimentRes
 
 void EdgeAIEngine::compactSentimentCacheLocked(std::unique_lock<std::shared_mutex>& lock) {
     (void)lock;
-    const auto now = std::chrono::steady_clock::now();
-    for (auto it = sentimentCache_.begin(); it != sentimentCache_.end();) {
-        if (it->second.expiresAt <= now) {
-            it = sentimentCache_.erase(it);
-            continue;
-        }
-        ++it;
-    }
-
-    while (sentimentCache_.size() > sentimentCacheMaxSize_) {
-        auto victim = sentimentCache_.begin();
-        for (auto it = sentimentCache_.begin(); it != sentimentCache_.end(); ++it) {
-            if (it->second.lastAccessTick < victim->second.lastAccessTick) {
-                victim = it;
-            }
-        }
-        if (victim == sentimentCache_.end()) {
-            break;
-        }
-        sentimentCache_.erase(victim);
+    // O(1) LRU淘汰: 从尾部弹出最久未使用的条目
+    while (sentimentCacheMap_.size() > sentimentCacheMaxSize_ && !sentimentCacheLRU_.empty()) {
+        auto& victim = sentimentCacheLRU_.back();
+        sentimentCacheMap_.erase(victim.key);
+        sentimentCacheLRU_.pop_back();
     }
 }
 
@@ -1249,12 +1243,19 @@ void EdgeAIEngine::putSentimentCache(const std::string& key, const EdgeSentiment
     }
 
     std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
-    SentimentCacheEntry entry;
-    entry.result = result;
-    entry.expiresAt = std::chrono::steady_clock::now() + std::chrono::seconds(sentimentCacheTTLSeconds_);
-    entry.lastAccessTick = sentimentCacheTick_.fetch_add(1, std::memory_order_relaxed) + 1;
-    sentimentCache_[key] = std::move(entry);
-    compactSentimentCacheLocked(lock);
+    auto it = sentimentCacheMap_.find(key);
+    if (it != sentimentCacheMap_.end()) {
+        // 已存在: 更新并移到头部
+        it->second->result = result;
+        it->second->expiresAt = std::chrono::steady_clock::now() + std::chrono::seconds(sentimentCacheTTLSeconds_);
+        sentimentCacheLRU_.splice(sentimentCacheLRU_.begin(), sentimentCacheLRU_, it->second);
+    } else {
+        // 新条目: 插入头部
+        sentimentCacheLRU_.push_front({key, result,
+            std::chrono::steady_clock::now() + std::chrono::seconds(sentimentCacheTTLSeconds_)});
+        sentimentCacheMap_[key] = sentimentCacheLRU_.begin();
+        compactSentimentCacheLocked(lock);
+    }
 }
 
 EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text) {
@@ -1279,14 +1280,16 @@ EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text)
     {
         std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
         const auto now = std::chrono::steady_clock::now();
-        auto cacheIt = sentimentCache_.find(cacheKey);
-        if (cacheIt != sentimentCache_.end()) {
-            if (cacheIt->second.expiresAt > now) {
-                cacheIt->second.lastAccessTick = sentimentCacheTick_.fetch_add(1, std::memory_order_relaxed) + 1;
+        auto cacheIt = sentimentCacheMap_.find(cacheKey);
+        if (cacheIt != sentimentCacheMap_.end()) {
+            if (cacheIt->second->expiresAt > now) {
+                // LRU提升: splice到头部, O(1)
+                sentimentCacheLRU_.splice(sentimentCacheLRU_.begin(), sentimentCacheLRU_, cacheIt->second);
                 sentimentCacheHits_.fetch_add(1, std::memory_order_relaxed);
-                return cacheIt->second.result;
+                return cacheIt->second->result;
             }
-            sentimentCache_.erase(cacheIt);
+            sentimentCacheLRU_.erase(cacheIt->second);
+            sentimentCacheMap_.erase(cacheIt);
         }
 
         auto inflightIt = sentimentInFlight_.find(cacheKey);
@@ -3108,7 +3111,7 @@ Json::Value EdgeAIEngine::getEngineStats() const {
         : static_cast<double>(sentimentCacheHits_.load()) / static_cast<double>(hitBase);
     {
         std::shared_lock<std::shared_mutex> lock(sentimentCacheMutex_);
-        sentimentCache["entries"] = static_cast<Json::UInt64>(sentimentCache_.size());
+        sentimentCache["entries"] = static_cast<Json::UInt64>(sentimentCacheMap_.size());
         sentimentCache["inflight"] = static_cast<Json::UInt64>(sentimentInFlight_.size());
     }
     stats["sentiment_cache"] = sentimentCache;

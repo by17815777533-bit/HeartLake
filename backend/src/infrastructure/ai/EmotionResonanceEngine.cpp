@@ -44,19 +44,39 @@ float EmotionResonanceEngine::trajectorySimDTW(
         return trajectorySimDTW(t1, t2);
     }
 
-    // DTW距离矩阵
-    std::vector<std::vector<float>> dtw(n + 1, std::vector<float>(m + 1, std::numeric_limits<float>::max()));
-    dtw[0][0] = 0.0f;
+    constexpr float INF = std::numeric_limits<float>::max();
+
+    // Sakoe-Chiba band: 窗口宽度至少覆盖长度差，保证(n,m)可达
+    const size_t w = std::max(static_cast<size_t>(100),
+                              static_cast<size_t>(n > m ? n - m : m - n));
+
+    // thread_local 滚动数组：避免每次调用堆分配，空间 O(m) 替代 O(n*m)
+    thread_local std::vector<float> prev_buf, curr_buf;
+    prev_buf.assign(m + 1, INF);
+    curr_buf.assign(m + 1, INF);
+    prev_buf[0] = 0.0f;
 
     for (size_t i = 1; i <= n; ++i) {
-        for (size_t j = 1; j <= m; ++j) {
+        curr_buf.assign(m + 1, INF);
+
+        // Sakoe-Chiba band 约束：只计算对角线附近 w 宽度区域
+        const size_t j_start = (i > w) ? i - w : 1;
+        const size_t j_end = std::min(m, i + w);
+
+        for (size_t j = j_start; j <= j_end; ++j) {
             float cost = std::abs(traj1[i - 1] - traj2[j - 1]);
-            dtw[i][j] = cost + std::min({dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1]});
+            float min_prev = prev_buf[j - 1];
+            if (prev_buf[j] < min_prev) min_prev = prev_buf[j];
+            if (curr_buf[j - 1] < min_prev) min_prev = curr_buf[j - 1];
+            curr_buf[j] = cost + min_prev;
         }
+
+        std::swap(prev_buf, curr_buf);
     }
-    // 归一化DTW距离到[0,1]相似度
+
+    // swap 后结果在 prev_buf 中
     float maxLen = static_cast<float>(std::max(n, m));
-    float normalizedDist = dtw[n][m] / maxLen;
+    float normalizedDist = prev_buf[m] / maxLen;
     // 距离越小相似度越高，使用高斯核转换
     return std::exp(-normalizedDist * normalizedDist / 2.0f);
 }

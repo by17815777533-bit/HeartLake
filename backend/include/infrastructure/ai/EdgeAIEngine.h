@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <numeric>
 #include <deque>
+#include <list>
 #include <optional>
 #include <json/json.h>
 #include <drogon/drogon.h>
@@ -577,14 +578,16 @@ private:
     std::unordered_map<std::string, float> intensifiers_;       ///< 程度副词
     std::unordered_map<std::string, float> negators_;           ///< 否定词
     struct SentimentCacheEntry {
+        std::string key;
         EdgeSentimentResult result;
         std::chrono::steady_clock::time_point expiresAt;
-        uint64_t lastAccessTick = 0;
     };
     mutable std::shared_mutex sentimentCacheMutex_;
-    std::unordered_map<std::string, SentimentCacheEntry> sentimentCache_;
+    // LRU: list front = most recently used, back = least recently used
+    using SentimentCacheList = std::list<SentimentCacheEntry>;
+    SentimentCacheList sentimentCacheLRU_;
+    std::unordered_map<std::string, SentimentCacheList::iterator> sentimentCacheMap_;
     std::unordered_map<std::string, std::shared_future<EdgeSentimentResult>> sentimentInFlight_;
-    std::atomic<uint64_t> sentimentCacheTick_{0};
     std::atomic<size_t> sentimentCacheHits_{0};
     std::atomic<size_t> sentimentCacheMisses_{0};
     size_t sentimentCacheMaxSize_ = 8192;
