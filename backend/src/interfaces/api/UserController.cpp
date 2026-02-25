@@ -446,7 +446,7 @@ void UserController::getMyBoats(
                               "INNER JOIN stones s ON b.stone_id = s.stone_id "
                               "WHERE s.user_id = $1 AND b.sender_id <> $1",
                               user_id);
-    int total = countResult[0]["total"].as<int>();
+    int total = safeCount(countResult);
 
     int64_t offset = static_cast<int64_t>(page - 1) * page_size;
     auto result = dbClient->execSqlSync(
@@ -638,16 +638,14 @@ void UserController::getEmotionCalendar(
     if (!monthParam.empty() && monthParam.size() == 7 && monthParam[4] == '-') {
       month = monthParam;
     } else if (!yearParam.empty() && !monthParam.empty()) {
-      try {
-        int year = std::stoi(yearParam);
-        int mon = std::stoi(monthParam);
-        if (year >= 2000 && year <= 2100 && mon >= 1 && mon <= 12) {
-          std::ostringstream oss;
-          oss << std::setfill('0') << std::setw(4) << year
-              << "-" << std::setw(2) << mon;
-          month = oss.str();
-        }
-      } catch (...) {}
+      int year = safeInt(yearParam, 0);
+      int mon = safeInt(monthParam, 0);
+      if (year >= 2000 && year <= 2100 && mon >= 1 && mon <= 12) {
+        std::ostringstream oss;
+        oss << std::setfill('0') << std::setw(4) << year
+            << "-" << std::setw(2) << mon;
+        month = oss.str();
+      }
     }
 
     if (month.empty()) {

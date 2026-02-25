@@ -12,6 +12,8 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 
+using namespace heartlake::utils;
+
 namespace heartlake {
 namespace application {
 
@@ -158,7 +160,8 @@ void InteractionApplicationService::deleteRipple(
             throw std::runtime_error("涟漪不存在或无权删除");
         }
 
-        std::string stoneId = result[0]["stone_id"].as<std::string>();
+        auto row = *safeRow(result);
+        std::string stoneId = row["stone_id"].as<std::string>();
 
         // 删除涟漪并更新计数器
         trans->execSqlSync("DELETE FROM ripples WHERE ripple_id = $1", rippleId);

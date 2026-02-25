@@ -23,6 +23,8 @@
 #undef ERROR
 #endif
 
+using namespace heartlake::utils;
+
 namespace heartlake {
 namespace application {
 
@@ -50,7 +52,7 @@ Json::Value StoneApplicationService::publishStone(
             throw std::runtime_error("创建石头失败");
         }
 
-        auto row = result[0];
+        auto row = *safeRow(result);
         Json::Value stone;
         stone["stone_id"] = row["stone_id"].as<std::string>();
         stone["user_id"] = row["user_id"].as<std::string>();
@@ -112,7 +114,7 @@ Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId, 
                 throw std::runtime_error("石头不存在");
             }
 
-            auto row = result[0];
+            auto row = *safeRow(result);
             Json::Value stone;
             // BUG-FIX: stone_id/user_id 等列可能为 NULL（旧数据），添加空值保护避免 500
             stone["stone_id"] = row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();

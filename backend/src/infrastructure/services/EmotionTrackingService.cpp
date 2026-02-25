@@ -63,7 +63,9 @@ void EmotionTrackingService::scanOnce() {
     try {
         db->execSqlAsync("DELETE FROM emotion_tracking WHERE created_at < NOW() - INTERVAL '30 days'",
             [](const drogon::orm::Result&) {}, [](const drogon::orm::DrogonDbException&) {});
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Emotion tracking 30-day cleanup failed: " << e.what();
+    }
 
     try {
         // 使用 make_interval 参数化查询，避免 SQL 字符串拼接
@@ -101,7 +103,9 @@ void EmotionTrackingService::recordEmotion(const std::string& userId, float scor
             [](const drogon::orm::DrogonDbException&) {},
             userId, score, content
         );
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Emotion tracking record failed: " << e.what();
+    }
 }
 
 EmotionTrackingResult EmotionTrackingService::checkUserBurden(const std::string& userId) {
@@ -168,7 +172,9 @@ void EmotionTrackingService::triggerIntervention(const EmotionTrackingResult& re
         if (!check.empty()) {
             return; // 已干预，跳过
         }
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Intervention check query failed: " << e.what();
+    }
 
     LOG_WARN << "Extreme burden detected for user: " << result.userId << " - " << result.triggerReason;
 
@@ -178,7 +184,9 @@ void EmotionTrackingService::triggerIntervention(const EmotionTrackingResult& re
             "INSERT INTO intervention_log (user_id, reason, created_at) VALUES ($1, $2, NOW())",
             result.userId, result.triggerReason
         );
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Intervention log insert failed: " << e.what();
+    }
 
     // 自动发放灯（免费心理咨询权限）
     services::VIPService::upgradeVIP(result.userId, 1, 7, "extreme_burden_lamp");

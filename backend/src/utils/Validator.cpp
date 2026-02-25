@@ -307,15 +307,12 @@ ValidationResult Validator::combine(const std::vector<ValidationResult>& results
 }
 
 std::optional<std::string> Validator::getUserId(const drogon::HttpRequestPtr& req) {
-    try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
-        if (userId.empty()) {
-            return std::nullopt;
-        }
-        return userId;
-    } catch (...) {
+    // Drogon Attributes::get<T>() 不抛异常，key 不存在时返回 T() 即空字符串
+    const auto& userId = req->getAttributes()->get<std::string>("user_id");
+    if (userId.empty()) {
         return std::nullopt;
     }
+    return userId;
 }
 
 

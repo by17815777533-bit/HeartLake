@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <optional>
+#include <charconv>
 #include <drogon/HttpRequest.h>
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8,15 +9,20 @@
 
 namespace heartlake::utils {
 
-// 替代所有裸 std::stoi + catch(...)
+// 零异常整数解析，基于 std::from_chars
 inline int safeInt(const std::string& s, int def = 0) {
     if (s.empty()) return def;
-    try { return std::stoi(s); } catch (...) { return def; }
+    int val = def;
+    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), val);
+    return ec == std::errc{} ? val : def;
 }
 
+// 零异常浮点解析，基于 std::from_chars
 inline double safeDouble(const std::string& s, double def = 0.0) {
     if (s.empty()) return def;
-    try { return std::stod(s); } catch (...) { return def; }
+    double val = def;
+    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), val);
+    return ec == std::errc{} ? val : def;
 }
 
 // 替代所有重复的 parsePaginationParams

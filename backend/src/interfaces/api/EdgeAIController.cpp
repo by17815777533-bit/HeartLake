@@ -15,6 +15,7 @@
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "utils/RequestHelper.h"
+#include "utils/Validator.h"
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -1300,10 +1301,16 @@ void EdgeAIController::lakeGodChat(
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
     drogon::async_run([=, callback = std::move(callback)]() -> drogon::Task<void> {
+        auto userIdOpt = Validator::getUserId(req);
+        if (!userIdOpt) {
+            callback(ResponseUtil::unauthorized("未登录"));
+            co_return;
+        }
+        auto userId = *userIdOpt;
+
         try {
             auto traceId = req->getAttributes()->get<std::string>("trace_id");
             LOG_INFO << "[trace:" << traceId << "] lakeGodChat called";
-            auto userId = req->getAttributes()->get<std::string>("user_id");
             auto jsonPtr = req->getJsonObject();
             if (!jsonPtr) {
                 callback(ResponseUtil::error(ErrorCode::INVALID_PARAMETER, "请求体不能为空"));
@@ -1375,10 +1382,17 @@ void EdgeAIController::lakeGodChat(
 void EdgeAIController::lakeGodHistory(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
+
     try {
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] lakeGodHistory called";
-        auto userId = req->getAttributes()->get<std::string>("user_id");
         auto db = drogon::app().getDbClient("default");
         auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
 

@@ -211,16 +211,17 @@ bool VIPService::isVIPExpired(const std::string& userId) {
             return true;
         }
 
-        int vipLevel = result[0]["vip_level"].as<int>();
+        auto row = *safeRow(result);
+        int vipLevel = row["vip_level"].as<int>();
         if (vipLevel == 0) {
             return true;  // 不是VIP
         }
 
-        if (result[0]["vip_expires_at"].isNull()) {
+        if (row["vip_expires_at"].isNull()) {
             return false;  // 永久VIP
         }
 
-        auto expiresAt = result[0]["vip_expires_at"].as<std::time_t>();
+        auto expiresAt = row["vip_expires_at"].as<std::time_t>();
         if (expiresAt >= std::time(nullptr)) {
             return false;  // 未过期
         }
@@ -232,7 +233,7 @@ bool VIPService::isVIPExpired(const std::string& userId) {
             "AND is_free_vip = true",
             userId
         );
-        if (activeResult.size() > 0 && activeResult[0]["cnt"].as<int>() > 0) {
+        if (safeCount(activeResult, "cnt") > 0) {
             return false;  // 有活跃咨询，延长VIP有效期
         }
 
@@ -311,7 +312,7 @@ int VIPService::batchCheckEmotionsForVIP() {
         );
 
         int count = 0;
-        if (!result.empty()) count = result[0][0].as<int>();
+        if (auto rowOpt = safeRow(result)) count = (*rowOpt)[0].as<int>();
         LOG_INFO << "Batch VIP emotion check completed. Granted VIP to " << count << " users.";
         return count;
     } catch (const std::exception& e) {
@@ -396,15 +397,16 @@ Json::Value VIPService::getVIPStatus(const std::string& userId) {
             return status;
         }
 
-        int vipLevel = result[0]["vip_level"].as<int>();
+        auto row = *safeRow(result);
+        int vipLevel = row["vip_level"].as<int>();
         status["vip_level"] = vipLevel;
 
         if (vipLevel > 0) {
-            if (result[0]["vip_expires_at"].isNull()) {
+            if (row["vip_expires_at"].isNull()) {
                 status["is_vip"] = true;
                 status["is_permanent"] = true;
             } else {
-                auto expiresAt = result[0]["vip_expires_at"].as<std::time_t>();
+                auto expiresAt = row["vip_expires_at"].as<std::time_t>();
                 status["is_vip"] = (expiresAt > std::time(nullptr));
                 status["expires_at"] = static_cast<Json::Int64>(expiresAt);
                 status["is_permanent"] = false;

@@ -257,7 +257,8 @@ bool PasetoUtil::verifyAdminToken(const std::string& token, const std::string& k
         auto exp = extractJsonField(payload, "exp");
         if (std::chrono::system_clock::now() > parseTime(exp)) return false;
         return true;
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "PASETO admin token verification failed: " << e.what();
         return false;
     }
 }

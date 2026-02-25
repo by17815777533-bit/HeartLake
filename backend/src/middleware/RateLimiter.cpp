@@ -214,8 +214,8 @@ RateLimitResult RateLimiter::checkTokenBucketRedis(const std::string& key, const
         for (int i = 0; i < 100 && !gotResultPtr->load(); ++i) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
-    } catch (...) {
-        LOG_WARN << "Redis token bucket rate limit failed, falling back to local";
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis token bucket rate limit failed, falling back to local: " << e.what();
     }
 
     return gotResultPtr->load() ? *resultPtr : checkTokenBucketLocal(key, config);
@@ -328,8 +328,8 @@ RateLimitResult RateLimiter::checkSlidingWindowRedis(const std::string& key, con
         for (int i = 0; i < 100 && !gotResultPtr->load(); ++i) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
-    } catch (...) {
-        LOG_WARN << "Redis sliding window rate limit failed, falling back to local";
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis sliding window rate limit failed, falling back to local: " << e.what();
     }
 
     return gotResultPtr->load() ? *resultPtr : checkSlidingWindowLocal(key, config);
@@ -399,7 +399,9 @@ RateLimitResult RateLimiter::checkFixedWindowRedis(const std::string& key, const
         for (int i = 0; i < 100 && !gotResultPtr->load(); ++i) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis fixed window rate limit failed, falling back to local: " << e.what();
+    }
 
     return gotResultPtr->load() ? *resultPtr : checkFixedWindowLocal(key, config);
 }

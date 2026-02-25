@@ -497,18 +497,22 @@ int main(int argc, char *argv[]) {
         app.registerPostHandlingAdvice(
             [](const drogon::HttpRequestPtr& req,
                const drogon::HttpResponsePtr& resp) {
-                try {
-                    auto traceId = req->getAttributes()->get<std::string>("trace_id");
-                    auto spanId = req->getAttributes()->get<std::string>("span_id");
+                auto traceId = req->getAttributes()->get<std::string>("trace_id");
+                auto spanId = req->getAttributes()->get<std::string>("span_id");
 
-                    if (!traceId.empty()) {
-                        resp->addHeader("X-Trace-Id", traceId);
-                        resp->addHeader("X-Span-Id", spanId);
+                if (!traceId.empty()) {
+                    resp->addHeader("X-Trace-Id", traceId);
+                    resp->addHeader("X-Span-Id", spanId);
 
-                        // 计算请求耗时
-                        auto startTimeStr = req->getAttributes()->get<std::string>("trace_start_time");
-                        if (!startTimeStr.empty()) {
-                            auto startUs = std::stoll(startTimeStr);
+                    // 计算请求耗时
+                    auto startTimeStr = req->getAttributes()->get<std::string>("trace_start_time");
+                    if (!startTimeStr.empty()) {
+                        long long startUs = 0;
+                        auto [ptr, ec] = std::from_chars(
+                            startTimeStr.data(),
+                            startTimeStr.data() + startTimeStr.size(),
+                            startUs);
+                        if (ec == std::errc{}) {
                             auto nowUs = std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now().time_since_epoch()).count();
                             double durationMs = static_cast<double>(nowUs - startUs) / 1000.0;
@@ -524,8 +528,6 @@ int main(int argc, char *argv[]) {
                                      << " duration_ms=" << durationOss.str();
                         }
                     }
-                } catch (...) {
-                    LOG_DEBUG << "Trace attributes not available for request (e.g. health check)";
                 }
             });
 

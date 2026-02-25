@@ -186,9 +186,7 @@ void FriendController::getFriends(
     try {
         int limit = 80;
         if (auto p = req->getParameter("limit"); !p.empty()) {
-            try {
-                limit = std::stoi(p);
-            } catch (...) {}
+            limit = safeInt(p, 80);
         }
         limit = std::clamp(limit, 1, 200);
 

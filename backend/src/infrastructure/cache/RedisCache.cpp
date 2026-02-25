@@ -94,7 +94,8 @@ void RedisCache::set(const std::string& key, const std::string& value,
                 },
                 "SET %s %s", fullKey.c_str(), value.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis SET dispatch failed: " << e.what();
             fallbackSet(fullKey, value, 0);
             if (callback) callback(true);
         }
@@ -123,7 +124,8 @@ void RedisCache::setEx(const std::string& key, const std::string& value, int ttl
                 },
                 "SETEX %s %d %s", fullKey.c_str(), ttlSeconds, value.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis SETEX dispatch failed: " << e.what();
             fallbackSet(fullKey, value, ttlSeconds);
             if (callback) callback(true);
         }
@@ -156,7 +158,8 @@ void RedisCache::get(const std::string& key,
                 },
                 "GET %s", fullKey.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis GET dispatch failed: " << e.what();
             auto [value, exists] = fallbackGet(fullKey);
             callback(value, exists);
         }
@@ -191,7 +194,8 @@ void RedisCache::del(const std::string& key, std::function<void(bool)> callback)
                 },
                 "DEL %s", fullKey.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis DEL dispatch failed: " << e.what();
             {
                 std::lock_guard<std::mutex> lock(cacheMutex_);
                 auto it = memoryCache_.find(fullKey);
@@ -265,7 +269,8 @@ void RedisCache::incr(const std::string& key, std::function<void(int64_t)> callb
                 },
                 "INCR %s", fullKey.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis INCR dispatch failed: " << e.what();
             if (callback) callback(0);
         }
     } else {
@@ -291,7 +296,8 @@ void RedisCache::incrBy(const std::string& key, int64_t delta,
                 },
                 "INCRBY %s %lld", fullKey.c_str(), delta
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis INCRBY dispatch failed: " << e.what();
             if (callback) callback(0);
         }
     } else {
@@ -322,7 +328,8 @@ void RedisCache::eval(const std::string& script, const std::vector<std::string>&
             },
             cmd.c_str()
         );
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis eval dispatch failed: " << e.what();
         if (callback) callback(-1);
     }
 }
@@ -343,7 +350,8 @@ void RedisCache::expire(const std::string& key, int seconds,
                 },
                 "EXPIRE %s %d", fullKey.c_str(), seconds
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis EXPIRE dispatch failed: " << e.what();
             if (callback) callback(false);
         }
     } else {
@@ -365,7 +373,8 @@ void RedisCache::ttl(const std::string& key, std::function<void(int)> callback) 
                 },
                 "TTL %s", fullKey.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis TTL dispatch failed: " << e.what();
             if (callback) callback(-2);
         }
     } else {
@@ -387,7 +396,8 @@ void RedisCache::exists(const std::string& key, std::function<void(bool)> callba
                 },
                 "EXISTS %s", fullKey.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis EXISTS dispatch failed: " << e.what();
             if (callback) callback(false);
         }
     } else {
@@ -426,7 +436,8 @@ void RedisCache::keys(const std::string& pattern, std::function<void(const std::
                 },
                 "KEYS %s", fullPattern.c_str()
             );
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis KEYS dispatch failed: " << e.what();
             if (callback) callback({});
         }
     } else {
@@ -505,7 +516,8 @@ drogon::Task<std::pair<std::string, bool>> RedisCache::getCoro(const std::string
             co_return std::make_pair("", false);
         }
         co_return std::make_pair(result.asString(), true);
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis getCoro failed: " << e.what();
         co_return fallbackGet(fullKey);
     }
 }
@@ -519,7 +531,8 @@ drogon::Task<void> RedisCache::setExCoro(const std::string& key, const std::stri
     try {
         auto redisClient = drogon::app().getRedisClient("default");
         co_await redisClient->execCommandCoro("SETEX %s %d %s", fullKey.c_str(), ttlSeconds, value.c_str());
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis setCoro failed: " << e.what();
         fallbackSet(fullKey, value, ttlSeconds);
     }
 }
@@ -532,7 +545,8 @@ drogon::Task<int64_t> RedisCache::ttlCoro(const std::string& key) {
         if (!redisClient) co_return -2;
         auto result = co_await redisClient->execCommandCoro("TTL %s", fullKey.c_str());
         co_return result.asInteger();
-    } catch (...) {
+    } catch (const std::exception& e) {
+        LOG_WARN << "Redis ttlCoro failed: " << e.what();
         co_return -2;
     }
 }

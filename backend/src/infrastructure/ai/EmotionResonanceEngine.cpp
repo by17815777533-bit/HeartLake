@@ -128,31 +128,28 @@ float EmotionResonanceEngine::trajectorySimDTW(
 // ===== 时间衰减 =====
 
 float EmotionResonanceEngine::temporalDecay(const std::string& timestamp, float lambda) {
-    try {
-        // 解析ISO格式时间戳，计算距今小时数
-        auto now = std::chrono::system_clock::now();
-        auto nowTime = std::chrono::system_clock::to_time_t(now);
+    // 解析ISO格式时间戳，计算距今小时数
+    auto now = std::chrono::system_clock::now();
+    auto nowTime = std::chrono::system_clock::to_time_t(now);
 
-        // 简化解析：从数据库时间戳提取
-        std::tm tm = {};
-        std::istringstream ss(timestamp);
-        ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-        if (ss.fail()) {
-            // 尝试另一种格式
-            ss.clear();
-            ss.str(timestamp);
-            ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
-            if (ss.fail()) return 0.5f;
-        }
-        auto stoneTime = std::mktime(&tm);
-        double hoursOld = std::difftime(nowTime, stoneTime) / 3600.0;
-        if (hoursOld < 0) hoursOld = 0;
-
-        // 指数衰减: decay = exp(-λ * Δt_hours)
-        return std::exp(-lambda * static_cast<float>(hoursOld));
-    } catch (...) {
-        return 0.5f;
+    // 简化解析：从数据库时间戳提取
+    std::tm tm = {};
+    std::istringstream ss(timestamp);
+    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+    if (ss.fail()) {
+        // 尝试另一种格式
+        ss.clear();
+        ss.str(timestamp);
+        ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
+        if (ss.fail()) return 0.5f;
     }
+    auto stoneTime = std::mktime(&tm);
+    if (stoneTime == -1) return 0.5f;
+    double hoursOld = std::difftime(nowTime, stoneTime) / 3600.0;
+    if (hoursOld < 0) hoursOld = 0;
+
+    // 指数衰减: decay = exp(-λ * Δt_hours)
+    return std::exp(-lambda * static_cast<float>(hoursOld));
 }
 
 // ===== 多样性奖励 =====

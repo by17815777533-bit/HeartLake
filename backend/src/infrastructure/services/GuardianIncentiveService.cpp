@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 
+using namespace heartlake::utils;
+
 namespace heartlake::infrastructure {
 
 GuardianIncentiveService& GuardianIncentiveService::getInstance() {
@@ -68,9 +70,10 @@ GuardianStats GuardianIncentiveService::getGuardianStats(const std::string& user
             userId
         );
 
-        if (!result.empty()) {
-            stats.totalResonancePoints = result[0]["total"].as<int>();
-            stats.isGuardian = result[0]["guardian"].as<bool>();
+        if (auto rowOpt = safeRow(result)) {
+            auto& row = *rowOpt;
+            stats.totalResonancePoints = row["total"].as<int>();
+            stats.isGuardian = row["guardian"].as<bool>();
             stats.canTransferLamp = stats.isGuardian && stats.totalResonancePoints >= GUARDIAN_THRESHOLD * 2;
         }
 
@@ -82,9 +85,10 @@ GuardianStats GuardianIncentiveService::getGuardianStats(const std::string& user
             userId
         );
 
-        if (!countResult.empty()) {
-            stats.qualityRipples = countResult[0]["ripples"].isNull() ? 0 : countResult[0]["ripples"].as<int>();
-            stats.warmBoats = countResult[0]["boats"].isNull() ? 0 : countResult[0]["boats"].as<int>();
+        if (auto countRowOpt = safeRow(countResult)) {
+            auto& countRow = *countRowOpt;
+            stats.qualityRipples = countRow["ripples"].isNull() ? 0 : countRow["ripples"].as<int>();
+            stats.warmBoats = countRow["boats"].isNull() ? 0 : countRow["boats"].as<int>();
         }
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "getGuardianStats failed: " << e.base().what();

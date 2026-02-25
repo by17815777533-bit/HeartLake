@@ -8,6 +8,8 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 
+using namespace heartlake::utils;
+
 namespace heartlake::infrastructure {
 
 namespace {
@@ -697,8 +699,8 @@ double IntimacyService::getIntimacyScore(
             userId, peerId
         );
 
-        if (!result.empty()) {
-            return result[0]["intimacy_score"].as<double>();
+        if (auto rowOpt = safeRow(result)) {
+            return (*rowOpt)["intimacy_score"].as<double>();
         }
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "getIntimacyScore failed: " << e.base().what();

@@ -25,6 +25,8 @@
 #include <cctype>
 #include <memory>
 
+using heartlake::utils::safeRow;
+
 namespace heartlake::ai {
 
 namespace {
@@ -450,12 +452,15 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
             userId
         );
 
-        if (!result.empty() && !result[0]["total_posts"].isNull()) {
-            auto& lt = memory.longTerm;
-            lt.totalPosts = result[0]["total_posts"].as<int>();
-            lt.avgEmotionScore = result[0]["avg_score"].isNull() ? 0.0f : result[0]["avg_score"].as<float>();
-            lt.emotionVolatility = result[0]["score_stddev"].isNull() ? 0.0f : result[0]["score_stddev"].as<float>();
-            lt.lastActiveDate = result[0]["last_active"].isNull() ? "" : result[0]["last_active"].as<std::string>();
+        if (auto rowOpt = safeRow(result)) {
+            auto& row = *rowOpt;
+            if (!row["total_posts"].isNull()) {
+                auto& lt = memory.longTerm;
+                lt.totalPosts = row["total_posts"].as<int>();
+                lt.avgEmotionScore = row["avg_score"].isNull() ? 0.0f : row["avg_score"].as<float>();
+                lt.emotionVolatility = row["score_stddev"].isNull() ? 0.0f : row["score_stddev"].as<float>();
+                lt.lastActiveDate = row["last_active"].isNull() ? "" : row["last_active"].as<std::string>();
+            }
         }
 
         // 获取主导情绪

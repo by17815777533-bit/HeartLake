@@ -98,7 +98,8 @@ drogon::Task<std::vector<int64_t>> FriendshipTTLEngine::getBatchFriendshipTTL(
         try {
             auto ttl = co_await std::move(task);
             results.push_back(ttl);
-        } catch (...) {
+        } catch (const std::exception& e) {
+            LOG_WARN << "Redis TTL query failed: " << e.what();
             // Redis 查询失败时返回 -1 表示未知
             results.push_back(-1);
         }

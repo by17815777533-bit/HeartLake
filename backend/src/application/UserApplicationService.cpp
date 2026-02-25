@@ -8,6 +8,8 @@
 #include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 
+using namespace heartlake::utils;
+
 namespace heartlake {
 namespace application {
 
@@ -36,7 +38,7 @@ Json::Value UserApplicationService::getUserProfile(const std::string& userId) {
             throw std::runtime_error("用户不存在");
         }
 
-        auto row = result[0];
+        auto row = *safeRow(result);
         Json::Value user;
         user["user_id"] = row["user_id"].as<std::string>();
         user["username"] = row["username"].as<std::string>();

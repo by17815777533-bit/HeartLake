@@ -474,7 +474,8 @@ void AIService::analyzeSentiment(
                                 fanout(repairedScore, repairedMood, "");
                                 return;
                             }
-                        } catch (...) {
+                        } catch (const std::exception& e) {
+                            LOG_WARN << "AI sentiment repair failed: " << e.what();
                             // 忽略并走降级
                         }
                         fallback();
@@ -841,7 +842,7 @@ void AIService::callAIAPI(
                     } catch (const std::exception& cbEx) {
                         LOG_ERROR << "AI callback threw exception: " << cbEx.what();
                     } catch (...) {
-                        LOG_ERROR << "AI callback threw unknown exception";
+                        LOG_ERROR << "AI callback threw non-std exception";
                     }
                 };
                 if (!error.empty()) {
@@ -1402,7 +1403,7 @@ void AIService::completeSentimentInFlight(
         } catch (const std::exception& e) {
             LOG_ERROR << "Sentiment callback threw exception: " << e.what();
         } catch (...) {
-            LOG_ERROR << "Sentiment callback threw unknown exception";
+            LOG_ERROR << "Sentiment callback threw non-std exception";
         }
     }
 }

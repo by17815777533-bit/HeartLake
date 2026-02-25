@@ -110,7 +110,9 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                 m.similarity = similarity;
                 m.semanticScore = similarity;
                 candidates.push_back(m);
-            } catch (...) {}
+            } catch (const std::exception& e) {
+                LOG_WARN << "HNSW candidate lookup failed: " << e.what();
+            }
         }
     } else {
         // Fallback: DB-based search
@@ -164,7 +166,9 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             if (!stoneRow[0]["mood_type"].isNull())
                 sourceMood = stoneRow[0]["mood_type"].as<std::string>();
         }
-    } catch (...) {}
+    } catch (const std::exception& e) {
+        LOG_WARN << "Source stone lookup failed: " << e.what();
+    }
 
     // 加载源用户的情绪轨迹（用于DTW计算）
     ai::EmotionTrajectory userTraj;
@@ -180,7 +184,9 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             }
             if (!userTraj.scores.empty())
                 userTraj.currentScore = userTraj.scores.back();
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            LOG_WARN << "User trajectory load failed: " << e.what();
+        }
     }
 
     std::vector<std::string> recommendedMoods;
@@ -198,7 +204,9 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                     candMood = candRow[0]["mood_type"].as<std::string>();
                 candTimestamp = candRow[0]["created_at"].as<std::string>();
             }
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            LOG_WARN << "Candidate stone metadata lookup failed: " << e.what();
+        }
 
         // 维度1: 语义相似度（已有）
         // m.semanticScore 已在 Phase 1 设置
@@ -215,7 +223,9 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             }
             if (!candTraj.scores.empty())
                 candTraj.currentScore = candTraj.scores.back();
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            LOG_WARN << "Candidate trajectory load failed: " << e.what();
+        }
 
         if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
             m.trajectoryScore = resonanceEngine.trajectorySimDTW(userTraj.scores, candTraj.scores);

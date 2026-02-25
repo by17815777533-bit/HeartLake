@@ -397,8 +397,14 @@ void RecommendationController::getEmotionTrends(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
+        auto& userId = *userIdOpt;
         auto dbClient = drogon::app().getDbClient("default");
 
         // 获取最近30天情绪数据（优先 emotion_score，缺失时按 mood_type 回退估算）
@@ -464,8 +470,14 @@ void RecommendationController::discoverByMood(
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &mood) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
+        auto& userId = *userIdOpt;
         auto dbClient = drogon::app().getDbClient("default");
 
         // 查找当前处于该情绪的用户和内容
@@ -541,7 +553,7 @@ void RecommendationController::getTrendingContent(
                 LOG_ERROR << "Error in getTrendingContent Redis callback: " << e.what();
                 (*cb)(ResponseUtil::internalError("获取热门内容失败"));
             } catch (...) {
-                LOG_ERROR << "Unknown error in getTrendingContent Redis callback";
+                LOG_ERROR << "Non-std exception in getTrendingContent Redis callback";
                 (*cb)(ResponseUtil::internalError("获取热门内容失败"));
             }
         });
@@ -637,8 +649,14 @@ void RecommendationController::searchRecommendations(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
+
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
         auto json = req->getJsonObject();
 
         if (!json) {
@@ -721,7 +739,7 @@ void RecommendationController::searchRecommendations(
             "AND s.content ILIKE $2 ESCAPE '\\'";
 
         auto countResult = dbClient->execSqlSync(countSql, userId, searchPattern);
-        int total = countResult.empty() ? 0 : countResult[0]["total"].as<int>();
+        int total = safeCount(countResult);
 
         Json::Value responseData;
         responseData["results"] = results;
@@ -745,9 +763,15 @@ void RecommendationController::trackBatchInteractions(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
+
     auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
     try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
         auto json = req->getJsonObject();
 
         if (!json || !json->isMember("interactions")) {
@@ -862,13 +886,14 @@ void RecommendationController::getAdvancedRecommendations(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
-    try {
-        auto userId = req->getAttributes()->get<std::string>("user_id");
-        if (userId.empty()) {
-            callback(ResponseUtil::unauthorized("未登录"));
-            return;
-        }
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录"));
+        return;
+    }
+    auto userId = *userIdOpt;
 
+    try {
         int limit = 20;
         auto params = req->getParameters();
         if (params.count("limit")) {
