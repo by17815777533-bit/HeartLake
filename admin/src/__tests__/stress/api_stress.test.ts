@@ -22,6 +22,7 @@ vi.mock('@/utils/errorHelper', () => ({
 describe('API Stress Tests', () => {
   let mock: MockAdapter
   let appStore: ReturnType<typeof useAppStore>
+  let cleanupInterceptorId: number
 
   beforeEach(() => {
     localStorage.clear()
@@ -30,9 +31,22 @@ describe('API Stress Tests', () => {
     setActivePinia(createPinia())
     appStore = useAppStore()
     mock = new MockAdapter(http)
+    // Prevent DataCloneError: JSON round-trip strips ALL functions/classes from error objects
+    // so Vitest's structured-clone RPC can serialize them safely.
+    cleanupInterceptorId = http.interceptors.response.use(undefined, (error) => {
+      if (error?.config) {
+        try {
+          error.config = JSON.parse(JSON.stringify(error.config))
+        } catch {
+          error.config = {}
+        }
+      }
+      return Promise.reject(error)
+    })
   })
 
   afterEach(() => {
+    http.interceptors.response.eject(cleanupInterceptorId)
     mock.restore()
   })
 
@@ -67,7 +81,7 @@ describe('API Stress Tests', () => {
       results.forEach(r => expect(r.status).toBe(200))
     })
 
-    it('同时发起20个Edge AI请求', async () => {
+    it('同时发起20个Edge AI请求（去重机制下）', async () => {
       mock.onGet('/admin/edge-ai/status').reply(200, { data: { status: 'ok' } })
       mock.onGet('/admin/edge-ai/metrics').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, { data: {} })
@@ -85,8 +99,11 @@ describe('API Stress Tests', () => {
         )
       }
 
-      const results = await Promise.all(requests)
+      const results = await Promise.allSettled(requests)
       expect(results).toHaveLength(20)
+      // 由于请求去重机制，同URL的前序请求会被取消，至少每个唯一URL的最后一个请求成功
+      const fulfilled = results.filter(r => r.status === 'fulfilled')
+      expect(fulfilled.length).toBeGreaterThanOrEqual(5)
     })
 
     it('部分请求失败时其他请求正常完成', async () => {
