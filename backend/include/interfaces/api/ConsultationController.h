@@ -1,14 +1,12 @@
 /**
  * @file ConsultationController.h
  * @brief 咨询室控制器 - E2EE端到端加密通信
- * Created by engineer-4
+ * Created by 白洋
  */
 
 #pragma once
 
 #include <drogon/HttpController.h>
-#include "infrastructure/filters/SecurityAuditFilter.h"
-#include "utils/E2EEncryption.h"
 
 namespace heartlake {
 namespace api {

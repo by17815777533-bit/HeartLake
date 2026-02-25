@@ -1,13 +1,12 @@
 /**
  * @file IdentityShadowMap.h
  * @brief 身份影子映射 - 隔离物理标识与匿名ID
- * Created by engineer-4
+ * Created by 白洋
  */
 
 #pragma once
 
 #include <string>
-#include <optional>
 #include <unordered_map>
 #include <shared_mutex>
 

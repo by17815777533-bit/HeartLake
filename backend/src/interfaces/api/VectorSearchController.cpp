@@ -6,6 +6,7 @@
 #include "interfaces/api/VectorSearchController.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <json/json.h>
 
@@ -15,10 +16,17 @@ namespace heartlake {
 namespace controllers {
 
 void VectorSearchController::getSimilarStones(
-    [[maybe_unused]] const HttpRequestPtr &req,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &stoneId
 ) {
+    // 认证检查：向量搜索涉及用户内容数据，必须验证身份
+    auto userIdOpt = Validator::getUserId(req);
+    if (!userIdOpt) {
+        callback(ResponseUtil::unauthorized("未登录，请先登录"));
+        return;
+    }
+
     auto dbClient = drogon::app().getDbClient("default");
     
     // 获取目标石头的信息

@@ -152,8 +152,8 @@ public:
 
 private:
     EdgeAIEngine() = default;
-    bool enabled_ = false;
-    bool initialized_ = false;
+    std::atomic<bool> enabled_{false};      ///< 多线程读写，必须原子
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
 
     // 8 个子系统
     std::unique_ptr<SentimentAnalyzer> sentiment_;

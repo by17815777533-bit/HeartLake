@@ -7,7 +7,7 @@
  * 密钥派生: HKDF-SHA256
  * 认证加密: AES-256-GCM
  *
- * Created by engineer-4
+ * Created by 白洋
  */
 
 #pragma once

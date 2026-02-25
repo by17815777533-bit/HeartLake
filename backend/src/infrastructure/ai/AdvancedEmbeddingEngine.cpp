@@ -63,8 +63,20 @@ std::vector<std::string> AdvancedEmbeddingEngine::tokenize(const std::string& te
     for (size_t i = 0; i < text.length(); ++i) {
         unsigned char c = text[i];
 
-        // 处理UTF-8中文字符（3字节）
-        // 正确的UTF-8三字节检测: 1110xxxx 10xxxxxx 10xxxxxx
+        // 处理UTF-8四字节字符（emoji等）: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        if ((c & 0xF8) == 0xF0 && i + 3 < text.length()) {
+            unsigned char c2 = text[i + 1];
+            unsigned char c3 = text[i + 2];
+            unsigned char c4 = text[i + 3];
+            if ((c2 & 0xC0) == 0x80 && (c3 & 0xC0) == 0x80 && (c4 & 0xC0) == 0x80) {
+                current = text.substr(i, 4);
+                tokens.push_back(current);
+                current.clear();
+                i += 3;
+                continue;
+            }
+        }
+        // 处理UTF-8三字节字符（中文等）: 1110xxxx 10xxxxxx 10xxxxxx
         if ((c & 0xF0) == 0xE0 && i + 2 < text.length()) {
             unsigned char c2 = text[i + 1];
             unsigned char c3 = text[i + 2];

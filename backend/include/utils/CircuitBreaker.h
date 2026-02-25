@@ -41,24 +41,32 @@ public:
 
     template<typename F>
     auto execute(F&& func) -> decltype(func()) {
-        std::lock_guard<std::mutex> lock(mutex_);
-
-        // Check if circuit is OPEN
-        if (state_ == State::OPEN) {
-            auto now = std::chrono::steady_clock::now();
-            if (now - openedAt_ >= resetTimeout_) {
-                state_ = State::HALF_OPEN;
-            } else {
-                throw std::runtime_error("Circuit breaker is OPEN");
+        // Phase 1: 持锁检查状态，决定是否允许执行
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (state_ == State::OPEN) {
+                auto now = std::chrono::steady_clock::now();
+                if (now - openedAt_ >= resetTimeout_) {
+                    state_ = State::HALF_OPEN;
+                } else {
+                    throw std::runtime_error("Circuit breaker is OPEN");
+                }
             }
         }
 
+        // Phase 2: 锁外执行 func()，避免持锁阻塞其他调用者
         try {
             auto result = func();
-            onSuccess();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                onSuccess();
+            }
             return result;
         } catch (...) {
-            onFailure();
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                onFailure();
+            }
             throw;
         }
     }

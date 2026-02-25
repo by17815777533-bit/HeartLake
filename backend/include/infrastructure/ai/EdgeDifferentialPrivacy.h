@@ -4,20 +4,13 @@
 #include <atomic>
 #include <mutex>
 #include <random>
+// DPConfig 统一定义在 DifferentialPrivacyEngine.h 中，避免 ODR 违规
+#include "infrastructure/ai/DifferentialPrivacyEngine.h"
 
 namespace heartlake {
 namespace ai {
 
-/**
- * @brief 差分隐私配置
- */
-struct DPConfig {
-    float epsilon;              ///< 隐私预算 ε（越小越隐私）
-    float delta;                ///< 松弛参数 δ（Gaussian机制使用，默认1e-5）
-    float sensitivity;          ///< 查询敏感度 Δf
-    float maxEpsilonBudget;     ///< 最大累计隐私预算
-    float maxDeltaBudget{1e-3f}; ///< 最大累计 δ 预算（(ε,δ)-DP 组合追踪）
-};
+// 注意：DPConfig 已在 DifferentialPrivacyEngine.h 中定义，此处不再重复声明。
 
 /**
  * @brief 独立差分隐私引擎（从 EdgeAIEngine 提取）

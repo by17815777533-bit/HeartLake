@@ -6,6 +6,7 @@
 #pragma once
 
 #include <string>
+#include <atomic>
 #include <functional>
 #include <json/json.h>
 
@@ -39,7 +40,7 @@ private:
 
     std::string makeCacheKey(const std::string& stoneId);
 
-    bool initialized_ = false;
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
 };
 
 } // namespace ai

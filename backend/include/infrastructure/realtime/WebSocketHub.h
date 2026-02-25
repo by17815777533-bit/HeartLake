@@ -85,16 +85,19 @@ public:
             LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
             return;
         }
+        // 先复制连接列表，锁外发送，避免持锁期间阻塞其他操作
+        std::vector<drogon::WebSocketConnectionPtr> conns;
         {
             std::shared_lock lock(mutex_);
             if (auto it = userConnections_.find(userId); it != userConnections_.end()) {
-                for (const auto& conn : it->second) {
-                    try {
-                        conn->send(message);
-                    } catch (const std::exception& e) {
-                        LOG_WARN << "Failed to send to user " << userId << ": " << e.what();
-                    }
-                }
+                conns.assign(it->second.begin(), it->second.end());
+            }
+        }
+        for (const auto& conn : conns) {
+            try {
+                conn->send(message);
+            } catch (const std::exception& e) {
+                LOG_WARN << "Failed to send to user " << userId << ": " << e.what();
             }
         }
         RealtimeEvent event;
@@ -111,18 +114,20 @@ public:
             LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
             return;
         }
+        std::vector<drogon::WebSocketConnectionPtr> conns;
         {
             std::shared_lock lock(mutex_);
             if (auto it = rooms_.find(room); it != rooms_.end()) {
                 for (const auto& conn : it->second) {
-                    if (conn != exclude) {
-                        try {
-                            conn->send(message);
-                        } catch (const std::exception& e) {
-                            LOG_WARN << "Failed to send to room " << room << ": " << e.what();
-                        }
-                    }
+                    if (conn != exclude) conns.push_back(conn);
                 }
+            }
+        }
+        for (const auto& conn : conns) {
+            try {
+                conn->send(message);
+            } catch (const std::exception& e) {
+                LOG_WARN << "Failed to send to room " << room << ": " << e.what();
             }
         }
         RealtimeEvent event;
@@ -138,14 +143,19 @@ public:
             LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
             return;
         }
+        std::vector<drogon::WebSocketConnectionPtr> conns;
         {
             std::shared_lock lock(mutex_);
+            conns.reserve(connections_.size());
             for (const auto& [conn, _] : connections_) {
-                try {
-                    conn->send(message);
-                } catch (const std::exception& e) {
-                    LOG_WARN << "Failed to broadcast to connection: " << e.what();
-                }
+                conns.push_back(conn);
+            }
+        }
+        for (const auto& conn : conns) {
+            try {
+                conn->send(message);
+            } catch (const std::exception& e) {
+                LOG_WARN << "Failed to broadcast to connection: " << e.what();
             }
         }
         RealtimeEvent event;
@@ -280,7 +290,7 @@ private:
     std::unordered_map<drogon::WebSocketConnectionPtr, ConnectionInfo> connections_;
     std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> userConnections_;
     std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> rooms_;
-    uint64_t nextEventSeq_ = 1;
+    uint64_t nextEventSeq_ = 1;  // 仅在 unique_lock 下访问（appendEventLocked），线程安全
 };
 
 } // namespace heartlake::realtime

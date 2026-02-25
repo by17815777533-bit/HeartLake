@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <optional>
 
 namespace heartlake::infrastructure {
@@ -57,7 +58,7 @@ private:
 
     static constexpr const char* COLLECTION_NAME = "stone_embeddings";
     size_t embeddingDim_ = 256;
-    bool initialized_ = false;
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
     bool useMilvus_ = false;
 };
 

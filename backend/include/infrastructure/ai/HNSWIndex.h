@@ -141,9 +141,10 @@ private:
     std::mt19937 rng_{std::random_device{}()};
     std::atomic<size_t> totalSearches_{0};
 
-    // ---- visited epoch 标记（避免每次搜索清零 O(n) 数组）----
-    mutable std::vector<uint32_t> visitedMarker_;   ///< 每个节点的 epoch 标记
-    mutable uint32_t visitedEpoch_ = 0;             ///< 当前搜索 epoch
+    // ---- visited 标记 ----
+    // 注意：searchLayer 在 shared_lock 下并发调用，不能使用成员变量存储 visited 状态。
+    // 改用 thread_local 避免数据竞争，每个线程独立维护自己的 epoch 标记数组。
+    // 参考: hnswlib (Malkov & Yashunin, 2018) 的 visited_list_pool 设计。
 
     // ---- 内部算法 ----
     int randomLevel();

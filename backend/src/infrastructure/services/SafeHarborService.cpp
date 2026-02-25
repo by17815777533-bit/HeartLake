@@ -54,6 +54,7 @@ Json::Value SafeHarborService::getWarmPrompt(const std::string& riskLevel) const
 }
 
 Json::Value SafeHarborService::addResource(const Json::Value& data) {
+    std::lock_guard<std::mutex> lock(mutex_);
     Json::Value res;
     res["id"] = "res_" + std::to_string(++resourceIdCounter_);
     res["name"] = data.get("name", "").asString();
@@ -63,6 +64,7 @@ Json::Value SafeHarborService::addResource(const Json::Value& data) {
 }
 
 bool SafeHarborService::updateResource(const std::string& id, const Json::Value& data) {
+    std::lock_guard<std::mutex> lock(mutex_);
     for (auto& r : resources_) {
         if (r["id"].asString() == id) {
             if (data.isMember("name")) r["name"] = data["name"];
@@ -74,6 +76,7 @@ bool SafeHarborService::updateResource(const std::string& id, const Json::Value&
 }
 
 bool SafeHarborService::deleteResource(const std::string& id) {
+    std::lock_guard<std::mutex> lock(mutex_);
     for (auto it = resources_.begin(); it != resources_.end(); ++it) {
         if ((*it)["id"].asString() == id) { resources_.erase(it); return true; }
     }
@@ -81,6 +84,7 @@ bool SafeHarborService::deleteResource(const std::string& id) {
 }
 
 Json::Value SafeHarborService::getResources(const std::string& type) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     Json::Value result(Json::arrayValue);
     for (const auto& r : resources_) {
         if (type.empty() || r["type"].asString() == type) result.append(r);
@@ -89,6 +93,7 @@ Json::Value SafeHarborService::getResources(const std::string& type) const {
 }
 
 void SafeHarborService::recordUserAccess(const std::string& userId, const std::string& resourceId) {
+    std::lock_guard<std::mutex> lock(mutex_);
     Json::Value record;
     record["user_id"] = userId;
     record["resource_id"] = resourceId;
@@ -97,6 +102,7 @@ void SafeHarborService::recordUserAccess(const std::string& userId, const std::s
 }
 
 Json::Value SafeHarborService::getUserAccessHistory(const std::string& userId) const {
+    std::lock_guard<std::mutex> lock(mutex_);
     Json::Value result(Json::arrayValue);
     for (const auto& r : accessHistory_) {
         if (r["user_id"].asString() == userId) result.append(r);

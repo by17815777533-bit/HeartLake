@@ -26,6 +26,9 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
         LOG_WARN << "[FederatedLearner] No local models to aggregate";
         global.sampleCount = 0;
         global.localLoss = 0.0f;
+        // 确保返回的模型有空的 weights/biases，避免调用方解引用未初始化数据
+        global.weights = {};
+        global.biases = {};
         return global;
     }
 

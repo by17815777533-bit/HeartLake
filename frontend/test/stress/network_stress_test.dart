@@ -419,7 +419,7 @@ void main() {
     });
 
     test('空字符串处理', () {
-      final data = List.generate(100, (i) {'key': '', 'value': ''});
+      final data = List.generate(100, (i) => {'key': '', 'value': ''});
       final json = jsonEncode(data);
       final decoded = jsonDecode(json) as List;
       expect(decoded.length, 100);

@@ -42,8 +42,7 @@ void HNSWIndex::clear() {
     std::unique_lock lock(mutex_);
     nodes_.clear();
     idMap_.clear();
-    visitedMarker_.clear();
-    visitedEpoch_ = 0;
+    // visited 标记现在是 thread_local，无需在此清理
     entryPoint_ = 0;
     maxLevel_ = 0;
 }
@@ -95,22 +94,26 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
     // 候选集：min-heap（距离最小的在顶部）
     std::priority_queue<DistIdx, std::vector<DistIdx>, std::greater<DistIdx>> candidates;
 
-    // epoch 标记替代 vector<bool> 清零：O(1) 初始化替代 O(n)
-    // 参考: hnswlib (Malkov 2018) visited_list_pool 优化
-    ++visitedEpoch_;
-    if (visitedEpoch_ == 0) {
-        // epoch 溢出（极罕见），重置所有标记
-        std::fill(visitedMarker_.begin(), visitedMarker_.end(), 0);
-        visitedEpoch_ = 1;
+    // thread_local visited 标记：每个线程独立维护，避免 shared_lock 下的数据竞争。
+    // epoch 标记法：O(1) 初始化替代 O(n) 清零。
+    // 参考: hnswlib (Malkov & Yashunin, 2018) visited_list_pool 优化
+    thread_local std::vector<uint32_t> tlVisitedMarker;
+    thread_local uint32_t tlVisitedEpoch = 0;
+
+    ++tlVisitedEpoch;
+    if (tlVisitedEpoch == 0) {
+        // epoch 溢出（极罕见，约 42 亿次搜索后），重置所有标记
+        std::fill(tlVisitedMarker.begin(), tlVisitedMarker.end(), 0);
+        tlVisitedEpoch = 1;
     }
-    if (visitedMarker_.size() < nodes_.size()) {
-        visitedMarker_.resize(nodes_.size(), 0);
+    if (tlVisitedMarker.size() < nodes_.size()) {
+        tlVisitedMarker.resize(nodes_.size(), 0);
     }
 
     float entryDist = vectorDistance(query, nodes_[entryPoint].vector);
     results.push({entryDist, entryPoint});
     candidates.push({entryDist, entryPoint});
-    visitedMarker_[entryPoint] = visitedEpoch_;
+    tlVisitedMarker[entryPoint] = tlVisitedEpoch;
 
     while (!candidates.empty()) {
         auto [candDist, candIdx] = candidates.top();
@@ -129,7 +132,7 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
             // prefetch 邻居向量数据到 L1 cache
             for (size_t ni = 0; ni < neighborList.size() && ni < 8; ++ni) {
                 size_t nIdx = neighborList[ni];
-                if (visitedMarker_[nIdx] != visitedEpoch_) {
+                if (tlVisitedMarker[nIdx] != tlVisitedEpoch) {
                     __builtin_prefetch(nodes_[nIdx].vector.data(), 0, 1);
                 }
             }
@@ -138,8 +141,8 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
             const bool resultsFull = static_cast<int>(results.size()) >= ef;
 
             for (size_t neighborIdx : neighborList) {
-                if (visitedMarker_[neighborIdx] == visitedEpoch_) continue;
-                visitedMarker_[neighborIdx] = visitedEpoch_;
+                if (tlVisitedMarker[neighborIdx] == tlVisitedEpoch) continue;
+                tlVisitedMarker[neighborIdx] = tlVisitedEpoch;
 
                 float neighborDist = vectorDistance(query, nodes_[neighborIdx].vector);
 

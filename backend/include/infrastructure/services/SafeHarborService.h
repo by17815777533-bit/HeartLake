@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
 #include <json/json.h>
 
 namespace heartlake::infrastructure {
@@ -43,6 +44,7 @@ private:
     std::vector<Json::Value> resources_;
     std::vector<Json::Value> accessHistory_;
     int resourceIdCounter_ = 0;
+    mutable std::mutex mutex_;  ///< 保护 resources_/accessHistory_ 的并发访问
 };
 
 } // namespace heartlake::infrastructure

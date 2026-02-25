@@ -132,7 +132,7 @@ private:
 
     perf::ACAutomaton moderationAC_;
     bool moderationACBuilt_ = false;
-    bool enabled_ = true;
+    std::atomic<bool> enabled_{true};  ///< 多线程读写，必须原子
     std::mutex moderationMutex_;
     std::atomic<size_t> totalModerationCalls_{0};
 };

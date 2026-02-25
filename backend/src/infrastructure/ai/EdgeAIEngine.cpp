@@ -441,8 +441,8 @@ Json::Value EdgeAIEngine::getNodeDashboard() const {
 
 Json::Value EdgeAIEngine::getEngineStats() const {
     Json::Value stats;
-    stats["enabled"] = enabled_;
-    stats["initialized"] = initialized_;
+    stats["enabled"] = enabled_.load();
+    stats["initialized"] = initialized_.load();
 
     if (sentiment_) {
         stats["total_sentiment_calls"] = static_cast<Json::UInt64>(sentiment_->getTotalCalls());

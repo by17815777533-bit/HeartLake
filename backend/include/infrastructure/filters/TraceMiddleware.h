@@ -1,7 +1,7 @@
 /**
  * @file TraceMiddleware.h
  * @brief OpenTelemetry 风格的请求链路追踪中间件
- * Created by Claude
+ * Created by 白洋
  *
  * 功能：
  * - 读取或生成 X-Trace-Id（分布式追踪 ID）

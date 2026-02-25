@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <unordered_map>
 #include <functional>
 #include <mutex>
@@ -128,7 +129,7 @@ private:
     RecommendationEngine(const RecommendationEngine&) = delete;
     RecommendationEngine& operator=(const RecommendationEngine&) = delete;
 
-    bool initialized_ = false;
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
     int latentDim_ = 32;
     mutable std::recursive_mutex mutex_;
     std::mt19937 rng_{std::random_device{}()};

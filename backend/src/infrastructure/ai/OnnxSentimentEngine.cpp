@@ -474,7 +474,13 @@ OnnxSentimentResult OnnxSentimentEngine::analyze(const std::string& text) {
 
         auto endTime = std::chrono::steady_clock::now();
         double latencyMs = std::chrono::duration<double, std::milli>(endTime - startTime).count();
-        totalLatencyMs_.store(totalLatencyMs_.load() + latencyMs);
+        // CAS 循环实现原子 read-modify-write，避免并发推理时丢失延迟统计
+        double oldVal = totalLatencyMs_.load(std::memory_order_relaxed);
+        while (!totalLatencyMs_.compare_exchange_weak(
+            oldVal, oldVal + latencyMs,
+            std::memory_order_relaxed, std::memory_order_relaxed)) {
+            // oldVal 被自动更新为当前值，重试
+        }
 
     } catch (const Ort::Exception& e) {
         LOG_ERROR << "[OnnxSentiment] Inference error: " << e.what();

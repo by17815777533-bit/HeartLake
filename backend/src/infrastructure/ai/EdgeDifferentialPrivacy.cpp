@@ -7,6 +7,9 @@ namespace heartlake {
 namespace ai {
 
 void EdgeDifferentialPrivacy::configure(const DPConfig& config) {
+    // configure() 修改 dpConfig_，而 addLaplaceNoise 等方法读取 dpConfig_，
+    // 必须加锁保护避免数据竞争
+    std::lock_guard<std::mutex> lock(dpMutex_);
     dpConfig_ = config;
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);

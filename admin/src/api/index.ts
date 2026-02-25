@@ -32,8 +32,14 @@ let isRedirectingToLogin = false
 // 请求取消机制：基于 AbortController
 const pendingRequests = new Map<string, AbortController>()
 
+/**
+ * 生成请求唯一标识，用于去重
+ * 包含 method + url + 序列化的 params/data，避免同 URL 不同参数的请求被误取消
+ */
 function getRequestKey(config: CustomInternalConfig): string {
-  return `${config.method}:${config.url}`
+  const params = config.params ? JSON.stringify(config.params, Object.keys(config.params).sort()) : ''
+  const data = config.data ? (typeof config.data === 'string' ? config.data : JSON.stringify(config.data)) : ''
+  return `${config.method}:${config.url}:${params}:${data}`
 }
 
 export function cancelAllRequests(): void {

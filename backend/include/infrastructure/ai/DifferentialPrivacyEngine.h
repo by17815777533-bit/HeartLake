@@ -116,7 +116,7 @@ private:
     float sampleLaplace(float scale);
     float sampleGaussian(float sigma);
 
-    bool enabled_ = false;
+    std::atomic<bool> enabled_{false};  ///< 多线程读写，必须原子
     DPConfig dpConfig_;
     std::atomic<float> consumedEpsilon_{0.0f};  ///< 已消耗隐私预算 ε
     std::atomic<float> consumedDelta_{0.0f};    ///< 已消耗隐私预算 δ

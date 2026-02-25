@@ -55,7 +55,8 @@ class ConsultationService extends BaseService {
         payload = await _e2e.encrypt(content);
         encrypted = true;
       } catch (e) {
-        if (kDebugMode) debugPrint('消息加密失败，回退明文: $e');
+        if (kDebugMode) debugPrint('消息加密失败: $e');
+        return {'success': false, 'message': '消息加密失败，请稍后重试'};
       }
     }
 

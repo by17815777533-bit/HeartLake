@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <unordered_map>
 #include <memory>
 #include <functional>
@@ -97,7 +98,7 @@ private:
     // 配置参数
     size_t embeddingDim_ = 128;
     size_t cacheSize_ = 10000;
-    bool initialized_ = false;
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
 
     // IDF权重（词 -> IDF值）
     std::unordered_map<std::string, float> idfWeights_;
