@@ -183,7 +183,7 @@ const actionMap = {
 const getActionLabel = (action) => `${actionMap[action]?.icon || ''} ${actionMap[action]?.label || action}`
 const getActionType = (action) => actionMap[action]?.type || 'info'
 
-const fetchLogs = async () => {
+async function fetchLogs() {
   loading.value = true
   try {
     const params = { page: pagination.page, page_size: pagination.pageSize, ...filters }

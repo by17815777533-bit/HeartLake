@@ -255,7 +255,7 @@ const rules = {
 const getLevelType = (level) => ({ low: 'info', medium: 'warning', high: 'danger' }[level] || 'info')
 const getLevelLabel = (level) => ({ low: '低', medium: '中', high: '高' }[level] || level)
 
-const fetchWords = async () => {
+async function fetchWords() {
   loading.value = true
   try {
     const res = await api.getSensitiveWords({ page: pagination.page, page_size: pagination.pageSize, ...filters })

@@ -1,0 +1,125 @@
+/**
+ * @file views/Reports.test.ts
+ * @brief Reports.vue 组件测试
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { defineComponent, h } from 'vue'
+
+vi.mock('element-plus', () => ({
+  ElMessage: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+  ElMessageBox: { confirm: vi.fn().mockResolvedValue('confirm') },
+}))
+
+vi.mock('@/api', () => ({
+  default: { getReports: vi.fn(), handleReport: vi.fn() },
+}))
+vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
+vi.mock('@/composables/useTablePagination', () => ({
+  useTablePagination: (_fn: any, _opts: any) => {
+    const pagination = { page: 1, pageSize: 20, total: 0 }
+    return { pagination, handleSizeChange: vi.fn(), handleCurrentChange: vi.fn(), handleSearch: vi.fn(), handleReset: vi.fn(), resetPage: vi.fn() }
+  },
+}))
+
+import Reports from '@/views/Reports.vue'
+import api from '@/api'
+import { ElMessage } from 'element-plus'
+
+const ElCard = defineComponent({ name: 'ElCard', setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+const ElForm = defineComponent({ name: 'ElForm', setup(_, { slots }) { return () => h('form', slots.default?.()) } })
+const ElFormItem = defineComponent({ name: 'ElFormItem', setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+const ElSelect = defineComponent({ name: 'ElSelect', props: ['modelValue'], emits: ['update:modelValue'], setup(_, { slots }) { return () => h('select', slots.default?.()) } })
+const ElOption = defineComponent({ name: 'ElOption', props: ['label', 'value'], setup(p) { return () => h('option', { value: p.value }, p.label) } })
+const ElButton = defineComponent({ name: 'ElButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } })
+const ElTable = defineComponent({ name: 'ElTable', props: ['data'], setup(_, { slots }) { return () => h('table', slots.default?.()) } })
+const ElTableColumn = defineComponent({ name: 'ElTableColumn', props: ['prop', 'label'], setup() { return () => h('td') } })
+const ElTag = defineComponent({ name: 'ElTag', setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+const ElPagination = defineComponent({ name: 'ElPagination', props: ['total'], emits: ['size-change', 'current-change'], setup() { return () => h('div') } })
+const ElInput = defineComponent({ name: 'ElInput', props: ['modelValue'], emits: ['update:modelValue'], setup(p, { emit }) { return () => h('input', { value: p.modelValue, onInput: (e: any) => emit('update:modelValue', e.target.value) }) } })
+
+const mountOpts = {
+  global: {
+    components: { ElCard, ElForm, ElFormItem, ElSelect, ElOption, ElButton, ElTable, ElTableColumn, ElTag, ElPagination, ElInput },
+  },
+}
+
+describe('Reports.vue', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setActivePinia(createPinia())
+    vi.mocked(api.getReports).mockResolvedValue({ data: { list: [], total: 0 } } as any)
+  })
+
+  it('渲染举报页面', () => {
+    const wrapper = mount(Reports, mountOpts)
+    expect(wrapper.find('.reports-page').exists()).toBe(true)
+  })
+  it('挂载时调用 getReports', async () => {
+    mount(Reports, mountOpts)
+    await vi.dynamicImportSettled()
+    expect(api.getReports).toHaveBeenCalled()
+  })
+
+  it('包含筛选卡片', () => {
+    const wrapper = mount(Reports, mountOpts)
+    expect(wrapper.findComponent({ name: 'ElCard' }).exists()).toBe(true)
+  })
+
+  it('包含举报表格', () => {
+    const wrapper = mount(Reports, mountOpts)
+    expect(wrapper.findComponent({ name: 'ElTable' }).exists()).toBe(true)
+  })
+
+  it('包含分页', () => {
+    const wrapper = mount(Reports, mountOpts)
+    expect(wrapper.findComponent({ name: 'ElPagination' }).exists()).toBe(true)
+  })
+
+  it('包含状态筛选', () => {
+    const wrapper = mount(Reports, mountOpts)
+    const selects = wrapper.findAllComponents({ name: 'ElSelect' })
+    expect(selects.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('包含类型筛选', () => {
+    const wrapper = mount(Reports, mountOpts)
+    const selects = wrapper.findAllComponents({ name: 'ElSelect' })
+    expect(selects.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('接口失败时列表为空', async () => {
+    vi.mocked(api.getReports).mockRejectedValue(new Error('fail'))
+    const wrapper = mount(Reports, mountOpts)
+    await vi.dynamicImportSettled()
+    await new Promise(r => setTimeout(r, 10))
+    const table = wrapper.findComponent({ name: 'ElTable' })
+    expect(table.props('data')).toEqual([])
+  })
+
+  it('返回举报数据', async () => {
+    vi.mocked(api.getReports).mockResolvedValue({
+      data: { list: [{ id: 'r1', reason: '垃圾信息', status: 'pending', target_type: 'stone' }], total: 1 },
+    } as any)
+    const wrapper = mount(Reports, mountOpts)
+    await vi.dynamicImportSettled()
+    await new Promise(r => setTimeout(r, 10))
+    const table = wrapper.findComponent({ name: 'ElTable' })
+    expect(table.props('data')).toHaveLength(1)
+  })
+
+  it('失败时显示错误消息', async () => {
+    vi.mocked(api.getReports).mockRejectedValue(new Error('fail'))
+    mount(Reports, mountOpts)
+    await vi.dynamicImportSettled()
+    await new Promise(r => setTimeout(r, 10))
+    expect(ElMessage.error).toHaveBeenCalled()
+  })
+
+  it('包含搜索和重置按钮', () => {
+    const wrapper = mount(Reports, mountOpts)
+    const buttons = wrapper.findAllComponents({ name: 'ElButton' })
+    expect(buttons.length).toBeGreaterThanOrEqual(2)
+  })
+})

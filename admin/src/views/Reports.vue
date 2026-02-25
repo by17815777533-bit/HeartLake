@@ -224,7 +224,7 @@ const getStatusLabel = (status) => {
   return map[status] || status
 }
 
-const fetchReports = async () => {
+async function fetchReports() {
   loading.value = true
   try {
     const res = await api.getReports({
