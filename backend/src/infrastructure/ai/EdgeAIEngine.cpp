@@ -529,6 +529,11 @@ bool EdgeAIEngine::isEnabled() const {
 // ============================================================================
 
 void EdgeAIEngine::loadEdgeSentimentLexicon() {
+    // 预分配桶数，避免插入过程中多次 rehash
+    sentimentLexicon_.reserve(300);
+    intensifiers_.reserve(40);
+    negators_.reserve(30);
+
     // 正面情感词典
     sentimentLexicon_["happy"] = 0.8f;
     sentimentLexicon_["love"] = 0.9f;
