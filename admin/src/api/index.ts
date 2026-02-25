@@ -19,7 +19,7 @@ interface BusinessError extends Error {
   response?: AxiosResponse
 }
 
-const http = axios.create({
+export const http = axios.create({
   baseURL: '/api',
   timeout: 15000,
   xsrfCookieName: 'csrf_token',
