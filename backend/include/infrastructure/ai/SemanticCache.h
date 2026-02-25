@@ -31,7 +31,7 @@ struct SemanticCacheStats {
     size_t misses = 0;
     float hitRate() const {
         size_t total = exactHits + semanticHits + misses;
-        return total > 0 ? float(exactHits + semanticHits) / total : 0.0f;
+        return total > 0 ? static_cast<float>(exactHits + semanticHits) / static_cast<float>(total) : 0.0f;
     }
     size_t estimatedSavings() const { return (exactHits + semanticHits) * 2; }
 };

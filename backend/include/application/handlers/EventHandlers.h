@@ -22,7 +22,7 @@ public:
         // 触发AI情绪分析
         if (aiService_) {
             aiService_->analyzeSentiment(event.content,
-                [stoneId = event.stoneId](float score, const std::string& mood, const std::string& error) {
+                [stoneId = event.stoneId](float /*score*/, const std::string& /*mood*/, const std::string& error) {
                     if (error.empty()) {
                         LOG_DEBUG << "Emotion analyzed for stone: " << stoneId;
                     }

@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'presentation/providers/theme_provider.dart';
 import 'presentation/providers/user_provider.dart';
 import 'presentation/providers/notification_provider.dart';
+import 'presentation/providers/stone_provider.dart';
+import 'presentation/providers/friend_provider.dart';
 import 'providers/edge_ai_provider.dart';
 import 'data/datasources/cache_service.dart';
 import 'data/datasources/websocket_manager.dart';
@@ -92,6 +94,8 @@ class _HeartLakeAppState extends State<HeartLakeApp> {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => StoneProvider()),
+        ChangeNotifierProvider(create: (_) => FriendProvider()),
         ChangeNotifierProvider(create: (_) => EdgeAIProvider()),
       ],
       child: Consumer<ThemeProvider>(
