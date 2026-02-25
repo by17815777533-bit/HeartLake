@@ -68,21 +68,34 @@ std::string refineMoodFromCues(const std::string& text,
     static const std::vector<std::pair<std::string, float>> kAnxiousCues = {
         {"焦虑", 1.4f}, {"担心", 1.2f}, {"紧张", 1.1f}, {"不安", 1.1f},
         {"压力", 1.0f}, {"发紧", 1.0f}, {"心跳很快", 1.1f}, {"慌", 0.95f},
-        {"害怕", 1.05f}, {"恐惧", 1.2f}
+        {"害怕", 1.05f}, {"恐惧", 1.2f},
+        {"不敢", 0.95f}, {"急得", 1.0f}, {"不知所措", 1.1f},
+        {"睡不着", 0.9f}, {"好焦虑", 1.3f}
     };
     static const std::vector<std::pair<std::string, float>> kSadCues = {
         {"难过", 1.3f}, {"伤心", 1.3f}, {"失落", 1.1f}, {"受挫", 1.0f},
-        {"低落", 1.0f}, {"沉默了很久", 0.95f}, {"难受", 1.1f}, {"痛苦", 1.2f}
+        {"低落", 1.0f}, {"沉默了很久", 0.95f}, {"难受", 1.1f}, {"痛苦", 1.2f},
+        {"裁员", 1.0f}, {"闹翻", 1.0f}, {"去世", 1.2f}, {"空落落", 1.1f},
+        {"想家", 1.0f}, {"走丢", 1.0f}, {"背叛", 1.2f}, {"心如刀割", 1.3f},
+        {"失恋", 1.2f}, {"难熬", 1.1f}, {"心疼", 0.95f}, {"舍不得", 0.95f},
+        {"好笨", 0.9f}, {"怎么办", 0.8f}
     };
     static const std::vector<std::pair<std::string, float>> kAngryCues = {
         {"生气", 1.4f}, {"愤怒", 1.5f}, {"恼火", 1.4f}, {"火大", 1.5f},
         {"气炸", 1.3f}, {"抓狂", 1.1f}, {"气死", 1.2f}, {"被连续打断", 0.95f},
-        {"莫名否定", 0.95f}, {"连续否决", 0.95f}
+        {"莫名否定", 0.95f}, {"连续否决", 0.95f},
+        {"忍无可忍", 1.3f}, {"太过分", 1.2f}, {"太不负责", 1.1f},
+        {"素质太差", 1.1f}, {"态度恶劣", 1.2f}, {"无法无天", 1.2f},
+        {"黑心", 1.1f}, {"服了", 0.95f}, {"受不了", 1.0f},
+        {"不退款", 0.9f}, {"吵得", 0.85f}, {"插队", 0.9f},
+        {"扣工资", 1.0f}, {"碰瓷", 1.0f}, {"理直气壮", 0.9f}
     };
     static const std::vector<std::pair<std::string, float>> kSurprisedCues = {
         {"震惊", 1.4f}, {"惊讶", 1.3f}, {"惊到", 1.3f}, {"惊到了", 1.3f},
         {"出乎意料", 1.3f}, {"没反应过来", 1.2f}, {"太突然", 1.0f},
-        {"突然", 0.8f}, {"居然", 0.9f}, {"意外", 0.9f}
+        {"突然", 0.8f}, {"居然", 0.9f}, {"意外", 0.9f},
+        {"天哪", 1.2f}, {"不敢相信", 1.2f}, {"没想到", 1.1f},
+        {"惊喜", 1.1f}, {"突然出现", 1.0f}, {"竟然", 0.9f}
     };
     static const std::vector<std::pair<std::string, float>> kConfusedCues = {
         {"困惑", 1.4f}, {"懵", 1.3f}, {"迷茫", 1.1f}, {"乱了", 1.2f},
@@ -140,7 +153,11 @@ std::string refineMoodFromCues(const std::string& text,
     if (happyCue >= 0.95f && score >= -0.20f) {
         return "happy";
     }
-    if (maxCue < 0.35f && std::abs(score) < 0.18f) {
+    // 无明确情感信号时，倾向 neutral（纯陈述句保护）
+    if (maxCue < 0.35f && std::abs(score) < 0.55f) {
+        return "neutral";
+    }
+    if (maxCue < 0.60f && std::abs(score) < 0.18f) {
         return "neutral";
     }
 
@@ -1114,10 +1131,23 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         (containsAnyPhrase(text, positiveEventHints) && !containsAnyPhrase(text, negativeEventHints))
         || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
 
+    // 内部标签 → Ekman 六基本情绪标准标签映射
+    auto toEkmanMood = [](const std::string& internalMood) -> std::string {
+        if (internalMood == "happy") return "joy";
+        if (internalMood == "sad") return "sadness";
+        if (internalMood == "angry") return "anger";
+        if (internalMood == "anxious") return "fear";
+        if (internalMood == "surprised") return "surprise";
+        if (internalMood == "calm") return "neutral";
+        if (internalMood == "confused") return "neutral";
+        return internalMood;  // neutral 保持不变
+    };
+
     auto finalizeSentiment = [&](float rawScore, float rawConfidence, const char* methodName) {
-        const std::string mood = refineMoodFromCues(text, rawScore, scoresToMood(rawScore));
-        const float calibratedScore = calibrateScoreByMoodCue(text, mood, rawScore);
-        return EdgeSentimentResult{calibratedScore, mood, rawConfidence, methodName};
+        const std::string internalMood = refineMoodFromCues(text, rawScore, scoresToMood(rawScore));
+        const float calibratedScore = calibrateScoreByMoodCue(text, internalMood, rawScore);
+        const std::string ekmanMood = toEkmanMood(internalMood);
+        return EdgeSentimentResult{calibratedScore, ekmanMood, rawConfidence, methodName};
     };
 
 #ifdef HEARTLAKE_USE_ONNX
@@ -1142,6 +1172,10 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         float onnxWeight = std::clamp(0.35f + onnxResult.confidence * 0.35f, 0.35f, 0.75f);
         if (lexSignalStrong) {
             onnxWeight = std::max(0.25f, onnxWeight - 0.10f);
+        }
+        // 无词典信号时（纯陈述句），大幅降低 ONNX 权重，防止模型偏置污染 neutral
+        if (lexMatches == 0) {
+            onnxWeight = std::min(onnxWeight, 0.20f);
         }
         if (anchorSignal.strength > 0.20f && std::abs(anchorSignal.score) > 0.32f) {
             const bool anchorConflictWithOnnx = (onnxResult.score * anchorSignal.score < -0.08f);

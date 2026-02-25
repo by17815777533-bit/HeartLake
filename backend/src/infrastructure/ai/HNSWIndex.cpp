@@ -42,6 +42,8 @@ void HNSWIndex::clear() {
     std::unique_lock lock(mutex_);
     nodes_.clear();
     idMap_.clear();
+    visitedMarker_.clear();
+    visitedEpoch_ = 0;
     entryPoint_ = 0;
     maxLevel_ = 0;
 }
@@ -93,13 +95,22 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
     // 候选集：min-heap（距离最小的在顶部）
     std::priority_queue<DistIdx, std::vector<DistIdx>, std::greater<DistIdx>> candidates;
 
-    // 位图替代 unordered_set，避免哈希开销
-    std::vector<bool> visited(nodes_.size(), false);
+    // epoch 标记替代 vector<bool> 清零：O(1) 初始化替代 O(n)
+    // 参考: hnswlib (Malkov 2018) visited_list_pool 优化
+    ++visitedEpoch_;
+    if (visitedEpoch_ == 0) {
+        // epoch 溢出（极罕见），重置所有标记
+        std::fill(visitedMarker_.begin(), visitedMarker_.end(), 0);
+        visitedEpoch_ = 1;
+    }
+    if (visitedMarker_.size() < nodes_.size()) {
+        visitedMarker_.resize(nodes_.size(), 0);
+    }
 
     float entryDist = vectorDistance(query, nodes_[entryPoint].vector);
     results.push({entryDist, entryPoint});
     candidates.push({entryDist, entryPoint});
-    visited[entryPoint] = true;
+    visitedMarker_[entryPoint] = visitedEpoch_;
 
     while (!candidates.empty()) {
         auto [candDist, candIdx] = candidates.top();
@@ -118,7 +129,7 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
             // prefetch 邻居向量数据到 L1 cache
             for (size_t ni = 0; ni < neighborList.size() && ni < 8; ++ni) {
                 size_t nIdx = neighborList[ni];
-                if (!visited[nIdx]) {
+                if (visitedMarker_[nIdx] != visitedEpoch_) {
                     __builtin_prefetch(nodes_[nIdx].vector.data(), 0, 1);
                 }
             }
@@ -127,8 +138,8 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
             const bool resultsFull = static_cast<int>(results.size()) >= ef;
 
             for (size_t neighborIdx : neighborList) {
-                if (visited[neighborIdx]) continue;
-                visited[neighborIdx] = true;
+                if (visitedMarker_[neighborIdx] == visitedEpoch_) continue;
+                visitedMarker_[neighborIdx] = visitedEpoch_;
 
                 float neighborDist = vectorDistance(query, nodes_[neighborIdx].vector);
 

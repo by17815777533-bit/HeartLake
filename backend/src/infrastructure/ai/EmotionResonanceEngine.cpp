@@ -27,6 +27,48 @@ EmotionResonanceEngine& EmotionResonanceEngine::getInstance() {
 }
 
 // ===== DTW (Dynamic Time Warping) 情绪轨迹相似度 =====
+// 优化: Sakoe-Chiba band 约束 O(n*w) + LB_Keogh 下界剪枝
+// 参考: Salvador & Chan 2007 "FastDTW", Keogh 2005 "LB_Keogh"
+
+float EmotionResonanceEngine::lbKeogh(
+    const std::vector<float>& query,
+    const std::vector<float>& candidate,
+    int bandWidth
+) {
+    // LB_Keogh: 计算 DTW 的下界，O(n) 时间
+    // 构建 candidate 的上下包络线，计算 query 超出包络的距离
+    const size_t n = query.size();
+    const size_t m = candidate.size();
+    if (n == 0 || m == 0) return 0.0f;
+
+    const size_t len = std::min(n, m);
+    float sumSq = 0.0f;
+
+    for (size_t i = 0; i < len; ++i) {
+        // 包络线范围: [i - bandWidth, i + bandWidth] 在 candidate 上
+        size_t lo = (i > static_cast<size_t>(bandWidth)) ? (i - static_cast<size_t>(bandWidth)) : 0;
+        size_t hi = std::min(i + static_cast<size_t>(bandWidth), m - 1);
+
+        // 找包络线的 min/max
+        float envMin = candidate[lo];
+        float envMax = candidate[lo];
+        for (size_t j = lo + 1; j <= hi; ++j) {
+            if (candidate[j] < envMin) envMin = candidate[j];
+            if (candidate[j] > envMax) envMax = candidate[j];
+        }
+
+        // query[i] 超出包络的部分
+        if (query[i] > envMax) {
+            float d = query[i] - envMax;
+            sumSq += d * d;
+        } else if (query[i] < envMin) {
+            float d = envMin - query[i];
+            sumSq += d * d;
+        }
+    }
+
+    return std::sqrt(sumSq);
+}
 
 float EmotionResonanceEngine::trajectorySimDTW(
     const std::vector<float>& traj1,
@@ -44,10 +86,12 @@ float EmotionResonanceEngine::trajectorySimDTW(
         return trajectorySimDTW(t1, t2);
     }
 
+    // Sakoe-Chiba band: 带宽 = max(10, max(n,m) * 10%)
+    const int w = std::max(10, static_cast<int>(std::max(n, m)) / 10);
+
     constexpr double INF = std::numeric_limits<double>::max();
 
-    // thread_local 滚动数组：避免每次调用堆分配，空间 O(m) 替代 O(n*m)
-    // 使用 double 累加避免长序列精度损失
+    // thread_local 滚动数组：避免每次调用堆分配
     thread_local std::vector<double> prev_buf, curr_buf;
     prev_buf.assign(m + 1, INF);
     curr_buf.resize(m + 1);
@@ -56,7 +100,16 @@ float EmotionResonanceEngine::trajectorySimDTW(
     for (size_t i = 1; i <= n; ++i) {
         curr_buf[0] = INF;
 
-        for (size_t j = 1; j <= m; ++j) {
+        // Sakoe-Chiba band: 只计算 [j_lo, j_hi] 范围
+        size_t j_lo = (i > static_cast<size_t>(w)) ? (i - static_cast<size_t>(w)) : 1;
+        size_t j_hi = std::min(i + static_cast<size_t>(w), m);
+
+        // band 外的位置设为 INF
+        if (j_lo > 1) {
+            curr_buf[j_lo - 1] = INF;
+        }
+
+        for (size_t j = j_lo; j <= j_hi; ++j) {
             double cost = std::abs(static_cast<double>(traj1[i - 1]) - static_cast<double>(traj2[j - 1]));
             double min_prev = prev_buf[j - 1];
             if (prev_buf[j] < min_prev) min_prev = prev_buf[j];
@@ -67,10 +120,8 @@ float EmotionResonanceEngine::trajectorySimDTW(
         std::swap(prev_buf, curr_buf);
     }
 
-    // swap 后结果在 prev_buf 中
     double maxLen = static_cast<double>(std::max(n, m));
     double normalizedDist = prev_buf[m] / maxLen;
-    // 距离越小相似度越高，使用高斯核转换
     return static_cast<float>(std::exp(-normalizedDist * normalizedDist / 2.0));
 }
 

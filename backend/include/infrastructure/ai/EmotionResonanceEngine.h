@@ -53,8 +53,18 @@ public:
     );
 
     /**
+     * @brief LB_Keogh 下界：DTW 距离的快速下界估计，O(n) 时间
+     * 用于剪枝，避免不必要的完整 DTW 计算
+     */
+    float lbKeogh(
+        const std::vector<float>& query,
+        const std::vector<float>& candidate,
+        int bandWidth = 10
+    );
+
+    /**
      * @brief 计算两个情绪轨迹的相似度
-     * 使用DTW (Dynamic Time Warping) 算法处理不等长序列
+     * 使用DTW (Dynamic Time Warping) + Sakoe-Chiba band 约束
      */
     float trajectorySimDTW(
         const std::vector<float>& traj1,

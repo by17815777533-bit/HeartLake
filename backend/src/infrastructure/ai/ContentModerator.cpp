@@ -45,6 +45,15 @@ void ContentModerator::buildModerationAC() {
     moderationAC_.addPattern("打死", 2, 3);
     moderationAC_.addPattern("暴力", 2, 2);
     moderationAC_.addPattern("殴打", 2, 2);
+    moderationAC_.addPattern("杀戮", 2, 3);
+    moderationAC_.addPattern("血腥", 2, 2);
+    moderationAC_.addPattern("恐怖袭击", 2, 3);
+    moderationAC_.addPattern("炸掉", 2, 3);
+    moderationAC_.addPattern("炸弹", 2, 3);
+    moderationAC_.addPattern("爆炸", 2, 2);
+    moderationAC_.addPattern("枪支", 2, 3);
+    moderationAC_.addPattern("弹药", 2, 3);
+    moderationAC_.addPattern("贩卖人口", 2, 3);
 
     // 不当内容 (category=3)
     moderationAC_.addPattern("porn", 3, 3);
@@ -52,6 +61,21 @@ void ContentModerator::buildModerationAC() {
     moderationAC_.addPattern("sexual", 3, 2);
     moderationAC_.addPattern("色情", 3, 3);
     moderationAC_.addPattern("裸体", 3, 2);
+    moderationAC_.addPattern("招嫖", 3, 3);
+    moderationAC_.addPattern("偷拍", 3, 2);
+    moderationAC_.addPattern("偷窥", 3, 2);
+
+    // 违法犯罪 (category=4)
+    moderationAC_.addPattern("毒品", 4, 3);
+    moderationAC_.addPattern("吸毒", 4, 3);
+    moderationAC_.addPattern("贩毒", 4, 3);
+    moderationAC_.addPattern("赌博", 4, 3);
+    moderationAC_.addPattern("传销", 4, 3);
+    moderationAC_.addPattern("洗钱", 4, 3);
+    moderationAC_.addPattern("诈骗", 4, 3);
+    moderationAC_.addPattern("非法集资", 4, 3);
+    moderationAC_.addPattern("黄赌毒", 4, 3);
+    moderationAC_.addPattern("代开发票", 4, 2);
 
     // 一般脏话/侮辱 (category=0)
     moderationAC_.addPattern("fuck", 0, 2);

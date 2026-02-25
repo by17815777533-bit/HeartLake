@@ -141,6 +141,10 @@ private:
     std::mt19937 rng_{std::random_device{}()};
     std::atomic<size_t> totalSearches_{0};
 
+    // ---- visited epoch 标记（避免每次搜索清零 O(n) 数组）----
+    mutable std::vector<uint32_t> visitedMarker_;   ///< 每个节点的 epoch 标记
+    mutable uint32_t visitedEpoch_ = 0;             ///< 当前搜索 epoch
+
     // ---- 内部算法 ----
     int randomLevel();
     float vectorDistance(const std::vector<float>& a, const std::vector<float>& b) const;
