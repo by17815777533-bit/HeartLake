@@ -52,3 +52,4 @@ backend/config.json
 backend/config.runtime.json
 Testing/
 .claude/
+.codex/
