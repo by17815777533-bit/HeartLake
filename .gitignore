@@ -50,3 +50,4 @@ backend/third_party/onnxruntime-*/
 # Sensitive config (use config.json.example as template)
 backend/config.json
 backend/config.runtime.json
+Testing/
