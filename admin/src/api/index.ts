@@ -20,7 +20,7 @@ interface BusinessError extends Error {
 }
 
 export const http = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000,
   xsrfCookieName: 'csrf_token',
   xsrfHeaderName: 'X-CSRF-Token',

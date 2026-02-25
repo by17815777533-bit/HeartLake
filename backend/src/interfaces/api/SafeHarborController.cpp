@@ -15,6 +15,7 @@ static std::string extractUserId(const drogon::HttpRequestPtr& req) {
     try {
         return req->getAttributes()->get<std::string>("user_id");
     } catch (...) {
+        LOG_WARN << "Failed to extract user_id from request attributes";
         return "";
     }
 }

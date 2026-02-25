@@ -946,8 +946,12 @@ void EdgeAIController::getPulseHistory(
         int count = 10;
         auto countParam = req->getParameter("count");
         if (!countParam.empty()) {
-            count = std::stoi(countParam);
-            if (count < 1 || count > 100) count = 10;
+            try {
+                count = std::stoi(countParam);
+                if (count < 1 || count > 100) count = 10;
+            } catch (const std::exception&) {
+                count = 10;
+            }
         }
 
         auto history = engine.getPulseHistory(count);

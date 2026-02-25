@@ -215,7 +215,7 @@ RateLimitResult RateLimiter::checkTokenBucketRedis(const std::string& key, const
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     } catch (...) {
-        // Redis失败，回退到本地
+        LOG_WARN << "Redis token bucket rate limit failed, falling back to local";
     }
 
     return gotResultPtr->load() ? *resultPtr : checkTokenBucketLocal(key, config);
@@ -328,7 +328,9 @@ RateLimitResult RateLimiter::checkSlidingWindowRedis(const std::string& key, con
         for (int i = 0; i < 100 && !gotResultPtr->load(); ++i) {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
-    } catch (...) {}
+    } catch (...) {
+        LOG_WARN << "Redis sliding window rate limit failed, falling back to local";
+    }
 
     return gotResultPtr->load() ? *resultPtr : checkSlidingWindowLocal(key, config);
 }

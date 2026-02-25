@@ -525,7 +525,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 } catch (...) {
-                    // trace 属性不存在时静默忽略（如健康检查等未经过 TraceMiddleware 的请求）
+                    LOG_DEBUG << "Trace attributes not available for request (e.g. health check)";
                 }
             });
 

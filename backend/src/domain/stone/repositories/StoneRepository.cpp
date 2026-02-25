@@ -96,9 +96,11 @@ int StoneRepository::countAll(const std::string& filterMood) {
     auto db = drogon::app().getDbClient("default");
     if (!filterMood.empty()) {
         auto result = db->execSqlSync("SELECT COUNT(*) as total FROM stones WHERE status = 'published' AND deleted_at IS NULL AND mood_type = $1", filterMood);
+        if (result.empty()) return 0;
         return result[0]["total"].as<int>();
     }
     auto result = db->execSqlSync("SELECT COUNT(*) as total FROM stones WHERE status = 'published' AND deleted_at IS NULL");
+    if (result.empty()) return 0;
     return result[0]["total"].as<int>();
 }
 
@@ -107,6 +109,7 @@ int StoneRepository::countByUserId(const std::string& userId) {
     auto result = db->execSqlSync(
         "SELECT COUNT(*) as total FROM stones WHERE user_id = $1 AND status = 'published' AND deleted_at IS NULL", userId
     );
+    if (result.empty()) return 0;
     return result[0]["total"].as<int>();
 }
 
