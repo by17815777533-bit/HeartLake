@@ -175,6 +175,8 @@ export default {
   getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
   triggerFederatedAggregation: (data: Params) => http.post('/admin/edge-ai/federated/aggregate', data),
   getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
+  getPrivacyStats: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
+  getResonanceStats: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
   edgeAIVectorSearch: (data: Params) => http.post('/admin/edge-ai/vector-search', data),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
   updateEdgeAIConfig: (data: Params) => http.put('/admin/edge-ai/config', data),

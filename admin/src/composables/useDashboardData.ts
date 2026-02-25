@@ -35,7 +35,7 @@ export function useDashboardData() {
     return '晚上好'
   })
 
-  const formatNumber = (num) =>
+  const formatNumber = (num: number) =>
     num >= 10000 ? (num / 10000).toFixed(1) + 'w' : num.toLocaleString()
 
   // ── 统计数据 ──
@@ -84,9 +84,9 @@ export function useDashboardData() {
   )
 
   // ── 天气心情饼图 ──
-  const escapeHtml = (str) => String(str).replace(/[<>&"']/g, c => ({
+  const escapeHtml = (str: string | number) => String(str).replace(/[<>&"']/g, (c: string) => ({
     '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
-  }[c]))
+  }[c] ?? c))
 
   const weatherMoodPieOption = computed(() => {
     const moodData = charts.moodDistributionOption.value.series[0].data
@@ -94,7 +94,7 @@ export function useDashboardData() {
       tooltip: {
         trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
         borderRadius: 4, padding: [6, 10], textStyle: { color: '#E3E2E6', fontSize: 12 },
-        formatter: (p) => {
+        formatter: (p: { marker: string; name: string; percent: number }) => {
           const name = escapeHtml(p.name)
           return `${p.marker} ${name}: ${Number(p.percent).toFixed(1)}%`
         }

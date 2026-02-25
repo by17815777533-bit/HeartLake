@@ -546,7 +546,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 import { Refresh, Download } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'

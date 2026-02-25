@@ -4,12 +4,22 @@
 
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
+import '../../utils/circuit_breaker.dart';
 import 'base_service.dart';
+import 'cache_service.dart';
 
 /// 石头服务 - 负责发布、获取、编辑、删除石头
 class StoneService extends BaseService {
   @override
   String get serviceName => 'StoneService';
+
+  final CircuitBreaker _breaker = CircuitBreaker(
+    name: 'stones',
+    failureThreshold: 3,
+    resetTimeout: const Duration(seconds: 30),
+    callTimeout: const Duration(seconds: 15),
+  );
+  final CacheService _cache = CacheService();
 
   // 发布石头
   Future<Map<String, dynamic>> createStone({
@@ -49,38 +59,53 @@ class StoneService extends BaseService {
     };
   }
 
-  // 获取石头列表（观湖）
+  // 获取石头列表（观湖）- 带熔断器 + 缓存降级
   Future<Map<String, dynamic>> getStones({
     int page = 1,
     int pageSize = 20,
     String sort = 'latest',
   }) async {
-    final response = await get('/lake/stones', queryParameters: {
-      'page': page,
-      'page_size': pageSize,
-      'sort': sort,
-    });
+    final cacheKey = 'stones_${page}_${pageSize}_$sort';
 
-    if (!response.success) {
-      return toMap(response);
-    }
+    try {
+      final result = await _breaker.call(() async {
+        final response = await get('/lake/stones', queryParameters: {
+          'page': page,
+          'page_size': pageSize,
+          'sort': sort,
+        });
 
-    final data = response.data;
-    final items = data?['stones'] as List? ?? [];
-    final List<Stone> stones = [];
-    for (final json in items) {
-      try {
-        stones.add(Stone.fromJson(json));
-      } catch (e) {
-        debugPrint('跳过无法解析的石头: $e');
+        if (!response.success) return toMap(response);
+
+        final data = response.data;
+        final items = data?['stones'] as List? ?? [];
+        final List<Stone> stones = [];
+        for (final json in items) {
+          try {
+            stones.add(Stone.fromJson(json));
+          } catch (e) {
+            debugPrint('跳过无法解析的石头: $e');
+          }
+        }
+
+        final result = {
+          'success': true,
+          'stones': stones,
+          'pagination': _buildPagination(data),
+        };
+        _cache.set(cacheKey, result, ttl: const Duration(minutes: 3));
+        return result;
+      });
+      return result;
+    } catch (_) {
+      // 熔断或异常，降级到缓存
+      final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+      if (cached != null) {
+        if (kDebugMode) debugPrint('[StoneService] 熔断降级到缓存: $cacheKey');
+        return {...cached, 'from_cache': true};
       }
+      return {'success': false, 'message': '服务暂时不可用，请稍后重试'};
     }
-
-    return {
-      'success': true,
-      'stones': stones,
-      'pagination': _buildPagination(data),
-    };
   }
 
   // 获取我的石头
@@ -115,18 +140,22 @@ class StoneService extends BaseService {
     };
   }
 
-  // 获取湖面气象
+  // 获取湖面气象 - 带熔断器 + 缓存降级
   Future<Map<String, dynamic>> getLakeWeather() async {
-    final response = await get('/lake/weather');
-
-    if (!response.success) {
-      return toMap(response);
+    const cacheKey = 'lake_weather';
+    try {
+      return await _breaker.call(() async {
+        final response = await get('/lake/weather');
+        if (!response.success) return toMap(response);
+        final result = {'success': true, 'weather': response.data};
+        _cache.set(cacheKey, result, ttl: const Duration(minutes: 5));
+        return result;
+      });
+    } catch (_) {
+      final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+      if (cached != null) return {...cached, 'from_cache': true};
+      return {'success': false, 'message': '服务暂时不可用'};
     }
-
-    return {
-      'success': true,
-      'weather': response.data,
-    };
   }
 
   // 删除石头

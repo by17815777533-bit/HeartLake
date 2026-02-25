@@ -33,6 +33,7 @@
             v-model="form.username"
             placeholder="用户名"
             size="large"
+            aria-label="用户名"
           />
         </el-form-item>
 
@@ -65,7 +66,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
