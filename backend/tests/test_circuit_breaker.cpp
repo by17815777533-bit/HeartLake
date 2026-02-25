@@ -37,6 +37,12 @@ protected:
         config["hnsw_ef_search"] = 50;
         config["quantization_bits"] = 8;
         engine->initialize(config);
+        // 测试中使用短 cooldown 避免长时间等待
+        EdgeNodeStatus::COOLDOWN_SECONDS = 1;
+    }
+
+    void TearDown() override {
+        EdgeNodeStatus::COOLDOWN_SECONDS = 30;  // 恢复默认值
     }
 
     EdgeAIEngine* engine;
@@ -155,7 +161,7 @@ TEST_F(CircuitBreakerTest, OpenToHalfOpenAfterCooldown) {
 
     // 等待冷却期（31秒确保超过30秒阈值）
     // 注意：这是一个真实时间等待测试，在CI中可能较慢
-    std::this_thread::sleep_for(std::chrono::seconds(31));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // 再次更新触发状态转换
     status.failedRequests = 1;  // 低失败率
@@ -183,7 +189,7 @@ TEST_F(CircuitBreakerTest, HalfOpenToClosedOnSuccesses) {
     ASSERT_EQ(findNode(nodeId).circuitState, CircuitState::OPEN);
 
     // 等待冷却期转 HALF_OPEN
-    std::this_thread::sleep_for(std::chrono::seconds(31));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // 连续发送低失败率更新，触发 HALF_OPEN -> CLOSED
     // 每次更新 halfOpenSuccesses++，需要 >= 3 次
@@ -214,7 +220,7 @@ TEST_F(CircuitBreakerTest, HalfOpenToOpenOnProbeFail) {
     ASSERT_EQ(findNode(nodeId).circuitState, CircuitState::OPEN);
 
     // 等待冷却期转 HALF_OPEN
-    std::this_thread::sleep_for(std::chrono::seconds(31));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // 先发一次低失败率让它转到 HALF_OPEN
     status.totalRequests = 10;
@@ -294,7 +300,7 @@ TEST_F(CircuitBreakerTest, HalfOpenNodeReducedWeight) {
     engine->updateNodeStatus(hoStatus);
     ASSERT_EQ(findNode(halfOpenId).circuitState, CircuitState::OPEN);
 
-    std::this_thread::sleep_for(std::chrono::seconds(31));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // 低失败率更新触发 HALF_OPEN
     hoStatus.totalRequests = 10;

@@ -259,7 +259,7 @@ struct EdgeNodeStatus {
     // 熔断器配置常量
     static constexpr float FAILURE_RATE_THRESHOLD = 0.5f;    ///< 失败率阈值
     static constexpr int MIN_REQUESTS_FOR_CIRCUIT = 5;       ///< 触发熔断的最小请求数
-    static constexpr int COOLDOWN_SECONDS = 30;              ///< OPEN->HALF_OPEN冷却时间(秒)
+    static inline int COOLDOWN_SECONDS = 30;                 ///< OPEN->HALF_OPEN冷却时间(秒)
     static constexpr int HALF_OPEN_SUCCESS_THRESHOLD = 3;    ///< HALF_OPEN转CLOSED所需连续成功数
 
     Json::Value toJson() const {

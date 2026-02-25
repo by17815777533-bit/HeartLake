@@ -595,6 +595,8 @@ int main(int argc, char *argv[]) {
         // 初始化推荐引擎
         LOG_INFO << "Initializing Recommendation Engine...";
         heartlake::ai::RecommendationEngine::getInstance().initialize(32);
+        heartlake::ai::RecommendationEngine::getInstance().setDbClientProvider(
+            [](){ return drogon::app().getDbClient("default"); });
 
         // 预热双记忆RAG（单例懒加载）
         LOG_INFO << "Initializing Dual Memory RAG...";

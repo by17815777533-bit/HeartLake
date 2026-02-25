@@ -11,7 +11,11 @@
 #include <functional>
 #include <mutex>
 #include <random>
+#include <memory>
 #include <json/json.h>
+
+// 前向声明，避免头文件依赖 drogon
+namespace drogon { namespace orm { class DbClient; } }
 
 namespace heartlake {
 namespace ai {
@@ -49,6 +53,15 @@ public:
     static RecommendationEngine& getInstance();
 
     void initialize(int latentDim = 32);
+
+    /**
+     * 设置数据库客户端提供者（依赖注入）
+     * 生产环境中注入 [](){ return app().getDbClient("default"); }
+     * 不设置则 DB 相关方法返回空结果
+     */
+    using DbClientPtr = std::shared_ptr<drogon::orm::DbClient>;
+    using DbClientProvider = std::function<DbClientPtr()>;
+    void setDbClientProvider(DbClientProvider provider);
 
     /**
      * 获取个性化推荐
@@ -119,6 +132,7 @@ private:
     int latentDim_ = 32;
     mutable std::recursive_mutex mutex_;
     std::mt19937 rng_{std::random_device{}()};
+    DbClientProvider dbClientProvider_;  // 依赖注入的 DB 客户端提供者
 
     // 用户潜在因子缓存
     std::unordered_map<std::string, UserProfile> userProfiles_;

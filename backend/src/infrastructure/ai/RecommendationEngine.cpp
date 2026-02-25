@@ -5,14 +5,13 @@
 
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
-#include <drogon/drogon.h>
+#include <drogon/orm/DbClient.h>
+#include <trantor/utils/Logger.h>
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <unordered_set>
 #include <ctime>
-
-using namespace drogon;
 
 namespace heartlake {
 namespace ai {
@@ -27,6 +26,11 @@ void RecommendationEngine::initialize(int latentDim) {
     latentDim_ = latentDim;
     initialized_ = true;
     LOG_INFO << "RecommendationEngine initialized with latent_dim=" << latentDim;
+}
+
+void RecommendationEngine::setDbClientProvider(DbClientProvider provider) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    dbClientProvider_ = std::move(provider);
 }
 
 // ===== 核心算法实现 =====
@@ -311,7 +315,8 @@ void RecommendationEngine::getRecommendations(
 std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
-    auto dbClient = app().getDbClient("default");
+    if (!dbClientProvider_) { LOG_ERROR << "userBasedCF: no DB provider"; return {}; }
+    auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "userBasedCF: failed to get db client";
         return {};
@@ -356,7 +361,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
 std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
-    auto dbClient = app().getDbClient("default");
+    if (!dbClientProvider_) { LOG_ERROR << "itemBasedCF: no DB provider"; return {}; }
+    auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "itemBasedCF: failed to get db client";
         return {};
@@ -410,7 +416,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
 std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend(
     const std::string& userId, const std::string& userMood, int topK) {
     std::vector<RecommendationCandidate> results;
-    auto dbClient = app().getDbClient("default");
+    if (!dbClientProvider_) { LOG_ERROR << "contentBasedRecommend: no DB provider"; return {}; }
+    auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "contentBasedRecommend: failed to get db client";
         return {};
@@ -459,7 +466,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     double cfWeight, double contentWeight, double exploreWeight) {
 
     topK = std::max(1, topK);
-    auto dbClient = app().getDbClient("default");
+    if (!dbClientProvider_) { LOG_ERROR << "hybridRecommend: no DB provider"; return {}; }
+    auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "hybridRecommend: failed to get db client";
         return {};
