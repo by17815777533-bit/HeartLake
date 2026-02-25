@@ -9,9 +9,7 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <thread>
-#include <unordered_set>
 
 using namespace drogon;
 
@@ -286,19 +284,46 @@ std::vector<float> AdvancedEmbeddingEngine::extractNGramFeatures(
     size_t ngramDim = embeddingDim_ * 10 / 100; // 10%维度用于N-gram
     std::vector<float> features(ngramDim, 0.0f);
 
-    // 提取2-gram和3-gram
-    auto bigrams = extractNGrams(tokens, 2);
-    auto trigrams = extractNGrams(tokens, 3);
+    // 内联滑窗哈希常量（与 featureHash 完全一致）
+    constexpr size_t m = 0xc6a4a7935bd1e995ULL;
+    constexpr int r = 47;
 
-    // 使用签名特征哈希
-    for (const auto& bigram : bigrams) {
-        auto [idx, sign] = featureHash(bigram, ngramDim);
-        features[idx] += sign * 1.0f;
+    // 对连续 n 个 token 拼接（含空格分隔）直接算哈希，不构造中间 string
+    auto inlineHash = [&](size_t start, int n) -> std::pair<size_t, int> {
+        size_t hash = 0;
+        for (int j = 0; j < n; ++j) {
+            if (j > 0) {
+                hash ^= static_cast<size_t>(' ');
+                hash *= m;
+                hash ^= (hash >> r);
+            }
+            for (char c : tokens[start + j]) {
+                hash ^= static_cast<size_t>(c);
+                hash *= m;
+                hash ^= (hash >> r);
+            }
+        }
+        size_t hash2 = hash ^ 0x9e3779b97f4a7c15ULL;
+        hash2 *= 0xbf58476d1ce4e5b9ULL;
+        hash2 ^= (hash2 >> 31);
+        int sign = (hash2 & 1) ? 1 : -1;
+        return {hash % ngramDim, sign};
+    };
+
+    // 2-gram 滑窗
+    if (tokens.size() >= 2) {
+        for (size_t i = 0; i <= tokens.size() - 2; ++i) {
+            auto [idx, sign] = inlineHash(i, 2);
+            features[idx] += sign * 1.0f;
+        }
     }
 
-    for (const auto& trigram : trigrams) {
-        auto [idx, sign] = featureHash(trigram, ngramDim);
-        features[idx] += sign * 0.5f; // 3-gram权重稍低
+    // 3-gram 滑窗
+    if (tokens.size() >= 3) {
+        for (size_t i = 0; i <= tokens.size() - 3; ++i) {
+            auto [idx, sign] = inlineHash(i, 3);
+            features[idx] += sign * 0.5f;
+        }
     }
 
     // 归一化（使用绝对值之和，因为签名哈希产生正负值）
