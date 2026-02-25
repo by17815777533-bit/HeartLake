@@ -84,7 +84,7 @@ class StoneService extends BaseService {
           try {
             stones.add(Stone.fromJson(json));
           } catch (e) {
-            debugPrint('跳过无法解析的石头: $e');
+            if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
           }
         }
 
@@ -129,7 +129,7 @@ class StoneService extends BaseService {
       try {
         stones.add(Stone.fromJson(json));
       } catch (e) {
-        debugPrint('跳过无法解析的石头: $e');
+        if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
       }
     }
 

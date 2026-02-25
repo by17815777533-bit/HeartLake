@@ -15,6 +15,13 @@ class NotificationProvider with ChangeNotifier {
   DateTime? _lastUpdate;
   bool _wsListenerRegistered = false;
 
+  // 通知列表管理
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoadingNotifications = false;
+  bool _hasMore = true;
+  int _currentPage = 1;
+  static const int _pageSize = 20;
+
   // P1-1: 保存监听器引用以便精确移除
   late final void Function(Map<String, dynamic>) _onNewNotification;
   late final void Function(Map<String, dynamic>) _onBoatUpdate;
@@ -24,6 +31,9 @@ class NotificationProvider with ChangeNotifier {
   int get unreadCount => _unreadCount;
   bool get isLoading => _isLoading;
   bool get hasUnread => _unreadCount > 0;
+  List<Map<String, dynamic>> get notifications => List.unmodifiable(_notifications);
+  bool get isLoadingNotifications => _isLoadingNotifications;
+  bool get hasMore => _hasMore;
 
   NotificationProvider() {
     _setupWebSocketListener();
@@ -34,6 +44,9 @@ class NotificationProvider with ChangeNotifier {
     // P1-1: 使用命名引用，dispose 时可精确移除
     _onNewNotification = (data) {
       incrementUnread();
+      // 实时推送的通知插入列表头部
+      _notifications.insert(0, data);
+      notifyListeners();
     };
     _onBoatUpdate = (data) {
       incrementUnread();
@@ -81,11 +94,20 @@ class NotificationProvider with ChangeNotifier {
   /// 标记单个通知为已读
   Future<void> markAsRead(String notificationId) async {
     try {
-      await _notificationService.markAsRead(notificationId);
+      final result = await _notificationService.markAsRead(notificationId);
       if (_unreadCount > 0) {
         _unreadCount--;
-        notifyListeners();
       }
+      // 同步列表中的已读状态
+      final idx = _notifications.indexWhere((n) => n['id']?.toString() == notificationId);
+      if (idx >= 0) {
+        _notifications[idx] = {..._notifications[idx], 'is_read': true};
+      }
+      // 服务端返回的未读数优先
+      if (result['unread_count'] != null) {
+        _unreadCount = result['unread_count'] as int;
+      }
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) { debugPrint('标记通知已读失败: $e'); }
     }
@@ -96,6 +118,12 @@ class NotificationProvider with ChangeNotifier {
     try {
       await _notificationService.markAllAsRead();
       _unreadCount = 0;
+      // 同步列表中所有通知的已读状态
+      for (int i = 0; i < _notifications.length; i++) {
+        if (_notifications[i]['is_read'] != true) {
+          _notifications[i] = {..._notifications[i], 'is_read': true};
+        }
+      }
       notifyListeners();
     } catch (e) {
       if (kDebugMode) { debugPrint('标记所有通知已读失败: $e'); }
@@ -126,9 +154,52 @@ class NotificationProvider with ChangeNotifier {
     await loadUnreadCount();
   }
 
+  /// 加载通知列表（支持分页和刷新）
+  Future<void> loadNotifications({bool refresh = false}) async {
+    if (_isLoadingNotifications) return;
+
+    if (refresh) {
+      _currentPage = 1;
+      _notifications = [];
+      _hasMore = true;
+    }
+
+    if (!_hasMore) return;
+
+    _isLoadingNotifications = true;
+    notifyListeners();
+
+    try {
+      final result = await _notificationService.getNotifications(
+        page: _currentPage,
+        pageSize: _pageSize,
+      );
+      if (result['success'] == true) {
+        final items = result['notifications'] as List? ?? [];
+        final newItems = items.cast<Map<String, dynamic>>();
+        _notifications.addAll(newItems);
+        _hasMore = newItems.length >= _pageSize;
+        _currentPage++;
+        // 同步未读数
+        if (result['unread_count'] != null) {
+          _unreadCount = result['unread_count'] as int;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) { debugPrint('加载通知列表失败: $e'); }
+    } finally {
+      _isLoadingNotifications = false;
+      notifyListeners();
+    }
+  }
+
   void clear() {
     _unreadCount = 0;
     _lastUpdate = null;
+    _notifications = [];
+    _currentPage = 1;
+    _hasMore = true;
+    _isLoadingNotifications = false;
     notifyListeners();
   }
 }
