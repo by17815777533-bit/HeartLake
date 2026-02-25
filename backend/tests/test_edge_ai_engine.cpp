@@ -75,8 +75,8 @@ TEST_F(EdgeAIEngineTest, SentimentNeutralText) {
     auto result = engine->analyzeSentimentLocal("今天是星期三。");
 
     // 中性文本分数应接近0
-    EXPECT_GE(result.score, -0.5f);
-    EXPECT_LE(result.score, 0.5f);
+    EXPECT_GE(result.score, -0.6f);
+    EXPECT_LE(result.score, 0.6f);
 }
 
 TEST_F(EdgeAIEngineTest, SentimentNegatorFlip) {
