@@ -3,9 +3,9 @@
 import { ref } from 'vue'
 
 // XSS 安全转义
-const escapeHtml = (str) => String(str).replace(/[<>&"']/g, c => ({
+const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c => ({
   '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
-}[c]))
+}[c] ?? c))
 
 // Material Design 3 配色
 export const moodColors = ['#1565C0', '#2E7D32', '#BA1A1A', '#E65100', '#44474E']
@@ -25,7 +25,7 @@ export function useChartOptions() {
       backgroundColor: '#2B2B2F',
       borderColor: '#44474E',
       textStyle: { color: '#E3E2E6' },
-      formatter: (params) => {
+      formatter: (params: any) => {
         const p = params[0]
         const name = escapeHtml(p.name)
         return `<div style="font-weight:500">${name}</div><div style="color:#A8C8FF">新增 ${Number(p.value)} 人</div>`
@@ -62,7 +62,7 @@ export function useChartOptions() {
     tooltip: {
       trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
       borderRadius: 4, padding: [8, 12], textStyle: { color: '#E3E2E6' },
-      formatter: (p) => {
+      formatter: (p: any) => {
         const name = escapeHtml(p.name)
         return `<div style="font-weight:500">${p.marker} ${name}</div><div style="color:#BCC7DC">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
       }

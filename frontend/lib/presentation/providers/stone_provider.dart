@@ -1,0 +1,406 @@
+// @file stone_provider.dart
+// @brief 石头状态管理 - 统一管理石头列表、投石、捡石、分页、缓存与WebSocket实时更新
+// Created by Claude
+
+library;
+
+import 'package:flutter/foundation.dart';
+import '../../domain/entities/stone.dart';
+import '../../data/datasources/stone_service.dart';
+import '../../data/datasources/cache_service.dart';
+import '../../data/datasources/websocket_manager.dart';
+
+class StoneProvider with ChangeNotifier {
+  final StoneService _stoneService = StoneService();
+  final CacheService _cache = CacheService();
+  final WebSocketManager _wsManager = WebSocketManager();
+
+  // 石头列表状态
+  List<Stone> _stones = [];
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentPage = 1;
+  String? _errorMessage;
+
+  // WebSocket 监听器引用
+  bool _wsRegistered = false;
+  late final void Function(Map<String, dynamic>) _onNewStone;
+  late final void Function(Map<String, dynamic>) _onBoatUpdate;
+  late final void Function(Map<String, dynamic>) _onRippleUpdate;
+  late final void Function(Map<String, dynamic>) _onStoneDeleted;
+  late final void Function(Map<String, dynamic>) _onBoatDeleted;
+  late final void Function(Map<String, dynamic>) _onRippleDeleted;
+  late final void Function(Map<String, dynamic>) _onReconnected;
+
+  // Getters
+  List<Stone> get stones => List.unmodifiable(_stones);
+  bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMore => _hasMore;
+  int get currentPage => _currentPage;
+  String? get errorMessage => _errorMessage;
+
+  static const String _cachePrefix = 'stones_';
+
+  StoneProvider() {
+    _initWebSocketListeners();
+  }
+
+  // ==================== WebSocket 实时更新 ====================
+
+  void _initWebSocketListeners() {
+    if (_wsRegistered) return;
+    _wsRegistered = true;
+
+    _onNewStone = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 new_stone');
+      }
+      _handleNewStone(data);
+    };
+
+    _onBoatUpdate = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 boat_update');
+      }
+      _handleBoatUpdate(data);
+    };
+
+    _onRippleUpdate = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 ripple_update');
+      }
+      _handleRippleUpdate(data);
+    };
+
+    _onStoneDeleted = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 stone_deleted');
+      }
+      _handleStoneDeleted(data);
+    };
+
+    _onBoatDeleted = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 boat_deleted');
+      }
+      _handleBoatDeleted(data);
+    };
+
+    _onRippleDeleted = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 收到 ripple_deleted');
+      }
+      _handleRippleDeleted(data);
+    };
+
+    _onReconnected = (data) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] WebSocket重连，刷新石头列表');
+      }
+      loadStones(refresh: true);
+    };
+
+    _wsManager.on('new_stone', _onNewStone);
+    _wsManager.on('boat_update', _onBoatUpdate);
+    _wsManager.on('new_boat', _onBoatUpdate);
+    _wsManager.on('ripple_update', _onRippleUpdate);
+    _wsManager.on('new_ripple', _onRippleUpdate);
+    _wsManager.on('stone_deleted', _onStoneDeleted);
+    _wsManager.on('boat_deleted', _onBoatDeleted);
+    _wsManager.on('ripple_deleted', _onRippleDeleted);
+    _wsManager.on('reconnected', _onReconnected);
+  }
+
+  void _handleNewStone(Map<String, dynamic> data) {
+    final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
+    final stoneId = stoneData['stone_id'] ?? '';
+
+    // 防止重复
+    if (_stones.any((s) => s.stoneId == stoneId)) return;
+
+    final newStone = Stone(
+      stoneId: stoneId,
+      content: stoneData['content'] ?? '',
+      userId: stoneData['user_id'] ?? '',
+      stoneType: stoneData['stone_type'] ?? 'medium',
+      stoneColor: stoneData['stone_color'] ?? '#7A92A3',
+      moodType: stoneData['mood_type'],
+      isAnonymous: stoneData['is_anonymous'] ?? true,
+      rippleCount: 0,
+      boatCount: 0,
+      createdAt: DateTime.now(),
+    );
+    _stones.insert(0, newStone);
+    _invalidateCache();
+    notifyListeners();
+  }
+
+  void _handleBoatUpdate(Map<String, dynamic> data) {
+    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    if (stoneId == null) return;
+
+    final boatCount = data['boat_count'];
+    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
+    if (index >= 0) {
+      _stones[index] = _stones[index].copyWith(
+        boatCount:
+            boatCount is int ? boatCount : _stones[index].boatCount + 1,
+      );
+      notifyListeners();
+    }
+  }
+
+  void _handleRippleUpdate(Map<String, dynamic> data) {
+    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    if (stoneId == null) return;
+
+    final rippleCount = data['ripple_count'];
+    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
+    if (index >= 0) {
+      _stones[index] = _stones[index].copyWith(
+        rippleCount:
+            rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
+      );
+      notifyListeners();
+    }
+  }
+
+  void _handleStoneDeleted(Map<String, dynamic> data) {
+    final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
+    if (stoneId == null) return;
+
+    final removed = _stones.length;
+    _stones.removeWhere((s) => s.stoneId == stoneId);
+    if (_stones.length != removed) {
+      _invalidateCache();
+      notifyListeners();
+    }
+  }
+
+  void _handleBoatDeleted(Map<String, dynamic> data) {
+    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    if (stoneId == null) return;
+
+    final boatCount = data['boat_count'];
+    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
+    if (index >= 0) {
+      _stones[index] = _stones[index].copyWith(
+        boatCount: boatCount is int
+            ? boatCount
+            : (_stones[index].boatCount > 0
+                ? _stones[index].boatCount - 1
+                : 0),
+      );
+      notifyListeners();
+    }
+  }
+
+  void _handleRippleDeleted(Map<String, dynamic> data) {
+    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    if (stoneId == null) return;
+
+    final rippleCount = data['ripple_count'];
+    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
+    if (index >= 0) {
+      _stones[index] = _stones[index].copyWith(
+        rippleCount: rippleCount is int
+            ? rippleCount
+            : (_stones[index].rippleCount > 0
+                ? _stones[index].rippleCount - 1
+                : 0),
+      );
+      notifyListeners();
+    }
+  }
+
+  // ==================== 数据加载 ====================
+
+  /// 加载石头列表（支持刷新和缓存）
+  Future<void> loadStones({bool refresh = false}) async {
+    if (_isLoading) return;
+
+    _isLoading = true;
+    if (refresh) {
+      _errorMessage = null;
+      _hasMore = true;
+    }
+    notifyListeners();
+
+    try {
+      final page = refresh ? 1 : _currentPage;
+
+      // 尝试读取缓存
+      if (!refresh) {
+        final cached = _cache.get<List<Stone>>('${_cachePrefix}page_$page');
+        if (cached != null) {
+          if (refresh) {
+            _stones = cached;
+            _currentPage = 1;
+          } else {
+            _stones.addAll(cached);
+          }
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+      }
+
+      final result = await _stoneService.getStones(page: page);
+
+      if (result['success'] == true) {
+        final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
+
+        if (refresh) {
+          _stones = newStones;
+          _currentPage = 1;
+        } else {
+          _stones.addAll(newStones);
+        }
+        _hasMore = newStones.isNotEmpty;
+        _errorMessage = null;
+
+        // 写入缓存
+        _cache.set<List<Stone>>(
+          '${_cachePrefix}page_${refresh ? 1 : page}',
+          newStones,
+        );
+      } else {
+        throw Exception(result['message'] ?? '加载失败');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 加载石头失败: $e');
+      }
+      _errorMessage = '网络连接失败，请检查后端服务是否启动';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 加载更多（分页）
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final page = _currentPage + 1;
+      final result = await _stoneService.getStones(page: page);
+
+      if (result['success'] == true) {
+        final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
+
+        if (newStones.isEmpty) {
+          _hasMore = false;
+        } else {
+          _stones.addAll(newStones);
+          _currentPage = page;
+
+          _cache.set<List<Stone>>('${_cachePrefix}page_$page', newStones);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 加载更多失败: $e');
+      }
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  // ==================== 投石 / 删石 ====================
+
+  /// 投石（创建新石头）
+  Future<Map<String, dynamic>> throwStone({
+    required String content,
+    String stoneType = 'medium',
+    String stoneColor = '#7A92A3',
+    bool isAnonymous = true,
+    String? moodType,
+    List<String>? tags,
+  }) async {
+    try {
+      final result = await _stoneService.createStone(
+        content: content,
+        stoneType: stoneType,
+        stoneColor: stoneColor,
+        isAnonymous: isAnonymous,
+        moodType: moodType,
+        tags: tags,
+      );
+
+      if (result['success'] == true) {
+        _invalidateCache();
+        // 新石头会通过 WebSocket 广播自动添加到列表
+      }
+      return result;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 投石失败: $e');
+      }
+      return {'success': false, 'message': '投石失败，请稍后再试'};
+    }
+  }
+
+  /// 删除石头
+  Future<Map<String, dynamic>> deleteStone(String stoneId) async {
+    try {
+      final result = await _stoneService.deleteStone(stoneId);
+
+      if (result['success'] == true) {
+        _stones.removeWhere((s) => s.stoneId == stoneId);
+        _invalidateCache();
+        notifyListeners();
+      }
+      return result;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 删除石头失败: $e');
+      }
+      return {'success': false, 'message': '删除失败，请稍后再试'};
+    }
+  }
+
+  /// 获取石头详情
+  Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
+    return _stoneService.getStoneDetail(stoneId);
+  }
+
+  // ==================== 缓存管理 ====================
+
+  void _invalidateCache() {
+    _cache.removeByPrefix(_cachePrefix);
+  }
+
+  /// 清空所有状态
+  void clear() {
+    _stones = [];
+    _currentPage = 1;
+    _hasMore = true;
+    _errorMessage = null;
+    _isLoading = false;
+    _isLoadingMore = false;
+    _invalidateCache();
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _wsManager.off('new_stone', _onNewStone);
+    _wsManager.off('boat_update', _onBoatUpdate);
+    _wsManager.off('new_boat', _onBoatUpdate);
+    _wsManager.off('ripple_update', _onRippleUpdate);
+    _wsManager.off('new_ripple', _onRippleUpdate);
+    _wsManager.off('stone_deleted', _onStoneDeleted);
+    _wsManager.off('boat_deleted', _onBoatDeleted);
+    _wsManager.off('ripple_deleted', _onRippleDeleted);
+    _wsManager.off('reconnected', _onReconnected);
+    _wsRegistered = false;
+    super.dispose();
+  }
+}

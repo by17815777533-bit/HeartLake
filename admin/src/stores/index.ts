@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { UserInfo } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
   // S-1: 敏感凭据使用 sessionStorage（关闭标签页即清除）
@@ -13,7 +14,7 @@ export const useAppStore = defineStore('app', () => {
   })())
 
   // 登录时存储的用户信息（PASETO token 不可客户端解码，直接存登录响应中的用户信息）
-  const userInfo = ref((() => {
+  const userInfo = ref<UserInfo | null>((() => {
     try {
       return JSON.parse(sessionStorage.getItem('admin_user_info') || 'null')
     } catch {
@@ -30,14 +31,14 @@ export const useAppStore = defineStore('app', () => {
   const isGlobalLoading = ref(false)
 
   // 设置 token 并持久化到 sessionStorage，同时记录时间戳用于过期检查
-  const setToken = (t) => {
+  const setToken = (t: string) => {
     token.value = t
     sessionStorage.setItem('admin_token', t)
     sessionStorage.setItem('admin_token_ts', Date.now().toString())
   }
 
   // 设置用户信息并持久化
-  const setUserInfo = (info) => {
+  const setUserInfo = (info: UserInfo | null) => {
     userInfo.value = info
     sessionStorage.setItem('admin_user_info', JSON.stringify(info))
   }
@@ -72,11 +73,11 @@ export const useAppStore = defineStore('app', () => {
   const toggleDark = () => {
     isDark.value = !isDark.value
     applyDarkMode(isDark.value)
-    localStorage.setItem('admin_dark_mode', isDark.value)
+    localStorage.setItem('admin_dark_mode', String(isDark.value))
   }
 
   // 应用暗色模式到 HTML 元素
-  const applyDarkMode = (dark) => {
+  const applyDarkMode = (dark: boolean) => {
     document.documentElement.classList.toggle('dark', dark)
   }
 

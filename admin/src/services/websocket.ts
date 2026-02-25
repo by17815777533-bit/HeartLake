@@ -4,12 +4,13 @@
  */
 
 import { useAppStore } from '@/stores'
+import type { WSListener } from '@/types'
 
-const listeners = {}
-let ws = null
-let reconnectTimer = null
+const listeners: Record<string, WSListener[]> = {}
+let ws: WebSocket | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectAttempts = 0
-let heartbeatTimer = null
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let lastPongTime = Date.now()
 const MAX_RECONNECT_ATTEMPTS = 10
 const RECONNECT_BASE_INTERVAL = 1000 // 基础重连间隔1秒，指数退避
@@ -81,7 +82,7 @@ export default {
 
     ws.onopen = () => {
       // 连接后发送认证消息，避免 token 暴露在 URL 中
-      ws.send(JSON.stringify({ type: 'auth', token }))
+      ws!.send(JSON.stringify({ type: 'auth', token }))
       reconnectAttempts = 0
       lastPongTime = Date.now()
       // M-2: 启动心跳保活
@@ -110,7 +111,7 @@ export default {
       console.warn('WebSocket 连接错误:', e)
     }
 
-    ws.onclose = (e) => {
+    ws.onclose = (e: CloseEvent) => {
       ws = null
       stopHeartbeat()
       // 非主动关闭时自动重连（code 1000 为正常关闭）
@@ -146,11 +147,11 @@ export default {
     }
   },
 
-  on(type, fn) {
+  on(type: string, fn: WSListener) {
     (listeners[type] ||= []).push(fn)
   },
 
-  off(type, fn) {
+  off(type: string, fn: WSListener) {
     listeners[type] = listeners[type]?.filter(f => f !== fn)
   },
 

@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, type Component, type ComponentPublicInstance } from 'vue'
 import { createPinia } from 'pinia'
 // 命令式组件样式（ElMessage / ElMessageBox / ElNotification / ElLoading 不会被自动导入插件处理）
 import 'element-plus/es/components/message/style/css'
@@ -26,7 +26,7 @@ app.use(pinia)
 app.use(router)
 
 // 按需注册实际使用的图标（tree-shaking 优化）
-const icons = {
+const icons: Record<string, Component> = {
   Bell, ChatDotRound, ChatLineRound, Check, CircleCheck, Cloudy,
   Connection, Cpu, DataAnalysis, Document, Download,
   Expand, Fold, Histogram, Monitor,
@@ -44,7 +44,7 @@ const appStore = useAppStore()
 appStore.initDarkMode()
 
 // L-6: 全局错误边界 - Vue 组件错误处理
-app.config.errorHandler = (err, instance, info) => {
+app.config.errorHandler = (err: unknown, instance: ComponentPublicInstance | null, info: string) => {
   console.error('Vue 全局错误:', err, '\n组件信息:', info)
 }
 

@@ -80,6 +80,9 @@ void StoneController::createStone(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] createStone called";
+
         auto json = req->getJsonObject();
         if (!json) {
             callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
@@ -181,6 +184,9 @@ void StoneController::getStones(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getStones called";
+
         int page = 1, pageSize = 20;
         if (auto p = req->getParameter("page"); !p.empty()) { try { page = std::stoi(p); } catch (...) {} }
         if (auto p = req->getParameter("page_size"); !p.empty()) { try { pageSize = std::stoi(p); } catch (...) {} }
@@ -230,6 +236,9 @@ void StoneController::getStoneById(
     const std::string& stoneId
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getStoneById id=" << stoneId;
+
         // SEC-VALIDATE: stoneId 格式校验
         if (!isValidStoneId(stoneId)) {
             callback(ResponseUtil::badRequest("无效的石头 ID 格式"));
@@ -263,6 +272,9 @@ void StoneController::getMyStones(
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getMyStones called";
+
         std::string userId = extractUserId(req);
         // SEC-AUTH: 必须登录
         if (userId.empty()) {
@@ -300,6 +312,9 @@ void StoneController::deleteStone(
     const std::string& stoneId
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] deleteStone id=" << stoneId;
+
         std::string userId = extractUserId(req);
         // SEC-AUTH: 必须登录
         if (userId.empty()) {
@@ -341,10 +356,13 @@ void StoneController::deleteStone(
 // 参考：DifferentialPrivacyEngine - FedMultiEmo (arXiv:2507.15470)
 
 void StoneController::getLakeWeather(
-    [[maybe_unused]] const HttpRequestPtr& req,
+    const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getLakeWeather called";
+
         auto dbClient = drogon::app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
@@ -427,6 +445,9 @@ void StoneController::searchResonance(
     const std::string& stoneId
 ) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] searchResonance stoneId=" << stoneId;
+
         std::string userId = extractUserId(req);
         // SEC-AUTH: 必须登录
         if (userId.empty()) {

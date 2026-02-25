@@ -4,8 +4,9 @@
  */
 
 import { reactive } from 'vue'
+import type { TablePaginationOptions } from '@/types'
 
-export function useTablePagination(fetchData, options = {}) {
+export function useTablePagination(fetchData: () => void, options: TablePaginationOptions = {}) {
   const {
     defaultPageSize = 20,
     filters = null,
@@ -19,13 +20,13 @@ export function useTablePagination(fetchData, options = {}) {
     total: 0,
   })
 
-  const handleSizeChange = (size) => {
+  const handleSizeChange = (size: number) => {
     pagination.pageSize = size
     pagination.page = 1
     fetchData()
   }
 
-  const handleCurrentChange = (page) => {
+  const handleCurrentChange = (page: number) => {
     pagination.page = page
     fetchData()
   }

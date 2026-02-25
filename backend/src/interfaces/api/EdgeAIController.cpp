@@ -114,9 +114,11 @@ ConfidenceCalibration calibrateConfidence(float score, float confidence, size_t 
 // ==================== 公开接口处理函数 ====================
 
 void EdgeAIController::getStatus(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getStatus called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
 
         Json::Value data;
@@ -145,9 +147,11 @@ void EdgeAIController::getStatus(
 }
 
 void EdgeAIController::getMetrics(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getMetrics called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
 
         Json::Value data;
@@ -202,6 +206,8 @@ void EdgeAIController::analyzeLocal(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] analyzeLocal called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr || !jsonPtr->isMember("text")) {
             callback(ResponseUtil::badRequest("缺少必填参数: text"));
@@ -253,6 +259,8 @@ void EdgeAIController::moderateLocal(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] moderateLocal called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr || !jsonPtr->isMember("text")) {
             callback(ResponseUtil::badRequest("缺少必填参数: text"));
@@ -290,9 +298,11 @@ void EdgeAIController::moderateLocal(
 // ==================== 社区情绪脉搏 ====================
 
 void EdgeAIController::getEmotionPulse(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getEmotionPulse called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         if (!engine.isEnabled()) {
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
@@ -334,6 +344,8 @@ void EdgeAIController::federatedAggregate(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] federatedAggregate called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr || !jsonPtr->isMember("round")) {
             callback(ResponseUtil::badRequest("缺少必填参数: round"));
@@ -385,9 +397,11 @@ void EdgeAIController::federatedAggregate(
 // ==================== 差分隐私预算 ====================
 
 void EdgeAIController::getPrivacyBudget(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getPrivacyBudget called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
 
         double remaining = engine.getRemainingPrivacyBudget();
@@ -416,6 +430,8 @@ void EdgeAIController::vectorSearch(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] vectorSearch called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -532,9 +548,11 @@ void EdgeAIController::vectorSearch(
 // ==================== 管理员获取配置 ====================
 
 void EdgeAIController::getAdminConfig(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getAdminConfig called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         auto stats = engine.getEngineStats();
 
@@ -575,6 +593,8 @@ void EdgeAIController::updateAdminConfig(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] updateAdminConfig called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -811,6 +831,8 @@ void EdgeAIController::vectorInsert(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] vectorInsert called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -855,6 +877,8 @@ void EdgeAIController::submitEmotionSample(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] submitEmotionSample called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -911,6 +935,8 @@ void EdgeAIController::getPulseHistory(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] getPulseHistory called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         if (!engine.isEnabled()) {
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
@@ -944,6 +970,8 @@ void EdgeAIController::submitLocalModel(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] submitLocalModel called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -991,9 +1019,11 @@ void EdgeAIController::submitLocalModel(
 }
 
 void EdgeAIController::resetPrivacyBudget(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] resetPrivacyBudget called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         if (!engine.isEnabled()) {
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
@@ -1015,6 +1045,8 @@ void EdgeAIController::registerNode(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] registerNode called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -1048,6 +1080,8 @@ void EdgeAIController::updateNodeStatus(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] updateNodeStatus called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -1082,9 +1116,11 @@ void EdgeAIController::updateNodeStatus(
 }
 
 void EdgeAIController::selectBestNode(
-    const HttpRequestPtr & /*req*/,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] selectBestNode called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         if (!engine.isEnabled()) {
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
@@ -1112,6 +1148,8 @@ void EdgeAIController::quantizedForward(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] quantizedForward called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -1168,6 +1206,8 @@ void EdgeAIController::addNoise(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] addNoise called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -1210,6 +1250,8 @@ void EdgeAIController::generateSummary(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] generateSummary called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr) {
             callback(ResponseUtil::badRequest("请求体必须为JSON"));
@@ -1258,6 +1300,8 @@ void EdgeAIController::lakeGodChat(
 
     drogon::async_run([=, callback = std::move(callback)]() -> drogon::Task<void> {
         try {
+            auto traceId = req->getAttributes()->get<std::string>("trace_id");
+            LOG_INFO << "[trace:" << traceId << "] lakeGodChat called";
             auto userId = req->getAttributes()->get<std::string>("user_id");
             auto jsonPtr = req->getJsonObject();
             if (!jsonPtr) {
@@ -1331,6 +1375,8 @@ void EdgeAIController::lakeGodHistory(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
+        auto traceId = req->getAttributes()->get<std::string>("trace_id");
+        LOG_INFO << "[trace:" << traceId << "] lakeGodHistory called";
         auto userId = req->getAttributes()->get<std::string>("user_id");
         auto db = drogon::app().getDbClient("default");
         auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));

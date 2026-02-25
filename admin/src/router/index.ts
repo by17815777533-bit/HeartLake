@@ -1,4 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    requiresAuth?: boolean
+  }
+}
 import { useAppStore } from '@/stores'
 import { cancelAllRequests } from '@/api'
 

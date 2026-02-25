@@ -17,6 +17,7 @@
 #include <fstream>
 #include <filesystem>
 #include <vector>
+#include <iomanip>
 
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
@@ -265,8 +266,8 @@ int main(int argc, char *argv[]) {
         LOG_INFO << "Server threads set to " << serverThreads;
 
         // 配置服务器
-        app.addListener(serverHost, serverPort);
-        app.setThreadNum(serverThreads);
+        app.addListener(serverHost, static_cast<uint16_t>(serverPort));
+        app.setThreadNum(static_cast<size_t>(serverThreads));
 
         // 配置日志级别
         if (log_level_str) {
@@ -302,7 +303,7 @@ int main(int argc, char *argv[]) {
             json["code"] = 500;
             json["message"] = "服务器内部错误";
             json["data"] = Json::nullValue;
-            json["timestamp"] = (Json::Int64)std::time(nullptr);
+            json["timestamp"] = static_cast<Json::Int64>(std::time(nullptr));
             auto resp = HttpResponse::newHttpJsonResponse(json);
             resp->setStatusCode(k500InternalServerError);
             callback(resp);
@@ -491,6 +492,42 @@ int main(int argc, char *argv[]) {
 
             accb();
         });
+
+        // 链路追踪：在请求处理完成后注入响应头并记录耗时日志
+        app.registerPostHandlingAdvice(
+            [](const drogon::HttpRequestPtr& req,
+               const drogon::HttpResponsePtr& resp) {
+                try {
+                    auto traceId = req->getAttributes()->get<std::string>("trace_id");
+                    auto spanId = req->getAttributes()->get<std::string>("span_id");
+
+                    if (!traceId.empty()) {
+                        resp->addHeader("X-Trace-Id", traceId);
+                        resp->addHeader("X-Span-Id", spanId);
+
+                        // 计算请求耗时
+                        auto startTimeStr = req->getAttributes()->get<std::string>("trace_start_time");
+                        if (!startTimeStr.empty()) {
+                            auto startUs = std::stoll(startTimeStr);
+                            auto nowUs = std::chrono::duration_cast<std::chrono::microseconds>(
+                                std::chrono::steady_clock::now().time_since_epoch()).count();
+                            double durationMs = static_cast<double>(nowUs - startUs) / 1000.0;
+
+                            std::ostringstream durationOss;
+                            durationOss << std::fixed << std::setprecision(2) << durationMs;
+
+                            LOG_INFO << "[TRACE] trace_id=" << traceId
+                                     << " span_id=" << spanId
+                                     << " method=" << req->getMethodString()
+                                     << " path=" << req->getPath()
+                                     << " status=" << static_cast<int>(resp->getStatusCode())
+                                     << " duration_ms=" << durationOss.str();
+                        }
+                    }
+                } catch (...) {
+                    // trace 属性不存在时静默忽略（如健康检查等未经过 TraceMiddleware 的请求）
+                }
+            });
 
         // 明确执行启动初始化，避免 registerBeginningAdvice 在不同运行模式下不触发。
         // 初始化整个架构（基础设施→领域→应用→事件处理器）
