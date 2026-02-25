@@ -144,10 +144,24 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
             double relevance = pool[i].score;
             double maxSim = 0.0;
 
-            // 使用预计算的embedding
+            // embeddings 已 L2 归一化，cosine similarity = dot product
+            // 直接点积省去两次 norm 计算
             for (size_t selIdx : selectedIndices) {
-                double sim = AdvancedEmbeddingEngine::cosineSimilarity(embeddings[i], embeddings[selIdx]);
-                maxSim = std::max(maxSim, sim);
+                const auto& a = embeddings[i];
+                const auto& b = embeddings[selIdx];
+                double dot = 0.0;
+                size_t dim = std::min(a.size(), b.size());
+                size_t d = 0;
+                for (; d + 3 < dim; d += 4) {
+                    dot += static_cast<double>(a[d])     * b[d]
+                         + static_cast<double>(a[d + 1]) * b[d + 1]
+                         + static_cast<double>(a[d + 2]) * b[d + 2]
+                         + static_cast<double>(a[d + 3]) * b[d + 3];
+                }
+                for (; d < dim; ++d) {
+                    dot += static_cast<double>(a[d]) * b[d];
+                }
+                maxSim = std::max(maxSim, dot);
             }
 
             const std::string authorId = pool[i].metadata.get("author_id", "").asString();

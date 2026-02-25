@@ -301,6 +301,11 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
                 ? AdvancedEmbeddingEngine::cosineSimilarity(sourceEmb, candEmb)
                 : 0.0f;
 
+            // 粗排剪枝：语义相似度过低则跳过昂贵的 DTW 计算
+            if (res.semanticScore < 0.05f) {
+                continue;
+            }
+
             // 维度2: 情绪轨迹相似度 (DTW)
             auto candTraj = loadTrajectory(candUserId);
             if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
@@ -329,15 +334,18 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             recommendedMoods.push_back(candMood);
         }
 
-        // 6. 按总分降序排序
-        std::sort(results.begin(), results.end(),
-            [](const ResonanceResult& a, const ResonanceResult& b) {
-                return a.totalScore > b.totalScore;
-            });
-
-        // 7. 截取top-K
+        // 6. 按总分降序排序 + 截取top-K
         if (static_cast<int>(results.size()) > limit) {
+            std::partial_sort(results.begin(), results.begin() + limit, results.end(),
+                [](const ResonanceResult& a, const ResonanceResult& b) {
+                    return a.totalScore > b.totalScore;
+                });
             results.resize(limit);
+        } else {
+            std::sort(results.begin(), results.end(),
+                [](const ResonanceResult& a, const ResonanceResult& b) {
+                    return a.totalScore > b.totalScore;
+                });
         }
 
     } catch (const drogon::orm::DrogonDbException& e) {
