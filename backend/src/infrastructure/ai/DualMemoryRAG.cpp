@@ -293,13 +293,11 @@ DualMemoryRAG& DualMemoryRAG::getInstance() {
 }
 
 EmotionMemory& DualMemoryRAG::getOrCreateMemory(const std::string& userId) {
-    auto it = memories_.find(userId);
-    if (it == memories_.end()) {
-        EmotionMemory mem;
-        mem.userId = userId;
-        memories_[userId] = std::move(mem);
+    auto [it, inserted] = memories_.try_emplace(userId);
+    if (inserted) {
+        it->second.userId = userId;
     }
-    return memories_[userId];
+    return it->second;
 }
 
 void DualMemoryRAG::updateShortTermMemory(
@@ -321,13 +319,87 @@ void DualMemoryRAG::updateShortTermMemory(
     entry.emotion = emotion;
     entry.score = score;
     entry.timestamp = oss.str();
+    entry.accessCount = 0;
+    entry.lastAccessTime = static_cast<double>(
+        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
 
     memory.shortTerm.push_back(std::move(entry));
 
-    // 滑动窗口：保留最近MAX_SHORT_TERM条
+    // 基于相关性淘汰：保留与当前对话最相关的记忆
     if (static_cast<int>(memory.shortTerm.size()) > MAX_SHORT_TERM) {
-        memory.shortTerm.erase(memory.shortTerm.begin());
+        evictLeastRelevant(memory.shortTerm, content, emotion);
     }
+}
+
+void DualMemoryRAG::evictLeastRelevant(
+    std::vector<EmotionMemory::ShortTermEntry>& entries,
+    const std::string& currentContent,
+    const std::string& currentEmotion
+) {
+    if (entries.size() <= static_cast<size_t>(MAX_SHORT_TERM)) {
+        return;
+    }
+
+    // 为每条记忆计算保留分数（不含最新条目，最新条目始终保留）
+    const size_t lastIdx = entries.size() - 1;
+
+    // 尝试获取当前内容的嵌入
+    std::vector<float> currentEmbedding;
+    bool embeddingReady = false;
+    try {
+        currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
+        embeddingReady = !currentEmbedding.empty();
+    } catch (...) {
+        embeddingReady = false;
+    }
+
+    auto now = std::chrono::system_clock::now();
+    double nowEpoch = static_cast<double>(
+        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+
+    // 评分权重: alpha=0.4(语义), beta=0.25(时间衰减), gamma=0.2(访问频率), delta=0.15(情绪一致)
+    constexpr double alpha = 0.4;
+    constexpr double beta = 0.25;
+    constexpr double gamma = 0.2;
+    constexpr double delta = 0.15;
+
+    double worstScore = std::numeric_limits<double>::max();
+    size_t worstIdx = 0;
+
+    for (size_t i = 0; i < lastIdx; ++i) {
+        const auto& e = entries[i];
+        double retainScore = 0.0;
+
+        // 语义相关度
+        if (embeddingReady) {
+            try {
+                auto emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
+                float sim = cosineSimilarity(currentEmbedding, emb);
+                retainScore += alpha * std::max(0.0f, sim);
+            } catch (...) {}
+        }
+        // 词面回退
+        retainScore += alpha * lexicalHint(currentContent, e.content);
+
+        // 时间衰减: 越近越高 (指数衰减，以小时为单位)
+        double hoursElapsed = std::max(0.0, (nowEpoch - e.lastAccessTime) / 3600.0);
+        retainScore += beta * std::exp(-0.1 * hoursElapsed);
+
+        // 访问频率: 被检索越多越重要 (归一化到0~1)
+        retainScore += gamma * std::min(1.0, static_cast<double>(e.accessCount) / 5.0);
+
+        // 情绪一致性
+        if (!currentEmotion.empty() && e.emotion == currentEmotion) {
+            retainScore += delta;
+        }
+
+        if (retainScore < worstScore) {
+            worstScore = retainScore;
+            worstIdx = i;
+        }
+    }
+
+    entries.erase(entries.begin() + static_cast<ptrdiff_t>(worstIdx));
 }
 
 void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
@@ -339,40 +411,36 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
         if (!db) {
             return;
         }
+        // CTE 提取情绪分数，避免重复 CASE 表达式；同时计算 Ebbinghaus 指数衰减加权分
         auto result = db->execSqlSync(
+            "WITH scored AS ("
+            "  SELECT "
+            "    COALESCE(emotion_score, sentiment_score, "
+            "      CASE COALESCE(mood_type, 'neutral') "
+            "        WHEN 'happy' THEN 0.70 "
+            "        WHEN 'calm' THEN 0.35 "
+            "        WHEN 'grateful' THEN 0.60 "
+            "        WHEN 'hopeful' THEN 0.45 "
+            "        WHEN 'neutral' THEN 0.0 "
+            "        WHEN 'confused' THEN -0.10 "
+            "        WHEN 'anxious' THEN -0.45 "
+            "        WHEN 'sad' THEN -0.65 "
+            "        WHEN 'angry' THEN -0.55 "
+            "        WHEN 'lonely' THEN -0.50 "
+            "        ELSE 0.0 END"
+            "    ) as score, "
+            "    created_at "
+            "  FROM stones WHERE user_id = $1 "
+            "  AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
+            "  AND deleted_at IS NULL"
+            ") "
             "SELECT COUNT(*) as total_posts, "
-            "AVG(COALESCE(emotion_score, sentiment_score, "
-            "CASE COALESCE(mood_type, 'neutral') "
-            "  WHEN 'happy' THEN 0.70 "
-            "  WHEN 'calm' THEN 0.35 "
-            "  WHEN 'grateful' THEN 0.60 "
-            "  WHEN 'hopeful' THEN 0.45 "
-            "  WHEN 'neutral' THEN 0.0 "
-            "  WHEN 'confused' THEN -0.10 "
-            "  WHEN 'anxious' THEN -0.45 "
-            "  WHEN 'sad' THEN -0.65 "
-            "  WHEN 'angry' THEN -0.55 "
-            "  WHEN 'lonely' THEN -0.50 "
-            "  ELSE 0.0 END"
-            ")) as avg_score, "
-            "STDDEV(COALESCE(emotion_score, sentiment_score, "
-            "CASE COALESCE(mood_type, 'neutral') "
-            "  WHEN 'happy' THEN 0.70 "
-            "  WHEN 'calm' THEN 0.35 "
-            "  WHEN 'grateful' THEN 0.60 "
-            "  WHEN 'hopeful' THEN 0.45 "
-            "  WHEN 'neutral' THEN 0.0 "
-            "  WHEN 'confused' THEN -0.10 "
-            "  WHEN 'anxious' THEN -0.45 "
-            "  WHEN 'sad' THEN -0.65 "
-            "  WHEN 'angry' THEN -0.55 "
-            "  WHEN 'lonely' THEN -0.50 "
-            "  ELSE 0.0 END"
-            ")) as score_stddev, "
-            "MAX(created_at)::text as last_active "
-            "FROM stones WHERE user_id = $1 "
-            "AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
-            "AND deleted_at IS NULL",
+            "AVG(score) as avg_score, "
+            "STDDEV(score) as score_stddev, "
+            "MAX(created_at)::text as last_active, "
+            "SUM(score * EXP(-" + std::to_string(DECAY_LAMBDA) + " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)) / "
+            "  NULLIF(SUM(EXP(-" + std::to_string(DECAY_LAMBDA) + " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)), 0) as decay_score "
+            "FROM scored",
             userId
         );
 

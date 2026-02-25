@@ -15,6 +15,7 @@
 #include <list>
 #include <shared_mutex>
 #include <thread>
+#include <utility>
 
 namespace heartlake {
 namespace ai {
@@ -131,18 +132,23 @@ private:
             return false;
         }
 
-        void put(const std::string& key, const std::vector<float>& value) {
+        void put(const std::string& key, std::vector<float>&& value) {
             auto it = cache.find(key);
             if (it != cache.end()) {
+                it->second.first = std::move(value);
                 lruList.erase(it->second.second);
-            } else if (cache.size() >= maxSize) {
-                // 删除最久未使用的
-                auto last = lruList.back();
-                cache.erase(last);
-                lruList.pop_back();
+                lruList.push_front(key);
+                it->second.second = lruList.begin();
+            } else {
+                if (cache.size() >= maxSize) {
+                    // 删除最久未使用的
+                    auto& last = lruList.back();
+                    cache.erase(last);
+                    lruList.pop_back();
+                }
+                lruList.push_front(key);
+                cache.emplace(key, std::pair{std::move(value), lruList.begin()});
             }
-            lruList.push_front(key);
-            cache[key] = {value, lruList.begin()};
         }
 
         void clear() {
@@ -169,7 +175,7 @@ private:
         const std::vector<float>& ngram
     ) const;
     static void normalizeVector(std::vector<float>& vec);
-    size_t featureHash(const std::string& feature, size_t numBuckets) const;
+    std::pair<size_t, int> featureHash(const std::string& feature, size_t numBuckets) const;
     void computeIDF(const std::vector<std::string>& texts);
     void loadSentimentLexicon();
     void warmupTrainingDataAsync();

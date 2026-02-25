@@ -390,7 +390,9 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     dpConfig_.delta = config.get("dp_delta", 1e-5f).asFloat();
     dpConfig_.sensitivity = config.get("dp_sensitivity", 1.0f).asFloat();
     dpConfig_.maxEpsilonBudget = config.get("dp_max_budget", 10.0f).asFloat();
+    dpConfig_.maxDeltaBudget = config.get("dp_max_delta_budget", 1e-3f).asFloat();
     consumedEpsilon_.store(0.0f);
+    consumedDelta_.store(0.0f);
     dpRng_.seed(std::random_device{}());
 
     // 情绪脉搏配置
@@ -1955,7 +1957,7 @@ std::vector<EmotionPulse> EdgeAIEngine::getPulseHistory(int count) {
 }
 
 // ============================================================================
-// 子系统4: 联邦学习聚合器（FedAvg）
+// 子系统4: 联邦学习聚合器（FedProx/FedAvg）
 // ============================================================================
 
 void EdgeAIEngine::submitLocalModel(const FederatedModelParams& params) {
@@ -1966,13 +1968,14 @@ void EdgeAIEngine::submitLocalModel(const FederatedModelParams& params) {
               << ", loss: " << params.localLoss;
 }
 
-FederatedModelParams EdgeAIEngine::aggregateFedAvg(float clippingBound, float noiseSigma) {
+FederatedModelParams EdgeAIEngine::aggregateFedAvg(float clippingBound, float noiseSigma, float mu) {
     std::lock_guard<std::mutex> lock(federatedMutex_);
 
     FederatedModelParams global;
     global.modelId = "global_fedavg";
     global.epoch = ++federatedRound_;
     global.nodeId = "aggregator";
+    global.mu = mu;
 
     if (localModels_.empty()) {
         LOG_WARN << "[EdgeAI] No local models to aggregate";
@@ -2066,6 +2069,34 @@ FederatedModelParams EdgeAIEngine::aggregateFedAvg(float clippingBound, float no
         global.localLoss += weight * model.localLoss;
     }
 
+    // FedProx近端修正: w_final = (w_aggregated + mu * w_global) / (1 + mu)
+    // 当mu=0时退化为标准FedAvg；当有全局模型参考时施加近端约束
+    // 参考: Li et al., "Federated Optimization in Heterogeneous Networks", MLSys 2020
+    if (mu > 0.0f && hasGlobalModel_) {
+        float denom = 1.0f / (1.0f + mu);
+
+        for (size_t l = 0; l < numLayers; ++l) {
+            size_t layerSize = global.weights[l].size();
+            size_t refLayerSize = (l < globalModel_.weights.size()) ? globalModel_.weights[l].size() : 0;
+            for (size_t j = 0; j < layerSize; ++j) {
+                float wGlobal = (j < refLayerSize) ? globalModel_.weights[l][j] : 0.0f;
+                // (w_aggregated + mu * w_prev_global) / (1 + mu)
+                global.weights[l][j] = (global.weights[l][j] + mu * wGlobal) * denom;
+            }
+        }
+
+        size_t refBiasSize = globalModel_.biases.size();
+        for (size_t j = 0; j < biasSize; ++j) {
+            float bGlobal = (j < refBiasSize) ? globalModel_.biases[j] : 0.0f;
+            global.biases[j] = (global.biases[j] + mu * bGlobal) * denom;
+        }
+
+        LOG_INFO << "[EdgeAI] FedProx proximal correction applied: mu=" << mu;
+    } else if (mu > 0.0f && !hasGlobalModel_) {
+        LOG_INFO << "[EdgeAI] FedProx mu=" << mu << " but no prior global model, "
+                 << "first round uses standard FedAvg";
+    }
+
     // DP-SGD Step 2: 对聚合后的全局权重添加高斯噪声 N(0, σ²C²I)
     if (noiseSigma > 0.0f && clippingBound > 0.0f) {
         std::random_device rd;
@@ -2086,10 +2117,15 @@ FederatedModelParams EdgeAIEngine::aggregateFedAvg(float clippingBound, float no
                  << ", C=" << clippingBound << ", noise_scale=" << noiseScale;
     }
 
-    LOG_INFO << "[EdgeAI] FedAvg aggregation complete: round=" << federatedRound_
+    LOG_INFO << "[EdgeAI] FedProx aggregation complete: round=" << federatedRound_
              << ", participants=" << localModels_.size()
              << ", totalSamples=" << totalSamples
-             << ", avgLoss=" << global.localLoss;
+             << ", avgLoss=" << global.localLoss
+             << ", mu=" << mu;
+
+    // 保存当前全局模型作为下一轮FedProx的近端参考
+    globalModel_ = global;
+    hasGlobalModel_ = true;
 
     // 清空本地模型缓存，准备下一轮
     localModels_.clear();
@@ -2144,6 +2180,13 @@ float EdgeAIEngine::sampleLaplace(float scale) {
     return -scale * sign * std::log(1.0f - 2.0f * absVal);
 }
 
+float EdgeAIEngine::sampleGaussian(float sigma) {
+    // Gaussian 采样：使用 std::normal_distribution
+    std::normal_distribution<float> dist(0.0f, sigma);
+    std::lock_guard<std::mutex> lock(dpMutex_);
+    return dist(dpRng_);
+}
+
 float EdgeAIEngine::addLaplaceNoise(float value, float sensitivity) {
     if (!isEnabled()) return value;
 
@@ -2193,6 +2236,56 @@ std::vector<float> EdgeAIEngine::addLaplaceNoiseVec(const std::vector<float>& va
     // 消耗隐私预算
     float oldEps = consumedEpsilon_.load();
     while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilon)) {}
+
+    return result;
+}
+
+std::vector<float> EdgeAIEngine::addGaussianNoiseVec(const std::vector<float>& values,
+                                                      float sensitivity,
+                                                      float delta) {
+    if (!isEnabled()) return values;
+    if (values.empty()) return values;
+
+    // 使用传入的 delta，若为 0 则使用配置默认值
+    float useDelta = (delta > 0.0f) ? delta : dpConfig_.delta;
+    if (useDelta <= 0.0f || useDelta >= 1.0f) {
+        LOG_WARN << "[EdgeAI] Invalid delta=" << useDelta << ", falling back to Laplace";
+        return addLaplaceNoiseVec(values, sensitivity);
+    }
+
+    // 检查 epsilon 预算
+    float remainingEps = dpConfig_.maxEpsilonBudget - consumedEpsilon_.load();
+    if (remainingEps <= 0.0f) {
+        LOG_WARN << "[EdgeAI] Epsilon budget exhausted, returning original vector";
+        return values;
+    }
+
+    // 检查 delta 预算
+    float remainingDelta = dpConfig_.maxDeltaBudget - consumedDelta_.load();
+    if (remainingDelta <= 0.0f) {
+        LOG_WARN << "[EdgeAI] Delta budget exhausted, returning original vector";
+        return values;
+    }
+
+    float epsilon = std::min(dpConfig_.epsilon, remainingEps);
+    if (epsilon < 1e-10f) epsilon = 1e-10f;
+    float effectiveDelta = std::min(useDelta, remainingDelta);
+
+    // Gaussian 机制: σ = Δ₂ · √(2·ln(1.25/δ)) / ε
+    // L2 sensitivity = sensitivity (调用方提供的是 L2 敏感度)
+    float sigma = sensitivity * std::sqrt(2.0f * std::log(1.25f / effectiveDelta)) / epsilon;
+
+    std::vector<float> result(values.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+        result[i] = values[i] + sampleGaussian(sigma);
+    }
+
+    // 消耗隐私预算 (ε, δ) — 线性组合
+    float oldEps = consumedEpsilon_.load();
+    while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilon)) {}
+
+    float oldDelta = consumedDelta_.load();
+    while (!consumedDelta_.compare_exchange_weak(oldDelta, oldDelta + effectiveDelta)) {}
 
     return result;
 }

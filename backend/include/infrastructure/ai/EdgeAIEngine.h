@@ -171,6 +171,7 @@ struct FederatedModelParams {
     float localLoss;                        ///< 本地损失值
     int epoch;                              ///< 训练轮次
     std::string nodeId;                     ///< 节点标识
+    float mu = 0.01f;                       ///< FedProx近端惩罚系数（0退化为FedAvg）
 };
 
 /**
@@ -178,9 +179,10 @@ struct FederatedModelParams {
  */
 struct DPConfig {
     float epsilon;          ///< 隐私预算 ε（越小越隐私）
-    float delta;            ///< 松弛参数 δ
+    float delta;            ///< 松弛参数 δ（Gaussian机制使用，默认1e-5）
     float sensitivity;      ///< 查询敏感度 Δf
     float maxEpsilonBudget; ///< 最大累计隐私预算
+    float maxDeltaBudget{1e-3f}; ///< 最大累计 δ 预算（(ε,δ)-DP 组合追踪）
 };
 
 /**
@@ -388,16 +390,20 @@ public:
     void submitLocalModel(const FederatedModelParams& params);
 
     /**
-     * @brief 执行FedAvg加权聚合
+     * @brief 执行FedProx/FedAvg加权聚合
      *
-     * 聚合公式：w_global = Σ(n_k / n) * w_k
-     * 其中 n_k 为第k个节点的样本数，n为总样本数
+     * FedAvg聚合公式：w_global = Σ(n_k / n) * w_k
+     * FedProx近端修正：w_final = w_aggregated / (1 + mu)
+     * 当mu=0时退化为标准FedAvg
+     *
+     * 参考: Li et al., "Federated Optimization in Heterogeneous Networks", MLSys 2020
      *
      * @param clippingBound 梯度裁剪阈值C（0表示不裁剪）
      * @param noiseSigma 高斯噪声标准差σ（0表示不加噪）
+     * @param mu FedProx近端惩罚系数（0表示标准FedAvg，默认0.01）
      * @return 聚合后的全局模型参数
      */
-    FederatedModelParams aggregateFedAvg(float clippingBound = 0.0f, float noiseSigma = 0.0f);
+    FederatedModelParams aggregateFedAvg(float clippingBound = 0.0f, float noiseSigma = 0.0f, float mu = 0.01f);
 
     /**
      * @brief 获取当前聚合轮次信息
@@ -422,12 +428,29 @@ public:
     float addLaplaceNoise(float value, float sensitivity);
 
     /**
-     * @brief 对向量添加Laplace噪声
+     * @brief 对向量添加Laplace噪声（组合定理均分ε到每维）
      * @param values 原始向量
-     * @param sensitivity 每维敏感度
+     * @param sensitivity L1敏感度
      * @return 添加噪声后的向量
      */
     std::vector<float> addLaplaceNoiseVec(const std::vector<float>& values, float sensitivity);
+
+    /**
+     * @brief 对向量添加Gaussian噪声（(ε,δ)-DP，高维场景推荐）
+     *
+     * Gaussian机制：σ = Δ₂ · √(2·ln(1.25/δ)) / ε
+     * 噪声尺度 O(√d) 而非 Laplace 的 O(d)，d=128 时噪声降低约 11 倍
+     *
+     * 参考：Balle & Wang, "Improving the Gaussian Mechanism for DP", ICML 2018
+     *
+     * @param values 原始向量
+     * @param sensitivity L2敏感度 Δ₂
+     * @param delta 松弛参数 δ（默认使用 dpConfig_.delta）
+     * @return 添加噪声后的向量
+     */
+    std::vector<float> addGaussianNoiseVec(const std::vector<float>& values,
+                                            float sensitivity,
+                                            float delta = 0.0f);
 
     /**
      * @brief 获取剩余隐私预算
@@ -436,7 +459,13 @@ public:
     float getRemainingPrivacyBudget() const;
 
     /**
-     * @brief 重置隐私预算（新一轮计算）
+     * @brief 获取剩余 δ 预算
+     * @return 剩余 δ 值
+     */
+    float getRemainingDeltaBudget() const;
+
+    /**
+     * @brief 重置隐私预算（新一轮计算，同时重置 ε 和 δ）
      */
     void resetPrivacyBudget();
 
@@ -642,15 +671,19 @@ private:
 
     // ---- 联邦学习内部 ----
     std::vector<FederatedModelParams> localModels_;             ///< 待聚合的本地模型
+    FederatedModelParams globalModel_;                          ///< 上一轮全局模型（FedProx近端参考）
+    bool hasGlobalModel_ = false;                               ///< 是否已有全局模型
     int federatedRound_ = 0;                                    ///< 当前聚合轮次
     mutable std::mutex federatedMutex_;
 
     // ---- 差分隐私内部 ----
     DPConfig dpConfig_;
-    std::atomic<float> consumedEpsilon_{0.0f};                  ///< 已消耗隐私预算
+    std::atomic<float> consumedEpsilon_{0.0f};                  ///< 已消耗隐私预算 ε
+    std::atomic<float> consumedDelta_{0.0f};                    ///< 已消耗隐私预算 δ
     mutable std::mutex dpMutex_;
     std::mt19937 dpRng_;                                        ///< 随机数生成器
     float sampleLaplace(float scale);
+    float sampleGaussian(float sigma);
 
     // ---- HNSW内部 ----
     std::vector<HNSWNode> hnswNodes_;                           ///< 所有节点

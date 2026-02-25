@@ -28,12 +28,15 @@ struct EmotionMemory {
         std::string emotion;
         float score;
         std::string timestamp;
+        int accessCount = 0;       // 被检索命中次数
+        double lastAccessTime = 0;  // 最近被检索的时间(epoch seconds)
     };
     std::vector<ShortTermEntry> shortTerm;  // max 5 entries
 
     // 长期记忆：情绪画像
     struct LongTermProfile {
         float avgEmotionScore = 0.0f;
+        float decayWeightedScore = 0.0f;  // 指数衰减加权情绪分
         int totalPosts = 0;
         std::string dominantMood = "neutral";
         float emotionVolatility = 0.0f;  // 情绪波动度
@@ -104,10 +107,21 @@ private:
 
     static constexpr int MAX_SHORT_TERM = 5;          // 短期记忆保留条数
     static constexpr int LONG_TERM_RETENTION_DAYS = 30; // 长期记忆聚合天数
+    static constexpr float DECAY_LAMBDA = 0.05f;      // 指数衰减系数 (Ebbinghaus)
 
     EmotionMemory& getOrCreateMemory(const std::string& userId);
     std::string calculateTrend(const std::vector<float>& scores);
     float calculateVolatility(const std::vector<float>& scores);
+
+    /**
+     * @brief 基于相关性的短期记忆淘汰
+     * 当短期记忆超过上限时，淘汰与当前上下文最不相关的条目
+     */
+    void evictLeastRelevant(
+        std::vector<EmotionMemory::ShortTermEntry>& entries,
+        const std::string& currentContent,
+        const std::string& currentEmotion
+    );
 };
 
 } // namespace heartlake::ai

@@ -104,20 +104,24 @@ std::vector<std::string> AdvancedEmbeddingEngine::extractNGrams(
         return ngrams;
     }
 
+    ngrams.reserve(tokens.size() - n + 1);
     for (size_t i = 0; i <= tokens.size() - n; ++i) {
+        size_t totalLen = static_cast<size_t>(n - 1); // spaces
+        for (int j = 0; j < n; ++j) totalLen += tokens[i + j].size();
         std::string ngram;
+        ngram.reserve(totalLen);
         for (int j = 0; j < n; ++j) {
-            if (j > 0) ngram += " ";
-            ngram += tokens[i + j];
+            if (j > 0) ngram += ' ';
+            ngram.append(tokens[i + j]);
         }
-        ngrams.push_back(ngram);
+        ngrams.push_back(std::move(ngram));
     }
 
     return ngrams;
 }
 
-size_t AdvancedEmbeddingEngine::featureHash(const std::string& feature, size_t numBuckets) const {
-    // MurmurHash3风格的哈希函数
+std::pair<size_t, int> AdvancedEmbeddingEngine::featureHash(const std::string& feature, size_t numBuckets) const {
+    // MurmurHash3风格的哈希函数 - 主哈希决定桶位置
     size_t hash = 0;
     const size_t m = 0xc6a4a7935bd1e995ULL;
     const int r = 47;
@@ -128,7 +132,14 @@ size_t AdvancedEmbeddingEngine::featureHash(const std::string& feature, size_t n
         hash ^= (hash >> r);
     }
 
-    return hash % numBuckets;
+    // 第二哈希决定符号 (Weinberger et al., ICML 2009)
+    // 使冲突的期望偏差为零
+    size_t hash2 = hash ^ 0x9e3779b97f4a7c15ULL;
+    hash2 *= 0xbf58476d1ce4e5b9ULL;
+    hash2 ^= (hash2 >> 31);
+    int sign = (hash2 & 1) ? 1 : -1;
+
+    return {hash % numBuckets, sign};
 }
 
 std::vector<float> AdvancedEmbeddingEngine::extractTFIDFFeatures(
@@ -161,9 +172,9 @@ std::vector<float> AdvancedEmbeddingEngine::extractTFIDFFeatures(
 
         float tfidf = tf * idf;
 
-        // 特征哈希：将词映射到固定维度
-        size_t idx = featureHash(word, tfidfDim);
-        features[idx] += tfidf;
+        // 签名特征哈希：将词映射到固定维度，符号减少冲突偏差
+        auto [idx, sign] = featureHash(word, tfidfDim);
+        features[idx] += sign * tfidf;
     }
 
     return features;
@@ -288,19 +299,20 @@ std::vector<float> AdvancedEmbeddingEngine::extractNGramFeatures(
     auto bigrams = extractNGrams(tokens, 2);
     auto trigrams = extractNGrams(tokens, 3);
 
-    // 使用特征哈希
+    // 使用签名特征哈希
     for (const auto& bigram : bigrams) {
-        size_t idx = featureHash(bigram, ngramDim);
-        features[idx] += 1.0f;
+        auto [idx, sign] = featureHash(bigram, ngramDim);
+        features[idx] += sign * 1.0f;
     }
 
     for (const auto& trigram : trigrams) {
-        size_t idx = featureHash(trigram, ngramDim);
-        features[idx] += 0.5f; // 3-gram权重稍低
+        auto [idx, sign] = featureHash(trigram, ngramDim);
+        features[idx] += sign * 0.5f; // 3-gram权重稍低
     }
 
-    // 归一化
-    float sum = std::accumulate(features.begin(), features.end(), 0.0f);
+    // 归一化（使用绝对值之和，因为签名哈希产生正负值）
+    float sum = 0.0f;
+    for (float f : features) sum += std::abs(f);
     if (sum > 0) {
         for (auto& f : features) {
             f /= sum;
@@ -374,13 +386,14 @@ std::vector<float> AdvancedEmbeddingEngine::generateEmbedding(const std::string&
     // L2归一化
     normalizeVector(embedding);
 
-    // 缓存结果
+    // 缓存结果并返回（move进缓存，返回预存副本）
+    auto result = embedding;
     {
         std::lock_guard<std::mutex> lock(cacheMutex_);
-        embeddingCache_->put(text, embedding);
+        embeddingCache_->put(text, std::move(embedding));
     }
 
-    return embedding;
+    return result;
 }
 
 std::vector<std::vector<float>> AdvancedEmbeddingEngine::generateEmbeddingBatch(
