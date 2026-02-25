@@ -51,3 +51,4 @@ backend/third_party/onnxruntime-*/
 backend/config.json
 backend/config.runtime.json
 Testing/
+.claude/
