@@ -890,8 +890,6 @@ std::vector<std::string> EdgeAIEngine::tokenizeUTF8(const std::string& text) con
 
                 // 同时尝试提取2-6字的中文词组（覆盖”睡不着/提不起精神”等短语）
                 size_t j = i + byteCount;
-                std::string compound;
-                compound.reserve(24); // 最多6字 * 4字节，复用缓冲区避免重复分配
                 for (int wordLen = 2; wordLen <= 6 && j < text.size(); ++wordLen) {
                     unsigned char nc = static_cast<unsigned char>(text[j]);
                     if (nc < 0xC0) break;
@@ -2354,7 +2352,7 @@ void EdgeAIEngine::connectNeighbors(size_t nodeIdx,
                                              hnswNodes_[nIdx].vector);
                     distPairs.push_back({d, nIdx});
                 }
-                std::sort(distPairs.begin(), distPairs.end());
+                std::partial_sort(distPairs.begin(), distPairs.begin() + maxM, distPairs.end());
 
                 revNeighbors.clear();
                 for (int i = 0; i < maxM; ++i) {
@@ -2373,7 +2371,7 @@ void EdgeAIEngine::connectNeighbors(size_t nodeIdx,
                                      hnswNodes_[nIdx].vector);
             distPairs.push_back({d, nIdx});
         }
-        std::sort(distPairs.begin(), distPairs.end());
+        std::partial_sort(distPairs.begin(), distPairs.begin() + maxM, distPairs.end());
 
         nodeNeighbors.clear();
         for (int i = 0; i < maxM; ++i) {

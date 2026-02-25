@@ -190,11 +190,10 @@ double RecommendationEngine::graphPropagationScore(
     for (const auto& [otherUser, otherItems] : userItemGraph) {
         if (otherUser == userId) continue;
 
-        std::unordered_set<std::string> otherSet(otherItems.begin(), otherItems.end());
-        if (otherSet.find(itemId) == otherSet.end()) continue;
+        if (std::find(otherItems.begin(), otherItems.end(), itemId) == otherItems.end()) continue;
 
         for (const auto& item : userItems) {
-            if (otherSet.find(item) != otherSet.end()) {
+            if (std::find(otherItems.begin(), otherItems.end(), item) != otherItems.end()) {
                 score += 1.0;
                 pathCount++;
                 break;
@@ -527,6 +526,9 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     }
     std::sort(results.begin(), results.end(),
         [](const auto& a, const auto& b) { return a.score > b.score; });
+    if (static_cast<int>(results.size()) > topK) {
+        results.resize(topK);
+    }
 
     // 添加探索项
     int exploreCount = static_cast<int>(topK * exploreWeight);
@@ -589,7 +591,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     }
 
     // MMR重排序增加多样性
-    return mmrRerank(results, 0.7, topK);
+    return mmrRerank(std::move(results), 0.7, topK);
 }
 
 } // namespace ai
