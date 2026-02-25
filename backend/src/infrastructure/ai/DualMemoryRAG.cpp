@@ -51,8 +51,8 @@ double lexicalHint(const std::string& current, const std::string& history) {
     if (current.empty() || history.empty()) {
         return 0.0;
     }
-    const size_t probeLen = std::min<size_t>(8, std::min(current.size(), history.size()));
-    if (probeLen < 4) {
+    const size_t probeLen = std::min<size_t>(12, std::min(current.size(), history.size()));
+    if (probeLen < 3) {
         return 0.0;
     }
     const std::string probe = history.substr(0, probeLen);
