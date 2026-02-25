@@ -13,6 +13,7 @@
 
 #include <gtest/gtest.h>
 #include "infrastructure/ai/DualMemoryRAG.h"
+#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include <string>
 #include <vector>
 
@@ -23,6 +24,8 @@ protected:
     DualMemoryRAG* rag;
 
     void SetUp() override {
+        // 初始化 AdvancedEmbeddingEngine，避免 buildRAGPrompt 中空指针崩溃
+        AdvancedEmbeddingEngine::getInstance().initialize(128, 10000);
         rag = &DualMemoryRAG::getInstance();
     }
 };

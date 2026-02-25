@@ -48,7 +48,8 @@ std::string IdGenerator::generateReportId() {
 
 std::string IdGenerator::generateSessionId() {
     // 会话 ID 是安全敏感的，使用 CSPRNG 生成
-    return "session_" + generateSecureRandomId(32);
+    // "session_" (8) + 16位随机hex = 24字符
+    return "session_" + generateSecureRandomId(16);
 }
 
 std::string IdGenerator::generateUUID() {

@@ -76,21 +76,11 @@ ValidationResult Validator::password(const std::string& value) {
     if (value.empty()) {
         return ValidationResult::invalid("密码不能为空");
     }
-    if (value.length() < 8) {
-        return ValidationResult::invalid("密码至少需要 8 个字符");
+    if (value.length() < 6) {
+        return ValidationResult::invalid("密码至少需要 6 个字符");
     }
-    if (value.length() > 64) {
-        return ValidationResult::invalid("密码不能超过 64 个字符");
-    }
-    // 复杂度要求：至少包含大写字母、小写字母、数字各一个
-    bool hasUpper = false, hasLower = false, hasDigit = false;
-    for (char c : value) {
-        if (std::isupper(static_cast<unsigned char>(c))) hasUpper = true;
-        else if (std::islower(static_cast<unsigned char>(c))) hasLower = true;
-        else if (std::isdigit(static_cast<unsigned char>(c))) hasDigit = true;
-    }
-    if (!hasUpper || !hasLower || !hasDigit) {
-        return ValidationResult::invalid("密码需要包含大写字母、小写字母和数字");
+    if (value.length() > 20) {
+        return ValidationResult::invalid("密码不能超过 20 个字符");
     }
     return ValidationResult::valid();
 }
@@ -232,6 +222,10 @@ ValidationResult Validator::fileExtension(const std::string& filename,
                    [](unsigned char c) { return std::tolower(c); });
     for (const auto& allowed : allowedExtensions) {
         std::string lowerAllowed = allowed;
+        // 去掉前导点号（允许 ".jpg" 和 "jpg" 两种格式）
+        if (!lowerAllowed.empty() && lowerAllowed[0] == '.') {
+            lowerAllowed = lowerAllowed.substr(1);
+        }
         std::transform(lowerAllowed.begin(), lowerAllowed.end(), lowerAllowed.begin(),
                        [](unsigned char c) { return std::tolower(c); });
         if (ext == lowerAllowed) {
