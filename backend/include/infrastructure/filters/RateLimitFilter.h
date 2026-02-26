@@ -31,6 +31,9 @@ namespace filters {
  * @note 注意事项
  */
 class RateLimitFilter : public HttpFilter<RateLimitFilter> {
+    friend class RateLimitFilterTest;
+    friend class RateLimitFilterTest_CleanupStaleKeysNoCrash_Test;
+    friend class RateLimitFilterTest_CheckRateLimitAIMode_Test;
 public:
     RateLimitFilter() = default;
     

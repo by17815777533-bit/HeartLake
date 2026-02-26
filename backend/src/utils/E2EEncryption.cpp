@@ -174,20 +174,24 @@ std::string E2EEncryption::deriveSessionKey(const std::string& sharedSecret,
     auto saltBytes = base64Decode(salt);
 
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
-    if (ctx) {
-        bool ok = true;
-        ok = ok && (EVP_PKEY_derive_init(ctx) > 0);
-        ok = ok && (EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) > 0);
-        ok = ok && (EVP_PKEY_CTX_set1_hkdf_salt(ctx, saltBytes.data(), saltBytes.size()) > 0);
-        ok = ok && (EVP_PKEY_CTX_set1_hkdf_key(ctx, secretBytes.data(), secretBytes.size()) > 0);
-        size_t outLen = KEY_SIZE;
-        ok = ok && (EVP_PKEY_derive(ctx, derived.data(), &outLen) > 0);
-        EVP_PKEY_CTX_free(ctx);
-        if (!ok) {
-            // HKDF 失败，清零派生密钥
-            OPENSSL_cleanse(derived.data(), derived.size());
-        }
+    if (!ctx) {
+        throw std::runtime_error("Failed to create HKDF context");
     }
+    
+    bool ok = true;
+    ok = ok && (EVP_PKEY_derive_init(ctx) > 0);
+    ok = ok && (EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) > 0);
+    ok = ok && (EVP_PKEY_CTX_set1_hkdf_salt(ctx, saltBytes.data(), saltBytes.size()) > 0);
+    ok = ok && (EVP_PKEY_CTX_set1_hkdf_key(ctx, secretBytes.data(), secretBytes.size()) > 0);
+    size_t outLen = KEY_SIZE;
+    ok = ok && (EVP_PKEY_derive(ctx, derived.data(), &outLen) > 0);
+    EVP_PKEY_CTX_free(ctx);
+    
+    if (!ok) {
+        OPENSSL_cleanse(derived.data(), derived.size());
+        throw std::runtime_error("HKDF key derivation failed");
+    }
+    
     return base64Encode(derived);
 }
 

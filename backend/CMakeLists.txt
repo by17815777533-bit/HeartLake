@@ -124,6 +124,34 @@ set(TEST_SOURCES
     tests/test_ai_torture.cpp
     tests/test_security_torture.cpp
     tests/test_concurrency_torture.cpp
+    tests/filters/test_admin_auth_filter.cpp
+    tests/filters/test_rate_limit_filter.cpp
+    tests/filters/test_security_audit_filter.cpp
+    tests/utils/test_rbac_manager.cpp
+    tests/utils/test_paseto_extended.cpp
+    tests/utils/test_recovery_key.cpp
+    tests/utils/test_content_filter.cpp
+    tests/utils/test_emotion_manager.cpp
+    tests/utils/test_admin_config_store.cpp
+    tests/utils/test_security_audit_score.cpp
+    tests/utils/test_e2e_encryption_extended.cpp
+    tests/utils/test_response_util.cpp
+    tests/controllers/test_account_controller.cpp
+    tests/controllers/test_user_controller.cpp
+    tests/controllers/test_friend_controller.cpp
+    tests/controllers/test_interaction_controller.cpp
+    tests/controllers/test_admin_controller.cpp
+    tests/controllers/test_recommendation_controller.cpp
+    tests/controllers/test_consultation_controller.cpp
+    tests/controllers/test_report_controller.cpp
+    tests/controllers/test_guardian_controller.cpp
+    tests/controllers/test_vip_controller.cpp
+    tests/controllers/test_paper_boat_controller.cpp
+    tests/controllers/test_temp_friend_controller.cpp
+    tests/services/test_interaction_service.cpp
+    tests/services/test_friend_service.cpp
+    tests/services/test_user_service.cpp
+    tests/websocket/test_websocket_hub.cpp
 )
 
 foreach(test_source ${TEST_SOURCES})
