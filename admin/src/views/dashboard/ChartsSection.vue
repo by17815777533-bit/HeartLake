@@ -168,7 +168,6 @@
 
 <script setup lang="ts">
 import VChart from 'vue-echarts'
-import type { Ref } from 'vue'
 
 interface TrendingTopic {
   topic: string

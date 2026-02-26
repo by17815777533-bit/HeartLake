@@ -20,12 +20,12 @@ class FriendProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _wsRegistered = false;
 
-  void Function(Map<String, dynamic>)? _onFriendOnline;
-  void Function(Map<String, dynamic>)? _onFriendOffline;
-  void Function(Map<String, dynamic>)? _onFriendRequest;
-  void Function(Map<String, dynamic>)? _onFriendAccepted;
-  void Function(Map<String, dynamic>)? _onFriendRemoved;
-  void Function(Map<String, dynamic>)? _onTempFriendExpired;
+  late void Function(Map<String, dynamic>) _onFriendOnline;
+  late void Function(Map<String, dynamic>) _onFriendOffline;
+  late void Function(Map<String, dynamic>) _onFriendRequest;
+  late void Function(Map<String, dynamic>) _onFriendAccepted;
+  late void Function(Map<String, dynamic>) _onFriendRemoved;
+  late void Function(Map<String, dynamic>) _onTempFriendExpired;
 
   List<Map<String, dynamic>> get friends => List.unmodifiable(_friends);
   List<Map<String, dynamic>> get tempFriends => List.unmodifiable(_tempFriends);

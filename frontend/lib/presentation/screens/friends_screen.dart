@@ -2,6 +2,7 @@
 // @brief 好友列表界面
 // Created by 林子怡
 
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/friend_service.dart';

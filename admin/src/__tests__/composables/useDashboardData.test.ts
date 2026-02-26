@@ -212,7 +212,6 @@ describe('useDashboardData', () => {
 
     it('刷新后更新 lastUpdateTime', async () => {
       const { refreshData, lastUpdateTime } = useDashboardData()
-      const before = lastUpdateTime.value
       await new Promise(r => setTimeout(r, 10))
       await refreshData()
       // lastUpdateTime 格式为 HH:mm:ss，至少不为空

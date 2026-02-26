@@ -67,13 +67,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
-import {
-  Refresh, Cpu, Monitor, Connection, Stopwatch,
-  DataAnalysis, Search, CircleCheck
-} from '@element-plus/icons-vue'
+import { Cpu, Monitor, Connection, Stopwatch } from '@element-plus/icons-vue'
 import EdgeAIHeader from './edge-ai/EdgeAIHeader.vue'
 import PerformanceSection from './edge-ai/PerformanceSection.vue'
 import FederatedPrivacySection from './edge-ai/FederatedPrivacySection.vue'
@@ -218,7 +214,7 @@ const emotionGaugeOption = computed(() => ({
   }],
 }))
 
-const emotionLineOption = computed(() => ({
+const emotionPulseLineOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   grid: { top: 20, right: 20, bottom: 30, left: 45 },
   xAxis: {
@@ -271,10 +267,18 @@ const privacy = reactive({
   epsilonUsed: 0,
   epsilonTotal: 10,
   epsilonPercent: 0,
+  epsilonRemaining: 10,
   deltaValue: '1e-5',
   noiseLevel: 'medium',
   queriesRemaining: 0,
   allocation: [],
+})
+
+// 隐私预算颜色（根据消耗比例变化）
+const privacyBudgetColor = computed(() => {
+  if (privacy.epsilonPercent < 50) return '#2E7D32'
+  if (privacy.epsilonPercent < 80) return '#E65100'
+  return '#C62828'
 })
 
 const privacyPieOption = computed(() => ({
@@ -331,6 +335,7 @@ const edgeConfig = reactive({
   emotionModel: 'standard',
   vectorSearchEnabled: true,
 })
+const configLoading = ref(false)
 const configSaving = ref(false)
 
 // AI 工具箱
@@ -430,6 +435,7 @@ async function loadPrivacyBudget() {
       epsilonUsed,
       epsilonTotal,
       epsilonPercent: Number(epsilonPercent.toFixed(2)),
+      epsilonRemaining: Number((epsilonTotal - epsilonUsed).toFixed(2)),
       deltaValue: p.deltaValue ?? p.delta_value ?? '1e-5',
       noiseLevel: p.noiseLevel ?? p.noise_level ?? 'medium',
       queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? p.query_count ?? 0,
@@ -446,6 +452,7 @@ async function loadPrivacyBudget() {
 }
 
 async function loadConfig() {
+  configLoading.value = true
   try {
     const { data } = await api.getEdgeAIConfig()
     const c = data.data || data
@@ -459,7 +466,9 @@ async function loadConfig() {
       emotionModel: c.emotionModel ?? c.emotion_model ?? 'standard',
       vectorSearchEnabled: c.vectorSearchEnabled ?? c.vector_search_enabled ?? true,
     })
-  } catch { /* 静默 */ }
+  } catch { /* 静默 */ } finally {
+    configLoading.value = false
+  }
 }
 
 // ========== 操作函数 ==========
@@ -483,7 +492,7 @@ async function doSentimentAnalysis() {
     const r = data.data || data
     sentimentTool.result = {
       score: r.score ?? r.sentiment_score ?? 0,
-      emotion: r.emotion ?? r.sentiment ?? 'neutral',
+      sentiment: r.emotion ?? r.sentiment ?? 'neutral',
       confidence: r.confidence ?? r.conf ?? 0,
     }
   } catch {

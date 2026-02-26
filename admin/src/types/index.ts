@@ -1,21 +1,4 @@
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-
-// ── Axios 扩展 ──
-export interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
-  skipLoading?: boolean
-}
-
-// ── 通用 API 响应 ──
-export interface ApiResponse<T = unknown> {
-  code?: number
-  message?: string
-  data?: T
-}
-
-export interface PaginatedData<T> {
-  list?: T[]
-  total: number
-}
+import type { AxiosResponse } from 'axios'
 
 // ── 业务错误 ──
 export interface BusinessError extends Error {

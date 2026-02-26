@@ -15,7 +15,7 @@ class WebSocketManager {
   WebSocketManager._internal();
 
   WebSocketChannel? _channel;
-  final Map<String, List<Function(Map<String, dynamic>)>> _listeners = {};
+  final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
   final List<String> _offlineQueue = [];
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -110,12 +110,12 @@ class WebSocketManager {
     send({'type': 'leave', 'room': room});
   }
 
-  void on(String eventType, Function(Map<String, dynamic>) listener) {
+  void on(String eventType, void Function(Map<String, dynamic>) listener) {
     _listeners[eventType] ??= [];
     _listeners[eventType]!.add(listener);
   }
 
-  void off(String eventType, [Function(Map<String, dynamic>)? listener]) {
+  void off(String eventType, [void Function(Map<String, dynamic>)? listener]) {
     if (listener == null) {
       _listeners.remove(eventType);
     } else {
@@ -125,7 +125,7 @@ class WebSocketManager {
 
   /// P0-3 修复：遍历前复制列表，避免并发修改错误
   void _emit(String eventType, Map<String, dynamic> data) {
-    final callbacks = List<Function(Map<String, dynamic>)>.from(_listeners[eventType] ?? []);
+    final callbacks = List<void Function(Map<String, dynamic>)>.from(_listeners[eventType] ?? []);
     for (final listener in callbacks) {
       try {
         listener(data);

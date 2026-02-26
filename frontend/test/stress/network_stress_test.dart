@@ -200,14 +200,14 @@ void main() {
     });
 
     test('中文URL编码', () {
-      final text = '你好世界测试数据';
+      const text = '你好世界测试数据';
       final encoded = Uri.encodeComponent(text);
       final decoded = Uri.decodeComponent(encoded);
       expect(decoded, text);
     });
 
     test('特殊字符URL编码', () {
-      final special = '!@#\$%^&*()_+-=[]{}|;:,.<>?/~`';
+      const special = '!@#\$%^&*()_+-=[]{}|;:,.<>?/~`';
       final encoded = Uri.encodeComponent(special);
       final decoded = Uri.decodeComponent(encoded);
       expect(decoded, special);
@@ -242,7 +242,7 @@ void main() {
     });
 
     test('emoji URL编码', () {
-      final emojis = '😀🎉🚀💖🌍🎵🔥⭐';
+      const emojis = '😀🎉🚀💖🌍🎵🔥⭐';
       final encoded = Uri.encodeComponent(emojis);
       final decoded = Uri.decodeComponent(encoded);
       expect(decoded, emojis);
@@ -265,7 +265,7 @@ void main() {
 
     test('Authorization header格式', () {
       const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature';
-      final header = 'Bearer $token';
+      const header = 'Bearer $token';
       expect(header.startsWith('Bearer '), isTrue);
       expect(header.split(' ').last, token);
     });
@@ -462,7 +462,7 @@ void main() {
     test('100个并发Future', () async {
       final futures = List.generate(100, (i) async {
         // 模拟网络请求延迟
-        await Future.delayed(Duration(milliseconds: 1));
+        await Future.delayed(const Duration(milliseconds: 1));
         return {'id': i, 'status': 'ok'};
       });
       final results = await Future.wait(futures);
@@ -474,7 +474,7 @@ void main() {
 
     test('500个并发Future', () async {
       final futures = List.generate(500, (i) async {
-        await Future.delayed(Duration(milliseconds: 1));
+        await Future.delayed(const Duration(milliseconds: 1));
         return i * 2;
       });
       final results = await Future.wait(futures);
@@ -484,7 +484,7 @@ void main() {
 
     test('并发请求中部分失败', () async {
       final futures = List.generate(100, (i) async {
-        await Future.delayed(Duration(milliseconds: 1));
+        await Future.delayed(const Duration(milliseconds: 1));
         if (i % 10 == 0) throw Exception('Request $i failed');
         return i;
       });
