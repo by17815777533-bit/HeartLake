@@ -8,9 +8,10 @@ import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/api_client.dart';
 import '../../utils/storage_util.dart';
+import '../../di/service_locator.dart';
 
 class UserProvider with ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService = sl<AuthService>();
   final WebSocketManager _wsManager = WebSocketManager();
   final ApiClient _apiClient = ApiClient();
 

@@ -33,6 +33,8 @@
           :option="emotionTrendsOption"
           autoresize
           style="height: 280px"
+          role="img"
+          aria-label="AI情绪趋势图表"
         />
       </el-card>
     </el-col>

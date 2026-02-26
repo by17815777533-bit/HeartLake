@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../widgets/water_background.dart';
 import 'temp_friends_screen.dart';
 import 'friend_chat_screen.dart';
@@ -20,7 +21,7 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen>
     with TickerProviderStateMixin {
-  final FriendService _friendService = FriendService();
+  final FriendService _friendService = sl<FriendService>();
   List<Map<String, dynamic>> _friends = [];
   bool _isLoading = true;
   late AnimationController _listAnimController;

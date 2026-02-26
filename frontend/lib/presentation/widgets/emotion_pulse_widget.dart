@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
+import '../../di/service_locator.dart';
 
 /// 情绪脉搏光球 - 实时展示社区情绪状态
 class EmotionPulseWidget extends StatefulWidget {
@@ -16,7 +17,7 @@ class EmotionPulseWidget extends StatefulWidget {
 class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _breathController;
-  final EdgeAIService _edgeAIService = EdgeAIService();
+  final EdgeAIService _edgeAIService = sl<EdgeAIService>();
   Map<String, dynamic>? _pulseData;
   String _dominantMood = 'neutral';
   double _intensity = 0.5;

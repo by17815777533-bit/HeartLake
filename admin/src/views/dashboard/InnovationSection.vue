@@ -117,6 +117,8 @@
           :option="emotionPulseOption"
           autoresize
           style="height: 260px"
+          role="img"
+          aria-label="湖面情绪温度仪表盘"
         />
       </el-card>
     </el-col>

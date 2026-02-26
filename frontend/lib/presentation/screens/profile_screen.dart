@@ -4,6 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../../utils/app_theme.dart';
@@ -12,10 +13,10 @@ import '../../data/datasources/user_service.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/vip_service.dart';
+import '../../di/service_locator.dart';
 import '../widgets/atmospheric_background.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'auth_screen.dart';
 import 'help_screen.dart';
 import 'vip_screen.dart';
 import 'privacy_settings_screen.dart';
@@ -39,7 +40,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final UserService _userService = UserService();
+  final UserService _userService = sl<UserService>();
   final WebSocketManager _wsManager = WebSocketManager();
   Map<String, dynamic>? _stats;
   String? _username;
@@ -69,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _setupWebSocketListeners();
   }
 
-  final _vipService = VIPService();
+  final _vipService = sl<VIPService>();
 
   Future<void> _loadVIPStatus() async {
     try {
@@ -250,7 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final avatarUrl = data?['url'];
 
         // 更新个人资料
-        final authService = AuthService();
+        final authService = sl<AuthService>();
         final updateResult = await authService.updateProfile(avatarUrl: avatarUrl);
 
         if (mounted) {
@@ -315,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               final messenger = ScaffoldMessenger.of(context);
               final userProvider = Provider.of<UserProvider>(context, listen: false);
-              final authService = AuthService();
+              final authService = sl<AuthService>();
               final result = await authService.updateProfile(bio: newBio);
 
               if (mounted) {
@@ -622,7 +623,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // 清除本地存储
                             await StorageUtil.clearToken();
-                            AuthService().logout();
+                            sl<AuthService>().logout();
 
                             // 清除用户状态
                             if (context.mounted) {
@@ -632,12 +633,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // 跳转到登录页面
                             if (context.mounted) {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (context) => const AuthScreen(),
-                                ),
-                                (route) => false,
-                              );
+                              context.go('/auth');
                             }
                           }
                         },
@@ -741,7 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // 调用更新昵称API
               final userProvider = Provider.of<UserProvider>(context, listen: false);
-              final authService = AuthService();
+              final authService = sl<AuthService>();
               final result = await authService.updateNickname(newNickname);
 
               if (!mounted) return;

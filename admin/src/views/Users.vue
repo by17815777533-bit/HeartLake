@@ -169,6 +169,7 @@
       v-model="detailVisible"
       title="用户详情"
       width="600px"
+      aria-labelledby="user-detail-title"
     >
       <el-descriptions
         v-if="currentUser"
@@ -209,6 +210,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh } from '@element-plus/icons-vue'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'

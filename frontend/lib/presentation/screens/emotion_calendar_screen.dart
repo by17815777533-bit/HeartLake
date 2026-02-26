@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/datasources/user_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../widgets/shimmer_loading.dart';
@@ -22,7 +23,7 @@ class EmotionCalendarScreen extends StatefulWidget {
 }
 
 class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with SingleTickerProviderStateMixin {
-  final UserService _userService = UserService();
+  final UserService _userService = sl<UserService>();
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;

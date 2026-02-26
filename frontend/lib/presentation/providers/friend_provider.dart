@@ -6,11 +6,12 @@ import 'package:flutter/foundation.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/temp_friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 
 /// 好友状态管理Provider
 class FriendProvider with ChangeNotifier {
-  final FriendService _friendService = FriendService();
-  final TempFriendService _tempFriendService = TempFriendService();
+  final FriendService _friendService = sl<FriendService>();
+  final TempFriendService _tempFriendService = sl<TempFriendService>();
   final WebSocketManager _wsManager = WebSocketManager();
 
   List<Map<String, dynamic>> _friends = [];

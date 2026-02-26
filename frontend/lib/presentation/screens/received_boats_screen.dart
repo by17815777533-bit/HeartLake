@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
 import 'stone_detail_screen.dart';
@@ -18,7 +19,7 @@ class ReceivedBoatsScreen extends StatefulWidget {
 
 class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
-  final UserService _userService = UserService();
+  final UserService _userService = sl<UserService>();
   final WebSocketManager _wsManager = WebSocketManager();
   bool _isLoading = false;
 

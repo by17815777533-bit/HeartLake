@@ -7,14 +7,12 @@ import 'element-plus/es/components/notification/style/css'
 import 'element-plus/es/components/loading/style/css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './styles/m3-theme.scss'
+// 仅全局注册被 <component :is="stringName"> 动态引用的图标（侧边栏菜单 + Dashboard 统计卡片）
+// 其余图标在各组件内按需 import，保证 tree-shaking 生效
 import {
-  Bell, ChatDotRound, ChatLineRound, Check, CircleCheck, Cloudy,
-  Connection, Cpu, DataAnalysis, Document, Download,
-  Expand, Fold, Histogram, Monitor,
-  Moon, PieChart, Postcard,
-  Refresh, Search, Setting, Star, StarFilled, Stopwatch, Sunny,
-  Sunrise, Sunset, Tickets, Timer, TrendCharts, TrophyBase, User,
-  View, Warning, WindPower,
+  Bell, Check, Connection, DataAnalysis, Document, Edit,
+  Expand, Fold, Monitor, Moon, Setting, Sunny,
+  Tickets, User, Warning,
 } from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
@@ -25,15 +23,11 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// 按需注册实际使用的图标（tree-shaking 优化）
+// 仅注册动态 :is 引用的图标，其余组件内按需 import
 const icons: Record<string, Component> = {
-  Bell, ChatDotRound, ChatLineRound, Check, CircleCheck, Cloudy,
-  Connection, Cpu, DataAnalysis, Document, Download,
-  Expand, Fold, Histogram, Monitor,
-  Moon, PieChart, Postcard,
-  Refresh, Search, Setting, Star, StarFilled, Stopwatch, Sunny,
-  Sunrise, Sunset, Tickets, Timer, TrendCharts, TrophyBase, User,
-  View, Warning, WindPower,
+  Bell, Check, Connection, DataAnalysis, Document, Edit,
+  Expand, Fold, Monitor, Moon, Setting, Sunny,
+  Tickets, User, Warning,
 }
 for (const [key, component] of Object.entries(icons)) {
   app.component(key, component)

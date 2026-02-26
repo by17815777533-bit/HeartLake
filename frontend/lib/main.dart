@@ -14,13 +14,11 @@ import 'providers/edge_ai_provider.dart';
 import 'data/datasources/cache_service.dart';
 import 'data/datasources/websocket_manager.dart';
 import 'data/datasources/api_client.dart';
-import 'presentation/screens/splash_screen.dart';
-import 'presentation/screens/home_screen.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_config.dart';
-
-/// 全局 navigatorKey，用于在非 Widget 上下文中导航
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+import 'package:go_router/go_router.dart';
+import 'di/service_locator.dart';
+import 'router/app_router.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -47,7 +45,7 @@ void main() {
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Text(
-              '页面渲染异常，请刷新重试\\n${details.exceptionAsString()}',
+              '页面渲染异常，请刷新重试\n${details.exceptionAsString()}',
               style: const TextStyle(color: Colors.black87, fontSize: 14),
               textAlign: TextAlign.center,
             ),
@@ -56,12 +54,15 @@ void main() {
       );
     };
 
+    // 初始化依赖注入容器
+    setupServiceLocator();
+
     appConfig.initialize();
     CacheService().startAutoCleanup();
 
     // 注册401未授权回调 - token过期且刷新失败时跳转登录
     ApiClient().setOnUnauthorized(() {
-      navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
+      rootNavigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
     });
 
     runApp(const HeartLakeApp());
@@ -79,11 +80,20 @@ class HeartLakeApp extends StatefulWidget {
 }
 
 class _HeartLakeAppState extends State<HeartLakeApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = createRouter();
+  }
+
   @override
   void dispose() {
-    // P0-2 修复：App 销毁时清理 WebSocket 资源
+    // App 销毁时清理 WebSocket 资源
     WebSocketManager().dispose();
     CacheService().dispose();
+    _router.dispose();
     super.dispose();
   }
 
@@ -100,17 +110,13 @@ class _HeartLakeAppState extends State<HeartLakeApp> {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          return MaterialApp(
+          return MaterialApp.router(
             title: '心湖 Heart Lake',
-            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const SplashScreen(),
-            routes: {
-              '/home': (context) => const HomeScreen(),
-            },
+            routerConfig: _router,
           );
         },
       ),

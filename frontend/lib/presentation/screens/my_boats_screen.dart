@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../domain/entities/stone.dart';
@@ -20,7 +21,7 @@ class MyBoatsScreen extends StatefulWidget {
 class _MyBoatsScreenState extends State<MyBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
   bool _isLoading = false;
-  final InteractionService _interactionService = InteractionService();
+  final InteractionService _interactionService = sl<InteractionService>();
   late final WebSocketManager _wsManager;
 
   // WebSocket Listeners

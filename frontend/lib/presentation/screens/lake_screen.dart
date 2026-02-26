@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../widgets/water_background.dart';
 import '../widgets/animations/ripple_effect.dart';
@@ -28,7 +29,7 @@ class LakeScreen extends StatefulWidget {
 }
 
 class LakeScreenState extends State<LakeScreen> {
-  final StoneService _stoneService = StoneService();
+  final StoneService _stoneService = sl<StoneService>();
   List<Stone> _stones = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
@@ -33,7 +34,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   int _localBoatsCount = 0;
   bool _hasInteraction = false; // 追踪是否有互动发生
   bool _hasRippled = false; // 当前用户是否已涟漪
-  final InteractionService _interactionService = InteractionService();
+  final InteractionService _interactionService = sl<InteractionService>();
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
   late WebSocketManager _wsManager;

@@ -346,31 +346,36 @@ TEST_F(EdgeAIEngineTest, DPPrivacyBudgetConsumption) {
 
 TEST_F(EdgeAIEngineTest, DPEpsilonAffectsNoiseScale) {
     // 较小的epsilon应产生更大的噪声（更强隐私保护）
-    // 使用向量版本统计噪声幅度
+    // 直接通过 getDifferentialPrivacy().configure() 更新 epsilon，
+    // 因为 initialize() 受 call_once 保护只执行一次
 
-    engine->resetPrivacyBudget();
+    auto& dp = engine->getDifferentialPrivacy();
 
-    // 用大epsilon初始化
-    Json::Value configLargeEps;
-    configLargeEps["dp_epsilon"] = 10.0;
-    configLargeEps["dp_delta"] = 1e-5;
-    engine->initialize(configLargeEps);
-    engine->resetPrivacyBudget();
+    // 用大epsilon配置
+    heartlake::ai::DPConfig configLarge{};
+    configLarge.epsilon = 10.0f;
+    configLarge.delta = 1e-5f;
+    configLarge.sensitivity = 1.0f;
+    configLarge.maxEpsilonBudget = 10000.0f;
+    configLarge.maxDeltaBudget = 1.0f;
+    dp.configure(configLarge);
 
     float sumAbsDiffLargeEps = 0.0f;
-    int trials = 100;
+    int trials = 1000;
     for (int i = 0; i < trials; ++i) {
         float noised = engine->addLaplaceNoise(0.0f, 1.0f);
         sumAbsDiffLargeEps += std::abs(noised);
     }
     float avgNoiseLargeEps = sumAbsDiffLargeEps / trials;
 
-    // 用小epsilon初始化
-    Json::Value configSmallEps;
-    configSmallEps["dp_epsilon"] = 0.1;
-    configSmallEps["dp_delta"] = 1e-5;
-    engine->initialize(configSmallEps);
-    engine->resetPrivacyBudget();
+    // 用小epsilon配置
+    heartlake::ai::DPConfig configSmall{};
+    configSmall.epsilon = 0.1f;
+    configSmall.delta = 1e-5f;
+    configSmall.sensitivity = 1.0f;
+    configSmall.maxEpsilonBudget = 10000.0f;
+    configSmall.maxDeltaBudget = 1.0f;
+    dp.configure(configSmall);
 
     float sumAbsDiffSmallEps = 0.0f;
     for (int i = 0; i < trials; ++i) {

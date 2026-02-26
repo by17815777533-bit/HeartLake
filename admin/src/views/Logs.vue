@@ -12,6 +12,7 @@
       <el-form
         :model="filters"
         inline
+        aria-label="日志筛选"
       >
         <el-form-item label="操作人">
           <el-input
@@ -88,6 +89,7 @@
         v-loading="loading"
         :data="logList"
         stripe
+        aria-label="操作日志列表"
       >
         <el-table-column
           prop="id"

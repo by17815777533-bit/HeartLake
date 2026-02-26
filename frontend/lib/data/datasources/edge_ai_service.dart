@@ -9,6 +9,7 @@
 //   - /api/admin/edge-ai/federated/aggregate （联邦学习聚合）
 //   - /api/admin/edge-ai/config     （配置管理）
 import 'base_service.dart';
+import '../../utils/input_validator.dart';
 
 class EdgeAIService extends BaseService {
   @override
@@ -22,6 +23,8 @@ class EdgeAIService extends BaseService {
 
   /// 本地情感分析
   Future<Map<String, dynamic>> analyzeSentiment(String text) async {
+    InputValidator.requireLength(text, '分析文本', min: 1, max: 5000);
+    text = InputValidator.sanitizeText(text);
     final response = await post('/edge-ai/analyze', data: {'text': text});
     return toMap(response);
   }

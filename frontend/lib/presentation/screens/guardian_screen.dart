@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/guardian_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 import 'lake_god_chat_screen.dart';
@@ -13,7 +14,7 @@ class GuardianScreen extends StatefulWidget {
 
 class _GuardianScreenState extends State<GuardianScreen>
     with SingleTickerProviderStateMixin {
-  final _service = GuardianService();
+  final _service = sl<GuardianService>();
   Map<String, dynamic>? _stats;
   bool _loading = true;
   late AnimationController _animController;

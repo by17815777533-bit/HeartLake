@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/datasources/psych_support_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 
@@ -16,7 +17,7 @@ class SafeHarborScreen extends StatefulWidget {
 
 class _SafeHarborScreenState extends State<SafeHarborScreen>
     with SingleTickerProviderStateMixin {
-  final _service = PsychSupportService();
+  final _service = sl<PsychSupportService>();
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 

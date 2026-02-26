@@ -14,9 +14,10 @@ class FriendService extends BaseService {
     required String userId,
     String? message,
   }) async {
-    InputValidator.requireNonEmpty(userId, '用户ID');
+    InputValidator.validateUUID(userId, '用户ID');
     if (message != null) {
       InputValidator.requireLength(message, '附言', max: 200);
+      message = InputValidator.sanitizeText(message);
     }
     final response = await post('/friends/request', data: {
       'user_id': userId,
@@ -33,21 +34,21 @@ class FriendService extends BaseService {
 
   // 接受好友请求
   Future<Map<String, dynamic>> acceptFriendRequest(String userId) async {
-    InputValidator.requireNonEmpty(userId, '用户ID');
+    InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/accept/$userId');
     return toMap(response);
   }
 
   // 拒绝好友请求
   Future<Map<String, dynamic>> rejectFriendRequest(String userId) async {
-    InputValidator.requireNonEmpty(userId, '用户ID');
+    InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/reject/$userId');
     return toMap(response);
   }
 
   // 删除好友
   Future<Map<String, dynamic>> removeFriend(String friendId) async {
-    InputValidator.requireNonEmpty(friendId, '好友ID');
+    InputValidator.validateUUID(friendId, '好友ID');
     final response = await delete('/friends/$friendId');
     return toMap(response);
   }
@@ -82,7 +83,7 @@ class FriendService extends BaseService {
   // 后端返回 { "code": 0, "data": [ {id, sender_id, receiver_id, content, created_at}, ... ] }
   // data 直接是数组，不是 { "messages": [...] }
   Future<Map<String, dynamic>> getMessages(String friendId) async {
-    InputValidator.requireNonEmpty(friendId, '好友ID');
+    InputValidator.validateUUID(friendId, '好友ID');
     final response = await get('/friends/$friendId/messages');
 
     if (!response.success) return toMap(response);
@@ -106,8 +107,9 @@ class FriendService extends BaseService {
 
   // 发送消息给好友
   Future<Map<String, dynamic>> sendMessage(String friendId, String content) async {
-    InputValidator.requireNonEmpty(friendId, '好友ID');
+    InputValidator.validateUUID(friendId, '好友ID');
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);
+    content = InputValidator.sanitizeText(content);
     final response = await post('/friends/$friendId/messages', data: {
       'content': content,
     });

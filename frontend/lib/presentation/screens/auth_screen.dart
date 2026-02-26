@@ -3,10 +3,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:heart_lake/data/datasources/auth_service.dart';
+import 'package:heart_lake/di/service_locator.dart';
 import 'package:heart_lake/presentation/widgets/water_background.dart';
 import 'package:heart_lake/utils/app_theme.dart';
-import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -16,7 +17,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
-  final AuthService _authService = AuthService();
+  final AuthService _authService = sl<AuthService>();
   bool _isLoading = false;
 
   // 按钮缩放动画
@@ -85,10 +86,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   void _navigateToHome() {
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    context.go('/home');
   }
 
   // ==================== 匿名登录 ====================

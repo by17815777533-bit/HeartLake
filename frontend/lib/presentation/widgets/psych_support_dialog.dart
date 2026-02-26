@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/datasources/psych_support_service.dart';
+import '../../di/service_locator.dart';
 
 class PsychSupportDialog extends StatefulWidget {
   final String? helpTip;
@@ -24,7 +25,7 @@ class PsychSupportDialog extends StatefulWidget {
 }
 
 class _PsychSupportDialogState extends State<PsychSupportDialog> {
-  final PsychSupportService _service = PsychSupportService();
+  final PsychSupportService _service = sl<PsychSupportService>();
   List<dynamic> _hotlines = [];
   String _prompt = '';
   bool _loading = true;

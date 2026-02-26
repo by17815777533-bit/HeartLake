@@ -18,6 +18,7 @@
           v-loading="loading"
           :data="pendingList"
           stripe
+          aria-label="待审核内容列表"
         >
           <el-table-column
             prop="moderation_id"
@@ -103,7 +104,7 @@
             :page-sizes="[10, 20, 50]"
             layout="total, sizes, prev, pager, next"
             @size-change="handlePendingSizeChange"
-            @current-change="fetchPending"
+            @current-change="handlePendingCurrentChange"
           />
         </div>
       </el-tab-pane>
@@ -120,6 +121,7 @@
           <el-form
             :model="historyFilters"
             inline
+            aria-label="审核历史筛选"
           >
             <el-form-item label="结果">
               <el-select
@@ -152,6 +154,7 @@
           v-loading="historyLoading"
           :data="historyList"
           stripe
+          aria-label="审核历史列表"
         >
           <el-table-column
             prop="moderation_id"
@@ -193,10 +196,12 @@
         <div class="pagination-wrapper">
           <el-pagination
             v-model:current-page="historyPagination.page"
+            v-model:page-size="historyPagination.pageSize"
             :total="historyPagination.total"
             :page-sizes="[20, 50]"
-            layout="total, prev, pager, next"
-            @current-change="fetchHistory"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleHistorySizeChange"
+            @current-change="handleHistoryCurrentChange"
           />
         </div>
       </el-tab-pane>
@@ -207,6 +212,7 @@
       v-model="detailVisible"
       title="内容详情"
       width="600px"
+      aria-labelledby="moderation-detail-title"
     >
       <div v-if="currentItem">
         <el-descriptions
@@ -244,6 +250,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { useTablePagination } from '@/composables/useTablePagination'
 
 const activeTab = ref('pending')
 const loading = ref(false)
@@ -253,11 +260,19 @@ const historyList = ref([])
 const detailVisible = ref(false)
 const currentItem = ref(null)
 
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
-const historyPagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const historyFilters = reactive({ result: '' })
 
-const fetchPending = async () => {
+const { pagination, handleSizeChange: handlePendingSizeChange, handleCurrentChange: handlePendingCurrentChange } = useTablePagination(fetchPending)
+const {
+  pagination: historyPagination,
+  handleSizeChange: handleHistorySizeChange,
+  handleCurrentChange: handleHistoryCurrentChange,
+} = useTablePagination(fetchHistory, {
+  filters: historyFilters,
+  defaultFilters: { result: '' },
+})
+
+async function fetchPending() {
   loading.value = true
   try {
     const res = await api.getPendingModeration({ page: pagination.page, page_size: pagination.pageSize })
@@ -273,7 +288,7 @@ const fetchPending = async () => {
   }
 }
 
-const fetchHistory = async () => {
+async function fetchHistory() {
   historyLoading.value = true
   try {
     const res = await api.getModerationHistory({ page: historyPagination.page, page_size: historyPagination.pageSize, ...historyFilters })
@@ -288,8 +303,6 @@ const fetchHistory = async () => {
     historyLoading.value = false
   }
 }
-
-const handlePendingSizeChange = () => { pagination.page = 1; fetchPending() }
 
 const handleTabChange = (tab) => { tab === 'pending' ? fetchPending() : fetchHistory() }
 

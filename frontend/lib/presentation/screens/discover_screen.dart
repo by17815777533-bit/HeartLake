@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/recommendation_service.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
+import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../widgets/water_background.dart';
@@ -17,8 +18,8 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
-  final RecommendationService _service = RecommendationService();
-  final AIRecommendationService _aiService = AIRecommendationService();
+  final RecommendationService _service = sl<RecommendationService>();
+  final AIRecommendationService _aiService = sl<AIRecommendationService>();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
 

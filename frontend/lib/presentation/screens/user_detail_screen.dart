@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import 'friend_chat_screen.dart';
 
@@ -18,7 +19,7 @@ class UserDetailScreen extends StatefulWidget {
 }
 
 class _UserDetailScreenState extends State<UserDetailScreen> {
-  final UserService _userService = UserService();
+  final UserService _userService = sl<UserService>();
   Map<String, dynamic>? _user;
   bool _isLoading = true;
   bool _isFriend = false;

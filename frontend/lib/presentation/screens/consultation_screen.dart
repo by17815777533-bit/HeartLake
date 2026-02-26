@@ -2,6 +2,7 @@
 // @brief 心理咨询预约和会话页面 - 支持E2E加密
 import 'package:flutter/material.dart';
 import '../../data/datasources/consultation_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
 
@@ -291,7 +292,7 @@ class _SessionListTab extends StatefulWidget {
 }
 
 class _SessionListTabState extends State<_SessionListTab> {
-  final ConsultationService _service = ConsultationService();
+  final ConsultationService _service = sl<ConsultationService>();
   List<Map<String, dynamic>> _sessions = [];
   bool _isLoading = true;
   String? _error;
@@ -474,7 +475,7 @@ class _ConsultationChatScreen extends StatefulWidget {
 }
 
 class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
-  final ConsultationService _service = ConsultationService();
+  final ConsultationService _service = sl<ConsultationService>();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];

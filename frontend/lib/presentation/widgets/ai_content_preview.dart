@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
+import '../../di/service_locator.dart';
 
 /// AI审核状态
 enum ModerationStatus { idle, loading, passed, warning, rejected }
@@ -39,7 +40,7 @@ class AIContentPreview extends StatefulWidget {
 
 class _AIContentPreviewState extends State<AIContentPreview>
     with SingleTickerProviderStateMixin {
-  final EdgeAIService _aiService = EdgeAIService();
+  final EdgeAIService _aiService = sl<EdgeAIService>();
   Timer? _debounceTimer;
 
   ModerationStatus _status = ModerationStatus.idle;

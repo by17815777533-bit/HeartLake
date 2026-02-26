@@ -9,6 +9,18 @@ class AccountService extends BaseService {
   @override
   String get serviceName => 'AccountService';
 
+  // 隐私设置允许的 key
+  static const _allowedPrivacyKeys = [
+    'show_online_status', 'allow_friend_request', 'show_emotion_heatmap',
+    'allow_stranger_message', 'show_stone_count', 'data_collection',
+    'personalized_recommendation', 'anonymous_analytics',
+  ];
+
+  // 个人资料允许的 key
+  static const _allowedProfileKeys = [
+    'nickname', 'bio', 'avatar', 'gender', 'birthday', 'location',
+  ];
+
   /// 获取账号信息
   Future<Map<String, dynamic>> getAccountInfo() async {
     final response = await get('/account/info');
@@ -46,6 +58,7 @@ class AccountService extends BaseService {
 
   /// 更新隐私设置
   Future<Map<String, dynamic>> updatePrivacySettings(Map<String, dynamic> settings) async {
+    settings = InputValidator.validateMapKeys(settings, _allowedPrivacyKeys);
     final response = await put('/account/privacy', data: settings);
     return toMap(response);
   }
@@ -63,14 +76,14 @@ class AccountService extends BaseService {
 
   /// 拉黑用户
   Future<Map<String, dynamic>> blockUser(String userId) async {
-    InputValidator.requireNonEmpty(userId, '用户ID');
+    InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/account/block/$userId');
     return toMap(response);
   }
 
   /// 取消拉黑
   Future<Map<String, dynamic>> unblockUser(String userId) async {
-    InputValidator.requireNonEmpty(userId, '用户ID');
+    InputValidator.validateUUID(userId, '用户ID');
     final response = await delete('/account/unblock/$userId');
     return toMap(response);
   }
@@ -83,7 +96,7 @@ class AccountService extends BaseService {
 
   /// 移除登录设备
   Future<Map<String, dynamic>> removeDevice(String sessionId) async {
-    InputValidator.requireNonEmpty(sessionId, '会话ID');
+    InputValidator.validateUUID(sessionId, '会话ID');
     final response = await delete('/account/devices/$sessionId');
     return toMap(response);
   }
@@ -96,19 +109,36 @@ class AccountService extends BaseService {
 
   /// 获取数据导出状态
   Future<Map<String, dynamic>> getExportStatus(String taskId) async {
-    InputValidator.requireNonEmpty(taskId, '任务ID');
+    InputValidator.validateUUID(taskId, '任务ID');
     final response = await get('/account/export/$taskId');
     return toMap(response);
   }
 
   /// 上传头像
-  Future<Map<String, dynamic>> uploadAvatar(dynamic avatarData) async {
+  Future<Map<String, dynamic>> uploadAvatar(dynamic avatarData, {String? filename, int? fileSize}) async {
+    if (filename != null) {
+      InputValidator.validateFileType(filename, const ['jpg', 'jpeg', 'png', 'webp']);
+    }
+    if (fileSize != null) {
+      InputValidator.validateFileSize(fileSize, maxMB: 5);
+    }
     final response = await post('/account/avatar', data: avatarData);
     return toMap(response);
   }
 
   /// 更新个人资料
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> profile) async {
+    profile = InputValidator.validateMapKeys(profile, _allowedProfileKeys);
+    // 校验昵称长度
+    if (profile.containsKey('nickname') && profile['nickname'] is String) {
+      InputValidator.requireLength(profile['nickname'] as String, '昵称', min: 1, max: 20);
+      profile['nickname'] = InputValidator.sanitizeText(profile['nickname'] as String);
+    }
+    // 校验个性签名长度
+    if (profile.containsKey('bio') && profile['bio'] is String) {
+      InputValidator.requireLength(profile['bio'] as String, '个性签名', max: 200);
+      profile['bio'] = InputValidator.sanitizeText(profile['bio'] as String);
+    }
     final response = await put('/account/profile', data: profile);
     return toMap(response);
   }

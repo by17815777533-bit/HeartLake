@@ -14,6 +14,7 @@
       <el-form
         :model="filters"
         inline
+        aria-label="举报筛选"
       >
         <el-form-item label="状态">
           <el-select
@@ -85,6 +86,7 @@
         v-loading="loading"
         :data="reportList"
         stripe
+        aria-label="举报列表"
       >
         <el-table-column
           prop="id"

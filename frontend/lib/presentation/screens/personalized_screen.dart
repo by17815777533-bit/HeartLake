@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
@@ -17,7 +18,7 @@ class PersonalizedScreen extends StatefulWidget {
 
 class _PersonalizedScreenState extends State<PersonalizedScreen>
     with TickerProviderStateMixin {
-  final AIRecommendationService _service = AIRecommendationService();
+  final AIRecommendationService _service = sl<AIRecommendationService>();
   late AnimationController _driftController;
   late AnimationController _fadeController;
   List<Stone> _personalizedStones = [];

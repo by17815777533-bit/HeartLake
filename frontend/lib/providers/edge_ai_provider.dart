@@ -4,6 +4,7 @@
 import 'package:flutter/foundation.dart';
 import '../edge_ai/emotion_classifier.dart';
 import '../data/datasources/edge_ai_service.dart';
+import '../di/service_locator.dart';
 
 class EdgeAIProvider extends ChangeNotifier {
   static final EdgeAIProvider _instance = EdgeAIProvider._();
@@ -11,7 +12,7 @@ class EdgeAIProvider extends ChangeNotifier {
   EdgeAIProvider._();
 
   final LocalDPClassifier _classifier = LocalDPClassifier(epsilon: 2.0);
-  final EdgeAIService _edgeService = EdgeAIService();
+  final EdgeAIService _edgeService = sl<EdgeAIService>();
   bool _isReady = false;
   Map<String, double>? _lastResult;
   String? _lastEmotion;

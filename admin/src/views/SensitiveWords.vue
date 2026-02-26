@@ -14,6 +14,7 @@
         <el-form
           :model="filters"
           inline
+          aria-label="敏感词筛选"
         >
           <el-form-item label="关键词">
             <el-input
@@ -71,6 +72,7 @@
         v-loading="loading"
         :data="wordList"
         stripe
+        aria-label="敏感词列表"
       >
         <el-table-column
           prop="id"
@@ -157,6 +159,7 @@
       v-model="dialogVisible"
       :title="isEdit ? '编辑敏感词' : '添加敏感词'"
       width="450px"
+      aria-labelledby="sensitive-word-dialog-title"
     >
       <el-form
         ref="formRef"

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
@@ -16,7 +17,7 @@ class EmotionHeatmapScreen extends StatefulWidget {
 }
 
 class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
-  final UserService _userService = UserService();
+  final UserService _userService = sl<UserService>();
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
   bool _isLoading = true;

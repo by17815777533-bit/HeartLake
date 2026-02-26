@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/stone_service.dart';
+import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
@@ -22,7 +23,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final List<Map<String, dynamic>> _notifications = [];
-  final NotificationService _notificationService = NotificationService();
+  final NotificationService _notificationService = sl<NotificationService>();
   bool _isLoading = false;
   int _unreadCount = 0;
 
@@ -115,7 +116,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'ripple':
       case 'boat':
         if (targetId != null) {
-          final result = await StoneService().getStoneDetail(targetId);
+          final result = await sl<StoneService>().getStoneDetail(targetId);
           if (result['success'] == true && result['stone'] != null && mounted) {
             final stone = Stone.fromJson(result['stone']);
             Navigator.push(

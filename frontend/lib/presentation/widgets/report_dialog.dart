@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/report_service.dart';
+import '../../di/service_locator.dart';
 
 /// 举报对话框组件
 class ReportDialog extends StatefulWidget {
@@ -21,7 +22,7 @@ class ReportDialog extends StatefulWidget {
 }
 
 class _ReportDialogState extends State<ReportDialog> {
-  final ReportService _reportService = ReportService();
+  final ReportService _reportService = sl<ReportService>();
   final TextEditingController _descriptionController = TextEditingController();
   String _selectedReason = 'spam';
   bool _isSubmitting = false;

@@ -16,6 +16,7 @@
           <el-form
             :model="systemConfig"
             label-width="150px"
+            aria-label="系统配置"
           >
             <el-form-item label="系统名称">
               <el-input
@@ -61,6 +62,7 @@
             :model="aiConfig"
             :rules="aiRules"
             label-width="150px"
+            aria-label="AI服务配置"
           >
             <el-form-item
               label="AI服务提供商"
@@ -153,6 +155,7 @@
             :model="rateConfig"
             :rules="rateRules"
             label-width="180px"
+            aria-label="限流配置"
           >
             <el-form-item
               label="每小时投石限制"
@@ -217,6 +220,7 @@
           <el-form
             :model="broadcastForm"
             label-width="120px"
+            aria-label="广播消息"
           >
             <el-form-item label="广播内容">
               <el-input

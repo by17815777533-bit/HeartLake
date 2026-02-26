@@ -15,6 +15,9 @@ class ConsultationService extends BaseService {
 
   /// 创建咨询会话
   Future<Map<String, dynamic>> createSession({String? counselorId}) async {
+    if (counselorId != null) {
+      InputValidator.validateUUID(counselorId, '咨询师ID');
+    }
     final resp = await post('/consultation/session', data: {
       if (counselorId != null) 'counselor_id': counselorId,
     });
@@ -23,6 +26,7 @@ class ConsultationService extends BaseService {
 
   /// 初始化 E2E 加密：生成密钥对、交换公钥、派生共享密钥
   Future<bool> initE2E(String sessionId) async {
+    InputValidator.validateUUID(sessionId, '会话ID');
     try {
       _keyPair = await _e2e.generateKeyPair();
       final myPublicKey = await _e2e.exportPublicKey(_keyPair!);
@@ -48,8 +52,9 @@ class ConsultationService extends BaseService {
     required String sessionId,
     required String content,
   }) async {
-    InputValidator.requireNonEmpty(sessionId, '会话ID');
+    InputValidator.validateUUID(sessionId, '会话ID');
     InputValidator.requireLength(content, '消息内容', min: 1, max: 5000);
+    content = InputValidator.sanitizeText(content);
     String payload = content;
     bool encrypted = false;
 
@@ -77,7 +82,7 @@ class ConsultationService extends BaseService {
 
   /// 获取消息历史（加密消息自动解密）
   Future<Map<String, dynamic>> getMessages(String sessionId) async {
-    InputValidator.requireNonEmpty(sessionId, '会话ID');
+    InputValidator.validateUUID(sessionId, '会话ID');
     final resp = await get('/consultation/messages/$sessionId');
     final result = toMap(resp);
 
@@ -112,6 +117,8 @@ class ConsultationService extends BaseService {
     required String sessionId,
     required String publicKey,
   }) async {
+    InputValidator.validateUUID(sessionId, '会话ID');
+    InputValidator.validateBase64(publicKey, '公钥');
     final resp = await post('/consultation/key-exchange', data: {
       'session_id': sessionId,
       'public_key': publicKey,

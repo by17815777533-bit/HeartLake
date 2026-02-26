@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/mood_colors.dart';
 
 /// 相似石头推荐区域 - 类光遇飘浮星光风格
@@ -23,7 +24,7 @@ class SimilarStonesSection extends StatefulWidget {
 
 class _SimilarStonesSectionState extends State<SimilarStonesSection>
     with SingleTickerProviderStateMixin {
-  final AIRecommendationService _service = AIRecommendationService();
+  final AIRecommendationService _service = sl<AIRecommendationService>();
   List<Stone> _similarStones = [];
   bool _loading = true;
   late AnimationController _floatController;

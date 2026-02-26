@@ -44,6 +44,8 @@
           :option="userGrowthOption"
           autoresize
           style="height: 300px"
+          role="img"
+          aria-label="用户增长趋势图表"
         />
       </el-card>
     </el-col>
@@ -64,6 +66,8 @@
           :option="moodDistributionOption"
           autoresize
           style="height: 300px"
+          role="img"
+          aria-label="情绪分布图表"
         />
       </el-card>
     </el-col>
@@ -101,6 +105,8 @@
           :option="moodTrendOption"
           autoresize
           style="height: 280px"
+          role="img"
+          aria-label="情绪趋势分析图表"
         />
       </el-card>
     </el-col>
@@ -152,6 +158,8 @@
           :option="activeTimeOption"
           autoresize
           style="height: 300px"
+          role="img"
+          aria-label="活跃时段分布图表"
         />
       </el-card>
     </el-col>

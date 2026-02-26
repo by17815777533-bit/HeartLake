@@ -3,6 +3,7 @@
 // Created by 王璐瑶
 
 import 'base_service.dart';
+import '../../utils/input_validator.dart';
 
 class VIPService extends BaseService {
   @override
@@ -34,6 +35,7 @@ class VIPService extends BaseService {
     required String appointmentTime,
     bool isFreeVIP = false,
   }) async {
+    InputValidator.validateFutureISO8601(appointmentTime, '预约时间');
     final response = await post('/vip/counseling/book', data: {
       'appointment_time': appointmentTime,
       'is_free_vip': isFreeVIP,

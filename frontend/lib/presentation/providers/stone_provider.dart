@@ -9,9 +9,10 @@ import '../../domain/entities/stone.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/cache_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 
 class StoneProvider with ChangeNotifier {
-  final StoneService _stoneService = StoneService();
+  final StoneService _stoneService = sl<StoneService>();
   final CacheService _cache = CacheService();
   final WebSocketManager _wsManager = WebSocketManager();
 

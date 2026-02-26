@@ -4,11 +4,11 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import 'onboarding_screen.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
+import '../../di/service_locator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  final AuthService _authService = AuthService();
+  final AuthService _authService = sl<AuthService>();
 
   @override
   void initState() {
@@ -79,19 +79,9 @@ class _SplashScreenState extends State<SplashScreen>
     final isFirstLaunch = prefs.getString('onboarding_done') == null;
     if (!mounted) return;
 
-    final targetScreen = isFirstLaunch
-        ? const OnboardingScreen()
-        : const HomeScreen() as Widget;
+    final targetPath = isFirstLaunch ? '/onboarding' : '/home';
 
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
+    context.go(targetPath);
   }
 
   @override

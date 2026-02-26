@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/account_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class PrivacySettingsScreen extends StatefulWidget {
 }
 
 class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
-  final AccountService _accountService = AccountService();
+  final AccountService _accountService = sl<AccountService>();
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isExporting = false;

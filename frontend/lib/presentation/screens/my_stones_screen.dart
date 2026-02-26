@@ -7,6 +7,7 @@ import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
 class MyStonesScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class MyStonesScreen extends StatefulWidget {
 class _MyStonesScreenState extends State<MyStonesScreen> {
   final List<Stone> _myStones = [];
   bool _isLoading = false;
-  final StoneService _stoneService = StoneService();
+  final StoneService _stoneService = sl<StoneService>();
   final WebSocketManager _wsManager = WebSocketManager();
 
   // WebSocket 监听器

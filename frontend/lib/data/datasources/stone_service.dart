@@ -32,6 +32,7 @@ class StoneService extends BaseService {
     List<String>? tags,
   }) async {
     InputValidator.requireLength(content, '石头内容', min: 1, max: 5000);
+    content = InputValidator.sanitizeText(content);
     InputValidator.requireInList(stoneType, const [
       'text', 'voice', 'image', 'mood', 'story',
     ], '石头类型');
@@ -42,6 +43,8 @@ class StoneService extends BaseService {
     ], '情绪类型');
     if (tags != null) {
       InputValidator.requireListLength(tags, '标签', max: 10);
+      // 对每个标签做 XSS 过滤
+      tags = tags.map((t) => InputValidator.sanitizeText(t)).toList();
     }
     final response = await post('/stones', data: {
       'content': content,
@@ -178,7 +181,7 @@ class StoneService extends BaseService {
 
   // 删除石头
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
-    InputValidator.requireNonEmpty(stoneId, '石头ID');
+    InputValidator.validateUUID(stoneId, '石头ID');
     final response = await delete('/stones/$stoneId');
     return toMap(response);
   }
@@ -200,7 +203,7 @@ class StoneService extends BaseService {
 
   // 获取石头详情
   Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
-    InputValidator.requireNonEmpty(stoneId, '石头ID');
+    InputValidator.validateUUID(stoneId, '石头ID');
     final response = await get('/stones/$stoneId');
     if (!response.success) {
       return toMap(response);

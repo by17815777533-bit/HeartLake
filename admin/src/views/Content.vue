@@ -179,6 +179,7 @@
       v-model="detailVisible"
       title="内容详情"
       width="600px"
+      aria-labelledby="content-detail-title"
     >
       <div v-if="currentContent">
         <el-descriptions

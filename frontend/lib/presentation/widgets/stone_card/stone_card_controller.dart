@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/entities/stone.dart';
 import '../../../data/datasources/interaction_service.dart';
 import '../../../data/datasources/websocket_manager.dart';
+import '../../../di/service_locator.dart';
 import '../../../utils/storage_util.dart';
 
 /// StoneCard 状态控制器 - 管理业务逻辑和WebSocket监听
@@ -13,7 +14,7 @@ class StoneCardController {
   final Stone stone;
   final VoidCallback? onStateChanged;
 
-  final InteractionService _interactionService = InteractionService();
+  final InteractionService _interactionService = sl<InteractionService>();
 
   bool hasRippled = false;
   int localRipplesCount = 0;

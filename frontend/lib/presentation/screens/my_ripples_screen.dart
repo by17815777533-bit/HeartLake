@@ -7,6 +7,7 @@ import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
 class MyRipplesScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
   final List<Map<String, dynamic>> _ripplesData = [];
   final List<Stone> _ripples = [];
   bool _isLoading = false;
-  final InteractionService _interactionService = InteractionService();
+  final InteractionService _interactionService = sl<InteractionService>();
   final WebSocketManager _wsManager = WebSocketManager();
 
   // WebSocket 监听器引用

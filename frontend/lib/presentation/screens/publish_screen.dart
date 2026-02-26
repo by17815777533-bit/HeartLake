@@ -11,6 +11,7 @@ import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/cache_service.dart';
+import '../../di/service_locator.dart';
 import '../../providers/edge_ai_provider.dart';
 
 class PublishScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class PublishScreen extends StatefulWidget {
 
 class _PublishScreenState extends State<PublishScreen> {
   final TextEditingController _contentController = TextEditingController();
-  final StoneService _stoneService = StoneService();
+  final StoneService _stoneService = sl<StoneService>();
   final EdgeAIProvider _provider = EdgeAIProvider();
   String _selectedType = 'medium';
   String _selectedColor = '#ADA59E';

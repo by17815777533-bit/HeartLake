@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_theme.dart';
 
@@ -17,7 +18,7 @@ class FriendChatScreen extends StatefulWidget {
 }
 
 class _FriendChatScreenState extends State<FriendChatScreen> {
-  final FriendService _friendService = FriendService();
+  final FriendService _friendService = sl<FriendService>();
   final WebSocketManager _wsManager = WebSocketManager();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();

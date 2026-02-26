@@ -3,6 +3,7 @@
 // Created by 林子怡
 
 import 'base_service.dart';
+import '../../utils/input_validator.dart';
 
 class NotificationService extends BaseService {
   @override
@@ -10,6 +11,8 @@ class NotificationService extends BaseService {
 
   /// 获取通知列表
   Future<Map<String, dynamic>> getNotifications({int page = 1, int pageSize = 20}) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     final response = await get('/notifications', queryParameters: {
       'page': page,
       'page_size': pageSize,
@@ -55,6 +58,7 @@ class NotificationService extends BaseService {
 
   /// 标记单条通知为已读
   Future<Map<String, dynamic>> markAsRead(String notificationId) async {
+    InputValidator.validateUUID(notificationId, '通知ID');
     final response = await post('/notifications/$notificationId/read');
     if (!response.success) return toMap(response);
 

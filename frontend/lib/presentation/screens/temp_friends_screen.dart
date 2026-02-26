@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/temp_friend_service.dart';
+import '../../di/service_locator.dart';
 import '../widgets/water_background.dart';
 import 'friend_chat_screen.dart';
 
@@ -18,7 +19,7 @@ class TempFriendsScreen extends StatefulWidget {
 
 class _TempFriendsScreenState extends State<TempFriendsScreen>
     with SingleTickerProviderStateMixin {
-  final TempFriendService _tempFriendService = TempFriendService();
+  final TempFriendService _tempFriendService = sl<TempFriendService>();
   List<dynamic> _tempFriends = [];
   bool _isLoading = true;
   Timer? _expiryTimer;

@@ -5,10 +5,11 @@
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 
 /// 通知状态管理Provider
 class NotificationProvider with ChangeNotifier {
-  final NotificationService _notificationService = NotificationService();
+  final NotificationService _notificationService = sl<NotificationService>();
   final WebSocketManager _wsManager = WebSocketManager();
   int _unreadCount = 0;
   bool _isLoading = false;

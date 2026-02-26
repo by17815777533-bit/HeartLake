@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import 'dart:async';
@@ -17,7 +18,7 @@ class LakeFeedScreen extends StatefulWidget {
 }
 
 class _LakeFeedScreenState extends State<LakeFeedScreen> {
-  final StoneService _stoneService = StoneService();
+  final StoneService _stoneService = sl<StoneService>();
   final ScrollController _scrollController = ScrollController();
   final WebSocketManager _wsManager = WebSocketManager();
 

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/edge_ai_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
@@ -15,8 +16,8 @@ class EmotionTrendsScreen extends StatefulWidget {
 
 class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     with SingleTickerProviderStateMixin {
-  final AIRecommendationService _aiService = AIRecommendationService();
-  final EdgeAIService _edgeService = EdgeAIService();
+  final AIRecommendationService _aiService = sl<AIRecommendationService>();
+  final EdgeAIService _edgeService = sl<EdgeAIService>();
   late AnimationController _fadeController;
   Map<String, dynamic> _trends = {};
   Map<String, dynamic>? _privacyInfo;

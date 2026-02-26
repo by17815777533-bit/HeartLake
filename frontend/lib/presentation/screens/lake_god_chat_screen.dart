@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
 
@@ -14,8 +15,8 @@ class LakeGodChatScreen extends StatefulWidget {
 }
 
 class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
-  final LakeGodService _service = LakeGodService();
-  final EdgeAIService _edgeAIService = EdgeAIService();
+  final LakeGodService _service = sl<LakeGodService>();
+  final EdgeAIService _edgeAIService = sl<EdgeAIService>();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _messages = [];

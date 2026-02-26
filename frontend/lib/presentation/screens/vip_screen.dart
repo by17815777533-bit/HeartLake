@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/vip_service.dart';
+import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
 class VIPScreen extends StatefulWidget {
@@ -63,7 +64,7 @@ class _VIPScreenState extends State<VIPScreen> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  final _vipService = VIPService();
+  final _vipService = sl<VIPService>();
 
   Future<void> _loadLightData() async {
     setState(() => _isLoading = true);
