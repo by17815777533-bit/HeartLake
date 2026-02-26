@@ -2,6 +2,7 @@
 // @brief 认证服务 - 匿名登录 + 关键词恢复
 // Created by 王璐瑶
 
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'api_client.dart';
 import 'package:uuid/uuid.dart';
@@ -53,6 +54,7 @@ class AuthService extends BaseService {
 
   // 关键词恢复账号
   Future<Map<String, dynamic>> recoverWithKey(String recoveryKey) async {
+    InputValidator.requireLength(recoveryKey, '恢复密钥', min: 8, max: 512);
     final response = await post('/auth/recover', data: {'recovery_key': recoveryKey});
     if (!response.success) return toMap(response);
 
@@ -83,9 +85,18 @@ class AuthService extends BaseService {
   // 更新个人资料
   Future<Map<String, dynamic>> updateProfile({String? avatarUrl, String? bio, String? nickname}) async {
     final Map<String, dynamic> data = {};
-    if (avatarUrl != null) data['avatar_url'] = avatarUrl;
-    if (bio != null) data['bio'] = bio;
-    if (nickname != null) data['nickname'] = nickname;
+    if (avatarUrl != null) {
+      InputValidator.requireLength(avatarUrl, '头像URL', max: 500);
+      data['avatar_url'] = avatarUrl;
+    }
+    if (bio != null) {
+      InputValidator.requireLength(bio, '个人简介', max: 200);
+      data['bio'] = bio;
+    }
+    if (nickname != null) {
+      InputValidator.requireLength(nickname, '昵称', min: 2, max: 20);
+      data['nickname'] = nickname;
+    }
     if (data.isEmpty) return {'success': true};
 
     final response = await put('/users/my/profile', data: data);
@@ -114,6 +125,7 @@ class AuthService extends BaseService {
   }
 
   Future<Map<String, dynamic>> updateNickname(String nickname) async {
+    InputValidator.requireLength(nickname, '昵称', min: 2, max: 20);
     final response = await put('/users/my/nickname', data: {'nickname': nickname});
     if (!response.success) return toMap(response);
     return {'success': true, 'nickname': response.data['nickname']};

@@ -2,6 +2,7 @@
 // @brief 账号服务 - 账号管理功能
 // Created by 王璐瑶
 
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 
 class AccountService extends BaseService {
@@ -28,6 +29,8 @@ class AccountService extends BaseService {
 
   /// 获取登录日志
   Future<Map<String, dynamic>> getLoginLogs({int page = 1, int pageSize = 20}) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     final response = await get('/account/login-logs', queryParameters: {
       'page': page,
       'page_size': pageSize,
@@ -49,6 +52,8 @@ class AccountService extends BaseService {
 
   /// 获取黑名单
   Future<Map<String, dynamic>> getBlockedUsers({int page = 1, int pageSize = 20}) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     final response = await get('/account/blocked-users', queryParameters: {
       'page': page,
       'page_size': pageSize,
@@ -58,12 +63,14 @@ class AccountService extends BaseService {
 
   /// 拉黑用户
   Future<Map<String, dynamic>> blockUser(String userId) async {
+    InputValidator.requireNonEmpty(userId, '用户ID');
     final response = await post('/account/block/$userId');
     return toMap(response);
   }
 
   /// 取消拉黑
   Future<Map<String, dynamic>> unblockUser(String userId) async {
+    InputValidator.requireNonEmpty(userId, '用户ID');
     final response = await delete('/account/unblock/$userId');
     return toMap(response);
   }
@@ -76,6 +83,7 @@ class AccountService extends BaseService {
 
   /// 移除登录设备
   Future<Map<String, dynamic>> removeDevice(String sessionId) async {
+    InputValidator.requireNonEmpty(sessionId, '会话ID');
     final response = await delete('/account/devices/$sessionId');
     return toMap(response);
   }
@@ -88,6 +96,7 @@ class AccountService extends BaseService {
 
   /// 获取数据导出状态
   Future<Map<String, dynamic>> getExportStatus(String taskId) async {
+    InputValidator.requireNonEmpty(taskId, '任务ID');
     final response = await get('/account/export/$taskId');
     return toMap(response);
   }

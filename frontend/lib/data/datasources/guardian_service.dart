@@ -1,6 +1,7 @@
 // @file guardian_service.dart
 // @brief 守望者服务 - 灯火转赠与激励系统
 
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 
 class GuardianService extends BaseService {
@@ -13,6 +14,7 @@ class GuardianService extends BaseService {
   }
 
   Future<Map<String, dynamic>> transferLamp(String toUserId) async {
+    InputValidator.requireNonEmpty(toUserId, '目标用户ID');
     final response = await post('/guardian/transfer-lamp', data: {
       'to_user_id': toUserId,
     });

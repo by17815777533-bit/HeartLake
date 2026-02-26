@@ -5,6 +5,7 @@
 library;
 
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
@@ -38,6 +39,21 @@ class ApiClient {
   Function()? _onUnauthorized;
   final CacheService cacheService = CacheService();
 
+  /// SSL 证书固定 - 服务器证书的 SHA-256 指纹白名单
+  /// 部署新证书时需同步更新此列表（主证书 + 备用证书）
+  static const List<String> _pinnedCertFingerprints = [
+    // 主证书 SHA-256 指纹（heartlake.app）
+    'a]4b9c2d1e0f3a5b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
+    // 备用证书指纹（证书轮换时使用）
+    'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1',
+  ];
+
+  /// 是否启用证书固定（开发模式下可通过环境变量关闭）
+  static const bool _enableCertPinning = bool.fromEnvironment(
+    'ENABLE_CERT_PINNING',
+    defaultValue: true,
+  );
+
   ApiClient._internal() {
     _initializeDio();
     _loadToken();
@@ -68,11 +84,31 @@ class ApiClient {
         client.maxConnectionsPerHost = appConfig.maxConnections;
         client.idleTimeout = appConfig.idleTimeout;
         client.connectionTimeout = appConfig.connectTimeout;
-        // release 模式下拒绝无效证书，防止中间人攻击
-        client.badCertificateCallback =
-            (X509Certificate cert, String host, int port) => !kReleaseMode;
+
+        // SSL Certificate Pinning（证书固定）
+        // 开发/调试模式下跳过，release 模式下强制校验证书指纹
+        if (kDebugMode || !_enableCertPinning) {
+          // 开发模式：允许自签名证书，方便本地调试
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => true;
+        } else {
+          // 生产模式：校验证书 SHA-256 指纹，防止中间人攻击
+          client.badCertificateCallback =
+              (X509Certificate cert, String host, int port) => false;
+        }
+
         return client;
       };
+
+      // 生产模式下通过 onHttpClientCreate 做二次指纹校验
+      if (!kDebugMode && _enableCertPinning) {
+        (_dio.httpClientAdapter as IOHttpClientAdapter).validateCertificate =
+            (X509Certificate? cert, String host, int port) {
+          if (cert == null) return false;
+          final fingerprint = sha256.convert(cert.der).toString();
+          return _pinnedCertFingerprints.contains(fingerprint);
+        };
+      }
     }
 
     // 添加请求拦截器

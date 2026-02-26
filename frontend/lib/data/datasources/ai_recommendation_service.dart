@@ -4,6 +4,7 @@
 
 library;
 
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 
 /// AI 推荐服务
@@ -22,6 +23,8 @@ class AIRecommendationService extends BaseService {
   /// 后端路由: GET /api/recommendations/similar-stones/{stoneId}
   /// 来源: VectorSearchController
   Future<List<Map<String, dynamic>>> getSimilarStones(String stoneId, {int limit = 5}) async {
+    InputValidator.requireNonEmpty(stoneId, '石头ID');
+    InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
@@ -65,6 +68,10 @@ class AIRecommendationService extends BaseService {
     required String interactionType,
     double reward = 1.0,
   }) async {
+    InputValidator.requireNonEmpty(stoneId, '石头ID');
+    InputValidator.requireInList(interactionType, const [
+      'view', 'ripple', 'boat', 'share', 'connection',
+    ], '交互类型');
     final resp = await post<dynamic>('/recommendations/track', data: {
       'stone_id': stoneId,
       'interaction_type': interactionType,

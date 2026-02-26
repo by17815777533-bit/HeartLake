@@ -2,6 +2,7 @@
 // @brief 举报服务 - 内容举报处理
 // Created by 王璐瑶
 
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 class ReportService extends BaseService {
   @override
@@ -13,6 +14,14 @@ class ReportService extends BaseService {
     required String reason,
     String? description,
   }) async {
+    InputValidator.requireInList(targetType, const [
+      'stone', 'boat', 'user', 'message', 'comment',
+    ], '举报目标类型');
+    InputValidator.requireNonEmpty(targetId, '举报目标ID');
+    InputValidator.requireLength(reason, '举报原因', min: 2, max: 200);
+    if (description != null) {
+      InputValidator.requireLength(description, '举报描述', max: 1000);
+    }
     final response = await post('/reports', data: {
       'target_type': targetType,
       'target_id': targetId,
@@ -31,6 +40,8 @@ class ReportService extends BaseService {
     int page = 1,
     int pageSize = 20,
   }) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     final response = await get('/reports/my', queryParameters: {
       'page': page,
       'page_size': pageSize,

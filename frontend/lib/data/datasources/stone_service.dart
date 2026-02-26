@@ -5,6 +5,7 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/circuit_breaker.dart';
+import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'cache_service.dart';
 
@@ -30,6 +31,18 @@ class StoneService extends BaseService {
     bool isAnonymous = true,
     List<String>? tags,
   }) async {
+    InputValidator.requireLength(content, '石头内容', min: 1, max: 5000);
+    InputValidator.requireInList(stoneType, const [
+      'text', 'voice', 'image', 'mood', 'story',
+    ], '石头类型');
+    InputValidator.requireNonEmpty(stoneColor, '石头颜色');
+    InputValidator.optionalInList(moodType, const [
+      'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
+      'hopeful', 'lonely', 'grateful', 'neutral',
+    ], '情绪类型');
+    if (tags != null) {
+      InputValidator.requireListLength(tags, '标签', max: 10);
+    }
     final response = await post('/stones', data: {
       'content': content,
       'stone_type': stoneType,
@@ -65,6 +78,9 @@ class StoneService extends BaseService {
     int pageSize = 20,
     String sort = 'latest',
   }) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
+    InputValidator.requireInList(sort, const ['latest', 'hot', 'random'], '排序方式');
     final cacheKey = 'stones_${page}_${pageSize}_$sort';
 
     try {
@@ -113,6 +129,8 @@ class StoneService extends BaseService {
     int page = 1,
     int pageSize = 20,
   }) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     final response = await get('/stones/my', queryParameters: {
       'page': page,
       'page_size': pageSize,
@@ -160,6 +178,7 @@ class StoneService extends BaseService {
 
   // 删除石头
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
+    InputValidator.requireNonEmpty(stoneId, '石头ID');
     final response = await delete('/stones/$stoneId');
     return toMap(response);
   }
@@ -181,6 +200,7 @@ class StoneService extends BaseService {
 
   // 获取石头详情
   Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
+    InputValidator.requireNonEmpty(stoneId, '石头ID');
     final response = await get('/stones/$stoneId');
     if (!response.success) {
       return toMap(response);

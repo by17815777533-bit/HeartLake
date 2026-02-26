@@ -4,6 +4,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'base_service.dart';
 import '../../utils/e2e_encryption.dart';
+import '../../utils/input_validator.dart';
 
 class ConsultationService extends BaseService {
   @override
@@ -47,6 +48,8 @@ class ConsultationService extends BaseService {
     required String sessionId,
     required String content,
   }) async {
+    InputValidator.requireNonEmpty(sessionId, '会话ID');
+    InputValidator.requireLength(content, '消息内容', min: 1, max: 5000);
     String payload = content;
     bool encrypted = false;
 
@@ -74,6 +77,7 @@ class ConsultationService extends BaseService {
 
   /// 获取消息历史（加密消息自动解密）
   Future<Map<String, dynamic>> getMessages(String sessionId) async {
+    InputValidator.requireNonEmpty(sessionId, '会话ID');
     final resp = await get('/consultation/messages/$sessionId');
     final result = toMap(resp);
 
