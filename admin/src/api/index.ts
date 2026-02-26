@@ -131,11 +131,18 @@ http.interceptors.response.use(
   },
 )
 
+// 通用参数类型，用于灵活的查询/请求体
 type Params = Record<string, unknown>
+
+// 登录请求参数
+interface LoginPayload {
+  username: string
+  password: string
+}
 
 export default {
   // Auth
-  login: (data: Params) => http.post('/admin/login', data),
+  login: (data: LoginPayload) => http.post('/admin/login', data),
   logout: () => http.post('/admin/logout'),
   // Dashboard
   getDashboardStats: () => http.get('/admin/dashboard/stats'),
