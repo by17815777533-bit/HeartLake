@@ -11,7 +11,6 @@
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
-#include "utils/IdentityShadowMap.h"
 #include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <shared_mutex>

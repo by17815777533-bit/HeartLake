@@ -11,11 +11,9 @@
  */
 
 #include "infrastructure/ai/SemanticCache.h"
-#include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 
 #include <chrono>
 #include <cmath>
-#include <algorithm>
 
 namespace heartlake {
 namespace ai {
