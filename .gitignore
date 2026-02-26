@@ -53,3 +53,4 @@ backend/config.runtime.json
 Testing/
 .claude/
 .codex/
+.github/workflows/ci.yml
