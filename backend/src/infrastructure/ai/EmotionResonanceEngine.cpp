@@ -120,6 +120,13 @@ float EmotionResonanceEngine::trajectorySimDTW(
         std::swap(prev_buf, curr_buf);
     }
 
+    // 防止 thread_local 缓冲区因偶发大轨迹而永久占用过多内存
+    constexpr size_t SHRINK_THRESHOLD = 2048;
+    if (prev_buf.capacity() > SHRINK_THRESHOLD) {
+        prev_buf.shrink_to_fit();
+        curr_buf.shrink_to_fit();
+    }
+
     double maxLen = static_cast<double>(std::max(n, m));
     double normalizedDist = prev_buf[m] / maxLen;
     return static_cast<float>(std::exp(-normalizedDist * normalizedDist / 2.0));

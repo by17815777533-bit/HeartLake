@@ -44,6 +44,12 @@ protected:
         config["hnsw_ef_search"] = 50;
         config["quantization_bits"] = 8;
         engine->initialize(config);
+
+        // 清理子系统状态，避免测试间污染
+        engine->getHNSWIndex().clear();
+        engine->getEmotionPulseDetector().clear();
+        engine->getEdgeNodeMonitor().clear();
+        engine->getDifferentialPrivacy().resetPrivacyBudget();
     }
 
     EdgeAIEngine* engine;

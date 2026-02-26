@@ -37,6 +37,8 @@ protected:
         config["hnsw_ef_search"] = 50;
         config["quantization_bits"] = 8;
         engine->initialize(config);
+        // 清理节点状态，避免测试间污染
+        engine->getEdgeNodeMonitor().clear();
         // 测试中使用短 cooldown 避免长时间等待
         EdgeNodeStatus::COOLDOWN_SECONDS = 1;
     }

@@ -123,6 +123,9 @@ public:
      */
     Json::Value getNodeMonitorStats() const;
 
+    /** @brief 清空所有节点注册信息 */
+    void clear();
+
 private:
     std::unordered_map<std::string, EdgeNodeStatus> nodeRegistry_; ///< 节点注册表
     mutable std::shared_mutex nodeMutex_;

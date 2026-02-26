@@ -246,5 +246,10 @@ Json::Value EdgeNodeMonitor::getNodeMonitorStats() const {
     return stats;
 }
 
+void EdgeNodeMonitor::clear() {
+    std::unique_lock<std::shared_mutex> lock(nodeMutex_);
+    nodeRegistry_.clear();
+}
+
 } // namespace ai
 } // namespace heartlake
