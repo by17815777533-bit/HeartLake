@@ -1,0 +1,9 @@
+-- 004 回滚: 删除互动系统表
+BEGIN;
+
+DROP TABLE IF EXISTS connection_messages CASCADE;
+DROP TABLE IF EXISTS connections CASCADE;
+DROP TABLE IF EXISTS paper_boats CASCADE;
+DROP TABLE IF EXISTS ripples CASCADE;
+
+COMMIT;

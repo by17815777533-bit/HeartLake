@@ -1,0 +1,7 @@
+-- 002 回滚: 删除石头表及嵌入表
+BEGIN;
+
+DROP TABLE IF EXISTS stone_embeddings CASCADE;
+DROP TABLE IF EXISTS stones CASCADE;
+
+COMMIT;

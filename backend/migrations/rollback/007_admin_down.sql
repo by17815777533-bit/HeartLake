@@ -1,0 +1,8 @@
+-- 007 回滚: 删除管理后台表
+BEGIN;
+
+DROP TABLE IF EXISTS operation_logs CASCADE;
+DROP TABLE IF EXISTS sensitive_words CASCADE;
+DROP TABLE IF EXISTS admin_users CASCADE;
+
+COMMIT;

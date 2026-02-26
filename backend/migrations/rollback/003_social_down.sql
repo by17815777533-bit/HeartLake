@@ -1,0 +1,8 @@
+-- 003 回滚: 删除社交系统表
+BEGIN;
+
+DROP TABLE IF EXISTS friend_messages CASCADE;
+DROP TABLE IF EXISTS temp_friends CASCADE;
+DROP TABLE IF EXISTS friends CASCADE;
+
+COMMIT;

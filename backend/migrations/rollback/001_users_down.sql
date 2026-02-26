@@ -1,0 +1,7 @@
+-- 001 回滚: 删除用户表及相关依赖
+BEGIN;
+
+DROP TABLE IF EXISTS user_similarity CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+COMMIT;

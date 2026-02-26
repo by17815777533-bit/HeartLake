@@ -2,7 +2,10 @@
  * @file SemanticCache.h
  * @brief 语义缓存 - 基于向量相似度的智能缓存（前沿技术）
  *
- * 核心创新：不仅缓存精确匹配，还能通过语义相似度命中近似查询
+ * 核心创新：不仅缓存精确匹配，还能通过语义相似度命中近似查询。
+ * L2 语义搜索已从 O(n) 线性扫描升级为 HNSW ANN 检索（O(log n)），
+ * 复用项目已有的 HNSWIndex 子系统，大幅降低高缓存量下的查询延迟。
+ *
  * 预期效果：缓存命中率从30%提升到60-70%，减少40-50% AI API调用
  */
 
@@ -13,6 +16,9 @@
 #include <unordered_map>
 #include <mutex>
 #include <cstdint>
+#include <memory>
+
+#include "infrastructure/ai/HNSWIndex.h"
 
 namespace heartlake {
 namespace ai {
@@ -47,10 +53,11 @@ public:
         similarityThreshold_ = similarityThreshold;
         maxSize_ = maxSize;
         ttlSeconds_ = ttlSeconds;
+        initHNSWIndex();
     }
 
     /**
-     * @brief 查询缓存（L1精确匹配 + L2语义匹配）
+     * @brief 查询缓存（L1精确匹配 + L2 HNSW ANN语义匹配）
      * @return true if cache hit
      */
     bool get(const std::string& query, const std::vector<float>& queryEmbedding, std::string& response);
@@ -69,7 +76,10 @@ public:
 private:
     SemanticCache() = default;
 
+    void initHNSWIndex();
     std::string computeHash(const std::string& query);
+    std::string makeCacheNodeId(size_t seq);
+    static std::vector<float> normalizeVec(const std::vector<float>& v);
     void evictLFU();
     void purgeExpired();
 
@@ -78,7 +88,13 @@ private:
     int ttlSeconds_ = 86400;
 
     std::unordered_map<std::string, CacheEntry> exactCache_;
-    std::vector<CacheEntry> semanticIndex_;
+
+    // 语义索引：HNSW ANN 加速，替代原先的 O(n) 线性扫描
+    std::unique_ptr<HNSWIndex> hnswIndex_;
+    // nodeId -> CacheEntry 映射，HNSW 返回 nodeId 后在此查找完整缓存条目
+    std::unordered_map<std::string, CacheEntry> semanticEntries_;
+    size_t nextSeq_ = 0;  // 用于生成唯一 nodeId
+
     SemanticCacheStats stats_;
     mutable std::mutex mutex_;
 };
