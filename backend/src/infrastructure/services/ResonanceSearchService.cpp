@@ -9,6 +9,7 @@
 #include "infrastructure/vector/MilvusClient.h"
 #include <drogon/drogon.h>
 #include <algorithm>
+#include <cmath>
 
 namespace heartlake::infrastructure {
 

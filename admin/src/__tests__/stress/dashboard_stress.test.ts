@@ -20,6 +20,8 @@ vi.mock('@/utils/errorHelper', () => ({
 
 describe('Dashboard Stress Tests', () => {
   let mock: MockAdapter
+  let noRetryId: number
+  let cleanupId: number
 
   beforeEach(() => {
     localStorage.clear()
@@ -27,9 +29,22 @@ describe('Dashboard Stress Tests', () => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
     mock = new MockAdapter(http)
+    noRetryId = http.interceptors.request.use((config) => {
+      ;(config as any)._retryCount = Infinity
+      return config
+    })
+    cleanupId = http.interceptors.response.use(undefined, (error) => {
+      if (error?.config) {
+        try { error.config = JSON.parse(JSON.stringify(error.config)) }
+        catch { error.config = {} }
+      }
+      return Promise.reject(error)
+    })
   })
 
   afterEach(() => {
+    http.interceptors.request.eject(noRetryId)
+    http.interceptors.response.eject(cleanupId)
     mock.restore()
   })
 

@@ -18,6 +18,10 @@ vi.mock('@/router', () => ({
   },
 }))
 
+vi.mock('@/utils/errorHelper', () => ({
+  getBusinessMessage: vi.fn(() => ''),
+}))
+
 const statusData = {
   data: {
     engine_version: '1.0.0',
@@ -105,6 +109,8 @@ const moderateResult = {
 
 describe('EdgeAI API', () => {
   let mock: MockAdapter
+  let noRetryId: number
+  let cleanupId: number
 
   beforeEach(() => {
     localStorage.clear()
@@ -112,9 +118,24 @@ describe('EdgeAI API', () => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
     mock = new MockAdapter(http)
+    noRetryId = http.interceptors.request.use((config) => {
+      ;(config as any)._retryCount = Infinity
+      return config
+    })
+    cleanupId = http.interceptors.response.use(undefined, (error) => {
+      if (error?.config) {
+        try { error.config = JSON.parse(JSON.stringify(error.config)) }
+        catch { error.config = {} }
+      }
+      return Promise.reject(error)
+    })
   })
 
-  afterEach(() => { mock.restore() })
+  afterEach(() => {
+    http.interceptors.request.eject(noRetryId)
+    http.interceptors.response.eject(cleanupId)
+    mock.restore()
+  })
 
   describe('状态与指标', () => {
     it('应正确获取 EdgeAI 状态', async () => {
