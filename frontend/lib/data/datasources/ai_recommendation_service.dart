@@ -35,6 +35,7 @@ class AIRecommendationService extends BaseService {
 
   /// 获取个性化推荐 (协同过滤 + 内容推荐 + 探索)
   Future<List<Map<String, dynamic>>> getPersonalizedRecommendations({int limit = 10}) async {
+    InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/stones',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
@@ -45,6 +46,7 @@ class AIRecommendationService extends BaseService {
 
   /// 获取高级共鸣推荐 (情绪轨迹 DTW + 语义相似度 + 时间衰减 + 多样性)
   Future<List<Map<String, dynamic>>> getAdvancedRecommendations({int limit = 10}) async {
+    InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/advanced',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
@@ -72,6 +74,7 @@ class AIRecommendationService extends BaseService {
     InputValidator.requireInList(interactionType, const [
       'view', 'ripple', 'boat', 'share', 'connection',
     ], '交互类型');
+    InputValidator.requireDoubleRange(reward, '奖励值', min: 0.0, max: 1.0);
     final resp = await post<dynamic>('/recommendations/track', data: {
       'stone_id': stoneId,
       'interaction_type': interactionType,

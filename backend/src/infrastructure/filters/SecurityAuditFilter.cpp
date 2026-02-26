@@ -70,14 +70,18 @@ static void addCorsHeaders(const drogon::HttpRequestPtr& req, const drogon::Http
 void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
                                    drogon::FilterCallback&& fcb,
                                    drogon::FilterChainCallback&& fccb) {
-    static const std::vector<std::string> whitelist = {
+    // 精确匹配白名单：仅允许完全匹配，防止 /api/lake/stones/xxx 绕过认证
+    static const std::set<std::string> exactWhitelist = {
         "/api/auth/login",
         "/api/auth/register",
         "/api/auth/anonymous",
         "/api/lake/stones",
         "/api/lake/weather",
+    };
+    // 前缀匹配白名单：允许子路径（如 /api/health/ready、/ws/broadcast/xxx）
+    static const std::vector<std::string> prefixWhitelist = {
         "/api/health",
-        "/ws/broadcast"
+        "/ws/broadcast",
     };
 
     std::string path = req->path();
@@ -98,7 +102,13 @@ void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
         path.pop_back();
     }
 
-    for (const auto& prefix : whitelist) {
+    // 精确匹配：O(log n) 查找
+    if (exactWhitelist.count(path) > 0) {
+        fccb();
+        return;
+    }
+    // 前缀匹配：仅对需要子路径的端点生效
+    for (const auto& prefix : prefixWhitelist) {
         if (path == prefix || (path.size() > prefix.size() && path.find(prefix) == 0 && path[prefix.size()] == '/')) {
             fccb();
             return;

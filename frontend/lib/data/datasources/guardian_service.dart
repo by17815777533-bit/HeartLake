@@ -14,7 +14,7 @@ class GuardianService extends BaseService {
   }
 
   Future<Map<String, dynamic>> transferLamp(String toUserId) async {
-    InputValidator.requireNonEmpty(toUserId, '目标用户ID');
+    InputValidator.validateUUID(toUserId, '目标用户ID');
     final response = await post('/guardian/transfer-lamp', data: {
       'to_user_id': toUserId,
     });
@@ -27,8 +27,12 @@ class GuardianService extends BaseService {
   }
 
   /// 守望者对话
-  Future<Map<String, dynamic>> chat(Map<String, dynamic> data) async {
-    final response = await post('/guardian/chat', data: data);
+  Future<Map<String, dynamic>> chat(String content) async {
+    InputValidator.requireLength(content, '对话内容', min: 1, max: 2000);
+    content = InputValidator.sanitizeText(content);
+    final response = await post('/guardian/chat', data: {
+      'content': content,
+    });
     return toMap(response);
   }
 }
