@@ -30,6 +30,22 @@ export const http = axios.create({
 // 防止 401 重复跳转的标志
 let isRedirectingToLogin = false
 
+/**
+ * L-22: 统一认证失败处理 —— 业务码 200001-200005 和 HTTP 401 共用
+ * 清除本地 token，显示提示，跳转登录页（防重复跳转）
+ */
+function handleAuthFailure(msg?: string): void {
+  const appStore = useAppStore()
+  appStore.clearToken()
+  if (!isRedirectingToLogin && router.currentRoute.value.path !== '/login') {
+    isRedirectingToLogin = true
+    ElMessage.error(msg || '登录已过期，请重新登录')
+    router.push('/login').finally(() => {
+      isRedirectingToLogin = false
+    })
+  }
+}
+
 // 请求取消机制：基于 AbortController
 const pendingRequests = new Map<string, AbortController>()
 
@@ -84,14 +100,7 @@ http.interceptors.response.use(
     if (code != null && code !== 0 && code !== 200) {
       // 认证类业务错误码 (200001-200005)：清 token 并跳转登录
       if (code >= 200001 && code <= 200005) {
-        appStore.clearToken()
-        if (!isRedirectingToLogin && router.currentRoute.value.path !== '/login') {
-          isRedirectingToLogin = true
-          ElMessage.error(getBusinessMessage(code) || '登录已过期，请重新登录')
-          router.push('/login').finally(() => {
-            isRedirectingToLogin = false
-          })
-        }
+        handleAuthFailure(getBusinessMessage(code) || '登录已过期，请重新登录')
       }
       const bizError: BusinessError = new Error(message || '操作失败')
       bizError._businessCode = code
@@ -135,15 +144,7 @@ http.interceptors.response.use(
 
     // HTTP 401：token 过期或无效
     if (axiosError.response?.status === 401) {
-      const appStore = useAppStore()
-      appStore.clearToken()
-      if (!isRedirectingToLogin && router.currentRoute.value.path !== '/login') {
-        isRedirectingToLogin = true
-        ElMessage.error('登录已过期，请重新登录')
-        router.push('/login').finally(() => {
-          isRedirectingToLogin = false
-        })
-      }
+      handleAuthFailure()
     } else if (!axios.isCancel(error)) {
       ElMessage.error(axiosError.message || '网络请求失败')
     }
@@ -213,8 +214,6 @@ export default {
   getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
   triggerFederatedAggregation: (data: Params) => http.post('/admin/edge-ai/federated/aggregate', data),
   getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
-  getPrivacyStats: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
-  getResonanceStats: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
   edgeAIVectorSearch: (data: Params) => http.post('/admin/edge-ai/vector-search', data),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
   updateEdgeAIConfig: (data: Params) => http.put('/admin/edge-ai/config', data),

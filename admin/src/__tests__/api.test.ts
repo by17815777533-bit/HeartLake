@@ -416,15 +416,15 @@ describe('API Module', () => {
       expect(res.status).toBe(200)
     })
 
-    it('getPrivacyStats 成功', async () => {
+    it('getPrivacyBudget 成功', async () => {
       mock.onGet('/admin/edge-ai/privacy-budget').reply(200, { data: {} })
-      const res = await api.getPrivacyStats()
+      const res = await api.getPrivacyBudget()
       expect(res.status).toBe(200)
     })
 
-    it('getResonanceStats 成功', async () => {
+    it('getEmotionPulse (resonance) 成功', async () => {
       mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, { data: {} })
-      const res = await api.getResonanceStats()
+      const res = await api.getEmotionPulse()
       expect(res.status).toBe(200)
     })
   })

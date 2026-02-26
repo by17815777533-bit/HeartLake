@@ -201,7 +201,7 @@ const filters = reactive({
   type: '',
 })
 
-const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchReports, {
+const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchReports, {
   filters,
   defaultFilters: { status: '', type: '' },
 })
@@ -229,11 +229,7 @@ const getStatusLabel = (status: string) => {
 async function fetchReports() {
   loading.value = true
   try {
-    const res = await api.getReports({
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      ...filters,
-    })
+    const res = await api.getReports(buildParams(filters))
     reportList.value = res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (e) {

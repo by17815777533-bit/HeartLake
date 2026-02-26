@@ -2,6 +2,16 @@
   @file Dashboard.vue
   @brief Dashboard 组件 - 数据大屏 + 欢迎信息（组合子组件）
   Created by 林子怡
+
+  组件结构说明：
+  本页面已拆分为 6 个子组件（位于 views/dashboard/ 目录下），各自负责独立的展示区域：
+    - DashboardHeader: 欢迎信息、技术标签、导出/刷新操作
+    - StatsCards: 统计卡片（用户数、投石数、在线人数、待处理举报）
+    - ChartsSection: 图表区（用户增长、情绪分布、趋势、话题、活跃时段）
+    - InnovationSection: 隐私保护统计、情绪共鸣指标、情绪脉搏仪表盘
+    - LakeWeatherSection: 湖面天气可视化、心情分布饼图
+    - AITrendsSection: AI情绪趋势折线图、热门内容列表
+  当前文件保留定时器管理和 composable 调用，作为子组件的协调层，结构合理无需进一步拆分。
 -->
 
 <template>
@@ -111,7 +121,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 /* ═══════════════════════════════════════════════════
    Dashboard 样式 - Material Design 3 主题
    ═══════════════════════════════════════════════════ */
@@ -564,7 +574,7 @@ onUnmounted(() => {
 }
 </style>
 
-<style lang="scss">
+<style lang="scss" scoped>
 // ── 星空主题色板 ──
 $sky-gold: #F2CC8F;
 $sky-amber: #E8A87C;

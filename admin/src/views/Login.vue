@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '@/api'
@@ -91,7 +91,28 @@ const rules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
+// L-17: 连续登录失败计数与冷却倒计时
+const failCount = ref(0)
+const cooldownSeconds = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldown(seconds: number) {
+  cooldownSeconds.value = seconds
+  cooldownTimer = setInterval(() => {
+    cooldownSeconds.value--
+    if (cooldownSeconds.value <= 0) {
+      clearInterval(cooldownTimer!)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+
 const handleLogin = async () => {
+  if (cooldownSeconds.value > 0) {
+    ElMessage.warning(`操作过于频繁，请 ${cooldownSeconds.value} 秒后重试`)
+    return
+  }
+
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
@@ -107,16 +128,33 @@ const handleLogin = async () => {
     // PASETO token 不可客户端解码，直接存储登录响应中的用户信息
     const user = resData.user || resData.admin || { username: form.username }
     appStore.setUserInfo(user)
+    failCount.value = 0
     ElMessage.success('登录成功')
     router.push('/dashboard')
   } catch (e) {
     console.error('登录失败:', e)
+    failCount.value++
+    // 连续失败3次后启动30秒冷却，配合后端429速率限制
+    if (failCount.value >= 3 && cooldownSeconds.value <= 0) {
+      startCooldown(30)
+      ElMessage.warning('连续登录失败多次，请 30 秒后重试')
+    }
     // H-3: 使用统一错误处理，登录失败给出友好提示
     ElMessage.error(getErrorMessage(e, '登录失败，请检查用户名和密码'))
   } finally {
     loading.value = false
   }
 }
+
+// M-12: 非 HTTPS 环境安全警告
+onMounted(() => {
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    ElMessage.warning({
+      message: '当前非 HTTPS 连接，数据传输可能存在安全风险',
+      duration: 6000,
+    })
+  }
+})
 </script>
 
 <style scoped lang="scss">

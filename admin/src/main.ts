@@ -38,11 +38,13 @@ const appStore = useAppStore()
 appStore.initDarkMode()
 
 // L-6: 全局错误边界 - Vue 组件错误处理
+// 生产环境应接入 Sentry / Datadog 等监控服务上报错误，便于线上问题追踪
 app.config.errorHandler = (err: unknown, instance: ComponentPublicInstance | null, info: string) => {
   console.error('Vue 全局错误:', err, '\n组件信息:', info)
 }
 
 // L-6: 未捕获的 Promise 异常处理
+// 同上，生产环境建议通过 Sentry.captureException 上报
 window.addEventListener('unhandledrejection', (event) => {
   console.error('未处理的 Promise 异常:', event.reason)
 })

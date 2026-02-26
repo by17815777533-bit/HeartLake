@@ -160,7 +160,7 @@ export function useDashboardLoaders({
   const loadPrivacyStats = async () => {
     privacyLoading.value = true
     try {
-      const res = await api.getPrivacyStats()
+      const res = await api.getPrivacyBudget()
       const d = res.data?.data || res.data || {}
       privacyStats.queryCount = d.query_count ?? 0
       privacyStats.epsilonUsed = d.epsilon_used ?? 0
@@ -176,7 +176,7 @@ export function useDashboardLoaders({
   const loadResonanceStats = async () => {
     resonanceLoading.value = true
     try {
-      const res = await api.getResonanceStats()
+      const res = await api.getEmotionPulse()
       const d = res.data?.data || res.data || {}
       resonanceStats.todayMatches = d.today_matches ?? 0
       resonanceStats.avgScore = d.avg_score ?? 0

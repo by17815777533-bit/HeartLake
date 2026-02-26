@@ -14,17 +14,25 @@
       >
         <el-card shadow="never">
           <el-form
+            ref="systemFormRef"
             :model="systemConfig"
+            :rules="systemRules"
             label-width="150px"
             aria-label="系统配置"
           >
-            <el-form-item label="系统名称">
+            <el-form-item
+              label="系统名称"
+              prop="name"
+            >
               <el-input
                 v-model="systemConfig.name"
                 placeholder="心湖"
               />
             </el-form-item>
-            <el-form-item label="系统描述">
+            <el-form-item
+              label="系统描述"
+              prop="description"
+            >
               <el-input
                 v-model="systemConfig.description"
                 type="textarea"
@@ -281,6 +289,7 @@ const testing = ref(false)
 const broadcasting = ref(false)
 const aiFormRef = ref(null)
 const rateFormRef = ref(null)
+const systemFormRef = ref(null)
 const apiKeyEdited = ref(false)
 const apiKeyVisible = ref(false)
 
@@ -288,6 +297,17 @@ const apiKeyVisible = ref(false)
 function maskApiKey(key) {
   if (!key || key.length <= 8) return key
   return key.slice(0, 4) + '****' + key.slice(-4)
+}
+
+// 系统配置验证规则
+const systemRules = {
+  name: [
+    { required: true, message: '请输入系统名称', trigger: 'blur' },
+    { min: 1, max: 20, message: '系统名称长度为 1-20 个字符', trigger: 'blur' },
+  ],
+  description: [
+    { max: 200, message: '系统描述不超过 200 个字符', trigger: 'blur' },
+  ],
 }
 
 // 系统配置
@@ -395,7 +415,11 @@ const loadConfig = async () => {
 
 // 保存配置（带表单验证）
 const saveConfig = async (type) => {
-  // AI 和限流配置需要先校验表单
+  // 系统、AI、限流配置都需要先校验表单
+  if (type === 'system' && systemFormRef.value) {
+    const valid = await systemFormRef.value.validate().catch(() => false)
+    if (!valid) return
+  }
   if (type === 'ai' && aiFormRef.value) {
     const valid = await aiFormRef.value.validate().catch(() => false)
     if (!valid) return

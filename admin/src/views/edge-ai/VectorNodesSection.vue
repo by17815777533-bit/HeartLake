@@ -36,6 +36,8 @@
               placeholder="输入文本，搜索语义相似内容..."
               :prefix-icon="Search"
               clearable
+              maxlength="200"
+              show-word-limit
               @update:model-value="$emit('update:vectorQuery', $event)"
               @keyup.enter="$emit('search')"
             />

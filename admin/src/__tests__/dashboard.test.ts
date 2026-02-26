@@ -154,14 +154,14 @@ describe('Dashboard API', () => {
   describe('隐私统计', () => {
     it('应正确获取隐私预算数据', async () => {
       mock.onGet('/admin/edge-ai/privacy-budget').reply(200, privacyData)
-      const res = await api.getPrivacyStats()
+      const res = await api.getPrivacyBudget()
       expect(res.data.data.epsilon_used).toBe(3.5)
       expect(res.data.data.epsilon_budget).toBe(10.0)
     })
 
     it('接口错误应抛出异常', async () => {
       mock.onGet('/admin/edge-ai/privacy-budget').reply(500)
-      await expect(api.getPrivacyStats()).rejects.toThrow()
+      await expect(api.getPrivacyBudget()).rejects.toThrow()
     })
   })
 
@@ -191,7 +191,7 @@ describe('Dashboard API', () => {
 
     it('隐私统计应包含 queries_today', async () => {
       mock.onGet('/admin/edge-ai/privacy-budget').reply(200, privacyData)
-      const res = await api.getPrivacyStats()
+      const res = await api.getPrivacyBudget()
       expect(res.data.data.queries_today).toBe(128)
     })
 

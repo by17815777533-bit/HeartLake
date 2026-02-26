@@ -233,13 +233,11 @@ const fetchUsers = async () => {
   loading.value = true
   try {
     // M-8: 构建搜索参数，将 nickname 作为 search 传递给后端
-    const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize,
-    }
-    if (filters.userId) params.user_id = filters.userId
-    if (filters.nickname) params.search = filters.nickname
-    if (filters.status) params.status = filters.status
+    const extra: Record<string, unknown> = {}
+    if (filters.userId) extra.user_id = filters.userId
+    if (filters.nickname) extra.search = filters.nickname
+    if (filters.status) extra.status = filters.status
+    const params = buildParams(extra)
 
     const res = await api.getUsers(params)
     // 兼容后端两种响应格式: {data: {users, total}} 或 {users, total}
@@ -255,7 +253,7 @@ const fetchUsers = async () => {
   }
 }
 
-const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchUsers, {
+const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchUsers, {
   filters,
   defaultFilters,
   beforeSearch: () => {
@@ -290,7 +288,7 @@ const handleBan = async (row) => {
   if (!reason) return
 
   try {
-    await api.banUser(row.user_id, reason)
+    await api.banUser(row.user_id, { reason })
     ElMessage.success('封禁成功')
     fetchUsers()
   } catch (e) {

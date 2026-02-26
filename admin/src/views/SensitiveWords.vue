@@ -174,6 +174,8 @@
           <el-input
             v-model="form.word"
             placeholder="请输入敏感词"
+            maxlength="50"
+            show-word-limit
           />
         </el-form-item>
         <el-form-item
@@ -202,6 +204,7 @@
           <el-input
             v-model="form.replacement"
             placeholder="默认为 ***"
+            maxlength="50"
           />
         </el-form-item>
       </el-form>
@@ -238,7 +241,7 @@ const formRef = ref(null)
 const currentId = ref(null)
 
 const filters = reactive({ keyword: '', level: '' })
-const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchWords, {
+const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchWords, {
   filters,
   defaultFilters: { keyword: '', level: '' },
   beforeSearch: () => {
@@ -261,7 +264,7 @@ const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '�
 async function fetchWords() {
   loading.value = true
   try {
-    const res = await api.getSensitiveWords({ page: pagination.page, page_size: pagination.pageSize, ...filters })
+    const res = await api.getSensitiveWords(buildParams(filters))
     wordList.value = res.data?.words || res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (e) {

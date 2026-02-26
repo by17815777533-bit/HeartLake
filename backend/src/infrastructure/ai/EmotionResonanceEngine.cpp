@@ -8,14 +8,12 @@
 
 #include "infrastructure/ai/EmotionResonanceEngine.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
-#include "infrastructure/services/ResonanceSearchService.h"
 #include <drogon/drogon.h>
 #include <algorithm>
-#include <numeric>
+#include <cmath>
 #include <chrono>
 #include <sstream>
 #include <limits>
-#include <unordered_set>
 
 using namespace drogon;
 
@@ -154,8 +152,8 @@ float EmotionResonanceEngine::trajectorySimDTW(
 
     constexpr size_t MAX_DTW_LEN = 1000;
     if (n > MAX_DTW_LEN || m > MAX_DTW_LEN) {
-        auto t1 = std::vector<float>(traj1.end() - std::min(n, MAX_DTW_LEN), traj1.end());
-        auto t2 = std::vector<float>(traj2.end() - std::min(m, MAX_DTW_LEN), traj2.end());
+        auto t1 = std::vector<float>(traj1.end() - static_cast<ptrdiff_t>(std::min(n, MAX_DTW_LEN)), traj1.end());
+        auto t2 = std::vector<float>(traj2.end() - static_cast<ptrdiff_t>(std::min(m, MAX_DTW_LEN)), traj2.end());
         return trajectorySimDTW(t1, t2);
     }
 
@@ -477,11 +475,11 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
 
         // 6. 按总分降序排序 + 截取top-K
         if (static_cast<int>(results.size()) > limit) {
-            std::partial_sort(results.begin(), results.begin() + limit, results.end(),
+            std::partial_sort(results.begin(), results.begin() + static_cast<ptrdiff_t>(limit), results.end(),
                 [](const ResonanceResult& a, const ResonanceResult& b) {
                     return a.totalScore > b.totalScore;
                 });
-            results.resize(limit);
+            results.resize(static_cast<size_t>(limit));
         } else {
             std::sort(results.begin(), results.end(),
                 [](const ResonanceResult& a, const ResonanceResult& b) {
@@ -496,6 +494,33 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
     }
 
     return results;
+}
+
+// EMA 在线权重自适应 — 根据用户隐式反馈动态调整四维权重
+// 参考: "MultiSentimentArcs" (Frontiers 2024) 时序情绪自适应建模
+void EmotionResonanceEngine::updateWeightsEMA(const ResonanceWeights& feedback,
+                                               float learningRate) {
+    auto cur = getWeights();
+
+    // EMA 混合: w_new = (1 - lr) * w_cur + lr * feedback
+    float a = (1.0f - learningRate) * cur.a + learningRate * feedback.a;
+    float b = (1.0f - learningRate) * cur.b + learningRate * feedback.b;
+    float g = (1.0f - learningRate) * cur.g + learningRate * feedback.g;
+    float d = (1.0f - learningRate) * cur.d + learningRate * feedback.d;
+
+    // 归一化保证 α+β+γ+δ = 1.0
+    float sum = a + b + g + d;
+    if (sum > 1e-6f) {
+        a /= sum;
+        b /= sum;
+        g /= sum;
+        d /= sum;
+    } else {
+        // 退化情况：回退到默认权重
+        a = 0.30f; b = 0.35f; g = 0.20f; d = 0.15f;
+    }
+
+    setWeights(a, b, g, d);
 }
 
 } // namespace heartlake::ai

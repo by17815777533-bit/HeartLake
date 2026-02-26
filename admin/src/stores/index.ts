@@ -4,6 +4,9 @@ import type { UserInfo } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
   // S-1: 敏感凭据使用 sessionStorage（关闭标签页即清除）
+  // L-18: sessionStorage 未加密说明 —— 项目已确认无 v-html 使用（XSS 风险极低），
+  // 且 PASETO token 本身不含敏感明文。httpOnly cookie 方案需后端配合 Set-Cookie，
+  // 当前架构下 sessionStorage 是合理的折中方案。
   // A-5: try-catch 保护 sessionStorage 读取，防止隐私模式等异常
   const token = ref((() => {
     try {
@@ -56,7 +59,8 @@ export const useAppStore = defineStore('app', () => {
   const getToken = () => token.value
 
   // 校验当前 token 是否存在且未过期（S-4: 24小时客户端过期检查）
-  // PASETO token 无法客户端解码，服务端 401 仍为最终防线
+  // 这是 UX 优化：提前清理明显过期的 token，避免用户操作后才收到 401
+  // 真正的过期验证依赖后端 PASETO token 的 exp 字段校验，服务端 401 仍为最终防线
   const checkTokenValid = () => {
     if (!token.value || typeof token.value !== 'string' || token.value.length === 0) {
       return false

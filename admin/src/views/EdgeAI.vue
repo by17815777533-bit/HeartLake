@@ -2,6 +2,17 @@
   @file EdgeAI.vue
   @brief 边缘AI管理页面 - 状态监控 + 性能指标 + 联邦学习 + 隐私预算（组合子组件）
   Created by 林子怡
+
+  组件结构说明：
+  本页面已拆分为 7 个子组件（位于 views/edge-ai/ 目录下），各自负责独立的功能区域：
+    - EdgeAIHeader: 页面头部、技术标签、状态卡片
+    - PerformanceSection: 性能指标仪表盘、情绪分析图表
+    - FederatedPrivacySection: 联邦学习控制面板、隐私预算可视化
+    - VectorNodesSection: 向量搜索工具、边缘节点列表
+    - RAGSystemSection: 双记忆RAG系统指标展示
+    - ConfigSection: 引擎配置管理表单
+    - AIToolboxSection: 情感分析/内容审核在线工具
+  当前文件保留状态管理和数据加载逻辑，作为子组件的协调层，结构合理无需进一步拆分。
 -->
 
 <template>
@@ -67,8 +78,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import api from '@/api'
 import dayjs from 'dayjs'
+import { getErrorMessage } from '@/utils/errorHelper'
 import { Cpu, Monitor, Connection, Stopwatch } from '@element-plus/icons-vue'
 import EdgeAIHeader from './edge-ai/EdgeAIHeader.vue'
 import PerformanceSection from './edge-ai/PerformanceSection.vue'
@@ -549,7 +562,10 @@ async function saveConfig() {
   configSaving.value = true
   try {
     await api.updateEdgeAIConfig(edgeConfig)
-  } catch { /* 静默 */ } finally {
+    ElMessage.success('配置保存成功')
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '保存配置失败'))
+  } finally {
     configSaving.value = false
   }
 }

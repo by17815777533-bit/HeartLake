@@ -34,7 +34,7 @@
           </div>
           <div class="inno-stat-item">
             <span class="inno-label">隐私预算消耗 (ε)</span>
-            <span class="inno-value epsilon">{{ privacyStats.epsilonUsed.toFixed(2) }} / {{ privacyStats.epsilonTotal.toFixed(1) }}</span>
+            <span class="inno-value epsilon">{{ (privacyStats.epsilonUsed ?? 0).toFixed(2) }} / {{ (privacyStats.epsilonTotal ?? 0).toFixed(1) }}</span>
           </div>
           <div class="budget-bar">
             <el-progress
@@ -78,7 +78,7 @@
           </div>
           <div class="inno-stat-item">
             <span class="inno-label">平均共鸣分数</span>
-            <span class="inno-value highlight">{{ resonanceStats.avgScore.toFixed(1) }}</span>
+            <span class="inno-value highlight">{{ (resonanceStats.avgScore ?? 0).toFixed(1) }}</span>
           </div>
           <div class="inno-stat-item">
             <span class="inno-label">最活跃的情绪类型</span>
@@ -91,7 +91,7 @@
           </div>
           <div class="inno-stat-item">
             <span class="inno-label">共鸣成功率</span>
-            <span class="inno-value">{{ resonanceStats.successRate.toFixed(1) }}%</span>
+            <span class="inno-value">{{ (resonanceStats.successRate ?? 0).toFixed(1) }}%</span>
           </div>
         </div>
       </el-card>

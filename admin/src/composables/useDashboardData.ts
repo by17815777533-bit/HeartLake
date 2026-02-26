@@ -122,13 +122,38 @@ export function useDashboardData() {
     ...charts,
   })
 
-  // ── 导出数据 ──
+  // ── 导出数据（仅包含业务需要的字段，过滤原始响应中的冗余/敏感信息） ──
   const exportData = () => {
+    // 清洗统计数据，只保留展示用的业务字段
+    const cleanedStats = {
+      totalUsers: stats.totalUsers,
+      todayStones: stats.todayStones,
+      onlineCount: stats.onlineCount,
+      pendingReports: stats.pendingReports,
+    }
+
+    // 清洗话题数据，只保留关键词和热度
+    const cleanedTopics = (trendingTopics.value || []).map(
+      (t: { keyword?: string; count?: number }) => ({
+        keyword: t.keyword ?? '',
+        count: t.count ?? 0,
+      })
+    )
+
+    // 清洗情绪分布数据，只保留名称和数值
+    const rawMoodData = charts.moodDistributionOption.value.series[0].data || []
+    const cleanedMoodDistribution = rawMoodData.map(
+      (d: { name?: string; value?: number }) => ({
+        name: d.name ?? '',
+        value: d.value ?? 0,
+      })
+    )
+
     const data = {
       exportTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-      stats: { ...stats },
-      trendingTopics: trendingTopics.value,
-      moodDistribution: charts.moodDistributionOption.value.series[0].data,
+      stats: cleanedStats,
+      trendingTopics: cleanedTopics,
+      moodDistribution: cleanedMoodDistribution,
     }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)

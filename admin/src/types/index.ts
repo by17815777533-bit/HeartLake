@@ -20,7 +20,7 @@ export interface User {
 
 export interface UserInfo {
   username: string
-  role?: string
+  role?: 'admin' | 'super_admin' | string
   [key: string]: unknown
 }
 
@@ -242,4 +242,76 @@ export interface SensitiveCodeRange {
   min: number
   max: number
   msg: string
+}
+
+// ── ECharts 回调参数（tooltip formatter 用） ──
+export interface EChartsTooltipParam {
+  componentType: string
+  seriesType: string
+  seriesIndex: number
+  seriesName: string
+  name: string
+  dataIndex: number
+  data: unknown
+  value: number | number[] | string
+  color: string
+  marker: string
+  percent?: number
+}
+
+// ── API 具体参数类型 ──
+export interface HandleReportParams {
+  action: string
+  note?: string
+}
+
+export interface AddSensitiveWordParams {
+  word: string
+  level: string
+  replacement?: string
+}
+
+export interface UpdateSensitiveWordParams {
+  word?: string
+  level?: string
+  replacement?: string
+}
+
+export interface BroadcastMessageParams {
+  message: string
+  level: string
+}
+
+export interface SaveConfigPayload {
+  system?: {
+    name?: string
+    description?: string
+    allow_register?: boolean
+    allow_anonymous?: boolean
+  }
+  ai?: {
+    provider?: string
+    api_key?: string
+    base_url?: string
+    model?: string
+    enable_sentiment?: boolean
+    enable_auto_reply?: boolean
+  }
+  rate?: {
+    stone_per_hour?: number
+    boat_per_hour?: number
+    message_per_minute?: number
+    max_content_length?: number
+  }
+}
+
+export interface FederatedAggregationParams {
+  round?: number
+  [key: string]: unknown
+}
+
+export interface VectorSearchParams {
+  query: string
+  top_k?: number
+  [key: string]: unknown
 }

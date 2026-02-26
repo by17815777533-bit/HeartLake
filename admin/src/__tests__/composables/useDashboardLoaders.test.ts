@@ -17,8 +17,7 @@ const mockApi = vi.hoisted(() => ({
   getMoodTrend: vi.fn(),
   getTrendingTopics: vi.fn(),
   getActiveTimeStats: vi.fn(),
-  getPrivacyStats: vi.fn(),
-  getResonanceStats: vi.fn(),
+  getPrivacyBudget: vi.fn(),
   getEmotionPulse: vi.fn(),
   getEmotionTrends: vi.fn(),
   getTrendingContent: vi.fn(),
@@ -227,7 +226,7 @@ describe('useDashboardLoaders', () => {
   })
   describe('loadPrivacyStats', () => {
     it('成功加载隐私统计', async () => {
-      mockApi.getPrivacyStats.mockResolvedValue({ data: { data: { query_count: 100, epsilon_used: 3.5, epsilon_total: 10, protected_users: 50 } } })
+      mockApi.getPrivacyBudget.mockResolvedValue({ data: { data: { query_count: 100, epsilon_used: 3.5, epsilon_total: 10, protected_users: 50 } } })
       const deps = createDeps()
       const { loadPrivacyStats } = useDashboardLoaders(deps)
       await loadPrivacyStats()
@@ -235,14 +234,14 @@ describe('useDashboardLoaders', () => {
     })
 
     it('接口失败时不崩溃', async () => {
-      mockApi.getPrivacyStats.mockRejectedValue(new Error('fail'))
+      mockApi.getPrivacyBudget.mockRejectedValue(new Error('fail'))
       const deps = createDeps()
       const { loadPrivacyStats } = useDashboardLoaders(deps)
       await expect(loadPrivacyStats()).resolves.toBeUndefined()
     })
 
     it('加载时设置 privacyLoading', async () => {
-      mockApi.getPrivacyStats.mockResolvedValue({ data: { data: {} } })
+      mockApi.getPrivacyBudget.mockResolvedValue({ data: { data: {} } })
       const deps = createDeps()
       const { loadPrivacyStats } = useDashboardLoaders(deps)
       await loadPrivacyStats()
@@ -252,7 +251,7 @@ describe('useDashboardLoaders', () => {
 
   describe('loadResonanceStats', () => {
     it('成功加载共鸣统计', async () => {
-      mockApi.getResonanceStats.mockResolvedValue({ data: { data: { today_matches: 20, avg_score: 0.8, top_mood: '开心', success_rate: 0.9 } } })
+      mockApi.getEmotionPulse.mockResolvedValue({ data: { data: { today_matches: 20, avg_score: 0.8, top_mood: '开心', success_rate: 0.9 } } })
       const deps = createDeps()
       const { loadResonanceStats } = useDashboardLoaders(deps)
       await loadResonanceStats()
@@ -260,14 +259,14 @@ describe('useDashboardLoaders', () => {
     })
 
     it('接口失败时不崩溃', async () => {
-      mockApi.getResonanceStats.mockRejectedValue(new Error('fail'))
+      mockApi.getEmotionPulse.mockRejectedValue(new Error('fail'))
       const deps = createDeps()
       const { loadResonanceStats } = useDashboardLoaders(deps)
       await expect(loadResonanceStats()).resolves.toBeUndefined()
     })
 
     it('加载时设置 resonanceLoading', async () => {
-      mockApi.getResonanceStats.mockResolvedValue({ data: { data: {} } })
+      mockApi.getEmotionPulse.mockResolvedValue({ data: { data: {} } })
       const deps = createDeps()
       const { loadResonanceStats } = useDashboardLoaders(deps)
       await loadResonanceStats()

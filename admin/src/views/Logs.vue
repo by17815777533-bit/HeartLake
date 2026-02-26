@@ -160,7 +160,7 @@ import { useTablePagination } from '@/composables/useTablePagination'
 const loading = ref(false)
 const logList = ref([])
 const filters = reactive({ operator: '', action: '', dateRange: null })
-const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchLogs, {
+const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchLogs, {
   filters,
   defaultFilters: { operator: '', action: '', dateRange: null },
   beforeSearch: () => {
@@ -188,12 +188,13 @@ const getActionType = (action) => actionMap[action]?.type || 'info'
 async function fetchLogs() {
   loading.value = true
   try {
-    const params = { page: pagination.page, page_size: pagination.pageSize, ...filters }
+    const extra: Record<string, unknown> = { ...filters }
     if (filters.dateRange?.length === 2) {
-      params.start_date = filters.dateRange[0]
-      params.end_date = filters.dateRange[1]
+      extra.start_date = filters.dateRange[0]
+      extra.end_date = filters.dateRange[1]
     }
-    delete params.dateRange
+    delete extra.dateRange
+    const params = buildParams(extra)
     const res = await api.getOperationLogs(params)
     logList.value = res.data?.list || []
     pagination.total = res.data?.total || 0

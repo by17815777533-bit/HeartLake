@@ -262,9 +262,10 @@ const currentItem = ref(null)
 
 const historyFilters = reactive({ result: '' })
 
-const { pagination, handleSizeChange: handlePendingSizeChange, handleCurrentChange: handlePendingCurrentChange } = useTablePagination(fetchPending)
+const { pagination, buildParams: buildPendingParams, handleSizeChange: handlePendingSizeChange, handleCurrentChange: handlePendingCurrentChange } = useTablePagination(fetchPending)
 const {
   pagination: historyPagination,
+  buildParams: buildHistoryParams,
   handleSizeChange: handleHistorySizeChange,
   handleCurrentChange: handleHistoryCurrentChange,
 } = useTablePagination(fetchHistory, {
@@ -275,7 +276,7 @@ const {
 async function fetchPending() {
   loading.value = true
   try {
-    const res = await api.getPendingModeration({ page: pagination.page, page_size: pagination.pageSize })
+    const res = await api.getPendingModeration(buildPendingParams())
     pendingList.value = res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (e) {
@@ -291,7 +292,7 @@ async function fetchPending() {
 async function fetchHistory() {
   historyLoading.value = true
   try {
-    const res = await api.getModerationHistory({ page: historyPagination.page, page_size: historyPagination.pageSize, ...historyFilters })
+    const res = await api.getModerationHistory(buildHistoryParams(historyFilters))
     historyList.value = res.data?.list || []
     historyPagination.total = res.data?.total || 0
   } catch (e) {

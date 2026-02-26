@@ -22,7 +22,6 @@
 
 #include <string>
 #include <vector>
-#include <cmath>
 #include <atomic>
 #include <memory>
 #include <json/json.h>
@@ -144,9 +143,9 @@ public:
         const std::string& candidateMood
     );
 
-    // 权重参数 — 原子交换 shared_ptr，读取时拿到一致的快照，无 torn-read 风险
+    // 权重参数 — std::atomic<shared_ptr> 成员函数，读取时拿到一致的快照，无 torn-read
     ResonanceWeights getWeights() const {
-        return *std::atomic_load_explicit(&weights_, std::memory_order_acquire);
+        return *weights_.load(std::memory_order_acquire);
     }
     float getAlpha() const { return getWeights().a; }
     float getBeta()  const { return getWeights().b; }
@@ -154,7 +153,7 @@ public:
     float getDelta() const { return getWeights().d; }
     void setWeights(float a, float b, float g, float d) {
         auto newW = std::make_shared<const ResonanceWeights>(ResonanceWeights{a, b, g, d});
-        std::atomic_store_explicit(&weights_, newW, std::memory_order_release);
+        weights_.store(newW, std::memory_order_release);
     }
 
     /**
@@ -183,7 +182,7 @@ private:
     //   γ 适中(0.20): 时间衰减避免推荐过旧内容，但不宜过强以免冷启动困难
     //   δ 最低(0.15): 多样性奖励防止回音室效应，权重过高会牺牲相关性
     // 通过 atomic shared_ptr 交换实现无锁一致读取，杜绝 torn-read
-    std::shared_ptr<const ResonanceWeights> weights_{
+    std::atomic<std::shared_ptr<const ResonanceWeights>> weights_{
         std::make_shared<const ResonanceWeights>(ResonanceWeights{0.30f, 0.35f, 0.20f, 0.15f})
     };
 };

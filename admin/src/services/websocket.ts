@@ -16,8 +16,9 @@ const MAX_RECONNECT_ATTEMPTS = 10
 const RECONNECT_BASE_INTERVAL = 1000 // 基础重连间隔1秒，指数退避
 const HEARTBEAT_INTERVAL = 30000 // 30秒心跳间隔
 
-// M-3: 允许的消息类型白名单
-const ALLOWED_TYPES = new Set([
+// 允许的 WebSocket 消息类型白名单
+// 新增消息类型时在此处统一维护，避免硬编码散落在业务逻辑中
+const WS_MESSAGE_TYPES = [
   'stats_update',
   'new_report',
   'new_moderation',
@@ -39,7 +40,11 @@ const ALLOWED_TYPES = new Set([
   'friend_request',
   'new_notification',
   'ping',
-])
+] as const
+
+type WSMessageType = typeof WS_MESSAGE_TYPES[number]
+
+const ALLOWED_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPES)
 
 // M-2: 启动心跳定时器
 function startHeartbeat() {

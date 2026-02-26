@@ -59,6 +59,7 @@
             v-model="filters.keyword"
             placeholder="搜索内容"
             clearable
+            @input="onKeywordInput"
           />
         </el-form-item>
         <el-form-item>
@@ -219,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
@@ -236,7 +237,7 @@ const filters = reactive({
   keyword: '',
 })
 
-const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchContent, {
+const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchContent, {
   filters,
   defaultFilters: { type: '', status: '', keyword: '' },
   beforeSearch: () => {
@@ -261,14 +262,7 @@ const getStatusLabel = (status: string) => {
 async function fetchContent() {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize,
-    }
-    if (filters.status) params.status = filters.status
-    if (filters.keyword) params.keyword = filters.keyword
-
-    if (filters.type) params.type = filters.type
+    const params = buildParams(filters)
     const res = await api.getContents(params)
 
     const resData = res.data?.data || res.data || {}
@@ -284,6 +278,7 @@ async function fetchContent() {
     pagination.total = resData.total || 0
   } catch (e) {
     console.error('获取内容列表失败:', e)
+    ElMessage.error(getErrorMessage(e, '获取内容列表失败'))
     contentList.value = []
     pagination.total = 0
   } finally {
