@@ -11,6 +11,7 @@ interface CustomAxiosRequestConfig extends AxiosRequestConfig {
 
 interface CustomInternalConfig extends InternalAxiosRequestConfig {
   skipLoading?: boolean
+  _retryCount?: number
 }
 
 // 业务错误类型
@@ -109,6 +110,26 @@ http.interceptors.response.use(
       const appStore = useAppStore()
       if (!axiosError.config.skipLoading) {
         appStore.stopLoading()
+      }
+    }
+
+    // 可重试的 HTTP 状态码（网络抖动、服务端临时过载）
+    const RETRYABLE_CODES = new Set([408, 429, 500, 502, 503, 504])
+    const MAX_RETRIES = 3
+
+    if (
+      axiosError.config &&
+      axiosError.response &&
+      RETRYABLE_CODES.has(axiosError.response.status) &&
+      axiosError.config.method?.toUpperCase() === 'GET'
+    ) {
+      const retryCount = axiosError.config._retryCount ?? 0
+      if (retryCount < MAX_RETRIES) {
+        axiosError.config._retryCount = retryCount + 1
+        const delay = Math.min(1000 * 2 ** retryCount, 8000)
+        return new Promise(resolve => setTimeout(resolve, delay)).then(() =>
+          http.request(axiosError.config!),
+        )
       }
     }
 

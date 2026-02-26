@@ -65,7 +65,37 @@ static void addCorsHeaders(const drogon::HttpRequestPtr& req, const drogon::Http
     resp->addHeader("Access-Control-Allow-Credentials", "true");
     resp->addHeader("Vary", "Origin");
 }
+// 日志注入防护：移除换行符和控制字符，防止日志伪造攻击
+static std::string sanitizeForLog(const std::string& input) {
+    std::string result;
+    result.reserve(input.size());
+    for (char c : input) {
+        if (c == '\n' || c == '\r') {
+            result += ' ';
+        } else if (static_cast<unsigned char>(c) < 0x20 && c != '\t') {
+            // 除 tab 外的控制字符替换为空格
+            result += ' ';
+        } else {
+            result += c;
+        }
+    }
+    return result;
+}
 } // namespace
+
+void SecurityAuditFilter::logRequest(const drogon::HttpRequestPtr& req,
+                                      const std::string& userId) {
+    const std::string method = req->methodString();
+    const std::string path = sanitizeForLog(req->path());
+    const std::string clientIp = sanitizeForLog(req->peerAddr().toIp());
+    const std::string safeUserId = sanitizeForLog(userId);
+    const std::string userAgent = sanitizeForLog(req->getHeader("User-Agent"));
+
+    LOG_INFO << "[SecurityAudit] " << method << " " << path
+             << " user=" << safeUserId
+             << " ip=" << clientIp
+             << " ua=" << userAgent;
+}
 
 void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
                                    drogon::FilterCallback&& fcb,
@@ -130,6 +160,7 @@ void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
         std::string userId = utils::PasetoUtil::verifyToken(token, key);
 
         req->getAttributes()->insert("user_id", userId);
+        logRequest(req, userId);
         fccb();
     } catch (const std::exception& e) {
         auto resp = utils::ResponseUtil::unauthorized("Token无效或已过期");

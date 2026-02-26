@@ -187,7 +187,7 @@ const realtimeStats = reactive({
   todayStones: 0,
 })
 
-let statsInterval = null
+let statsInterval: ReturnType<typeof setInterval> | null = null
 
 // L-4: 获取管理员信息
 const fetchAdminInfo = async () => {

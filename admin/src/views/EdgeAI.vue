@@ -573,7 +573,7 @@ async function refreshAll() {
 
 
 // ========== 生命周期 ==========
-let pulseTimer = null
+let pulseTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   refreshAll()
