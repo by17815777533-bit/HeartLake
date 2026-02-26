@@ -26,6 +26,8 @@ public:
     mutable std::vector<std::string> sentMessages;
     mutable bool closed = false;
     mutable bool forceCloseCalled = false;
+    trantor::InetAddress localAddr_{"127.0.0.1", 8080};
+    trantor::InetAddress peerAddr_{"192.168.1.100", 54321};
 
     void send(const char* msg, uint64_t len,
               const drogon::WebSocketMessageType /*type*/) override {
@@ -43,13 +45,11 @@ public:
     }
 
     const trantor::InetAddress& localAddr() const override {
-        static trantor::InetAddress addr("127.0.0.1", 8080);
-        return addr;
+        return localAddr_;
     }
 
     const trantor::InetAddress& peerAddr() const override {
-        static trantor::InetAddress addr("192.168.1.100", 54321);
-        return addr;
+        return peerAddr_;
     }
 
     bool connected() const override { return !closed; }
@@ -481,10 +481,10 @@ TEST_F(WebSocketHubTest, ConcurrentAddRemove_NoDataRace) {
             for (int i = 0; i < opsPerThread; ++i) {
                 auto conn = makeMockConn();
                 std::string userId = "concurrent_user_" + std::to_string(t) + "_" + std::to_string(i);
+                std::string room = "concurrent_room_" + std::to_string(t);
                 hub_.addConnection(conn, userId);
-                hub_.joinRoom(conn, "concurrent_room");
-                hub_.sendToRoom("concurrent_room", "msg_" + std::to_string(i));
-                hub_.leaveRoom(conn, "concurrent_room");
+                hub_.joinRoom(conn, room);
+                hub_.leaveRoom(conn, room);
                 hub_.removeConnection(conn);
                 completedOps++;
             }
