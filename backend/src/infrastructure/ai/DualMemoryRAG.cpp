@@ -645,8 +645,16 @@ std::string DualMemoryRAG::generateResponse(
     // 3. 构建RAG提示词
     EmotionMemory memoryCopy;
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        memoryCopy = getOrCreateMemory(userId);
+        // 读多写少：先用 shared_lock 查找，仅在用户首次出现时升级为 unique_lock
+        std::shared_lock<std::shared_mutex> rlock(mutex_);
+        auto it = memories_.find(userId);
+        if (it != memories_.end()) {
+            memoryCopy = it->second;
+        } else {
+            rlock.unlock();
+            std::unique_lock<std::shared_mutex> wlock(mutex_);
+            memoryCopy = getOrCreateMemory(userId);
+        }
     }
     std::string ragPrompt = buildRAGPrompt(memoryCopy, currentContent, currentEmotion);
 
@@ -722,8 +730,16 @@ Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
 
     EmotionMemory memoryCopy;
     {
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        memoryCopy = getOrCreateMemory(userId);
+        // 读多写少：先用 shared_lock 查找，仅在用户首次出现时升级为 unique_lock
+        std::shared_lock<std::shared_mutex> rlock(mutex_);
+        auto it = memories_.find(userId);
+        if (it != memories_.end()) {
+            memoryCopy = it->second;
+        } else {
+            rlock.unlock();
+            std::unique_lock<std::shared_mutex> wlock(mutex_);
+            memoryCopy = getOrCreateMemory(userId);
+        }
     }
 
     Json::Value insights;
