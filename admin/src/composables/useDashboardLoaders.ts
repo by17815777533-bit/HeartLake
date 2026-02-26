@@ -3,6 +3,11 @@
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
 import api from '@/api'
+import type {
+  GrowthDataItem, MoodDistributionItem, MoodTrendItem,
+  ActiveTimeItem, TrendingTopic, TrendingContentItem, EmotionTrendItem,
+  PrivacyStats, ResonanceStats,
+} from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 
 interface DashboardStats {
@@ -12,39 +17,41 @@ interface DashboardStats {
   pendingReports: number
 }
 
-interface PrivacyStats {
-  queryCount: number
-  epsilonUsed: number
-  epsilonTotal: number
-  protectedUsers: number
+// ECharts 图表配置的最小结构定义，仅描述 loader 实际访问的字段
+interface ChartOptionWithAxisAndSeries {
+  xAxis: { data: string[] }
+  series: Array<{ data: (number | string)[] }>
 }
 
-interface ResonanceStats {
-  todayMatches: number
-  avgScore: number
-  topMood: string
-  successRate: number
+interface SeriesOnlyChartOption {
+  series: Array<{ data: (number | string)[] }>
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+interface PieChartOption {
+  series: Array<{ data: Array<{ name: string; value: number; itemStyle: unknown }> }>
+}
+
+interface GaugeChartOption {
+  series: Array<{ data: Array<{ value: number; name: string }> }>
+}
+
 interface LoaderDeps {
   stats: DashboardStats
   chartRange: Ref<number>
   moodTrendRange: Ref<number>
-  trendingTopics: Ref<any[]>
-  aiTrendingContent: Ref<any[]>
+  trendingTopics: Ref<TrendingTopic[]>
+  aiTrendingContent: Ref<TrendingContentItem[]>
   privacyStats: PrivacyStats
   privacyLoading: Ref<boolean>
   resonanceStats: ResonanceStats
   resonanceLoading: Ref<boolean>
-  userGrowthOption: Ref<any>
-  moodDistributionOption: Ref<any>
-  moodTrendOption: Ref<any>
-  activeTimeOption: Ref<any>
-  emotionPulseOption: Ref<any>
-  emotionTrendsOption: Ref<any>
+  userGrowthOption: Ref<ChartOptionWithAxisAndSeries>
+  moodDistributionOption: Ref<PieChartOption>
+  moodTrendOption: Ref<ChartOptionWithAxisAndSeries>
+  activeTimeOption: Ref<SeriesOnlyChartOption>
+  emotionPulseOption: Ref<GaugeChartOption>
+  emotionTrendsOption: Ref<ChartOptionWithAxisAndSeries>
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function useDashboardLoaders({
   stats, chartRange, moodTrendRange, trendingTopics, aiTrendingContent,
@@ -76,8 +83,8 @@ export function useDashboardLoaders({
       const raw = res.data?.data || res.data
       const list = Array.isArray(raw) ? raw : (raw?.list || [])
       if (list.length) {
-        userGrowthOption.value.xAxis.data = list.map((item: any) => item.date)
-        userGrowthOption.value.series[0].data = list.map((item: any) => item.count)
+        userGrowthOption.value.xAxis.data = list.map((item: GrowthDataItem) => item.date)
+        userGrowthOption.value.series[0].data = list.map((item: GrowthDataItem) => item.count)
       }
     } catch (e: unknown) {
       console.warn('加载增长数据失败:', (e as Error).message)
@@ -91,7 +98,7 @@ export function useDashboardLoaders({
       const raw = res.data?.data || res.data
       const list = Array.isArray(raw) ? raw : (raw?.list || [])
       if (list.length) {
-        moodDistributionOption.value.series[0].data = list.map((item: any, i: number) => ({
+        moodDistributionOption.value.series[0].data = list.map((item: MoodDistributionItem, i: number) => ({
           name: item.mood_type || item.mood,
           value: item.count,
           itemStyle: {
@@ -115,13 +122,13 @@ export function useDashboardLoaders({
     try {
       const res = await api.getMoodTrend?.(String(moodTrendRange.value)) || { data: null }
       const trendData = res.data?.data || res.data
-      const trendList = trendData?.list || (Array.isArray(trendData) ? trendData : [])
+      const trendList: MoodTrendItem[] = trendData?.list || (Array.isArray(trendData) ? trendData : [])
       if (trendList.length) {
-        const dates = [...new Set(trendList.map((item: any) => item.date))].sort()
+        const dates = [...new Set(trendList.map(item => item.date))].sort()
         moodTrendOption.value.xAxis.data = dates
         moodNames.forEach((name, i) => {
           moodTrendOption.value.series[i].data = dates.map(date => {
-            const found = trendList.find((item: any) =>
+            const found = trendList.find(item =>
               item.date === date && (item.mood_type === name || item.mood === name)
             )
             return found?.count ?? 0
@@ -149,7 +156,7 @@ export function useDashboardLoaders({
       const timeData = res.data?.data || res.data
       if (timeData) {
         activeTimeOption.value.series[0].data = (Array.isArray(timeData)
-          ? timeData : timeData.list || []).map((item: any) => item.count)
+          ? timeData : timeData.list || []).map((item: ActiveTimeItem) => item.count)
       }
     } catch (e: unknown) {
       console.warn('加载活跃时段失败:', (e as Error).message)
@@ -206,11 +213,11 @@ export function useDashboardLoaders({
       const d = res.data?.data || res.data
       const list = Array.isArray(d) ? d : (d?.list || [])
       if (list.length) {
-        const dates = list.map((item: any) => item.date || item.day)
+        const dates = list.map((item: EmotionTrendItem) => item.date || item.day)
         emotionTrendsOption.value.xAxis.data = dates
-        emotionTrendsOption.value.series[0].data = list.map((item: any) => item.positive ?? item.pos ?? 0)
-        emotionTrendsOption.value.series[1].data = list.map((item: any) => item.neutral ?? item.neu ?? 0)
-        emotionTrendsOption.value.series[2].data = list.map((item: any) => item.negative ?? item.neg ?? 0)
+        emotionTrendsOption.value.series[0].data = list.map((item: EmotionTrendItem) => item.positive ?? item.pos ?? 0)
+        emotionTrendsOption.value.series[1].data = list.map((item: EmotionTrendItem) => item.neutral ?? item.neu ?? 0)
+        emotionTrendsOption.value.series[2].data = list.map((item: EmotionTrendItem) => item.negative ?? item.neg ?? 0)
       }
     } catch (e: unknown) {
       console.warn('加载情绪趋势失败:', (e as Error).message)

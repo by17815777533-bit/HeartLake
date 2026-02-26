@@ -101,15 +101,19 @@ const {
 let clockTimer: ReturnType<typeof setInterval> | null = null
 let pulseTimer: ReturnType<typeof setInterval> | null = null
 
-onMounted(() => {
-  refreshData()
-  clockTimer = setInterval(() => {
-    currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
-  }, 60000)
-  pulseTimer = setInterval(loadEmotionPulse, 30000)
-})
+// L-16: 页面不可见时暂停轮询，节省资源和带宽
+const startPolling = () => {
+  if (!clockTimer) {
+    clockTimer = setInterval(() => {
+      currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
+    }, 60000)
+  }
+  if (!pulseTimer) {
+    pulseTimer = setInterval(loadEmotionPulse, 30000)
+  }
+}
 
-onUnmounted(() => {
+const stopPolling = () => {
   if (clockTimer) {
     clearInterval(clockTimer)
     clockTimer = null
@@ -118,6 +122,28 @@ onUnmounted(() => {
     clearInterval(pulseTimer)
     pulseTimer = null
   }
+}
+
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopPolling()
+  } else {
+    // 恢复可见时立即刷新一次，再重启轮询
+    loadEmotionPulse()
+    currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
+    startPolling()
+  }
+}
+
+onMounted(() => {
+  refreshData()
+  startPolling()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  stopPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 

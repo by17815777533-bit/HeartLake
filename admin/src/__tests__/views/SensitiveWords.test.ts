@@ -18,7 +18,7 @@ vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) =>
 vi.mock('@/composables/useTablePagination', () => ({
   useTablePagination: (_fn: any, _opts: any) => {
     const pagination = { page: 1, pageSize: 20, total: 0 }
-    return { pagination, handleSizeChange: vi.fn(), handleCurrentChange: vi.fn(), handleSearch: vi.fn(), handleReset: vi.fn(), resetPage: vi.fn() }
+    return { pagination, buildParams: (extra?: Record<string, unknown>) => ({ page: pagination.page, page_size: pagination.pageSize, ...extra }), handleSizeChange: vi.fn(), handleCurrentChange: vi.fn(), handleSearch: vi.fn(), handleReset: vi.fn(), resetPage: vi.fn() }
   },
 }))
 

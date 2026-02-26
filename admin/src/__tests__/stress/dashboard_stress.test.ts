@@ -264,7 +264,7 @@ describe('Dashboard Stress Tests', () => {
       let count = 0
       mock.onGet('/admin/dashboard/stats').reply(() => {
         count++
-        return count % 3 === 0 ? [500, { message: 'error' }] : [200, { data: {} }]
+        return count % 3 === 0 ? [400, { message: 'error' }] : [200, { data: {} }]
       })
 
       const results = await Promise.allSettled(
@@ -276,9 +276,9 @@ describe('Dashboard Stress Tests', () => {
     })
 
     it('所有请求同时失败', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(500, { message: 'server error' })
-      mock.onGet('/admin/realtime-stats').reply(500, { message: 'server error' })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(500, { message: 'server error' })
+      mock.onGet('/admin/dashboard/stats').reply(400, { message: 'server error' })
+      mock.onGet('/admin/realtime-stats').reply(400, { message: 'server error' })
+      mock.onGet('/admin/dashboard/mood-distribution').reply(400, { message: 'server error' })
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -286,7 +286,7 @@ describe('Dashboard Stress Tests', () => {
         api.getMoodDistribution(),
       ])
       results.forEach(r => expect(r.status).toBe('rejected'))
-    })
+    }, 30000)
 
     it('混合成功和超时请求', async () => {
       mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })

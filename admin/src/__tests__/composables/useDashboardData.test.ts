@@ -19,7 +19,6 @@ vi.mock('@/api', () => ({
     getActiveTimeStats: vi.fn().mockResolvedValue({ data: { data: [] } }),
     getPrivacyBudget: vi.fn().mockResolvedValue({ data: { data: {} } }),
     getEmotionPulse: vi.fn().mockResolvedValue({ data: { data: {} } }),
-    getEmotionPulse: vi.fn().mockResolvedValue({ data: { data: {} } }),
     getEmotionTrends: vi.fn().mockResolvedValue({ data: { data: [] } }),
     getTrendingContent: vi.fn().mockResolvedValue({ data: { data: [] } }),
     getRecommendationStats: vi.fn().mockResolvedValue({ data: { data: {} } }),

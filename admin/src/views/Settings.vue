@@ -96,6 +96,7 @@
                 :type="apiKeyVisible ? 'text' : 'password'"
                 placeholder="sk-..."
                 @focus="onApiKeyFocus"
+                @input="onApiKeyInput"
               >
                 <template #suffix>
                   <el-icon
@@ -279,6 +280,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
@@ -287,16 +289,19 @@ const activeTab = ref('system')
 const saving = ref(false)
 const testing = ref(false)
 const broadcasting = ref(false)
-const aiFormRef = ref(null)
-const rateFormRef = ref(null)
-const systemFormRef = ref(null)
+const aiFormRef = ref<FormInstance | null>(null)
+const rateFormRef = ref<FormInstance | null>(null)
+const systemFormRef = ref<FormInstance | null>(null)
 const apiKeyEdited = ref(false)
 const apiKeyVisible = ref(false)
 
-// API Key 脱敏：前4 + **** + 后4
-function maskApiKey(key) {
-  if (!key || key.length <= 8) return key
-  return key.slice(0, 4) + '****' + key.slice(-4)
+// L-6: 原始 API Key 存储在非响应式变量中，避免 Vue DevTools 泄漏明文
+let rawApiKey = ''
+
+// API Key 脱敏：仅显示最后4位，其余用 * 替代
+function maskApiKey(key: string): string {
+  if (!key || key.length <= 4) return '****'
+  return '****' + key.slice(-4)
 }
 
 // 系统配置验证规则
@@ -332,8 +337,16 @@ const aiConfig = reactive({
 const onApiKeyFocus = () => {
   if (!apiKeyEdited.value) {
     aiConfig.apiKey = ''
+    rawApiKey = ''
     apiKeyEdited.value = true
     apiKeyVisible.value = true
+  }
+}
+
+// L-6: 输入时同步到非响应式变量，避免 DevTools 长期持有明文
+const onApiKeyInput = (val: string) => {
+  if (apiKeyEdited.value) {
+    rawApiKey = val
   }
 }
 
@@ -342,7 +355,7 @@ const aiRules = {
   provider: [{ required: true, message: '请选择 AI 服务提供商', trigger: 'change' }],
   apiKey: [
     {
-      validator: (_rule, value, callback) => {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
         // 未编辑时跳过校验（显示的是脱敏值）
         if (!apiKeyEdited.value) return callback()
         if (!value) return callback(new Error('请输入 API Key'))
@@ -394,6 +407,7 @@ const loadConfig = async () => {
       const ai = res.data.ai || {}
       aiConfig.provider = ai.provider ?? 'deepseek'
       aiConfig.apiKey = maskApiKey(ai.api_key ?? ai.apiKey ?? '')
+      rawApiKey = '' // 加载时不保留原始 key，仅展示掩码
       apiKeyEdited.value = false
       apiKeyVisible.value = false
       aiConfig.baseUrl = ai.base_url ?? ai.baseUrl ?? 'https://api.deepseek.com'
@@ -414,7 +428,7 @@ const loadConfig = async () => {
 }
 
 // 保存配置（带表单验证）
-const saveConfig = async (type) => {
+const saveConfig = async (type: 'system' | 'ai' | 'rate') => {
   // 系统、AI、限流配置都需要先校验表单
   if (type === 'system' && systemFormRef.value) {
     const valid = await systemFormRef.value.validate().catch(() => false)
@@ -442,7 +456,7 @@ const saveConfig = async (type) => {
       ai: {
         provider: aiConfig.provider,
         // 未编辑 API Key 时不发送，避免把脱敏值写回后端
-        ...(apiKeyEdited.value ? { api_key: aiConfig.apiKey } : {}),
+        ...(apiKeyEdited.value ? { api_key: rawApiKey || aiConfig.apiKey } : {}),
         base_url: aiConfig.baseUrl,
         model: aiConfig.model,
         enable_sentiment: aiConfig.enableSentiment,
@@ -469,7 +483,7 @@ const saveConfig = async (type) => {
 const testAI = async () => {
   testing.value = true
   try {
-    await api.testAIConnection()
+    await api.getEdgeAIStatus()
     ElMessage.success('AI服务连接正常')
   } catch (e) {
     console.error('AI服务连接失败:', e)

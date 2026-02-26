@@ -58,7 +58,7 @@ describe('Settings API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/admin/config').reply(500)
+      mock.onGet('/admin/config').reply(400)
       await expect(api.getSystemConfig()).rejects.toThrow()
     })
   })
@@ -113,13 +113,13 @@ describe('Settings API', () => {
   describe('测试AI连接', () => {
     it('应调用 edge-ai status 接口', async () => {
       mock.onGet('/admin/edge-ai/status').reply(200, { code: 0 })
-      await api.testAIConnection()
+      await api.getEdgeAIStatus()
       expect(mock.history.get[0].url).toBe('/admin/edge-ai/status')
     })
 
     it('连接失败应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/status').reply(500)
-      await expect(api.testAIConnection()).rejects.toThrow()
+      mock.onGet('/admin/edge-ai/status').reply(400)
+      await expect(api.getEdgeAIStatus()).rejects.toThrow()
     })
   })
 

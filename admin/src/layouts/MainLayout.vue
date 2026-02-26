@@ -163,7 +163,10 @@ const router = useRouter()
 const appStore = useAppStore()
 const isCollapsed = ref(false)
 
-// 菜单项
+// 侧边栏菜单项配置
+// 当前版本所有管理员权限相同，菜单项静态定义。
+// 后续接入角色权限系统后，可根据用户角色动态过滤：
+//   const menuItems = computed(() => allMenuItems.filter(item => hasPermission(item.requiredRole)))
 const menuItems = [
   { path: '/dashboard', title: '数据大屏', icon: 'DataAnalysis' },
   { path: '/users', title: '用户管理', icon: 'User' },
@@ -196,8 +199,8 @@ const fetchAdminInfo = async () => {
     if (res.data) {
       adminInfo.nickname = res.data.nickname || res.data.username || '管理员'
     }
-  } catch (e) {
-    console.warn('获取管理员信息失败:', e.message)
+  } catch (e: unknown) {
+    console.warn('获取管理员信息失败:', (e as Error).message)
   }
 }
 
@@ -209,14 +212,14 @@ const fetchRealtimeStats = async () => {
       realtimeStats.onlineCount = res.data.online_count || res.data.online_users || 0
       realtimeStats.todayStones = res.data.today_stones || 0
     }
-  } catch (e) {
+  } catch (e: unknown) {
     // 静默失败，不影响页面展示
-    console.warn('获取实时统计失败:', e.message)
+    console.warn('获取实时统计失败:', (e as Error).message)
   }
 }
 
 // 处理下拉菜单命令
-const handleCommand = async (command) => {
+const handleCommand = async (command: string) => {
   if (command === 'logout') {
     try {
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
@@ -237,7 +240,7 @@ const handleCommand = async (command) => {
 }
 
 // WebSocket 实时数据更新
-const handleStatsUpdate = (data) => {
+const handleStatsUpdate = (data: { online_count?: number; today_stones?: number }) => {
   if (data) {
     realtimeStats.onlineCount = data.online_count ?? realtimeStats.onlineCount
     realtimeStats.todayStones = data.today_stones ?? realtimeStats.todayStones
@@ -270,6 +273,7 @@ onMounted(() => {
   statsInterval = setInterval(fetchRealtimeStats, 30000)
 
   // 连接WebSocket并监听实时更新
+  // M-15: 重连逻辑统一由 websocket.ts 管理（指数退避 + 最大10次上限），此处不额外实现
   websocket.connect()
   websocket.on('stats_update', handleStatsUpdate)
 

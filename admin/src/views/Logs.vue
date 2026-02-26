@@ -67,6 +67,7 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
+            :disabled-date="disabledDate"
             style="width: 240px"
           />
         </el-form-item>
@@ -133,6 +134,12 @@
           label="操作时间"
           width="180"
         />
+        <template #empty>
+          <el-empty
+            description="暂无操作日志"
+            :image-size="120"
+          />
+        </template>
       </el-table>
 
       <div class="pagination-wrapper">
@@ -156,10 +163,26 @@ import api from '@/api'
 import { ElMessage } from 'element-plus'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { OperationLog } from '@/types'
 
 const loading = ref(false)
-const logList = ref([])
-const filters = reactive({ operator: '', action: '', dateRange: null })
+const logList = ref<OperationLog[]>([])
+const filters = reactive({ operator: '', action: '', dateRange: null as string[] | null })
+
+// L-12: 日期范围限制最大90天，且不能选择未来日期
+const MAX_DATE_RANGE_DAYS = 90
+const disabledDate = (date: Date) => {
+  // 不能选择未来日期
+  if (date.getTime() > Date.now()) return true
+  // 如果已选了起始日期，限制结束日期在90天内
+  if (filters.dateRange && filters.dateRange[0]) {
+    const start = new Date(filters.dateRange[0]).getTime()
+    const maxEnd = start + MAX_DATE_RANGE_DAYS * 24 * 3600 * 1000
+    return date.getTime() < start || date.getTime() > maxEnd
+  }
+  return false
+}
+
 const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchLogs, {
   filters,
   defaultFilters: { operator: '', action: '', dateRange: null },
@@ -172,7 +195,7 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 
-const actionMap = {
+const actionMap: Record<string, { label: string; type: string; icon: string }> = {
   login: { label: '登录', type: 'info', icon: '🔑' },
   ban_user: { label: '封禁用户', type: 'danger', icon: '🚫' },
   unban_user: { label: '解封用户', type: 'success', icon: '✓' },
@@ -182,18 +205,18 @@ const actionMap = {
   config: { label: '修改配置', type: 'primary', icon: '⚙' },
 }
 
-const getActionLabel = (action) => `${actionMap[action]?.icon || ''} ${actionMap[action]?.label || action}`
-const getActionType = (action) => actionMap[action]?.type || 'info'
+const getActionLabel = (action: string) => `${actionMap[action]?.icon || ''} ${actionMap[action]?.label || action}`
+const getActionType = (action: string) => actionMap[action]?.type || 'info'
 
 async function fetchLogs() {
   loading.value = true
   try {
-    const extra: Record<string, unknown> = { ...filters }
-    if (filters.dateRange?.length === 2) {
-      extra.start_date = filters.dateRange[0]
-      extra.end_date = filters.dateRange[1]
+    const { dateRange, ...rest } = { ...filters }
+    const extra: Record<string, unknown> = { ...rest }
+    if (dateRange?.length === 2) {
+      extra.start_date = dateRange[0]
+      extra.end_date = dateRange[1]
     }
-    delete extra.dateRange
     const params = buildParams(extra)
     const res = await api.getOperationLogs(params)
     logList.value = res.data?.list || []

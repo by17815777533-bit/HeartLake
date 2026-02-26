@@ -23,6 +23,7 @@ vi.mock('@/composables/useTablePagination', () => ({
     const pagination = { page: 1, pageSize: 20, total: 0 }
     return {
       pagination,
+      buildParams: (extra?: Record<string, unknown>) => ({ page: pagination.page, page_size: pagination.pageSize, ...extra }),
       handleSizeChange: vi.fn(),
       handleCurrentChange: vi.fn(),
       handleSearch: vi.fn(),

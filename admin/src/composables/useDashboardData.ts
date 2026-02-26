@@ -3,6 +3,7 @@
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import type { TrendingTopic, TrendingContentItem } from '@/types'
 import { useChartOptions, moodColors, moodNames } from './useChartOptions'
 import { useDashboardLoaders } from './useDashboardLoaders'
 
@@ -14,8 +15,8 @@ export function useDashboardData() {
   const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
   const chartRange = ref(7)
   const moodTrendRange = ref(7)
-  const trendingTopics = ref([])
-  const aiTrendingContent = ref([])
+  const trendingTopics = ref<TrendingTopic[]>([])
+  const aiTrendingContent = ref<TrendingContentItem[]>([])
   const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 
   const techBadges = [

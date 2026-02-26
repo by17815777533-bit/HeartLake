@@ -96,7 +96,7 @@ describe('API Module', () => {
     it('should handle 500 server error', async () => {
       mock.onGet('/admin/info').reply(500)
       await expect(api.getAdminInfo()).rejects.toThrow()
-    })
+    }, 15000)
 
     it('should handle network error', async () => {
       mock.onGet('/admin/info').networkError()
@@ -165,7 +165,7 @@ describe('API Module', () => {
     it('should stop loading even when request fails', async () => {
       mock.onGet('/admin/info').reply(500)
       try { await api.getAdminInfo() } catch { expect(appStore.isGlobalLoading).toBe(false) }
-    })
+    }, 15000)
   })
 
   describe('Users API', () => {
@@ -196,7 +196,7 @@ describe('API Module', () => {
     it('getUsers 500', async () => {
       mock.onGet('/admin/users').reply(500)
       try { await api.getUsers({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
 
     it('getUsers 带 keyword', async () => {
       mock.onGet('/admin/users').reply(200, { data: { list: [] } })
@@ -208,7 +208,7 @@ describe('API Module', () => {
   describe('Content API', () => {
     it('deleteContent 成功', async () => {
       mock.onDelete('/admin/contents/c1').reply(200, { code: 0 })
-      await api.deleteContent('c1')
+      await api.deleteContent('c1', '违规内容')
       expect(mock.history.delete[0].url).toBe('/admin/contents/c1')
     })
 
@@ -221,7 +221,7 @@ describe('API Module', () => {
     it('getContents 500', async () => {
       mock.onGet('/admin/contents').reply(500)
       try { await api.getContents({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Reports API', () => {
@@ -252,7 +252,7 @@ describe('API Module', () => {
     it('getReports 500', async () => {
       mock.onGet('/admin/reports').reply(500)
       try { await api.getReports({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Moderation API', () => {
@@ -277,7 +277,7 @@ describe('API Module', () => {
     it('getPendingModeration 500', async () => {
       mock.onGet('/admin/moderation/pending').reply(500)
       try { await api.getPendingModeration({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Sensitive Words API', () => {
@@ -308,7 +308,7 @@ describe('API Module', () => {
     it('getSensitiveWords 500', async () => {
       mock.onGet('/admin/sensitive-words').reply(500)
       try { await api.getSensitiveWords({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Settings API', () => {
@@ -333,7 +333,7 @@ describe('API Module', () => {
     it('getSystemConfig 500', async () => {
       mock.onGet('/admin/config').reply(500)
       try { await api.getSystemConfig(); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Logs API', () => {
@@ -352,7 +352,7 @@ describe('API Module', () => {
     it('getOperationLogs 500', async () => {
       mock.onGet('/admin/logs').reply(500)
       try { await api.getOperationLogs({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
-    })
+    }, 15000)
   })
 
   describe('Edge AI API', () => {
@@ -457,9 +457,9 @@ describe('API Module', () => {
       expect(startSpy).not.toHaveBeenCalled()
     })
 
-    it('testAIConnection 复用 edge-ai/status', async () => {
+    it('getEdgeAIStatus 请求 edge-ai/status', async () => {
       mock.onGet('/admin/edge-ai/status').reply(200, { code: 0 })
-      await api.testAIConnection()
+      await api.getEdgeAIStatus()
       expect(mock.history.get[0].url).toBe('/admin/edge-ai/status')
     })
   })

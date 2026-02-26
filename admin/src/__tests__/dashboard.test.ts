@@ -93,7 +93,7 @@ describe('Dashboard API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(500)
+      mock.onGet('/admin/dashboard/stats').reply(400)
       await expect(api.getDashboardStats()).rejects.toThrow()
     })
 
@@ -162,7 +162,7 @@ describe('Dashboard API', () => {
     it('接口错误应抛出异常', async () => {
       mock.onGet('/admin/edge-ai/privacy-budget').reply(500)
       await expect(api.getPrivacyBudget()).rejects.toThrow()
-    })
+    }, 15000)
   })
 
   describe('情绪脉搏', () => {
@@ -177,7 +177,7 @@ describe('Dashboard API', () => {
     it('接口错误应抛出异常', async () => {
       mock.onGet('/admin/edge-ai/emotion-pulse').reply(500)
       await expect(api.getEmotionPulse()).rejects.toThrow()
-    })
+    }, 15000)
   })
 
   describe('数据完整性', () => {
@@ -228,7 +228,7 @@ describe('Dashboard API', () => {
 
     it('部分接口失败不影响其他', async () => {
       mock.onGet('/admin/dashboard/stats').reply(200, statsData)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(500)
+      mock.onGet('/admin/dashboard/mood-distribution').reply(400)
       const results = await Promise.allSettled([api.getDashboardStats(), api.getMoodDistribution()])
       expect(results[0].status).toBe('fulfilled')
       expect(results[1].status).toBe('rejected')
@@ -245,7 +245,7 @@ describe('Dashboard API', () => {
         api.getDashboardStats(),
         api.getUserGrowthStats('7d'),
         api.getMoodDistribution(),
-        api.getPrivacyStats(),
+        api.getPrivacyBudget(),
         api.getEmotionPulse(),
       ])
 

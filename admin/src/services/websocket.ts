@@ -18,7 +18,7 @@ const HEARTBEAT_INTERVAL = 30000 // 30秒心跳间隔
 
 // 允许的 WebSocket 消息类型白名单
 // 新增消息类型时在此处统一维护，避免硬编码散落在业务逻辑中
-const WS_MESSAGE_TYPES = [
+const WS_MESSAGE_TYPE_LIST = [
   'stats_update',
   'new_report',
   'new_moderation',
@@ -42,9 +42,9 @@ const WS_MESSAGE_TYPES = [
   'ping',
 ] as const
 
-type WSMessageType = typeof WS_MESSAGE_TYPES[number]
+type WSMessageType = typeof WS_MESSAGE_TYPE_LIST[number]
 
-const ALLOWED_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPES)
+export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
 
 // M-2: 启动心跳定时器
 function startHeartbeat() {
@@ -102,7 +102,7 @@ export default {
           lastPongTime = Date.now()
         }
         // M-3: 消息类型白名单校验
-        if (!ALLOWED_TYPES.has(type)) {
+        if (!WS_MESSAGE_TYPES.has(type)) {
           console.warn('收到未知 WebSocket 消息类型:', type)
           return
         }
@@ -122,11 +122,13 @@ export default {
       // 非主动关闭时自动重连（code 1000 为正常关闭）
       // 使用指数退避策略，最大间隔30秒
       if (e.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(RECONNECT_BASE_INTERVAL * Math.pow(2, reconnectAttempts), 30000)
+        const baseDelay = Math.min(RECONNECT_BASE_INTERVAL * Math.pow(2, reconnectAttempts), 30000)
+        // L-23: 乘性随机抖动，延迟在 [0.5x, 1.5x] 范围内波动，避免惊群效应
+        const jitteredDelay = Math.round(baseDelay * (0.5 + Math.random()))
         reconnectTimer = setTimeout(() => {
           reconnectAttempts++
           this.connect()
-        }, delay)
+        }, jitteredDelay)
       }
     }
   },

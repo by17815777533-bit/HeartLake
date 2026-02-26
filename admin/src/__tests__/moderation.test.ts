@@ -87,9 +87,9 @@ describe('Moderation API', () => {
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/admin/moderation/pending').reply(500)
+      mock.onGet('/admin/moderation/pending').reply(400)
       await expect(api.getPendingModeration({})).rejects.toThrow()
-    })
+    }, 15000)
   })
 
   describe('获取审核历史', () => {

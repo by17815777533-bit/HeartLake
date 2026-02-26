@@ -57,6 +57,9 @@ export interface Report {
 // ── 审核 ──
 export interface ModerationItem {
   id: string | number
+  moderation_id?: string | number
+  content_id?: string | number
+  content_type?: string
   user_id: string
   nickname?: string
   content: string
@@ -121,6 +124,7 @@ export interface MoodDistributionItem {
 export interface MoodTrendItem {
   date: string
   mood: string
+  mood_type?: string
   count: number
 }
 
@@ -246,16 +250,16 @@ export interface SensitiveCodeRange {
 
 // ── ECharts 回调参数（tooltip formatter 用） ──
 export interface EChartsTooltipParam {
-  componentType: string
-  seriesType: string
-  seriesIndex: number
-  seriesName: string
+  componentType?: string
+  seriesType?: string
+  seriesIndex?: number
+  seriesName?: string
   name: string
-  dataIndex: number
-  data: unknown
+  dataIndex?: number
+  data?: unknown
   value: number | number[] | string
-  color: string
-  marker: string
+  color?: string
+  marker?: string
   percent?: number
 }
 

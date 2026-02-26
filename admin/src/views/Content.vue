@@ -160,6 +160,12 @@
             </el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty
+            description="暂无内容数据"
+            :image-size="120"
+          />
+        </template>
       </el-table>
 
       <div class="pagination-wrapper">
@@ -225,11 +231,24 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { ContentItem } from '@/types'
 
 const loading = ref(false)
-const contentList = ref([])
+const contentList = ref<ContentItem[]>([])
 const detailVisible = ref(false)
-const currentContent = ref(null)
+const currentContent = ref<ContentItem | null>(null)
+
+// L-10: 搜索关键词输入防抖，避免频繁请求
+let keywordDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const onKeywordInput = () => {
+  if (keywordDebounceTimer) clearTimeout(keywordDebounceTimer)
+  keywordDebounceTimer = setTimeout(() => {
+    handleSearch()
+  }, 300)
+}
+onUnmounted(() => {
+  if (keywordDebounceTimer) clearTimeout(keywordDebounceTimer)
+})
 
 const filters = reactive({
   type: '',
@@ -296,8 +315,8 @@ const deleteContent = async (row: { id: string; type: string }) => {
   const { value: reason } = await ElMessageBox.prompt('请输入删除原因', '删除内容', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    inputPattern: /\S+/,
-    inputErrorMessage: '请输入删除原因',
+    inputPattern: /.{5,}/,
+    inputErrorMessage: '删除原因至少需要5个字符',
   }).catch(() => ({ value: null }))
 
   if (!reason) return

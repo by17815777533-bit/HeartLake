@@ -156,10 +156,24 @@ http.interceptors.response.use(
 // 通用参数类型，用于灵活的查询/请求体
 type Params = Record<string, unknown>
 
+// L-15: 针对耗时操作的差异化超时配置（默认 15s 不够用）
+const LONG_TIMEOUT = 60000 // 文件上传、数据导出、AI分析等慢操作用 60s
+
 // 登录请求参数
 interface LoginPayload {
   username: string
   password: string
+}
+
+// 高频 API 具体参数类型
+import type {
+  HandleReportParams, AddSensitiveWordParams, UpdateSensitiveWordParams,
+  BroadcastMessageParams, SaveConfigPayload,
+  FederatedAggregationParams, VectorSearchParams,
+} from '@/types'
+
+interface BanUserParams {
+  reason: string
 }
 
 export default {
@@ -177,18 +191,18 @@ export default {
   // Users
   getUsers: (params?: Params) => http.get('/admin/users', { params }),
   getUserDetail: (id: string) => http.get(`/admin/users/${id}`),
-  banUser: (id: string, data: Params) => http.post(`/admin/users/${id}/ban`, data),
+  banUser: (id: string, data: BanUserParams) => http.post(`/admin/users/${id}/ban`, data),
   unbanUser: (id: string) => http.post(`/admin/users/${id}/unban`),
   // Content
   getContents: (params?: Params) => http.get('/admin/contents', { params }),
-  deleteContent: (id: string) => http.delete(`/admin/contents/${id}`),
+  deleteContent: (id: string, reason: string) => http.delete(`/admin/contents/${id}`, { data: { reason } }),
   getStones: (params?: Params) => http.get('/admin/contents/stones', { params }),
   getBoats: (params?: Params) => http.get('/admin/contents/boats', { params }),
   deleteStone: (id: string, reason: string) => http.delete(`/admin/contents/stones/${id}`, { data: { reason } }),
   deleteBoat: (id: string, reason: string) => http.delete(`/admin/contents/boats/${id}`, { data: { reason } }),
   // Reports
   getReports: (params?: Params) => http.get('/admin/reports', { params }),
-  handleReport: (id: string, data: Params) => http.post(`/admin/reports/${id}/handle`, data),
+  handleReport: (id: string, data: HandleReportParams) => http.post(`/admin/reports/${id}/handle`, data),
   // Moderation
   getPendingModeration: (params?: Params) => http.get('/admin/moderation/pending', { params }),
   getModerationHistory: (params?: Params) => http.get('/admin/moderation/history', { params }),
@@ -196,14 +210,13 @@ export default {
   rejectContent: (id: string, reason: string) => http.post(`/admin/moderation/${id}/reject`, { reason }),
   // Sensitive words
   getSensitiveWords: (params?: Params) => http.get('/admin/sensitive-words', { params }),
-  addSensitiveWord: (data: Params) => http.post('/admin/sensitive-words', data),
-  updateSensitiveWord: (id: string | number, data: Params) => http.put(`/admin/sensitive-words/${id}`, data),
+  addSensitiveWord: (data: AddSensitiveWordParams) => http.post('/admin/sensitive-words', data),
+  updateSensitiveWord: (id: string | number, data: UpdateSensitiveWordParams) => http.put(`/admin/sensitive-words/${id}`, data),
   deleteSensitiveWord: (id: string | number) => http.delete(`/admin/sensitive-words/${id}`),
   // Settings
   getSystemConfig: () => http.get('/admin/config'),
-  updateSystemConfig: (data: Params) => http.put('/admin/config', data),
-  testAIConnection: () => http.get('/admin/edge-ai/status'),
-  broadcastMessage: (data: Params) => http.post('/admin/broadcast', data),
+  updateSystemConfig: (data: SaveConfigPayload) => http.put('/admin/config', data),
+  broadcastMessage: (data: BroadcastMessageParams) => http.post('/admin/broadcast', data, { timeout: LONG_TIMEOUT }),
   // Logs
   getOperationLogs: (params?: Params) => http.get('/admin/logs', { params }),
   // Admin info
@@ -212,14 +225,14 @@ export default {
   getEdgeAIStatus: () => http.get('/admin/edge-ai/status', { skipLoading: true } as CustomAxiosRequestConfig),
   getEdgeAIMetrics: () => http.get('/admin/edge-ai/metrics', { skipLoading: true } as CustomAxiosRequestConfig),
   getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
-  triggerFederatedAggregation: (data: Params) => http.post('/admin/edge-ai/federated/aggregate', data),
+  triggerFederatedAggregation: (data: FederatedAggregationParams) => http.post('/admin/edge-ai/federated/aggregate', data, { timeout: LONG_TIMEOUT }),
   getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
-  edgeAIVectorSearch: (data: Params) => http.post('/admin/edge-ai/vector-search', data),
+  edgeAIVectorSearch: (data: VectorSearchParams) => http.post('/admin/edge-ai/vector-search', data, { timeout: LONG_TIMEOUT }),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
-  updateEdgeAIConfig: (data: Params) => http.put('/admin/edge-ai/config', data),
+  updateEdgeAIConfig: (data: Params) => http.put('/admin/edge-ai/config', data, { timeout: LONG_TIMEOUT }),
   // AI Analysis
-  analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }),
-  moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }),
+  analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
+  moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
   // Recommendations
   getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true } as CustomAxiosRequestConfig),
   getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true } as CustomAxiosRequestConfig),

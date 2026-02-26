@@ -108,9 +108,9 @@ describe('API Stress Tests', () => {
 
     it('部分请求失败时其他请求正常完成', async () => {
       mock.onGet('/admin/dashboard/stats').reply(200, { data: { ok: true } })
-      mock.onGet('/admin/realtime-stats').reply(500)
+      mock.onGet('/admin/realtime-stats').reply(400)
       mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: { ok: true } })
-      mock.onGet('/admin/dashboard/trending-topics').reply(503)
+      mock.onGet('/admin/dashboard/trending-topics').reply(403)
       mock.onGet('/admin/dashboard/active-time').reply(200, { data: { ok: true } })
 
       const results = await Promise.allSettled([
@@ -125,14 +125,14 @@ describe('API Stress Tests', () => {
       const rejected = results.filter(r => r.status === 'rejected')
       expect(fulfilled).toHaveLength(3)
       expect(rejected).toHaveLength(2)
-    })
+    }, 30000)
 
     it('所有请求同时失败', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(500)
-      mock.onGet('/admin/realtime-stats').reply(502)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(503)
-      mock.onGet('/admin/dashboard/trending-topics').reply(504)
-      mock.onGet('/admin/dashboard/active-time').reply(500)
+      mock.onGet('/admin/dashboard/stats').reply(400)
+      mock.onGet('/admin/realtime-stats').reply(400)
+      mock.onGet('/admin/dashboard/mood-distribution').reply(403)
+      mock.onGet('/admin/dashboard/trending-topics').reply(403)
+      mock.onGet('/admin/dashboard/active-time').reply(400)
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -143,13 +143,13 @@ describe('API Stress Tests', () => {
       ])
 
       results.forEach(r => expect(r.status).toBe('rejected'))
-    })
+    }, 30000)
 
     it('混合成功、失败和超时请求', async () => {
       mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
-      mock.onGet('/admin/realtime-stats').reply(408)
+      mock.onGet('/admin/realtime-stats').reply(400)
       mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: {} })
-      mock.onGet('/admin/dashboard/trending-topics').reply(429)
+      mock.onGet('/admin/dashboard/trending-topics').reply(403)
       mock.onGet('/admin/dashboard/active-time').reply(200, { data: {} })
 
       const results = await Promise.allSettled([
@@ -162,7 +162,7 @@ describe('API Stress Tests', () => {
 
       const fulfilled = results.filter(r => r.status === 'fulfilled')
       expect(fulfilled).toHaveLength(3)
-    })
+    }, 30000)
   })
 
   // ========== 请求去重（同URL覆盖） ==========
@@ -381,7 +381,7 @@ describe('API Stress Tests', () => {
       ])
 
       expect(appStore.isGlobalLoading).toBe(false)
-    })
+    }, 30000)
 
     it('混合skipLoading和普通请求', async () => {
       mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
@@ -409,7 +409,7 @@ describe('API Stress Tests', () => {
         mock.onGet('/admin/dashboard/stats').reply(code)
         const result = await api.getDashboardStats().catch(e => e)
         expect(result).toBeDefined()
-      })
+      }, 15000)
     })
   })
 

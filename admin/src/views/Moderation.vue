@@ -251,14 +251,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { ModerationItem } from '@/types'
 
 const activeTab = ref('pending')
 const loading = ref(false)
 const historyLoading = ref(false)
-const pendingList = ref([])
-const historyList = ref([])
+const pendingList = ref<ModerationItem[]>([])
+const historyList = ref<ModerationItem[]>([])
 const detailVisible = ref(false)
-const currentItem = ref(null)
+const currentItem = ref<ModerationItem | null>(null)
 
 const historyFilters = reactive({ result: '' })
 
@@ -305,10 +306,10 @@ async function fetchHistory() {
   }
 }
 
-const handleTabChange = (tab) => { tab === 'pending' ? fetchPending() : fetchHistory() }
+const handleTabChange = (tab: string) => { tab === 'pending' ? fetchPending() : fetchHistory() }
 
 // M-6: 审核通过添加二次确认
-const handleApprove = async (row) => {
+const handleApprove = async (row: ModerationItem) => {
   try {
     await ElMessageBox.confirm('确定通过该内容的审核吗？', '审核确认', {
       confirmButtonText: '确定通过',
@@ -318,34 +319,51 @@ const handleApprove = async (row) => {
   } catch {
     return // 用户取消
   }
+  // L-25: 乐观更新 — 先从本地列表移除，再异步请求后端
+  const itemId = row.moderation_id || row.content_id
+  const removedIndex = pendingList.value.findIndex(
+    (item) => (item.moderation_id || item.content_id) === itemId
+  )
+  const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
-    await api.approveContent(row.moderation_id || row.content_id)
+    await api.approveContent(itemId)
     ElMessage.success('已通过')
-    fetchPending()
+    fetchPending() // 异步刷新获取最新数据
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('审核通过操作失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
+    // 回滚：操作失败时恢复被移除的项
+    if (removedItem && removedIndex >= 0) {
+      pendingList.value.splice(removedIndex, 0, removedItem)
+    }
   }
 }
 
-const handleReject = async (row) => {
+const handleReject = async (row: ModerationItem) => {
   const { value: reason } = await ElMessageBox.prompt('请输入拒绝原因', '拒绝内容', {
     confirmButtonText: '确定', cancelButtonText: '取消', inputPattern: /\S+/, inputErrorMessage: '请输入原因'
   }).catch(() => ({ value: null }))
   if (!reason) return
+  // L-25: 乐观更新 — 先从本地列表移除，再异步请求后端
+  const itemId = row.moderation_id || row.content_id
+  const removedIndex = pendingList.value.findIndex(
+    (item) => (item.moderation_id || item.content_id) === itemId
+  )
+  const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
-    await api.rejectContent(row.moderation_id || row.content_id, reason)
+    await api.rejectContent(itemId, reason)
     ElMessage.success('已拒绝')
     fetchPending()
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('审核拒绝操作失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
+    if (removedItem && removedIndex >= 0) {
+      pendingList.value.splice(removedIndex, 0, removedItem)
+    }
   }
 }
 
-const viewDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const viewDetail = (row: ModerationItem) => { currentItem.value = row; detailVisible.value = true }
 
 onMounted(() => fetchPending())
 </script>

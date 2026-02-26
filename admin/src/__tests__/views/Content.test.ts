@@ -13,13 +13,13 @@ vi.mock('element-plus', () => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: { getStones: vi.fn(), getBoats: vi.fn(), deleteStone: vi.fn(), deleteBoat: vi.fn() },
+  default: { getContents: vi.fn(), getStones: vi.fn(), getBoats: vi.fn(), deleteStone: vi.fn(), deleteBoat: vi.fn() },
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 vi.mock('@/composables/useTablePagination', () => ({
   useTablePagination: (_fn: any, _opts: any) => {
     const pagination = { page: 1, pageSize: 20, total: 0 }
-    return { pagination, handleSizeChange: vi.fn(), handleCurrentChange: vi.fn(), handleSearch: vi.fn(), handleReset: vi.fn(), resetPage: vi.fn() }
+    return { pagination, buildParams: (extra?: Record<string, unknown>) => ({ page: pagination.page, page_size: pagination.pageSize, ...extra }), handleSizeChange: vi.fn(), handleCurrentChange: vi.fn(), handleSearch: vi.fn(), handleReset: vi.fn(), resetPage: vi.fn() }
   },
 }))
 
@@ -53,18 +53,17 @@ describe('Content.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
-    vi.mocked(api.getStones).mockResolvedValue({ data: { data: { stones: [], total: 0 } } } as any)
-    vi.mocked(api.getBoats).mockResolvedValue({ data: { data: { boats: [], total: 0 } } } as any)
+    vi.mocked(api.getContents).mockResolvedValue({ data: { data: { list: [], total: 0 } } } as any)
   })
   it('渲染内容页面', () => {
     const wrapper = mount(Content, mountOpts)
     expect(wrapper.find('.content-page').exists()).toBe(true)
   })
 
-  it('挂载时调用 getStones', async () => {
+  it('挂载时调用 getContents', async () => {
     mount(Content, mountOpts)
     await vi.dynamicImportSettled()
-    expect(api.getStones).toHaveBeenCalled()
+    expect(api.getContents).toHaveBeenCalled()
   })
 
   it('包含筛选表单', () => {
@@ -93,7 +92,7 @@ describe('Content.vue', () => {
   })
 
   it('接口失败时列表为空', async () => {
-    vi.mocked(api.getStones).mockRejectedValue(new Error('fail'))
+    vi.mocked(api.getContents).mockRejectedValue(new Error('fail'))
     const wrapper = mount(Content, mountOpts)
     await vi.dynamicImportSettled()
     await new Promise(r => setTimeout(r, 10))
@@ -102,8 +101,8 @@ describe('Content.vue', () => {
   })
 
   it('返回数据正确渲染', async () => {
-    vi.mocked(api.getStones).mockResolvedValue({
-      data: { data: { stones: [{ stone_id: 's1', content: '测试', status: 'published', created_at: '2025-01-01' }], total: 1 } },
+    vi.mocked(api.getContents).mockResolvedValue({
+      data: { data: { list: [{ stone_id: 's1', content: '测试', status: 'published', created_at: '2025-01-01' }], total: 1 } },
     } as any)
     const wrapper = mount(Content, mountOpts)
     await vi.dynamicImportSettled()

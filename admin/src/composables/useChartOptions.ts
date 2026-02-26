@@ -1,6 +1,7 @@
 // @file useChartOptions.js
 // @brief Dashboard 图表配置 composable - Material Design 3 风格
 import { ref } from 'vue'
+import type { EChartsTooltipParam } from '@/types'
 
 // XSS 安全转义
 const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c => ({
@@ -25,7 +26,7 @@ export function useChartOptions() {
       backgroundColor: '#2B2B2F',
       borderColor: '#44474E',
       textStyle: { color: '#E3E2E6' },
-      formatter: (params: any) => {
+      formatter: (params: EChartsTooltipParam[]) => {
         const p = params[0]
         const name = escapeHtml(p.name)
         return `<div style="font-weight:500">${name}</div><div style="color:#A8C8FF">新增 ${Number(p.value)} 人</div>`
@@ -62,7 +63,7 @@ export function useChartOptions() {
     tooltip: {
       trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
       borderRadius: 4, padding: [8, 12], textStyle: { color: '#E3E2E6' },
-      formatter: (p: any) => {
+      formatter: (p: EChartsTooltipParam) => {
         const name = escapeHtml(p.name)
         return `<div style="font-weight:500">${p.marker} ${name}</div><div style="color:#BCC7DC">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
       }

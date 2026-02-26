@@ -13,7 +13,7 @@ vi.mock('element-plus', () => ({
 }))
 
 vi.mock('@/api', () => ({
-  default: { getSystemConfig: vi.fn(), updateSystemConfig: vi.fn(), testAIConnection: vi.fn(), broadcastMessage: vi.fn() },
+  default: { getSystemConfig: vi.fn(), updateSystemConfig: vi.fn(), getEdgeAIStatus: vi.fn(), broadcastMessage: vi.fn() },
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 

@@ -139,12 +139,12 @@ describe('EdgeAI API', () => {
     })
 
     it('状态接口错误应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/status').reply(500)
+      mock.onGet('/admin/edge-ai/status').reply(400)
       await expect(api.getEdgeAIStatus()).rejects.toThrow()
     })
 
     it('指标接口错误应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/metrics').reply(500)
+      mock.onGet('/admin/edge-ai/metrics').reply(400)
       await expect(api.getEdgeAIMetrics()).rejects.toThrow()
     })
   })
@@ -158,7 +158,7 @@ describe('EdgeAI API', () => {
     })
 
     it('脉搏接口错误应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/emotion-pulse').reply(500)
+      mock.onGet('/admin/edge-ai/emotion-pulse').reply(400)
       await expect(api.getEmotionPulse()).rejects.toThrow()
     })
   })
@@ -172,7 +172,7 @@ describe('EdgeAI API', () => {
     })
 
     it('隐私预算接口错误应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/privacy-budget').reply(500)
+      mock.onGet('/admin/edge-ai/privacy-budget').reply(400)
       await expect(api.getPrivacyBudget()).rejects.toThrow()
     })
   })
@@ -226,7 +226,7 @@ describe('EdgeAI API', () => {
     })
 
     it('获取配置失败应抛出异常', async () => {
-      mock.onGet('/admin/edge-ai/config').reply(500)
+      mock.onGet('/admin/edge-ai/config').reply(400)
       await expect(api.getEdgeAIConfig()).rejects.toThrow()
     })
 

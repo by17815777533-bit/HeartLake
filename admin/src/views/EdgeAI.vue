@@ -589,19 +589,26 @@ async function refreshAll() {
 
 
 // ========== 生命周期 ==========
-let pulseTimer: ReturnType<typeof setInterval> | null = null
+// L-19: 统一管理所有定时器，onUnmounted 中批量清理
+const timerIds: ReturnType<typeof setInterval>[] = []
+
+function addTimer(fn: () => void, interval: number): void {
+  const id = setInterval(fn, interval)
+  timerIds.push(id)
+}
 
 onMounted(() => {
   refreshAll()
-  pulseTimer = setInterval(() => {
+  // 每30秒刷新情绪脉搏和性能指标
+  addTimer(() => {
     loadEmotionPulse()
     loadMetrics()
   }, 30000)
 })
 
 onUnmounted(() => {
-  clearInterval(pulseTimer)
-  pulseTimer = null
+  timerIds.forEach(id => clearInterval(id))
+  timerIds.length = 0
 })
 </script>
 

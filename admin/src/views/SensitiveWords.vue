@@ -68,12 +68,40 @@
 
     <!-- 敏感词列表 -->
     <el-card shadow="never">
+      <!-- L-13: 批量操作栏 -->
+      <div
+        v-if="selectedWords.length > 0"
+        class="batch-bar"
+      >
+        <span>已选 {{ selectedWords.length }} 项</span>
+        <el-popconfirm
+          title="确定批量删除选中的敏感词？"
+          @confirm="handleBatchDelete"
+        >
+          <template #reference>
+            <el-button
+              type="danger"
+              size="small"
+            >
+              批量删除
+            </el-button>
+          </template>
+        </el-popconfirm>
+      </div>
+
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="wordList"
         stripe
         aria-label="敏感词列表"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column
+          type="selection"
+          width="45"
+          :selectable="canSelect"
+        />
         <el-table-column
           prop="id"
           label="ID"
@@ -205,6 +233,7 @@
             v-model="form.replacement"
             placeholder="默认为 ***"
             maxlength="50"
+            show-word-limit
           />
         </el-form-item>
       </el-form>
@@ -215,6 +244,7 @@
         <el-button
           type="primary"
           :loading="submitting"
+          :disabled="!hasFormChanged"
           @click="handleSubmit"
         >
           确定
@@ -225,20 +255,64 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import type { FormInstance, TableInstance } from 'element-plus'
 import api from '@/api'
 
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { SensitiveWord } from '@/types'
 
 const loading = ref(false)
 const submitting = ref(false)
-const wordList = ref([])
+const wordList = ref<SensitiveWord[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const formRef = ref(null)
-const currentId = ref(null)
+const formRef = ref<FormInstance | null>(null)
+const tableRef = ref<TableInstance | null>(null)
+const currentId = ref<string | number | null>(null)
+
+// L-13: 批量选中，最多100条
+const MAX_BATCH_SIZE = 100
+const selectedWords = ref<Array<{ id: string | number }>>([])
+
+const handleSelectionChange = (rows: Array<{ id: string | number }>) => {
+  if (rows.length > MAX_BATCH_SIZE) {
+    ElMessage.warning(`批量操作最多选择 ${MAX_BATCH_SIZE} 条`)
+    // 只保留前100条，取消多余的勾选
+    const kept = rows.slice(0, MAX_BATCH_SIZE)
+    selectedWords.value = kept
+    // 通过 tableRef 同步表格勾选状态
+    const table = tableRef.value
+    if (table) {
+      table.clearSelection()
+      kept.forEach(row => table.toggleRowSelection(row, true))
+    }
+    return
+  }
+  selectedWords.value = rows
+}
+
+// 已达上限时禁止勾选更多行
+const canSelect = () => {
+  return selectedWords.value.length < MAX_BATCH_SIZE
+}
+
+const handleBatchDelete = async () => {
+  if (selectedWords.value.length === 0) return
+  submitting.value = true
+  try {
+    await Promise.all(selectedWords.value.map(w => api.deleteSensitiveWord(w.id)))
+    ElMessage.success(`成功删除 ${selectedWords.value.length} 条敏感词`)
+    selectedWords.value = []
+    fetchWords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '批量删除失败'))
+  } finally {
+    submitting.value = false
+  }
+}
 
 const filters = reactive({ keyword: '', level: '' })
 const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchWords, {
@@ -253,6 +327,14 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 const form = reactive({ word: '', level: 'medium', replacement: '' })
+// L-26: 保存编辑前的原始值，用于变更检测
+const originalForm = reactive({ word: '', level: 'medium', replacement: '' })
+const hasFormChanged = computed(() => {
+  if (!isEdit.value) return true // 新增模式始终允许提交
+  return form.word !== originalForm.word
+    || form.level !== originalForm.level
+    || form.replacement !== originalForm.replacement
+})
 const rules = {
   word: [{ required: true, message: '请输入敏感词', trigger: 'blur' }],
   level: [{ required: true, message: '请选择级别', trigger: 'change' }],
@@ -282,13 +364,16 @@ const showAddDialog = () => {
   isEdit.value = false
   currentId.value = null
   Object.assign(form, { word: '', level: 'medium', replacement: '' })
+  Object.assign(originalForm, { word: '', level: 'medium', replacement: '' })
   dialogVisible.value = true
 }
 
 const showEditDialog = (row: { id: number; word: string; level: string; replacement?: string }) => {
   isEdit.value = true
   currentId.value = row.id
-  Object.assign(form, { word: row.word, level: row.level, replacement: row.replacement || '' })
+  const values = { word: row.word, level: row.level, replacement: row.replacement || '' }
+  Object.assign(form, values)
+  Object.assign(originalForm, values) // L-26: 记录原始值用于变更检测
   dialogVisible.value = true
 }
 
@@ -335,6 +420,18 @@ onMounted(() => fetchWords())
 
   .filter-card {
     margin-bottom: 16px;
+  }
+
+  .batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(242, 204, 143, 0.06);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--m3-on-surface-variant, #b8a99a);
   }
 
   .flex-between {

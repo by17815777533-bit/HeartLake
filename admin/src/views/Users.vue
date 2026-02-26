@@ -28,6 +28,7 @@
             v-model="filters.nickname"
             placeholder="请输入昵称"
             clearable
+            @input="onSearchInput"
           />
         </el-form-item>
         <el-form-item label="状态">
@@ -208,17 +209,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { User } from '@/types'
 
 const loading = ref(false)
-const users = ref([])
+const users = ref<User[]>([])
 const detailVisible = ref(false)
-const currentUser = ref(null)
+const currentUser = ref<User | null>(null)
+
+// L-11: 搜索输入防抖，避免频繁请求
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const onSearchInput = () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    handleSearch()
+  }, 300)
+}
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+})
 
 const defaultFilters = {
   userId: '',
@@ -246,6 +260,7 @@ const fetchUsers = async () => {
     pagination.total = resData.total || 0
   } catch (e) {
     console.error('获取用户列表失败:', e)
+    ElMessage.error(getErrorMessage(e, '获取用户列表失败'))
     users.value = []
     pagination.total = 0
   } finally {
@@ -271,13 +286,13 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
 })
 
 // 查看详情
-const handleViewDetail = (row) => {
+const handleViewDetail = (row: User) => {
   currentUser.value = row
   detailVisible.value = true
 }
 
 // 封禁用户
-const handleBan = async (row) => {
+const handleBan = async (row: User) => {
   const { value: reason } = await ElMessageBox.prompt('请输入封禁原因', '封禁用户', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
@@ -298,7 +313,7 @@ const handleBan = async (row) => {
 }
 
 // 解封用户
-const handleUnban = async (row) => {
+const handleUnban = async (row: User) => {
   try {
     await ElMessageBox.confirm('确定要解封该用户吗？', '解封用户', {
       confirmButtonText: '确定',

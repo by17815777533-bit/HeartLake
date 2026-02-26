@@ -169,6 +169,12 @@
             >已{{ getStatusLabel(row.status) }}</span>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty
+            description="暂无举报数据"
+            :image-size="120"
+          />
+        </template>
       </el-table>
 
       <div class="pagination-wrapper">
@@ -192,9 +198,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import type { Report } from '@/types'
 
 const loading = ref(false)
-const reportList = ref([])
+const reportList = ref<Report[]>([])
 
 const filters = reactive({
   status: '',
@@ -257,7 +264,8 @@ const handleReport = async (row: { id: string; status: string }, action: string)
 
   try {
     await api.handleReport(row.id, { action, note: `管理员${actionText}` })
-    ElMessage.success(`${actionText}成功`)
+    const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    ElMessage.success(`${actionText}成功 [${ts}]，操作已记录到审计日志`)
     fetchReports()
   } catch (e) {
     ElMessage.error(getErrorMessage(e, `${actionText}失败`))
