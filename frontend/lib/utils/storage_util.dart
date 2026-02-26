@@ -53,16 +53,14 @@ class StorageUtil {
     await _secureStorage.delete(key: _refreshTokenKey);
   }
 
-  // 保存用户ID
+  // 保存用户ID (安全存储)
   static Future<void> saveUserId(String userId) async {
-    final prefs = await _instance;
-    await prefs.setString(_userIdKey, userId);
+    await _secureStorage.write(key: _userIdKey, value: userId);
   }
 
-  // 获取用户ID
+  // 获取用户ID (安全存储)
   static Future<String?> getUserId() async {
-    final prefs = await _instance;
-    return prefs.getString(_userIdKey);
+    return await _secureStorage.read(key: _userIdKey);
   }
 
   // 保存用户名

@@ -151,7 +151,9 @@ std::string PasetoUtil::verifyAdminToken(const std::string& token, const std::st
 
 std::string PasetoUtil::encrypt(const std::string& payload, const std::string& key) {
     std::vector<unsigned char> nonce(NONCE_SIZE);
-    RAND_bytes(nonce.data(), NONCE_SIZE);
+    if (RAND_bytes(nonce.data(), NONCE_SIZE) != 1) {
+        throw std::runtime_error("RAND_bytes failed: CSPRNG不可用，无法安全生成nonce");
+    }
 
     struct CtxDeleter { void operator()(EVP_CIPHER_CTX* p) { EVP_CIPHER_CTX_free(p); } };
     std::unique_ptr<EVP_CIPHER_CTX, CtxDeleter> ctx(EVP_CIPHER_CTX_new());

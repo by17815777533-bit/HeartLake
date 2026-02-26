@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Semaphore};
 use tracing::{error, info, warn};
 
 type SessionMap = Arc<RwLock<HashMap<String, HashMap<usize, Connection>>>>;
@@ -59,6 +59,13 @@ async fn main() -> Result<()> {
     let endpoint = start_quic_server(bind_addr)?;
     info!("QUIC gateway listening on {bind_addr}");
 
+    // 最大并发连接数限制，防止资源耗尽
+    let max_conns: usize = std::env::var("QUIC_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1000);
+    let conn_semaphore = Arc::new(Semaphore::new(max_conns));
+
     {
         let sessions = sessions.clone();
         let redis_url = redis_url.clone();
@@ -72,7 +79,16 @@ async fn main() -> Result<()> {
     while let Some(connecting) = endpoint.accept().await {
         let sessions = sessions.clone();
         let paseto_key = paseto_key;
+        let sem = conn_semaphore.clone();
         tokio::spawn(async move {
+            // 获取许可，连接结束时自动释放
+            let _permit = match sem.acquire_owned().await {
+                Ok(p) => p,
+                Err(_) => {
+                    warn!("connection semaphore closed, rejecting");
+                    return;
+                }
+            };
             match connecting.await {
                 Ok(conn) => {
                     if let Err(e) = handle_connection(conn, sessions, paseto_key).await {
@@ -89,11 +105,19 @@ async fn main() -> Result<()> {
 
 fn read_paseto_key() -> Result<[u8; 32]> {
     let key = std::env::var("PASETO_KEY").context("PASETO_KEY is required for QUIC gateway auth")?;
-    if key.len() < 32 {
-        return Err(anyhow!("PASETO_KEY must be at least 32 bytes"));
+    // 优先尝试 base64 解码，失败则当作原始字节
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(&key)
+        .or_else(|_| URL_SAFE_NO_PAD.decode(&key))
+        .unwrap_or_else(|_| key.into_bytes());
+    if decoded.len() < 32 {
+        return Err(anyhow!(
+            "PASETO_KEY too short: got {} bytes, need at least 32",
+            decoded.len()
+        ));
     }
     let mut out = [0_u8; 32];
-    out.copy_from_slice(&key.as_bytes()[..32]);
+    out.copy_from_slice(&decoded[..32]);
     Ok(out)
 }
 
@@ -120,24 +144,53 @@ fn start_quic_server(bind_addr: SocketAddr) -> Result<Endpoint> {
 }
 
 fn build_server_config() -> Result<ServerConfig> {
-    let cert = rcgen::generate_simple_self_signed(vec![
-        "localhost".to_string(),
-        "127.0.0.1".to_string(),
-    ])?;
-
-    let cert_der = CertificateDer::from(cert.cert.der().to_vec());
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-        cert.key_pair.serialize_der(),
-    ));
+    let (cert_der, key_der) = load_tls_identity()?;
 
     let mut server_config = ServerConfig::with_single_cert(vec![cert_der], key_der)?;
     let mut transport_config = quinn::TransportConfig::default();
-    transport_config.max_concurrent_uni_streams(1024_u32.into());
-    transport_config.max_concurrent_bidi_streams(256_u32.into());
+    // 限制单向流并发数，防止资源耗尽攻击
+    transport_config.max_concurrent_uni_streams(32_u32.into());
+    transport_config.max_concurrent_bidi_streams(64_u32.into());
     transport_config.keep_alive_interval(Some(Duration::from_secs(20)));
     transport_config.max_idle_timeout(Some(Duration::from_secs(120).try_into()?));
     server_config.transport_config(Arc::new(transport_config));
     Ok(server_config)
+}
+
+/// 加载 TLS 证书和私钥。优先从 QUIC_TLS_CERT / QUIC_TLS_KEY 环境变量指定的文件读取，
+/// 若未配置则回退到自签名证书（仅适用于开发环境）。
+fn load_tls_identity() -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>)> {
+    let cert_path = std::env::var("QUIC_TLS_CERT").ok();
+    let key_path = std::env::var("QUIC_TLS_KEY").ok();
+
+    if let (Some(cp), Some(kp)) = (cert_path, key_path) {
+        let cert_pem = std::fs::read(&cp)
+            .with_context(|| format!("failed to read TLS cert from {cp}"))?;
+        let key_pem = std::fs::read(&kp)
+            .with_context(|| format!("failed to read TLS key from {kp}"))?;
+
+        let cert = rustls_pemfile::certs(&mut &cert_pem[..])
+            .next()
+            .ok_or_else(|| anyhow!("no certificate found in {cp}"))?
+            .context("failed to parse certificate PEM")?;
+        let key = rustls_pemfile::private_key(&mut &key_pem[..])
+            .context("failed to parse private key PEM")?
+            .ok_or_else(|| anyhow!("no private key found in {kp}"))?;
+
+        info!("loaded TLS identity from {cp} / {kp}");
+        return Ok((cert, key));
+    }
+
+    warn!("QUIC_TLS_CERT / QUIC_TLS_KEY not set — using self-signed certificate (dev only)");
+    let self_signed = rcgen::generate_simple_self_signed(vec![
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+    ])?;
+    let cert_der = CertificateDer::from(self_signed.cert.der().to_vec());
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+        self_signed.key_pair.serialize_der(),
+    ));
+    Ok((cert_der, key_der))
 }
 
 async fn handle_connection(conn: Connection, sessions: SessionMap, paseto_key: [u8; 32]) -> Result<()> {
@@ -231,16 +284,21 @@ fn verify_paseto_token(token: &str, key_material: [u8; 32]) -> Result<String> {
 }
 
 async fn run_redis_fanout(redis_url: String, sessions: SessionMap) -> Result<()> {
+    let mut backoff_secs = 2_u64;
+    const MAX_BACKOFF: u64 = 60;
     loop {
         match run_redis_fanout_once(&redis_url, &sessions).await {
             Ok(()) => {
                 warn!("redis fanout exited normally, reconnecting");
+                // 正常退出说明连接曾经成功，重置退避
+                backoff_secs = 2;
             }
             Err(e) => {
-                warn!("redis fanout error: {e:#}");
+                warn!("redis fanout error: {e:#}, retrying in {backoff_secs}s");
             }
         }
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+        backoff_secs = (backoff_secs * 2).min(MAX_BACKOFF);
     }
 }
 

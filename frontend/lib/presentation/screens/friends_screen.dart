@@ -2,7 +2,6 @@
 // @brief 好友列表界面
 // Created by 林子怡
 
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/friend_service.dart';
@@ -22,7 +21,7 @@ class FriendsScreen extends StatefulWidget {
 class _FriendsScreenState extends State<FriendsScreen>
     with TickerProviderStateMixin {
   final FriendService _friendService = FriendService();
-  List<dynamic> _friends = [];
+  List<Map<String, dynamic>> _friends = [];
   bool _isLoading = true;
   late AnimationController _listAnimController;
   late AnimationController _boatAnimController;

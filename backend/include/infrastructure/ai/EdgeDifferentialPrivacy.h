@@ -3,6 +3,7 @@
 #include <vector>
 #include <atomic>
 #include <mutex>
+#include <shared_mutex>
 #include <random>
 // DPConfig 统一定义在 DifferentialPrivacyEngine.h 中，避免 ODR 违规
 #include "infrastructure/ai/DifferentialPrivacyEngine.h"
@@ -103,7 +104,7 @@ private:
     std::atomic<float> consumedEpsilon_{0.0f};
     std::atomic<float> consumedDelta_{0.0f};
     std::mt19937 dpRng_{std::random_device{}()};
-    mutable std::mutex dpMutex_;
+    mutable std::shared_mutex dpMutex_;
 
     /**
      * @brief Laplace分布采样（逆CDF方法）

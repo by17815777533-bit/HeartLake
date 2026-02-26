@@ -8,8 +8,34 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Release optimization flags
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+# 安全编译选项（栈保护 + FORTIFY_SOURCE + PIE）
+add_compile_options(-fstack-protector-strong -D_FORTIFY_SOURCE=2)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -Wl,-z,relro,-z,now")
+
+# 可选：Sanitizer 构建（开发/测试用）
+option(HEARTLAKE_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(HEARTLAKE_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+option(HEARTLAKE_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+if(HEARTLAKE_ENABLE_ASAN)
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address)
+    message(STATUS "AddressSanitizer enabled")
+endif()
+if(HEARTLAKE_ENABLE_UBSAN)
+    add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=undefined)
+    message(STATUS "UndefinedBehaviorSanitizer enabled")
+endif()
+if(HEARTLAKE_ENABLE_TSAN)
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=thread)
+    message(STATUS "ThreadSanitizer enabled")
 endif()
 
 # ONNX Runtime (可选)

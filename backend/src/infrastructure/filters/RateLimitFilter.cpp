@@ -6,6 +6,7 @@
 #include "infrastructure/filters/RateLimitFilter.h"
 #include "utils/ResponseUtil.h"
 #include <drogon/drogon.h>
+#include <algorithm>
 
 using namespace drogon;
 using namespace heartlake::filters;
@@ -145,6 +146,25 @@ void AIRateLimitFilter::doFilter(const HttpRequestPtr& req,
     auto now = std::chrono::steady_clock::now();
     auto& times = aiRateLimitMap[clientKey];
     
+    // 防止 map 无限增长：超过 10000 个 key 时，删除最旧的一半
+    if (aiRateLimitMap.size() > 10000) {
+        // 收集每个 key 的最新请求时间
+        std::vector<std::pair<std::string, std::chrono::steady_clock::time_point>> entries;
+        entries.reserve(aiRateLimitMap.size());
+        for (const auto& [k, v] : aiRateLimitMap) {
+            auto latest = v.empty() ? std::chrono::steady_clock::time_point{} : v.back();
+            entries.emplace_back(k, latest);
+        }
+        // 按最新请求时间升序排列，前一半是最旧的
+        std::sort(entries.begin(), entries.end(),
+            [](const auto& a, const auto& b) { return a.second < b.second; });
+        size_t removeCount = entries.size() / 2;
+        for (size_t i = 0; i < removeCount; ++i) {
+            aiRateLimitMap.erase(entries[i].first);
+        }
+        LOG_INFO << "AI rate limit map 淘汰了 " << removeCount << " 个过期条目";
+    }
+
     // 清理60秒前的记录
     auto windowStart = now - std::chrono::seconds(60);
     times.erase(
@@ -152,7 +172,7 @@ void AIRateLimitFilter::doFilter(const HttpRequestPtr& req,
             [windowStart](const auto& t) { return t < windowStart; }),
         times.end()
     );
-    
+
     // AI API限制：每分钟20次
     if (times.size() >= 20) {
         LOG_WARN << "AI rate limit exceeded for: " << clientKey;

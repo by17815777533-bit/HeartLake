@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <atomic>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -152,8 +153,10 @@ public:
 
 private:
     EdgeAIEngine() = default;
-    std::atomic<bool> enabled_{false};      ///< 多线程读写，必须原子
-    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
+    void initializeImpl(const Json::Value& config);  ///< 实际初始化逻辑
+    std::once_flag initFlag_;               ///< 保证 initialize() 只执行一次
+    std::atomic<bool> enabled_{false};      ///< 多线程读写，acquire/release 语义
+    std::atomic<bool> initialized_{false};  ///< 多线程读写，acquire/release 语义
 
     // 8 个子系统
     std::unique_ptr<SentimentAnalyzer> sentiment_;

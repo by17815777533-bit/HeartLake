@@ -34,6 +34,7 @@ bool DifferentialPrivacyEngine::isEnabled() const {
 }
 
 void DifferentialPrivacyEngine::setConfig(const DPConfig& config) {
+    std::unique_lock<std::shared_mutex> lock(dpMutex_);
     dpConfig_ = config;
 }
 

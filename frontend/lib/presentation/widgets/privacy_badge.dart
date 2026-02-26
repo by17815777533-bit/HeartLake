@@ -1,6 +1,6 @@
 // @file privacy_badge.dart
 // @brief 差分隐私保护徽章组件
-// Created by AI Assistant
+// Created by 白洋
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';

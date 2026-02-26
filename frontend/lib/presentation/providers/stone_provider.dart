@@ -25,13 +25,13 @@ class StoneProvider with ChangeNotifier {
 
   // WebSocket 监听器引用
   bool _wsRegistered = false;
-  late final void Function(Map<String, dynamic>) _onNewStone;
-  late final void Function(Map<String, dynamic>) _onBoatUpdate;
-  late final void Function(Map<String, dynamic>) _onRippleUpdate;
-  late final void Function(Map<String, dynamic>) _onStoneDeleted;
-  late final void Function(Map<String, dynamic>) _onBoatDeleted;
-  late final void Function(Map<String, dynamic>) _onRippleDeleted;
-  late final void Function(Map<String, dynamic>) _onReconnected;
+  void Function(Map<String, dynamic>)? _onNewStone;
+  void Function(Map<String, dynamic>)? _onBoatUpdate;
+  void Function(Map<String, dynamic>)? _onRippleUpdate;
+  void Function(Map<String, dynamic>)? _onStoneDeleted;
+  void Function(Map<String, dynamic>)? _onBoatDeleted;
+  void Function(Map<String, dynamic>)? _onRippleDeleted;
+  void Function(Map<String, dynamic>)? _onReconnected;
 
   // Getters
   List<Stone> get stones => List.unmodifiable(_stones);
@@ -53,28 +53,31 @@ class StoneProvider with ChangeNotifier {
     if (_wsRegistered) return;
     _wsRegistered = true;
 
-    _onNewStone = (data) {
+    final onNewStone = (Map<String, dynamic> data) {
       if (kDebugMode) {
         debugPrint('[StoneProvider] 收到 new_stone');
       }
       _handleNewStone(data);
     };
+    _onNewStone = onNewStone;
 
-    _onBoatUpdate = (data) {
+    final onBoatUpdate = (Map<String, dynamic> data) {
       if (kDebugMode) {
         debugPrint('[StoneProvider] 收到 boat_update');
       }
       _handleBoatUpdate(data);
     };
+    _onBoatUpdate = onBoatUpdate;
 
-    _onRippleUpdate = (data) {
+    final onRippleUpdate = (Map<String, dynamic> data) {
       if (kDebugMode) {
         debugPrint('[StoneProvider] 收到 ripple_update');
       }
       _handleRippleUpdate(data);
     };
+    _onRippleUpdate = onRippleUpdate;
 
-    _onStoneDeleted = (data) {
+    final onStoneDeleted = (Map<String, dynamic> data) {
       if (kDebugMode) {
         debugPrint('[StoneProvider] 收到 stone_deleted');
       }
@@ -235,12 +238,7 @@ class StoneProvider with ChangeNotifier {
       if (!refresh) {
         final cached = _cache.get<List<Stone>>('${_cachePrefix}page_$page');
         if (cached != null) {
-          if (refresh) {
-            _stones = cached;
-            _currentPage = 1;
-          } else {
-            _stones.addAll(cached);
-          }
+          _stones.addAll(cached);
           _isLoading = false;
           notifyListeners();
           return;

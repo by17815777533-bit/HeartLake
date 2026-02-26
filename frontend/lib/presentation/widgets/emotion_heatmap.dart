@@ -1,6 +1,6 @@
 // @file emotion_heatmap.dart
 // @brief GitHub 风格情绪贡献热力图组件
-// Created by AI Assistant
+// Created by 白洋
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

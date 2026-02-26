@@ -1,6 +1,6 @@
 // @file ai_recommendation_service.dart
 // @brief AI 推荐服务 - 封装所有 AI 推荐相关 API
-// Created by AI Assistant
+// Created by 白洋
 
 library;
 

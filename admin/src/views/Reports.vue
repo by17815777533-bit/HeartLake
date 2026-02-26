@@ -204,23 +204,23 @@ const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleR
   defaultFilters: { status: '', type: '' },
 })
 
-const getTypeLabel = (type) => {
-  const map = { spam: '垃圾信息', harassment: '骚扰辱骂', inappropriate: '不当内容', violence: '暴力内容', other: '其他' }
+const getTypeLabel = (type: string) => {
+  const map: Record<string, string> = { spam: '垃圾信息', harassment: '骚扰辱骂', inappropriate: '不当内容', violence: '暴力内容', other: '其他' }
   return map[type] || type
 }
 
-const getTypeColor = (type) => {
-  const map = { spam: '#909399', harassment: '#E07A5F', inappropriate: '#F2CC8F', violence: '#E6A23C', other: '#81B29A' }
+const getTypeColor = (type: string) => {
+  const map: Record<string, string> = { spam: '#909399', harassment: '#E07A5F', inappropriate: '#F2CC8F', violence: '#E6A23C', other: '#81B29A' }
   return map[type] || '#909399'
 }
 
-const getStatusType = (status) => {
-  const map = { pending: 'warning', handled: 'success', ignored: 'info' }
+const getStatusType = (status: string) => {
+  const map: Record<string, string> = { pending: 'warning', handled: 'success', ignored: 'info' }
   return map[status] || 'info'
 }
 
-const getStatusLabel = (status) => {
-  const map = { pending: '待处理', handled: '已处理', ignored: '已忽略' }
+const getStatusLabel = (status: string) => {
+  const map: Record<string, string> = { pending: '待处理', handled: '已处理', ignored: '已忽略' }
   return map[status] || status
 }
 
@@ -244,7 +244,7 @@ async function fetchReports() {
   }
 }
 
-const handleReport = async (row, action) => {
+const handleReport = async (row: { id: string; status: string }, action: string) => {
   const actionText = action === 'handled' ? '处理' : '忽略'
 
   try {

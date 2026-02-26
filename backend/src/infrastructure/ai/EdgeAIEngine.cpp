@@ -124,10 +124,16 @@ EdgeAIEngine& EdgeAIEngine::getInstance() {
 }
 
 void EdgeAIEngine::initialize(const Json::Value& config) {
+    std::call_once(initFlag_, [this, &config]() {
+        initializeImpl(config);
+    });
+}
+
+void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     LOG_INFO << "[EdgeAI] Initializing Edge AI Engine...";
 
-    enabled_ = config.get("enabled", true).asBool();
-    if (!enabled_) {
+    enabled_.store(config.get("enabled", true).asBool(), std::memory_order_release);
+    if (!enabled_.load(std::memory_order_acquire)) {
         LOG_WARN << "[EdgeAI] Edge AI Engine is disabled by configuration";
         return;
     }
@@ -174,7 +180,7 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
     // 内容审核
     moderator_->buildModerationAC();
 
-    initialized_ = true;
+    initialized_.store(true, std::memory_order_release);
     LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully (facade mode)";
 
 #ifdef HEARTLAKE_USE_ONNX
@@ -218,7 +224,8 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
 }
 
 bool EdgeAIEngine::isEnabled() const {
-    return enabled_ && initialized_;
+    return enabled_.load(std::memory_order_acquire)
+        && initialized_.load(std::memory_order_acquire);
 }
 
 // ============================================================================
@@ -441,8 +448,8 @@ Json::Value EdgeAIEngine::getNodeDashboard() const {
 
 Json::Value EdgeAIEngine::getEngineStats() const {
     Json::Value stats;
-    stats["enabled"] = enabled_.load();
-    stats["initialized"] = initialized_.load();
+    stats["enabled"] = enabled_.load(std::memory_order_acquire);
+    stats["initialized"] = initialized_.load(std::memory_order_acquire);
 
     if (sentiment_) {
         stats["total_sentiment_calls"] = static_cast<Json::UInt64>(sentiment_->getTotalCalls());

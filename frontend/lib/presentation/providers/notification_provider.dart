@@ -176,7 +176,7 @@ class NotificationProvider with ChangeNotifier {
       );
       if (result['success'] == true) {
         final items = result['notifications'] as List? ?? [];
-        final newItems = items.cast<Map<String, dynamic>>();
+        final newItems = items.whereType<Map<String, dynamic>>().toList();
         _notifications.addAll(newItems);
         _hasMore = newItems.length >= _pageSize;
         _currentPage++;

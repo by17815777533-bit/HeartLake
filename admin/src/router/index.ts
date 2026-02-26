@@ -29,8 +29,8 @@ const router = createRouter({
         { path: 'edge-ai', component: () => import('@/views/EdgeAI.vue'), meta: { title: '边缘AI', requiresAuth: true } },
       ]
     },
-    // L-3: 404 catch-all 路由，重定向到 dashboard
-    { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
+    // 404 catch-all：未匹配路由统一跳转登录页，由路由守卫决定后续去向
+    { path: '/:pathMatch(.*)*', redirect: '/login' }
   ]
 })
 

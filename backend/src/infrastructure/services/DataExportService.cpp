@@ -9,6 +9,8 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <algorithm>
+#include <stdexcept>
 
 namespace heartlake {
 namespace infrastructure {
@@ -92,11 +94,25 @@ void DataExportService::processExportTask(const std::string& taskId, const std::
         std::string jsonData = exportUserData(userId);
         std::string checksum = calculateChecksum(jsonData);
 
+        // taskId 白名单校验：只允许字母数字和连字符，防止路径穿越
+        auto isValidTaskId = [](const std::string& id) {
+            return !id.empty() && std::all_of(id.begin(), id.end(), [](char c) {
+                return std::isalnum(static_cast<unsigned char>(c)) || c == '-';
+            });
+        };
+        if (!isValidTaskId(taskId)) {
+            throw std::invalid_argument("非法的 taskId，仅允许字母数字和连字符");
+        }
+
         // 保存到文件
         std::string filePath = "./exports/" + taskId + ".json";
         std::ofstream outFile(filePath);
         outFile << jsonData;
         outFile.close();
+
+        if (!outFile.good()) {
+            throw std::runtime_error("导出文件写入失败: " + filePath);
+        }
 
         std::string downloadUrl = "/api/account/export/download/" + taskId;
         updateTaskStatus(taskId, "completed", downloadUrl, checksum);

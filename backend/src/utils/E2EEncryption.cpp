@@ -108,24 +108,24 @@ std::optional<EncryptedMessage> E2EEncryption::encrypt(const std::string& plaint
     std::vector<unsigned char> ciphertext(plaintext.size() + 16);
     std::vector<unsigned char> tag(TAG_SIZE);
 
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    // RAII管理EVP_CIPHER_CTX，异常路径下自动释放
+    struct CipherCtxDeleter { void operator()(EVP_CIPHER_CTX* p) const { if (p) EVP_CIPHER_CTX_free(p); } };
+    std::unique_ptr<EVP_CIPHER_CTX, CipherCtxDeleter> ctx(EVP_CIPHER_CTX_new());
     if (!ctx) return std::nullopt;
 
     int len = 0, ciphertextLen = 0;
     bool success = true;
 
-    success = success && EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
-    success = success && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_SIZE, nullptr);
-    success = success && EVP_EncryptInit_ex(ctx, nullptr, nullptr, keyBytes.data(), iv.data());
-    success = success && EVP_EncryptUpdate(ctx, ciphertext.data(), &len,
+    success = success && EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
+    success = success && EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_IVLEN, IV_SIZE, nullptr);
+    success = success && EVP_EncryptInit_ex(ctx.get(), nullptr, nullptr, keyBytes.data(), iv.data());
+    success = success && EVP_EncryptUpdate(ctx.get(), ciphertext.data(), &len,
                                             reinterpret_cast<const unsigned char*>(plaintext.data()),
                                             static_cast<int>(plaintext.size()));
     ciphertextLen = len;
-    success = success && EVP_EncryptFinal_ex(ctx, ciphertext.data() + len, &len);
+    success = success && EVP_EncryptFinal_ex(ctx.get(), ciphertext.data() + len, &len);
     ciphertextLen += len;
-    success = success && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_SIZE, tag.data());
-
-    EVP_CIPHER_CTX_free(ctx);
+    success = success && EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_GET_TAG, TAG_SIZE, tag.data());
 
     if (!success) return std::nullopt;
 
@@ -144,24 +144,23 @@ std::optional<std::string> E2EEncryption::decrypt(const EncryptedMessage& encryp
         return std::nullopt;
 
     std::vector<unsigned char> plaintext(ciphertext.size());
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    struct CipherCtxDeleter { void operator()(EVP_CIPHER_CTX* p) const { if (p) EVP_CIPHER_CTX_free(p); } };
+    std::unique_ptr<EVP_CIPHER_CTX, CipherCtxDeleter> ctx(EVP_CIPHER_CTX_new());
     if (!ctx) return std::nullopt;
 
     int len = 0, plaintextLen = 0;
     bool success = true;
 
-    success = success && EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
-    success = success && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, IV_SIZE, nullptr);
-    success = success && EVP_DecryptInit_ex(ctx, nullptr, nullptr, keyBytes.data(), iv.data());
-    success = success && EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
+    success = success && EVP_DecryptInit_ex(ctx.get(), EVP_aes_256_gcm(), nullptr, nullptr, nullptr);
+    success = success && EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_IVLEN, IV_SIZE, nullptr);
+    success = success && EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr, keyBytes.data(), iv.data());
+    success = success && EVP_DecryptUpdate(ctx.get(), plaintext.data(), &len, ciphertext.data(),
                                             static_cast<int>(ciphertext.size()));
     plaintextLen = len;
-    success = success && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_SIZE,
+    success = success && EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_TAG, TAG_SIZE,
                                               const_cast<unsigned char*>(tag.data()));
-    success = success && EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len);
+    success = success && EVP_DecryptFinal_ex(ctx.get(), plaintext.data() + len, &len);
     plaintextLen += len;
-
-    EVP_CIPHER_CTX_free(ctx);
 
     if (!success) return std::nullopt;
 
@@ -176,13 +175,18 @@ std::string E2EEncryption::deriveSessionKey(const std::string& sharedSecret,
 
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
     if (ctx) {
-        EVP_PKEY_derive_init(ctx);
-        EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256());
-        EVP_PKEY_CTX_set1_hkdf_salt(ctx, saltBytes.data(), saltBytes.size());
-        EVP_PKEY_CTX_set1_hkdf_key(ctx, secretBytes.data(), secretBytes.size());
+        bool ok = true;
+        ok = ok && (EVP_PKEY_derive_init(ctx) > 0);
+        ok = ok && (EVP_PKEY_CTX_set_hkdf_md(ctx, EVP_sha256()) > 0);
+        ok = ok && (EVP_PKEY_CTX_set1_hkdf_salt(ctx, saltBytes.data(), saltBytes.size()) > 0);
+        ok = ok && (EVP_PKEY_CTX_set1_hkdf_key(ctx, secretBytes.data(), secretBytes.size()) > 0);
         size_t outLen = KEY_SIZE;
-        EVP_PKEY_derive(ctx, derived.data(), &outLen);
+        ok = ok && (EVP_PKEY_derive(ctx, derived.data(), &outLen) > 0);
         EVP_PKEY_CTX_free(ctx);
+        if (!ok) {
+            // HKDF 失败，清零派生密钥
+            OPENSSL_cleanse(derived.data(), derived.size());
+        }
     }
     return base64Encode(derived);
 }

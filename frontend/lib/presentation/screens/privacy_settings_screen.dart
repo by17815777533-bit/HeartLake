@@ -1,8 +1,9 @@
 // @file privacy_settings_screen.dart
 // @brief 隐私与安全设置页面 - 隐私开关、数据导出、账号注销
-// Created by AI Assistant
+// Created by 白洋
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/datasources/account_service.dart';
 import '../../utils/app_theme.dart';
 
@@ -69,9 +70,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         );
       }
     } catch (e) {
+      if (kDebugMode) debugPrint('隐私设置保存失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), backgroundColor: AppTheme.errorColor),
+          const SnackBar(content: Text('保存失败，请检查网络后重试'), backgroundColor: AppTheme.errorColor),
         );
       }
     } finally {
@@ -102,9 +104,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         );
       }
     } catch (e) {
+      if (kDebugMode) debugPrint('数据导出失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败: $e'), backgroundColor: AppTheme.errorColor),
+          const SnackBar(content: Text('导出失败，请稍后重试'), backgroundColor: AppTheme.errorColor),
         );
       }
     } finally {
@@ -139,9 +142,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
+      if (kDebugMode) debugPrint('账号停用失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e'), backgroundColor: AppTheme.errorColor),
+          const SnackBar(content: Text('操作失败，请稍后重试'), backgroundColor: AppTheme.errorColor),
         );
       }
     }
@@ -190,9 +194,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
+      if (kDebugMode) debugPrint('账号删除失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e'), backgroundColor: AppTheme.errorColor),
+          const SnackBar(content: Text('删除失败，请稍后重试'), backgroundColor: AppTheme.errorColor),
         );
       }
     }

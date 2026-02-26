@@ -252,8 +252,8 @@ const rules = {
   level: [{ required: true, message: '请选择级别', trigger: 'change' }],
 }
 
-const getLevelType = (level) => ({ low: 'info', medium: 'warning', high: 'danger' }[level] || 'info')
-const getLevelLabel = (level) => ({ low: '低', medium: '中', high: '高' }[level] || level)
+const getLevelType = (level: string) => ({ low: 'info', medium: 'warning', high: 'danger' }[level] || 'info')
+const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' }[level] || level)
 
 async function fetchWords() {
   loading.value = true
@@ -279,7 +279,7 @@ const showAddDialog = () => {
   dialogVisible.value = true
 }
 
-const showEditDialog = (row) => {
+const showEditDialog = (row: { id: number; word: string; level: string; replacement?: string }) => {
   isEdit.value = true
   currentId.value = row.id
   Object.assign(form, { word: row.word, level: row.level, replacement: row.replacement || '' })
@@ -308,7 +308,7 @@ const handleSubmit = async () => {
   }
 }
 
-const handleDelete = async (row) => {
+const handleDelete = async (row: { id: number }) => {
   try {
     await api.deleteSensitiveWord(row.id)
     ElMessage.success('删除成功')

@@ -100,10 +100,10 @@ class AuthService extends BaseService {
 
   // Token 刷新
   Future<Map<String, dynamic>> refreshToken() async {
-    final token = await StorageUtil.getToken();
-    if (token == null) return {'success': false, 'code': 401};
+    final refreshTk = await StorageUtil.getRefreshToken();
+    if (refreshTk == null) return {'success': false, 'code': 401};
 
-    final response = await post('/auth/refresh', data: {'token': token});
+    final response = await post('/auth/refresh', data: {'refresh_token': refreshTk});
     if (!response.success) return toMap(response);
 
     final data = response.data;

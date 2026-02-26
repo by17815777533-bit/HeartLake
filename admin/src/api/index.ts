@@ -153,6 +153,10 @@ export default {
   // Content
   getContents: (params?: Params) => http.get('/admin/contents', { params }),
   deleteContent: (id: string) => http.delete(`/admin/contents/${id}`),
+  getStones: (params?: Params) => http.get('/admin/contents/stones', { params }),
+  getBoats: (params?: Params) => http.get('/admin/contents/boats', { params }),
+  deleteStone: (id: string, reason: string) => http.delete(`/admin/contents/stones/${id}`, { data: { reason } }),
+  deleteBoat: (id: string, reason: string) => http.delete(`/admin/contents/boats/${id}`, { data: { reason } }),
   // Reports
   getReports: (params?: Params) => http.get('/admin/reports', { params }),
   handleReport: (id: string, data: Params) => http.post(`/admin/reports/${id}/handle`, data),

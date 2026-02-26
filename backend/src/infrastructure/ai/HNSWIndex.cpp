@@ -52,8 +52,10 @@ void HNSWIndex::clear() {
 // ============================================================================
 
 int HNSWIndex::randomLevel() {
+    // thread_local 消除多线程并发插入时对 rng_ 的数据竞争
+    thread_local static std::mt19937 tlRng{std::random_device{}()};
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    float r = dist(rng_);
+    float r = dist(tlRng);
     return static_cast<int>(-std::log(r) * levelMult_);
 }
 

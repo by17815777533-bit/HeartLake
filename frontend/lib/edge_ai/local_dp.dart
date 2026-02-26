@@ -5,7 +5,7 @@ import 'dart:math';
 
 class LocalDifferentialPrivacy {
   final double epsilon;
-  final Random _random = Random();
+  final Random _random = Random.secure();
 
   LocalDifferentialPrivacy({required this.epsilon});
 

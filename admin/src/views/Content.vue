@@ -247,13 +247,13 @@ const { pagination, handleSizeChange, handleCurrentChange, handleSearch, handleR
   },
 })
 
-const getStatusType = (status) => {
-  const map = { published: 'success', pending: 'warning', deleted: 'danger' }
+const getStatusType = (status: string) => {
+  const map: Record<string, string> = { published: 'success', pending: 'warning', deleted: 'danger' }
   return map[status] || 'info'
 }
 
-const getStatusLabel = (status) => {
-  const map = { published: '已发布', pending: '待审核', deleted: '已删除' }
+const getStatusLabel = (status: string) => {
+  const map: Record<string, string> = { published: '已发布', pending: '待审核', deleted: '已删除' }
   return map[status] || status
 }
 
@@ -267,12 +267,8 @@ async function fetchContent() {
     if (filters.status) params.status = filters.status
     if (filters.keyword) params.keyword = filters.keyword
 
-    let res
-    if (filters.type === 'boat') {
-      res = await api.getBoats(params)
-    } else {
-      res = await api.getStones(params)
-    }
+    if (filters.type) params.type = filters.type
+    const res = await api.getContents(params)
 
     const resData = res.data?.data || res.data || {}
     const list = resData.stones || resData.boats || resData.list || []
@@ -294,13 +290,13 @@ async function fetchContent() {
   }
 }
 
-const viewContent = (row) => {
+const viewContent = (row: { id: string; type: string; content: string; user?: { nickname: string }; status: string; created_at: string }) => {
   currentContent.value = row
   detailVisible.value = true
 }
 
 // M-6: 删除内容需输入原因
-const deleteContent = async (row) => {
+const deleteContent = async (row: { id: string; type: string }) => {
   const { value: reason } = await ElMessageBox.prompt('请输入删除原因', '删除内容', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

@@ -7,6 +7,7 @@ library;
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_config.dart';
 import '../../utils/app_logger.dart';
@@ -67,11 +68,9 @@ class ApiClient {
         client.maxConnectionsPerHost = appConfig.maxConnections;
         client.idleTimeout = appConfig.idleTimeout;
         client.connectionTimeout = appConfig.connectTimeout;
-        // S-3: 生产环境拒绝无效证书，防止中间人攻击
-        if (appConfig.isProduction) {
-          client.badCertificateCallback =
-              (X509Certificate cert, String host, int port) => false;
-        }
+        // release 模式下拒绝无效证书，防止中间人攻击
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => !kReleaseMode;
         return client;
       };
     }
@@ -472,7 +471,8 @@ class ApiClient {
     }
   }
 
-  /// 获取Dio实例（用于高级用法）
+  /// 获取Dio实例（仅限测试使用）
+  @visibleForTesting
   Dio get dio => _dio;
 
   /// 更新基础URL

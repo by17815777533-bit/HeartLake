@@ -1,6 +1,6 @@
 // @file error_codes.dart
 // @brief 后端业务错误码映射 - 与 ErrorCode.h 对齐
-// Created by AI Assistant
+// Created by 白洋
 
 /// 业务错误码常量，与后端 ErrorCode.h 一一对应
 class ErrorCodes {

@@ -9,7 +9,7 @@ namespace ai {
 void EdgeDifferentialPrivacy::configure(const DPConfig& config) {
     // configure() 修改 dpConfig_，而 addLaplaceNoise 等方法读取 dpConfig_，
     // 必须加锁保护避免数据竞争
-    std::lock_guard<std::mutex> lock(dpMutex_);
+    std::unique_lock<std::shared_mutex> lock(dpMutex_);
     dpConfig_ = config;
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
@@ -30,7 +30,7 @@ float EdgeDifferentialPrivacy::sampleLaplace(float scale) {
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
     float u;
     {
-        std::lock_guard<std::mutex> lock(dpMutex_);
+        std::unique_lock<std::shared_mutex> lock(dpMutex_);
         u = dist(dpRng_);
     }
 
@@ -50,7 +50,7 @@ float EdgeDifferentialPrivacy::sampleLaplace(float scale) {
 
 float EdgeDifferentialPrivacy::sampleGaussian(float sigma) {
     std::normal_distribution<float> dist(0.0f, sigma);
-    std::lock_guard<std::mutex> lock(dpMutex_);
+    std::unique_lock<std::shared_mutex> lock(dpMutex_);
     return dist(dpRng_);
 }
 
@@ -59,15 +59,23 @@ float EdgeDifferentialPrivacy::sampleGaussian(float sigma) {
 // ============================================================================
 
 float EdgeDifferentialPrivacy::addLaplaceNoise(float value, float sensitivity) {
+    // 读取 dpConfig_ 需要 shared_lock 保护，防止与 configure() 竞争
+    float maxBudget, cfgEpsilon;
+    {
+        std::shared_lock<std::shared_mutex> rlock(dpMutex_);
+        maxBudget = dpConfig_.maxEpsilonBudget;
+        cfgEpsilon = dpConfig_.epsilon;
+    }
+
     // 检查隐私预算
-    float remaining = dpConfig_.maxEpsilonBudget - consumedEpsilon_.load();
+    float remaining = maxBudget - consumedEpsilon_.load();
     if (remaining <= 0.0f) {
         LOG_WARN << "[EdgeDP] Privacy budget exhausted, returning original value";
         return value;
     }
 
     // 使用配置的epsilon，但不超过剩余预算
-    float epsilon = std::min(dpConfig_.epsilon, remaining);
+    float epsilon = std::min(cfgEpsilon, remaining);
     if (epsilon < 1e-10f) epsilon = 1e-10f;  // 防止除零
 
     // Laplace噪声尺度: b = Δf / ε
@@ -83,13 +91,21 @@ float EdgeDifferentialPrivacy::addLaplaceNoise(float value, float sensitivity) {
 
 std::vector<float> EdgeDifferentialPrivacy::addLaplaceNoiseVec(const std::vector<float>& values,
                                                                 float sensitivity) {
-    float remaining = dpConfig_.maxEpsilonBudget - consumedEpsilon_.load();
+    // 读取 dpConfig_ 需要 shared_lock 保护
+    float maxBudget, cfgEpsilon;
+    {
+        std::shared_lock<std::shared_mutex> rlock(dpMutex_);
+        maxBudget = dpConfig_.maxEpsilonBudget;
+        cfgEpsilon = dpConfig_.epsilon;
+    }
+
+    float remaining = maxBudget - consumedEpsilon_.load();
     if (remaining <= 0.0f) {
         LOG_WARN << "[EdgeDP] Privacy budget exhausted, returning original vector";
         return values;
     }
 
-    float epsilon = std::min(dpConfig_.epsilon, remaining);
+    float epsilon = std::min(cfgEpsilon, remaining);
     if (epsilon < 1e-10f) epsilon = 1e-10f;  // 防止除零
     // 组合定理：将总预算均分到每个维度，确保总隐私消耗为 epsilon
     float perDimEpsilon = epsilon / static_cast<float>(values.size());
@@ -99,7 +115,7 @@ std::vector<float> EdgeDifferentialPrivacy::addLaplaceNoiseVec(const std::vector
     const size_t n = values.size();
     std::vector<float> uniforms(n);
     {
-        std::lock_guard<std::mutex> lock(dpMutex_);
+        std::unique_lock<std::shared_mutex> lock(dpMutex_);
         std::uniform_real_distribution<float> dist(1e-7f, 1.0f - 1e-7f);
         for (size_t i = 0; i < n; ++i) {
             uniforms[i] = dist(dpRng_);
@@ -130,28 +146,38 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
                                                                  float delta) {
     if (values.empty()) return values;
 
+    // 读取 dpConfig_ 需要 shared_lock 保护
+    float cfgDelta, maxEpsBudget, maxDeltaBudget, cfgEpsilon;
+    {
+        std::shared_lock<std::shared_mutex> rlock(dpMutex_);
+        cfgDelta = dpConfig_.delta;
+        maxEpsBudget = dpConfig_.maxEpsilonBudget;
+        maxDeltaBudget = dpConfig_.maxDeltaBudget;
+        cfgEpsilon = dpConfig_.epsilon;
+    }
+
     // 使用传入的 delta，若为 0 则使用配置默认值
-    float useDelta = (delta > 0.0f) ? delta : dpConfig_.delta;
+    float useDelta = (delta > 0.0f) ? delta : cfgDelta;
     if (useDelta <= 0.0f || useDelta >= 1.0f) {
         LOG_WARN << "[EdgeDP] Invalid delta=" << useDelta << ", falling back to Laplace";
         return addLaplaceNoiseVec(values, sensitivity);
     }
 
     // 检查 epsilon 预算
-    float remainingEps = dpConfig_.maxEpsilonBudget - consumedEpsilon_.load();
+    float remainingEps = maxEpsBudget - consumedEpsilon_.load();
     if (remainingEps <= 0.0f) {
         LOG_WARN << "[EdgeDP] Epsilon budget exhausted, returning original vector";
         return values;
     }
 
     // 检查 delta 预算
-    float remainingDelta = dpConfig_.maxDeltaBudget - consumedDelta_.load();
+    float remainingDelta = maxDeltaBudget - consumedDelta_.load();
     if (remainingDelta <= 0.0f) {
         LOG_WARN << "[EdgeDP] Delta budget exhausted, returning original vector";
         return values;
     }
 
-    float epsilon = std::min(dpConfig_.epsilon, remainingEps);
+    float epsilon = std::min(cfgEpsilon, remainingEps);
     if (epsilon < 1e-10f) epsilon = 1e-10f;
     float effectiveDelta = std::min(useDelta, remainingDelta);
 
@@ -163,7 +189,7 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
     const size_t n = values.size();
     std::vector<float> result(n);
     {
-        std::lock_guard<std::mutex> lock(dpMutex_);
+        std::unique_lock<std::shared_mutex> lock(dpMutex_);
         std::normal_distribution<float> dist(0.0f, sigma);
         for (size_t i = 0; i < n; ++i) {
             result[i] = values[i] + dist(dpRng_);
@@ -185,20 +211,24 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
 // ============================================================================
 
 float EdgeDifferentialPrivacy::getRemainingPrivacyBudget() const {
+    std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     float consumed = consumedEpsilon_.load();
     return std::max(0.0f, dpConfig_.maxEpsilonBudget - consumed);
 }
 
 float EdgeDifferentialPrivacy::getRemainingDeltaBudget() const {
+    std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     float consumed = consumedDelta_.load();
     return std::max(0.0f, dpConfig_.maxDeltaBudget - consumed);
 }
 
 bool EdgeDifferentialPrivacy::isPrivacyBudgetExhausted() const {
+    std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     return consumedEpsilon_.load() >= dpConfig_.maxEpsilonBudget;
 }
 
 void EdgeDifferentialPrivacy::resetPrivacyBudget() {
+    std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
     LOG_INFO << "[EdgeDP] Privacy budget reset. Max epsilon budget: "
@@ -207,6 +237,7 @@ void EdgeDifferentialPrivacy::resetPrivacyBudget() {
 }
 
 DPConfig EdgeDifferentialPrivacy::getDPConfig() const {
+    std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     return dpConfig_;
 }
 

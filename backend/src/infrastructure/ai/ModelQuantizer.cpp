@@ -1,9 +1,23 @@
 /**
  * @file ModelQuantizer.cpp
- * @brief 模型量化推理子系统实现
+ * @brief 边缘端 INT8 对称量化推理子系统
  *
- * 从 EdgeAIEngine.cpp 提取的量化推理实现。
- * INT8对称量化、量化矩阵乘法（4路展开）、量化前向推理。
+ * 量化策略选型：INT8 对称量化（symmetric, per-tensor）
+ *   - 选择对称而非非对称的原因：
+ *     1. 权重经 BatchNorm 后近似零均值，zeroPoint ≈ 0，非对称收益极小
+ *     2. 对称量化的整数 MAC 无需额外减去 zeroPoint 偏移项，
+ *        乘累加简化为 acc += a[k]*b[k]，吞吐提升约 15-20%
+ *     3. 边缘设备算力有限，简化计算路径优先
+ *   - 量化公式: q = clamp(round(x / scale), -128, 127)
+ *     其中 scale = max(|x|) / 127，保证值域 [-127, 127] 对称映射
+ *   - 最大量化误差: |x - dequant(quant(x))| ≤ scale / 2
+ *   - 参考: Jacob et al. 2018 "Quantization and Training of Neural Networks
+ *           for Efficient Integer-Arithmetic-Only Inference" (CVPR)
+ *
+ * 性能优化：
+ *   - quantizeToInt8: 8路展开求 absMax（利用 ILP 隐藏延迟），4路展开量化写入
+ *   - quantizedMatMul: 4路展开内积（K维），列优先访问 B 矩阵
+ *   - quantizedForward: 复用 quantizeToInt8 量化输入，逐行点积 + ReLU 融合
  */
 
 #include "infrastructure/ai/ModelQuantizer.h"

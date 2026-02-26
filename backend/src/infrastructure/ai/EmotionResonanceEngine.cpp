@@ -143,7 +143,8 @@ float EmotionResonanceEngine::temporalDecay(const std::string& timestamp, float 
         ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
         if (ss.fail()) return 0.5f;
     }
-    auto stoneTime = std::mktime(&tm);
+    // timegm: 按 UTC 解析，避免 mktime 受本地时区影响导致衰减计算偏差
+    auto stoneTime = timegm(&tm);
     if (stoneTime == -1) return 0.5f;
     double hoursOld = std::difftime(nowTime, stoneTime) / 3600.0;
     if (hoursOld < 0) hoursOld = 0;
@@ -354,10 +355,21 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
                 continue;
             }
 
-            // 维度2: 情绪轨迹相似度 (DTW)
+            // 维度2: 情绪轨迹相似度 (DTW + LB_Keogh 剪枝)
+            // DTW 复杂度 O(n*w)，LB_Keogh 下界仅 O(n)
+            // 先用下界快速排除差异过大的轨迹，减少不必要的完整 DTW 计算
+            // 参考: Keogh 2005 "Exact indexing of dynamic time warping"
             auto candTraj = loadTrajectory(candUserId);
             if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
-                res.trajectoryScore = trajectorySimDTW(userTraj.scores, candTraj.scores);
+                float lbDist = lbKeogh(userTraj.scores, candTraj.scores);
+                // 将下界距离转换为相似度（与 DTW 输出同尺度的高斯核映射）
+                float lbSim = std::exp(-lbDist * lbDist / 2.0f);
+                if (lbSim < 0.1f) {
+                    // 下界已表明轨迹差异极大，直接用下界估计值，跳过昂贵的 DTW
+                    res.trajectoryScore = lbSim;
+                } else {
+                    res.trajectoryScore = trajectorySimDTW(userTraj.scores, candTraj.scores);
+                }
             } else {
                 // 无轨迹数据时退化为情绪分数差异
                 float scoreDiff = std::abs(userTraj.currentScore - candTraj.currentScore);
@@ -369,15 +381,12 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
 
             // 维度4: 多样性奖励
             res.diversityScore = diversityBonus(sourceMood, candMood, recommendedMoods);
-            // 加权总分
-            const float a = alpha_.load(std::memory_order_relaxed);
-            const float b = beta_.load(std::memory_order_relaxed);
-            const float g = gamma_.load(std::memory_order_relaxed);
-            const float d = delta_.load(std::memory_order_relaxed);
-            res.totalScore = a * res.semanticScore
-                           + b * res.trajectoryScore
-                           + g * res.temporalScore
-                           + d * res.diversityScore;
+            // 加权总分 — 一次性拿到一致的权重快照，杜绝 torn-read
+            const auto w = getWeights();
+            res.totalScore = w.a * res.semanticScore
+                           + w.b * res.trajectoryScore
+                           + w.g * res.temporalScore
+                           + w.d * res.diversityScore;
 
             // 生成共鸣原因
             res.resonanceReason = generateResonanceReason(res, sourceMood, candMood);

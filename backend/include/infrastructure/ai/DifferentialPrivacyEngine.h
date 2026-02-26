@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <shared_mutex>
 #include <random>
 #include <vector>
 
@@ -56,7 +57,7 @@ public:
     /**
      * @brief 获取当前配置
      */
-    const DPConfig& getConfig() const;
+    DPConfig getConfig() const;
 
     /**
      * @brief 对浮点值添加Laplace噪声
@@ -120,7 +121,7 @@ private:
     DPConfig dpConfig_;
     std::atomic<float> consumedEpsilon_{0.0f};  ///< 已消耗隐私预算 ε
     std::atomic<float> consumedDelta_{0.0f};    ///< 已消耗隐私预算 δ
-    mutable std::mutex dpMutex_;
+    mutable std::shared_mutex dpMutex_;
     std::mt19937 dpRng_;                        ///< 随机数生成器
 };
 

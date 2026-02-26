@@ -55,9 +55,13 @@ class ConsultationService extends BaseService {
         payload = await _e2e.encrypt(content);
         encrypted = true;
       } catch (e) {
-        if (kDebugMode) debugPrint('消息加密失败: $e');
-        return {'success': false, 'message': '消息加密失败，请稍后重试'};
+        if (kDebugMode) debugPrint('[ConsultationService] 加密失败，拒绝发送明文: $e');
+        return {'success': false, 'message': '消息加密失败，请检查网络后重试'};
       }
+    } else {
+      // 咨询消息涉及隐私，E2E 未就绪时拒绝发送明文
+      if (kDebugMode) debugPrint('[ConsultationService] E2E未就绪，拒绝发送明文');
+      return {'success': false, 'message': '安全通道未建立，请稍后再试'};
     }
 
     final resp = await post('/consultation/message', data: {

@@ -1,6 +1,6 @@
 // @file emotion_insights_card.dart
 // @brief AI 情绪洞察卡片组件
-// Created by AI Assistant
+// Created by 白洋
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';

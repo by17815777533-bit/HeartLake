@@ -18,7 +18,6 @@ namespace filters {
 namespace {
 struct CorsConfig {
     std::set<std::string> allowedOrigins;
-    bool allowAll{false};
 };
 
 static const CorsConfig& getCorsConfig() {
@@ -33,8 +32,10 @@ static const CorsConfig& getCorsConfig() {
             if (!token.empty()) {
                 token.erase(token.find_last_not_of(" ") + 1);
             }
+            // 忽略通配符 *，生产环境必须显式列出允许的 origin
             if (token == "*") {
-                c.allowAll = true;
+                LOG_WARN << "[CORS] 忽略通配符 '*'，请在 CORS_ALLOWED_ORIGIN 中显式列出允许的域名";
+                continue;
             }
             if (!token.empty()) {
                 c.allowedOrigins.insert(token);
@@ -47,8 +48,6 @@ static const CorsConfig& getCorsConfig() {
 
 static bool isOriginAllowed(const std::string& origin, const CorsConfig& config) {
     if (origin.empty()) return false;
-    if (config.allowAll) return true;
-    // 仅允许 CORS_ALLOWED_ORIGIN 中显式配置的来源，不再硬编码放行 localhost
     return config.allowedOrigins.count(origin) > 0;
 }
 
@@ -59,14 +58,12 @@ static void addCorsHeaders(const drogon::HttpRequestPtr& req, const drogon::Http
         return;
     }
 
-    const std::string allowOrigin = config.allowAll ? "*" : origin;
+    const std::string allowOrigin = origin;
     resp->addHeader("Access-Control-Allow-Origin", allowOrigin);
     resp->addHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
     resp->addHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-User-Id,X-Request-Id");
     resp->addHeader("Access-Control-Allow-Credentials", "true");
-    if (allowOrigin != "*") {
-        resp->addHeader("Vary", "Origin");
-    }
+    resp->addHeader("Vary", "Origin");
 }
 } // namespace
 

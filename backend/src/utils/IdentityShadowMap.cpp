@@ -123,7 +123,9 @@ std::string IdentityShadowMap::hmacSha256(const std::string& input, const std::s
 
 std::string IdentityShadowMap::generateShadowId() {
     unsigned char bytes[16];
-    RAND_bytes(bytes, 16);
+    if (RAND_bytes(bytes, 16) != 1) {
+        throw std::runtime_error("RAND_bytes 失败，无法生成安全随机数");
+    }
 
     std::ostringstream oss;
     oss << "shd_";
