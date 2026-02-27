@@ -208,7 +208,12 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     if (modelExists && (!hasExplicitOnnxSwitch || onnxWanted)) {
         try {
             onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
-            onnxEngine_->initialize(resolvedModelPath.string(), resolvedVocabPath.string());
+            const int onnxThreads = parsePositiveIntEnv(std::getenv("EDGE_AI_ONNX_THREADS"), 2);
+            onnxEngine_->initialize(
+                resolvedModelPath.string(),
+                resolvedVocabPath.string(),
+                onnxThreads
+            );
             if (onnxEngine_->isInitialized()) {
                 onnxEnabled_ = true;
                 sentiment_->setOnnxEngine(std::move(onnxEngine_));

@@ -14,6 +14,7 @@ import {
   Expand, Fold, Monitor, Moon, Setting, Sunny,
   Tickets, User, Warning,
 } from '@element-plus/icons-vue'
+import './echarts'
 import App from './App.vue'
 import router from './router'
 import { useAppStore } from './stores'

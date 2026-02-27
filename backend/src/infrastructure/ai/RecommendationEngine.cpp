@@ -277,11 +277,44 @@ double RecommendationEngine::computeUserSimilarity(
     auto it1 = userProfiles_.find(userId1);
     auto it2 = userProfiles_.find(userId2);
     if (it1 == userProfiles_.end() || it2 == userProfiles_.end()) return 0.0;
+    if (userId1 == userId2) return 1.0;
 
-    return AdvancedEmbeddingEngine::cosineSimilarity(
-        it1->second.latentFactors,
-        it2->second.latentFactors
-    );
+    const auto& p1 = it1->second;
+    const auto& p2 = it2->second;
+
+    // latent 相似度归一到 [0,1]
+    const double latentRaw = AdvancedEmbeddingEngine::cosineSimilarity(
+        p1.latentFactors, p2.latentFactors);
+    const double latentSim = std::clamp((latentRaw + 1.0) * 0.5, 0.0, 1.0);
+
+    // 交互重叠（加权 Jaccard）：更贴近推荐业务语义，减少随机向量抖动
+    double sumMin = 0.0;
+    double sumMax = 0.0;
+    std::unordered_set<std::string> allItems;
+    allItems.reserve(p1.interactionCounts.size() + p2.interactionCounts.size());
+    for (const auto& [item, _] : p1.interactionCounts) allItems.insert(item);
+    for (const auto& [item, _] : p2.interactionCounts) allItems.insert(item);
+
+    for (const auto& item : allItems) {
+        const auto itCount1 = p1.interactionCounts.find(item);
+        const auto itCount2 = p2.interactionCounts.find(item);
+        const double c1 = (itCount1 == p1.interactionCounts.end())
+            ? 0.0
+            : static_cast<double>(itCount1->second);
+        const double c2 = (itCount2 == p2.interactionCounts.end())
+            ? 0.0
+            : static_cast<double>(itCount2->second);
+        sumMin += std::min(c1, c2);
+        sumMax += std::max(c1, c2);
+    }
+
+    if (sumMax <= 1e-12) {
+        return latentSim;
+    }
+    const double interactionSim = sumMin / sumMax;
+
+    // 交互重叠优先，latent 作为兜底（避免完全冷启动时不稳定）
+    return std::clamp(0.7 * interactionSim + 0.3 * latentSim, 0.0, 1.0);
 }
 
 double RecommendationEngine::computeItemSimilarity(

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-23T19:55:21Z",
+  "generated_at": "2026-02-27T02:49:42Z",
   "base_url": "http://127.0.0.1:8080",
   "functional": {
     "checks": [
@@ -29,7 +29,7 @@
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02",
+        "path": "/api/stones/stone_1b26ba4f-f7b0-482e-8412-0c1fec5218da",
         "status": 200,
         "ok": true
       },
@@ -41,19 +41,19 @@
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/ripples",
+        "path": "/api/stones/stone_1b26ba4f-f7b0-482e-8412-0c1fec5218da/ripples",
         "status": 200,
         "ok": true
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/boats",
+        "path": "/api/stones/stone_1b26ba4f-f7b0-482e-8412-0c1fec5218da/boats",
         "status": 200,
         "ok": true
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_5ccc2f50-4c93-49d0-9c4d-f671bc5dbd02/boats?page=1&page_size=20",
+        "path": "/api/stones/stone_1b26ba4f-f7b0-482e-8412-0c1fec5218da/boats?page=1&page_size=20",
         "status": 200,
         "ok": true
       },
@@ -245,18 +245,18 @@
         "name": "create_ripple",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_ffc5543fbbc3b2e1\",\"stone_id\":\"stone_5226d430-24f6-4d3d-841e-89cc8c76fd6c\",\"user_id\":\"anonymous_409e26267d4a\"},\"message\":\"\\u6d"
+        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_9edc37e4cec1a10f\",\"stone_id\":\"stone_0551c562-aa37-4fb2-98c3-d52d70c9e862\",\"user_id\":\"anonymous_0fd8722daa1a\"},\"message\":\"\\u6d"
       },
       {
         "name": "create_boat",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_8c9640cf16558080\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_409e26267d4a\",\"status\":\"sent\",\"ston"
+        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_a4535faa55d674bb\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_0fd8722daa1a\",\"status\":\"sent\",\"ston"
       },
       {
         "name": "boat_count_monotonic",
         "ok": true,
-        "before": 0,
+        "before": 1,
         "after": 2
       },
       {
@@ -279,51 +279,61 @@
   "accuracy": {
     "total": 32,
     "mood_accuracy": 0.9688,
-    "polarity_accuracy": 1.0,
-    "macro_f1": 0.9708,
+    "polarity_accuracy": 0.9688,
+    "macro_f1": 0.9769,
     "critical_case_total": 5,
     "critical_case_hit": 5,
     "critical_case_hit_rate": 1.0,
     "critical_case_detail": [
       {
         "text": "今天收到礼物，礼物很好看。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.9174,
+        "score": 0.6108,
         "ok": true
       },
       {
         "text": "老师今天夸了我。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.841,
+        "score": 0.4946,
         "ok": true
       },
       {
         "text": "我现在有点焦虑，心跳很快。",
+        "expected_mood_raw": "anxious",
         "expected_mood": "anxious",
+        "pred_mood_raw": "fear",
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.438,
+        "score": -0.3727,
         "ok": true
       },
       {
         "text": "朋友离开后我很难过。",
+        "expected_mood_raw": "sad",
         "expected_mood": "sad",
+        "pred_mood_raw": "sadness",
         "pred_mood": "sad",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.2529,
+        "score": -0.1,
         "ok": true
       },
       {
         "text": "什么都没发生，心情一般。",
+        "expected_mood_raw": "neutral",
         "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "neutral",
         "pred_polarity": "neutral",
@@ -335,8 +345,8 @@
       "happy": {
         "happy": 5
       },
-      "calm": {
-        "calm": 3,
+      "neutral": {
+        "neutral": 10,
         "happy": 1
       },
       "anxious": {
@@ -350,158 +360,182 @@
       },
       "surprised": {
         "surprised": 4
-      },
-      "confused": {
-        "confused": 3
-      },
-      "neutral": {
-        "neutral": 4
       }
     },
     "details": [
       {
         "text": "今天收到了礼物，心里暖暖的，特别开心。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.9089,
+        "score": 0.6128,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "老师今天夸了我，我觉得自己被认可了。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.8733,
+        "score": 0.5271,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "终于把任务做完了，整个人都放松下来。",
-        "expected_mood": "calm",
-        "pred_mood": "calm",
+        "expected_mood_raw": "calm",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "positive",
-        "pred_polarity": "positive",
-        "score": 0.7596,
+        "pred_polarity": "neutral",
+        "score": 0.1411,
         "ok_mood": true,
-        "ok_polarity": true
+        "ok_polarity": false
       },
       {
         "text": "下雨天在窗边喝茶，心情很平静。",
-        "expected_mood": "calm",
-        "pred_mood": "calm",
+        "expected_mood_raw": "calm",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.7469,
+        "score": 0.345,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "虽然有点紧张，但我相信自己可以。",
+        "expected_mood_raw": "anxious",
         "expected_mood": "anxious",
+        "pred_mood_raw": "fear",
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.12,
+        "score": -0.2977,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "明天要考试了，我一直担心发挥不好。",
+        "expected_mood_raw": "anxious",
         "expected_mood": "anxious",
+        "pred_mood_raw": "fear",
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.12,
+        "score": -0.357,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "今天被误解了，心里很难过。",
+        "expected_mood_raw": "sad",
         "expected_mood": "sad",
+        "pred_mood_raw": "sadness",
         "pred_mood": "sad",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.7402,
+        "score": -0.6899,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "朋友离开了这个城市，我有点失落。",
+        "expected_mood_raw": "sad",
         "expected_mood": "sad",
+        "pred_mood_raw": "sadness",
         "pred_mood": "sad",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.12,
+        "score": -0.3082,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "我被连续打断，真的很生气。",
+        "expected_mood_raw": "angry",
         "expected_mood": "angry",
+        "pred_mood_raw": "anger",
         "pred_mood": "angry",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.8145,
+        "score": -0.6333,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "项目被莫名否定，我很愤怒。",
+        "expected_mood_raw": "angry",
         "expected_mood": "angry",
+        "pred_mood_raw": "anger",
         "pred_mood": "angry",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.7901,
+        "score": -0.64,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "突然收到意外惊喜，我有点震惊。",
+        "expected_mood_raw": "surprised",
         "expected_mood": "surprised",
+        "pred_mood_raw": "surprise",
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.8716,
+        "score": 0.5221,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "居然这么快就完成了，出乎意料。",
+        "expected_mood_raw": "surprised",
         "expected_mood": "surprised",
+        "pred_mood_raw": "surprise",
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.702,
+        "score": 0.8106,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "信息太多了，我现在有点懵。",
-        "expected_mood": "confused",
-        "pred_mood": "confused",
+        "expected_mood_raw": "confused",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.12,
+        "score": -0.22,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "他说的话前后矛盾，我很困惑。",
-        "expected_mood": "confused",
-        "pred_mood": "confused",
+        "expected_mood_raw": "confused",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.0871,
+        "score": -0.22,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "今天就按计划做事，没什么特别情绪。",
+        "expected_mood_raw": "neutral",
         "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "neutral",
         "pred_polarity": "neutral",
@@ -511,7 +545,9 @@
       },
       {
         "text": "天气一般，日程正常，心情平平。",
+        "expected_mood_raw": "neutral",
         "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "neutral",
         "pred_polarity": "neutral",
@@ -521,37 +557,45 @@
       },
       {
         "text": "今天收到礼物，礼物很好看。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.9174,
+        "score": 0.6108,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "老师今天夸了我。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.841,
+        "score": 0.4946,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "虽然结果一般，但我会继续努力。",
-        "expected_mood": "calm",
+        "expected_mood_raw": "calm",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.6612,
+        "score": 0.6315,
         "ok_mood": false,
         "ok_polarity": true
       },
       {
         "text": "我不开心，也不难过，就是发呆。",
+        "expected_mood_raw": "neutral",
         "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "neutral",
         "pred_polarity": "neutral",
@@ -561,37 +605,45 @@
       },
       {
         "text": "这次失败让我很受挫。",
+        "expected_mood_raw": "sad",
         "expected_mood": "sad",
+        "pred_mood_raw": "sadness",
         "pred_mood": "sad",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.6039,
+        "score": -0.7273,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "我有点焦虑，脑子停不下来。",
+        "expected_mood_raw": "anxious",
         "expected_mood": "anxious",
+        "pred_mood_raw": "fear",
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.2392,
+        "score": -0.4369,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "居然又临时改需求，真让人火大。",
+        "expected_mood_raw": "angry",
         "expected_mood": "angry",
+        "pred_mood_raw": "anger",
         "pred_mood": "angry",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.811,
+        "score": -0.781,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "这件事太突然了，我完全没反应过来。",
+        "expected_mood_raw": "surprised",
         "expected_mood": "surprised",
+        "pred_mood_raw": "surprise",
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
@@ -601,27 +653,33 @@
       },
       {
         "text": "到底该先做哪一件，我整个人都乱了。",
-        "expected_mood": "confused",
-        "pred_mood": "confused",
+        "expected_mood_raw": "confused",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.6063,
+        "score": -0.7471,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "和朋友散步聊天后，心里安定了许多。",
-        "expected_mood": "calm",
-        "pred_mood": "calm",
+        "expected_mood_raw": "calm",
+        "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
+        "pred_mood": "neutral",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.7003,
+        "score": 0.8487,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "今天没有好消息也没有坏消息。",
+        "expected_mood_raw": "neutral",
         "expected_mood": "neutral",
+        "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "neutral",
         "pred_polarity": "neutral",
@@ -631,51 +689,61 @@
       },
       {
         "text": "我真的很开心，像阳光照进心里。",
+        "expected_mood_raw": "happy",
         "expected_mood": "happy",
+        "pred_mood_raw": "joy",
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.806,
+        "score": 0.2642,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "最近压力很大，胸口发紧。",
+        "expected_mood_raw": "anxious",
         "expected_mood": "anxious",
+        "pred_mood_raw": "fear",
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.4758,
+        "score": -0.408,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "看完消息后我沉默了很久，很难受。",
+        "expected_mood_raw": "sad",
         "expected_mood": "sad",
+        "pred_mood_raw": "sadness",
         "pred_mood": "sad",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.7216,
+        "score": -0.5465,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "被连续否决后我有点恼火。",
+        "expected_mood_raw": "angry",
         "expected_mood": "angry",
+        "pred_mood_raw": "anger",
         "pred_mood": "angry",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.4821,
+        "score": -0.504,
         "ok_mood": true,
         "ok_polarity": true
       },
       {
         "text": "突然接到电话说通过了，我惊到了。",
+        "expected_mood_raw": "surprised",
         "expected_mood": "surprised",
+        "pred_mood_raw": "surprise",
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.8182,
+        "score": 0.4956,
         "ok_mood": true,
         "ok_polarity": true
       }
@@ -684,45 +752,133 @@
   "stress": [
     {
       "mix": "read_heavy",
-      "duration_sec": 1,
-      "concurrency": 1,
-      "total_requests": 639,
-      "success_2xx": 639,
+      "duration_sec": 20,
+      "concurrency": 16,
+      "total_requests": 21958,
+      "success_2xx": 21958,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 639.0,
+      "rps": 1097.9,
       "latency_ms": {
-        "p50": 1.6,
-        "p95": 2.0,
-        "p99": 2.28,
-        "avg": 1.53
+        "p50": 7.16,
+        "p95": 45.94,
+        "p99": 71.32,
+        "avg": 14.56
       },
       "status_breakdown": {
-        "200": 639
+        "200": 21958
       },
       "health_after": true
     },
     {
       "mix": "ai_mixed",
-      "duration_sec": 1,
-      "concurrency": 1,
-      "total_requests": 758,
-      "success_2xx": 758,
+      "duration_sec": 20,
+      "concurrency": 16,
+      "total_requests": 20813,
+      "success_2xx": 20813,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 758.0,
+      "rps": 1040.65,
       "latency_ms": {
-        "p50": 1.08,
-        "p95": 1.91,
-        "p99": 2.12,
-        "avg": 1.31
+        "p50": 7.26,
+        "p95": 49.02,
+        "p99": 77.9,
+        "avg": 15.37
       },
       "status_breakdown": {
-        "200": 758
+        "200": 20813
+      },
+      "health_after": true
+    },
+    {
+      "mix": "read_heavy",
+      "duration_sec": 20,
+      "concurrency": 32,
+      "total_requests": 19428,
+      "success_2xx": 19428,
+      "errors_transport": 0,
+      "errors_4xx": 0,
+      "errors_5xx": 0,
+      "error_rate": 0.0,
+      "rps": 971.4,
+      "latency_ms": {
+        "p50": 23.03,
+        "p95": 94.66,
+        "p99": 150.16,
+        "avg": 32.95
+      },
+      "status_breakdown": {
+        "200": 19428
+      },
+      "health_after": true
+    },
+    {
+      "mix": "ai_mixed",
+      "duration_sec": 20,
+      "concurrency": 32,
+      "total_requests": 19156,
+      "success_2xx": 19156,
+      "errors_transport": 0,
+      "errors_4xx": 0,
+      "errors_5xx": 0,
+      "error_rate": 0.0,
+      "rps": 957.8,
+      "latency_ms": {
+        "p50": 22.74,
+        "p95": 97.14,
+        "p99": 145.06,
+        "avg": 33.42
+      },
+      "status_breakdown": {
+        "200": 19156
+      },
+      "health_after": true
+    },
+    {
+      "mix": "read_heavy",
+      "duration_sec": 20,
+      "concurrency": 64,
+      "total_requests": 25139,
+      "success_2xx": 25139,
+      "errors_transport": 0,
+      "errors_4xx": 0,
+      "errors_5xx": 0,
+      "error_rate": 0.0,
+      "rps": 1256.95,
+      "latency_ms": {
+        "p50": 51.07,
+        "p95": 55.09,
+        "p99": 57.13,
+        "avg": 50.93
+      },
+      "status_breakdown": {
+        "200": 25139
+      },
+      "health_after": true
+    },
+    {
+      "mix": "ai_mixed",
+      "duration_sec": 20,
+      "concurrency": 64,
+      "total_requests": 23947,
+      "success_2xx": 23947,
+      "errors_transport": 0,
+      "errors_4xx": 0,
+      "errors_5xx": 0,
+      "error_rate": 0.0,
+      "rps": 1197.35,
+      "latency_ms": {
+        "p50": 53.41,
+        "p95": 57.83,
+        "p99": 59.71,
+        "avg": 53.47
+      },
+      "status_breakdown": {
+        "200": 23947
       },
       "health_after": true
     }
@@ -760,13 +916,13 @@
       },
       {
         "name": "macro_f1",
-        "actual": 0.9708,
+        "actual": 0.9769,
         "target": 0.68,
         "ok": true
       },
       {
         "name": "polarity_accuracy",
-        "actual": 1.0,
+        "actual": 0.9688,
         "target": 0.9,
         "ok": true
       },
@@ -784,7 +940,7 @@
       },
       {
         "name": "stress_p95_ms_max",
-        "actual": 2.0,
+        "actual": 97.14,
         "target": 800.0,
         "ok": true
       },

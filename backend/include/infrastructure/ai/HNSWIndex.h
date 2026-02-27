@@ -149,10 +149,27 @@ private:
     // ---- 内部算法 ----
     int randomLevel();
     float vectorDistance(const std::vector<float>& a, const std::vector<float>& b) const;
+
+    /// 带阈值的距离计算：当部分和已超过 threshold 时提前终止，返回 +inf
+    /// 参考: ADSampling (Gao et al., VLDB 2024) 的 early-termination 思路
+    float vectorDistanceThreshold(const std::vector<float>& a,
+                                  const std::vector<float>& b,
+                                  float threshold) const;
+
     std::vector<std::pair<float, size_t>> searchLayer(
         const std::vector<float>& query, size_t entryPoint, int ef, int level) const;
     void connectNeighbors(size_t nodeIdx, const std::vector<size_t>& neighbors,
                           int level, int maxM);
+
+    /// RND 邻居多样性选择：在距离排序基础上引入角度多样性剪枝
+    /// 参考: Vamana (Subramanya et al., NeurIPS 2019) + 最新评估
+    ///       "A Practitioner's Guide to ANN Algorithms" (arxiv 2502.05575, 2025)
+    /// 核心思想：如果候选 c 到某个已选邻居 n 的距离 < c 到基准点的距离，
+    ///          说明 n 已经"覆盖"了 c 的方向，跳过 c 以保持方向多样性
+    std::vector<size_t> selectDiverseNeighbors(
+        size_t baseIdx,
+        const std::vector<std::pair<float, size_t>>& candidates,
+        int maxM) const;
 };
 
 }  // namespace heartlake::ai

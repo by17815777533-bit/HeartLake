@@ -203,6 +203,60 @@ float EmotionResonanceEngine::trajectorySimDTW(
     return static_cast<float>(std::exp(-normalizedDist * normalizedDist / 2.0));
 }
 
+float EmotionResonanceEngine::trajectorySimDTW_EA(
+    const std::vector<float>& traj1,
+    const std::vector<float>& traj2,
+    float bestSoFar
+) {
+    if (traj1.empty() || traj2.empty()) return 0.0f;
+
+    const size_t n = traj1.size();
+    const size_t m = traj2.size();
+    const int w = std::max(10, static_cast<int>(std::max(n, m)) / 10);
+    constexpr double INF = std::numeric_limits<double>::max();
+
+    // bestSoFar 是相似度，映射到距离阈值后用于 early abandoning。
+    // sim = exp(-d^2 / 2) => d = sqrt(-2 * ln(sim))
+    double abandonThreshold = INF;
+    if (bestSoFar > 1e-6f && bestSoFar < 0.999999f) {
+        abandonThreshold = std::sqrt(-2.0 * std::log(static_cast<double>(bestSoFar)));
+    }
+
+    thread_local std::vector<double> prev_buf_ea, curr_buf_ea;
+    prev_buf_ea.assign(m + 1, INF);
+    curr_buf_ea.resize(m + 1);
+    prev_buf_ea[0] = 0.0;
+
+    for (size_t i = 1; i <= n; ++i) {
+        curr_buf_ea[0] = INF;
+
+        size_t j_lo = (i > static_cast<size_t>(w)) ? (i - static_cast<size_t>(w)) : 1;
+        size_t j_hi = std::min(i + static_cast<size_t>(w), m);
+        if (j_lo > 1) curr_buf_ea[j_lo - 1] = INF;
+
+        double rowMin = INF;
+        for (size_t j = j_lo; j <= j_hi; ++j) {
+            const double cost = std::abs(
+                static_cast<double>(traj1[i - 1]) - static_cast<double>(traj2[j - 1]));
+            double minPrev = prev_buf_ea[j - 1];
+            if (prev_buf_ea[j] < minPrev) minPrev = prev_buf_ea[j];
+            if (curr_buf_ea[j - 1] < minPrev) minPrev = curr_buf_ea[j - 1];
+            curr_buf_ea[j] = cost + minPrev;
+            if (curr_buf_ea[j] < rowMin) rowMin = curr_buf_ea[j];
+        }
+
+        // 若当前行最小累计代价已超阈值，可提前终止。
+        if (rowMin > abandonThreshold) {
+            return 0.0f;
+        }
+
+        std::swap(prev_buf_ea, curr_buf_ea);
+    }
+
+    const double normalizedDist = prev_buf_ea[m] / static_cast<double>(std::max(n, m));
+    return static_cast<float>(std::exp(-normalizedDist * normalizedDist / 2.0));
+}
+
 // ===== 时间衰减 =====
 
 float EmotionResonanceEngine::temporalDecay(const std::string& timestamp, float lambda) {
@@ -408,6 +462,7 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
         );
         // 已推荐的情绪列表（用于多样性计算）
         std::vector<std::string> recommendedMoods;
+        float bestTrajectoryScore = 0.0f;
 
         // 5. 对每个候选计算四维共鸣分数
         for (const auto& row : candidates) {
@@ -439,14 +494,20 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             // 参考: Keogh 2005 "Exact indexing of dynamic time warping"
             auto candTraj = loadTrajectory(candUserId);
             if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
-                float lbDist = lbKeogh(userTraj.scores, candTraj.scores);
-                // 将下界距离转换为相似度（与 DTW 输出同尺度的高斯核映射）
-                float lbSim = std::exp(-lbDist * lbDist / 2.0f);
+                const float lbK = lbKeogh(userTraj.scores, candTraj.scores);
+                const float lbI = lbImproved(userTraj.scores, candTraj.scores);
+                const float lbDist = std::max(lbK, lbI);
+                // 将下界距离转换为相似度（与 DTW 输出同尺度高斯核映射）
+                const float lbSim = std::exp(-lbDist * lbDist / 2.0f);
                 if (lbSim < 0.1f) {
                     // 下界已表明轨迹差异极大，直接用下界估计值，跳过昂贵的 DTW
                     res.trajectoryScore = lbSim;
                 } else {
-                    res.trajectoryScore = trajectorySimDTW(userTraj.scores, candTraj.scores);
+                    // 以当前最优轨迹分数作为 early-abandon 参考阈值，降低 tail-latency
+                    const float eaFloor = std::max(0.08f, bestTrajectoryScore * 0.85f);
+                    const float dtwEaSim = trajectorySimDTW_EA(
+                        userTraj.scores, candTraj.scores, eaFloor);
+                    res.trajectoryScore = std::max(lbSim, dtwEaSim);
                 }
             } else {
                 // 无轨迹数据时退化为情绪分数差异
@@ -471,6 +532,9 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
 
             results.push_back(res);
             recommendedMoods.push_back(candMood);
+            if (res.trajectoryScore > bestTrajectoryScore) {
+                bestTrajectoryScore = res.trajectoryScore;
+            }
         }
 
         // 6. 按总分降序排序 + 截取top-K

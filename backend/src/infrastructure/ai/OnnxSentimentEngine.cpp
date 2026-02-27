@@ -38,6 +38,19 @@ int parseNonNegativeIntEnv(const char* envName, int defaultValue) {
     return static_cast<int>(parsed);
 }
 
+int parseIntEnvClamped(const char* envName, int defaultValue, int minValue, int maxValue) {
+    const char* raw = std::getenv(envName);
+    if (!raw || *raw == '\0') {
+        return defaultValue;
+    }
+    char* end = nullptr;
+    const long parsed = std::strtol(raw, &end, 10);
+    if (end == raw || *end != '\0') {
+        return defaultValue;
+    }
+    return std::clamp(static_cast<int>(parsed), minValue, maxValue);
+}
+
 }  // namespace
 
 // ============================================================================
@@ -59,9 +72,13 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
         // 创建 ONNX Runtime 环境
         env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "HeartLakeSentiment");
 
+        maxSeqLen_ = parseIntEnvClamped("EDGE_AI_ONNX_MAX_SEQ_LEN", maxSeqLen_, 32, 512);
+        const int intraThreads = std::max(1, numThreads);
+        const int targetSessionPool = parseIntEnvClamped("EDGE_AI_ONNX_SESSION_POOL", 1, 1, 64);
+
         // 配置 Session
         sessionOptions_ = std::make_unique<Ort::SessionOptions>();
-        sessionOptions_->SetIntraOpNumThreads(numThreads);
+        sessionOptions_->SetIntraOpNumThreads(intraThreads);
         sessionOptions_->SetInterOpNumThreads(1);
         sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
@@ -90,28 +107,49 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
             LOG_INFO << "[OnnxSentiment] CUDA EP disabled by EDGE_AI_ONNX_FORCE_GPU=false";
         }
 
-        // 创建 Session
-        session_ = std::make_unique<Ort::Session>(*env_, modelPath.c_str(), *sessionOptions_);
+        sessions_.clear();
+        sessions_.reserve(static_cast<size_t>(targetSessionPool));
+        for (int i = 0; i < targetSessionPool; ++i) {
+            try {
+                auto session = std::make_unique<Ort::Session>(*env_, modelPath.c_str(), *sessionOptions_);
+                if (i == 0) {
+                    const size_t numInputs = session->GetInputCount();
+                    const size_t numOutputs = session->GetOutputCount();
+                    LOG_INFO << "[OnnxSentiment] Model loaded: " << numInputs << " inputs, "
+                             << numOutputs << " outputs";
 
-        // 验证模型输入输出
-        size_t numInputs = session_->GetInputCount();
-        size_t numOutputs = session_->GetOutputCount();
-        LOG_INFO << "[OnnxSentiment] Model loaded: " << numInputs << " inputs, "
-                 << numOutputs << " outputs";
-
-        for (size_t i = 0; i < numInputs; ++i) {
-            auto name = session_->GetInputNameAllocated(i, allocator_);
-            LOG_INFO << "[OnnxSentiment] Input[" << i << "]: " << name.get();
+                    for (size_t inputIdx = 0; inputIdx < numInputs; ++inputIdx) {
+                        auto name = session->GetInputNameAllocated(inputIdx, allocator_);
+                        LOG_INFO << "[OnnxSentiment] Input[" << inputIdx << "]: " << name.get();
+                    }
+                    for (size_t outputIdx = 0; outputIdx < numOutputs; ++outputIdx) {
+                        auto name = session->GetOutputNameAllocated(outputIdx, allocator_);
+                        LOG_INFO << "[OnnxSentiment] Output[" << outputIdx << "]: " << name.get();
+                    }
+                }
+                sessions_.push_back(std::move(session));
+            } catch (const Ort::Exception& e) {
+                if (sessions_.empty()) {
+                    throw;
+                }
+                LOG_WARN << "[OnnxSentiment] Failed to create extra session " << i
+                         << ", keep pool size " << sessions_.size() << ": " << e.what();
+                break;
+            }
         }
-        for (size_t i = 0; i < numOutputs; ++i) {
-            auto name = session_->GetOutputNameAllocated(i, allocator_);
-            LOG_INFO << "[OnnxSentiment] Output[" << i << "]: " << name.get();
+        if (sessions_.empty()) {
+            LOG_ERROR << "[OnnxSentiment] Session pool init failed";
+            return false;
         }
+        sessionPoolSize_ = sessions_.size();
+        nextSessionIndex_.store(0, std::memory_order_relaxed);
 
         initialized_.store(true);
         LOG_INFO << "[OnnxSentiment] Engine initialized successfully. "
                  << "Vocab size: " << vocab_.size()
-                 << ", Threads: " << numThreads
+                 << ", Threads: " << intraThreads
+                 << ", MaxSeqLen: " << maxSeqLen_
+                 << ", SessionPool: " << sessionPoolSize_
                  << ", GPU: " << (gpuEnabled ? "on" : "off");
         return true;
 
@@ -412,7 +450,7 @@ OnnxSentimentEngine::TokenizerOutput OnnxSentimentEngine::tokenize(const std::st
 OnnxSentimentResult OnnxSentimentEngine::analyze(const std::string& text) {
     OnnxSentimentResult result{0.0f, 0.5f, "neutral"};
 
-    if (!initialized_.load() || text.empty()) {
+    if (!initialized_.load() || text.empty() || sessions_.empty()) {
         return result;
     }
 
@@ -448,8 +486,11 @@ OnnxSentimentResult OnnxSentimentEngine::analyze(const std::string& text) {
         inputTensors.push_back(std::move(attentionMaskTensor));
         inputTensors.push_back(std::move(tokenTypeIdsTensor));
 
+        const uint64_t sessionIndex = nextSessionIndex_.fetch_add(1, std::memory_order_relaxed);
+        Ort::Session* activeSession = sessions_[static_cast<size_t>(sessionIndex % sessionPoolSize_)].get();
+
         // 推理
-        auto outputTensors = session_->Run(
+        auto outputTensors = activeSession->Run(
             Ort::RunOptions{nullptr},
             inputNames, inputTensors.data(), inputTensors.size(),
             outputNames, 1);

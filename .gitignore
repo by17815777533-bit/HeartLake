@@ -54,3 +54,4 @@ Testing/
 .claude/
 .codex/
 .github/workflows/ci.yml
+*_rows.json

@@ -111,8 +111,14 @@ cp ../.env.example ../.env
 # - EDGE_AI_ONNX_ENABLED=true/false 时为显式开关
 # - 不设置 EDGE_AI_ONNX_ENABLED 时，服务会自动探测模型与词表是否存在，存在即启用
 # - EDGE_AI_MODEL_PATH 可写目录（例如 ./models）或模型文件路径
+# - 可选：EDGE_AI_SENTIMENT_LEXICON_PATH 指向「短语\t权重」领域词典（未设置则不加载）
 EDGE_AI_MODEL_PATH=./models
-EDGE_AI_ONNX_THREADS=2
+EDGE_AI_ONNX_THREADS=1
+EDGE_AI_ONNX_SESSION_POOL=4
+EDGE_AI_SENTIMENT_LEXICON_PATH=./models/sentiment_domain_lexicon.tsv
+# 双路策略已内置固定路由与背压，不再暴露路由/过载阈值开关
+# Ollama 自动拉起（默认关闭；仅 AI_PROVIDER=ollama 且设为 true 时触发）
+AI_OLLAMA_AUTOSTART=false
 # 强制 GPU（默认开启，可按需关闭）
 AI_OLLAMA_FORCE_GPU=true
 AI_OLLAMA_NUM_GPU=999
@@ -135,7 +141,7 @@ EDGE_AI_ONNX_GPU_HARD_FAIL=false
 # - 自动生成 config.runtime.json
 # - 本地 PostgreSQL/Redis 不可用时自动拉起（数据持久化到项目根目录 .runtime）
 # - 自动执行 migrations
-# - AI_PROVIDER=ollama 时自动检查并拉取 AI_MODEL（默认 heartlake-qwen）
+# - 仅当 AI_PROVIDER=ollama 且 AI_OLLAMA_AUTOSTART=true 时自动检查并拉取 AI_MODEL（默认 heartlake-qwen）
 cd ..
 ./backend/start.sh
 

@@ -86,6 +86,105 @@ float HNSWIndex::vectorDistance(const std::vector<float>& a,
     return sum0 + sum1;
 }
 
+float HNSWIndex::vectorDistanceThreshold(const std::vector<float>& a,
+                                          const std::vector<float>& b,
+                                          float threshold) const {
+    // 带阈值的平方欧氏距离：每处理 16 维检查一次部分和，
+    // 若已超过 threshold 则提前终止返回 +inf，避免无效的全维度计算。
+    // 参考: ADSampling (Gao et al., VLDB 2024) 的 early-termination 思路
+    const size_t dim = std::min(a.size(), b.size());
+    const float* __restrict__ pa = a.data();
+    const float* __restrict__ pb = b.data();
+    float sum = 0.0f;
+    size_t i = 0;
+
+    // 每 16 维做一次阈值检查（平衡检查开销与跳过收益）
+    for (; i + 15 < dim; i += 16) {
+        float d0  = pa[i]      - pb[i];
+        float d1  = pa[i + 1]  - pb[i + 1];
+        float d2  = pa[i + 2]  - pb[i + 2];
+        float d3  = pa[i + 3]  - pb[i + 3];
+        float d4  = pa[i + 4]  - pb[i + 4];
+        float d5  = pa[i + 5]  - pb[i + 5];
+        float d6  = pa[i + 6]  - pb[i + 6];
+        float d7  = pa[i + 7]  - pb[i + 7];
+        float d8  = pa[i + 8]  - pb[i + 8];
+        float d9  = pa[i + 9]  - pb[i + 9];
+        float d10 = pa[i + 10] - pb[i + 10];
+        float d11 = pa[i + 11] - pb[i + 11];
+        float d12 = pa[i + 12] - pb[i + 12];
+        float d13 = pa[i + 13] - pb[i + 13];
+        float d14 = pa[i + 14] - pb[i + 14];
+        float d15 = pa[i + 15] - pb[i + 15];
+        sum += d0*d0 + d1*d1 + d2*d2 + d3*d3
+             + d4*d4 + d5*d5 + d6*d6 + d7*d7
+             + d8*d8 + d9*d9 + d10*d10 + d11*d11
+             + d12*d12 + d13*d13 + d14*d14 + d15*d15;
+        if (sum > threshold) {
+            return std::numeric_limits<float>::infinity();
+        }
+    }
+    // 处理剩余维度
+    for (; i < dim; ++i) {
+        float d = pa[i] - pb[i];
+        sum += d * d;
+    }
+    return sum;
+}
+
+std::vector<size_t> HNSWIndex::selectDiverseNeighbors(
+    size_t baseIdx,
+    const std::vector<std::pair<float, size_t>>& candidates,
+    int maxM) const {
+    // RND (Relative Neighborhood Diversification) 邻居选择
+    // 参考: Vamana (Subramanya et al., NeurIPS 2019) 的 robust pruning
+    //       "A Practitioner's Guide to ANN Algorithms" (arxiv 2502.05575, 2025)
+    //       评估表明 RND 在保持召回率的同时显著提升搜索效率
+    //
+    // 核心思想：按距离排序遍历候选，对每个候选 c 检查是否被已选邻居"覆盖"。
+    // 如果存在已选邻居 n 使得 dist(c, n) < dist(c, base)，
+    // 说明从 n 出发就能到达 c，c 的方向已被覆盖，跳过以保持方向多样性。
+    // 这比纯距离排序裁剪能构建更高质量的导航图。
+
+    std::vector<size_t> selected;
+    selected.reserve(static_cast<size_t>(std::min(static_cast<int>(candidates.size()), maxM)));
+
+    for (const auto& [distToBase, candIdx] : candidates) {
+        if (static_cast<int>(selected.size()) >= maxM) break;
+        if (candIdx == baseIdx) continue;
+
+        // 检查是否被已选邻居覆盖
+        bool covered = false;
+        for (size_t selIdx : selected) {
+            float distCandToSel = vectorDistance(nodes_[candIdx].vector,
+                                                  nodes_[selIdx].vector);
+            if (distCandToSel < distToBase) {
+                covered = true;
+                break;
+            }
+        }
+
+        if (!covered) {
+            selected.push_back(candIdx);
+        }
+    }
+
+    // 如果多样性剪枝过于激进导致邻居不足，回填距离最近的候选
+    // 保证连通性不被破坏
+    if (static_cast<int>(selected.size()) < maxM) {
+        for (const auto& candidate : candidates) {
+            if (static_cast<int>(selected.size()) >= maxM) break;
+            const size_t candIdx = candidate.second;
+            if (candIdx == baseIdx) continue;
+            if (std::find(selected.begin(), selected.end(), candIdx) == selected.end()) {
+                selected.push_back(candIdx);
+            }
+        }
+    }
+
+    return selected;
+}
+
 std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
     const std::vector<float>& query, size_t entryPoint, int ef, int level) const {
 
@@ -130,25 +229,48 @@ std::vector<std::pair<float, size_t>> HNSWIndex::searchLayer(
         // 扩展该候选的邻居
         if (level < static_cast<int>(nodes_[candIdx].neighbors.size())) {
             const auto& neighborList = nodes_[candIdx].neighbors[level];
+            const size_t nSize = neighborList.size();
 
-            // prefetch 邻居向量数据到 L1 cache
-            for (size_t ni = 0; ni < neighborList.size() && ni < 8; ++ni) {
+            // 两阶段 prefetch 流水线：先预取前 8 个，处理时再预取下一批
+            // 更深的流水线让 CPU 有更多时间隐藏内存延迟
+            const size_t prefetchBatch = 8;
+            for (size_t ni = 0; ni < std::min(nSize, prefetchBatch); ++ni) {
                 size_t nIdx = neighborList[ni];
                 if (tlVisitedMarker[nIdx] != tlVisitedEpoch) {
                     __builtin_prefetch(nodes_[nIdx].vector.data(), 0, 1);
                 }
             }
 
-            worstResult = results.top().first;
-            const bool resultsFull = static_cast<int>(results.size()) >= ef;
+            for (size_t ni = 0; ni < nSize; ++ni) {
+                // 提前预取下一批邻居向量（流水线第二阶段）
+                if (ni + prefetchBatch < nSize) {
+                    size_t futureIdx = neighborList[ni + prefetchBatch];
+                    if (tlVisitedMarker[futureIdx] != tlVisitedEpoch) {
+                        __builtin_prefetch(nodes_[futureIdx].vector.data(), 0, 1);
+                    }
+                }
 
-            for (size_t neighborIdx : neighborList) {
+                size_t neighborIdx = neighborList[ni];
                 if (tlVisitedMarker[neighborIdx] == tlVisitedEpoch) continue;
                 tlVisitedMarker[neighborIdx] = tlVisitedEpoch;
 
-                float neighborDist = vectorDistance(query, nodes_[neighborIdx].vector);
+                const bool resultsFullNow = static_cast<int>(results.size()) >= ef;
+                worstResult = resultsFullNow
+                    ? results.top().first
+                    : std::numeric_limits<float>::infinity();
 
-                if (!resultsFull || neighborDist < worstResult) {
+                // 当结果集已满时，使用 ADSampling 早期终止距离计算
+                // 参考: ADSampling (Gao et al., VLDB 2024)
+                // 如果部分维度的累积距离已超过 worstResult，跳过剩余维度
+                float neighborDist;
+                if (resultsFullNow) {
+                    neighborDist = vectorDistanceThreshold(
+                        query, nodes_[neighborIdx].vector, worstResult);
+                } else {
+                    neighborDist = vectorDistance(query, nodes_[neighborIdx].vector);
+                }
+
+                if (!resultsFullNow || neighborDist < worstResult) {
                     results.push({neighborDist, neighborIdx});
                     candidates.push({neighborDist, neighborIdx});
 
@@ -199,7 +321,9 @@ void HNSWIndex::connectNeighbors(size_t nodeIdx,
                 revNeighbors.push_back(nodeIdx);
             }
 
-            // 裁剪：如果反向邻居超过 maxM，保留最近的
+            // 裁剪反向邻居：使用 RND 多样性选择替代纯距离排序
+            // 参考: Vamana robust pruning (NeurIPS 2019) + arxiv 2502.05575 (2025)
+            // RND 保持方向多样性，构建更高质量的导航图，提升搜索效率
             if (static_cast<int>(revNeighbors.size()) > maxM) {
                 std::vector<std::pair<float, size_t>> distPairs;
                 distPairs.reserve(revNeighbors.size());
@@ -208,17 +332,16 @@ void HNSWIndex::connectNeighbors(size_t nodeIdx,
                                              nodes_[nIdx].vector);
                     distPairs.push_back({d, nIdx});
                 }
-                std::partial_sort(distPairs.begin(), distPairs.begin() + maxM, distPairs.end());
+                std::sort(distPairs.begin(), distPairs.end());
 
-                revNeighbors.clear();
-                for (int i = 0; i < maxM; ++i) {
-                    revNeighbors.push_back(distPairs[i].second);
-                }
+                auto diverseNeighbors = selectDiverseNeighbors(neighborIdx, distPairs, maxM);
+                revNeighbors = std::move(diverseNeighbors);
             }
         }
     }
 
-    // 裁剪正向邻居
+    // 裁剪正向邻居：同样使用 RND 多样性选择
+    // 正向和反向都用 RND 才能保证图的整体导航质量一致
     if (static_cast<int>(nodeNeighbors.size()) > maxM) {
         std::vector<std::pair<float, size_t>> distPairs;
         distPairs.reserve(nodeNeighbors.size());
@@ -227,12 +350,10 @@ void HNSWIndex::connectNeighbors(size_t nodeIdx,
                                      nodes_[nIdx].vector);
             distPairs.push_back({d, nIdx});
         }
-        std::partial_sort(distPairs.begin(), distPairs.begin() + maxM, distPairs.end());
+        std::sort(distPairs.begin(), distPairs.end());
 
-        nodeNeighbors.clear();
-        for (int i = 0; i < maxM; ++i) {
-            nodeNeighbors.push_back(distPairs[i].second);
-        }
+        auto diverseNeighbors = selectDiverseNeighbors(nodeIdx, distPairs, maxM);
+        nodeNeighbors = std::move(diverseNeighbors);
     }
 }
 
@@ -291,13 +412,11 @@ void HNSWIndex::addVector(const std::string& id, const std::vector<float>& vec) 
         auto neighborPairs = searchLayer(vec, currentEntry, efC, lv);
 
         int maxM = (lv == 0) ? mMax0_ : m_;
-        int numConnect = std::min(maxM, static_cast<int>(neighborPairs.size()));
 
-        std::vector<size_t> selectedNeighbors;
-        selectedNeighbors.reserve(numConnect);
-        for (int i = 0; i < numConnect; ++i) {
-            selectedNeighbors.push_back(neighborPairs[i].second);
-        }
+        // 使用 RND 多样性选择初始邻居，而非简单取前 N 个最近邻
+        // 构建阶段的邻居质量直接决定搜索时的图导航效率
+        // 参考: Vamana (NeurIPS 2019) + arxiv 2502.05575 (2025)
+        auto selectedNeighbors = selectDiverseNeighbors(nodeIdx, neighborPairs, maxM);
 
         connectNeighbors(nodeIdx, selectedNeighbors, lv, maxM);
 
@@ -339,32 +458,72 @@ std::vector<VectorSearchResult> HNSWIndex::searchKNN(
         }
     }
 
-    // 在第0层执行自适应搜索（Ada-EF思路）
+    // Distribution-Aware Ada-EF 自适应搜索宽度
+    // 参考: "Distribution-Aware Adaptive Exploration" (arxiv 2512.06636, 2025)
+    // 核心思想：用 pilot search 的距离分布拟合高斯模型，通过 z-score 量化查询难度，
+    //          替代简单的 margin ratio 硬阈值，实现更精准的 per-query ef 调节。
+    // 难查询（距离分布紧密、z-score 低）→ 增大 ef 保证召回率
+    // 易查询（距离分布分散、z-score 高）→ 缩小 ef 降低延迟
     int baseEf = std::max(requestedK, efSearch_);
     int adaptiveEf = baseEf;
     if (nodes_.size() >= 256 && baseEf >= 24) {
+        // 阶段1: 轻量 pilot search 采样距离分布
         const int pilotLo = 12;
         const int pilotHi = std::max(pilotLo, std::min(baseEf, 32));
         const int pilotEf = std::clamp(std::max(requestedK * 2, 12), pilotLo, pilotHi);
         auto pilotCandidates = searchLayer(query, currentEntry, pilotEf, 0);
-        if (pilotCandidates.size() >= 2) {
-            const float best = pilotCandidates[0].first;
-            const float secondBest = pilotCandidates[1].first;
-            const float marginRatio = (secondBest - best) / (std::abs(best) + 1e-6f);
 
-            if (marginRatio < 0.08f) {
-                adaptiveEf = static_cast<int>(std::ceil(baseEf * 1.6f));
-            } else if (marginRatio > 0.20f) {
-                adaptiveEf = static_cast<int>(std::floor(baseEf * 0.75f));
+        if (pilotCandidates.size() >= 4) {
+            // 阶段2: 拟合距离分布的高斯参数（均值 μ、标准差 σ）
+            const size_t n = pilotCandidates.size();
+            float sumDist = 0.0f;
+            float sumDistSq = 0.0f;
+            for (const auto& [dist, _] : pilotCandidates) {
+                sumDist += dist;
+                sumDistSq += dist * dist;
+            }
+            const float mean = sumDist / static_cast<float>(n);
+            const float variance = (sumDistSq / static_cast<float>(n)) - (mean * mean);
+            const float stddev = std::sqrt(std::max(0.0f, variance));
+
+            // 阶段3: 计算最近邻的 z-score = (mean - best) / σ
+            // z-score 高 → best 远离分布中心 → 查询容易（最近邻很突出）
+            // z-score 低 → best 接近分布中心 → 查询困难（候选距离相近，需更多探索）
+            const float best = pilotCandidates[0].first;
+            const float zScore = (stddev > 1e-8f)
+                ? (mean - best) / stddev
+                : 0.0f;
+
+            // 阶段4: z-score → ef 缩放因子（分段线性映射）
+            // z < 0.5: 极难查询，扩大 1.8×
+            // 0.5 ≤ z < 1.5: 中等查询，线性插值 1.8× → 1.0×
+            // 1.5 ≤ z < 3.0: 较易查询，线性插值 1.0× → 0.6×
+            // z ≥ 3.0: 极易查询，缩小到 0.6×
+            float scaleFactor;
+            if (zScore < 0.5f) {
+                scaleFactor = 1.8f;
+            } else if (zScore < 1.5f) {
+                // 线性插值: 0.5→1.8, 1.5→1.0
+                scaleFactor = 1.8f - (zScore - 0.5f) * 0.8f;
+            } else if (zScore < 3.0f) {
+                // 线性插值: 1.5→1.0, 3.0→0.6
+                scaleFactor = 1.0f - (zScore - 1.5f) * (0.4f / 1.5f);
+            } else {
+                scaleFactor = 0.6f;
             }
 
+            // Hub 节点加成：高度数入口点在困难查询时需要更多探索
+            // 参考: "Hub Highway Hypothesis" (arxiv 2412.01940, 2024)
             const int entryDegree = (currentEntry < nodes_.size() &&
                                      !nodes_[currentEntry].neighbors.empty())
                 ? static_cast<int>(nodes_[currentEntry].neighbors[0].size())
                 : 0;
-            if (entryDegree >= mMax0_ && marginRatio < 0.12f) {
-                adaptiveEf = static_cast<int>(std::ceil(adaptiveEf * 1.2f));
+            if (entryDegree >= mMax0_ && zScore < 1.0f) {
+                scaleFactor *= 1.15f;
             }
+
+            adaptiveEf = static_cast<int>(std::round(
+                static_cast<float>(baseEf) * scaleFactor));
         }
         const int efCap = std::max(96, efSearch_ * 6);
         adaptiveEf = std::clamp(adaptiveEf, requestedK, std::max(requestedK, efCap));

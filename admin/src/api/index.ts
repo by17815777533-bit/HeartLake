@@ -7,10 +7,12 @@ import { getBusinessMessage } from '@/utils/errorHelper'
 // 扩展 Axios 类型：支持 skipLoading 自定义配置
 interface CustomAxiosRequestConfig extends AxiosRequestConfig {
   skipLoading?: boolean
+  skipAuthRedirect?: boolean
 }
 
 interface CustomInternalConfig extends InternalAxiosRequestConfig {
   skipLoading?: boolean
+  skipAuthRedirect?: boolean
   _retryCount?: number
 }
 
@@ -144,7 +146,10 @@ http.interceptors.response.use(
 
     // HTTP 401：token 过期或无效
     if (axiosError.response?.status === 401) {
-      handleAuthFailure()
+      const config = axiosError.config as CustomInternalConfig | undefined
+      if (!config?.skipAuthRedirect) {
+        handleAuthFailure()
+      }
     } else if (!axios.isCancel(error)) {
       ElMessage.error(axiosError.message || '网络请求失败')
     }
@@ -233,8 +238,8 @@ export default {
   // AI Analysis
   analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
   moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
-  // Recommendations
-  getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true } as CustomAxiosRequestConfig),
-  getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true } as CustomAxiosRequestConfig),
-  getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true } as CustomAxiosRequestConfig),
+  // Recommendations (非 admin 接口，401 不触发登出)
+  getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
+  getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
+  getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
 }

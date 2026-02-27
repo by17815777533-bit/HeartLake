@@ -6,6 +6,31 @@
 namespace heartlake {
 namespace ai {
 
+namespace {
+
+constexpr float kMinDelta = 1e-12f;
+
+float clampDelta(float delta) {
+    return std::clamp(delta, kMinDelta, 1.0f - kMinDelta);
+}
+
+// 解方程 ε = ρ + 2*sqrt(ρ*log(1/δ))，将 (ε,δ)-DP 目标转换为 zCDP 预算 ρ
+float rhoFromEpsilonDelta(float epsilon, float delta) {
+    const float eps = std::max(epsilon, 1e-10f);
+    const float d = clampDelta(delta);
+    const float a = std::sqrt(std::log(1.0f / d));
+    const float x = -a + std::sqrt(a * a + eps);
+    return std::max(x * x, 1e-12f);
+}
+
+float epsilonFromRhoDelta(float rho, float delta) {
+    const float d = clampDelta(delta);
+    const float logInv = std::log(1.0f / d);
+    return rho + 2.0f * std::sqrt(std::max(0.0f, rho * logInv));
+}
+
+}  // namespace
+
 void EdgeDifferentialPrivacy::configure(const DPConfig& config) {
     // configure() 修改 dpConfig_，而 addLaplaceNoise 等方法读取 dpConfig_，
     // 必须加锁保护避免数据竞争
@@ -13,6 +38,7 @@ void EdgeDifferentialPrivacy::configure(const DPConfig& config) {
     dpConfig_ = config;
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
+    consumedRho_.store(0.0f);
     LOG_INFO << "[EdgeDP] Configured: epsilon=" << config.epsilon
              << ", delta=" << config.delta
              << ", sensitivity=" << config.sensitivity
@@ -42,16 +68,6 @@ float EdgeDifferentialPrivacy::sampleLaplace(float scale) {
     float absVal = std::abs(centered);
 
     return -scale * sign * std::log(1.0f - 2.0f * absVal);
-}
-
-// ============================================================================
-// Gaussian 采样
-// ============================================================================
-
-float EdgeDifferentialPrivacy::sampleGaussian(float sigma) {
-    std::normal_distribution<float> dist(0.0f, sigma);
-    std::unique_lock<std::shared_mutex> lock(dpMutex_);
-    return dist(dpRng_);
 }
 
 // ============================================================================
@@ -180,10 +196,30 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
     float epsilon = std::min(cfgEpsilon, remainingEps);
     if (epsilon < 1e-10f) epsilon = 1e-10f;
     float effectiveDelta = std::min(useDelta, remainingDelta);
+    if (effectiveDelta <= 0.0f || effectiveDelta >= 1.0f) {
+        LOG_WARN << "[EdgeDP] Effective delta invalid, returning original vector";
+        return values;
+    }
 
-    // Gaussian 机制: σ = Δ₂ · √(2·ln(1.25/δ)) / ε
-    // L2 sensitivity = sensitivity (调用方提供的是 L2 敏感度)
-    float sigma = sensitivity * std::sqrt(2.0f * std::log(1.25f / effectiveDelta)) / epsilon;
+    // zCDP 预算核算（2024-2026 差分隐私实践常用）:
+    // 相比传统 1.25/δ 上界，能用更紧预算得到更小噪声，提升可用性。
+    const float targetRho = rhoFromEpsilonDelta(epsilon, effectiveDelta);
+    const float rhoBudget = rhoFromEpsilonDelta(
+        maxEpsBudget,
+        std::min(std::max(maxDeltaBudget, kMinDelta), 1.0f - kMinDelta));
+    const float remainingRho = rhoBudget - consumedRho_.load();
+    if (remainingRho <= 0.0f) {
+        LOG_WARN << "[EdgeDP] Rho budget exhausted, returning original vector";
+        return values;
+    }
+    const float rhoToUse = std::min(targetRho, remainingRho);
+    if (rhoToUse <= 0.0f) {
+        LOG_WARN << "[EdgeDP] Rho budget insufficient, returning original vector";
+        return values;
+    }
+
+    // Gaussian 对应 zCDP: ρ = Δ²/(2σ²) => σ = Δ/sqrt(2ρ)
+    const float sigma = sensitivity / std::sqrt(2.0f * rhoToUse);
 
     // 批量生成 Gaussian 噪声，单次加锁
     const size_t n = values.size();
@@ -196,9 +232,13 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
         }
     }
 
-    // 消耗隐私预算 (ε, δ) — 线性组合
+    // 先记 ρ，再同步更新 (ε,δ) 预算（对外监控保持兼容）
+    float oldRho = consumedRho_.load();
+    while (!consumedRho_.compare_exchange_weak(oldRho, oldRho + rhoToUse)) {}
+
+    const float epsilonSpent = epsilonFromRhoDelta(rhoToUse, effectiveDelta);
     float oldEps = consumedEpsilon_.load();
-    while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilon)) {}
+    while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilonSpent)) {}
 
     float oldDelta = consumedDelta_.load();
     while (!consumedDelta_.compare_exchange_weak(oldDelta, oldDelta + effectiveDelta)) {}
@@ -231,6 +271,7 @@ void EdgeDifferentialPrivacy::resetPrivacyBudget() {
     std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
+    consumedRho_.store(0.0f);
     LOG_INFO << "[EdgeDP] Privacy budget reset. Max epsilon budget: "
              << dpConfig_.maxEpsilonBudget
              << ", max delta budget: " << dpConfig_.maxDeltaBudget;

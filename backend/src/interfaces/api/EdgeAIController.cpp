@@ -209,7 +209,7 @@ void EdgeAIController::analyzeLocal(
     std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
-        LOG_INFO << "[trace:" << traceId << "] analyzeLocal called";
+        LOG_DEBUG << "[trace:" << traceId << "] analyzeLocal called";
         auto jsonPtr = req->getJsonObject();
         if (!jsonPtr || !jsonPtr->isMember("text")) {
             callback(ResponseUtil::badRequest("缺少必填参数: text"));

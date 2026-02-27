@@ -17,8 +17,8 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
-#include <mutex>
 #include <atomic>
+#include <cstdint>
 
 namespace heartlake {
 namespace ai {
@@ -71,12 +71,13 @@ public:
      */
     size_t getTotalCalls() const { return totalCalls_.load(); }
     double getAvgLatencyMs() const;
+    size_t getSessionPoolSize() const { return sessionPoolSize_; }
 
 private:
     // ---- ONNX Runtime ----
     std::unique_ptr<Ort::Env> env_;
-    std::unique_ptr<Ort::Session> session_;
     std::unique_ptr<Ort::SessionOptions> sessionOptions_;
+    std::vector<std::unique_ptr<Ort::Session>> sessions_;
     Ort::AllocatorWithDefaultOptions allocator_;
 
     // ---- BERT WordPiece Tokenizer ----
@@ -137,6 +138,8 @@ private:
     std::atomic<bool> initialized_{false};
     std::atomic<size_t> totalCalls_{0};
     std::atomic<double> totalLatencyMs_{0.0};
+    std::atomic<uint64_t> nextSessionIndex_{0};
+    size_t sessionPoolSize_{0};
 };
 
 } // namespace ai

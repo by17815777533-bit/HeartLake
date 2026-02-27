@@ -91,10 +91,11 @@ void SecurityAuditFilter::logRequest(const drogon::HttpRequestPtr& req,
     const std::string safeUserId = sanitizeForLog(userId);
     const std::string userAgent = sanitizeForLog(req->getHeader("User-Agent"));
 
-    LOG_INFO << "[SecurityAudit] " << method << " " << path
-             << " user=" << safeUserId
-             << " ip=" << clientIp
-             << " ua=" << userAgent;
+    // 高频接口下逐请求 INFO 日志会形成明显 I/O 队列，默认降级到 DEBUG。
+    LOG_DEBUG << "[SecurityAudit] " << method << " " << path
+              << " user=" << safeUserId
+              << " ip=" << clientIp
+              << " ua=" << userAgent;
 }
 
 void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
@@ -143,6 +144,14 @@ void SecurityAuditFilter::doFilter(const drogon::HttpRequestPtr& req,
             fccb();
             return;
         }
+    }
+
+    // 主流程 PreHandlingAdvice 已完成鉴权并注入 user_id 时，避免重复 token 校验开销。
+    auto attrs = req->getAttributes();
+    if (attrs && attrs->find("user_id")) {
+        logRequest(req, attrs->get<std::string>("user_id"));
+        fccb();
+        return;
     }
 
     const std::string authHeader = req->getHeader("Authorization");

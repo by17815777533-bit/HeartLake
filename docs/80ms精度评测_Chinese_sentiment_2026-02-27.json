@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-02-27 03:34:21",
+  "threshold_ms": 80.0,
+  "splits": [
+    {
+      "split": "validation",
+      "samples_total": 2591,
+      "errors": 7,
+      "overall": {
+        "accuracy": 0.8753869969040248,
+        "evaluated": 2584,
+        "correct": 2262
+      },
+      "within_80ms": {
+        "threshold_ms": 80.0,
+        "coverage": 0.9280185758513931,
+        "samples": 2398,
+        "accuracy": 0.877814845704754,
+        "correct": 2105
+      },
+      "latency_ms": {
+        "p50": 65.53875299869105,
+        "p95": 98.9126389977173,
+        "p99": 262.5233729995671,
+        "avg": 76.64445253771547
+      },
+      "rps": 8.110292265844564,
+      "method_counts": {
+        "dual_route_onnx_ensemble": 1796,
+        "dual_route_onnx_guarded": 416,
+        "dual_route_local": 372
+      },
+      "method_counts_within_80ms": {
+        "dual_route_onnx_ensemble": 1646,
+        "dual_route_onnx_guarded": 387,
+        "dual_route_local": 365
+      }
+    },
+    {
+      "split": "test",
+      "samples_total": 4896,
+      "errors": 15,
+      "overall": {
+        "accuracy": 0.868879328006556,
+        "evaluated": 4881,
+        "correct": 4241
+      },
+      "within_80ms": {
+        "threshold_ms": 80.0,
+        "coverage": 0.9901659496004918,
+        "samples": 4833,
+        "accuracy": 0.8681978067452928,
+        "correct": 4196
+      },
+      "latency_ms": {
+        "p50": 64.73641300181043,
+        "p95": 68.2905470021069,
+        "p99": 261.8060249988048,
+        "avg": 88.99365031339822
+      },
+      "rps": 8.192762670011739,
+      "method_counts": {
+        "dual_route_onnx_ensemble": 3369,
+        "dual_route_local": 774,
+        "dual_route_onnx_guarded": 738
+      },
+      "method_counts_within_80ms": {
+        "dual_route_onnx_ensemble": 3331,
+        "dual_route_local": 770,
+        "dual_route_onnx_guarded": 732
+      }
+    }
+  ],
+  "combined": {
+    "evaluated": 7465,
+    "overall_accuracy": 0.8711319490957803,
+    "within_80ms_samples": 7231,
+    "within_80ms_coverage": 0.9686537173476223,
+    "within_80ms_accuracy": 0.8713870833909556
+  }
+}

@@ -121,6 +121,7 @@ private:
     DPConfig dpConfig_;
     std::atomic<float> consumedEpsilon_{0.0f};  ///< 已消耗隐私预算 ε
     std::atomic<float> consumedDelta_{0.0f};    ///< 已消耗隐私预算 δ
+    std::atomic<float> consumedRho_{0.0f};      ///< 已消耗 zCDP 预算 ρ（Gaussian机制）
     mutable std::shared_mutex dpMutex_;
     std::mt19937 dpRng_;                        ///< 随机数生成器
 };

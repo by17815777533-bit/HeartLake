@@ -47,6 +47,7 @@ export QUIC_GATEWAY_BIND="${QUIC_GATEWAY_BIND:-0.0.0.0:8443}"
 export AI_PROVIDER="${AI_PROVIDER:-ollama}"
 export AI_BASE_URL="${AI_BASE_URL:-http://127.0.0.1:11434}"
 export AI_MODEL="${AI_MODEL:-heartlake-qwen}"
+export AI_OLLAMA_AUTOSTART="${AI_OLLAMA_AUTOSTART:-false}"
 export EMBEDDING_DIM="${EMBEDDING_DIM:-256}"
 export EMBEDDING_CACHE_SIZE="${EMBEDDING_CACHE_SIZE:-20000}"
 
@@ -201,29 +202,33 @@ fi
 
 # --------- Ollama + Qwen model ---------
 if [[ "${AI_PROVIDER}" == "ollama" ]]; then
-    OLLAMA_ENDPOINT="${AI_BASE_URL%/}/api/tags"
-    if ! curl -fsS "${OLLAMA_ENDPOINT}" >/dev/null 2>&1; then
-        OLLAMA_HOST_VALUE="${AI_BASE_URL#http://}"
-        OLLAMA_HOST_VALUE="${OLLAMA_HOST_VALUE#https://}"
-        OLLAMA_HOST_VALUE="${OLLAMA_HOST_VALUE%%/*}"
-        CUDA_VISIBLE_DEVICES_VALUE="${AI_GPU_DEVICES:-0}"
-        nohup env \
-            OLLAMA_HOST="${OLLAMA_HOST_VALUE}" \
-            OLLAMA_NUM_GPU="${AI_OLLAMA_NUM_GPU}" \
-            CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES_VALUE}" \
-            OLLAMA_FLASH_ATTENTION=1 \
-            ollama serve > "${LOG_DIR}/ollama.log" 2>&1 &
-        echo $! > "${RUNTIME_DIR}/ollama.pid"
-        for _ in $(seq 1 30); do
-            if curl -fsS "${OLLAMA_ENDPOINT}" >/dev/null 2>&1; then
-                break
-            fi
-            sleep 1
-        done
-    fi
+    if [[ "${AI_OLLAMA_AUTOSTART}" != "true" ]]; then
+        echo "AI_PROVIDER=ollama but AI_OLLAMA_AUTOSTART=false, skipping ollama bootstrap."
+    else
+        OLLAMA_ENDPOINT="${AI_BASE_URL%/}/api/tags"
+        if ! curl -fsS "${OLLAMA_ENDPOINT}" >/dev/null 2>&1; then
+            OLLAMA_HOST_VALUE="${AI_BASE_URL#http://}"
+            OLLAMA_HOST_VALUE="${OLLAMA_HOST_VALUE#https://}"
+            OLLAMA_HOST_VALUE="${OLLAMA_HOST_VALUE%%/*}"
+            CUDA_VISIBLE_DEVICES_VALUE="${AI_GPU_DEVICES:-0}"
+            nohup env \
+                OLLAMA_HOST="${OLLAMA_HOST_VALUE}" \
+                OLLAMA_NUM_GPU="${AI_OLLAMA_NUM_GPU}" \
+                CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES_VALUE}" \
+                OLLAMA_FLASH_ATTENTION=1 \
+                ollama serve > "${LOG_DIR}/ollama.log" 2>&1 &
+            echo $! > "${RUNTIME_DIR}/ollama.pid"
+            for _ in $(seq 1 30); do
+                if curl -fsS "${OLLAMA_ENDPOINT}" >/dev/null 2>&1; then
+                    break
+                fi
+                sleep 1
+            done
+        fi
 
-    if ! ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Eq "^${AI_MODEL}(:|$)"; then
-        ollama pull "${AI_MODEL}"
+        if ! ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Eq "^${AI_MODEL}(:|$)"; then
+            ollama pull "${AI_MODEL}"
+        fi
     fi
 fi
 

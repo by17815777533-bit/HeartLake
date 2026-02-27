@@ -263,11 +263,24 @@ int main(int argc, char *argv[]) {
                 LOG_WARN << "Invalid SERVER_THREADS value, fallback to default: " << defaultServerThreads;
             }
         }
+        // ONNX 推理属于重负载路径，线程数过低会放大排队延迟。
+        const bool onnxLikelyEnabled = heartlake::utils::parseBoolEnv(
+            std::getenv("EDGE_AI_ONNX_ENABLED"), true);
+        if (onnxLikelyEnabled) {
+            const unsigned int hw = std::thread::hardware_concurrency();
+            const unsigned int effectiveHw = (hw == 0) ? 8u : hw;
+            const int minThreadsForOnnx = static_cast<int>(std::clamp(effectiveHw, 8u, 16u));
+            if (serverThreads < minThreadsForOnnx) {
+                LOG_WARN << "SERVER_THREADS=" << serverThreads
+                         << " is too low for ONNX path, auto-upgrade to "
+                         << minThreadsForOnnx;
+                serverThreads = minThreadsForOnnx;
+            }
+        }
         LOG_INFO << "Server threads set to " << serverThreads;
 
         // 配置服务器
         app.addListener(serverHost, static_cast<uint16_t>(serverPort));
-        app.setThreadNum(static_cast<size_t>(serverThreads));
 
         // 配置日志级别
         if (log_level_str) {
@@ -292,7 +305,11 @@ int main(int argc, char *argv[]) {
         // 使用配置文件加载数据库客户端
         LOG_INFO << "Loading config file...";
         app.loadConfigFile(configFile);
+        // loadConfigFile() 会回填默认配置，若配置文件未显式声明线程数，可能把前面的 setThreadNum 覆盖回默认值。
+        // 在配置加载后再次强制设置线程数，避免高并发下退化为单线程。
+        app.setThreadNum(static_cast<size_t>(serverThreads));
         LOG_INFO << "Config loaded, database client will be initialized by framework";
+        LOG_INFO << "Effective server thread count (post-config): " << serverThreads;
 
         // 全局异常处理器 - 捕获未处理的异常
         app.setExceptionHandler([](const std::exception& e,
@@ -520,12 +537,19 @@ int main(int argc, char *argv[]) {
                             std::ostringstream durationOss;
                             durationOss << std::fixed << std::setprecision(2) << durationMs;
 
-                            LOG_INFO << "[TRACE] trace_id=" << traceId
-                                     << " span_id=" << spanId
-                                     << " method=" << req->getMethodString()
-                                     << " path=" << req->getPath()
-                                     << " status=" << static_cast<int>(resp->getStatusCode())
-                                     << " duration_ms=" << durationOss.str();
+                            const int statusCode = static_cast<int>(resp->getStatusCode());
+                            const bool serverError = (statusCode >= 500);
+                            const bool suspiciousSlow = (durationMs >= 3000.0);
+                            const bool hotEdgePath = (req->getPath() == "/api/edge-ai/analyze");
+                            // 高频接口默认不做逐请求 INFO 打印，仅在异常慢请求或服务端错误时记录。
+                            if (serverError || (suspiciousSlow && !hotEdgePath)) {
+                                LOG_WARN << "[TRACE] trace_id=" << traceId
+                                         << " span_id=" << spanId
+                                         << " method=" << req->getMethodString()
+                                         << " path=" << req->getPath()
+                                         << " status=" << statusCode
+                                         << " duration_ms=" << durationOss.str();
+                            }
                         }
                     }
                 }

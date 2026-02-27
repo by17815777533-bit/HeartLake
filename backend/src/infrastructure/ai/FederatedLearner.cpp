@@ -1,4 +1,5 @@
 #include "infrastructure/ai/FederatedLearner.h"
+#include <algorithm>
 #include <cmath>
 #include <drogon/drogon.h>
 
@@ -64,30 +65,81 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
         }
     }
 
-    // 计算总样本数
-    size_t totalSamples = 0;
-    for (const auto& model : localModels_) {
-        totalSamples += model.sampleCount;
-    }
-    if (totalSamples == 0) {
-        LOG_WARN << "[FederatedLearner] Total samples is 0, using equal weights";
-        totalSamples = localModels_.size();  // 等权重回退
+    // 确定权重矩阵维度（以第一个模型为参考）
+    const auto& ref = localModels_[0];
+    const size_t numLayers = ref.weights.size();
+    const size_t biasSize = ref.biases.size();
+
+    // 先过滤结构不一致的本地模型，避免脏更新污染聚合结果
+    std::vector<size_t> validIndices;
+    validIndices.reserve(localModels_.size());
+    int maxEpoch = ref.epoch;
+    for (size_t i = 0; i < localModels_.size(); ++i) {
+        const auto& model = localModels_[i];
+        if (model.weights.size() != numLayers || model.biases.size() != biasSize) {
+            LOG_WARN << "[FederatedLearner] Skip incompatible model from node " << model.nodeId
+                     << " (layer/bias shape mismatch)";
+            continue;
+        }
+
+        bool layerMismatch = false;
+        for (size_t l = 0; l < numLayers; ++l) {
+            if (model.weights[l].size() != ref.weights[l].size()) {
+                layerMismatch = true;
+                break;
+            }
+        }
+        if (layerMismatch) {
+            LOG_WARN << "[FederatedLearner] Skip incompatible model from node " << model.nodeId
+                     << " (layer width mismatch)";
+            continue;
+        }
+
+        validIndices.push_back(i);
+        if (model.epoch > maxEpoch) {
+            maxEpoch = model.epoch;
+        }
     }
 
-    if (totalSamples == 0) {
-        LOG_WARN << "[FederatedLearner] Total sample count is zero, cannot aggregate";
+    if (validIndices.empty()) {
+        LOG_WARN << "[FederatedLearner] No compatible local model to aggregate";
         global.sampleCount = 0;
         global.localLoss = 0.0f;
+        global.weights = {};
+        global.biases = {};
         localModels_.clear();
         return global;
     }
 
+    // 计算总样本数（统计口径保持不变）
+    size_t totalSamples = 0;
+    for (size_t idx : validIndices) {
+        totalSamples += localModels_[idx].sampleCount;
+    }
+    if (totalSamples == 0) {
+        LOG_WARN << "[FederatedLearner] Total samples is 0, using equal weights";
+        totalSamples = validIndices.size();  // 等权重回退
+    }
     global.sampleCount = totalSamples;
 
-    // 确定权重矩阵维度（以第一个模型为参考）
-    const auto& ref = localModels_[0];
-    size_t numLayers = ref.weights.size();
-    size_t biasSize = ref.biases.size();
+    // Asynchronous FL: stale-aware 权重衰减（仅影响权重，不影响接口）
+    // 参考 2024-2026 的异步联邦学习实践：旧 epoch 更新按 staleness 衰减。
+    std::vector<float> rawMass(validIndices.size(), 0.0f);
+    float totalMass = 0.0f;
+    for (size_t i = 0; i < validIndices.size(); ++i) {
+        const auto& model = localModels_[validIndices[i]];
+        const int staleness = std::max(0, maxEpoch - model.epoch);
+        const float staleFactor = std::exp(-0.35f * static_cast<float>(staleness));
+        const float sampleMass = (model.sampleCount > 0)
+            ? static_cast<float>(model.sampleCount)
+            : 1.0f;
+        rawMass[i] = sampleMass * staleFactor;
+        totalMass += rawMass[i];
+    }
+    if (totalMass <= 1e-8f) {
+        std::fill(rawMass.begin(), rawMass.end(), 1.0f);
+        totalMass = static_cast<float>(rawMass.size());
+    }
 
     // 初始化全局权重为零
     global.weights.resize(numLayers);
@@ -97,9 +149,10 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
     global.biases.resize(biasSize, 0.0f);
     global.localLoss = 0.0f;
 
-    // FedAvg加权聚合: w_global = Σ(n_k / n) * w_k
-    for (const auto& model : localModels_) {
-        float weight = static_cast<float>(model.sampleCount) / static_cast<float>(totalSamples);
+    // FedAvg加权聚合: w_global = Σ(w_k) * local_model_k，w_k 基于样本数 + staleness 衰减
+    for (size_t i = 0; i < validIndices.size(); ++i) {
+        const auto& model = localModels_[validIndices[i]];
+        const float weight = rawMass[i] / totalMass;
 
         // 聚合权重矩阵
         for (size_t l = 0; l < numLayers && l < model.weights.size(); ++l) {
@@ -164,7 +217,7 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
     }
 
     LOG_INFO << "[FederatedLearner] FedProx aggregation complete: round=" << federatedRound_
-             << ", participants=" << localModels_.size()
+             << ", participants=" << validIndices.size()
              << ", totalSamples=" << totalSamples
              << ", avgLoss=" << global.localLoss
              << ", mu=" << mu;

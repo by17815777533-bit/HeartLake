@@ -113,6 +113,7 @@ private:
 
     // ---- 词典 ----
     std::unordered_map<std::string, float> sentimentLexicon_;
+    std::unordered_map<std::string, float> domainSentimentLexicon_;
     std::unordered_map<std::string, float> intensifiers_;
     std::unordered_map<std::string, float> negators_;
 

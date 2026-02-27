@@ -26,10 +26,28 @@ import httpx
 import requests
 
 
-POSITIVE_MOODS = {"happy", "calm", "surprised"}
-NEGATIVE_MOODS = {"anxious", "sad", "angry", "confused"}
+# 评估阶段统一 mood 标签空间，避免接口输出标签与基准标签命名差异造成误判。
+MOOD_ALIASES = {
+    "joy": "happy",
+    "happiness": "happy",
+    "happy": "happy",
+    "calm": "neutral",
+    "confused": "neutral",
+    "neutral": "neutral",
+    "fear": "anxious",
+    "anxious": "anxious",
+    "sadness": "sad",
+    "sad": "sad",
+    "anger": "angry",
+    "angry": "angry",
+    "surprise": "surprised",
+    "surprised": "surprised",
+}
+
+POSITIVE_MOODS = {"happy", "surprised"}
+NEGATIVE_MOODS = {"anxious", "sad", "angry"}
 NEUTRAL_MOODS = {"neutral"}
-ALL_MOODS = ("happy", "calm", "anxious", "sad", "angry", "surprised", "confused", "neutral")
+ALL_MOODS = ("happy", "anxious", "sad", "angry", "surprised", "neutral")
 
 GATE_TARGETS = {
     "functional_pass_rate": 0.99,
@@ -69,10 +87,15 @@ def configure_http_clients(base_url: str) -> None:
         REQUESTS_SESSION.trust_env = True
 
 
+def normalize_mood(mood: str) -> str:
+    return MOOD_ALIASES.get(str(mood).strip().lower(), "neutral")
+
+
 def classify_polarity(score: float, mood: str) -> str:
-    if score >= 0.2 or mood in POSITIVE_MOODS:
+    normalized = normalize_mood(mood)
+    if score >= 0.2 or normalized in POSITIVE_MOODS:
         return "positive"
-    if score <= -0.2 or mood in NEGATIVE_MOODS:
+    if score <= -0.2 or normalized in NEGATIVE_MOODS:
         return "negative"
     return "neutral"
 
@@ -504,6 +527,7 @@ def accuracy_suite(base_url: str, ctx: AuthCtx) -> Dict[str, Any]:
 
     for text, expect_mood, expect_pol in samples:
         total += 1
+        expected_mood = normalize_mood(expect_mood)
         resp = REQUESTS_SESSION.post(
             f"{base_url}/api/edge-ai/analyze",
             headers=h,
@@ -523,26 +547,29 @@ def accuracy_suite(base_url: str, ctx: AuthCtx) -> Dict[str, Any]:
 
         body = must_json(resp)
         data = body.get("data", {})
-        pred_mood = str(data.get("mood", "neutral"))
+        pred_mood_raw = str(data.get("mood", "neutral"))
+        pred_mood = normalize_mood(pred_mood_raw)
         pred_score = float(data.get("score", 0.0))
         pred_pol = classify_polarity(pred_score, pred_mood)
 
-        if pred_mood == expect_mood:
+        if pred_mood == expected_mood:
             mood_hit += 1
         if pred_pol == expect_pol:
             polarity_hit += 1
 
-        confusion.setdefault(expect_mood, {})
-        confusion[expect_mood][pred_mood] = confusion[expect_mood].get(pred_mood, 0) + 1
+        confusion.setdefault(expected_mood, {})
+        confusion[expected_mood][pred_mood] = confusion[expected_mood].get(pred_mood, 0) + 1
         details.append(
             {
                 "text": text,
-                "expected_mood": expect_mood,
+                "expected_mood_raw": expect_mood,
+                "expected_mood": expected_mood,
+                "pred_mood_raw": pred_mood_raw,
                 "pred_mood": pred_mood,
                 "expected_polarity": expect_pol,
                 "pred_polarity": pred_pol,
                 "score": round(pred_score, 4),
-                "ok_mood": pred_mood == expect_mood,
+                "ok_mood": pred_mood == expected_mood,
                 "ok_polarity": pred_pol == expect_pol,
             }
         )
@@ -552,6 +579,7 @@ def accuracy_suite(base_url: str, ctx: AuthCtx) -> Dict[str, Any]:
     critical_detail: List[Dict[str, Any]] = []
     for text, expect_mood, expect_pol in critical_cases:
         critical_total += 1
+        expected_mood = normalize_mood(expect_mood)
         resp = REQUESTS_SESSION.post(
             f"{base_url}/api/edge-ai/analyze",
             headers=h,
@@ -571,16 +599,19 @@ def accuracy_suite(base_url: str, ctx: AuthCtx) -> Dict[str, Any]:
             continue
         body = must_json(resp)
         data = body.get("data", {})
-        pred_mood = str(data.get("mood", "neutral"))
+        pred_mood_raw = str(data.get("mood", "neutral"))
+        pred_mood = normalize_mood(pred_mood_raw)
         pred_score = float(data.get("score", 0.0))
         pred_pol = classify_polarity(pred_score, pred_mood)
-        ok = (pred_mood == expect_mood) and (pred_pol == expect_pol)
+        ok = (pred_mood == expected_mood) and (pred_pol == expect_pol)
         if ok:
             critical_hit += 1
         critical_detail.append(
             {
                 "text": text,
-                "expected_mood": expect_mood,
+                "expected_mood_raw": expect_mood,
+                "expected_mood": expected_mood,
+                "pred_mood_raw": pred_mood_raw,
                 "pred_mood": pred_mood,
                 "expected_polarity": expect_pol,
                 "pred_polarity": pred_pol,

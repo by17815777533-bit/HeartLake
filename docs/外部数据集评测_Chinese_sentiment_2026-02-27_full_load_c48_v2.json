@@ -1,0 +1,113 @@
+{
+  "dataset": "sepidmnorozy/Chinese_sentiment",
+  "timestamp": "2026-02-27 02:43:49",
+  "splits": {
+    "dev": {
+      "samples_total": 2591,
+      "samples_scored": 2565,
+      "errors": 26,
+      "status_counts": {
+        "200": 2565,
+        "400": 1
+      },
+      "throughput_rps": 19.49,
+      "latency_ms": {
+        "p50": 1961.1,
+        "p95": 2572.32,
+        "p99": 10769.23,
+        "avg": 2140.09
+      },
+      "metrics_score_sign": {
+        "accuracy": 0.8752,
+        "precision": 0.886,
+        "recall": 0.9069,
+        "f1": 0.8963,
+        "confusion": {
+          "tp": 1383,
+          "tn": 862,
+          "fp": 178,
+          "fn": 142
+        }
+      },
+      "metrics_hybrid_mood_score": {
+        "accuracy": 0.8752,
+        "precision": 0.886,
+        "recall": 0.9069,
+        "f1": 0.8963,
+        "confusion": {
+          "tp": 1383,
+          "tn": 862,
+          "fp": 178,
+          "fn": 142
+        }
+      },
+      "method_breakdown": {
+        "dual_route_local": {
+          "n": 369,
+          "accuracy": 0.8401
+        },
+        "dual_route_onnx_ensemble": {
+          "n": 1785,
+          "accuracy": 0.8986
+        },
+        "dual_route_onnx_guarded": {
+          "n": 411,
+          "accuracy": 0.8054
+        }
+      }
+    },
+    "test": {
+      "samples_total": 4896,
+      "samples_scored": 4881,
+      "errors": 15,
+      "status_counts": {
+        "200": 4881
+      },
+      "throughput_rps": 21.41,
+      "latency_ms": {
+        "p50": 2127.69,
+        "p95": 2557.99,
+        "p99": 4657.86,
+        "avg": 2138.04
+      },
+      "metrics_score_sign": {
+        "accuracy": 0.8683,
+        "precision": 0.8803,
+        "recall": 0.9067,
+        "f1": 0.8933,
+        "confusion": {
+          "tp": 2692,
+          "tn": 1546,
+          "fp": 366,
+          "fn": 277
+        }
+      },
+      "metrics_hybrid_mood_score": {
+        "accuracy": 0.8683,
+        "precision": 0.8803,
+        "recall": 0.9067,
+        "f1": 0.8933,
+        "confusion": {
+          "tp": 2692,
+          "tn": 1546,
+          "fp": 366,
+          "fn": 277
+        }
+      },
+      "method_breakdown": {
+        "dual_route_local": {
+          "n": 775,
+          "accuracy": 0.8335
+        },
+        "dual_route_onnx_ensemble": {
+          "n": 3369,
+          "accuracy": 0.8842
+        },
+        "dual_route_onnx_guarded": {
+          "n": 737,
+          "accuracy": 0.8318
+        }
+      }
+    }
+  }
+}

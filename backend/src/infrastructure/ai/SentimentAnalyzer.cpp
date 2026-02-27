@@ -13,7 +13,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <optional>
 #include <sstream>
 #include <unordered_set>
@@ -31,6 +34,205 @@ bool containsAnyPhrase(const std::string& text, const std::vector<std::string>& 
     }
     return false;
 }
+
+bool envFlagEnabled(const char* name, bool defaultValue) {
+    const char* raw = std::getenv(name);
+    if (raw == nullptr) {
+        return defaultValue;
+    }
+    const std::string value(raw);
+    if (value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON") {
+        return true;
+    }
+    if (value == "0" || value == "false" || value == "FALSE" || value == "off" || value == "OFF") {
+        return false;
+    }
+    return defaultValue;
+}
+
+std::string trimAscii(std::string s) {
+    auto isSpace = [](unsigned char c) { return std::isspace(c) != 0; };
+    while (!s.empty() && isSpace(static_cast<unsigned char>(s.front()))) {
+        s.erase(s.begin());
+    }
+    while (!s.empty() && isSpace(static_cast<unsigned char>(s.back()))) {
+        s.pop_back();
+    }
+    return s;
+}
+
+std::filesystem::path resolveReadableFilePath(const std::filesystem::path& configuredPath) {
+    if (configuredPath.empty()) {
+        return configuredPath;
+    }
+    if (configuredPath.is_absolute()) {
+        return configuredPath;
+    }
+
+    static const std::vector<std::filesystem::path> prefixes = {
+        {},
+        std::filesystem::path(".."),
+        std::filesystem::path("backend"),
+        std::filesystem::path("../backend")
+    };
+
+    for (const auto& prefix : prefixes) {
+        const auto candidate = prefix.empty() ? configuredPath : (prefix / configuredPath);
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return configuredPath;
+}
+
+void loadDomainLexicon(std::unordered_map<std::string, float>& sentimentLexicon) {
+    const char* envPath = std::getenv("EDGE_AI_SENTIMENT_LEXICON_PATH");
+    const bool hasEnvPath = (envPath != nullptr && envPath[0] != '\0');
+    if (!hasEnvPath) {
+        return;
+    }
+    const std::filesystem::path rawPath(envPath);
+    const std::filesystem::path resolvedPath = resolveReadableFilePath(rawPath);
+
+    std::ifstream in(resolvedPath);
+    if (!in.is_open()) {
+        LOG_WARN << "[SentimentAnalyzer] EDGE_AI_SENTIMENT_LEXICON_PATH not readable: "
+                 << rawPath.string() << " (resolved: " << resolvedPath.string() << ")";
+        return;
+    }
+
+    size_t loaded = 0;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        const auto tab = line.find('\t');
+        if (tab == std::string::npos) {
+            continue;
+        }
+
+        std::string phrase = trimAscii(line.substr(0, tab));
+        std::string weightRaw = trimAscii(line.substr(tab + 1));
+        if (phrase.empty() || weightRaw.empty()) {
+            continue;
+        }
+
+        try {
+            const float weight = std::clamp(std::stof(weightRaw), -1.0f, 1.0f);
+            sentimentLexicon[phrase] = weight;
+            ++loaded;
+        } catch (...) {
+            continue;
+        }
+    }
+
+    if (loaded > 0) {
+        LOG_INFO << "[SentimentAnalyzer] Loaded domain lexicon entries: " << loaded
+                 << " from " << resolvedPath.string();
+    }
+}
+
+std::string convertTraditionalToSimplified(const std::string& text) {
+    static const std::unordered_map<std::string, std::string> kTradToSimp = {
+        {"這", "这"}, {"還", "还"}, {"個", "个"}, {"書", "书"}, {"間", "间"},
+        {"來", "来"}, {"沒", "没"}, {"點", "点"}, {"覺", "觉"}, {"麼", "么"},
+        {"務", "务"}, {"為", "为"}, {"價", "价"}, {"會", "会"}, {"買", "买"},
+        {"樣", "样"}, {"現", "现"}, {"電", "电"}, {"開", "开"}, {"發", "发"},
+        {"總", "总"}, {"問", "问"}, {"網", "网"}, {"機", "机"}, {"該", "该"},
+        {"體", "体"}, {"種", "种"}, {"應", "应"}, {"題", "题"}, {"質", "质"},
+        {"滿", "满"}, {"關", "关"}, {"態", "态"}, {"與", "与"}, {"請", "请"},
+        {"讓", "让"}, {"給", "给"}, {"進", "进"}, {"們", "们"}, {"說", "说"},
+        {"愛", "爱"}, {"優", "优"}, {"壓", "压"}, {"頭", "头"}, {"顯", "显"},
+        {"鍵", "键"}, {"盤", "盘"}, {"軟", "软"}, {"續", "续"}, {"線", "线"},
+        {"誤", "误"}, {"試", "试"}, {"驗", "验"}, {"號", "号"}, {"風", "风"},
+        {"氣", "气"}, {"溫", "温"}, {"熱", "热"}, {"顏", "颜"}, {"長", "长"},
+        {"舊", "旧"}, {"馬", "马"}, {"錄", "录"}, {"檔", "档"}, {"驅", "驱"},
+        {"動", "动"}, {"衛", "卫"}, {"環", "环"}, {"櫃", "柜"}, {"檯", "台"},
+        {"飯", "饭"}, {"專", "专"}, {"業", "业"}, {"級", "级"}, {"標", "标"},
+        {"準", "准"}, {"壞", "坏"}, {"爛", "烂"}, {"髒", "脏"}, {"淨", "净"},
+        {"錢", "钱"}, {"貴", "贵"}, {"實", "实"}, {"際", "际"}, {"傳", "传"},
+        {"統", "统"}, {"獨", "独"}, {"學", "学"}, {"習", "习"}, {"歡", "欢"},
+        {"樂", "乐"}, {"傷", "伤"}, {"憂", "忧"}, {"慮", "虑"}, {"擔", "担"},
+        {"難", "难"}, {"過", "过"}, {"遠", "远"}, {"遲", "迟"}, {"遜", "逊"},
+        {"厲", "厉"}, {"厭", "厌"}, {"鬆", "松"}, {"穩", "稳"}, {"靜", "静"},
+        {"驚", "惊"}, {"訝", "讶"}, {"悶", "闷"}, {"亂", "乱"}, {"處", "处"},
+        {"緊", "紧"}, {"張", "张"}, {"燒", "烧"}, {"殘", "残"}, {"酷", "酷"},
+        {"聽", "听"}, {"聲", "声"}, {"畫", "画"}, {"層", "层"}, {"紋", "纹"},
+        {"節", "节"}, {"購", "购"}, {"運", "运"}, {"遞", "递"}, {"裝", "装"},
+        {"包", "包"}, {"測", "测"}, {"評", "评"}, {"論", "论"}, {"對", "对"},
+        {"錯", "错"}, {"關", "关"}, {"閉", "闭"}, {"連", "连"}, {"斷", "断"},
+        {"訊", "讯"}, {"號", "号"}, {"遙", "遥"}, {"控", "控"}, {"攝", "摄"},
+        {"影", "影"}, {"產", "产"}, {"值", "值"}, {"廣", "广"}, {"告", "告"},
+        {"費", "费"}, {"別", "别"}, {"離", "离"}, {"佔", "占"}, {"內", "内"},
+        {"壓", "压"}, {"縮", "缩"}, {"檢", "检"}, {"查", "查"}, {"轉", "转"},
+        {"換", "换"}, {"藍", "蓝"}, {"牙", "牙"}, {"蘋", "苹"}, {"果", "果"}
+    };
+
+    std::string out;
+    out.reserve(text.size());
+
+    for (size_t i = 0; i < text.size();) {
+        unsigned char c = static_cast<unsigned char>(text[i]);
+        size_t len = 1;
+        if ((c & 0xE0) == 0xC0) {
+            len = 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            len = 3;
+        } else if ((c & 0xF8) == 0xF0) {
+            len = 4;
+        }
+        if (i + len > text.size()) {
+            out.push_back(text[i]);
+            ++i;
+            continue;
+        }
+        std::string token = text.substr(i, len);
+        auto it = kTradToSimp.find(token);
+        if (it != kTradToSimp.end()) {
+            out += it->second;
+        } else {
+            out += token;
+        }
+        i += len;
+    }
+    return out;
+}
+
+std::atomic<int> gOnnxInFlight{0};
+
+bool tryAcquireOnnxSlot(std::atomic<int>& counter, int limit) {
+    if (limit <= 0) {
+        return true;
+    }
+    int current = counter.load(std::memory_order_relaxed);
+    while (current < limit) {
+        if (counter.compare_exchange_weak(
+                current, current + 1,
+                std::memory_order_relaxed,
+                std::memory_order_relaxed)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+class OnnxInFlightGuard {
+public:
+    OnnxInFlightGuard(std::atomic<int>& counter, bool acquired)
+        : counter_(counter), acquired_(acquired) {}
+
+    ~OnnxInFlightGuard() {
+        if (acquired_) {
+            counter_.fetch_sub(1, std::memory_order_relaxed);
+        }
+    }
+
+private:
+    std::atomic<int>& counter_;
+    bool acquired_{false};
+};
 
 struct AffectiveAnchorSignal {
     float score{0.0f};      // [-1, 1]
@@ -172,6 +374,14 @@ float calibrateScoreByMoodCue(const std::string& text,
         "什么都没发生", "不开心，也不难过", "不开心也不难过", "就是发呆", "心情一般"
     };
 
+    // calm/confused 最终会映射到对外 neutral 标签，保留一定极性幅度避免“语义明确却被判中性”。
+    if (mood == "calm") {
+        return std::max(score, 0.22f);
+    }
+    if (mood == "confused") {
+        return std::min(score, -0.22f);
+    }
+
     if (mood == "neutral") {
         if (containsAnyPhrase(text, kNeutralStrongSignals)) {
             return std::clamp(score, -0.08f, 0.08f);
@@ -255,6 +465,7 @@ void SentimentAnalyzer::configure(int cacheTTLSec, size_t cacheMaxSize) {
 void SentimentAnalyzer::loadLexicon() {
     // 预分配桶数，避免插入过程中多次 rehash
     sentimentLexicon_.reserve(300);
+    domainSentimentLexicon_.reserve(128);
     intensifiers_.reserve(40);
     negators_.reserve(30);
 
@@ -468,6 +679,9 @@ void SentimentAnalyzer::loadLexicon() {
     sentimentLexicon_["不舒服"] = -0.50f;
     sentimentLexicon_["难受"] = -0.55f;
 
+    // 领域词典（可通过 EDGE_AI_SENTIMENT_LEXICON_PATH 覆盖）。
+    loadDomainLexicon(domainSentimentLexicon_);
+
     // 程度副词
     intensifiers_["很"] = 1.3f;
     intensifiers_["非常"] = 1.5f;
@@ -614,6 +828,8 @@ std::vector<std::string> SentimentAnalyzer::tokenizeUTF8(const std::string& text
 float SentimentAnalyzer::ruleSentiment(const std::string& text) const {
     float score = 0.0f;
     int signals = 0;
+    int positiveEmojiHits = 0;
+    int negativeEmojiHits = 0;
 
     // 表情符号检测 — 单次扫描，O(N) 替代 O(N*E)
     static const std::unordered_map<std::string, float> emojiScores = {
@@ -640,6 +856,11 @@ float SentimentAnalyzer::ruleSentiment(const std::string& text) const {
                     if (it != emojiScores.end()) {
                         score += it->second;
                         ++signals;
+                        if (it->second > 0.0f) {
+                            ++positiveEmojiHits;
+                        } else if (it->second < 0.0f) {
+                            ++negativeEmojiHits;
+                        }
                     }
                 }
                 ei += bc;
@@ -728,7 +949,18 @@ float SentimentAnalyzer::ruleSentiment(const std::string& text) const {
     }
 
     if (signals == 0) return 0.0f;
-    return std::clamp(score / std::max(1, signals) * 1.5f, -1.0f, 1.0f);
+    float normalized = score / std::max(1, signals) * 1.5f;
+
+    // EMNLP 2024 显示 emoji 在语境中存在 literal/figurative 差异，
+    // 正负 emoji 混用通常意味着语义冲突，需降低规则层的置信幅度。
+    if (positiveEmojiHits > 0 && negativeEmojiHits > 0) {
+        const float imbalance = static_cast<float>(std::abs(positiveEmojiHits - negativeEmojiHits)) /
+            static_cast<float>(positiveEmojiHits + negativeEmojiHits);
+        const float conflictDamping = 0.58f + 0.22f * imbalance;
+        normalized *= conflictDamping;
+    }
+
+    return std::clamp(normalized, -1.0f, 1.0f);
 }
 
 float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens) const {
@@ -737,24 +969,56 @@ float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens
     float intensifierMult = 1.0f;
     int negationWindow = 0;
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        const auto& token = tokens[i];
+    size_t i = 0;
+    while (i < tokens.size()) {
+        // 领域词典支持跨 token 短语匹配（用于分词文本）；基础词典仍保持单 token 逻辑。
+        int matchedLen = 0;
+        float matchedLexScore = 0.0f;
+        if (!domainSentimentLexicon_.empty()) {
+            const int maxLen = static_cast<int>(std::min<size_t>(6, tokens.size() - i));
+            for (int len = maxLen; len >= 1; --len) {
+                std::string candidate;
+                for (int j = 0; j < len; ++j) {
+                    candidate += tokens[i + static_cast<size_t>(j)];
+                }
+                auto lexIt = domainSentimentLexicon_.find(candidate);
+                if (lexIt != domainSentimentLexicon_.end()) {
+                    matchedLen = len;
+                    matchedLexScore = lexIt->second;
+                    break;
+                }
+            }
+        }
 
-        // 检查是否为否定词
+        if (matchedLen > 0) {
+            float wordScore = matchedLexScore * intensifierMult;
+            if (negationWindow > 0) {
+                wordScore *= -0.75f;  // 否定翻转，但强度略减
+            }
+            totalScore += wordScore;
+            ++matchedCount;
+
+            intensifierMult = 1.0f;
+            negationWindow = std::max(0, negationWindow - matchedLen);
+            i += static_cast<size_t>(matchedLen);
+            continue;
+        }
+
+        const auto& token = tokens[i];
         auto negIt = negators_.find(token);
         if (negIt != negators_.end()) {
             negationWindow = 2;
+            ++i;
             continue;
         }
 
-        // 检查是否为程度副词
         auto intIt = intensifiers_.find(token);
         if (intIt != intensifiers_.end()) {
             intensifierMult = intIt->second;
+            ++i;
             continue;
         }
 
-        // 查找情感词典
         auto lexIt = sentimentLexicon_.find(token);
         if (lexIt != sentimentLexicon_.end()) {
             float wordScore = lexIt->second * intensifierMult;
@@ -763,15 +1027,12 @@ float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens
             }
             totalScore += wordScore;
             ++matchedCount;
-
-            // 重置修饰状态
             intensifierMult = 1.0f;
             negationWindow = 0;
-        } else {
-            if (negationWindow > 0) {
-                --negationWindow;
-            }
+        } else if (negationWindow > 0) {
+            --negationWindow;
         }
+        ++i;
     }
 
     if (matchedCount == 0) return 0.0f;
@@ -868,6 +1129,33 @@ std::string SentimentAnalyzer::normalizeSentimentText(const std::string& text) c
         normalized.pop_back();
     }
 
+    if (envFlagEnabled("HEARTLAKE_SENTIMENT_COMPACT_CJK_SPACES", false)) {
+        // 对中文主导文本去掉分词空格（如“性 價 比 高”），避免词典与短语规则失配。
+        // 仅在非 ASCII 字节显著高于 ASCII 字母数字时触发，尽量不影响英文文本。
+        size_t nonAsciiBytes = 0;
+        size_t asciiAlphaNum = 0;
+        for (unsigned char c : normalized) {
+            if (c >= 0x80) {
+                ++nonAsciiBytes;
+            } else if (std::isalnum(c)) {
+                ++asciiAlphaNum;
+            }
+        }
+        if (nonAsciiBytes > asciiAlphaNum * 2 && normalized.find(' ') != std::string::npos) {
+            std::string compacted;
+            compacted.reserve(normalized.size());
+            for (char ch : normalized) {
+                if (ch != ' ') {
+                    compacted.push_back(ch);
+                }
+            }
+            normalized.swap(compacted);
+        }
+    }
+
+    if (envFlagEnabled("HEARTLAKE_SENTIMENT_T2S", false)) {
+        return convertTraditionalToSimplified(normalized);
+    }
     return normalized;
 }
 
@@ -988,16 +1276,31 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
 
-    auto tokens = tokenizeUTF8(text);
+    const std::string normalizedText = normalizeSentimentText(text);
+    if (normalizedText.empty()) {
+        return {0.0f, "neutral", 0.0f, "disabled"};
+    }
 
-    float ruleScore = ruleSentiment(text);
+    auto tokens = tokenizeUTF8(normalizedText);
+
+    float ruleScore = ruleSentiment(normalizedText);
     float lexScore = lexiconSentiment(tokens);
-    float statScore = statisticalSentiment(tokens, text);
+    float statScore = statisticalSentiment(tokens, normalizedText);
 
-    const float wRule = 0.30f;
-    const float wLex = 0.60f;
+    float wRule = 0.30f;
+    float wLex = 0.60f;
     const float wStat = 0.10f;
-    float ensembleScore = wRule * ruleScore + wLex * lexScore + wStat * statScore;
+
+    // 规则层与词典层极性冲突时，优先信任词典层（规则层含 emoji/标点信号，噪声更高）。
+    // 参考: EMNLP 2024 对 emoji figurative usage 的发现。
+    if (ruleScore * lexScore < -0.04f) {
+        const float conflict = std::min(0.18f, std::abs(ruleScore - lexScore) * 0.12f);
+        wRule = std::max(0.10f, wRule - conflict);
+        wLex = std::min(0.78f, wLex + conflict);
+    }
+
+    const float norm = std::max(1e-6f, wRule + wLex + wStat);
+    float ensembleScore = (wRule * ruleScore + wLex * lexScore + wStat * statScore) / norm;
     ensembleScore = std::clamp(ensembleScore, -1.0f, 1.0f);
 
     // ── 共享 marker 列表（消除3个lambda中的重复定义）──
@@ -1018,18 +1321,18 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     };
 
     // ── 一次扫描预计算所有 marker flags ──
-    const bool hasContrast = containsAnyPhrase(text, sharedContrastMarkers);
-    const bool hasNegative = containsAnyPhrase(text, sharedNegativeMarkers);
-    const bool hasPraise = containsAnyPhrase(text, praiseMarkers);
-    const bool hasSelf = containsAnyPhrase(text, selfMarkers);
-    const bool hasPositiveEvent = containsAnyPhrase(text, positiveEventMarkers);
+    const bool hasContrast = containsAnyPhrase(normalizedText, sharedContrastMarkers);
+    const bool hasNegative = containsAnyPhrase(normalizedText, sharedNegativeMarkers);
+    const bool hasPraise = containsAnyPhrase(normalizedText, praiseMarkers);
+    const bool hasSelf = containsAnyPhrase(normalizedText, selfMarkers);
+    const bool hasPositiveEvent = containsAnyPhrase(normalizedText, positiveEventMarkers);
 
     // 找最后一个转折词位置（contrastBoost 和 positiveEventBoost 共用）
     size_t lastContrastPos = std::string::npos;
     size_t lastContrastLen = 0;
     if (hasContrast) {
         for (const auto& marker : sharedContrastMarkers) {
-            size_t pos = text.rfind(marker);
+            size_t pos = normalizedText.rfind(marker);
             if (pos != std::string::npos && (lastContrastPos == std::string::npos || pos > lastContrastPos)) {
                 lastContrastPos = pos;
                 lastContrastLen = marker.size();
@@ -1039,10 +1342,10 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
 
     // ── applyContrastBoost ──
     auto applyContrastBoost = [&](float baseScore) {
-        if (lastContrastPos == std::string::npos || lastContrastPos + lastContrastLen >= text.size()) {
+        if (lastContrastPos == std::string::npos || lastContrastPos + lastContrastLen >= normalizedText.size()) {
             return baseScore;
         }
-        std::string tailText = text.substr(lastContrastPos + lastContrastLen);
+        std::string tailText = normalizedText.substr(lastContrastPos + lastContrastLen);
         if (tailText.empty()) return baseScore;
 
         auto tailTokens = tokenizeUTF8(tailText);
@@ -1073,17 +1376,17 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         if (!hasPositiveEvent || hasNegative) return baseScore;
 
         // 检查转折词后是否有负面内容
-        if (lastContrastPos != std::string::npos && lastContrastPos + lastContrastLen < text.size()) {
-            const auto tail = text.substr(lastContrastPos + lastContrastLen);
+        if (lastContrastPos != std::string::npos && lastContrastPos + lastContrastLen < normalizedText.size()) {
+            const auto tail = normalizedText.substr(lastContrastPos + lastContrastLen);
             if (containsAnyPhrase(tail, sharedNegativeMarkers)) return baseScore;
         }
 
-        const float floorScore = text.find("礼物") != std::string::npos ? 0.74f : 0.68f;
+        const float floorScore = normalizedText.find("礼物") != std::string::npos ? 0.74f : 0.68f;
         return std::max(baseScore, floorScore);
     };
     ensembleScore = applyPositiveEventBoost(ensembleScore);
 
-    const auto anchorSignal = computeAffectiveAnchor(text);
+    const auto anchorSignal = computeAffectiveAnchor(normalizedText);
     if (anchorSignal.strength > 0.08f) {
         const float anchorWeight = std::clamp(0.16f + anchorSignal.strength * 0.24f, 0.16f, 0.40f);
         ensembleScore = std::clamp(
@@ -1092,7 +1395,6 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
             1.0f
         );
     }
-
     float agreement = 1.0f;
     bool allPositive = (ruleScore >= 0 && lexScore >= 0 && statScore >= 0);
     bool allNegative = (ruleScore <= 0 && lexScore <= 0 && statScore <= 0);
@@ -1128,7 +1430,7 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃"
     };
     const bool positiveEventSignal =
-        (containsAnyPhrase(text, positiveEventHints) && !containsAnyPhrase(text, negativeEventHints))
+        (containsAnyPhrase(normalizedText, positiveEventHints) && !containsAnyPhrase(normalizedText, negativeEventHints))
         || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
 
     // 内部标签 → Ekman 六基本情绪标准标签映射
@@ -1144,57 +1446,139 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     };
 
     auto finalizeSentiment = [&](float rawScore, float rawConfidence, const char* methodName) {
-        const std::string internalMood = refineMoodFromCues(text, rawScore, scoresToMood(rawScore));
-        const float calibratedScore = calibrateScoreByMoodCue(text, internalMood, rawScore);
+        const std::string internalMood = refineMoodFromCues(normalizedText, rawScore, scoresToMood(rawScore));
+        float calibratedScore = calibrateScoreByMoodCue(normalizedText, internalMood, rawScore);
+        // 生产性能模式下本地分支占比高，固定偏置用于抑制系统性正向偏移（降低 FP）。
+        if (std::strncmp(methodName, "dual_route_local", 16) == 0) {
+            calibratedScore = std::clamp(calibratedScore - 0.124f, -1.0f, 1.0f);
+        }
         const std::string ekmanMood = toEkmanMood(internalMood);
         return EdgeSentimentResult{calibratedScore, ekmanMood, rawConfidence, methodName};
     };
 
 #ifdef HEARTLAKE_USE_ONNX
     if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
-        auto onnxResult = onnxEngine_->analyze(text);
+        constexpr float kFastPathConfidence = 0.82f;
+        constexpr float kFastPathMargin = 0.44f;
+        constexpr float kFastPathConflict = 0.36f;
+        constexpr int kFastPathLexMatches = 1;
+        constexpr float kAmbiguousConfidence = 0.66f;
+        constexpr float kAmbiguousMargin = 0.24f;
+        constexpr float kAmbiguousConflict = 0.60f;
+
+        const float ensembleMargin = std::abs(ensembleScore);
+        const bool localFastPath = (confidence >= kFastPathConfidence)
+            && (ensembleMargin >= kFastPathMargin)
+            && (lexMatches >= kFastPathLexMatches)
+            && !hasContrast
+            && (anchorSignal.conflict < kFastPathConflict);
+        const bool localStableFallback = (ensembleMargin >= 0.46f)
+            && (lexMatches >= 1)
+            && !hasContrast
+            && (anchorSignal.conflict < 0.55f);
+        const bool ambiguousCase = hasContrast
+            || (anchorSignal.conflict >= kAmbiguousConflict)
+            || (ensembleMargin < kAmbiguousMargin)
+            || ((confidence < kAmbiguousConfidence) && (ensembleMargin < 0.42f))
+            || ((lexMatches == 0) && (ensembleMargin < 0.50f));
+
+        if (localFastPath || localStableFallback || !ambiguousCase) {
+            return finalizeSentiment(ensembleScore, confidence, "dual_route_local");
+        }
+
+        const size_t sessionPool = std::max<size_t>(1, onnxEngine_->getSessionPoolSize());
+        // 会话池本身不是硬并发上限；将并发闸门设为更宽，避免在入口形成秒级排队。
+        const int onnxMaxInflight = static_cast<int>(std::clamp(sessionPool * 8, static_cast<size_t>(8), static_cast<size_t>(96)));
+        const bool hasOnnxSlot = tryAcquireOnnxSlot(gOnnxInFlight, onnxMaxInflight);
+        if (!hasOnnxSlot) {
+            return finalizeSentiment(ensembleScore, confidence, "dual_route_local_backpressure");
+        }
+        OnnxInFlightGuard onnxInFlightGuard(gOnnxInFlight, hasOnnxSlot);
+        auto onnxResult = onnxEngine_->analyze(normalizedText);
         const float scoreGap = std::abs(onnxResult.score - ensembleScore);
         const bool signConflict = (onnxResult.score * ensembleScore < -0.06f);
         const bool lexSignalStrong = (lexMatches > 0 && std::abs(lexScore) >= 0.18f);
+        const bool guardedEligible = signConflict && scoreGap >= 0.38f
+            && (onnxResult.confidence >= 0.58f || confidence >= 0.58f);
 
-        if (signConflict && lexSignalStrong && scoreGap >= 0.45f) {
-            const float ensembleWeight = positiveEventSignal ? 0.90f : 0.75f;
-            const float onnxWeightGuarded = 1.0f - ensembleWeight;
-            const float fusedScore = std::clamp(
-                onnxResult.score * onnxWeightGuarded + ensembleScore * ensembleWeight,
+        if (guardedEligible) {
+            float guardedOnnxWeight = 0.74f;
+            if (onnxResult.confidence >= confidence + 0.10f) {
+                guardedOnnxWeight += 0.12f;
+            } else if (confidence >= onnxResult.confidence + 0.12f && lexSignalStrong) {
+                guardedOnnxWeight -= 0.18f;
+            }
+            if (lexMatches >= 3 && std::abs(lexScore) >= 0.45f) {
+                guardedOnnxWeight -= 0.10f;
+            }
+            if (positiveEventSignal && ensembleScore > 0.45f && onnxResult.score < -0.10f) {
+                guardedOnnxWeight = std::min(guardedOnnxWeight, 0.55f);
+            }
+            guardedOnnxWeight = std::clamp(guardedOnnxWeight, 0.34f, 0.90f);
+
+            float fusedScore = std::clamp(
+                onnxResult.score * guardedOnnxWeight + ensembleScore * (1.0f - guardedOnnxWeight),
                 -1.0f,
                 1.0f
             );
-            const float fusedConf = std::clamp((onnxResult.confidence * 0.40f + confidence * 0.60f) - 0.10f, 0.15f, 0.95f);
-            return finalizeSentiment(fusedScore, fusedConf, "onnx_guarded_ensemble");
+
+            if (std::abs(fusedScore) < 0.10f) {
+                const bool trustOnnxSign = onnxResult.confidence >= std::max(0.70f, confidence + 0.04f);
+                const float anchorScore = trustOnnxSign ? onnxResult.score : ensembleScore;
+                const float floorMag = std::clamp(std::abs(anchorScore) * 0.38f, 0.10f, 0.24f);
+                fusedScore = std::copysign(std::max(std::abs(fusedScore), floorMag), anchorScore);
+            }
+
+            const float fusedConf = std::clamp(
+                (onnxResult.confidence * 0.64f + confidence * 0.36f) - scoreGap * 0.05f,
+                0.24f,
+                0.99f
+            );
+            return finalizeSentiment(fusedScore, fusedConf, "dual_route_onnx_guarded");
         }
 
-        float onnxWeight = std::clamp(0.35f + onnxResult.confidence * 0.35f, 0.35f, 0.75f);
-        if (lexSignalStrong) {
-            onnxWeight = std::max(0.25f, onnxWeight - 0.10f);
+        float onnxWeight = std::clamp(
+            0.54f + (onnxResult.confidence - confidence) * 0.36f,
+            0.36f,
+            0.86f
+        );
+        if (lexSignalStrong && lexMatches >= 2 && std::abs(lexScore) >= 0.36f) {
+            onnxWeight = std::max(0.30f, onnxWeight - 0.10f);
         }
-        // 无词典信号时（纯陈述句），大幅降低 ONNX 权重，防止模型偏置污染 neutral
         if (lexMatches == 0) {
-            onnxWeight = std::min(onnxWeight, 0.20f);
+            onnxWeight = std::max(0.66f, onnxWeight);
         }
         if (anchorSignal.strength > 0.20f && std::abs(anchorSignal.score) > 0.32f) {
             const bool anchorConflictWithOnnx = (onnxResult.score * anchorSignal.score < -0.08f);
             if (anchorConflictWithOnnx) {
-                onnxWeight = std::max(0.20f, onnxWeight - 0.18f);
+                onnxWeight = std::max(0.22f, onnxWeight - 0.15f);
             } else {
-                onnxWeight = std::min(0.88f, onnxWeight + 0.06f);
+                onnxWeight = std::min(0.90f, onnxWeight + 0.05f);
             }
         }
         if (positiveEventSignal && ensembleScore > 0.45f && onnxResult.score < -0.10f) {
-            onnxWeight = std::min(onnxWeight, 0.18f);
+            onnxWeight = std::min(onnxWeight, 0.28f);
         }
-        if (scoreGap < 0.20f) {
-            onnxWeight = std::min(0.82f, onnxWeight + 0.08f);
+        if (scoreGap < 0.18f) {
+            onnxWeight = std::min(0.90f, onnxWeight + 0.06f);
         }
 
-        const float fusedScore = std::clamp(onnxResult.score * onnxWeight + ensembleScore * (1.0f - onnxWeight), -1.0f, 1.0f);
-        const float fusedConf = std::clamp((onnxResult.confidence * 0.55f + confidence * 0.45f) - scoreGap * 0.15f, 0.10f, 0.98f);
-        return finalizeSentiment(fusedScore, fusedConf, "onnx_ensemble");
+        float fusedScore = std::clamp(
+            onnxResult.score * onnxWeight + ensembleScore * (1.0f - onnxWeight),
+            -1.0f,
+            1.0f
+        );
+        if (std::abs(fusedScore) < 0.10f) {
+            const float anchorScore = (onnxResult.confidence >= confidence) ? onnxResult.score : ensembleScore;
+            const float floorMag = std::clamp(std::abs(anchorScore) * 0.34f, 0.10f, 0.24f);
+            fusedScore = std::copysign(std::max(std::abs(fusedScore), floorMag), anchorScore);
+        }
+        const float fusedConf = std::clamp(
+            (onnxResult.confidence * 0.62f + confidence * 0.38f) - scoreGap * 0.08f,
+            0.22f,
+            0.99f
+        );
+        return finalizeSentiment(fusedScore, fusedConf, "dual_route_onnx_ensemble");
     }
 #endif
 

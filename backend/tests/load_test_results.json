@@ -1,31 +1,51 @@
 {
+  "base_url": "http://127.0.0.1:8080",
   "target_ms": 50,
+  "concurrency": 50,
+  "requests_per_endpoint": 200,
   "results": [
     {
       "endpoint": "GET /api/health",
-      "avg_ms": 31.05,
-      "p50_ms": 19.63,
-      "p95_ms": 91.83,
-      "p99_ms": 111.11,
+      "avg_ms": 30.08,
+      "p50_ms": 22.93,
+      "p95_ms": 64.02,
+      "p99_ms": 69.94,
       "errors": 0,
+      "successful_requests": 200,
+      "total_requests": 200,
       "passed": true
     },
     {
       "endpoint": "GET /api/lake/stones",
-      "avg_ms": 20.61,
-      "p50_ms": 18.81,
-      "p95_ms": 35.09,
-      "p99_ms": 50.52,
+      "avg_ms": 36.76,
+      "p50_ms": 38.62,
+      "p95_ms": 41.67,
+      "p99_ms": 42.73,
       "errors": 0,
+      "successful_requests": 200,
+      "total_requests": 200,
       "passed": true
     },
     {
       "endpoint": "GET /api/lake/weather",
-      "avg_ms": 20.03,
-      "p50_ms": 18.94,
-      "p95_ms": 33.6,
-      "p99_ms": 41.06,
+      "avg_ms": 31.56,
+      "p50_ms": 33.01,
+      "p95_ms": 37.2,
+      "p99_ms": 38.97,
       "errors": 0,
+      "successful_requests": 200,
+      "total_requests": 200,
+      "passed": true
+    },
+    {
+      "endpoint": "POST /api/auth/anonymous",
+      "avg_ms": 37.2,
+      "p50_ms": 38.99,
+      "p95_ms": 42.2,
+      "p99_ms": 43.52,
+      "errors": 0,
+      "successful_requests": 200,
+      "total_requests": 200,
       "passed": true
     }
   ],

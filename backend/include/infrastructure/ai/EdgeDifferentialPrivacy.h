@@ -98,11 +98,13 @@ public:
 
     float getConsumedEpsilon() const { return consumedEpsilon_.load(); }
     float getConsumedDelta() const { return consumedDelta_.load(); }
+    float getConsumedRho() const { return consumedRho_.load(); }
 
 private:
     DPConfig dpConfig_{};
     std::atomic<float> consumedEpsilon_{0.0f};
     std::atomic<float> consumedDelta_{0.0f};
+    std::atomic<float> consumedRho_{0.0f};
     std::mt19937 dpRng_{std::random_device{}()};
     mutable std::shared_mutex dpMutex_;
 
@@ -113,12 +115,6 @@ private:
      */
     float sampleLaplace(float scale);
 
-    /**
-     * @brief Gaussian分布采样
-     * @param sigma 标准差 σ
-     * @return N(0, σ²) 样本
-     */
-    float sampleGaussian(float sigma);
 };
 
 } // namespace ai

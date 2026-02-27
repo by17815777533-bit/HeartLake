@@ -17,6 +17,30 @@
 
 namespace heartlake::ai {
 
+namespace {
+
+constexpr float kMinDelta = 1e-12f;
+
+float clampDelta(float delta) {
+    return std::clamp(delta, kMinDelta, 1.0f - kMinDelta);
+}
+
+float rhoFromEpsilonDelta(float epsilon, float delta) {
+    const float eps = std::max(epsilon, 1e-10f);
+    const float d = clampDelta(delta);
+    const float a = std::sqrt(std::log(1.0f / d));
+    const float x = -a + std::sqrt(a * a + eps);
+    return std::max(x * x, 1e-12f);
+}
+
+float epsilonFromRhoDelta(float rho, float delta) {
+    const float d = clampDelta(delta);
+    const float logInv = std::log(1.0f / d);
+    return rho + 2.0f * std::sqrt(std::max(0.0f, rho * logInv));
+}
+
+}  // namespace
+
 DifferentialPrivacyEngine::DifferentialPrivacyEngine()
     : dpConfig_{1.0f, 1e-5f, 1.0f, 10.0f, 1e-3f}
     , dpRng_(std::random_device{}()) {}
@@ -36,6 +60,7 @@ bool DifferentialPrivacyEngine::isEnabled() const {
 void DifferentialPrivacyEngine::setConfig(const DPConfig& config) {
     std::unique_lock<std::shared_mutex> lock(dpMutex_);
     dpConfig_ = config;
+    consumedRho_.store(0.0f);
 }
 
 DPConfig DifferentialPrivacyEngine::getConfig() const {
@@ -178,19 +203,41 @@ std::vector<float> DifferentialPrivacyEngine::addGaussianNoiseVec(const std::vec
     float epsilon = std::min(cfgEpsilon, remainingEps);
     if (epsilon < 1e-10f) epsilon = 1e-10f;
     float effectiveDelta = std::min(useDelta, remainingDelta);
+    if (effectiveDelta <= 0.0f || effectiveDelta >= 1.0f) {
+        LOG_WARN << "[DifferentialPrivacy] Effective delta invalid, returning original vector";
+        return values;
+    }
 
-    // Gaussian 机制: σ = Δ₂ · √(2·ln(1.25/δ)) / ε
-    // L2 sensitivity = sensitivity (调用方提供的是 L2 敏感度)
-    float sigma = sensitivity * std::sqrt(2.0f * std::log(1.25f / effectiveDelta)) / epsilon;
+    const float targetRho = rhoFromEpsilonDelta(epsilon, effectiveDelta);
+    const float rhoBudget = rhoFromEpsilonDelta(
+        maxEpsBudget,
+        std::min(std::max(maxDeltaBudget, kMinDelta), 1.0f - kMinDelta));
+    const float remainingRho = rhoBudget - consumedRho_.load();
+    if (remainingRho <= 0.0f) {
+        LOG_WARN << "[DifferentialPrivacy] Rho budget exhausted, returning original vector";
+        return values;
+    }
+    const float rhoToUse = std::min(targetRho, remainingRho);
+    if (rhoToUse <= 0.0f) {
+        LOG_WARN << "[DifferentialPrivacy] Rho budget insufficient, returning original vector";
+        return values;
+    }
+
+    // Gaussian 对应 zCDP: ρ = Δ²/(2σ²) => σ = Δ/sqrt(2ρ)
+    const float sigma = sensitivity / std::sqrt(2.0f * rhoToUse);
 
     std::vector<float> result(values.size());
     for (size_t i = 0; i < values.size(); ++i) {
         result[i] = values[i] + sampleGaussian(sigma);
     }
 
+    float oldRho = consumedRho_.load();
+    while (!consumedRho_.compare_exchange_weak(oldRho, oldRho + rhoToUse)) {}
+
     // 消耗隐私预算 (ε, δ) — 线性组合
+    const float epsilonSpent = epsilonFromRhoDelta(rhoToUse, effectiveDelta);
     float oldEps = consumedEpsilon_.load();
-    while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilon)) {}
+    while (!consumedEpsilon_.compare_exchange_weak(oldEps, oldEps + epsilonSpent)) {}
 
     float oldDelta = consumedDelta_.load();
     while (!consumedDelta_.compare_exchange_weak(oldDelta, oldDelta + effectiveDelta)) {}
@@ -213,6 +260,7 @@ float DifferentialPrivacyEngine::getRemainingDeltaBudget() const {
 void DifferentialPrivacyEngine::resetPrivacyBudget() {
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
+    consumedRho_.store(0.0f);
     std::shared_lock<std::shared_mutex> rlock(dpMutex_);
     LOG_INFO << "[DifferentialPrivacy] Privacy budget reset. Max epsilon budget: "
              << dpConfig_.maxEpsilonBudget << ", max delta budget: " << dpConfig_.maxDeltaBudget;
