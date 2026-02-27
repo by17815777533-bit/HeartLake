@@ -14,10 +14,12 @@
     } catch (_) {}
   }
 
-  // 让渲染器自动选择，避免个别浏览器或显卡上 CanvasKit 初始化失败导致白屏。
-  if (_flutter && _flutter.buildConfig) {
-    _flutter.buildConfig.renderer = "auto";
+  // 本地优先走本地 CanvasKit，避免外网/CDN 波动导致首屏卡死。
+  const loadConfig = {};
+  const primaryBuild = _flutter?.buildConfig?.builds?.[0];
+  if (isLocal && primaryBuild?.compileTarget === 'dart2js') {
+    loadConfig.canvasKitBaseUrl = 'canvaskit/';
   }
 
-  _flutter.loader.load();
+  _flutter.loader.load({config: loadConfig});
 })();
