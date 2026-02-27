@@ -74,20 +74,22 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
         const int intraThreads = std::max(1, numThreads);
         const int targetSessionPool = parseIntEnvClamped("EDGE_AI_ONNX_SESSION_POOL", 1, 1, 64);
 
-        // 配置 Session
-        sessionOptions_ = std::make_unique<Ort::SessionOptions>();
-        sessionOptions_->SetIntraOpNumThreads(intraThreads);
-        sessionOptions_->SetInterOpNumThreads(1);
-        sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        auto resetSessionOptions = [&]() {
+            sessionOptions_ = std::make_unique<Ort::SessionOptions>();
+            sessionOptions_->SetIntraOpNumThreads(intraThreads);
+            sessionOptions_->SetInterOpNumThreads(1);
+            sessionOptions_->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+        };
 
-        // 默认优先尝试 CUDA EP（若当前 ORT 不支持会自动降级到 CPU）
+        // 默认优先稳定性，只有显式开启才尝试 CUDA。
         const bool forceGpu = heartlake::utils::parseBoolEnv(
-            std::getenv("EDGE_AI_ONNX_FORCE_GPU"), true);
+            std::getenv("EDGE_AI_ONNX_FORCE_GPU"), false);
         const bool hardFail = heartlake::utils::parseBoolEnv(
             std::getenv("EDGE_AI_ONNX_GPU_HARD_FAIL"), false);
         const int gpuDeviceId = parseNonNegativeIntEnv("EDGE_AI_ONNX_GPU_DEVICE", 0);
         bool gpuEnabled = false;
 
+        resetSessionOptions();
         if (forceGpu) {
             try {
                 OrtCUDAProviderOptions cudaOptions{};
@@ -105,40 +107,60 @@ bool OnnxSentimentEngine::initialize(const std::string& modelPath,
             LOG_INFO << "[OnnxSentiment] CUDA EP disabled by EDGE_AI_ONNX_FORCE_GPU=false";
         }
 
-        sessions_.clear();
-        sessions_.reserve(static_cast<size_t>(targetSessionPool));
-        for (int i = 0; i < targetSessionPool; ++i) {
-            try {
-                auto session = std::make_unique<Ort::Session>(*env_, modelPath.c_str(), *sessionOptions_);
-                if (i == 0) {
-                    const size_t numInputs = session->GetInputCount();
-                    const size_t numOutputs = session->GetOutputCount();
-                    LOG_INFO << "[OnnxSentiment] Model loaded: " << numInputs << " inputs, "
-                             << numOutputs << " outputs";
+        auto buildSessionPool = [&](std::string& firstError) -> bool {
+            sessions_.clear();
+            sessions_.reserve(static_cast<size_t>(targetSessionPool));
+            firstError.clear();
 
-                    for (size_t inputIdx = 0; inputIdx < numInputs; ++inputIdx) {
-                        auto name = session->GetInputNameAllocated(inputIdx, allocator_);
-                        LOG_INFO << "[OnnxSentiment] Input[" << inputIdx << "]: " << name.get();
+            for (int i = 0; i < targetSessionPool; ++i) {
+                try {
+                    auto session = std::make_unique<Ort::Session>(*env_, modelPath.c_str(), *sessionOptions_);
+                    if (i == 0) {
+                        const size_t numInputs = session->GetInputCount();
+                        const size_t numOutputs = session->GetOutputCount();
+                        LOG_INFO << "[OnnxSentiment] Model loaded: " << numInputs << " inputs, "
+                                 << numOutputs << " outputs";
+
+                        for (size_t inputIdx = 0; inputIdx < numInputs; ++inputIdx) {
+                            auto name = session->GetInputNameAllocated(inputIdx, allocator_);
+                            LOG_INFO << "[OnnxSentiment] Input[" << inputIdx << "]: " << name.get();
+                        }
+                        for (size_t outputIdx = 0; outputIdx < numOutputs; ++outputIdx) {
+                            auto name = session->GetOutputNameAllocated(outputIdx, allocator_);
+                            LOG_INFO << "[OnnxSentiment] Output[" << outputIdx << "]: " << name.get();
+                        }
                     }
-                    for (size_t outputIdx = 0; outputIdx < numOutputs; ++outputIdx) {
-                        auto name = session->GetOutputNameAllocated(outputIdx, allocator_);
-                        LOG_INFO << "[OnnxSentiment] Output[" << outputIdx << "]: " << name.get();
+                    sessions_.push_back(std::move(session));
+                } catch (const Ort::Exception& e) {
+                    if (sessions_.empty()) {
+                        firstError = e.what();
+                        return false;
                     }
+                    LOG_WARN << "[OnnxSentiment] Failed to create extra session " << i
+                             << ", keep pool size " << sessions_.size() << ": " << e.what();
+                    break;
                 }
-                sessions_.push_back(std::move(session));
-            } catch (const Ort::Exception& e) {
-                if (sessions_.empty()) {
-                    throw;
+            }
+            return !sessions_.empty();
+        };
+
+        std::string firstSessionError;
+        if (!buildSessionPool(firstSessionError)) {
+            if (gpuEnabled && !hardFail) {
+                LOG_WARN << "[OnnxSentiment] CUDA session init failed, retry on CPU: " << firstSessionError;
+                gpuEnabled = false;
+                resetSessionOptions();
+                if (!buildSessionPool(firstSessionError)) {
+                    LOG_ERROR << "[OnnxSentiment] Session pool init failed after CPU fallback: "
+                              << firstSessionError;
+                    return false;
                 }
-                LOG_WARN << "[OnnxSentiment] Failed to create extra session " << i
-                         << ", keep pool size " << sessions_.size() << ": " << e.what();
-                break;
+            } else {
+                LOG_ERROR << "[OnnxSentiment] Session pool init failed: " << firstSessionError;
+                return false;
             }
         }
-        if (sessions_.empty()) {
-            LOG_ERROR << "[OnnxSentiment] Session pool init failed";
-            return false;
-        }
+
         sessionPoolSize_ = sessions_.size();
         nextSessionIndex_.store(0, std::memory_order_relaxed);
 

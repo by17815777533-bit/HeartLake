@@ -56,7 +56,7 @@ class AppRoutes {
   static const String guardian = '/guardian';
   static const String safeHarbor = '/safe-harbor';
   static const String consultation = '/consultation';
-  static const String vip = '/vip';
+  static const String vip = '/light';
   static const String help = '/help';
   static const String privacySettings = '/privacy-settings';
   static const String lakeGodChat = '/lake-god-chat';
@@ -169,6 +169,11 @@ GoRouter createRouter() {
       ),
       GoRoute(
         path: AppRoutes.vip,
+        builder: (context, state) => const VIPScreen(),
+      ),
+      // 兼容旧地址：/vip -> 灯火页
+      GoRoute(
+        path: '/vip',
         builder: (context, state) => const VIPScreen(),
       ),
       GoRoute(

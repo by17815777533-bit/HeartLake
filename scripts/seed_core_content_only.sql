@@ -3,6 +3,7 @@
 -- 用法：
 --   set -a; source backend/.env; set +a
 --   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f scripts/seed_core_content_only.sql
+--   ./scripts/recompute_showcase_sentiment.py
 
 BEGIN;
 
@@ -10,10 +11,10 @@ BEGIN;
 DELETE FROM vip_upgrade_logs WHERE reason LIKE 'showcase:%';
 DELETE FROM differential_privacy_budget WHERE query_type LIKE 'showcase_%';
 DELETE FROM edge_ai_inference_logs WHERE input_hash LIKE 'showcase_%';
-DELETE FROM lake_god_messages WHERE content LIKE 'showcase:%';
+DELETE FROM lake_god_messages WHERE content LIKE 'showcase:%' OR user_id LIKE 'showcase_user_%';
 DELETE FROM community_emotion_snapshots WHERE dominant_emotion LIKE 'showcase_%';
 DELETE FROM user_interaction_history WHERE interaction_type LIKE 'showcase_%';
-DELETE FROM user_emotion_history WHERE content_snippet LIKE 'showcase:%';
+DELETE FROM user_emotion_history WHERE content_snippet LIKE 'showcase:%' OR user_id LIKE 'showcase_user_%';
 DELETE FROM emotion_tracking WHERE content_hash LIKE 'showcase_%';
 DELETE FROM notifications WHERE notification_id LIKE 'showcase_notif_%';
 DELETE FROM temp_friends WHERE temp_friend_id LIKE 'showcase_temp_%';
@@ -68,48 +69,14 @@ FROM users
 WHERE status = 'active';
 
 -- 4) 石头（内容多样，含近24小时热度 + 近30天趋势）
-WITH base AS (
+-- ✍🏻 保证 showcase 文案与 mood_type / emotion_score 语义一致，避免演示数据“文案积极但标签消极”。
+WITH base_raw AS (
     SELECT
         u.user_id,
         u.nickname,
         u.rn,
         g AS seq,
-        CASE ((u.rn + g) % 10)
-            WHEN 0 THEN 'happy'
-            WHEN 1 THEN 'calm'
-            WHEN 2 THEN 'neutral'
-            WHEN 3 THEN 'hopeful'
-            WHEN 4 THEN 'grateful'
-            WHEN 5 THEN 'sad'
-            WHEN 6 THEN 'anxious'
-            WHEN 7 THEN 'angry'
-            WHEN 8 THEN 'lonely'
-            ELSE 'confused'
-        END AS mood_type,
-        CASE ((u.rn + g) % 10)
-            WHEN 0 THEN 0.84
-            WHEN 1 THEN 0.42
-            WHEN 2 THEN 0.03
-            WHEN 3 THEN 0.58
-            WHEN 4 THEN 0.71
-            WHEN 5 THEN -0.76
-            WHEN 6 THEN -0.49
-            WHEN 7 THEN -0.66
-            WHEN 8 THEN -0.57
-            ELSE -0.08
-        END AS emotion_score,
-        CASE ((u.rn * 7 + g * 11) % 10)
-            WHEN 0 THEN 'showcase:今天收到礼物，颜色像湖面一样温柔，我把开心写成石头。'
-            WHEN 1 THEN 'showcase:老师今天夸了我，我把这份被看见的力量留在这里。'
-            WHEN 2 THEN 'showcase:我有点焦虑，但正在用呼吸把自己慢慢拉回来。'
-            WHEN 3 THEN 'showcase:和朋友散步后，心绪安静下来，像风停在湖面。'
-            WHEN 4 THEN 'showcase:今晚有些孤独，想把这份脆弱轻轻放进心湖。'
-            WHEN 5 THEN 'showcase:完成任务后很有成就感，想分享给同频的人。'
-            WHEN 6 THEN 'showcase:我还在迷茫，但愿意继续尝试，继续发光。'
-            WHEN 7 THEN 'showcase:被一句善意打动，原来温暖会沿着人群传递。'
-            WHEN 8 THEN 'showcase:情绪像潮汐，有起伏，但我能感到自己在成长。'
-            ELSE 'showcase:把祝福折成纸船，送给今天需要勇气的人。'
-        END AS content,
+        ((u.rn * 7 + g * 11) % 10) AS template_idx,
         CASE
             WHEN g <= 4 THEN NOW() - ((g - 1) * 4 + (u.rn % 4)) * INTERVAL '1 hour'
             WHEN g <= 6 THEN NOW() - ((g - 3) * 2 + (u.rn % 3)) * INTERVAL '1 day'
@@ -117,6 +84,51 @@ WITH base AS (
         END AS created_at
     FROM tmp_seed_users u
     CROSS JOIN generate_series(1, 8) AS g
+),
+base AS (
+    SELECT
+        user_id,
+        nickname,
+        rn,
+        seq,
+        CASE template_idx
+            WHEN 0 THEN 'happy'
+            WHEN 1 THEN 'grateful'
+            WHEN 2 THEN 'anxious'
+            WHEN 3 THEN 'calm'
+            WHEN 4 THEN 'lonely'
+            WHEN 5 THEN 'happy'
+            WHEN 6 THEN 'confused'
+            WHEN 7 THEN 'grateful'
+            WHEN 8 THEN 'neutral'
+            ELSE 'hopeful'
+        END AS mood_type,
+        CASE template_idx
+            WHEN 0 THEN 0.84
+            WHEN 1 THEN 0.72
+            WHEN 2 THEN -0.49
+            WHEN 3 THEN 0.42
+            WHEN 4 THEN -0.57
+            WHEN 5 THEN 0.66
+            WHEN 6 THEN -0.08
+            WHEN 7 THEN 0.71
+            WHEN 8 THEN 0.03
+            ELSE 0.58
+        END AS emotion_score,
+        CASE template_idx
+            WHEN 0 THEN '今天收到礼物，颜色像湖面一样温柔，我把开心写成石头。'
+            WHEN 1 THEN '老师今天夸了我，我把这份被看见的力量留在这里。'
+            WHEN 2 THEN '我有点焦虑，但正在用呼吸把自己慢慢拉回来。'
+            WHEN 3 THEN '和朋友散步后，心绪安静下来，像风停在湖面。'
+            WHEN 4 THEN '今晚有些孤独，想把这份脆弱轻轻放进心湖。'
+            WHEN 5 THEN '完成任务后很有成就感，想分享给同频的人。'
+            WHEN 6 THEN '我还在迷茫，但愿意继续尝试，继续发光。'
+            WHEN 7 THEN '被一句善意打动，原来温暖会沿着人群传递。'
+            WHEN 8 THEN '情绪像潮汐，有起伏，但我能感到自己在成长。'
+            ELSE '把祝福折成纸船，送给今天需要勇气的人。'
+        END AS content,
+        created_at
+    FROM base_raw
 )
 INSERT INTO stones (
     stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous,
@@ -206,14 +218,14 @@ candidates AS (
         su.user_id AS sender_id,
         sl.receiver_id,
         CASE ((su.rn + sl.slot_idx) % 8)
-            WHEN 0 THEN 'showcase:你的文字像一束灯，我看见了你的努力。'
-            WHEN 1 THEN 'showcase:给你一个轻轻的拥抱，愿今晚可以睡个好觉。'
-            WHEN 2 THEN 'showcase:你并不孤单，我愿意在这片湖里陪你走一段。'
-            WHEN 3 THEN 'showcase:谢谢你分享真实感受，你的勇气很珍贵。'
-            WHEN 4 THEN 'showcase:把这份温暖继续传下去，我们一起点亮彼此。'
-            WHEN 5 THEN 'showcase:先休息一下，等风停了再出发也很好。'
-            WHEN 6 THEN 'showcase:你已经做得很好了，别忘了肯定今天的自己。'
-            ELSE 'showcase:送你一只小纸船，愿它带着好运靠岸。'
+            WHEN 0 THEN '你的文字像一束灯，我看见了你的努力。'
+            WHEN 1 THEN '给你一个轻轻的拥抱，愿今晚可以睡个好觉。'
+            WHEN 2 THEN '你并不孤单，我愿意在这片湖里陪你走一段。'
+            WHEN 3 THEN '谢谢你分享真实感受，你的勇气很珍贵。'
+            WHEN 4 THEN '把这份温暖继续传下去，我们一起点亮彼此。'
+            WHEN 5 THEN '先休息一下，等风停了再出发也很好。'
+            WHEN 6 THEN '你已经做得很好了，别忘了肯定今天的自己。'
+            ELSE '送你一只小纸船，愿它带着好运靠岸。'
         END AS content,
         (ARRAY['hopeful','calm','grateful','neutral'])[1 + ((su.rn + sl.slot_idx) % 4)] AS mood,
         CASE WHEN sl.slot_idx = 1 THEN 'random' ELSE 'direct' END AS drift_mode,

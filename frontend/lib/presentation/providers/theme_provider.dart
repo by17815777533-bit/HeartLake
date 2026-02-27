@@ -12,9 +12,21 @@ class ThemeProvider with ChangeNotifier {
     _loadThemeMode();
   }
 
+  bool _readBoolCompat(SharedPreferences prefs, String key,
+      {bool fallback = false}) {
+    final value = prefs.get(key);
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    return fallback;
+  }
+
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool('isDarkMode') ?? false;
+    final isDark = _readBoolCompat(prefs, 'isDarkMode');
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     notifyListeners();
   }

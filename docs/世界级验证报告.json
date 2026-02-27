@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-27T10:51:26Z",
+  "generated_at": "2026-02-27T11:12:25Z",
   "base_url": "http://127.0.0.1:8080",
   "functional": {
     "checks": [
@@ -29,7 +29,7 @@
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_90b83c42-f7a6-46bc-8d07-271f5a4f7515",
+        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2",
         "status": 200,
         "ok": true
       },
@@ -41,19 +41,19 @@
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_90b83c42-f7a6-46bc-8d07-271f5a4f7515/ripples",
+        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/ripples",
         "status": 200,
         "ok": true
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_90b83c42-f7a6-46bc-8d07-271f5a4f7515/boats",
+        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/boats",
         "status": 200,
         "ok": true
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_90b83c42-f7a6-46bc-8d07-271f5a4f7515/boats?page=1&page_size=20",
+        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/boats?page=1&page_size=20",
         "status": 200,
         "ok": true
       },
@@ -245,13 +245,13 @@
         "name": "create_ripple",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_42f6f49482c5af15\",\"stone_id\":\"stone_c528c0bf-df85-46fe-88f2-68805b66e3f1\",\"user_id\":\"anonymous_11d17a41f067\"},\"message\":\"\\u6d"
+        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_3050a085629d1893\",\"stone_id\":\"stone_5dbdbd0b-38c0-4095-b2a0-534fc6b57694\",\"user_id\":\"anonymous_03010feaf07a\"},\"message\":\"\\u6d"
       },
       {
         "name": "create_boat",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_f331f125d9da3779\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_11d17a41f067\",\"status\":\"sent\",\"ston"
+        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_61a03f437fe5e386\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_03010feaf07a\",\"status\":\"sent\",\"ston"
       },
       {
         "name": "boat_count_monotonic",
@@ -754,21 +754,21 @@
       "mix": "read_heavy",
       "duration_sec": 20,
       "concurrency": 16,
-      "total_requests": 21293,
-      "success_2xx": 21293,
+      "total_requests": 20893,
+      "success_2xx": 20893,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1064.65,
+      "rps": 1044.65,
       "latency_ms": {
-        "p50": 7.28,
-        "p95": 47.23,
-        "p99": 77.52,
-        "avg": 15.0
+        "p50": 7.3,
+        "p95": 48.34,
+        "p99": 76.82,
+        "avg": 15.28
       },
       "status_breakdown": {
-        "200": 21293
+        "200": 20893
       },
       "health_after": true
     },
@@ -776,21 +776,21 @@
       "mix": "ai_mixed",
       "duration_sec": 20,
       "concurrency": 16,
-      "total_requests": 20233,
-      "success_2xx": 20233,
+      "total_requests": 20674,
+      "success_2xx": 20674,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1011.65,
+      "rps": 1033.7,
       "latency_ms": {
-        "p50": 7.17,
-        "p95": 51.03,
-        "p99": 83.28,
-        "avg": 15.81
+        "p50": 7.09,
+        "p95": 49.85,
+        "p99": 78.73,
+        "avg": 15.48
       },
       "status_breakdown": {
-        "200": 20233
+        "200": 20674
       },
       "health_after": true
     },
@@ -798,21 +798,21 @@
       "mix": "read_heavy",
       "duration_sec": 20,
       "concurrency": 32,
-      "total_requests": 19438,
-      "success_2xx": 19438,
+      "total_requests": 18774,
+      "success_2xx": 18774,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 971.9,
+      "rps": 938.7,
       "latency_ms": {
-        "p50": 22.57,
-        "p95": 95.4,
-        "p99": 146.54,
-        "avg": 32.93
+        "p50": 23.35,
+        "p95": 98.76,
+        "p99": 152.27,
+        "avg": 34.1
       },
       "status_breakdown": {
-        "200": 19438
+        "200": 18774
       },
       "health_after": true
     },
@@ -820,21 +820,21 @@
       "mix": "ai_mixed",
       "duration_sec": 20,
       "concurrency": 32,
-      "total_requests": 18923,
-      "success_2xx": 18923,
+      "total_requests": 18208,
+      "success_2xx": 18208,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 946.15,
+      "rps": 910.4,
       "latency_ms": {
-        "p50": 23.98,
-        "p95": 100.7,
-        "p99": 155.46,
-        "avg": 33.83
+        "p50": 24.32,
+        "p95": 102.97,
+        "p99": 160.74,
+        "avg": 35.16
       },
       "status_breakdown": {
-        "200": 18923
+        "200": 18208
       },
       "health_after": true
     },
@@ -842,21 +842,21 @@
       "mix": "read_heavy",
       "duration_sec": 20,
       "concurrency": 64,
-      "total_requests": 24812,
-      "success_2xx": 24812,
+      "total_requests": 22252,
+      "success_2xx": 22252,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1240.6,
+      "rps": 1112.6,
       "latency_ms": {
-        "p50": 51.64,
-        "p95": 55.99,
-        "p99": 59.16,
-        "avg": 51.59
+        "p50": 57.75,
+        "p95": 62.6,
+        "p99": 65.69,
+        "avg": 57.57
       },
       "status_breakdown": {
-        "200": 24812
+        "200": 22252
       },
       "health_after": true
     },
@@ -864,21 +864,21 @@
       "mix": "ai_mixed",
       "duration_sec": 20,
       "concurrency": 64,
-      "total_requests": 23845,
-      "success_2xx": 23845,
+      "total_requests": 21742,
+      "success_2xx": 21742,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1192.25,
+      "rps": 1087.1,
       "latency_ms": {
-        "p50": 53.65,
-        "p95": 58.05,
-        "p99": 60.06,
-        "avg": 53.7
+        "p50": 58.51,
+        "p95": 65.68,
+        "p99": 72.92,
+        "avg": 58.89
       },
       "status_breakdown": {
-        "200": 23845
+        "200": 21742
       },
       "health_after": true
     }
@@ -940,7 +940,7 @@
       },
       {
         "name": "stress_p95_ms_max",
-        "actual": 100.7,
+        "actual": 102.97,
         "target": 800.0,
         "ok": true
       },

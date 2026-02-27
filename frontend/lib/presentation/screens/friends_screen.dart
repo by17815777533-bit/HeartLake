@@ -75,6 +75,22 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.off('friend_accepted', _onFriendRemoved);
   }
 
+  String? _extractFriendId(Map<String, dynamic> friend) {
+    final candidates = [
+      friend['user_id'],
+      friend['friend_id'],
+      friend['userId'],
+      friend['friendId'],
+    ];
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
   Future<void> _loadFriends() async {
     if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
@@ -96,7 +112,15 @@ class _FriendsScreenState extends State<FriendsScreen>
         });
         _listAnimController.forward();
       } else {
-        if (mounted) setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+          final message = result['message']?.toString();
+          if (message != null && message.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(message)),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -163,7 +187,9 @@ class _FriendsScreenState extends State<FriendsScreen>
               children: [
                 // 临时好友入口
                 Card(
-                  color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                  color: isDark
+                      ? const Color(0xFF16213E).withValues(alpha: 0.95)
+                      : Colors.white.withValues(alpha: 0.95),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(color: Colors.orange, width: 1.5),
@@ -193,7 +219,13 @@ class _FriendsScreenState extends State<FriendsScreen>
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(color: Colors.white), const SizedBox(height: 16), Text('正在寻找温暖的连接...', style: TextStyle(color: Colors.white.withValues(alpha: 0.8)))]),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const CircularProgressIndicator(color: Colors.white),
+                        const SizedBox(height: 16),
+                        Text('正在寻找温暖的连接...',
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8)))
+                      ]),
                     ),
                   )
                 else if (_friends.isEmpty)
@@ -212,7 +244,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                           '还没有好友，来寻找志同道合的人吧',
                           style: TextStyle(
                             fontSize: 16,
-                            color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF16213E).withValues(alpha: 0.9),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : const Color(0xFF16213E)
+                                    .withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -227,10 +262,13 @@ class _FriendsScreenState extends State<FriendsScreen>
                       builder: (context, child) {
                         final delay = index * 0.1;
                         final start = delay.clamp(0.0, 0.7);
-                        final anim = Tween<double>(begin: 0.0, end: 1.0).animate(
+                        final anim =
+                            Tween<double>(begin: 0.0, end: 1.0).animate(
                           CurvedAnimation(
                             parent: _listAnimController,
-                            curve: Interval(start, (start + 0.3).clamp(0.0, 1.0), curve: Curves.easeOut),
+                            curve: Interval(
+                                start, (start + 0.3).clamp(0.0, 1.0),
+                                curve: Curves.easeOut),
                           ),
                         );
                         return Opacity(
@@ -243,13 +281,19 @@ class _FriendsScreenState extends State<FriendsScreen>
                       },
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 8),
-                        color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+                        color: isDark
+                            ? const Color(0xFF16213E).withValues(alpha: 0.9)
+                            : Colors.white.withValues(alpha: 0.9),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),
+                            backgroundColor:
+                                AppTheme.skyBlue.withValues(alpha: 0.2),
                             child: Text(
-                              (friend['nickname']?.toString().isNotEmpty == true)
-                                  ? friend['nickname'].toString().substring(0, 1)
+                              (friend['nickname']?.toString().isNotEmpty ==
+                                      true)
+                                  ? friend['nickname']
+                                      .toString()
+                                      .substring(0, 1)
                                   : '?',
                               style: const TextStyle(
                                 color: AppTheme.skyBlue,
@@ -257,16 +301,28 @@ class _FriendsScreenState extends State<FriendsScreen>
                               ),
                             ),
                           ),
-                          title: Text(friend['nickname'] ?? friend['nick_name'] ?? '未知'),
+                          title: Text(friend['nickname'] ??
+                              friend['nick_name'] ??
+                              '未知'),
                           subtitle: Text('账号: ${friend['username'] ?? ''}'),
                           onTap: () {
+                            final friendId = _extractFriendId(friend);
+                            if (friendId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('好友标识缺失，暂时无法打开聊天')),
+                              );
+                              return;
+                            }
                             // 点击好友进入聊天界面
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => FriendChatScreen(
-                                  friendId: friend['user_id'] ?? friend['userId'] ?? '',
-                                  friendName: friend['nickname'] ?? friend['nick_name'] ?? '未知',
+                                  friendId: friendId,
+                                  friendName: friend['nickname'] ??
+                                      friend['nick_name'] ??
+                                      '未知',
                                 ),
                               ),
                             );
@@ -284,18 +340,26 @@ class _FriendsScreenState extends State<FriendsScreen>
                               ),
                             ],
                             onSelected: (value) {
+                              final friendId = _extractFriendId(friend);
                               if (value == 'detail') {
+                                if (friendId == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('好友标识缺失，无法查看详情')),
+                                  );
+                                  return;
+                                }
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => UserDetailScreen(
-                                      userId: friend['user_id'],
+                                      userId: friendId,
                                       nickname: friend['nickname'],
                                     ),
                                   ),
                                 );
                               } else if (value == 'delete') {
-                                _confirmDeleteFriend(friend['user_id']);
+                                _confirmDeleteFriend(friendId);
                               }
                             },
                           ),
@@ -311,7 +375,15 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
-  void _confirmDeleteFriend(String friendId) {
+  void _confirmDeleteFriend(String? friendId) {
+    if (friendId == null || friendId.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('好友标识缺失，无法删除')),
+      );
+      return;
+    }
+    final resolvedFriendId = friendId;
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -326,7 +398,8 @@ class _FriendsScreenState extends State<FriendsScreen>
             onPressed: () async {
               Navigator.pop(dialogContext);
 
-              final result = await _friendService.removeFriend(friendId);
+              final result =
+                  await _friendService.removeFriend(resolvedFriendId);
 
               if (mounted) {
                 if (result['success']) {
@@ -341,7 +414,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                 }
               }
             },
-            child: const Text('确定', style: TextStyle(color: AppTheme.errorColor)),
+            child:
+                const Text('确定', style: TextStyle(color: AppTheme.errorColor)),
           ),
         ],
       ),

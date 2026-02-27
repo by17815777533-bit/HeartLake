@@ -20,6 +20,17 @@ class StorageUtil {
   static String? _runtimeRefreshToken;
   static String? _runtimeUserId;
 
+  static bool? _readBoolCompat(SharedPreferences prefs, String key) {
+    final value = prefs.get(key);
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    return null;
+  }
+
   /// 获取缓存的SharedPreferences实例，避免重复异步调用
   static Future<SharedPreferences> get _instance async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -243,8 +254,7 @@ class StorageUtil {
   // 清除所有数据（保留引导页标记和设备ID）
   static Future<void> clearAll() async {
     final prefs = await _instance;
-    final onboardingDoneString = prefs.getString('onboarding_done');
-    final onboardingDoneBool = prefs.getBool('onboarding_done');
+    final onboardingDoneBool = _readBoolCompat(prefs, 'onboarding_done');
     final deviceId = prefs.getString(_deviceIdKey);
     await prefs.clear();
     // 清除安全存储中的 token
@@ -257,9 +267,7 @@ class StorageUtil {
         debugPrint('clear secure storage failed: $e');
       }
     }
-    if (onboardingDoneString != null) {
-      await prefs.setString('onboarding_done', onboardingDoneString);
-    } else if (onboardingDoneBool != null) {
+    if (onboardingDoneBool != null) {
       await prefs.setBool('onboarding_done', onboardingDoneBool);
     }
     if (deviceId != null) {

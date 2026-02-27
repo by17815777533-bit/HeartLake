@@ -175,11 +175,14 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
         return;
     }
 
+    const std::string currentUserShadowId =
+        IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
+
     // 先验证用户是会话参与者
     auto db = app().getDbClient("default");
     db->execSqlAsync(
         "SELECT id FROM consultation_sessions WHERE id = $1 AND (user_id = $2 OR counselor_id = $2)",
-        [callback, sessionId, db](const orm::Result& r) {
+        [callback, sessionId, db, currentUserShadowId](const orm::Result& r) {
             if (r.empty()) {
                 callback(ResponseUtil::forbidden("无权访问此会话消息"));
                 return;
@@ -187,11 +190,13 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
             db->execSqlAsync(
                 "SELECT sender_shadow_id, ciphertext, iv, tag, created_at FROM consultation_messages "
                 "WHERE session_id = $1 ORDER BY created_at ASC LIMIT 500",
-                [callback](const orm::Result& dbResult) {
+                [callback, currentUserShadowId](const orm::Result& dbResult) {
                     Json::Value messages(Json::arrayValue);
                     for (const auto& row : dbResult) {
                         Json::Value msg;
-                        msg["sender"] = row["sender_shadow_id"].as<std::string>();
+                        const auto senderShadowId = row["sender_shadow_id"].as<std::string>();
+                        msg["sender"] = senderShadowId;
+                        msg["sender_type"] = senderShadowId == currentUserShadowId ? "user" : "counselor";
                         msg["encrypted"]["ciphertext"] = row["ciphertext"].as<std::string>();
                         msg["encrypted"]["iv"] = row["iv"].as<std::string>();
                         msg["encrypted"]["tag"] = row["tag"].as<std::string>();

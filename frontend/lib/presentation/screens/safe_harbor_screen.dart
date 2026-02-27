@@ -77,7 +77,8 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
           final hotlineData = results[1];
           _hotlines = hotlineData['data'] is List
               ? hotlineData['data']
-              : (hotlineData['data'] is Map && hotlineData['data']['items'] is List)
+              : (hotlineData['data'] is Map &&
+                      hotlineData['data']['items'] is List)
                   ? hotlineData['data']['items']
                   : [];
 
@@ -91,7 +92,8 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
           final resourceData = results[3];
           _resources = resourceData['data'] is List
               ? resourceData['data']
-              : (resourceData['data'] is Map && resourceData['data']['items'] is List)
+              : (resourceData['data'] is Map &&
+                      resourceData['data']['items'] is List)
                   ? resourceData['data']['items']
                   : [];
 
@@ -211,9 +213,11 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.cloud_off, size: 48, color: Colors.white.withValues(alpha: 0.7)),
+          Icon(Icons.cloud_off,
+              size: 48, color: Colors.white.withValues(alpha: 0.7)),
           const SizedBox(height: 12),
-          Text(_error!, style: const TextStyle(color: Colors.white70, fontSize: 15)),
+          Text(_error!,
+              style: const TextStyle(color: Colors.white70, fontSize: 15)),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _loadAll,
@@ -242,7 +246,8 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                 color: AppTheme.warmPink.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.favorite, color: AppTheme.warmPink, size: 28),
+              child: const Icon(Icons.favorite,
+                  color: AppTheme.warmPink, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -251,7 +256,8 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                 style: TextStyle(
                   fontSize: 16,
                   height: 1.5,
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color:
+                      isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                 ),
               ),
             ),
@@ -308,9 +314,8 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                 ),
                 trailing: Icon(Icons.phone_forwarded,
                     color: AppTheme.secondaryColor.withValues(alpha: 0.7)),
-                onTap: phone.isNotEmpty
-                    ? () => _callHotline(phone, name)
-                    : null,
+                onTap:
+                    phone.isNotEmpty ? () => _callHotline(phone, name) : null,
               ),
             );
           }),
@@ -448,12 +453,12 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 推荐资源区
+  // 暖心资源区
   Widget _buildResourcesSection(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('推荐资源', Icons.menu_book, isDark),
+        _buildSectionTitle('暖心资源', Icons.menu_book, isDark),
         const SizedBox(height: 8),
         ..._resources.map((r) {
           final title = r['title'] ?? r['name'] ?? '资源';
@@ -529,14 +534,16 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
         children: [
           Icon(Icons.lock_outline,
               size: 16,
-              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
+              color:
+                  isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '你的访问记录完全匿名，我们不会追踪你的身份',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                color:
+                    isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
               ),
             ),
           ),
@@ -559,8 +566,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                 color: Colors.white.withValues(alpha: 0.95),
                 shadows: [
                   Shadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 4)
+                      color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)
                 ],
               )),
         ],

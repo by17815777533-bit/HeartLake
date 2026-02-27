@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import '../widgets/water_background.dart';
 import '../widgets/psych_support_dialog.dart';
 import '../widgets/ai_content_preview.dart';
@@ -40,25 +39,23 @@ class _PublishScreenState extends State<PublishScreen> {
   double _aiSuggestionConfidence = 0.0;
   bool _manualMoodLocked = false;
   int _analysisSeq = 0;
+  AIPreviewResult? _pendingPreviewResult;
+  bool _previewApplyScheduled = false;
 
   void _handlePreviewResultChanged(AIPreviewResult preview) {
-    final unchanged =
-        _previewResult.status == preview.status &&
+    final unchanged = _previewResult.status == preview.status &&
         _previewResult.message == preview.message;
     if (unchanged) return;
-
-    void applyUpdate() {
-      if (!mounted) return;
-      setState(() => _previewResult = preview);
-    }
-
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle ||
-        phase == SchedulerPhase.postFrameCallbacks) {
-      applyUpdate();
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => applyUpdate());
-    }
+    _pendingPreviewResult = preview;
+    if (_previewApplyScheduled) return;
+    _previewApplyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _previewApplyScheduled = false;
+      final pending = _pendingPreviewResult;
+      _pendingPreviewResult = null;
+      if (!mounted || pending == null) return;
+      setState(() => _previewResult = pending);
+    });
   }
 
   final Map<String, String> _stoneTypes = {
@@ -74,7 +71,8 @@ class _PublishScreenState extends State<PublishScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         extendBodyBehindAppBar: true,
-        backgroundColor: isDark ? const Color(0xFF0D1B2A) : const Color(0xFFF5F5F5),
+        backgroundColor:
+            isDark ? const Color(0xFF0D1B2A) : const Color(0xFFF5F5F5),
         appBar: AppBar(
           title: const Text('投石',
               style:
@@ -404,7 +402,8 @@ class _PublishScreenState extends State<PublishScreen> {
             ? config.primary.withValues(alpha: 0.20)
             : config.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: config.primary.withValues(alpha: isDark ? 0.40 : 0.28)),
+        border: Border.all(
+            color: config.primary.withValues(alpha: isDark ? 0.40 : 0.28)),
       ),
       child: Row(
         children: [
@@ -578,7 +577,9 @@ class _PublishScreenState extends State<PublishScreen> {
                 color: isSelected ? config.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? config.primary : (isDark ? Colors.white24 : Colors.grey.shade300),
+                  color: isSelected
+                      ? config.primary
+                      : (isDark ? Colors.white24 : Colors.grey.shade300),
                   width: isSelected ? 2 : 1,
                 ),
                 boxShadow: isSuggested
@@ -605,7 +606,11 @@ class _PublishScreenState extends State<PublishScreen> {
                   Text(
                     config.name,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : (isDark ? const Color(0xFF9AA0A6) : Colors.grey.shade700),
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark
+                              ? const Color(0xFF9AA0A6)
+                              : Colors.grey.shade700),
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       fontSize: 14,

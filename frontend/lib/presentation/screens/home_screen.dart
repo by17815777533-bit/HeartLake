@@ -83,11 +83,26 @@ class _HomeScreenState extends State<HomeScreen> {
             : const Color(0xFFF5F9FC),
         indicatorColor: const Color(0xFF4285F4).withAlpha(30),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.water_outlined), selectedIcon: Icon(Icons.water), label: '观湖'),
-          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore), label: '湖底'),
-          NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: '投石'),
-          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: '好友'),
-          NavigationDestination(icon: Icon(Icons.blur_on_outlined), selectedIcon: Icon(Icons.blur_on), label: '倒影'),
+          NavigationDestination(
+              icon: Icon(Icons.water_outlined),
+              selectedIcon: Icon(Icons.water),
+              label: '观湖'),
+          NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore),
+              label: '共鸣'),
+          NavigationDestination(
+              icon: Icon(Icons.add_circle_outline),
+              selectedIcon: Icon(Icons.add_circle),
+              label: '投石'),
+          NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: '好友'),
+          NavigationDestination(
+              icon: Icon(Icons.blur_on_outlined),
+              selectedIcon: Icon(Icons.blur_on),
+              label: '倒影'),
         ],
       ),
     );

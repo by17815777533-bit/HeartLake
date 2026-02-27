@@ -10,6 +10,7 @@
 #include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/services/NotificationPushService.h"
 #include "infrastructure/services/WarmQuoteService.h"
+#include "infrastructure/services/VIPService.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/IdGenerator.h"
 #include "utils/RequestHelper.h"
@@ -75,6 +76,11 @@ Json::Value StoneApplicationService::publishStone(
             auto& aiEngine = heartlake::ai::EdgeAIEngine::getInstance();
             auto sentiment = aiEngine.analyzeSentimentLocal(content);
             emotionTracker.recordEmotion(userId, sentiment.score, content);
+
+            // 情绪明显偏负时触发自动赠灯判定（VIPService 内部会做全局20%阈值与重复发放保护）
+            if (sentiment.score < -0.1f) {
+                heartlake::services::VIPService::checkEmotionAndGrantVIP(userId, sentiment.score, {});
+            }
         } catch (const std::exception& e) {
             LOG_WARN << "EmotionTracking recordEmotion failed for user: " << userId << ": " << e.what();
         }

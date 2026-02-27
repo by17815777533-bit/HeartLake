@@ -17,7 +17,8 @@ class DiscoverScreen extends StatefulWidget {
   State<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
-class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProviderStateMixin {
+class _DiscoverScreenState extends State<DiscoverScreen>
+    with SingleTickerProviderStateMixin {
   final RecommendationService _service = sl<RecommendationService>();
   final AIRecommendationService _aiService = sl<AIRecommendationService>();
   final TextEditingController _searchController = TextEditingController();
@@ -73,7 +74,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     }
   }
 
-  /// 执行关键词搜索（向量语义搜索为admin端点，前端不可用）
+  /// 执行心声查找（深层语义匹配端点当前仅在管理端使用）
   Future<void> _searchStones(String query) async {
     if (query.isEmpty) return;
     setState(() {
@@ -85,9 +86,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
 
       if (mounted) {
         setState(() {
-          _keywordResults = results
-              .map((e) => Stone.fromJson(e))
-              .toList();
+          _keywordResults = results.map((e) => Stone.fromJson(e)).toList();
           // 向量搜索为admin端点(/api/admin/edge-ai/vector-search)，前端返回空
           _semanticResults = [];
           _hasSearched = true;
@@ -96,7 +95,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('搜索失败，请稍后再试')),
+          const SnackBar(content: Text('暂时没接住你的心声，请稍后再试')),
         );
       }
     } finally {
@@ -126,7 +125,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载湖神推荐失败，请稍后再试')),
+          const SnackBar(content: Text('加载湖神陪伴内容失败，请稍后再试')),
         );
       }
     } finally {
@@ -141,15 +140,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text('发现', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF5D4037))),
+        title: Text('共鸣',
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF5D4037))),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.auto_awesome, color: isDark ? Colors.white : const Color(0xFF5D4037)),
-            tooltip: '个性化推荐',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalizedScreen())),
+            icon: Icon(Icons.auto_awesome,
+                color: isDark ? Colors.white : const Color(0xFF5D4037)),
+            tooltip: '贴心内容',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const PersonalizedScreen())),
           ),
         ],
         bottom: TabBar(
@@ -157,11 +161,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           indicatorColor: AppTheme.accentColor,
           indicatorWeight: 3,
           labelColor: isDark ? Colors.white : const Color(0xFF5D4037),
-          unselectedLabelColor: isDark ? Colors.white70 : const Color(0xFF8D6E63),
+          unselectedLabelColor:
+              isDark ? Colors.white70 : const Color(0xFF8D6E63),
           tabs: const [
             Tab(icon: Icon(Icons.local_fire_department), text: '热门'),
-            Tab(icon: Icon(Icons.search), text: '搜索'),
-            Tab(icon: Icon(Icons.auto_awesome), text: '湖神推荐'),
+            Tab(icon: Icon(Icons.search), text: '找心声'),
+            Tab(icon: Icon(Icons.auto_awesome), text: '湖神陪伴'),
           ],
         ),
       ),
@@ -199,9 +204,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           padding: const EdgeInsets.all(16),
           child: SearchBar(
             controller: _searchController,
-            hintText: '搜索石头（支持湖神语义搜索）...',
+            hintText: '写下你想找的心声...',
             elevation: WidgetStateProperty.all(0),
-            backgroundColor: WidgetStateProperty.all((isDark ? const Color(0xFF16213E) : Colors.white).withValues(alpha: 0.9)),
+            backgroundColor: WidgetStateProperty.all(
+                (isDark ? const Color(0xFF16213E) : Colors.white)
+                    .withValues(alpha: 0.9)),
             trailing: [
               IconButton(
                 icon: const Icon(Icons.search),
@@ -222,39 +229,42 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     );
   }
 
-  /// 构建搜索结果，区分关键词匹配和语义相似
+  /// 构建查找结果，区分文字相近和心意相近
   Widget _buildSearchResults() {
     if (_keywordResults.isEmpty && _semanticResults.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
+            Icon(Icons.search_off,
+                size: 64, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('未找到相关内容', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+            Text('还没找到相近的心声',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
           ],
         ),
       );
     }
 
     return ListView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       children: [
         if (_keywordResults.isNotEmpty) ...[
           _buildResultSectionHeader(
-            '关键词匹配',
+            '文字相近',
             Icons.text_fields,
-            '${_keywordResults.length}条结果',
+            '${_keywordResults.length}条',
           ),
           ..._keywordResults.map((s) => StoneCard(stone: s)),
         ],
         if (_semanticResults.isNotEmpty) ...[
           const SizedBox(height: 8),
           _buildResultSectionHeader(
-            '语义相似',
+            '心意相近',
             Icons.psychology,
-            '${_semanticResults.length}条结果',
+            '${_semanticResults.length}条',
           ),
           ..._semanticResults.map((s) => StoneCard(stone: s)),
         ],
@@ -263,7 +273,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildResultSectionHeader(String title, IconData icon, String subtitle) {
+  Widget _buildResultSectionHeader(
+      String title, IconData icon, String subtitle) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(
@@ -296,28 +307,35 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     if (_isLoading) return _buildLoadingIndicator();
     if (_aiRecommendations.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
         children: [
           const SizedBox(height: 120),
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.auto_awesome, size: 64, color: Colors.white.withValues(alpha: 0.5)),
+                Icon(Icons.auto_awesome,
+                    size: 64, color: Colors.white.withValues(alpha: 0.5)),
                 const SizedBox(height: 16),
-                Text('暂无湖神推荐，多投石头解锁更多', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                Text('暂时还没有更贴合你的内容，多投石头会更懂你',
+                    style:
+                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const PersonalizedScreen()),
                   ),
                   icon: const Icon(Icons.explore, size: 18),
-                  label: const Text('探索个性化推荐'),
+                  label: const Text('看看为你准备的内容'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white.withValues(alpha: 0.9),
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    side:
+                        BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
                   ),
                 ),
               ],
@@ -328,13 +346,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     }
 
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       itemCount: _aiRecommendations.length + 2,
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildResultSectionHeader(
-            '湖神为你推荐',
+            '湖神为你准备',
             Icons.auto_awesome,
             '${_aiRecommendations.length}条',
           );
@@ -349,11 +368,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
                 MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
               ),
               icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('查看更多个性化推荐'),
+              label: const Text('查看更多贴心内容'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white.withValues(alpha: 0.9),
                 side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
@@ -362,10 +382,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
         final stone = _aiRecommendations[index - 1];
         return GestureDetector(
           onTap: () {
-            _aiService.trackInteraction(stoneId: stone.stoneId, interactionType: 'click');
+            _aiService.trackInteraction(
+                stoneId: stone.stoneId, interactionType: 'click');
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => StoneDetailScreen(stone: stone)),
+              MaterialPageRoute(
+                  builder: (_) => StoneDetailScreen(stone: stone)),
             );
           },
           child: StoneCard(stone: stone),
@@ -382,7 +404,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
           const CircularProgressIndicator(color: Colors.white),
           const SizedBox(height: 16),
           Text(
-            '正在探索心湖深处...',
+            '正在为你整理温暖内容...',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],
@@ -394,16 +416,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> with SingleTickerProvid
     if (_isLoading) return _buildLoadingIndicator();
     if (stones.isEmpty) {
       return ListView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
         children: [
           const SizedBox(height: 120),
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.explore_off, size: 64, color: Colors.white.withValues(alpha: 0.5)),
+                Icon(Icons.explore_off,
+                    size: 64, color: Colors.white.withValues(alpha: 0.5)),
                 const SizedBox(height: 16),
-                Text('暂无内容，试试搜索或湖神推荐', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                Text('暂无内容，试试写下想找的心声或看看湖神陪伴',
+                    style:
+                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
               ],
             ),
           ),

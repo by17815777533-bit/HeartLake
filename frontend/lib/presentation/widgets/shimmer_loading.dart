@@ -1,6 +1,7 @@
 // 骨架屏加载组件
 
 library;
+
 import 'package:flutter/material.dart';
 import '../../utils/animation_utils.dart';
 import '../../utils/app_theme.dart';
@@ -395,10 +396,10 @@ class WarmLoadingIndicator extends StatefulWidget {
     super.key,
     this.messages = const [
       '正在为你寻找温暖的内容...',
-      '用心挑选最适合你的推荐...',
-      '让我们一起发现美好...',
+      '用心挑选最贴近你的内容...',
+      '让我们一起靠近美好...',
       '温柔地为你准备惊喜...',
-      '每一个推荐都充满关怀...',
+      '每一段相遇都带着关怀...',
     ],
     this.messageDuration = const Duration(seconds: 2),
     this.color = AppTheme.primaryColor,
@@ -685,16 +686,18 @@ class ChartSkeleton extends StatelessWidget {
 
             // 图例
             Row(
-              children: List.generate(4, (index) => Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              )),
+              children: List.generate(
+                  4,
+                  (index) => Expanded(
+                        child: Container(
+                          margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      )),
             ),
           ],
         ),

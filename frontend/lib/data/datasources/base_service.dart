@@ -77,6 +77,13 @@ abstract class BaseService {
   /// Service名称（用于日志）
   String get serviceName;
 
+  String _humanizePath(String path) {
+    return path
+        .replaceAll('/vip/', '/light/')
+        .replaceAll('/vip?', '/light?')
+        .replaceAll('/vip', '/light');
+  }
+
   /// 从DioException提取用户友好的错误消息
   String _friendlyError(dynamic e) {
     if (e is DioException) {
@@ -130,15 +137,22 @@ abstract class BaseService {
   Future<ServiceResponse<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    bool useCache = true,
+    Duration? cacheDuration,
   }) async {
     try {
-      _logger.debug('[$serviceName] GET $path');
-      final response =
-          await _client.get(path, queryParameters: queryParameters);
+      _logger.debug('[$serviceName] GET ${_humanizePath(path)}');
+      final response = await _client.get(
+        path,
+        queryParameters: queryParameters,
+        useCache: useCache,
+        cacheDuration: cacheDuration,
+      );
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] GET失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
+      return ServiceResponse.error(_friendlyError(e),
+          code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] GET失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -151,12 +165,13 @@ abstract class BaseService {
     dynamic data,
   }) async {
     try {
-      _logger.debug('[$serviceName] POST $path');
+      _logger.debug('[$serviceName] POST ${_humanizePath(path)}');
       final response = await _client.post(path, data: data);
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] POST失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
+      return ServiceResponse.error(_friendlyError(e),
+          code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] POST失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -169,12 +184,13 @@ abstract class BaseService {
     dynamic data,
   }) async {
     try {
-      _logger.debug('[$serviceName] PUT $path');
+      _logger.debug('[$serviceName] PUT ${_humanizePath(path)}');
       final response = await _client.put(path, data: data);
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] PUT失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
+      return ServiceResponse.error(_friendlyError(e),
+          code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] PUT失败: $e');
       return ServiceResponse.error(_friendlyError(e));
@@ -187,12 +203,13 @@ abstract class BaseService {
     dynamic data,
   }) async {
     try {
-      _logger.debug('[$serviceName] DELETE $path');
+      _logger.debug('[$serviceName] DELETE ${_humanizePath(path)}');
       final response = await _client.delete(path, data: data);
       return ServiceResponse.fromResponse(response);
     } on DioException catch (e) {
       _logger.error('[$serviceName] DELETE失败: $e');
-      return ServiceResponse.error(_friendlyError(e), code: e.response?.statusCode, data: _extractData(e));
+      return ServiceResponse.error(_friendlyError(e),
+          code: e.response?.statusCode, data: _extractData(e));
     } catch (e) {
       _logger.error('[$serviceName] DELETE失败: $e');
       return ServiceResponse.error(_friendlyError(e));

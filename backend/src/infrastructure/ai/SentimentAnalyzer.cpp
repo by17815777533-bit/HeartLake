@@ -278,6 +278,8 @@ std::string refineMoodFromCues(const std::string& text,
         {"裁员", 1.0f}, {"闹翻", 1.0f}, {"去世", 1.2f}, {"空落落", 1.1f},
         {"想家", 1.0f}, {"走丢", 1.0f}, {"背叛", 1.2f}, {"心如刀割", 1.3f},
         {"失恋", 1.2f}, {"难熬", 1.1f}, {"心疼", 0.95f}, {"舍不得", 0.95f},
+        {"孤独", 1.3f}, {"孤单", 1.2f}, {"寂寞", 1.2f}, {"脆弱", 1.05f},
+        {"落寞", 1.2f}, {"无助", 1.1f},
         {"好笨", 0.9f}, {"怎么办", 0.8f}
     };
     static const std::vector<std::pair<std::string, float>> kAngryCues = {
@@ -1198,17 +1200,20 @@ void SentimentAnalyzer::putSentimentCache(const std::string& key,
     }
 }
 
-EdgeSentimentResult SentimentAnalyzer::analyzeSentiment(const std::string& text) {
+EdgeSentimentResult SentimentAnalyzer::analyzeSentiment(const std::string& text, bool preferOnnx) {
     ++totalSentimentCalls_;
 
     if (text.empty()) {
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
 
-    const std::string cacheKey = normalizeSentimentText(text);
-    if (cacheKey.empty()) {
-        return analyzeSentimentUncached(text);
+    const std::string normalizedCacheKey = normalizeSentimentText(text);
+    if (normalizedCacheKey.empty()) {
+        return analyzeSentimentUncached(text, preferOnnx);
     }
+    const std::string cacheKey = preferOnnx
+        ? (normalizedCacheKey + "#onnx")
+        : normalizedCacheKey;
 
     EdgeSentimentResult cached;
     if (getSentimentCacheHit(cacheKey, cached)) {
@@ -1246,12 +1251,12 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentiment(const std::string& text)
         try {
             return sharedFuture.get();
         } catch (...) {
-            return analyzeSentimentUncached(text);
+            return analyzeSentimentUncached(text, preferOnnx);
         }
     }
 
     try {
-        auto computed = analyzeSentimentUncached(text);
+        auto computed = analyzeSentimentUncached(text, preferOnnx);
         putSentimentCache(cacheKey, computed);
         {
             std::unique_lock<std::shared_mutex> lock(sentimentCacheMutex_);
@@ -1269,7 +1274,7 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentiment(const std::string& text)
     }
 }
 
-EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::string& text) {
+EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::string& text, bool preferOnnx) {
     if (text.empty()) {
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
@@ -1425,7 +1430,8 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜"
     };
     static const std::vector<std::string> negativeEventHints = {
-        "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃"
+        "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃",
+        "孤独", "孤单", "寂寞", "脆弱", "落寞", "无助"
     };
     const bool positiveEventSignal =
         (containsAnyPhrase(normalizedText, positiveEventHints) && !containsAnyPhrase(normalizedText, negativeEventHints))
@@ -1456,6 +1462,8 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
 
 #ifdef HEARTLAKE_USE_ONNX
     if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
+        // 默认优先走 ONNX 融合路径，只有在本地分支极高置信时才短路，避免“有大模型但命中少”。
+        const bool preferOnnxPath = preferOnnx || envFlagEnabled("EDGE_AI_PREFER_ONNX", true);
         constexpr float kFastPathConfidence = 0.82f;
         constexpr float kFastPathMargin = 0.44f;
         constexpr float kFastPathConflict = 0.36f;
@@ -1480,8 +1488,20 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
             || ((confidence < kAmbiguousConfidence) && (ensembleMargin < 0.42f))
             || ((lexMatches == 0) && (ensembleMargin < 0.50f));
 
-        if (localFastPath || localStableFallback || !ambiguousCase) {
+        const bool localShortCircuitCandidate =
+            (localFastPath || localStableFallback || !ambiguousCase);
+        const bool ultraHighLocalConfidence =
+            confidence >= 0.94f &&
+            ensembleMargin >= 0.72f &&
+            lexMatches >= 2 &&
+            !hasContrast &&
+            anchorSignal.conflict < 0.24f;
+
+        if (!preferOnnxPath && localShortCircuitCandidate) {
             return finalizeSentiment(ensembleScore, confidence, "dual_route_local");
+        }
+        if (preferOnnxPath && localShortCircuitCandidate && ultraHighLocalConfidence) {
+            return finalizeSentiment(ensembleScore, confidence, "dual_route_local_high_conf");
         }
 
         const size_t sessionPool = std::max<size_t>(1, onnxEngine_->getSessionPoolSize());

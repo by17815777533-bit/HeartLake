@@ -587,7 +587,7 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: moodConfig.primary.withValues(alpha: 0.35),
-              width: 1.2,
+              width: 3.0,
             ),
           ),
           child: InkWell(

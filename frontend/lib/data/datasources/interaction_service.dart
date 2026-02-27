@@ -4,22 +4,60 @@ import '../../utils/input_validator.dart';
 import '../../di/service_locator.dart';
 import 'base_service.dart';
 import 'stone_service.dart';
+
 class InteractionService extends BaseService {
   @override
   String get serviceName => 'InteractionService';
 
   final StoneService _stoneService = sl<StoneService>();
 
+  bool _isShowcaseStone(String stoneId) =>
+      stoneId.startsWith('showcase_stone_');
+
+  Map<String, dynamic> _showcaseUnavailable(String action) {
+    return {
+      'success': false,
+      'code': 400,
+      'message': '当前是展示石头，$action 暂不可用，请切换到真实用户发布的石头',
+      'non_interactive_demo': true,
+    };
+  }
+
+  Map<String, dynamic> _friendlyStoneNotFound(
+      Map<String, dynamic> raw, String stoneId) {
+    final message = raw['message']?.toString() ?? '';
+    if (_isShowcaseStone(stoneId) && message.contains('石头不存在')) {
+      return {
+        ...raw,
+        'message': '当前是展示石头，互动数据暂不可写入，请切换到真实用户发布的石头',
+        'non_interactive_demo': true,
+      };
+    }
+    return raw;
+  }
+
   // 创建涟漪（点赞）
   Future<Map<String, dynamic>> createRipple(String stoneId) async {
+    if (_isShowcaseStone(stoneId)) {
+      return _showcaseUnavailable('涟漪互动');
+    }
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/ripples');
-    if (!response.success) return toMap(response);
+    if (!response.success) {
+      return _friendlyStoneNotFound(toMap(response), stoneId);
+    }
+
+    final payload = response.data is Map<String, dynamic>
+        ? response.data as Map<String, dynamic>
+        : <String, dynamic>{};
 
     return {
       'success': true,
       'data': response.data,
-      'ripple_id': response.data?['ripple_id'],
+      'message': response.message,
+      'ripple_id': payload['ripple_id'],
+      'ripple_count': payload['ripple_count'],
+      'already_rippled': payload['already_rippled'] == true,
     };
   }
 
@@ -29,6 +67,9 @@ class InteractionService extends BaseService {
     required String content,
     bool isAnonymous = true,
   }) async {
+    if (_isShowcaseStone(stoneId)) {
+      return _showcaseUnavailable('纸船评论');
+    }
     InputValidator.validateUUID(stoneId, '石头ID');
     InputValidator.requireLength(content, '纸船内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
@@ -36,7 +77,9 @@ class InteractionService extends BaseService {
       'content': content,
       if (isAnonymous) 'is_anonymous': true,
     });
-    if (!response.success) return toMap(response);
+    if (!response.success) {
+      return _friendlyStoneNotFound(toMap(response), stoneId);
+    }
 
     return {
       'success': true,
@@ -51,6 +94,13 @@ class InteractionService extends BaseService {
     int page = 1,
     int pageSize = 20,
   }) async {
+    if (_isShowcaseStone(stoneId)) {
+      return {
+        'success': true,
+        'boats': const <dynamic>[],
+        'non_interactive_demo': true,
+      };
+    }
     InputValidator.validateUUID(stoneId, '石头ID');
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
@@ -58,10 +108,16 @@ class InteractionService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    if (!response.success) return toMap(response);
+    if (!response.success) {
+      return _friendlyStoneNotFound(toMap(response), stoneId);
+    }
 
     // API 返回 data 直接是 boats 数组
-    final boats = response.data is List ? response.data : (response.data is Map ? (response.data?['boats'] ?? response.data?['items'] ?? []) : []);
+    final boats = response.data is List
+        ? response.data
+        : (response.data is Map
+            ? (response.data?['boats'] ?? response.data?['items'] ?? [])
+            : []);
     return {
       'success': true,
       'boats': boats,
@@ -70,6 +126,9 @@ class InteractionService extends BaseService {
 
   // 发起限时会话（基于石头作者）
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId) async {
+    if (_isShowcaseStone(stoneId)) {
+      return _showcaseUnavailable('发起连接');
+    }
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/connections');
     return toMap(response);
@@ -100,7 +159,9 @@ class InteractionService extends BaseService {
 
     final messages = response.data is List
         ? response.data
-        : (response.data is Map ? (response.data?['items'] ?? response.data?['messages'] ?? []) : []);
+        : (response.data is Map
+            ? (response.data?['items'] ?? response.data?['messages'] ?? [])
+            : []);
     return {
       'success': true,
       'messages': messages,
@@ -118,7 +179,8 @@ class InteractionService extends BaseService {
     InputValidator.validateUUID(connectionId, '连接ID');
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
-    InputValidator.requireInList(messageType, const ['text', 'image', 'voice'], '消息类型');
+    InputValidator.requireInList(
+        messageType, const ['text', 'image', 'voice'], '消息类型');
     if (mediaIds != null) {
       InputValidator.requireListLength(mediaIds, '媒体文件', max: 9);
     }
@@ -152,7 +214,9 @@ class InteractionService extends BaseService {
 
     final ripples = response.data is List
         ? response.data
-        : (response.data is Map ? (response.data?['items'] ?? response.data?['ripples'] ?? []) : []);
+        : (response.data is Map
+            ? (response.data?['items'] ?? response.data?['ripples'] ?? [])
+            : []);
     return {
       'success': true,
       'ripples': ripples,
@@ -173,7 +237,11 @@ class InteractionService extends BaseService {
     if (!response.success) return toMap(response);
 
     // API 返回 data 直接是 boats 数组
-    final myBoats = response.data is List ? response.data : (response.data is Map ? (response.data?['boats'] ?? response.data?['items'] ?? []) : []);
+    final myBoats = response.data is List
+        ? response.data
+        : (response.data is Map
+            ? (response.data?['boats'] ?? response.data?['items'] ?? [])
+            : []);
     return {
       'success': true,
       'boats': myBoats,

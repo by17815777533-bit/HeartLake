@@ -1,11 +1,11 @@
-// VIP服务 - 会员功能管理
+// 灯火服务 - 灯火守护能力管理
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
 class VIPService extends BaseService {
   @override
-  String get serviceName => 'VIPService';
+  String get serviceName => '灯火服务';
 
   /// 获取用户VIP状态
   Future<Map<String, dynamic>> getVIPStatus() async {

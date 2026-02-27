@@ -1,9 +1,13 @@
 // 情绪趋势可视化 - 蓝色湖面风格
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/edge_ai_service.dart';
+import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
 
@@ -17,10 +21,17 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     with SingleTickerProviderStateMixin {
   final AIRecommendationService _aiService = sl<AIRecommendationService>();
   final EdgeAIService _edgeService = sl<EdgeAIService>();
+  final WebSocketManager _wsManager = WebSocketManager();
   late AnimationController _fadeController;
   Map<String, dynamic> _trends = {};
   Map<String, dynamic>? _privacyInfo;
   bool _loading = true;
+  String? _currentUserId;
+  late final void Function(Map<String, dynamic>) _onNewStoneListener;
+  late final void Function(Map<String, dynamic>) _onStoneDeletedListener;
+  late final void Function(Map<String, dynamic>) _onReconnectedListener;
+  Timer? _refreshDebounce;
+  int _refreshSeq = 0;
 
   @override
   void initState() {
@@ -29,13 +40,75 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    _onNewStoneListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) {
+        return;
+      }
+      _scheduleRealtimeRefresh(withFollowUp: true);
+    };
+    _onStoneDeletedListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) {
+        return;
+      }
+      _scheduleRealtimeRefresh();
+    };
+    _onReconnectedListener = (_) {
+      _scheduleRealtimeRefresh(withFollowUp: true);
+    };
+    _initRealtimeSync();
     _loadData();
   }
 
   @override
   void dispose() {
+    _wsManager.leaveRoom('lake');
+    _wsManager.off('new_stone', _onNewStoneListener);
+    _wsManager.off('stone_deleted', _onStoneDeletedListener);
+    _wsManager.off('reconnected', _onReconnectedListener);
+    _refreshDebounce?.cancel();
     _fadeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initRealtimeSync() async {
+    _currentUserId = await StorageUtil.getUserId();
+    if (!_wsManager.isConnected) {
+      _wsManager.connect();
+    }
+    _wsManager.joinRoom('lake');
+    _wsManager.on('new_stone', _onNewStoneListener);
+    _wsManager.on('stone_deleted', _onStoneDeletedListener);
+    _wsManager.on('reconnected', _onReconnectedListener);
+  }
+
+  bool _isCurrentUserEvent(Map<String, dynamic> payload) {
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return true;
+    }
+    final candidateIds = <String?>[
+      payload['triggered_by']?.toString(),
+      payload['user_id']?.toString(),
+      payload['userId']?.toString(),
+      (payload['stone'] as Map?)?['user_id']?.toString(),
+      (payload['stone'] as Map?)?['userId']?.toString(),
+      (payload['stone'] as Map?)?['author_id']?.toString(),
+      (payload['stone'] as Map?)?['authorId']?.toString(),
+    ];
+    return candidateIds.any((id) => id != null && id == currentUserId);
+  }
+
+  void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
+      _loadData();
+      if (!withFollowUp) return;
+      final token = ++_refreshSeq;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted || token != _refreshSeq) return;
+        _loadData();
+      });
+    });
   }
 
   Future<void> _loadData() async {
@@ -184,7 +257,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           child: Text(
             '最近还没有足够的情绪样本，继续记录几次心情后这里会自动更新。',
             style: TextStyle(
-                fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary, height: 1.5),
+                fontSize: 13,
+                color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                height: 1.5),
           ),
         ),
       );
@@ -225,7 +300,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                             _moodLabel(e.key),
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppTheme.textSecondary,
                             ),
                           ),
                         ),
@@ -263,7 +340,8 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                           '${(value * 100).toInt()}%',
                           style: TextStyle(
                             fontSize: 10,
-                            color: isDark ? Colors.white54 : AppTheme.textTertiary,
+                            color:
+                                isDark ? Colors.white54 : AppTheme.textTertiary,
                           ),
                         ),
                       ],
@@ -275,10 +353,10 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
           ),
         ],
         const SizedBox(height: 24),
-        // 湖神洞察
+        // 湖神关怀提示
         if (insights.isNotEmpty) ...[
           Text(
-            '湖神洞察',
+            '湖神关怀提示',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -310,7 +388,9 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                             style: TextStyle(
                               fontSize: 13,
                               height: 1.5,
-                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppTheme.textSecondary,
                             ),
                           ),
                         ),

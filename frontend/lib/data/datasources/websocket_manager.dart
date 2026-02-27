@@ -17,7 +17,8 @@ class WebSocketManager {
   WebSocketChannel? _channel;
   final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
   final List<String> _offlineQueue = [];
-  final Set<String> _joinedRooms = <String>{};
+  // 房间采用引用计数，避免多个页面同时订阅同一房间时互相误退房
+  final Map<String, int> _roomRefCounts = <String, int>{};
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   bool _isConnected = false;
@@ -126,21 +127,39 @@ class WebSocketManager {
     disconnect();
     _listeners.clear();
     _offlineQueue.clear();
+    _roomRefCounts.clear();
   }
 
   /// 加入 WS 房间（服务端房间隔离，只接收该房间的消息）
   void joinRoom(String room) {
-    _joinedRooms.add(room);
+    final normalizedRoom = room.trim();
+    if (normalizedRoom.isEmpty) return;
+    final current = _roomRefCounts[normalizedRoom] ?? 0;
+    _roomRefCounts[normalizedRoom] = current + 1;
     if (!_isConnected) {
       unawaited(connect());
+      return;
     }
-    send({'type': 'join', 'room': room});
+    // 仅在第一次订阅时真正发 join，后续由引用计数持有
+    if (current == 0) {
+      send({'type': 'join', 'room': normalizedRoom});
+    }
   }
 
   /// 离开 WS 房间
   void leaveRoom(String room) {
-    _joinedRooms.remove(room);
-    send({'type': 'leave', 'room': room});
+    final normalizedRoom = room.trim();
+    if (normalizedRoom.isEmpty) return;
+    final current = _roomRefCounts[normalizedRoom];
+    if (current == null) return;
+    if (current > 1) {
+      _roomRefCounts[normalizedRoom] = current - 1;
+      return;
+    }
+    _roomRefCounts.remove(normalizedRoom);
+    if (_isConnected) {
+      send({'type': 'leave', 'room': normalizedRoom});
+    }
   }
 
   void on(String eventType, void Function(Map<String, dynamic>) listener) {
@@ -231,8 +250,8 @@ class WebSocketManager {
   }
 
   void _rejoinRooms() {
-    if (!_isConnected || _channel == null || _joinedRooms.isEmpty) return;
-    for (final room in _joinedRooms) {
+    if (!_isConnected || _channel == null || _roomRefCounts.isEmpty) return;
+    for (final room in _roomRefCounts.keys) {
       _channel!.sink.add(jsonEncode({'type': 'join', 'room': room}));
     }
   }

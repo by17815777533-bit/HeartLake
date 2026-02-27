@@ -28,10 +28,12 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   void initState() {
     super.initState();
     _driftController = AnimationController(
-      vsync: this, duration: const Duration(seconds: 8),
+      vsync: this,
+      duration: const Duration(seconds: 8),
     )..repeat();
     _fadeController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600),
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
     _loadRecommendations();
   }
@@ -74,7 +76,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+        foregroundColor:
+            isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
         title: const Text(
           '为你而来',
           style: TextStyle(
@@ -87,7 +90,10 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         actions: [
           IconButton(
             icon: Icon(Icons.refresh,
-            color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary).withValues(alpha: 0.6),
+                color: (isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary)
+                    .withValues(alpha: 0.6),
                 size: 20),
             onPressed: () {
               setState(() => _loading = true);
@@ -147,7 +153,9 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           Text(
             '正在寻找共鸣...',
             style: TextStyle(
-              color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary).withValues(alpha: 0.7),
+              color:
+                  (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                      .withValues(alpha: 0.7),
               fontSize: 13,
               letterSpacing: 2,
             ),
@@ -198,7 +206,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w300,
-            color: (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary).withValues(alpha: 0.8),
+            color: (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)
+                .withValues(alpha: 0.8),
             letterSpacing: 2,
           ),
         ),
@@ -217,8 +226,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       animation: _driftController,
       builder: (_, __) {
         final phase = index * 0.3;
-        final dx =
-            math.sin(_driftController.value * math.pi * 2 + phase) * 3;
+        final dx = math.sin(_driftController.value * math.pi * 2 + phase) * 3;
         final dy =
             math.cos(_driftController.value * math.pi * 2 + phase * 0.7) * 2;
 
@@ -230,13 +238,15 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                   stoneId: stone.stoneId, interactionType: 'click');
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => StoneDetailScreen(stone: stone)),
+                MaterialPageRoute(
+                    builder: (_) => StoneDetailScreen(stone: stone)),
               );
             },
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
                 elevation: 1,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -272,7 +282,9 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                                   : stone.content,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)
+                                color: (isDark
+                                        ? AppTheme.darkTextPrimary
+                                        : AppTheme.textPrimary)
                                     .withValues(alpha: 0.85),
                                 height: 1.5,
                               ),
@@ -282,28 +294,36 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                               children: [
                                 Icon(Icons.water_drop,
                                     size: 12,
-                                    color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                                    color: (isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textSecondary)
                                         .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.rippleCount}涟漪',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                                    color: (isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textSecondary)
                                         .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Icon(Icons.sailing,
                                     size: 12,
-                                    color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                                    color: (isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textSecondary)
                                         .withValues(alpha: 0.5)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stone.boatCount}纸船',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                                    color: (isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textSecondary)
                                         .withValues(alpha: 0.6),
                                   ),
                                 ),
@@ -316,7 +336,9 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                       Icon(
                         Icons.arrow_forward_ios,
                         size: 14,
-                        color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary)
+                        color: (isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary)
                             .withValues(alpha: 0.3),
                       ),
                     ],
@@ -341,12 +363,17 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           children: [
             Icon(Icons.explore,
                 size: 48,
-                color: (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary).withValues(alpha: 0.3)),
+                color:
+                    (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary)
+                        .withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
-              '投出更多石头，发现更多共鸣',
+              '投出更多石头，收获更多共鸣',
               style: TextStyle(
-                color: (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary).withValues(alpha: 0.7),
+                color: (isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary)
+                    .withValues(alpha: 0.7),
                 fontSize: 14,
                 letterSpacing: 1,
               ),

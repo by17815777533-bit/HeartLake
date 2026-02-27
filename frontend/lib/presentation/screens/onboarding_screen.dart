@@ -24,10 +24,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _isNavigating = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('onboarding_done', 'true');
+      await prefs.setBool('onboarding_done', true);
       final userId = await StorageUtil.getUserId();
       if (userId != null && userId.isNotEmpty) {
-        await prefs.setString('onboarding_done_user_$userId', 'true');
+        await prefs.setBool('onboarding_done_user_$userId', true);
       }
       if (!mounted) return;
       context.go('/home');
@@ -93,7 +93,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   alignment: Alignment.topRight,
                   child: TextButton(
                     onPressed: _completeOnboarding,
-                    child: Text('跳过', style: TextStyle(color: isDark ? Colors.white70 : Colors.white)),
+                    child: Text('跳过',
+                        style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.white)),
                   ),
                 ),
                 Expanded(
@@ -112,12 +114,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: ElevatedButton(
                       onPressed: _currentPage == _pages.length - 1
                           ? _completeOnboarding
-                          : () => _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+                          : () => _controller.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _pages[_currentPage].color,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: Text(_currentPage == _pages.length - 1 ? '开始探索' : '继续'),
+                      child: Text(
+                          _currentPage == _pages.length - 1 ? '开始同行' : '继续'),
                     ),
                   ),
                 ),
@@ -141,16 +146,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               color: data.color.withValues(alpha: 0.2),
               shape: BoxShape.circle,
-              border: Border.all(color: data.color.withValues(alpha: 0.5), width: 2),
+              border: Border.all(
+                  color: data.color.withValues(alpha: 0.5), width: 2),
             ),
             child: Icon(data.icon, size: 56, color: Colors.white),
           ),
           const SizedBox(height: 40),
-          Text(data.title, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(data.title,
+              style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
           const SizedBox(height: 8),
-          Text(data.subtitle, style: TextStyle(fontSize: 18, color: Colors.white.withValues(alpha: 0.8))),
+          Text(data.subtitle,
+              style: TextStyle(
+                  fontSize: 18, color: Colors.white.withValues(alpha: 0.8))),
           const SizedBox(height: 24),
-          Text(data.description, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white.withValues(alpha: 0.7), height: 1.6)),
+          Text(data.description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.7),
+                  height: 1.6)),
         ],
       ),
     );
@@ -159,16 +176,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_pages.length, (i) => AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        width: _currentPage == i ? 24 : 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: _currentPage == i ? _pages[i].color : Colors.white.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(4),
-        ),
-      )),
+      children: List.generate(
+          _pages.length,
+          (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _currentPage == i ? 24 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _currentPage == i
+                      ? _pages[i].color
+                      : Colors.white.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              )),
     );
   }
 }
@@ -179,5 +200,10 @@ class _PageData {
   final String subtitle;
   final String description;
   final Color color;
-  const _PageData({required this.icon, required this.title, required this.subtitle, required this.description, required this.color});
+  const _PageData(
+      {required this.icon,
+      required this.title,
+      required this.subtitle,
+      required this.description,
+      required this.color});
 }

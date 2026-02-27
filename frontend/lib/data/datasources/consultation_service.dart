@@ -85,22 +85,45 @@ class ConsultationService extends BaseService {
     final resp = await get('/consultation/messages/$sessionId');
     final result = toMap(resp);
 
-    // 解密消息
-    if (_e2e.isReady && result['data'] != null) {
-      final messages = result['data']['messages'] as List?;
-      if (messages != null) {
-        for (int i = 0; i < messages.length; i++) {
-          final msg = messages[i] as Map<String, dynamic>;
-          if (msg['encrypted'] == true) {
-            try {
-              msg['content'] = await _e2e.decrypt(msg['content'] as String);
-            } catch (e) {
-              msg['content'] = '[无法解密]';
+    final rawData = result['data'];
+    final List<dynamic> messages = rawData is List
+        ? rawData
+        : (rawData is Map<String, dynamic> ? (rawData['messages'] ?? []) : []);
+
+    // 解密消息（兼容两种格式：旧版 encrypted=true+content，新版 encrypted={ciphertext,iv,tag}）
+    if (_e2e.isReady) {
+      for (final item in messages) {
+        if (item is! Map) continue;
+        final msg = Map<String, dynamic>.from(item);
+        final encryptedField = msg['encrypted'];
+        try {
+          if (encryptedField == true && msg['content'] is String) {
+            msg['content'] = await _e2e.decrypt(msg['content'] as String);
+          } else if (encryptedField is Map) {
+            final env = Map<String, dynamic>.from(encryptedField);
+            final cipher = env['ciphertext']?.toString() ?? '';
+            final iv = env['iv']?.toString() ?? '';
+            final tag = env['tag']?.toString() ?? '';
+            if (cipher.isNotEmpty && iv.isNotEmpty && tag.isNotEmpty) {
+              msg['content'] = await _e2e.decryptEnvelope(
+                ciphertextBase64: cipher,
+                ivBase64: iv,
+                tagBase64: tag,
+              );
             }
           }
+        } catch (_) {
+          msg['content'] = '[无法解密]';
         }
+        msg['created_at'] = msg['created_at'] ?? msg['time'];
+        msg['sender_type'] = msg['sender_type'] ?? msg['sender'];
+        item
+          ..clear()
+          ..addAll(msg);
       }
     }
+
+    result['data'] = {'messages': messages};
 
     return result;
   }

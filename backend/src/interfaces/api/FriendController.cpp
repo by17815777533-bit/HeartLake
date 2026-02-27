@@ -7,12 +7,14 @@
 #include "application/FriendApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "infrastructure/services/IntimacyService.h"
+#include "utils/IdGenerator.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <memory>
 #include <functional>
 #include <algorithm>
+#include <unordered_set>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -30,6 +32,18 @@ static std::string intimacyLevelZh(const std::string& level) {
 }
 
 constexpr double kIntimacyThreshold = 12.0;
+
+static bool isRemovedByCurrentUser(
+    const std::string& userId,
+    const std::string& friendId
+) {
+    auto db = drogon::app().getDbClient("default");
+    auto result = db->execSqlSync(
+        "SELECT 1 FROM friends WHERE user_id = $1 AND friend_id = $2 AND status = 'removed' LIMIT 1",
+        userId, friendId
+    );
+    return !result.empty();
+}
 
 
 // ==================== 好友请求相关 ====================
@@ -66,6 +80,19 @@ void FriendController::sendFriendRequest(
     }
 
     try {
+        auto db = drogon::app().getDbClient("default");
+        auto hiddenResult = db->execSqlSync(
+            "SELECT 1 FROM friends WHERE user_id = $1 AND friend_id = $2 AND status = 'removed' LIMIT 1",
+            userId, targetUserId
+        );
+        const bool restoredHiddenFriend = !hiddenResult.empty();
+        if (restoredHiddenFriend) {
+            db->execSqlSync(
+                "DELETE FROM friends WHERE user_id = $1 AND friend_id = $2 AND status = 'removed'",
+                userId, targetUserId
+            );
+        }
+
         auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
         const double score = intimacy.getIntimacyScore(userId, targetUserId);
 
@@ -77,8 +104,14 @@ void FriendController::sendFriendRequest(
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
         data["can_chat"] = score >= kIntimacyThreshold;
+        data["restored_hidden_friend"] = restoredHiddenFriend;
 
-        callback(ResponseUtil::success(data, "已切换为亲密分自动关系，无需发送好友请求"));
+        callback(ResponseUtil::success(
+            data,
+            restoredHiddenFriend
+                ? "已恢复该好友显示，关系由亲密分自动判定"
+                : "已切换为亲密分自动关系，无需发送好友请求"
+        ));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in sendFriendRequest(auto mode): " << e.what();
         callback(ResponseUtil::internalError("获取亲密分失败"));
@@ -150,21 +183,29 @@ void FriendController::removeFriend(
     }
     auto userId = *userIdOpt;
 
-    auto service = getFriendService();
-    if (!service) {
-        callback(ResponseUtil::internalError("服务未初始化"));
-        return;
-    }
-
-    drogon::async_run([service, userId, friendId, callback]() -> drogon::Task<void> {
+    drogon::async_run([userId, friendId, callback]() -> drogon::Task<void> {
         try {
-            auto result = co_await service->removeFriendAsync(userId, friendId);
-            callback(ResponseUtil::success(result, "已删除好友"));
-        } catch (const std::runtime_error& e) {
-            LOG_ERROR << "Error in removeFriend: " << e.what();
-            callback(ResponseUtil::error(400, "删除好友失败"));
+            auto db = drogon::app().getDbClient("default");
+            // 兼容历史手动好友关系：先清理双向记录
+            co_await db->execSqlCoro(
+                "DELETE FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
+                userId, friendId
+            );
+            // 亲密分自动好友模式下，删除操作语义为“仅自己隐藏该好友”
+            co_await db->execSqlCoro(
+                "INSERT INTO friends (friendship_id, user_id, friend_id, status, created_at) "
+                "VALUES ($1, $2, $3, 'removed', NOW()) "
+                "ON CONFLICT (user_id, friend_id) DO UPDATE SET status = 'removed', created_at = NOW()",
+                utils::IdGenerator::generateUUID(), userId, friendId
+            );
+
+            Json::Value result;
+            result["success"] = true;
+            result["mode"] = "intimacy_auto_hidden";
+            result["friend_id"] = friendId;
+            callback(ResponseUtil::success(result, "已从好友列表移除"));
         } catch (const std::exception& e) {
-            LOG_ERROR << "Unexpected error in removeFriend: " << e.what();
+            LOG_ERROR << "Error in removeFriend: " << e.what();
             callback(ResponseUtil::internalError("删除好友失败"));
         }
     });
@@ -192,9 +233,25 @@ void FriendController::getFriends(
 
         auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
         auto peers = intimacy.getTopIntimacyPeers(userId, limit, kIntimacyThreshold);
+        std::unordered_set<std::string> removedPeers;
+        try {
+            auto db = drogon::app().getDbClient("default");
+            auto removedResult = db->execSqlSync(
+                "SELECT friend_id FROM friends WHERE user_id = $1 AND status = 'removed'",
+                userId
+            );
+            for (const auto& row : removedResult) {
+                removedPeers.insert(row["friend_id"].as<std::string>());
+            }
+        } catch (const std::exception& e) {
+            LOG_WARN << "Load removed friends failed for user " << userId << ": " << e.what();
+        }
 
         Json::Value friends(Json::arrayValue);
         for (const auto& peer : peers) {
+            if (removedPeers.find(peer.userId) != removedPeers.end()) {
+                continue;
+            }
             Json::Value item;
             item["friendship_id"] = "intimacy_auto:" + peer.userId;
             item["friend_id"] = peer.userId;
@@ -290,6 +347,10 @@ void FriendController::sendMessage(
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, content, callback]() -> drogon::Task<void> {
         try {
+            if (isRemovedByCurrentUser(userId, friendId)) {
+                callback(ResponseUtil::forbidden("你已移除此好友，暂不可私聊"));
+                co_return;
+            }
             auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
             const double score = intimacy.getIntimacyScore(userId, friendId);
             if (score < kIntimacyThreshold) {
@@ -336,6 +397,10 @@ void FriendController::getMessages(
     // BUG-7 修复：将嵌套回调改为协程模式，避免回调嵌套导致的连接池竞争和潜在死锁
     drogon::async_run([userId, friendId, callback]() -> drogon::Task<void> {
         try {
+            if (isRemovedByCurrentUser(userId, friendId)) {
+                callback(ResponseUtil::forbidden("你已移除此好友，无法查看私聊"));
+                co_return;
+            }
             auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
             const double score = intimacy.getIntimacyScore(userId, friendId);
             if (score < kIntimacyThreshold) {

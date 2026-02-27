@@ -219,13 +219,34 @@ void EdgeAIController::analyzeLocal(
             return;
         }
 
+        bool preferOnnx = false;
+        if (jsonPtr->isMember("prefer_onnx")) {
+            const auto& rawPreferOnnx = (*jsonPtr)["prefer_onnx"];
+            if (rawPreferOnnx.isBool()) {
+                preferOnnx = rawPreferOnnx.asBool();
+            } else if (rawPreferOnnx.isInt() || rawPreferOnnx.isUInt()) {
+                preferOnnx = rawPreferOnnx.asInt() != 0;
+            } else if (rawPreferOnnx.isString()) {
+                std::string normalized = rawPreferOnnx.asString();
+                std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                preferOnnx = (normalized == "1" || normalized == "true" || normalized == "on" || normalized == "yes");
+            }
+        }
+        if (!preferOnnx && jsonPtr->isMember("analysis_mode")) {
+            std::string mode = (*jsonPtr)["analysis_mode"].asString();
+            std::transform(mode.begin(), mode.end(), mode.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            preferOnnx = (mode == "onnx" || mode == "onnx_preferred" || mode == "high_accuracy");
+        }
+
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         if (!engine.isEnabled()) {
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "边缘AI引擎未启用"));
             return;
         }
 
-        auto result = engine.analyzeSentimentLocal(text);
+        auto result = engine.analyzeSentimentLocal(text, preferOnnx);
 
         Json::Value data;
         const auto calibrated = calibrateConfidence(result.score, result.confidence, text.size());
@@ -242,6 +263,7 @@ void EdgeAIController::analyzeLocal(
         data["decision"] = calibrated.abstained ? "abstain" : "accept";
         data["recommended_action"] = calibrated.abstained ? "ask_for_more_context" : "use_as_reference";
         data["method"] = result.method;
+        data["prefer_onnx"] = preferOnnx;
         data["analysis_mode"] = "multi_expert_fusion_v2";
         // EdgeSentimentResult 使用 toJson() 序列化
 

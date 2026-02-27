@@ -194,7 +194,9 @@ class _CounselorCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
+      color: isDark
+          ? const Color(0xFF16213E).withValues(alpha: 0.92)
+          : Colors.white.withValues(alpha: 0.92),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -226,7 +228,10 @@ class _CounselorCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(specialty,
                           style: TextStyle(
-                              fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+                              fontSize: 13,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppTheme.textSecondary)),
                     ],
                   ),
                 ),
@@ -255,7 +260,8 @@ class _CounselorCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(description,
                 style: TextStyle(
-                    fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -324,8 +330,7 @@ class _SessionListTabState extends State<_SessionListTab> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final topPadding =
-        MediaQuery.of(context).padding.top + kToolbarHeight + 60;
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 60;
 
     if (_isLoading) {
       return Center(
@@ -347,8 +352,7 @@ class _SessionListTabState extends State<_SessionListTab> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _loadSessions,
-                child:
-                    const Text('重试', style: TextStyle(color: Colors.white)),
+                child: const Text('重试', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -394,24 +398,23 @@ class _SessionListTabState extends State<_SessionListTab> {
         itemCount: _sessions.length,
         itemBuilder: (context, index) {
           final s = _sessions[index];
-          final counselorName =
-              s['counselor_name'] as String? ?? '咨询师';
-          final lastMessage =
-              s['last_message'] as String? ?? '暂无消息';
+          final counselorName = s['counselor_name'] as String? ?? '咨询师';
+          final lastMessage = s['last_message'] as String? ?? '暂无消息';
           final time = s['updated_at'] as String? ?? '';
           final sessionId = s['session_id'] as String? ?? '';
 
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
-            color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            color: isDark
+                ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               leading: CircleAvatar(
-                backgroundColor:
-                    AppTheme.skyBlue.withValues(alpha: 0.2),
+                backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.2),
                 child: const Icon(Icons.person, color: AppTheme.primaryColor),
               ),
               title: Text(counselorName,
@@ -424,7 +427,10 @@ class _SessionListTabState extends State<_SessionListTab> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+                          fontSize: 13,
+                          color: isDark
+                              ? Colors.white70
+                              : AppTheme.textSecondary)),
                   if (time.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(time,
@@ -440,12 +446,10 @@ class _SessionListTabState extends State<_SessionListTab> {
                       size: 14,
                       color: AppTheme.successColor.withValues(alpha: 0.7)),
                   const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      color: AppTheme.textTertiary),
+                  const Icon(Icons.chevron_right, color: AppTheme.textTertiary),
                 ],
               ),
-              onTap: () =>
-                  widget.onOpenSession(sessionId, counselorName),
+              onTap: () => widget.onOpenSession(sessionId, counselorName),
             ),
           );
         },
@@ -482,6 +486,17 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   String? _sessionId;
   bool _isSending = false;
   bool _isLoading = true;
+
+  bool _asBool(dynamic value, {bool fallback = false}) {
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    if (value is num) return value != 0;
+    return fallback;
+  }
 
   @override
   void initState() {
@@ -532,10 +547,21 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         final List<dynamic> history =
             data is List ? data : (data['messages'] ?? []);
         for (final msg in history) {
+          final m =
+              msg is Map ? Map<String, dynamic>.from(msg) : <String, dynamic>{};
+          var content = m['content']?.toString() ?? '';
+          if (content.isEmpty && m['encrypted'] != null) {
+            content = '[加密消息]';
+          }
+          final senderType = m['sender_type']?.toString().toLowerCase() ?? '';
+          final sender = m['sender']?.toString().toLowerCase() ?? '';
           _messages.add({
-            'content': msg['content'] ?? '',
-            'isMe': msg['sender_type'] == 'user',
-            'time': msg['created_at'] ?? '',
+            'content': content,
+            'isMe': senderType == 'user' ||
+                senderType == 'me' ||
+                sender == 'user' ||
+                sender == 'me',
+            'time': m['created_at']?.toString() ?? m['time']?.toString() ?? '',
           });
         }
       }
@@ -544,7 +570,8 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     }
 
     if (_messages.isEmpty) {
-      _addSystemMessage('你好，我是${widget.counselorName}，很高兴为你提供心理咨询服务。请放心倾诉，我们的对话受到端到端加密保护。');
+      _addSystemMessage(
+          '你好，我是${widget.counselorName}，很高兴为你提供心理咨询服务。请放心倾诉，我们的对话受到端到端加密保护。');
     }
 
     _scrollToBottom();
@@ -579,7 +606,8 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         content: text,
       );
       if (result['success'] == true && result['data'] != null) {
-        final reply = result['data']['reply'] ?? result['data']['content'] ?? '';
+        final reply =
+            result['data']['reply'] ?? result['data']['content'] ?? '';
         if (reply.toString().isNotEmpty) {
           _messages.add({
             'content': reply,
@@ -587,6 +615,8 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
             'time': _nowStr(),
           });
         }
+      } else if (result['success'] != true) {
+        _addSystemMessage(result['message']?.toString() ?? '消息发送失败，请重试');
       }
     } catch (_) {
       _addSystemMessage('消息发送失败，请重试');
@@ -631,8 +661,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.lock_outline,
-                    size: 11,
-                    color: Colors.white.withValues(alpha: 0.8)),
+                    size: 11, color: Colors.white.withValues(alpha: 0.8)),
                 const SizedBox(width: 3),
                 Text('端到端加密保护',
                     style: TextStyle(
@@ -679,8 +708,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
                     children: [
                       Icon(Icons.verified_user_outlined,
                           size: 14,
-                          color:
-                              AppTheme.successColor.withValues(alpha: 0.8)),
+                          color: AppTheme.successColor.withValues(alpha: 0.8)),
                       const SizedBox(width: 4),
                       Text('🔒 对话内容已加密，仅你和咨询师可见',
                           style: TextStyle(
@@ -695,8 +723,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
               Expanded(
                 child: _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                            color: Colors.white70))
+                        child: CircularProgressIndicator(color: Colors.white70))
                     : ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.symmetric(
@@ -705,9 +732,9 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
                         itemBuilder: (context, index) {
                           final msg = _messages[index];
                           return _ChatBubble(
-                            content: msg['content'] as String,
-                            isMe: msg['isMe'] as bool,
-                            time: msg['time'] as String,
+                            content: msg['content']?.toString() ?? '',
+                            isMe: _asBool(msg['isMe']),
+                            time: msg['time']?.toString() ?? '',
                             counselorName: widget.counselorName,
                           );
                         },
@@ -732,7 +759,9 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+        color: isDark
+            ? const Color(0xFF16213E).withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.95),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -815,7 +844,9 @@ class _ChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.primaryColor.withValues(alpha: 0.9)
-                    : isDark ? const Color(0xFF16213E).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.92),
+                    : isDark
+                        ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                        : Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -837,7 +868,11 @@ class _ChatBubble extends StatelessWidget {
                     content,
                     style: TextStyle(
                       fontSize: 15,
-                      color: isMe ? Colors.white : isDark ? Colors.white : AppTheme.textPrimary,
+                      color: isMe
+                          ? Colors.white
+                          : isDark
+                              ? Colors.white
+                              : AppTheme.textPrimary,
                       height: 1.4,
                     ),
                   ),

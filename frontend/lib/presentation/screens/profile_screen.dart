@@ -73,14 +73,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadVIPStatus() async {
     try {
       final status = await _vipService.getVIPStatus();
+      final payload = (status['data'] is Map<String, dynamic>)
+          ? status['data'] as Map<String, dynamic>
+          : const <String, dynamic>{};
       if (mounted) {
         setState(() {
-          _hasLight = status['is_vip'] ?? false;
-          _vipDaysLeft = status['days_left'] ?? 0;
+          _hasLight = payload['is_vip'] == true;
+          _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
         });
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading VIP status: $e'); }
+      if (kDebugMode) {
+        debugPrint('加载灯火状态失败: $e');
+      }
     }
   }
 
@@ -182,7 +187,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading user info: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error loading user info: $e');
+      }
     }
   }
 
@@ -197,7 +204,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading user stats: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error loading user stats: $e');
+      }
     }
   }
 
@@ -221,7 +230,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading full profile: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error loading full profile: $e');
+      }
     }
   }
 
@@ -250,7 +261,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // 更新个人资料
         final authService = sl<AuthService>();
-        final updateResult = await authService.updateProfile(avatarUrl: avatarUrl);
+        final updateResult =
+            await authService.updateProfile(avatarUrl: avatarUrl);
 
         if (mounted) {
           if (updateResult['success']) {
@@ -258,7 +270,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _avatarUrl = avatarUrl;
             });
             // 同步到 UserProvider
-            Provider.of<UserProvider>(context, listen: false).updateUser(avatarUrl: avatarUrl);
+            Provider.of<UserProvider>(context, listen: false)
+                .updateUser(avatarUrl: avatarUrl);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('头像更新成功')),
             );
@@ -276,7 +289,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error picking avatar: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error picking avatar: $e');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('选择图片失败')),
@@ -313,7 +328,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (newBio == _bio) return;
 
               final messenger = ScaffoldMessenger.of(context);
-              final userProvider = Provider.of<UserProvider>(context, listen: false);
+              final userProvider =
+                  Provider.of<UserProvider>(context, listen: false);
               final authService = sl<AuthService>();
               final result = await authService.updateProfile(bio: newBio);
 
@@ -391,7 +407,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // 个人信息卡片
                 Card(
-                  color: isDark ? AppTheme.nightSurface.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+                  color: isDark
+                      ? AppTheme.nightSurface.withValues(alpha: 0.9)
+                      : Colors.white.withValues(alpha: 0.9),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -403,10 +421,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               CircleAvatar(
                                 radius: 45,
-                                backgroundColor: AppTheme.skyBlue.withValues(alpha: 0.3),
-                                backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty) ? NetworkImage(_avatarUrl!) : null,
+                                backgroundColor:
+                                    AppTheme.skyBlue.withValues(alpha: 0.3),
+                                backgroundImage: (_avatarUrl != null &&
+                                        _avatarUrl!.isNotEmpty)
+                                    ? NetworkImage(_avatarUrl!)
+                                    : null,
                                 child: _avatarUrl == null
-                                    ? const Icon(Icons.person, size: 45, color: Colors.white)
+                                    ? const Icon(Icons.person,
+                                        size: 45, color: Colors.white)
                                     : null,
                               ),
                               Positioned(
@@ -418,7 +441,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: AppTheme.skyBlue,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                                  child: const Icon(Icons.camera_alt,
+                                      size: 16, color: Colors.white),
                                 ),
                               ),
                             ],
@@ -433,10 +457,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Text(
                                 _nickname ?? _username ?? '心湖用户',
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.edit, size: 16, color: AppTheme.textTertiary),
+                              const Icon(Icons.edit,
+                                  size: 16, color: AppTheme.textTertiary),
                             ],
                           ),
                         ),
@@ -447,8 +473,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             _bio ?? '点击添加个性签名...',
                             style: TextStyle(
-                              color: _bio != null ? AppTheme.textSecondary : AppTheme.textTertiary,
-                              fontStyle: _bio == null ? FontStyle.italic : FontStyle.normal,
+                              color: _bio != null
+                                  ? AppTheme.textSecondary
+                                  : AppTheme.textTertiary,
+                              fontStyle: _bio == null
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
                             ),
                           ),
                         ),
@@ -461,18 +491,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // 统计数据
                 Row(
                   children: [
-                    Expanded(child: _buildStatCard(context, '投石', stonesCount, Icons.water_drop,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyStonesScreen())))),
-                    Expanded(child: _buildStatCard(context, '收到纸船', boatsReceived, Icons.sailing,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReceivedBoatsScreen())))),
+                    Expanded(
+                        child: _buildStatCard(
+                            context, '投石', stonesCount, Icons.water_drop,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const MyStonesScreen())))),
+                    Expanded(
+                        child: _buildStatCard(
+                            context, '收到纸船', boatsReceived, Icons.sailing,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const ReceivedBoatsScreen())))),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _buildStatCard(context, '发送纸船', boatsSent, Icons.send,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBoatsScreen())))),
-                    Expanded(child: _buildStatCard(context, '相伴', '$joinDays天', Icons.favorite)),
+                    Expanded(
+                        child: _buildStatCard(
+                            context, '发送纸船', boatsSent, Icons.send,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const MyBoatsScreen())))),
+                    Expanded(
+                        child: _buildStatCard(
+                            context, '相伴', '$joinDays天', Icons.favorite)),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -482,69 +530,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: Icon(_hasLight ? Icons.lightbulb : Icons.lightbulb_outline,
-                            color: _hasLight ? const Color(0xFFFFD54F) : Colors.grey),
+                        leading: Icon(
+                            _hasLight
+                                ? Icons.lightbulb
+                                : Icons.lightbulb_outline,
+                            color: _hasLight
+                                ? const Color(0xFFFFD54F)
+                                : Colors.grey),
                         title: Text(_hasLight ? '灯已点亮' : '灯'),
-                        subtitle: Text(_hasLight ? '灯火将燃$_vipDaysLeft天' : '温暖时刻自动点亮',
+                        subtitle: Text(
+                            _hasLight ? '灯火将燃$_vipDaysLeft天' : '温暖时刻自动点亮',
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VIPScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const VIPScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.calendar_month, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.calendar_month,
+                            color: AppTheme.skyBlue),
                         title: const Text('情绪日历'),
-                        subtitle: const Text('记录每日心情变化', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('记录每日心情变化',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionCalendarScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const EmotionCalendarScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.show_chart, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.show_chart,
+                            color: AppTheme.skyBlue),
                         title: const Text('情绪趋势'),
-                        subtitle: const Text('查看情绪变化轨迹', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('查看情绪变化轨迹',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionTrendsScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const EmotionTrendsScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.grid_view_rounded, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.grid_view_rounded,
+                            color: AppTheme.skyBlue),
                         title: const Text('情绪热力图'),
-                        subtitle: const Text('查看情绪密度与洞察', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('查看情绪密度与关怀提示',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmotionHeatmapScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const EmotionHeatmapScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.water, color: AppTheme.skyBlue),
+                        leading:
+                            const Icon(Icons.water, color: AppTheme.skyBlue),
                         title: const Text('我的涟漪'),
-                        subtitle: const Text('查看发出的涟漪', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('查看发出的涟漪',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRipplesScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const MyRipplesScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.lightbulb_outline, color: Color(0xFFFFB74D)),
+                        leading: const Icon(Icons.lightbulb_outline,
+                            color: Color(0xFFFFB74D)),
                         title: const Text('守护者'),
-                        subtitle: const Text('守护心湖的温暖与灯火', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('守护心湖的温暖与灯火',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GuardianScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const GuardianScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.spa, color: AppTheme.secondaryColor),
+                        leading: const Icon(Icons.spa,
+                            color: AppTheme.secondaryColor),
                         title: const Text('安全港湾'),
-                        subtitle: const Text('心理支持与自助资源', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('心理支持与自助资源',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SafeHarborScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SafeHarborScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.psychology, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.psychology,
+                            color: AppTheme.skyBlue),
                         title: const Text('心理咨询'),
-                        subtitle: const Text('预约专业咨询师', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('预约专业咨询师',
+                            style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConsultationScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ConsultationScreen())),
                       ),
                     ],
                   ),
@@ -556,24 +648,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.notifications_outlined, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.notifications_outlined,
+                            color: AppTheme.skyBlue),
                         title: const Text('消息通知'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const NotificationScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.shield_outlined, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.shield_outlined,
+                            color: AppTheme.skyBlue),
                         title: const Text('隐私与安全'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacySettingsScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const PrivacySettingsScreen())),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.help_outline, color: AppTheme.skyBlue),
+                        leading: const Icon(Icons.help_outline,
+                            color: AppTheme.skyBlue),
                         title: const Text('帮助与反馈'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const HelpScreen())),
                       ),
                     ],
                   ),
@@ -585,9 +689,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.logout, color: AppTheme.errorColor),
-                        title: const Text('退出登录', style: TextStyle(color: AppTheme.errorColor)),
-                        trailing: const Icon(Icons.chevron_right, color: AppTheme.errorColor),
+                        leading: const Icon(Icons.logout,
+                            color: AppTheme.errorColor),
+                        title: const Text('退出登录',
+                            style: TextStyle(color: AppTheme.errorColor)),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: AppTheme.errorColor),
                         onTap: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
@@ -625,7 +732,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // 清除用户状态
                             if (context.mounted) {
-                              await Provider.of<UserProvider>(context, listen: false)
+                              await Provider.of<UserProvider>(context,
+                                      listen: false)
                                   .logout();
                             }
 
@@ -652,7 +760,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       {VoidCallback? onTap}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final card = Card(
-      color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9),
+      color: isDark
+          ? const Color(0xFF1B2838).withValues(alpha: 0.9)
+          : Colors.white.withValues(alpha: 0.9),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
@@ -673,7 +783,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(
               value,
               style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: isDark ? const Color(0xFFE8EAED) : AppTheme.textPrimary,
+                    color:
+                        isDark ? const Color(0xFFE8EAED) : AppTheme.textPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
@@ -711,7 +822,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             labelText: '新昵称',
             hintText: '请输入新昵称',
           ),
-          maxLength: 100,
+          maxLength: 20,
         ),
         actions: [
           TextButton(
@@ -734,20 +845,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               navigator.pop();
 
               // 调用更新昵称API
-              final userProvider = Provider.of<UserProvider>(context, listen: false);
+              final userProvider =
+                  Provider.of<UserProvider>(context, listen: false);
               final authService = sl<AuthService>();
               final result = await authService.updateNickname(newNickname);
 
               if (!mounted) return;
 
               if (result['success']) {
+                final savedNickname =
+                    (result['nickname']?.toString().trim().isNotEmpty == true)
+                        ? result['nickname'].toString()
+                        : newNickname;
                 if (mounted) {
                   setState(() {
-                    _nickname = newNickname;
+                    _nickname = savedNickname;
                   });
-                  await StorageUtil.saveNickname(newNickname);
+                  await StorageUtil.saveNickname(savedNickname);
                   // 同步到 UserProvider
-                  userProvider.updateUser(nickname: newNickname);
+                  userProvider.updateUser(nickname: savedNickname);
                   if (mounted) {
                     messenger.showSnackBar(
                       const SnackBar(content: Text('昵称修改成功')),

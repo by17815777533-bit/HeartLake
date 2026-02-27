@@ -36,9 +36,10 @@ void InteractionController::createRipple(
     try {
         auto service = getInteractionService();
         auto result = service->createRipple(stoneId, userId);
+        bool alreadyRippled = result.get("already_rippled", false).asBool();
 
-        // 广播涟漪更新事件
-        {
+        // 仅首次涟漪才广播，重复操作按幂等成功返回
+        if (!alreadyRippled) {
             int rippleCount = result["ripple_count"].asInt();
 
             Json::Value broadcastMsg;
@@ -72,7 +73,7 @@ void InteractionController::createRipple(
             }
         }
 
-        callback(ResponseUtil::success(result, "涟漪成功"));
+        callback(ResponseUtil::success(result, alreadyRippled ? "已经点过涟漪了" : "涟漪成功"));
 
     } catch (const std::runtime_error& e) {
         LOG_ERROR << "Error in createRipple: " << e.what();

@@ -1,9 +1,13 @@
 // 情绪热力图页面（与情绪日历拆分）
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
+import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/storage_util.dart';
 import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
 import '../widgets/shimmer_loading.dart';
@@ -17,14 +21,89 @@ class EmotionHeatmapScreen extends StatefulWidget {
 
 class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   final UserService _userService = sl<UserService>();
+  final WebSocketManager _wsManager = WebSocketManager();
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
   bool _isLoading = true;
+  String? _currentUserId;
+  late final void Function(Map<String, dynamic>) _onNewStoneListener;
+  late final void Function(Map<String, dynamic>) _onStoneDeletedListener;
+  late final void Function(Map<String, dynamic>) _onReconnectedListener;
+  Timer? _refreshDebounce;
+  int _refreshSeq = 0;
 
   @override
   void initState() {
     super.initState();
+    _onNewStoneListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) {
+        return;
+      }
+      _scheduleRealtimeRefresh(withFollowUp: true);
+    };
+    _onStoneDeletedListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) {
+        return;
+      }
+      _scheduleRealtimeRefresh();
+    };
+    _onReconnectedListener = (_) {
+      _scheduleRealtimeRefresh(withFollowUp: true);
+    };
+    _initRealtimeSync();
     _loadHeatmapData();
+  }
+
+  @override
+  void dispose() {
+    _wsManager.leaveRoom('lake');
+    _wsManager.off('new_stone', _onNewStoneListener);
+    _wsManager.off('stone_deleted', _onStoneDeletedListener);
+    _wsManager.off('reconnected', _onReconnectedListener);
+    _refreshDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initRealtimeSync() async {
+    _currentUserId = await StorageUtil.getUserId();
+    if (!_wsManager.isConnected) {
+      _wsManager.connect();
+    }
+    _wsManager.joinRoom('lake');
+    _wsManager.on('new_stone', _onNewStoneListener);
+    _wsManager.on('stone_deleted', _onStoneDeletedListener);
+    _wsManager.on('reconnected', _onReconnectedListener);
+  }
+
+  bool _isCurrentUserEvent(Map<String, dynamic> payload) {
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      // 用户ID读取失败时，降级为刷新，避免页面长期不更新
+      return true;
+    }
+    final candidateIds = <String?>[
+      payload['triggered_by']?.toString(),
+      payload['user_id']?.toString(),
+      payload['userId']?.toString(),
+      (payload['stone'] as Map?)?['user_id']?.toString(),
+      (payload['stone'] as Map?)?['userId']?.toString(),
+      (payload['stone'] as Map?)?['author_id']?.toString(),
+      (payload['stone'] as Map?)?['authorId']?.toString(),
+    ];
+    return candidateIds.any((id) => id != null && id == currentUserId);
+  }
+
+  void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
+      _loadHeatmapData();
+      if (!withFollowUp) return;
+      final token = ++_refreshSeq;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted || token != _refreshSeq) return;
+        _loadHeatmapData();
+      });
+    });
   }
 
   Future<void> _loadHeatmapData() async {
@@ -33,7 +112,9 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
       final result = await _userService.getEmotionHeatmap();
       if (!mounted) return;
       if (result['success'] == true) {
-        final rawData = (result['data'] as Map<String, dynamic>?)?['days'] as Map<String, dynamic>? ?? {};
+        final rawData = (result['data'] as Map<String, dynamic>?)?['days']
+                as Map<String, dynamic>? ??
+            {};
         final parsed = <String, Map<String, dynamic>>{};
         for (final entry in rawData.entries) {
           if (entry.value is Map) {
@@ -149,11 +230,15 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
               decoration: BoxDecoration(
                 color: AppTheme.skyBlue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.skyBlue.withValues(alpha: 0.2)),
+                border:
+                    Border.all(color: AppTheme.skyBlue.withValues(alpha: 0.2)),
               ),
               child: Text(
                 '热力图聚焦长期波动，日历聚焦单日记录。已拆分展示，便于你分别查看。',
-                style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary, height: 1.5),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                    height: 1.5),
               ),
             ),
             const SizedBox(height: 16),
@@ -162,7 +247,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
                 height: 220,
                 child: Center(
                   child: WarmLoadingIndicator(
-                    messages: ['正在汇总情绪热力图...', '计算最近情绪密度...', '生成情绪洞察...'],
+                    messages: ['正在汇总情绪热力图...', '计算最近情绪密度...', '生成情绪关怀提示...'],
                   ),
                 ),
               )

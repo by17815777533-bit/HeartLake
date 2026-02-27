@@ -8,13 +8,25 @@ export '../../domain/entities/emotion_trend_point.dart';
 
 class RecommendationService extends BaseService {
   @override
-  String get serviceName => 'Recommendation';
+  String get serviceName => '共鸣服务';
 
   // 情绪类型白名单（与后端/psych_support_service保持一致）
   static const _allowedMoods = [
-    'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
-    'hopeful', 'lonely', 'grateful', 'neutral', 'fearful',
-    'surprised', 'disgusted', 'depressed', 'excited',
+    'happy',
+    'sad',
+    'angry',
+    'anxious',
+    'calm',
+    'confused',
+    'hopeful',
+    'lonely',
+    'grateful',
+    'neutral',
+    'fearful',
+    'surprised',
+    'disgusted',
+    'depressed',
+    'excited',
   ];
 
   /// 获取热门推荐
@@ -30,10 +42,10 @@ class RecommendationService extends BaseService {
 
   /// 搜索石头
   Future<List<Map<String, dynamic>>> search(String query) async {
-    InputValidator.requireLength(query, '搜索关键词', min: 1, max: 200);
+    InputValidator.requireLength(query, '想找的心声', min: 1, max: 200);
     query = InputValidator.sanitizeText(query);
-    final resp = await post<dynamic>('/recommendations/search',
-        data: {'query': query});
+    final resp =
+        await post<dynamic>('/recommendations/search', data: {'query': query});
     if (resp.success && resp.data != null) {
       return _extractList(resp.data);
     }
@@ -56,7 +68,12 @@ class RecommendationService extends BaseService {
     }
     if (data is Map<String, dynamic>) {
       for (final key in [
-        'trending_stones', 'results', 'stones', 'items', 'recommendations', 'data'
+        'trending_stones',
+        'results',
+        'stones',
+        'items',
+        'recommendations',
+        'data'
       ]) {
         if (data[key] is List) {
           return (data[key] as List).whereType<Map<String, dynamic>>().toList();

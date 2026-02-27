@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
+import '../../data/datasources/api_client.dart';
 import '../../di/service_locator.dart';
-import '../../utils/storage_util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,6 +22,16 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   final AuthService _authService = sl<AuthService>();
+
+  bool _readBoolCompat(SharedPreferences prefs, String key) {
+    final value = prefs.get(key);
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true';
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -41,77 +51,58 @@ class _SplashScreenState extends State<SplashScreen>
     _checkLoginAndNavigate();
   }
 
-  /// P2-4 修复：区分网络错误和 token 过期
+  /// 启动分流：仅允许已登录会话直接进入首页，未登录统一进入认证页。
   Future<void> _checkLoginAndNavigate() async {
     await Future.delayed(const Duration(seconds: 2));
 
-    bool? isNewUser;
-    String? loginUserId;
+    final prefs = await SharedPreferences.getInstance();
+    final manualLogout = _readBoolCompat(prefs, 'manual_logout');
+    if (manualLogout) {
+      await prefs.remove('manual_logout');
+      if (!mounted) return;
+      context.go('/auth');
+      return;
+    }
 
     try {
-      var isLoggedIn = await _authService.isLoggedIn();
-
-      if (isLoggedIn) {
-        final result = await _authService.refreshToken();
-        if (!result['success']) {
-          final code = result['code'];
-          if (code == 401) {
-            // token 过期，降级为匿名
-            await _authService.logout();
-            final loginResult = await _authService.anonymousLogin();
-            if (loginResult['success'] == true) {
-              isNewUser = loginResult['is_new_user'] == true;
-              loginUserId = loginResult['user_id']?.toString();
-            }
-          } else {
-            // 网络错误(code==null)或服务器错误，保留 token 继续进入
-            if (kDebugMode) { debugPrint('Token 刷新失败(code=$code)，保留登录状态'); }
-          }
-        }
-      } else {
-        final loginResult = await _authService.anonymousLogin();
-        if (!loginResult['success']) {
-          if (kDebugMode) { debugPrint('匿名登录失败: ${loginResult['message']}'); }
-        } else {
-          isNewUser = loginResult['is_new_user'] == true;
-          loginUserId = loginResult['user_id']?.toString();
-        }
+      final isLoggedIn = await _authService.isLoggedIn();
+      if (!isLoggedIn) {
+        if (!mounted) return;
+        context.go('/auth');
+        return;
       }
+
+      final result = await _authService.refreshToken();
+      if (result['success'] == true) {
+        if (!mounted) return;
+        context.go('/home');
+        return;
+      }
+
+      final code = result['code'];
+      if (code == 401) {
+        // 会话失效：清除本地令牌并回到认证页，不再自动匿名登录。
+        ApiClient().clearToken();
+        await prefs.remove('manual_logout');
+        if (!mounted) return;
+        context.go('/auth');
+        return;
+      }
+
+      // 网络错误或服务器异常时，不强制退出当前会话。
+      if (kDebugMode) {
+        debugPrint('Token 刷新失败(code=$code)，保留登录状态进入首页');
+      }
+      if (!mounted) return;
+      context.go('/home');
     } catch (e) {
-      // 网络不可达等未预期异常，保留现有状态继续进入
-      if (kDebugMode) { debugPrint('登录检查异常: $e'); }
-    }
-    if (!mounted) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final legacyOnboardingDone =
-        prefs.getString('onboarding_done') == 'true' ||
-        (prefs.getBool('onboarding_done') ?? false);
-    final userId = loginUserId ?? await StorageUtil.getUserId();
-
-    bool userOnboardingDone = false;
-    if (userId != null && userId.isNotEmpty) {
-      final userFlagKey = 'onboarding_done_user_$userId';
-      userOnboardingDone =
-          prefs.getString(userFlagKey) == 'true' ||
-          (prefs.getBool(userFlagKey) ?? false);
-
-      // 老用户不再重复显示新手引导
-      if (isNewUser == false && !userOnboardingDone) {
-        await prefs.setString(userFlagKey, 'true');
-        userOnboardingDone = true;
+      // 网络不可达等异常：若本地已有会话则继续进入首页，避免启动阻塞。
+      if (kDebugMode) {
+        debugPrint('登录检查异常: $e');
       }
+      if (!mounted) return;
+      context.go('/home');
     }
-
-    final showOnboarding = isNewUser == true
-        ? !userOnboardingDone
-        : !legacyOnboardingDone && isNewUser == null;
-
-    if (!mounted) return;
-
-    final targetPath = showOnboarding ? '/onboarding' : '/home';
-
-    context.go(targetPath);
   }
 
   @override
@@ -139,7 +130,8 @@ class _SplashScreenState extends State<SplashScreen>
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5), width: 2),
+                            color: Colors.white.withValues(alpha: 0.5),
+                            width: 2),
                         boxShadow: [
                           BoxShadow(
                             color: AppTheme.primaryColor.withValues(alpha: 0.2),

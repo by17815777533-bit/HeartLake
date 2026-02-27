@@ -21,22 +21,29 @@ class EdgeAIService extends BaseService {
   }
 
   /// 本地情感分析
-  Future<Map<String, dynamic>> analyzeSentiment(String text) async {
+  Future<Map<String, dynamic>> analyzeSentiment(
+    String text, {
+    bool preferOnnx = true,
+  }) async {
     InputValidator.requireLength(text, '分析文本', min: 1, max: 5000);
     text = InputValidator.sanitizeText(text);
-    final response = await post('/edge-ai/analyze', data: {'text': text});
+    final response = await post('/edge-ai/analyze', data: {
+      'text': text,
+      'prefer_onnx': preferOnnx,
+      'analysis_mode': preferOnnx ? 'onnx_preferred' : 'balanced',
+    });
     return toMap(response);
   }
 
   /// 获取隐私预算
   Future<Map<String, dynamic>> getPrivacyBudget() async {
-    final response = await get('/edge-ai/privacy-budget');
+    final response = await get('/edge-ai/privacy-budget', useCache: false);
     return toMap(response);
   }
 
   /// 获取社区情绪脉搏
   Future<Map<String, dynamic>> getEmotionPulse() async {
-    final response = await get('/edge-ai/emotion-pulse');
+    final response = await get('/edge-ai/emotion-pulse', useCache: false);
     return toMap(response);
   }
 }

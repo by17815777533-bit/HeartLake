@@ -62,7 +62,7 @@ public:
     /**
      * 分析文本情感（带缓存 + 飞行中去重）
      */
-    EdgeSentimentResult analyzeSentiment(const std::string& text);
+    EdgeSentimentResult analyzeSentiment(const std::string& text, bool preferOnnx = false);
 
     /**
      * 清空缓存和飞行中状态
@@ -80,7 +80,7 @@ public:
 
 private:
     // ---- 分析方法 ----
-    EdgeSentimentResult analyzeSentimentUncached(const std::string& text);
+    EdgeSentimentResult analyzeSentimentUncached(const std::string& text, bool preferOnnx = false);
     std::vector<std::string> tokenizeUTF8(const std::string& text) const;
     float ruleSentiment(const std::string& text) const;
     float lexiconSentiment(const std::vector<std::string>& tokens) const;

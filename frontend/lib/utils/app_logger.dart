@@ -141,9 +141,17 @@ class AppLogger {
   void network(String method, String url, {int? statusCode, String? error}) {
     if (!appConfig.logNetworkRequests) return;
 
+    final displayUrl = _humanizeUrl(url);
     final status = statusCode != null ? '[$statusCode]' : '';
     final errorMsg = error != null ? ' - $error' : '';
-    log('$method $url $status$errorMsg', category: LogCategory.network);
+    log('$method $displayUrl $status$errorMsg', category: LogCategory.network);
+  }
+
+  String _humanizeUrl(String url) {
+    return url
+        .replaceAll('/vip/', '/light/')
+        .replaceAll('/vip?', '/light?')
+        .replaceAll('/vip', '/light');
   }
 
   /// WebSocket日志

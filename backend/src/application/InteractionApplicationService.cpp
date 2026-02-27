@@ -84,7 +84,30 @@ Json::Value InteractionApplicationService::createRipple(
     } catch (const drogon::orm::DrogonDbException& e) {
         std::string err = e.base().what();
         if (err.find("unique") != std::string::npos || err.find("duplicate") != std::string::npos) {
-            throw std::runtime_error("已经点过涟漪了");
+            // 幂等处理：重复点涟漪时返回当前状态，避免前端出现权限类误判
+            auto existingRipple = dbClient->execSqlSync(
+                "SELECT ripple_id FROM ripples WHERE stone_id = $1 AND user_id = $2 "
+                "ORDER BY created_at DESC LIMIT 1",
+                stoneId, userId
+            );
+            auto countResult = dbClient->execSqlSync(
+                "SELECT ripple_count FROM stones WHERE stone_id = $1",
+                stoneId
+            );
+
+            Json::Value result;
+            result["ripple_id"] = existingRipple.empty()
+                                      ? ""
+                                      : existingRipple[0]["ripple_id"].as<std::string>();
+            result["stone_id"] = stoneId;
+            result["user_id"] = userId;
+            result["ripple_count"] = countResult.empty()
+                                         ? 0
+                                         : countResult[0]["ripple_count"].as<int>();
+            result["already_rippled"] = true;
+
+            LOG_INFO << "Ripple already exists for stone " << stoneId << " user " << userId;
+            return result;
         }
         LOG_ERROR << "Failed to create ripple: " << err;
         throw std::runtime_error("创建涟漪失败");

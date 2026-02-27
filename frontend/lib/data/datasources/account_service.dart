@@ -29,7 +29,12 @@ class AccountService extends BaseService {
 
   // 个人资料允许的 key
   static const _allowedProfileKeys = [
-    'nickname', 'bio', 'avatar', 'gender', 'birthday', 'location',
+    'nickname',
+    'bio',
+    'avatar',
+    'gender',
+    'birthday',
+    'location',
   ];
 
   /// 获取账号信息
@@ -51,7 +56,8 @@ class AccountService extends BaseService {
   }
 
   /// 获取登录日志
-  Future<Map<String, dynamic>> getLoginLogs({int page = 1, int pageSize = 20}) async {
+  Future<Map<String, dynamic>> getLoginLogs(
+      {int page = 1, int pageSize = 20}) async {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
     final response = await get('/account/login-logs', queryParameters: {
@@ -68,14 +74,16 @@ class AccountService extends BaseService {
   }
 
   /// 更新隐私设置
-  Future<Map<String, dynamic>> updatePrivacySettings(Map<String, dynamic> settings) async {
+  Future<Map<String, dynamic>> updatePrivacySettings(
+      Map<String, dynamic> settings) async {
     settings = InputValidator.validateMapKeys(settings, _allowedPrivacyKeys);
     final response = await put('/account/privacy', data: settings);
     return toMap(response);
   }
 
   /// 获取黑名单
-  Future<Map<String, dynamic>> getBlockedUsers({int page = 1, int pageSize = 20}) async {
+  Future<Map<String, dynamic>> getBlockedUsers(
+      {int page = 1, int pageSize = 20}) async {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
     final response = await get('/account/blocked-users', queryParameters: {
@@ -126,9 +134,11 @@ class AccountService extends BaseService {
   }
 
   /// 上传头像
-  Future<Map<String, dynamic>> uploadAvatar(dynamic avatarData, {String? filename, int? fileSize}) async {
+  Future<Map<String, dynamic>> uploadAvatar(dynamic avatarData,
+      {String? filename, int? fileSize}) async {
     if (filename != null) {
-      InputValidator.validateFileType(filename, const ['jpg', 'jpeg', 'png', 'webp']);
+      InputValidator.validateFileType(
+          filename, const ['jpg', 'jpeg', 'png', 'webp']);
     }
     if (fileSize != null) {
       InputValidator.validateFileSize(fileSize, maxMB: 5);
@@ -138,12 +148,15 @@ class AccountService extends BaseService {
   }
 
   /// 更新个人资料
-  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> profile) async {
+  Future<Map<String, dynamic>> updateProfile(
+      Map<String, dynamic> profile) async {
     profile = InputValidator.validateMapKeys(profile, _allowedProfileKeys);
     // 校验昵称长度
     if (profile.containsKey('nickname') && profile['nickname'] is String) {
-      InputValidator.requireLength(profile['nickname'] as String, '昵称', min: 1, max: 20);
-      profile['nickname'] = InputValidator.sanitizeText(profile['nickname'] as String);
+      final sanitized =
+          InputValidator.sanitizeText(profile['nickname'] as String);
+      profile['nickname'] =
+          InputValidator.requireLength(sanitized, '昵称', min: 2, max: 20);
     }
     // 校验个性签名长度
     if (profile.containsKey('bio') && profile['bio'] is String) {

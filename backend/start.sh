@@ -51,12 +51,12 @@ export AI_OLLAMA_AUTOSTART="${AI_OLLAMA_AUTOSTART:-false}"
 export EMBEDDING_DIM="${EMBEDDING_DIM:-256}"
 export EMBEDDING_CACHE_SIZE="${EMBEDDING_CACHE_SIZE:-20000}"
 
-# GPU strategy: default force GPU for heavy inference.
-export AI_OLLAMA_FORCE_GPU="${AI_OLLAMA_FORCE_GPU:-true}"
-export AI_OLLAMA_NUM_GPU="${AI_OLLAMA_NUM_GPU:-999}"
+# GPU strategy: default to stable CPU path unless explicitly enabled.
+export AI_OLLAMA_FORCE_GPU="${AI_OLLAMA_FORCE_GPU:-false}"
+export AI_OLLAMA_NUM_GPU="${AI_OLLAMA_NUM_GPU:-0}"
 export AI_OLLAMA_MAIN_GPU="${AI_OLLAMA_MAIN_GPU:-0}"
 export AI_OLLAMA_LOW_VRAM="${AI_OLLAMA_LOW_VRAM:-false}"
-export EDGE_AI_ONNX_FORCE_GPU="${EDGE_AI_ONNX_FORCE_GPU:-true}"
+export EDGE_AI_ONNX_FORCE_GPU="${EDGE_AI_ONNX_FORCE_GPU:-false}"
 export EDGE_AI_ONNX_GPU_DEVICE="${EDGE_AI_ONNX_GPU_DEVICE:-0}"
 export EDGE_AI_ONNX_GPU_HARD_FAIL="${EDGE_AI_ONNX_GPU_HARD_FAIL:-false}"
 ORT_GPU_ROOT="${SCRIPT_DIR}/third_party/onnxruntime-linux-x64-gpu-1.22.0"

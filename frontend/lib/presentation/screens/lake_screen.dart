@@ -81,14 +81,18 @@ class LakeScreenState extends State<LakeScreen> {
 
     // 监听新石头广播
     _newStoneListener = (data) {
-      if (kDebugMode) { debugPrint('🆕 [LakeScreen] 收到 new_stone: $data'); }
+      if (kDebugMode) {
+        debugPrint('🆕 [LakeScreen] 收到 new_stone: $data');
+      }
       _handleNewStone(data);
     };
     _wsManager.on('new_stone', _newStoneListener);
 
     // 监听纸船更新（更新石头的boat_count）
     _boatUpdateListener = (data) {
-      if (kDebugMode) { debugPrint('🚤 [LakeScreen] 收到 boat_update: $data'); }
+      if (kDebugMode) {
+        debugPrint('🚤 [LakeScreen] 收到 boat_update: $data');
+      }
       _handleBoatUpdate(data);
     };
     _wsManager.on('boat_update', _boatUpdateListener);
@@ -96,7 +100,9 @@ class LakeScreenState extends State<LakeScreen> {
 
     // 监听涟漪更新（更新石头的ripple_count）
     _rippleUpdateListener = (data) {
-      if (kDebugMode) { debugPrint('🌊 [LakeScreen] 收到 ripple_update: $data'); }
+      if (kDebugMode) {
+        debugPrint('🌊 [LakeScreen] 收到 ripple_update: $data');
+      }
       _handleRippleUpdate(data);
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
@@ -104,34 +110,44 @@ class LakeScreenState extends State<LakeScreen> {
 
     // 监听石头删除
     _stoneDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 stone_deleted: $data'); }
+      if (kDebugMode) {
+        debugPrint('🗑️ [LakeScreen] 收到 stone_deleted: $data');
+      }
       _handleStoneDeleted(data);
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
 
     // 监听纸船删除（减少石头的boat_count）
     _boatDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 boat_deleted: $data'); }
+      if (kDebugMode) {
+        debugPrint('🗑️ [LakeScreen] 收到 boat_deleted: $data');
+      }
       _handleBoatDeleted(data);
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
 
     // 监听涟漪删除（减少石头的ripple_count）
     _rippleDeletedListener = (data) {
-      if (kDebugMode) { debugPrint('🗑️ [LakeScreen] 收到 ripple_deleted: $data'); }
+      if (kDebugMode) {
+        debugPrint('🗑️ [LakeScreen] 收到 ripple_deleted: $data');
+      }
       _handleRippleDeleted(data);
     };
     _wsManager.on('ripple_deleted', _rippleDeletedListener);
 
     // 监听断开连接，尝试重连
     _disconnectedListener = (data) {
-      if (kDebugMode) { debugPrint('WebSocket disconnected, will auto-reconnect'); }
+      if (kDebugMode) {
+        debugPrint('WebSocket disconnected, will auto-reconnect');
+      }
     };
     _wsManager.on('disconnected', _disconnectedListener);
 
     // 监听重连成功，重新加入房间并刷新石头列表
     _reconnectedListener = (data) {
-      if (kDebugMode) { debugPrint('🔄 [LakeScreen] WebSocket reconnected, refreshing stones'); }
+      if (kDebugMode) {
+        debugPrint('🔄 [LakeScreen] WebSocket reconnected, refreshing stones');
+      }
       _wsManager.joinRoom('lake');
       _loadStones(refresh: true);
     };
@@ -150,7 +166,8 @@ class LakeScreenState extends State<LakeScreen> {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
       if (index >= 0) {
         _stones[index] = _stones[index].copyWith(
-          boatCount: boatCount is int ? boatCount : _stones[index].boatCount + 1,
+          boatCount:
+              boatCount is int ? boatCount : _stones[index].boatCount + 1,
         );
       }
     });
@@ -168,7 +185,8 @@ class LakeScreenState extends State<LakeScreen> {
       final index = _stones.indexWhere((s) => s.stoneId == stoneId);
       if (index >= 0) {
         _stones[index] = _stones[index].copyWith(
-          rippleCount: rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
+          rippleCount:
+              rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
         );
       }
     });
@@ -199,7 +217,9 @@ class LakeScreenState extends State<LakeScreen> {
         _stones[index] = _stones[index].copyWith(
           boatCount: boatCount is int
               ? boatCount
-              : ((_stones[index].boatCount > 0) ? _stones[index].boatCount - 1 : 0),
+              : ((_stones[index].boatCount > 0)
+                  ? _stones[index].boatCount - 1
+                  : 0),
         );
       }
     });
@@ -219,7 +239,9 @@ class LakeScreenState extends State<LakeScreen> {
         _stones[index] = _stones[index].copyWith(
           rippleCount: rippleCount is int
               ? rippleCount
-              : ((_stones[index].rippleCount > 0) ? _stones[index].rippleCount - 1 : 0),
+              : ((_stones[index].rippleCount > 0)
+                  ? _stones[index].rippleCount - 1
+                  : 0),
         );
       }
     });
@@ -326,7 +348,9 @@ class LakeScreenState extends State<LakeScreen> {
         setState(() => _isLoadingMore = false);
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading more stones: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error loading more stones: $e');
+      }
       setState(() => _isLoadingMore = false);
     }
   }
@@ -363,7 +387,9 @@ class LakeScreenState extends State<LakeScreen> {
         throw Exception(result['message'] ?? '加载失败');
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('Error loading stones: $e'); }
+      if (kDebugMode) {
+        debugPrint('Error loading stones: $e');
+      }
       if (mounted) {
         setState(() {
           _errorMessage = '网络连接失败，请检查后端服务是否启动';
@@ -421,13 +447,15 @@ class LakeScreenState extends State<LakeScreen> {
             child: const Icon(Icons.water_drop, color: Colors.white, size: 20),
           ),
           tooltip: '湖神',
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const LakeGodChatScreen())),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.explore_outlined),
-            tooltip: '发现',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiscoverScreen())),
+            tooltip: '共鸣',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const DiscoverScreen())),
           ),
           // 通知按钮带红点
           Consumer<NotificationProvider>(
@@ -507,7 +535,8 @@ class LakeScreenState extends State<LakeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 1. 只有在没有生据且正在加载时，显示全屏Loading
     if (_stones.isEmpty && _isLoading) {
-      return const StatusView(type: StatusType.loading, loadingMessage: '正在倾听湖面的声音...');
+      return const StatusView(
+          type: StatusType.loading, loadingMessage: '正在倾听湖面的声音...');
     }
 
     // 2. 只有在没有数据且出错时，显示错状态

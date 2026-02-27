@@ -67,6 +67,25 @@ class E2EEncryption {
     return utf8.decode(decrypted);
   }
 
+  /// 解密分离字段格式（ciphertext + iv + tag，均为base64）
+  Future<String> decryptEnvelope({
+    required String ciphertextBase64,
+    required String ivBase64,
+    required String tagBase64,
+  }) async {
+    if (_sharedSecret == null) throw StateError('共享密钥未建立');
+    final algorithm = AesGcm.with256bits();
+    final nonce = base64Decode(ivBase64);
+    final cipherText = base64Decode(ciphertextBase64);
+    final mac = Mac(base64Decode(tagBase64));
+    final secretBox = SecretBox(cipherText, nonce: nonce, mac: mac);
+    final decrypted = await algorithm.decrypt(
+      secretBox,
+      secretKey: _sharedSecret!,
+    );
+    return utf8.decode(decrypted);
+  }
+
   bool get isReady => _sharedSecret != null;
 
   void dispose() {

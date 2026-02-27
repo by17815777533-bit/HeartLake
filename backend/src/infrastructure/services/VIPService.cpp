@@ -7,10 +7,23 @@
 #include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <json/json.h>
+#include <ctime>
 
 using namespace heartlake::services;
 using namespace heartlake::utils;
 using namespace drogon;
+
+namespace {
+constexpr std::time_t kLegacyPermanentVipCutoff = 946684800;  // 2000-01-01 00:00:00 UTC
+
+bool isLegacyPermanentVip(const std::time_t expiresAt) {
+    return expiresAt > 0 && expiresAt < kLegacyPermanentVipCutoff;
+}
+
+bool isVipActiveByExpiry(const std::time_t expiresAt) {
+    return isLegacyPermanentVip(expiresAt) || expiresAt > std::time(nullptr);
+}
+}  // namespace
 
 bool VIPService::checkEmotionAndGrantVIP(
     const std::string& userId,
@@ -31,7 +44,7 @@ bool VIPService::checkEmotionAndGrantVIP(
             int vipLevel = vipRow["vip_level"].as<int>();
             if (vipLevel > 0 && !vipRow["vip_expires_at"].isNull()) {
                 auto expiresAt = vipRow["vip_expires_at"].as<std::time_t>();
-                if (expiresAt > std::time(nullptr)) {
+                if (isVipActiveByExpiry(expiresAt)) {
                     LOG_DEBUG << "User " << userId << " is already VIP, skip grant";
                     return false;
                 }
@@ -119,7 +132,7 @@ bool VIPService::hasPrivilege(
         // 检查VIP是否过期
         if (!userResult[0]["vip_expires_at"].isNull()) {
             auto expiresAt = userResult[0]["vip_expires_at"].as<std::time_t>();
-            if (expiresAt < std::time(nullptr)) {
+            if (!isVipActiveByExpiry(expiresAt)) {
                 return false;  // VIP已过期
             }
         }
@@ -169,7 +182,7 @@ std::vector<std::string> VIPService::getUserPrivileges(const std::string& userId
         // 检查VIP是否过期
         if (!userResult[0]["vip_expires_at"].isNull()) {
             auto expiresAt = userResult[0]["vip_expires_at"].as<std::time_t>();
-            if (expiresAt < std::time(nullptr)) {
+            if (!isVipActiveByExpiry(expiresAt)) {
                 return privileges;  // VIP已过期
             }
         }
@@ -220,7 +233,7 @@ bool VIPService::isVIPExpired(const std::string& userId) {
         }
 
         auto expiresAt = row["vip_expires_at"].as<std::time_t>();
-        if (expiresAt >= std::time(nullptr)) {
+        if (isVipActiveByExpiry(expiresAt)) {
             return false;  // 未过期
         }
 
@@ -405,13 +418,18 @@ Json::Value VIPService::getVIPStatus(const std::string& userId) {
                 status["is_permanent"] = true;
             } else {
                 auto expiresAt = row["vip_expires_at"].as<std::time_t>();
-                status["is_vip"] = (expiresAt > std::time(nullptr));
-                status["expires_at"] = static_cast<Json::Int64>(expiresAt);
-                status["is_permanent"] = false;
+                if (isLegacyPermanentVip(expiresAt)) {
+                    status["is_vip"] = true;
+                    status["is_permanent"] = true;
+                } else {
+                    status["is_vip"] = (expiresAt > std::time(nullptr));
+                    status["expires_at"] = static_cast<Json::Int64>(expiresAt);
+                    status["is_permanent"] = false;
 
-                // 计算剩余天数
-                int daysLeft = (expiresAt - std::time(nullptr)) / (24 * 3600);
-                status["days_left"] = daysLeft;
+                    // 计算剩余天数
+                    int daysLeft = (expiresAt - std::time(nullptr)) / (24 * 3600);
+                    status["days_left"] = daysLeft;
+                }
             }
         } else {
             status["is_vip"] = false;
@@ -536,7 +554,14 @@ bool VIPService::hasFreeCounselingQuota(const std::string& userId) {
         auto usageResult = dbClient->execSqlSync(
             "SELECT COUNT(*) as count FROM counseling_appointments "
             "WHERE user_id = $1 AND is_free_vip = true "
-            "AND created_at >= (SELECT vip_expires_at - INTERVAL '30 days' FROM users WHERE user_id = $1)",
+            "AND created_at >= ("
+            "  SELECT CASE "
+            "    WHEN vip_expires_at IS NULL OR vip_expires_at < to_timestamp(946684800) "
+            "      THEN NOW() - INTERVAL '30 days' "
+            "    ELSE vip_expires_at - INTERVAL '30 days' "
+            "  END "
+            "  FROM users WHERE user_id = $1"
+            ")",
             userId
         );
 

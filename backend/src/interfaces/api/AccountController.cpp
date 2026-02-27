@@ -12,12 +12,33 @@
 #include "utils/SecurityLogger.h"
 #include "utils/Validator.h"
 #include <drogon/drogon.h>
+#include <algorithm>
+#include <cctype>
 #include <thread>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
 namespace {
+std::string trimAscii(const std::string &value) {
+  size_t start = 0;
+  while (start < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[start]))) {
+    ++start;
+  }
+
+  size_t end = value.size();
+  while (end > start &&
+         std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+    --end;
+  }
+  return value.substr(start, end - start);
+}
+
+std::string normalizeNickname(const std::string &raw) {
+  return Validator::sanitizeHtml(trimAscii(raw));
+}
+
 void ensureUserPrivacySettingsTable(const drogon::orm::DbClientPtr &dbClient) {
   dbClient->execSqlSync(
       "CREATE TABLE IF NOT EXISTS user_privacy_settings ("
@@ -27,6 +48,36 @@ void ensureUserPrivacySettingsTable(const drogon::orm::DbClientPtr &dbClient) {
       "allow_friend_request BOOLEAN NOT NULL DEFAULT true,"
       "allow_message_from_stranger BOOLEAN NOT NULL DEFAULT false"
       ")");
+}
+
+bool parseBoolCompat(const Json::Value &json, const char *key,
+                     bool defaultValue) {
+  if (!json.isMember(key)) return defaultValue;
+  const auto &v = json[key];
+  if (v.isBool()) return v.asBool();
+  if (v.isInt() || v.isUInt()) return v.asInt() != 0;
+  if (v.isString()) {
+    auto s = v.asString();
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+      return static_cast<char>(std::tolower(c));
+    });
+    if (s == "true" || s == "1" || s == "yes" || s == "on") return true;
+    if (s == "false" || s == "0" || s == "no" || s == "off") return false;
+  }
+  return defaultValue;
+}
+
+std::string parseVisibilityCompat(const Json::Value &json) {
+  std::string visibility = json.get("profile_visibility", "public").asString();
+  std::transform(visibility.begin(), visibility.end(), visibility.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  if (visibility != "public" && visibility != "private" &&
+      visibility != "friends") {
+    return "public";
+  }
+  return visibility;
 }
 } // namespace
 
@@ -138,12 +189,32 @@ void AccountController::updateProfile(
     int paramIndex = 1;
 
     if (json->isMember("nickname")) {
+      if (!(*json)["nickname"].isString()) {
+        callback(ResponseUtil::badRequest("昵称格式不正确"));
+        return;
+      }
+      std::string nickname = normalizeNickname((*json)["nickname"].asString());
+      auto nicknameValidation = ValidationRules::nickname(nickname);
+      if (!nicknameValidation) {
+        callback(ResponseUtil::badRequest(nicknameValidation.errorMessage));
+        return;
+      }
       updates.push_back("nickname = $" + std::to_string(paramIndex++));
-      params.push_back((*json)["nickname"].asString());
+      params.push_back(nickname);
     }
     if (json->isMember("bio")) {
+      if (!(*json)["bio"].isString()) {
+        callback(ResponseUtil::badRequest("个性签名格式不正确"));
+        return;
+      }
+      std::string bio = Validator::sanitizeHtml((*json)["bio"].asString());
+      auto bioValidation = Validator::length(bio, 0, 200, "个性签名");
+      if (!bioValidation) {
+        callback(ResponseUtil::badRequest(bioValidation.errorMessage));
+        return;
+      }
       updates.push_back("bio = $" + std::to_string(paramIndex++));
-      params.push_back((*json)["bio"].asString());
+      params.push_back(bio);
     }
     if (json->isMember("gender")) {
       updates.push_back("gender = $" + std::to_string(paramIndex++));
@@ -447,12 +518,12 @@ void AccountController::updatePrivacySettings(
     auto dbClient = app().getDbClient("default");
     ensureUserPrivacySettingsTable(dbClient);
 
-    std::string visibility =
-        (*json).get("profile_visibility", "public").asString();
-    bool showOnline = (*json).get("show_online_status", true).asBool();
-    bool allowFriend = (*json).get("allow_friend_request", true).asBool();
-    bool allowStranger =
-        (*json).get("allow_message_from_stranger", false).asBool();
+    std::string visibility = parseVisibilityCompat(*json);
+    bool showOnline = parseBoolCompat(*json, "show_online_status", true);
+    bool allowFriend = parseBoolCompat(*json, "allow_friend_request", true);
+    // 兼容 allow_stranger_boat 历史字段
+    bool allowStranger = parseBoolCompat(*json, "allow_message_from_stranger",
+                                         parseBoolCompat(*json, "allow_stranger_boat", false));
 
     dbClient->execSqlSync(
         "INSERT INTO user_privacy_settings (user_id, profile_visibility, "

@@ -27,6 +27,7 @@ class StoneCardController {
   StoneCardController({required this.stone, this.onStateChanged}) {
     localRipplesCount = stone.rippleCount;
     localBoatsCount = stone.boatCount;
+    hasRippled = stone.hasRippled;
   }
 
   Future<void> init() async {
@@ -100,6 +101,14 @@ class StoneCardController {
   }
 
   Future<Map<String, dynamic>> createRipple() async {
+    if (hasRippled) {
+      return {
+        'success': true,
+        'already_rippled': true,
+        'ripple_count': localRipplesCount,
+      };
+    }
+
     hasRippled = true;
     localRipplesCount++;
     onStateChanged?.call();
@@ -107,9 +116,25 @@ class StoneCardController {
     final result = await _interactionService.createRipple(stone.stoneId);
     if (!result['success']) {
       hasRippled = false;
-      localRipplesCount--;
+      if (localRipplesCount > 0) {
+        localRipplesCount--;
+      }
       onStateChanged?.call();
+      return result;
     }
+
+    final dynamic serverCount = result['ripple_count'] ??
+        (result['data'] is Map ? result['data']['ripple_count'] : null);
+    if (serverCount is int) {
+      localRipplesCount = serverCount;
+    }
+
+    final alreadyRippled = result['already_rippled'] == true ||
+        (result['data'] is Map && result['data']['already_rippled'] == true);
+    if (alreadyRippled) {
+      hasRippled = true;
+    }
+    onStateChanged?.call();
     return result;
   }
 
@@ -124,8 +149,10 @@ class StoneCardController {
     );
   }
 
-  Future<Map<String, dynamic>> getBoats({int page = 1, int pageSize = 10}) async {
-    return await _interactionService.getBoats(stone.stoneId, page: page, pageSize: pageSize);
+  Future<Map<String, dynamic>> getBoats(
+      {int page = 1, int pageSize = 10}) async {
+    return await _interactionService.getBoats(stone.stoneId,
+        page: page, pageSize: pageSize);
   }
 
   Future<Map<String, dynamic>> createConnection() async {
@@ -141,9 +168,11 @@ class StoneCardController {
   void syncFromStone(Stone newStone) {
     if (stone.stoneId != newStone.stoneId ||
         stone.rippleCount != newStone.rippleCount ||
-        stone.boatCount != newStone.boatCount) {
+        stone.boatCount != newStone.boatCount ||
+        stone.hasRippled != newStone.hasRippled) {
       localRipplesCount = newStone.rippleCount;
       localBoatsCount = newStone.boatCount;
+      hasRippled = newStone.hasRippled;
       onStateChanged?.call();
     }
   }

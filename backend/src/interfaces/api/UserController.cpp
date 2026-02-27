@@ -9,6 +9,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -17,6 +18,27 @@
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
+
+namespace {
+std::string trimAscii(const std::string &value) {
+  size_t start = 0;
+  while (start < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[start]))) {
+    ++start;
+  }
+
+  size_t end = value.size();
+  while (end > start &&
+         std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+    --end;
+  }
+  return value.substr(start, end - start);
+}
+
+std::string normalizeNickname(const std::string &raw) {
+  return Validator::sanitizeHtml(trimAscii(raw));
+}
+} // namespace
 
 void UserController::anonymousLogin(
     const HttpRequestPtr &req,
@@ -497,47 +519,6 @@ void UserController::getMyBoats(
   }
 }
 
-void UserController::updateNickname(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback) {
-  try {
-    auto userIdOpt = Validator::getUserId(req);
-    if (!userIdOpt) {
-      callback(ResponseUtil::unauthorized("未登录"));
-      return;
-    }
-    auto user_id = *userIdOpt;
-
-    auto json = req->getJsonObject();
-    if (!json) {
-      callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
-      return;
-    }
-
-    std::string nickname = (*json)["nickname"].asString();
-    if (nickname.empty() || nickname.length() > 100) {
-      callback(ResponseUtil::badRequest("昵称长度必须在1-100个字符之间"));
-      return;
-    }
-
-    auto dbClient = drogon::app().getDbClient("default");
-    dbClient->execSqlSync(
-        "UPDATE users SET nickname = $1, updated_at = NOW() WHERE user_id = $2",
-        nickname, user_id);
-
-    Json::Value responseData;
-    responseData["nickname"] = nickname;
-    callback(ResponseUtil::success(responseData, "昵称修改成功"));
-
-  } catch (const drogon::orm::DrogonDbException &e) {
-    LOG_ERROR << "Database error in updateNickname: " << e.base().what();
-    callback(ResponseUtil::internalError("数据库错误"));
-  } catch (const std::exception &e) {
-    LOG_ERROR << "Error in updateNickname: " << e.what();
-    callback(ResponseUtil::internalError());
-  }
-}
-
 void UserController::updateProfile(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -568,9 +549,19 @@ void UserController::updateProfile(
       setClauses.push_back("bio = $" + std::to_string(paramIdx++));
       paramValues.push_back((*json)["bio"].asString());
     }
-    if (json->isMember("nickname") && !(*json)["nickname"].asString().empty()) {
+    if (json->isMember("nickname")) {
+      if (!(*json)["nickname"].isString()) {
+        callback(ResponseUtil::badRequest("昵称格式不正确"));
+        return;
+      }
+      std::string nickname = normalizeNickname((*json)["nickname"].asString());
+      auto nicknameValidation = ValidationRules::nickname(nickname);
+      if (!nicknameValidation) {
+        callback(ResponseUtil::badRequest(nicknameValidation.errorMessage));
+        return;
+      }
       setClauses.push_back("nickname = $" + std::to_string(paramIdx++));
-      paramValues.push_back((*json)["nickname"].asString());
+      paramValues.push_back(nickname);
     }
 
     if (setClauses.empty()) {

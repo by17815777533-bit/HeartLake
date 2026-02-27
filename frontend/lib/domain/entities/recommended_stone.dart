@@ -50,16 +50,22 @@ class RecommendedStone {
       stoneId: json['stone_id']?.toString() ?? '',
       content: json['content']?.toString() ?? '',
       authorId: json['author_id']?.toString(),
-      authorName: json['author_name']?.toString() ?? json['nickname']?.toString(),
+      authorName:
+          json['author_name']?.toString() ?? json['nickname']?.toString(),
       moodType: json['mood_type']?.toString(),
-      emotionScore: (json['emotion_score'] ?? json['sentiment_score'])?.toDouble(),
+      emotionScore:
+          (json['emotion_score'] ?? json['sentiment_score'])?.toDouble(),
       rippleCount: json['ripple_count'] ?? 0,
       boatCount: json['boat_count'] ?? 0,
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
       tags: (json['tags'] as List?)?.map((e) => e.toString()).toList(),
-      mediaUrls: (json['media_urls'] as List?)?.map((e) => e.toString()).toList(),
+      mediaUrls:
+          (json['media_urls'] as List?)?.map((e) => e.toString()).toList(),
       recommendationType: _parseType(json['recommendation_type']),
-      recommendationReason: json['recommendation_reason']?.toString() ?? '为你推荐',
+      recommendationReason:
+          json['recommendation_reason']?.toString() ?? '为你送来共鸣',
       score: (json['score'] ?? json['relevance_score'] ?? 0).toDouble(),
     );
   }

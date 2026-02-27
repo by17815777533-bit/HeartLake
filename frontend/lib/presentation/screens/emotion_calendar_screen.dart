@@ -1,11 +1,15 @@
 // 情绪日历页面 - 精美可视化
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/datasources/user_service.dart';
+import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
+import '../../utils/storage_util.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/privacy_badge.dart';
 import 'emotion_heatmap_screen.dart';
@@ -20,25 +24,98 @@ class EmotionCalendarScreen extends StatefulWidget {
   State<EmotionCalendarScreen> createState() => _EmotionCalendarScreenState();
 }
 
-class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with SingleTickerProviderStateMixin {
+class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
+    with SingleTickerProviderStateMixin {
   final UserService _userService = sl<UserService>();
+  final WebSocketManager _wsManager = WebSocketManager();
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;
   late AnimationController _animController;
   Map<String, dynamic>? _cachedStats;
+  String? _currentUserId;
+  late final void Function(Map<String, dynamic>) _onNewStoneListener;
+  late final void Function(Map<String, dynamic>) _onStoneDeletedListener;
+  late final void Function(Map<String, dynamic>) _onReconnectedListener;
+  Timer? _refreshDebounce;
+  int _refreshSeq = 0;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
+    _animController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800))
+      ..forward();
+    _onNewStoneListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) {
+        return;
+      }
+      final now = DateTime.now();
+      if (now.year == _currentMonth.year && now.month == _currentMonth.month) {
+        _scheduleRealtimeRefresh(withFollowUp: true);
+      }
+    };
+    _onStoneDeletedListener = (payload) {
+      if (!_isCurrentUserEvent(payload)) return;
+      _scheduleRealtimeRefresh();
+    };
+    _onReconnectedListener = (_) {
+      _scheduleRealtimeRefresh(withFollowUp: true);
+    };
+    _initRealtimeSync();
     _loadEmotionData();
   }
 
   @override
   void dispose() {
+    _wsManager.leaveRoom('lake');
+    _wsManager.off('new_stone', _onNewStoneListener);
+    _wsManager.off('stone_deleted', _onStoneDeletedListener);
+    _wsManager.off('reconnected', _onReconnectedListener);
+    _refreshDebounce?.cancel();
     _animController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initRealtimeSync() async {
+    _currentUserId = await StorageUtil.getUserId();
+    if (!_wsManager.isConnected) {
+      _wsManager.connect();
+    }
+    _wsManager.joinRoom('lake');
+    _wsManager.on('new_stone', _onNewStoneListener);
+    _wsManager.on('stone_deleted', _onStoneDeletedListener);
+    _wsManager.on('reconnected', _onReconnectedListener);
+  }
+
+  bool _isCurrentUserEvent(Map<String, dynamic> payload) {
+    final currentUserId = _currentUserId;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return true;
+    }
+    final candidateIds = <String?>[
+      payload['triggered_by']?.toString(),
+      payload['user_id']?.toString(),
+      payload['userId']?.toString(),
+      (payload['stone'] as Map?)?['user_id']?.toString(),
+      (payload['stone'] as Map?)?['userId']?.toString(),
+      (payload['stone'] as Map?)?['author_id']?.toString(),
+      (payload['stone'] as Map?)?['authorId']?.toString(),
+    ];
+    return candidateIds.any((id) => id != null && id == currentUserId);
+  }
+
+  void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
+      _loadEmotionData();
+      if (!withFollowUp) return;
+      final token = ++_refreshSeq;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted || token != _refreshSeq) return;
+        _loadEmotionData();
+      });
+    });
   }
 
   Future<void> _loadEmotionData() async {
@@ -49,8 +126,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       final result = await _userService.getEmotionCalendar(year, month);
       if (!mounted) return;
       if (result['success'] == true) {
+        final rawDays = (result['data'] as Map<String, dynamic>?)?['days'];
         setState(() {
-          _emotionData = Map<String, dynamic>.from((result['data'] as Map<String, dynamic>?)?['days'] ?? {});
+          _emotionData = _normalizeDays(rawDays);
           _cachedStats = null;
           _isLoading = false;
         });
@@ -67,6 +145,46 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     if (mounted) setState(() => _isLoading = false);
   }
 
+  Map<String, dynamic> _normalizeDays(dynamic rawDays) {
+    if (rawDays is! Map) return {};
+    final normalized = <String, dynamic>{};
+    for (final entry in rawDays.entries) {
+      final key = entry.key.toString();
+      var dayKey = key;
+      if (key.contains('-')) {
+        final parts = key.split('-');
+        if (parts.isNotEmpty) {
+          final day = int.tryParse(parts.last);
+          if (day != null && day > 0) {
+            dayKey = '$day';
+          }
+        }
+      }
+
+      final value = entry.value;
+      if (value is Map) {
+        final dayData = Map<String, dynamic>.from(value);
+        dayData['mood'] ??= _pickDominantMood(dayData['moods']);
+        normalized[dayKey] = dayData;
+      }
+    }
+    return normalized;
+  }
+
+  String? _pickDominantMood(dynamic moods) {
+    if (moods is! Map || moods.isEmpty) return null;
+    String? winner;
+    int maxCount = -1;
+    for (final entry in moods.entries) {
+      final count = int.tryParse(entry.value.toString()) ?? 0;
+      if (count > maxCount) {
+        winner = entry.key.toString();
+        maxCount = count;
+      }
+    }
+    return winner;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -77,7 +195,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              isDark ? const Color(0xFF1A1A2E) : AppTheme.skyBlue.withValues(alpha: 0.1),
+              isDark
+                  ? const Color(0xFF1A1A2E)
+                  : AppTheme.skyBlue.withValues(alpha: 0.1),
               isDark ? const Color(0xFF1A1A2E) : Colors.white,
             ],
           ),
@@ -97,7 +217,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                       _isLoading
                           ? const SizedBox(
                               height: 300,
-                              child: Center(child: WarmLoadingIndicator(messages: ['正在加载你的心情轨迹...', '回顾这段时间的情绪变化...', '每一天都值得被记录...'])),
+                              child: Center(
+                                  child: WarmLoadingIndicator(messages: [
+                                '正在加载你的心情轨迹...',
+                                '回顾这段时间的情绪变化...',
+                                '每一天都值得被记录...'
+                              ])),
                             )
                           : SizedBox(
                               height: 300,
@@ -123,8 +248,13 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_ios), onPressed: () => Navigator.pop(context)),
-          const Expanded(child: Text('情绪日历', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+          IconButton(
+              icon: const Icon(Icons.arrow_back_ios),
+              onPressed: () => Navigator.pop(context)),
+          const Expanded(
+              child: Text('情绪日历',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center)),
           const PrivacyBadge(),
         ],
       ),
@@ -139,7 +269,13 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF16213E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(
+              color: isDark
+                  ? Colors.transparent
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10)
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -147,17 +283,24 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           IconButton(
             icon: const Icon(Icons.chevron_left, color: AppTheme.skyBlue),
             onPressed: () {
-              setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1));
+              setState(() => _currentMonth =
+                  DateTime(_currentMonth.year, _currentMonth.month - 1));
               _loadEmotionData();
             },
           ),
-          Text('${_currentMonth.year}年${_currentMonth.month}月', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Text('${_currentMonth.year}年${_currentMonth.month}月',
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           IconButton(
-            icon: Icon(Icons.chevron_right, color: _canGoNext() ? AppTheme.skyBlue : Colors.grey.shade300),
-            onPressed: _canGoNext() ? () {
-              setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1));
-              _loadEmotionData();
-            } : null,
+            icon: Icon(Icons.chevron_right,
+                color: _canGoNext() ? AppTheme.skyBlue : Colors.grey.shade300),
+            onPressed: _canGoNext()
+                ? () {
+                    setState(() => _currentMonth =
+                        DateTime(_currentMonth.year, _currentMonth.month + 1));
+                    _loadEmotionData();
+                  }
+                : null,
           ),
         ],
       ),
@@ -166,7 +309,8 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   bool _canGoNext() {
     final now = DateTime.now();
-    return _currentMonth.year < now.year || (_currentMonth.year == now.year && _currentMonth.month < now.month);
+    return _currentMonth.year < now.year ||
+        (_currentMonth.year == now.year && _currentMonth.month < now.month);
   }
 
   Widget _buildEmotionSummary() {
@@ -178,18 +322,22 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-            ? [const Color(0xFF16213E), const Color(0xFF1E2D3D)]
-            : [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue],
+              ? [const Color(0xFF16213E), const Color(0xFF1E2D3D)]
+              : [AppTheme.skyBlue.withValues(alpha: 0.8), AppTheme.skyBlue],
         ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _statItem('${stats['happy']}', '愉悦', MoodColors.getConfig(MoodType.happy).icon),
-          _statItem('${stats['calm']}', '平静', MoodColors.getConfig(MoodType.calm).icon),
-          _statItem('${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
-          _statItem('${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
+          _statItem('${stats['happy']}', '愉悦',
+              MoodColors.getConfig(MoodType.happy).icon),
+          _statItem('${stats['calm']}', '平静',
+              MoodColors.getConfig(MoodType.calm).icon),
+          _statItem(
+              '${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
+          _statItem(
+              '${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
         ],
       ),
     );
@@ -200,8 +348,14 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       children: [
         Icon(icon, color: Colors.white, size: 20),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
+        Text(label,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
       ],
     );
   }
@@ -223,7 +377,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
         sad++;
       }
     }
-    _cachedStats = {'happy': happy, 'calm': calm, 'sad': sad, 'avg': count > 0 ? (total / count) * 100 : 50};
+    _cachedStats = {
+      'happy': happy,
+      'calm': calm,
+      'sad': sad,
+      'avg': count > 0 ? (total / count) * 100 : 50
+    };
     return _cachedStats!;
   }
 
@@ -233,9 +392,18 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        children: weekdays.map((d) => Expanded(
-          child: Center(child: Text(d, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.grey.shade600, fontSize: 13))),
-        )).toList(),
+        children: weekdays
+            .map((d) => Expanded(
+                  child: Center(
+                      child: Text(d,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white70
+                                  : Colors.grey.shade600,
+                              fontSize: 13))),
+                ))
+            .toList(),
       ),
     );
   }
@@ -253,7 +421,8 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       builder: (context, child) => GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 6, crossAxisSpacing: 6),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7, mainAxisSpacing: 6, crossAxisSpacing: 6),
         itemCount: startWeekday + totalDays,
         itemBuilder: (context, index) {
           if (index < startWeekday) return const SizedBox();
@@ -262,36 +431,85 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
           final emotion = _emotionData[dateKey];
           final score = (emotion?['score'] ?? 0.5) as num;
           final mood = emotion?['mood'] as String?;
-          final isToday = _currentMonth.year == today.year && _currentMonth.month == today.month && day == today.day;
-          final moodType = mood != null ? MoodColors.fromString(mood) : MoodColors.fromSentimentScore(score.toDouble());
+          final isToday = _currentMonth.year == today.year &&
+              _currentMonth.month == today.month &&
+              day == today.day;
+          final moodType = mood != null
+              ? MoodColors.fromString(mood)
+              : MoodColors.fromSentimentScore(score.toDouble());
           final config = MoodColors.getConfig(moodType);
           final hasData = emotion != null;
 
-          final rippleColor = hasData ? Color.lerp(_kRippleColorLow, _kRippleColorHigh, score.toDouble())! : (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
+          final rippleColor = hasData
+              ? Color.lerp(
+                  _kRippleColorLow, _kRippleColorHigh, score.toDouble())!
+              : (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
           return FadeTransition(
             opacity: Tween<double>(begin: 0, end: 1).animate(
-              CurvedAnimation(parent: _animController, curve: Interval((index - startWeekday) / totalDays * 0.5, 0.5 + (index - startWeekday) / totalDays * 0.5, curve: Curves.easeOut)),
+              CurvedAnimation(
+                  parent: _animController,
+                  curve: Interval((index - startWeekday) / totalDays * 0.5,
+                      0.5 + (index - startWeekday) / totalDays * 0.5,
+                      curve: Curves.easeOut)),
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: hasData ? () { HapticFeedback.lightImpact(); _showDayDetail(day, emotion); } : null,
+                onTap: hasData
+                    ? () {
+                        HapticFeedback.lightImpact();
+                        _showDayDetail(day, emotion);
+                      }
+                    : null,
                 splashColor: rippleColor.withValues(alpha: 0.4),
                 highlightColor: rippleColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
                 child: Ink(
                   decoration: BoxDecoration(
-                    gradient: hasData ? LinearGradient(colors: [config.gradientStart, config.gradientEnd], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-                    color: hasData ? null : (isDark ? const Color(0xFF1E2D3D) : Colors.grey.shade100),
+                    gradient: hasData
+                        ? LinearGradient(
+                            colors: [config.gradientStart, config.gradientEnd],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight)
+                        : null,
+                    color: hasData
+                        ? null
+                        : (isDark
+                            ? const Color(0xFF1E2D3D)
+                            : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(10),
-                    border: isToday ? Border.all(color: AppTheme.skyBlue, width: 2) : null,
-                    boxShadow: hasData ? [BoxShadow(color: config.primary.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null,
+                    border: isToday
+                        ? Border.all(color: AppTheme.skyBlue, width: 2)
+                        : null,
+                    boxShadow: hasData
+                        ? [
+                            BoxShadow(
+                                color: config.primary.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2))
+                          ]
+                        : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Text('$day', style: TextStyle(color: hasData ? config.textColor : (isDark ? Colors.white54 : Colors.grey.shade400), fontWeight: isToday ? FontWeight.bold : FontWeight.w500, fontSize: 14)),
-                      if (hasData) Positioned(bottom: 4, child: Icon(config.icon, size: 10, color: config.iconColor.withValues(alpha: 0.7))),
+                      Text('$day',
+                          style: TextStyle(
+                              color: hasData
+                                  ? config.textColor
+                                  : (isDark
+                                      ? Colors.white54
+                                      : Colors.grey.shade400),
+                              fontWeight:
+                                  isToday ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 14)),
+                      if (hasData)
+                        Positioned(
+                            bottom: 4,
+                            child: Icon(config.icon,
+                                size: 10,
+                                color:
+                                    config.iconColor.withValues(alpha: 0.7))),
                     ],
                   ),
                 ),
@@ -306,7 +524,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
   void _showDayDetail(int day, Map<String, dynamic> emotion) {
     final score = (emotion['score'] ?? 0.5) as num;
     final mood = emotion['mood'] as String?;
-    final moodType = mood != null ? MoodColors.fromString(mood) : MoodColors.fromSentimentScore(score.toDouble());
+    final moodType = mood != null
+        ? MoodColors.fromString(mood)
+        : MoodColors.fromSentimentScore(score.toDouble());
     final config = MoodColors.getConfig(moodType);
 
     showModalBottomSheet(
@@ -315,26 +535,49 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [config.gradientStart, config.gradientEnd], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+          gradient: LinearGradient(
+              colors: [config.gradientStart, config.gradientEnd],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: config.textColor.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: config.textColor.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             Icon(config.icon, size: 48, color: config.iconColor),
             const SizedBox(height: 12),
-            Text('${_currentMonth.month}月$day日', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: config.textColor)),
+            Text('${_currentMonth.month}月$day日',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: config.textColor)),
             const SizedBox(height: 8),
-            Text(config.name, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: config.primary)),
+            Text(config.name,
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: config.primary)),
             const SizedBox(height: 4),
-            Text(config.description, style: TextStyle(fontSize: 14, color: config.textColor.withValues(alpha: 0.7))),
+            Text(config.description,
+                style: TextStyle(
+                    fontSize: 14,
+                    color: config.textColor.withValues(alpha: 0.7))),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(color: config.cardColor, borderRadius: BorderRadius.circular(20)),
-              child: Text('情绪指数: ${(score * 100).toInt()}%', style: TextStyle(color: config.textColor, fontWeight: FontWeight.w500)),
+              decoration: BoxDecoration(
+                  color: config.cardColor,
+                  borderRadius: BorderRadius.circular(20)),
+              child: Text('情绪指数: ${(score * 100).toInt()}%',
+                  style: TextStyle(
+                      color: config.textColor, fontWeight: FontWeight.w500)),
             ),
             const SizedBox(height: 24),
           ],
@@ -362,20 +605,28 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
     if (weekCount == 0) return const SizedBox.shrink();
     final weekAvg = weekTotal / weekCount;
     final trend = weekAvg >= 0.6 ? '↑' : (weekAvg <= 0.4 ? '↓' : '→');
-    final trendText = weekAvg >= 0.6 ? '湖光明媚' : (weekAvg <= 0.4 ? '湖水轻抚' : '波澜不惊');
+    final trendText =
+        weekAvg >= 0.6 ? '湖光明媚' : (weekAvg <= 0.4 ? '湖水轻抚' : '波澜不惊');
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2D3D) : AppTheme.secondaryColor.withValues(alpha: 0.1),
+        color: isDark
+            ? const Color(0xFF1E2D3D)
+            : AppTheme.secondaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.water_drop_outlined, size: 16, color: AppTheme.secondaryColor),
+          const Icon(Icons.water_drop_outlined,
+              size: 16, color: AppTheme.secondaryColor),
           const SizedBox(width: 8),
-          Text('本周心情: $trendText $trend', style: const TextStyle(fontSize: 13, color: AppTheme.secondaryColor, fontWeight: FontWeight.w500)),
+          Text('本周心情: $trendText $trend',
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.secondaryColor,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -383,7 +634,12 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
 
   Widget _buildLegend() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final moods = [MoodType.happy, MoodType.calm, MoodType.sad, MoodType.anxious];
+    final moods = [
+      MoodType.happy,
+      MoodType.calm,
+      MoodType.sad,
+      MoodType.anxious
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -395,14 +651,19 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
             child: Row(
               children: [
                 Container(
-                  width: 14, height: 14,
+                  width: 14,
+                  height: 14,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [config.gradientStart, config.gradientEnd]),
+                    gradient: LinearGradient(
+                        colors: [config.gradientStart, config.gradientEnd]),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 const SizedBox(width: 4),
-                Text(config.name, style: TextStyle(fontSize: 11, color: isDark ? Colors.white70 : Colors.grey)),
+                Text(config.name,
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white70 : Colors.grey)),
               ],
             ),
           );
@@ -434,7 +695,8 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                     color: _kRippleColorLow.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.grid_view_rounded, color: _kRippleColorHigh),
+                  child: const Icon(Icons.grid_view_rounded,
+                      color: _kRippleColorHigh),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -443,17 +705,26 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen> with Sing
                     children: [
                       Text(
                         '查看情绪热力图',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimary),
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                isDark ? Colors.white : AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '热力图已独立页面，避免和月历混在一起',
-                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : AppTheme.textSecondary),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white70
+                                : AppTheme.textSecondary),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: isDark ? Colors.white54 : AppTheme.textTertiary),
+                Icon(Icons.chevron_right,
+                    color: isDark ? Colors.white54 : AppTheme.textTertiary),
               ],
             ),
           ),

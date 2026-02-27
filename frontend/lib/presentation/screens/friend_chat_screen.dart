@@ -4,7 +4,9 @@ import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/storage_util.dart';
+import '../../utils/input_validator.dart';
 import '../../utils/app_theme.dart';
+import '../widgets/water_background.dart';
 
 class FriendChatScreen extends StatefulWidget {
   final String friendId;
@@ -25,6 +27,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   String? _currentUserId;
+  String? _loadError;
 
   @override
   void initState() {
@@ -35,6 +38,14 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
 
   Future<void> _init() async {
     await _initCurrentUser();
+    if (!_isFriendIdUsable(widget.friendId)) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = '好友标识异常，无法加载聊天';
+      });
+      return;
+    }
     await _loadMessages();
   }
 
@@ -67,9 +78,27 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   }
 
   Future<void> _loadMessages() async {
+    if (!_isFriendIdUsable(widget.friendId)) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = '好友标识异常，无法加载聊天';
+        });
+      }
+      return;
+    }
     try {
       final result = await _friendService.getMessages(widget.friendId);
       if (mounted) {
+        if (result['success'] != true) {
+          setState(() {
+            _messages = [];
+            _isLoading = false;
+            _loadError = result['message']?.toString() ?? '加载消息失败';
+          });
+          return;
+        }
+
         final rawMessages = result['messages'] ?? [];
         // 为每条消息计算 is_mine（后端只返回 sender_id，没有 is_mine）
         final messages = (rawMessages as List).map((msg) {
@@ -80,12 +109,16 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         setState(() {
           _messages = messages;
           _isLoading = false;
+          _loadError = null;
         });
         _scrollToBottom();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _loadError = '加载消息失败，请重试';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('加载消息失败，请下拉重试')),
         );
@@ -108,6 +141,12 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
+    if (!_isFriendIdUsable(widget.friendId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('好友标识异常，无法发送消息')),
+      );
+      return;
+    }
 
     setState(() => _isSending = true);
     _controller.clear();
@@ -140,7 +179,9 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
           });
           _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? '发送失败'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(result['message'] ?? '发送失败'),
+                backgroundColor: Colors.red),
           );
         }
       }
@@ -152,9 +193,19 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
         });
         _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  bool _isFriendIdUsable(String value) {
+    try {
+      InputValidator.validateUUID(value, '好友ID');
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -162,27 +213,69 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       appBar: AppBar(
         title: Text(widget.friendName ?? '聊天'),
-        backgroundColor: isDark ? const Color(0xFF1A1A2E) : AppTheme.primaryColor,
+        backgroundColor:
+            isDark ? const Color(0xFF1A1A2E) : AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? const Center(child: Text('还没有消息，说点什么吧~', style: TextStyle(color: Colors.grey)))
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) => _buildMessageBubble(_messages[index]),
-                      ),
+          const Positioned.fill(child: WaterBackground()),
+          Column(
+            children: [
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _loadError != null
+                        ? Center(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _loadError!,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white70
+                                          : const Color(0xFF1A1A2E),
+                                      fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    onPressed: _loadMessages,
+                                    child: const Text('重试'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _messages.isEmpty
+                            ? Center(
+                                child: Text(
+                                  '还没有消息，说点什么吧~',
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.grey.shade700,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _messages.length,
+                                itemBuilder: (context, index) =>
+                                    _buildMessageBubble(_messages[index]),
+                              ),
+              ),
+              _buildInputBar(),
+            ],
           ),
-          _buildInputBar(),
         ],
       ),
     );
@@ -196,14 +289,25 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryColor : isDark ? const Color(0xFF16213E) : Colors.grey[200],
+          color: isMe
+              ? AppTheme.primaryColor
+              : isDark
+                  ? const Color(0xFF16213E)
+                  : Colors.grey[200],
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           message['content'] ?? '',
-          style: TextStyle(color: isMe ? Colors.white : isDark ? Colors.white : Colors.black87, fontSize: 15),
+          style: TextStyle(
+              color: isMe
+                  ? Colors.white
+                  : isDark
+                      ? Colors.white
+                      : Colors.black87,
+              fontSize: 15),
         ),
       ),
     );
@@ -213,12 +317,21 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.only(
-        left: 16, right: 8, top: 8,
+        left: 16,
+        right: 8,
+        top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF16213E) : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))],
+        color: isDark
+            ? const Color(0xFF16213E).withValues(alpha: 0.92)
+            : Colors.white.withValues(alpha: 0.92),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, -2))
+        ],
       ),
       child: Row(
         children: [
@@ -228,7 +341,8 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
               decoration: const InputDecoration(
                 hintText: '说点什么...',
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               maxLines: null,
               textInputAction: TextInputAction.send,
@@ -237,7 +351,10 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
           ),
           IconButton(
             icon: _isSending
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.send, color: AppTheme.primaryColor),
             onPressed: _isSending ? null : _sendMessage,
           ),

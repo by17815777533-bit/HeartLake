@@ -14,13 +14,14 @@ import 'base_service.dart';
 /// - 情绪趋势分析
 class AIRecommendationService extends BaseService {
   @override
-  String get serviceName => 'AIRecommendation';
+  String get serviceName => '湖神陪伴服务';
 
   /// 获取相似石头推荐 (基于 HNSW 向量相似度)
   ///
   /// 后端路由: GET /api/recommendations/similar-stones/{stoneId}
   /// 来源: VectorSearchController
-  Future<List<Map<String, dynamic>>> getSimilarStones(String stoneId, {int limit = 5}) async {
+  Future<List<Map<String, dynamic>>> getSimilarStones(String stoneId,
+      {int limit = 5}) async {
     InputValidator.requireNonEmpty(stoneId, '石头ID');
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
@@ -32,7 +33,8 @@ class AIRecommendationService extends BaseService {
   }
 
   /// 获取个性化推荐 (协同过滤 + 内容推荐 + 探索)
-  Future<List<Map<String, dynamic>>> getPersonalizedRecommendations({int limit = 10}) async {
+  Future<List<Map<String, dynamic>>> getPersonalizedRecommendations(
+      {int limit = 10}) async {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/stones',
         queryParameters: {'limit': limit});
@@ -43,7 +45,8 @@ class AIRecommendationService extends BaseService {
   }
 
   /// 获取高级共鸣推荐 (情绪轨迹 DTW + 语义相似度 + 时间衰减 + 多样性)
-  Future<List<Map<String, dynamic>>> getAdvancedRecommendations({int limit = 10}) async {
+  Future<List<Map<String, dynamic>>> getAdvancedRecommendations(
+      {int limit = 10}) async {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/advanced',
         queryParameters: {'limit': limit});
@@ -55,7 +58,8 @@ class AIRecommendationService extends BaseService {
 
   /// 获取情绪趋势数据
   Future<Map<String, dynamic>> getEmotionTrends() async {
-    final resp = await get<dynamic>('/recommendations/emotion-trends');
+    final resp =
+        await get<dynamic>('/recommendations/emotion-trends', useCache: false);
     if (resp.success && resp.data is Map<String, dynamic>) {
       return resp.data as Map<String, dynamic>;
     }
@@ -69,9 +73,16 @@ class AIRecommendationService extends BaseService {
     double reward = 1.0,
   }) async {
     InputValidator.requireNonEmpty(stoneId, '石头ID');
-    InputValidator.requireInList(interactionType, const [
-      'view', 'ripple', 'boat', 'share', 'connection',
-    ], '交互类型');
+    InputValidator.requireInList(
+        interactionType,
+        const [
+          'view',
+          'ripple',
+          'boat',
+          'share',
+          'connection',
+        ],
+        '交互类型');
     InputValidator.requireDoubleRange(reward, '奖励值', min: 0.0, max: 1.0);
     final resp = await post<dynamic>('/recommendations/track', data: {
       'stone_id': stoneId,

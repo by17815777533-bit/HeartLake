@@ -26,7 +26,6 @@ public:
   ADD_METHOD_TO(UserController::getUserStats, "/api/users/{1}/stats", Get);
   ADD_METHOD_TO(UserController::searchUsers, "/api/users/search", Get);
   ADD_METHOD_TO(UserController::getMyBoats, "/api/users/my/boats", Get);
-  ADD_METHOD_TO(UserController::updateNickname, "/api/users/my/nickname", Put);
   ADD_METHOD_TO(UserController::updateProfile, "/api/users/my/profile", Put);
 
   // 情绪数据
@@ -60,9 +59,6 @@ public:
 
   void getMyBoats(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
-
-  void updateNickname(const HttpRequestPtr &req,
-                      std::function<void(const HttpResponsePtr &)> &&callback);
 
   void updateProfile(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);

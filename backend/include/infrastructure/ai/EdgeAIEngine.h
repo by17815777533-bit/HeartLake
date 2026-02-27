@@ -59,7 +59,7 @@ public:
     // ========================================================================
     // 子系统1: 轻量级情感分析
     // ========================================================================
-    EdgeSentimentResult analyzeSentimentLocal(const std::string& text);
+    EdgeSentimentResult analyzeSentimentLocal(const std::string& text, bool preferOnnx = false);
     void loadEdgeSentimentLexicon();
 
     // ========================================================================

@@ -53,7 +53,7 @@ class EmotionInsightsCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                '情绪洞察',
+                '情绪关怀提示',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

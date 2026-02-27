@@ -235,11 +235,11 @@ bool EdgeAIEngine::isEnabled() const {
 // 子系统1: 情感分析 → SentimentAnalyzer
 // ============================================================================
 
-EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text) {
+EdgeSentimentResult EdgeAIEngine::analyzeSentimentLocal(const std::string& text, bool preferOnnx) {
     if (!isEnabled() || !sentiment_) {
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
-    return sentiment_->analyzeSentiment(text);
+    return sentiment_->analyzeSentiment(text, preferOnnx);
 }
 
 void EdgeAIEngine::loadEdgeSentimentLexicon() {

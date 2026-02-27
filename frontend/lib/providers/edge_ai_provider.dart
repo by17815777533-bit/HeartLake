@@ -40,13 +40,18 @@ class EdgeAIProvider extends ChangeNotifier {
           .toLowerCase();
       final confidence = _extractConfidence(remote);
       final normalizedMood = _normalizeMood(mood);
-      final corrected = _applyContextCorrection(text, normalizedMood, confidence);
+      final corrected =
+          _applyContextCorrection(text, normalizedMood, confidence);
       final shouldFallback = _shouldFallbackFromRemote(remote, corrected.value);
       if (shouldFallback) {
         final fallback = await _classifyFallback(text);
         final remoteHint = _buildDistribution(corrected.key, corrected.value);
-        final hintWeight = _isRemoteAbstained(remote) ? 0.08 : 0.18;
-        result = _blendDistributions(fallback, remoteHint, hintWeight);
+        if (_isRemoteAbstained(remote)) {
+          result = _blendDistributions(fallback, remoteHint, 0.10);
+        } else {
+          final fallbackWeight = corrected.value < 0.5 ? 0.28 : 0.18;
+          result = _blendDistributions(remoteHint, fallback, fallbackWeight);
+        }
       } else {
         result = _buildDistribution(corrected.key, corrected.value);
       }
@@ -161,16 +166,7 @@ class EdgeAIProvider extends ChangeNotifier {
       '收到了'
     ];
     const calmWords = ['平静', '安心', '放松', '宁静', '治愈', '舒心', '稳定'];
-    const anxiousWords = [
-      '焦虑',
-      '担心',
-      '不安',
-      '紧张',
-      '害怕',
-      '恐惧',
-      '心慌',
-      '压力'
-    ];
+    const anxiousWords = ['焦虑', '担心', '不安', '紧张', '害怕', '恐惧', '心慌', '压力'];
     const sadWords = ['难过', '伤心', '失落', '委屈', '沮丧', 'emo', '难受', '哭'];
     const angryWords = ['生气', '愤怒', '烦躁', '火大', '讨厌', '崩溃', '暴怒', '气死'];
     const surpriseWords = ['惊喜', '意外', '没想到', '突然', '居然', '哇', '太棒了'];
@@ -202,7 +198,8 @@ class EdgeAIProvider extends ChangeNotifier {
         final tailNegative = _containsAny(tail, anxiousWords) ||
             _containsAny(tail, sadWords) ||
             _containsAny(tail, angryWords);
-        final tailPositive = _containsAny(tail, happyWords) || _containsAny(tail, surpriseWords);
+        final tailPositive =
+            _containsAny(tail, happyWords) || _containsAny(tail, surpriseWords);
         if (tailNegative) {
           scores['anxious'] = scores['anxious']! + 0.28;
           scores['sad'] = scores['sad']! + 0.16;
@@ -228,7 +225,8 @@ class EdgeAIProvider extends ChangeNotifier {
     return _normalizeDistribution(scores);
   }
 
-  Map<String, double> _normalizeLocalDistribution(Map<String, double> localRaw) {
+  Map<String, double> _normalizeLocalDistribution(
+      Map<String, double> localRaw) {
     final normalized = <String, double>{
       'happy': 0.0,
       'calm': 0.0,
@@ -247,13 +245,6 @@ class EdgeAIProvider extends ChangeNotifier {
         normalized['neutral'] = normalized['neutral']! + value;
       }
     });
-
-    // 无 calm 输出时，从 neutral 拆分一部分，避免“全是中性”带来的失真。
-    if ((normalized['calm'] ?? 0.0) < 0.05 && (normalized['neutral'] ?? 0.0) > 0.18) {
-      final transfer = normalized['neutral']! * 0.35;
-      normalized['neutral'] = normalized['neutral']! - transfer;
-      normalized['calm'] = normalized['calm']! + transfer;
-    }
 
     return _normalizeDistribution(normalized);
   }
@@ -292,19 +283,18 @@ class EdgeAIProvider extends ChangeNotifier {
     return decision == 'abstain';
   }
 
-  bool _shouldFallbackFromRemote(Map<String, dynamic> remote, double confidence) {
+  bool _shouldFallbackFromRemote(
+      Map<String, dynamic> remote, double confidence) {
     if (_isRemoteAbstained(remote)) return true;
     final uncertaintyRaw = remote['uncertainty'];
-    if (uncertaintyRaw is num && uncertaintyRaw.toDouble() > 0.62) return true;
+    if (uncertaintyRaw is num && uncertaintyRaw.toDouble() > 0.74) return true;
     final tier = (remote['reliability_tier'] ?? '').toString().toLowerCase();
-    if (tier == 'low' && confidence < 0.55) return true;
-    return confidence < 0.40;
+    if (tier == 'low' && confidence < 0.30) return true;
+    return false;
   }
 
-  Map<String, double> _blendDistributions(
-      Map<String, double> primary,
-      Map<String, double> secondary,
-      double secondaryWeight) {
+  Map<String, double> _blendDistributions(Map<String, double> primary,
+      Map<String, double> secondary, double secondaryWeight) {
     final w2 = secondaryWeight.clamp(0.0, 0.4);
     final w1 = 1.0 - w2;
     final keys = <String>{...primary.keys, ...secondary.keys};
@@ -336,8 +326,15 @@ class EdgeAIProvider extends ChangeNotifier {
       '焦虑',
       '担心',
       '不安',
+      '悲伤',
       '难过',
       '伤心',
+      '难受',
+      '低落',
+      '压抑',
+      '委屈',
+      '失落',
+      '想哭',
       '害怕',
       '恐惧',
       '压力',
@@ -346,9 +343,37 @@ class EdgeAIProvider extends ChangeNotifier {
       '绝望',
       '崩溃'
     ];
+    const anxietyWords = [
+      '焦虑',
+      '担心',
+      '不安',
+      '心慌',
+      '害怕',
+      '恐惧',
+      '紧张',
+      '压力',
+      '睡不着',
+      '失眠'
+    ];
+    const sadnessWords = [
+      '悲伤',
+      '难过',
+      '伤心',
+      '难受',
+      '低落',
+      '失落',
+      '压抑',
+      '委屈',
+      '想哭',
+      '无助',
+      '痛苦',
+      '绝望'
+    ];
 
     final hasPositiveEvent = _containsAny(lower, positiveEventWords);
     final hasNegative = _containsAny(lower, negativeWords);
+    final hasAnxietyCue = _containsAny(lower, anxietyWords);
+    final hasSadCue = _containsAny(lower, sadnessWords);
 
     var correctedMood = mood;
     var correctedConfidence = confidence;
@@ -360,12 +385,29 @@ class EdgeAIProvider extends ChangeNotifier {
           correctedMood == 'calm') {
         correctedMood = 'happy';
       }
-      correctedConfidence = correctedConfidence < 0.72 ? 0.72 : correctedConfidence;
+      correctedConfidence =
+          correctedConfidence < 0.72 ? 0.72 : correctedConfidence;
     }
 
     if (_containsAny(lower, const ['夸', '表扬', '认可', '肯定']) && !hasNegative) {
       correctedMood = 'happy';
-      correctedConfidence = correctedConfidence < 0.75 ? 0.75 : correctedConfidence;
+      correctedConfidence =
+          correctedConfidence < 0.75 ? 0.75 : correctedConfidence;
+    }
+
+    if (hasNegative &&
+        (correctedMood == 'calm' ||
+            correctedMood == 'neutral' ||
+            correctedMood == 'happy')) {
+      if (hasAnxietyCue) {
+        correctedMood = 'anxious';
+        correctedConfidence =
+            correctedConfidence < 0.70 ? 0.70 : correctedConfidence;
+      } else if (hasSadCue) {
+        correctedMood = 'sad';
+        correctedConfidence =
+            correctedConfidence < 0.70 ? 0.70 : correctedConfidence;
+      }
     }
 
     return MapEntry(correctedMood, correctedConfidence.clamp(0.2, 0.95));
