@@ -22,7 +22,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   final InteractionService _interactionService = sl<InteractionService>();
   late final WebSocketManager _wsManager;
 
-  // WebSocket Listeners
+  // WebSocket 监听器
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
 

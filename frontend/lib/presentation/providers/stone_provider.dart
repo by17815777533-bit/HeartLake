@@ -32,7 +32,7 @@ class StoneProvider with ChangeNotifier {
   late void Function(Map<String, dynamic>) _onRippleDeleted;
   late void Function(Map<String, dynamic>) _onReconnected;
 
-  // Getters
+  // 只读访问器
   List<Stone> get stones => List.unmodifiable(_stones);
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;

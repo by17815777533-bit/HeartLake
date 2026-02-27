@@ -130,12 +130,12 @@ class Stone {
     if (date == null) return DateTime.now();
     if (date is int) return DateTime.fromMillisecondsSinceEpoch(date * 1000);
     if (date is String) {
-      // Try parsing numeric string
+      // 先尝试按数字时间戳字符串解析
       final numVal = int.tryParse(date);
       if (numVal != null) {
         return DateTime.fromMillisecondsSinceEpoch(numVal * 1000);
       }
-      // Try parsing ISO string
+      // 再尝试按 ISO 时间字符串解析
       try {
         return DateTime.parse(date);
       } catch (_) {}

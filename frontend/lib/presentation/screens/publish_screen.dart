@@ -718,7 +718,7 @@ class _PublishButtonState extends State<_PublishButton>
             },
       onTapCancel: () => _controller.reverse(),
       child: AnimatedBuilder(
-        // AnimatedBuilder is the correct Flutter widget name
+        // 使用 AnimatedBuilder 做缩放过渡，避免点击动画期间重复构建子树
         animation: _scale,
         builder: (context, child) =>
             Transform.scale(scale: _scale.value, child: child),

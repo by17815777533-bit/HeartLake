@@ -14,7 +14,7 @@
     } catch (_) {}
   }
 
-  // Avoid hard-failing when CanvasKit cannot initialize on some browsers/GPUs.
+  // 让渲染器自动选择，避免个别浏览器或显卡上 CanvasKit 初始化失败导致白屏。
   if (_flutter && _flutter.buildConfig) {
     _flutter.buildConfig.renderer = "auto";
   }

@@ -483,7 +483,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== Logo ====================
+  // 应用标识区域
 
   Widget _buildLogo(bool isDark) {
     return Container(

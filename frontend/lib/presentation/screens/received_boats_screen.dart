@@ -21,7 +21,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   final WebSocketManager _wsManager = WebSocketManager();
   bool _isLoading = false;
 
-  // WebSocket Listeners
+  // WebSocket 监听器
   late void Function(Map<String, dynamic>) _newBoatListener;
   late void Function(Map<String, dynamic>) _boatUpdateListener;
   late void Function(Map<String, dynamic>) _boatDeletedListener;
