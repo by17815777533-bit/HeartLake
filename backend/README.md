@@ -167,11 +167,11 @@ docker build -t heartlake-backend .
 docker run -p 8080:8080 --env-file .env heartlake-backend
 ```
 
-推荐使用项目根目录的 `docker-compose.yml` 一键启动完整环境（含 PostgreSQL、Redis、Nginx）：
+推荐使用项目根目录的 `docker-compose.yml` 一键启动完整环境（PostgreSQL、Redis、Backend、Admin）：
 
 ```bash
 cd /path/to/heartlake
-docker compose up -d
+./scripts/start-services.sh all
 ```
 
 ---
@@ -207,7 +207,7 @@ docker compose up -d
 
 ## 数据库迁移
 
-共 12 个迁移文件，按序号执行：
+共 15 个迁移文件，按序号执行：
 
 | 文件 | 说明 |
 |------|------|
@@ -223,6 +223,9 @@ docker compose up -d
 | `010_data_export.sql` | 数据导出 |
 | `011_performance_schema_hardening.sql` | 性能索引与表结构兼容增强 |
 | `012_users_username_compat.sql` | users 表兼容列补齐（`username`/`recovery_key_hash`） |
+| `013_schema_fixes.sql` | 外键约束与时间字段兼容修复 |
+| `014_stones_embedding_vector.sql` | 向量列与索引能力补齐 |
+| `015_runtime_schema_hotfix.sql` | 运行时热修复表结构（账户辅助表、恢复关键词长度） |
 
 ### 手动执行迁移
 

@@ -41,13 +41,13 @@ if [ -z "${DB_PASSWORD:-}" ]; then
     exit 1
 fi
 
-if [ -z "${PASETO_KEY:-}" ] || echo "$PASETO_KEY" | grep -qiE '(change_me|heartlake|dev|secret|example)'; then
-    echo "FATAL: PASETO_KEY must be a strong random value. Generate with: openssl rand -base64 32"
+if [ -z "${PASETO_KEY:-}" ] || [ "${#PASETO_KEY}" -lt 32 ]; then
+    echo "FATAL: PASETO_KEY must be at least 32 bytes"
     exit 1
 fi
 
-if [ -z "${ADMIN_PASETO_KEY:-}" ] || echo "$ADMIN_PASETO_KEY" | grep -qiE '(change_me|heartlake|dev|secret|example)'; then
-    echo "FATAL: ADMIN_PASETO_KEY must be a strong random value. Generate with: openssl rand -base64 32"
+if [ -z "${ADMIN_PASETO_KEY:-}" ] || [ "${#ADMIN_PASETO_KEY}" -lt 32 ]; then
+    echo "FATAL: ADMIN_PASETO_KEY must be at least 32 bytes"
     exit 1
 fi
 

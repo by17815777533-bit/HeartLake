@@ -108,6 +108,12 @@ CREATE INDEX IF NOT EXISTS idx_uih_stone_user ON user_interaction_history(stone_
 -- 3. TIMESTAMP → TIMESTAMPTZ conversion
 -- ============================================================
 
+-- 005_ai_system.sql 中的 user_emotion_profile 依赖 stones.created_at，
+-- 先移除视图，列类型转换后再重建，避免 fresh init 阶段报错。
+DROP VIEW IF EXISTS user_emotion_profile;
+-- temp_connections 视图依赖 connections.expires_at，类型转换前需要先移除。
+DROP VIEW IF EXISTS temp_connections;
+
 -- 001_users.sql: users
 ALTER TABLE users
     ALTER COLUMN vip_expires_at TYPE TIMESTAMPTZ USING vip_expires_at AT TIME ZONE 'UTC',
@@ -218,5 +224,21 @@ ALTER TABLE data_export_tasks
 -- 011_performance_schema_hardening.sql: user_followups
 ALTER TABLE user_followups
     ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+
+-- 重建用户情绪画像视图（与 005_ai_system.sql 保持一致）
+CREATE OR REPLACE VIEW user_emotion_profile AS
+SELECT
+    s.user_id,
+    s.mood_type,
+    COALESCE(AVG(s.emotion_score), 0.5) AS avg_emotion_score,
+    DATE(s.created_at) AS date
+FROM stones s
+WHERE s.status = 'published'
+GROUP BY s.user_id, s.mood_type, DATE(s.created_at)
+ORDER BY date DESC;
+
+-- 兼容旧代码路径
+CREATE OR REPLACE VIEW temp_connections AS
+SELECT * FROM connections;
 
 COMMIT;

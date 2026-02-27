@@ -32,7 +32,7 @@ FROM ubuntu:24.04 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libssl3t64 libcurl4t64 libjsoncpp25 \
         libpq5 libhiredis1.1.0 libc-ares2 \
-        ca-certificates tzdata curl \
+        ca-certificates tzdata curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r heartlake && useradd -r -g heartlake -s /sbin/nologin heartlake
@@ -41,8 +41,11 @@ WORKDIR /app
 
 COPY --from=builder /src/build/HeartLake .
 COPY --from=builder /src/config.json.example ./config.json
+COPY --from=builder /src/start-docker.sh ./start-docker.sh
+COPY --from=builder /src/migrations ./migrations
 
 RUN chown -R heartlake:heartlake /app
+RUN chmod +x /app/start-docker.sh
 
 USER heartlake
 
@@ -51,5 +54,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:8080/api/health || exit 1
 
-CMD ["./HeartLake"]
-
+CMD ["/bin/bash", "/app/start-docker.sh"]

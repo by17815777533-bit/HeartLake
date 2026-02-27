@@ -2,6 +2,7 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
@@ -304,7 +305,13 @@ class _FriendsScreenState extends State<FriendsScreen>
                           title: Text(friend['nickname'] ??
                               friend['nick_name'] ??
                               '未知'),
-                          subtitle: Text('账号: ${friend['username'] ?? ''}'),
+                          subtitle: Builder(
+                            builder: (_) {
+                              final username = friend['username']?.toString() ?? '';
+                              final friendId = _extractFriendId(friend) ?? '';
+                              return Text('账号: $username\n用户ID: $friendId');
+                            },
+                          ),
                           onTap: () {
                             final friendId = _extractFriendId(friend);
                             if (friendId == null) {
@@ -331,6 +338,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                             icon: const Icon(Icons.more_vert),
                             itemBuilder: (context) => [
                               const PopupMenuItem(
+                                value: 'copy_id',
+                                child: Text('复制用户ID'),
+                              ),
+                              const PopupMenuItem(
                                 value: 'detail',
                                 child: Text('查看详情'),
                               ),
@@ -341,7 +352,13 @@ class _FriendsScreenState extends State<FriendsScreen>
                             ],
                             onSelected: (value) {
                               final friendId = _extractFriendId(friend);
-                              if (value == 'detail') {
+                              if (value == 'copy_id') {
+                                if (friendId == null || friendId.isEmpty) return;
+                                Clipboard.setData(ClipboardData(text: friendId));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('用户ID已复制')),
+                                );
+                              } else if (value == 'detail') {
                                 if (friendId == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(

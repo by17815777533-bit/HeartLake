@@ -11,26 +11,13 @@ class InteractionService extends BaseService {
 
   final StoneService _stoneService = sl<StoneService>();
 
-  bool _isShowcaseStone(String stoneId) =>
-      stoneId.startsWith('showcase_stone_');
-
-  Map<String, dynamic> _showcaseUnavailable(String action) {
-    return {
-      'success': false,
-      'code': 400,
-      'message': '当前是展示石头，$action 暂不可用，请切换到真实用户发布的石头',
-      'non_interactive_demo': true,
-    };
-  }
-
   Map<String, dynamic> _friendlyStoneNotFound(
       Map<String, dynamic> raw, String stoneId) {
     final message = raw['message']?.toString() ?? '';
-    if (_isShowcaseStone(stoneId) && message.contains('石头不存在')) {
+    if (stoneId.startsWith('showcase_stone_') && message.contains('石头不存在')) {
       return {
         ...raw,
-        'message': '当前是展示石头，互动数据暂不可写入，请切换到真实用户发布的石头',
-        'non_interactive_demo': true,
+        'message': '石头不存在或已被移除，请刷新列表后重试',
       };
     }
     return raw;
@@ -38,9 +25,6 @@ class InteractionService extends BaseService {
 
   // 创建涟漪（点赞）
   Future<Map<String, dynamic>> createRipple(String stoneId) async {
-    if (_isShowcaseStone(stoneId)) {
-      return _showcaseUnavailable('涟漪互动');
-    }
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/ripples');
     if (!response.success) {
@@ -67,9 +51,6 @@ class InteractionService extends BaseService {
     required String content,
     bool isAnonymous = true,
   }) async {
-    if (_isShowcaseStone(stoneId)) {
-      return _showcaseUnavailable('纸船评论');
-    }
     InputValidator.validateUUID(stoneId, '石头ID');
     InputValidator.requireLength(content, '纸船内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
@@ -94,13 +75,6 @@ class InteractionService extends BaseService {
     int page = 1,
     int pageSize = 20,
   }) async {
-    if (_isShowcaseStone(stoneId)) {
-      return {
-        'success': true,
-        'boats': const <dynamic>[],
-        'non_interactive_demo': true,
-      };
-    }
     InputValidator.validateUUID(stoneId, '石头ID');
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
@@ -126,9 +100,6 @@ class InteractionService extends BaseService {
 
   // 发起限时会话（基于石头作者）
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId) async {
-    if (_isShowcaseStone(stoneId)) {
-      return _showcaseUnavailable('发起连接');
-    }
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/connections');
     return toMap(response);

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../data/datasources/guardian_service.dart';
+import '../../data/datasources/friend_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
@@ -15,6 +17,7 @@ class GuardianScreen extends StatefulWidget {
 class _GuardianScreenState extends State<GuardianScreen>
     with SingleTickerProviderStateMixin {
   final _service = sl<GuardianService>();
+  final _friendService = sl<FriendService>();
   Map<String, dynamic>? _stats;
   bool _loading = true;
   late AnimationController _animController;
@@ -294,36 +297,124 @@ class _GuardianScreenState extends State<GuardianScreen>
     return mapping[trend.toLowerCase()] ?? trend;
   }
 
+  String? _extractFriendId(Map<String, dynamic> friend) {
+    final candidates = [
+      friend['user_id'],
+      friend['friend_id'],
+      friend['userId'],
+      friend['friendId'],
+    ];
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
   Future<void> _showTransferDialog() async {
     final controller = TextEditingController();
+    List<Map<String, dynamic>> friends = <Map<String, dynamic>>[];
+    try {
+      final result = await _friendService.getFriends();
+      final raw = result['friends'];
+      if (raw is List) {
+        friends = raw
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+    } catch (_) {}
+
+    if (!mounted) {
+      controller.dispose();
+      return;
+    }
+
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        String selectedFriendId = '';
         return AlertDialog(
-        title: const Text('转赠灯火'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('将你的温暖传递给需要的人', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                  labelText: '对方ID', border: OutlineInputBorder()),
+          title: const Text('转赠灯火'),
+          content: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('将你的温暖传递给需要的人',
+                      style: TextStyle(
+                          color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+                  const SizedBox(height: 16),
+                  if (friends.isNotEmpty) ...[
+                    DropdownButtonFormField<String>(
+                      initialValue:
+                          selectedFriendId.isEmpty ? null : selectedFriendId,
+                      decoration: const InputDecoration(
+                        labelText: '从好友中选择',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: friends
+                          .map((friend) {
+                            final friendId = _extractFriendId(friend);
+                            if (friendId == null) return null;
+                            final nickname = friend['nickname']?.toString() ??
+                                friend['nick_name']?.toString() ??
+                                '好友';
+                            final username = friend['username']?.toString() ?? '';
+                            return DropdownMenuItem<String>(
+                              value: friendId,
+                              child: Text('$nickname ($username)'),
+                            );
+                          })
+                          .whereType<DropdownMenuItem<String>>()
+                          .toList(),
+                      onChanged: (value) {
+                        final id = value?.trim() ?? '';
+                        setDialogState(() {
+                          selectedFriendId = id;
+                          controller.text = id;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                        labelText: '对方ID', border: OutlineInputBorder()),
+                  ),
+                  if (controller.text.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: controller.text.trim()),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('复制ID'),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('转赠'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('转赠'),
-          ),
-        ],
-      );
+        );
       },
     );
     controller.dispose();

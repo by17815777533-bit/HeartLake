@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-27T11:12:25Z",
+  "generated_at": "2026-02-27T16:03:07Z",
   "base_url": "http://127.0.0.1:8080",
   "functional": {
     "checks": [
@@ -29,7 +29,7 @@
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2",
+        "path": "/api/stones/stone_e47f7186-41ee-452d-a8af-7be26505d47b",
         "status": 200,
         "ok": true
       },
@@ -41,19 +41,19 @@
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/ripples",
+        "path": "/api/stones/stone_e47f7186-41ee-452d-a8af-7be26505d47b/ripples",
         "status": 200,
         "ok": true
       },
       {
         "method": "POST",
-        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/boats",
+        "path": "/api/stones/stone_e47f7186-41ee-452d-a8af-7be26505d47b/boats",
         "status": 200,
         "ok": true
       },
       {
         "method": "GET",
-        "path": "/api/stones/stone_0ea909d7-7872-411b-bfe8-41ae05715fc2/boats?page=1&page_size=20",
+        "path": "/api/stones/stone_e47f7186-41ee-452d-a8af-7be26505d47b/boats?page=1&page_size=20",
         "status": 200,
         "ok": true
       },
@@ -245,13 +245,13 @@
         "name": "create_ripple",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_3050a085629d1893\",\"stone_id\":\"stone_5dbdbd0b-38c0-4095-b2a0-534fc6b57694\",\"user_id\":\"anonymous_03010feaf07a\"},\"message\":\"\\u6d"
+        "body": "{\"code\":0,\"data\":{\"ripple_count\":1,\"ripple_id\":\"ripple_9585b4b0d9d57a13\",\"stone_id\":\"stone_a2863e67-d82a-4335-8b58-31eb64a2850a\",\"user_id\":\"anonymous_197c7d18bbc4\"},\"message\":\"\\u6d"
       },
       {
         "name": "create_boat",
         "ok": true,
         "status": 200,
-        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_61a03f437fe5e386\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_03010feaf07a\",\"status\":\"sent\",\"ston"
+        "body": "{\"code\":0,\"data\":{\"boat_count\":2,\"boat_id\":\"boat_52bc0a4a8f1797ed\",\"message\":\"\\u4e00\\u81f4\\u6027\\u6821\\u9a8c\\u7eb8\\u8239\",\"sender_id\":\"anonymous_197c7d18bbc4\",\"status\":\"sent\",\"ston"
       },
       {
         "name": "boat_count_monotonic",
@@ -279,7 +279,7 @@
   "accuracy": {
     "total": 32,
     "mood_accuracy": 0.9688,
-    "polarity_accuracy": 0.9688,
+    "polarity_accuracy": 1.0,
     "macro_f1": 0.9769,
     "critical_case_total": 5,
     "critical_case_hit": 5,
@@ -293,7 +293,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.6108,
+        "score": 0.8933,
         "ok": true
       },
       {
@@ -304,7 +304,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.4946,
+        "score": 0.8555,
         "ok": true
       },
       {
@@ -371,7 +371,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.6128,
+        "score": 0.9548,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -383,7 +383,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.5271,
+        "score": 0.8406,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -394,10 +394,10 @@
         "pred_mood_raw": "neutral",
         "pred_mood": "neutral",
         "expected_polarity": "positive",
-        "pred_polarity": "neutral",
-        "score": 0.1411,
+        "pred_polarity": "positive",
+        "score": 0.7012,
         "ok_mood": true,
-        "ok_polarity": false
+        "ok_polarity": true
       },
       {
         "text": "下雨天在窗边喝茶，心情很平静。",
@@ -407,7 +407,7 @@
         "pred_mood": "neutral",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.345,
+        "score": 0.7833,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -491,7 +491,7 @@
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.5221,
+        "score": 0.8785,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -563,7 +563,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.6108,
+        "score": 0.8933,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -575,7 +575,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.4946,
+        "score": 0.8555,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -623,7 +623,7 @@
         "pred_mood": "anxious",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.4369,
+        "score": -0.2524,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -695,7 +695,7 @@
         "pred_mood": "happy",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.2642,
+        "score": 0.7425,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -731,7 +731,7 @@
         "pred_mood": "angry",
         "expected_polarity": "negative",
         "pred_polarity": "negative",
-        "score": -0.504,
+        "score": -0.5374,
         "ok_mood": true,
         "ok_polarity": true
       },
@@ -743,7 +743,7 @@
         "pred_mood": "surprised",
         "expected_polarity": "positive",
         "pred_polarity": "positive",
-        "score": 0.4956,
+        "score": 0.8509,
         "ok_mood": true,
         "ok_polarity": true
       }
@@ -752,133 +752,89 @@
   "stress": [
     {
       "mix": "read_heavy",
-      "duration_sec": 20,
+      "duration_sec": 10,
       "concurrency": 16,
-      "total_requests": 20893,
-      "success_2xx": 20893,
+      "total_requests": 9965,
+      "success_2xx": 9965,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1044.65,
+      "rps": 996.5,
       "latency_ms": {
-        "p50": 7.3,
-        "p95": 48.34,
-        "p99": 76.82,
-        "avg": 15.28
+        "p50": 7.63,
+        "p95": 50.0,
+        "p99": 79.96,
+        "avg": 16.03
       },
       "status_breakdown": {
-        "200": 20893
+        "200": 9965
       },
       "health_after": true
     },
     {
       "mix": "ai_mixed",
-      "duration_sec": 20,
+      "duration_sec": 10,
       "concurrency": 16,
-      "total_requests": 20674,
-      "success_2xx": 20674,
+      "total_requests": 9499,
+      "success_2xx": 9499,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 1033.7,
+      "rps": 949.9,
       "latency_ms": {
-        "p50": 7.09,
-        "p95": 49.85,
-        "p99": 78.73,
-        "avg": 15.48
+        "p50": 7.76,
+        "p95": 53.54,
+        "p99": 85.12,
+        "avg": 16.84
       },
       "status_breakdown": {
-        "200": 20674
+        "200": 9499
       },
       "health_after": true
     },
     {
       "mix": "read_heavy",
-      "duration_sec": 20,
+      "duration_sec": 10,
       "concurrency": 32,
-      "total_requests": 18774,
-      "success_2xx": 18774,
+      "total_requests": 9199,
+      "success_2xx": 9199,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 938.7,
+      "rps": 919.9,
       "latency_ms": {
-        "p50": 23.35,
-        "p95": 98.76,
-        "p99": 152.27,
-        "avg": 34.1
+        "p50": 24.04,
+        "p95": 100.31,
+        "p99": 156.26,
+        "avg": 34.8
       },
       "status_breakdown": {
-        "200": 18774
+        "200": 9199
       },
       "health_after": true
     },
     {
       "mix": "ai_mixed",
-      "duration_sec": 20,
+      "duration_sec": 10,
       "concurrency": 32,
-      "total_requests": 18208,
-      "success_2xx": 18208,
+      "total_requests": 9095,
+      "success_2xx": 9095,
       "errors_transport": 0,
       "errors_4xx": 0,
       "errors_5xx": 0,
       "error_rate": 0.0,
-      "rps": 910.4,
+      "rps": 909.5,
       "latency_ms": {
-        "p50": 24.32,
-        "p95": 102.97,
-        "p99": 160.74,
-        "avg": 35.16
+        "p50": 23.83,
+        "p95": 105.09,
+        "p99": 156.3,
+        "avg": 35.2
       },
       "status_breakdown": {
-        "200": 18208
-      },
-      "health_after": true
-    },
-    {
-      "mix": "read_heavy",
-      "duration_sec": 20,
-      "concurrency": 64,
-      "total_requests": 22252,
-      "success_2xx": 22252,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1112.6,
-      "latency_ms": {
-        "p50": 57.75,
-        "p95": 62.6,
-        "p99": 65.69,
-        "avg": 57.57
-      },
-      "status_breakdown": {
-        "200": 22252
-      },
-      "health_after": true
-    },
-    {
-      "mix": "ai_mixed",
-      "duration_sec": 20,
-      "concurrency": 64,
-      "total_requests": 21742,
-      "success_2xx": 21742,
-      "errors_transport": 0,
-      "errors_4xx": 0,
-      "errors_5xx": 0,
-      "error_rate": 0.0,
-      "rps": 1087.1,
-      "latency_ms": {
-        "p50": 58.51,
-        "p95": 65.68,
-        "p99": 72.92,
-        "avg": 58.89
-      },
-      "status_breakdown": {
-        "200": 21742
+        "200": 9095
       },
       "health_after": true
     }
@@ -922,7 +878,7 @@
       },
       {
         "name": "polarity_accuracy",
-        "actual": 0.9688,
+        "actual": 1.0,
         "target": 0.9,
         "ok": true
       },
@@ -940,7 +896,7 @@
       },
       {
         "name": "stress_p95_ms_max",
-        "actual": 102.97,
+        "actual": 105.09,
         "target": 800.0,
         "ok": true
       },

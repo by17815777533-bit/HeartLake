@@ -425,26 +425,26 @@ cd HeartLake
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env 填写数据库密码、Redis密码、DeepSeek API Key 等
+# 按需修改 .env（默认统一口令为 HeartLake）
 
 # 一键启动
-docker-compose up -d
+./scripts/start-services.sh all
 ```
 
 ### Docker Compose 服务
 
 | 服务 | 镜像 | 内存限制 | 端口 |
 |------|------|----------|------|
-| postgres | postgres:16-alpine | 512M | 5432 |
-| redis | redis:7-alpine | 256M | 6379 |
+| postgres | postgres:16 | 512M | 5432 |
+| redis | redis:7 | 256M | 6379 |
 | backend | 自构建 (C++20/Drogon) | 1G | 8080 |
-| admin | 自构建 (Vue3/Nginx) | 128M | 3000 |
-| nginx | nginx:alpine | 128M | 80/443 |
+| admin | 自构建 (Vue3/Nginx) | 128M | 5173 |
+| ollama (dev profile) | ollama/ollama | 2G+ | 11434 |
 
 启动后访问：
 
-- 移动端 API：`http://localhost:80/api/`
-- 管理后台：`http://localhost:80/admin/`
+- API：`http://localhost:8080/api/`
+- 管理后台：`http://localhost:5173`
 
 ---
 

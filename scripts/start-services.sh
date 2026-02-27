@@ -11,16 +11,16 @@ cd "$(dirname "$0")/.."
 
 case "${1:-dev}" in
   all)
-    echo "🚀 启动所有服务..."
-    docker compose up -d
+    echo "🚀 启动交付环境 (postgres + redis + backend + admin)..."
+    docker compose up -d postgres redis backend admin
     ;;
   db)
     echo "🗄️  启动数据库和缓存..."
     docker compose up -d postgres redis
     ;;
   dev)
-    echo "🔧 启动开发环境 (postgres + redis + ollama)..."
-    docker compose up -d postgres redis ollama
+    echo "🔧 启动开发环境 (postgres + redis + ollama + backend + admin)..."
+    docker compose --profile dev up -d postgres redis ollama backend admin
     ;;
   stop)
     echo "⏹️  停止所有服务..."
@@ -28,9 +28,9 @@ case "${1:-dev}" in
     ;;
   *)
     echo "用法: $0 [all|db|dev|stop]"
-    echo "  all  - 启动所有服务 (含nginx/backend/admin)"
+    echo "  all  - 启动交付环境 (postgres + redis + backend + admin)"
     echo "  db   - 只启动 postgres + redis"
-    echo "  dev  - 启动 postgres + redis + ollama (默认)"
+    echo "  dev  - 启动 postgres + redis + ollama + backend + admin (默认)"
     echo "  stop - 停止所有服务"
     exit 1
     ;;
