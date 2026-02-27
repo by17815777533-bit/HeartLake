@@ -1,7 +1,5 @@
 /**
- * @file Validator.h
- * @brief Validator 模块接口定义
- * Created by 林子怡
+ * Validator 模块接口定义
  */
 
 #pragma once
@@ -21,7 +19,7 @@ struct ValidationResult {
     std::string errorMessage;
     
     /**
-     * @brief valid方法
+     * valid方法
      * @return 返回值说明
      */
     static ValidationResult valid() {
@@ -29,7 +27,7 @@ struct ValidationResult {
     }
     
     /**
-     * @brief invalid方法
+     * invalid方法
      *
      * @param message 参数说明
      * @return 返回值说明
@@ -39,7 +37,7 @@ struct ValidationResult {
     }
     
     /**
-     * @brief bool方法
+     * bool方法
      * @return 返回值说明
      */
     operator bool() const { return isValid; }
@@ -50,7 +48,7 @@ struct ValidationResult {
  * 减少控制器中重复的验证代码
  */
 /**
- * @brief 验证器，用于数据验证
+ * 验证器，用于数据验证
  *
  * 详细说明
  *
@@ -186,7 +184,7 @@ public:
  * 常用验证规则
  */
 /**
- * @brief ValidationRules类
+ * ValidationRules类
  *
  * 详细说明
  *
@@ -195,7 +193,7 @@ public:
 class ValidationRules {
 public:
     /**
-     * @brief content方法
+     * content方法
      *
      * @param value 参数说明
      * @return 返回值说明
@@ -203,7 +201,7 @@ public:
     static ValidationResult content(const std::string& value);
     
     /**
-     * @brief nickname方法
+     * nickname方法
      *
      * @param value 参数说明
      * @return 返回值说明
@@ -211,7 +209,7 @@ public:
     static ValidationResult nickname(const std::string& value);
     
     /**
-     * @brief tags方法
+     * tags方法
      *
      * @param tags 参数说明
      * @return 返回值说明
@@ -219,7 +217,7 @@ public:
     static ValidationResult tags(const Json::Value& tags);
     
     /**
-     * @brief mediaIds方法
+     * mediaIds方法
      *
      * @param mediaIds 参数说明
      * @return 返回值说明

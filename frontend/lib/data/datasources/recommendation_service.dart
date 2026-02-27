@@ -1,5 +1,4 @@
-// @file recommendation_service.dart
-// @brief 推荐服务 - 封装热门/搜索/情绪发现等推荐API
+// 推荐服务 - 封装热门/搜索/情绪发现等推荐API
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

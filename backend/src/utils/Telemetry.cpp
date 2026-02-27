@@ -1,6 +1,5 @@
 /**
- * @file Telemetry.cpp
- * @brief OpenTelemetry可观测性模块实现
+ * OpenTelemetry可观测性模块实现
  */
 
 #include "utils/Telemetry.h"

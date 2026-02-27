@@ -1,7 +1,5 @@
 /**
- * @file EmotionManager.h
- * @brief EmotionManager 模块接口定义
- * Created by 王璐瑶
+ * EmotionManager 模块接口定义
  */
 
 #pragma once
@@ -44,7 +42,7 @@ struct EmotionConfig {
  * 消除前后端重复逻辑
  */
 /**
- * @brief 情绪管理器
+ * 情绪管理器
  *
  * 详细说明
  *
@@ -105,7 +103,7 @@ private:
     std::map<std::string, EmotionConfig> emotionConfigs_;
 
     /**
-     * @brief initializeConfigs方法
+     * initializeConfigs方法
      */
     void initializeConfigs();
 };

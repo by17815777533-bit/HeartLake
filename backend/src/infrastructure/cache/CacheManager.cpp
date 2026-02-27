@@ -1,6 +1,5 @@
 /**
- * @file CacheManager.cpp
- * @brief 缓存管理器实现
+ * 缓存管理器实现
  */
 
 #include "infrastructure/cache/CacheManager.h"

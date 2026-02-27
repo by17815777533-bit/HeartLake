@@ -14,6 +14,10 @@
     } catch (_) {}
   }
 
+  // Avoid hard-failing when CanvasKit cannot initialize on some browsers/GPUs.
+  if (_flutter && _flutter.buildConfig) {
+    _flutter.buildConfig.renderer = "auto";
+  }
+
   _flutter.loader.load();
 })();
-

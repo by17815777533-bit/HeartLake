@@ -1,6 +1,5 @@
 /**
- * @file AccountController.cpp
- * @brief 账号管理控制器实现
+ * 账号管理控制器实现
  * @author 白洋
  * @date 2025-02-08
  */

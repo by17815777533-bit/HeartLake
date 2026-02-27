@@ -1,6 +1,5 @@
 /**
- * @file EmotionTrackingService.h
- * @brief 负重者监测系统 - 追踪用户72小时情绪状态
+ * 负重者监测系统 - 追踪用户72小时情绪状态
  */
 
 #pragma once

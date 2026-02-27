@@ -1,7 +1,5 @@
 <!--
-  @file StatsCards.vue
-  @brief 统计卡片区域 - 用户数/投石数/在线人数/待处理举报
-  Created by 林子怡
+  统计卡片区域 - 用户数/投石数/在线人数/待处理举报
 -->
 
 <template>

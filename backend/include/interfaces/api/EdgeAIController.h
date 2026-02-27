@@ -1,6 +1,5 @@
 /**
- * @file EdgeAIController.h
- * @brief 边缘AI控制器 — 提供本地AI推理、联邦学习、差分隐私与向量检索的HTTP接口
+ * 边缘AI控制器 — 提供本地AI推理、联邦学习、差分隐私与向量检索的HTTP接口
  *
  * 本控制器整合了 HeartLake 后端的多个AI基础设施组件，
  * 将本地情感分析、内容审核、语义缓存、差分隐私引擎、
@@ -19,7 +18,6 @@
  * }
  * @endcode
  *
- * Created by 白洋
  */
 #pragma once
 
@@ -37,7 +35,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 边缘AI HTTP控制器
+ * 边缘AI HTTP控制器
  *
  * 提供10个API端点，覆盖边缘AI引擎状态查询、本地推理、
  * 联邦学习聚合、差分隐私预算管理、向量检索以及管理员配置。
@@ -49,7 +47,7 @@ public:
     // ==================== 公开接口 ====================
 
     /**
-     * @brief 获取边缘AI引擎运行状态
+     * 获取边缘AI引擎运行状态
      * @route GET /api/edge-ai/status
      *
      * 返回各子系统（本地嵌入、语义缓存、差分隐私引擎、情绪共鸣引擎）
@@ -60,7 +58,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 获取边缘AI详细性能指标
+     * 获取边缘AI详细性能指标
      * @route GET /api/edge-ai/metrics
      *
      * 返回语义缓存命中率、本地嵌入吞吐量、推理延迟分位数、
@@ -71,7 +69,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 本地情感分析（不调用云端API）
+     * 本地情感分析（不调用云端API）
      * @route POST /api/edge-ai/analyze
      *
      * 请求体：
@@ -87,7 +85,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 本地内容审核（不调用云端API）
+     * 本地内容审核（不调用云端API）
      * @route POST /api/edge-ai/moderate
      *
      * 请求体：
@@ -103,7 +101,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 社区实时情绪脉搏数据
+     * 社区实时情绪脉搏数据
      * @route GET /api/edge-ai/emotion-pulse
      *
      * 查询参数：
@@ -118,7 +116,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 触发联邦学习聚合
+     * 触发联邦学习聚合
      * @route POST /api/edge-ai/federated/aggregate
      *
      * 请求体：
@@ -136,7 +134,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 查询差分隐私预算状态
+     * 查询差分隐私预算状态
      * @route GET /api/edge-ai/privacy-budget
      *
      * 返回当前已消耗的隐私预算 ε、剩余预算、查询次数、
@@ -147,7 +145,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 本地向量相似度搜索
+     * 本地向量相似度搜索
      * @route POST /api/edge-ai/vector-search
      *
      * 请求体：
@@ -165,7 +163,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 向量插入（用于填充HNSW索引）
+     * 向量插入（用于填充HNSW索引）
      * @route POST /api/edge-ai/vector-insert
      * @code
      * {
@@ -179,7 +177,7 @@ public:
                   "heartlake::filters::SecurityAuditFilter");
 
     /**
-     * @brief 提交情绪样本（用于社区情绪脉搏）
+     * 提交情绪样本（用于社区情绪脉搏）
      * @route POST /api/edge-ai/emotion-sample
      * @code
      * {
@@ -195,7 +193,7 @@ public:
     // ==================== 管理接口（需要 PASETO 令牌） ====================
 
     /**
-     * @brief 管理后台查询引擎状态
+     * 管理后台查询引擎状态
      * @route GET /api/admin/edge-ai/status
      */
     ADD_METHOD_TO(EdgeAIController::getStatus,
@@ -203,7 +201,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台查询性能指标
+     * 管理后台查询性能指标
      * @route GET /api/admin/edge-ai/metrics
      */
     ADD_METHOD_TO(EdgeAIController::getMetrics,
@@ -211,7 +209,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台本地情感分析
+     * 管理后台本地情感分析
      * @route POST /api/admin/edge-ai/analyze
      */
     ADD_METHOD_TO(EdgeAIController::analyzeLocal,
@@ -219,7 +217,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台本地内容审核
+     * 管理后台本地内容审核
      * @route POST /api/admin/edge-ai/moderate
      */
     ADD_METHOD_TO(EdgeAIController::moderateLocal,
@@ -227,7 +225,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台社区情绪脉搏
+     * 管理后台社区情绪脉搏
      * @route GET /api/admin/edge-ai/emotion-pulse
      */
     ADD_METHOD_TO(EdgeAIController::getEmotionPulse,
@@ -235,7 +233,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台触发联邦学习聚合
+     * 管理后台触发联邦学习聚合
      * @route POST /api/admin/edge-ai/federated/aggregate
      */
     ADD_METHOD_TO(EdgeAIController::federatedAggregate,
@@ -243,7 +241,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台查询隐私预算
+     * 管理后台查询隐私预算
      * @route GET /api/admin/edge-ai/privacy-budget
      */
     ADD_METHOD_TO(EdgeAIController::getPrivacyBudget,
@@ -251,7 +249,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 管理后台向量检索
+     * 管理后台向量检索
      * @route POST /api/admin/edge-ai/vector-search
      */
     ADD_METHOD_TO(EdgeAIController::vectorSearch,
@@ -267,7 +265,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 情绪脉搏历史
+     * 情绪脉搏历史
      * @route GET /api/admin/edge-ai/pulse-history?count=10
      */
     ADD_METHOD_TO(EdgeAIController::getPulseHistory,
@@ -275,7 +273,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 提交联邦学习本地模型
+     * 提交联邦学习本地模型
      * @route POST /api/admin/edge-ai/federated/submit
      */
     ADD_METHOD_TO(EdgeAIController::submitLocalModel,
@@ -283,7 +281,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 重置差分隐私预算
+     * 重置差分隐私预算
      * @route POST /api/admin/edge-ai/privacy/reset
      */
     ADD_METHOD_TO(EdgeAIController::resetPrivacyBudget,
@@ -291,7 +289,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 注册边缘节点
+     * 注册边缘节点
      * @route POST /api/admin/edge-ai/nodes/register
      */
     ADD_METHOD_TO(EdgeAIController::registerNode,
@@ -299,7 +297,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 更新边缘节点状态
+     * 更新边缘节点状态
      * @route PUT /api/admin/edge-ai/nodes/status
      */
     ADD_METHOD_TO(EdgeAIController::updateNodeStatus,
@@ -307,7 +305,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 选择最优边缘节点
+     * 选择最优边缘节点
      * @route GET /api/admin/edge-ai/nodes/best
      */
     ADD_METHOD_TO(EdgeAIController::selectBestNode,
@@ -315,7 +313,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 量化推理
+     * 量化推理
      * @route POST /api/admin/edge-ai/quantized-forward
      */
     ADD_METHOD_TO(EdgeAIController::quantizedForward,
@@ -323,7 +321,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 差分隐私噪声注入
+     * 差分隐私噪声注入
      * @route POST /api/admin/edge-ai/privacy/add-noise
      */
     ADD_METHOD_TO(EdgeAIController::addNoise,
@@ -331,7 +329,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 获取边缘AI配置（管理员）
+     * 获取边缘AI配置（管理员）
      * @route GET /api/admin/edge-ai/config
      *
      * 返回当前边缘AI引擎的完整配置，包括模型路径、
@@ -343,7 +341,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 更新边缘AI配置（管理员）
+     * 更新边缘AI配置（管理员）
      * @route PUT /api/admin/edge-ai/config
      *
      * 请求体：
@@ -379,7 +377,7 @@ public:
                   "heartlake::filters::AdminAuthFilter");
 
     /**
-     * @brief 生成文本摘要
+     * 生成文本摘要
      * @route POST /api/edge-ai/summary
      */
     ADD_METHOD_TO(EdgeAIController::generateSummary,
@@ -399,7 +397,7 @@ public:
     // ==================== 公开接口处理函数 ====================
 
     /**
-     * @brief 获取边缘AI引擎运行状态
+     * 获取边缘AI引擎运行状态
      * @param req HTTP请求
      * @param callback 响应回调
      */
@@ -407,7 +405,7 @@ public:
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 获取边缘AI详细性能指标
+     * 获取边缘AI详细性能指标
      * @param req HTTP请求
      * @param callback 响应回调
      */
@@ -415,7 +413,7 @@ public:
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 本地情感分析
+     * 本地情感分析
      * @param req HTTP请求，body 需包含 "text" 字段
      * @param callback 响应回调
      */
@@ -423,7 +421,7 @@ public:
                       std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 本地内容审核
+     * 本地内容审核
      * @param req HTTP请求，body 需包含 "text" 字段
      * @param callback 响应回调
      */
@@ -431,7 +429,7 @@ public:
                        std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 获取社区实时情绪脉搏
+     * 获取社区实时情绪脉搏
      * @param req HTTP请求
      * @param callback 响应回调
      */
@@ -439,7 +437,7 @@ public:
                          std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 触发联邦学习聚合
+     * 触发联邦学习聚合
      * @param req HTTP请求，body 需包含 "round" 字段
      * @param callback 响应回调
      */
@@ -447,7 +445,7 @@ public:
                             std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 查询差分隐私预算状态
+     * 查询差分隐私预算状态
      * @param req HTTP请求
      * @param callback 响应回调
      */
@@ -455,7 +453,7 @@ public:
                           std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 本地向量相似度搜索
+     * 本地向量相似度搜索
      * @param req HTTP请求，body 需包含 "query" 字段
      * @param callback 响应回调
      */
@@ -504,7 +502,7 @@ public:
     // ==================== 管理接口处理函数 ====================
 
     /**
-     * @brief 获取边缘AI配置（管理员）
+     * 获取边缘AI配置（管理员）
      * @param req HTTP请求（需携带 PASETO 令牌）
      * @param callback 响应回调
      */
@@ -512,7 +510,7 @@ public:
                         std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 更新边缘AI配置（管理员）
+     * 更新边缘AI配置（管理员）
      * @param req HTTP请求（需携带 PASETO 令牌），body 为配置 JSON
      * @param callback 响应回调
      */
@@ -523,25 +521,25 @@ private:
     // ==================== 内部辅助方法 ====================
 
     /**
-     * @brief 收集各子系统健康状态
+     * 收集各子系统健康状态
      * @return 包含各子系统状态的 JSON 对象
      */
     Json::Value collectSubsystemHealth();
 
     /**
-     * @brief 收集语义缓存指标
+     * 收集语义缓存指标
      * @return 缓存命中率、大小等指标
      */
     Json::Value collectCacheMetrics();
 
     /**
-     * @brief 收集本地嵌入服务指标
+     * 收集本地嵌入服务指标
      * @return 嵌入服务吞吐量、延迟等指标
      */
     Json::Value collectEmbeddingMetrics();
 
     /**
-     * @brief 验证并解析 JSON 请求体
+     * 验证并解析 JSON 请求体
      * @param req HTTP请求
      * @param[out] body 解析后的 JSON 对象
      * @param requiredFields 必需字段列表
@@ -552,7 +550,7 @@ private:
                           const std::vector<std::string> &requiredFields);
 
     /**
-     * @brief 验证差分隐私 epsilon 参数范围
+     * 验证差分隐私 epsilon 参数范围
      * @param epsilon 待验证的 epsilon 值
      * @param minVal 最小允许值（默认0.01）
      * @param maxVal 最大允许值（默认10.0）
@@ -561,7 +559,7 @@ private:
     bool validateEpsilon(double epsilon, double minVal = 0.01, double maxVal = 10.0);
 
     /**
-     * @brief 构建联邦学习聚合结果
+     * 构建联邦学习聚合结果
      * @param round 聚合轮次
      * @param participantCount 参与节点数
      * @param epsilon 使用的隐私预算
@@ -574,7 +572,7 @@ private:
                                        double clippingBound);
 
     /**
-     * @brief 验证管理员配置 JSON 的合法性
+     * 验证管理员配置 JSON 的合法性
      * @param config 待验证的配置 JSON
      * @param[out] errorMsg 验证失败时的错误信息
      * @return 合法返回 true

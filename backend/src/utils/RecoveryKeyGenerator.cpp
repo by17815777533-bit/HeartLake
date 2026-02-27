@@ -1,6 +1,5 @@
 /**
- * @file RecoveryKeyGenerator.cpp
- * @brief 恢复关键词生成器实现
+ * 恢复关键词生成器实现
  *
  * 词库256个词，8词组合，使用 OpenSSL RAND_bytes (CSPRNG) 选词
  * 熵: log2(256^8) = 64 bit

@@ -1,7 +1,5 @@
 /**
- * @file SecurityAuditFilter.h
- * @brief 安全审计过滤器 - 全接口PASETO校验与敏感字段脱敏
- * Created by 白洋
+ * 安全审计过滤器 - 全接口PASETO校验与敏感字段脱敏
  */
 
 #pragma once
@@ -17,7 +15,7 @@ namespace heartlake {
 namespace filters {
 
 /**
- * @brief 安全审计过滤器
+ * 安全审计过滤器
  *
  * 功能：
  * 1. 全接口PASETO校验（白名单除外）
@@ -37,7 +35,7 @@ private:
 };
 
 /**
- * @brief 响应脱敏处理器
+ * 响应脱敏处理器
  * 用于在响应返回前自动脱敏敏感字段
  */
 class ResponseDesensitizer {

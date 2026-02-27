@@ -1,6 +1,5 @@
 /**
- * @file NotificationPushService.h
- * @brief 实时通知推送服务 - WebSocket推送
+ * 实时通知推送服务 - WebSocket推送
  * @author 白洋
  * @date 2025-02-08
  */
@@ -16,7 +15,7 @@ namespace heartlake {
 namespace services {
 
 /**
- * @brief 通知类型
+ * 通知类型
  */
 enum class NotificationType {
     RIPPLE_RECEIVED,      // 收到涟漪
@@ -30,7 +29,7 @@ enum class NotificationType {
 };
 
 /**
- * @brief 通知消息结构
+ * 通知消息结构
  */
 struct NotificationMessage {
     std::string notificationId;
@@ -57,7 +56,7 @@ struct NotificationMessage {
 };
 
 /**
- * @brief 通知推送服务
+ * 通知推送服务
  */
 class NotificationPushService {
 public:
@@ -67,26 +66,26 @@ public:
     }
 
     /**
-     * @brief 推送通知给指定用户
+     * 推送通知给指定用户
      */
     bool pushToUser(const std::string& userId, const NotificationMessage& notification);
 
     /**
-     * @brief 推送好友请求通知
+     * 推送好友请求通知
      */
     void pushFriendRequestNotification(const std::string& receiverId,
                                        const std::string& requesterId,
                                        const std::string& requesterNickname);
 
     /**
-     * @brief 推送系统通知
+     * 推送系统通知
      */
     void pushSystemNotice(const std::string& userId,
                          const std::string& title,
                          const std::string& content);
 
     /**
-     * @brief 批量推送通知
+     * 批量推送通知
      */
     void pushToMultipleUsers(const std::vector<std::string>& userIds,
                             const NotificationMessage& notification);

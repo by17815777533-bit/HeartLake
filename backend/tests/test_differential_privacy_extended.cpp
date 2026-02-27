@@ -1,6 +1,5 @@
 /**
- * @file test_differential_privacy_extended.cpp
- * @brief DifferentialPrivacyEngine 扩展测试
+ * DifferentialPrivacyEngine 扩展测试
  */
 
 #include <gtest/gtest.h>

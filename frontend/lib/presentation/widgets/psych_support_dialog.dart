@@ -1,6 +1,4 @@
-// @file psych_support_dialog.dart
-// @brief 心理支持弹窗 - 温暖关怀的心理援助入口
-// Created by frontend-artist
+// 心理支持弹窗 - 温暖关怀的心理援助入口
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';

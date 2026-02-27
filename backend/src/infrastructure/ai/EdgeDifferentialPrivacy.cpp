@@ -1,7 +1,5 @@
 /**
- * @file EdgeDifferentialPrivacy.cpp
- * @brief 边缘差分隐私引擎实现
- * Created by 白洋
+ * 边缘差分隐私引擎实现
  */
 #include "infrastructure/ai/EdgeDifferentialPrivacy.h"
 #include <drogon/drogon.h>

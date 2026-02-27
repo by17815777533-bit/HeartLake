@@ -1,7 +1,5 @@
 /**
- * @file FriendApplicationService.cpp
- * @brief FriendApplicationService 模块实现 - 异步化改造
- * Created by 白洋
+ * FriendApplicationService 模块实现 - 异步化改造
  */
 
 #include "application/FriendApplicationService.h"

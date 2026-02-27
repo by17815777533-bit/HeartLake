@@ -1,6 +1,5 @@
 /**
- * @file HNSWIndex.cpp
- * @brief HNSW 向量检索引擎实现
+ * HNSW 向量检索引擎实现
  *
  * 从 EdgeAIEngine 拆分的独立子系统。
  * 支持多层图结构、Ada-EF 自适应搜索、Matryoshka 融合 cosine 重排序。

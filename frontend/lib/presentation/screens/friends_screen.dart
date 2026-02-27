@@ -1,6 +1,4 @@
-// @file friends_screen.dart
-// @brief 好友列表界面
-// Created by 林子怡
+// 好友列表界面
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -85,8 +83,15 @@ class _FriendsScreenState extends State<FriendsScreen>
       final result = await _friendService.getFriends();
 
       if (result['success'] && mounted) {
+        final rawFriends = result['friends'];
+        final friends = rawFriends is List
+            ? rawFriends
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList()
+            : <Map<String, dynamic>>[];
         setState(() {
-          _friends = result['friends'] ?? [];
+          _friends = friends;
           _isLoading = false;
         });
         _listAnimController.forward();

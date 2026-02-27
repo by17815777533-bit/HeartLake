@@ -1,6 +1,4 @@
-// @file service_locator.dart
-// @brief 依赖注入容器 - 基于 get_it 统一管理 Service 实例
-// Created by 林子怡
+// 依赖注入容器 - 基于 get_it 统一管理 Service 实例
 
 import 'package:get_it/get_it.dart';
 import '../data/datasources/auth_service.dart';

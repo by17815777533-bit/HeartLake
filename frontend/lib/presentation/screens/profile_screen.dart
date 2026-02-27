@@ -1,6 +1,4 @@
-// @file profile_screen.dart
-// @brief 个人资料界面
-// Created by 林子怡
+// 个人资料界面
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

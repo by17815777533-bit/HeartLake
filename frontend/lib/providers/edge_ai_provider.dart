@@ -1,5 +1,4 @@
-// @file edge_ai_provider.dart
-// @brief EdgeAI Provider - 管理本地AI推理状态
+// EdgeAI Provider - 管理本地AI推理状态
 
 import 'package:flutter/foundation.dart';
 import '../edge_ai/emotion_classifier.dart';

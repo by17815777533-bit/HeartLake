@@ -1,6 +1,5 @@
 /**
- * @file useDashboardData.test.ts
- * @brief useDashboardData composable 测试
+ * useDashboardData composable 测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

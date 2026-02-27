@@ -1,8 +1,6 @@
 /**
- * @file test_account_controller.cpp
- * @brief AccountController 单元测试
+ * AccountController 单元测试
  * 覆盖账号信息、头像更新、资料编辑、设备管理、隐私设置、屏蔽用户、数据导出等接口
- * Created by 白洋
  */
 
 #include <gtest/gtest.h>

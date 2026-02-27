@@ -1,13 +1,11 @@
 /**
- * @file E2EEncryption.h
- * @brief 端到端加密模块 - X25519 + HKDF + AES-256-GCM
+ * 端到端加密模块 - X25519 + HKDF + AES-256-GCM
  *
  * 提供 IND-CCA2 安全性，通过临时密钥对实现前向保密。
  * 密钥交换: X25519 ECDH
  * 密钥派生: HKDF-SHA256
  * 认证加密: AES-256-GCM
  *
- * Created by 白洋
  */
 
 #pragma once
@@ -22,7 +20,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * @brief 加密消息结构
+ * 加密消息结构
  */
 struct EncryptedMessage {
     std::string ciphertext;  // Base64编码的密文
@@ -31,7 +29,7 @@ struct EncryptedMessage {
 };
 
 /**
- * @brief X25519 密钥对
+ * X25519 密钥对
  */
 struct X25519KeyPair {
     std::string publicKey;   // Base64编码的公钥 (32 bytes)
@@ -39,7 +37,7 @@ struct X25519KeyPair {
 };
 
 /**
- * @brief E2E加密工具类
+ * E2E加密工具类
  * 使用 X25519 密钥交换 + HKDF-SHA256 密钥派生 + AES-256-GCM 认证加密
  */
 class E2EEncryption {

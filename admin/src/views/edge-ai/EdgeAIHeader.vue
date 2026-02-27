@@ -1,7 +1,5 @@
 <!--
-  @file EdgeAIHeader.vue
-  @brief 页面头部 + 技术标签 + 状态卡片
-  Created by 林子怡
+  页面头部 + 技术标签 + 状态卡片
 -->
 
 <template>

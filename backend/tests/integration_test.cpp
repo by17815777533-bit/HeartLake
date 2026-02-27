@@ -1,6 +1,5 @@
 /**
- * @file integration_test.cpp
- * @brief 全面集成测试 - 暖心语录、湖神AI、E2EE加密、熔断器
+ * 全面集成测试 - 暖心语录、湖神AI、E2EE加密、熔断器
  */
 
 #include <gtest/gtest.h>

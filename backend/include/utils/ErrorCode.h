@@ -1,7 +1,5 @@
 /**
- * @file ErrorCode.h
- * @brief ErrorCode 模块接口定义
- * Created by 林子怡
+ * ErrorCode 模块接口定义
  */
 
 #pragma once
@@ -72,7 +70,7 @@ enum class ErrorCode {
 enum class Language { ZH, EN };
 
 /**
- * @brief ErrorCodeHelper类 - 错误码辅助工具
+ * ErrorCodeHelper类 - 错误码辅助工具
  */
 class ErrorCodeHelper {
 public:

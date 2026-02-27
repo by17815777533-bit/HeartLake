@@ -1,7 +1,5 @@
 <!--
-  @file Settings.vue
-  @brief Settings 组件
-  Created by 林子怡
+  Settings 组件
 -->
 
 <template>

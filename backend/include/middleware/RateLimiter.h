@@ -1,7 +1,5 @@
 /**
- * @file RateLimiter.h
- * @brief RateLimiter 模块接口定义
- * Created by 白洋
+ * RateLimiter 模块接口定义
  */
 
 
@@ -18,7 +16,7 @@ namespace heartlake {
 namespace middleware {
 
 /**
- * @brief 限流策略
+ * 限流策略
  */
 enum class RateLimitStrategy {
     TOKEN_BUCKET,      // 令牌桶
@@ -27,7 +25,7 @@ enum class RateLimitStrategy {
 };
 
 /**
- * @brief 限流级别
+ * 限流级别
  */
 enum class RateLimitLevel {
     USER,              // 用户级别
@@ -37,7 +35,7 @@ enum class RateLimitLevel {
 };
 
 /**
- * @brief 限流配置
+ * 限流配置
  */
 struct RateLimitConfig {
     RateLimitStrategy strategy = RateLimitStrategy::TOKEN_BUCKET;
@@ -49,7 +47,7 @@ struct RateLimitConfig {
 };
 
 /**
- * @brief 限流结果
+ * 限流结果
  */
 struct RateLimitResult {
     bool allowed;              // 是否允许
@@ -60,19 +58,19 @@ struct RateLimitResult {
 };
 
 /**
- * @brief 分布式限流器
+ * 分布式限流器
  */
 class RateLimiter {
 public:
     static RateLimiter& getInstance();
 
     /**
-     * @brief 初始化限流器
+     * 初始化限流器
      */
     void initialize();
 
     /**
-     * @brief 检查是否允许请求
+     * 检查是否允许请求
      * @param key 限流键（用户ID、IP等）
      * @param level 限流级别
      * @param endpoint 接口路径（可选）
@@ -85,21 +83,21 @@ public:
     );
 
     /**
-     * @brief 设置限流配置
+     * 设置限流配置
      * @param level 限流级别
      * @param config 配置
      */
     void setConfig(RateLimitLevel level, const RateLimitConfig& config);
 
     /**
-     * @brief 设置接口特定的限流配置
+     * 设置接口特定的限流配置
      * @param endpoint 接口路径
      * @param config 配置
      */
     void setEndpointConfig(const std::string& endpoint, const RateLimitConfig& config);
 
     /**
-     * @brief 获取限流统计
+     * 获取限流统计
      * @param key 限流键
      * @return 统计信息
      */
@@ -113,7 +111,7 @@ public:
     RateLimitStats getStats(const std::string& key);
 
     /**
-     * @brief 重置限流计数
+     * 重置限流计数
      * @param key 限流键
      */
     void reset(const std::string& key);
@@ -162,12 +160,12 @@ private:
 };
 
 /**
- * @brief 限流过滤器（Drogon Filter）
+ * 限流过滤器（Drogon Filter）
  */
 class RateLimitFilter {
 public:
     /**
-     * @brief 应用限流检查
+     * 应用限流检查
      * @param req HTTP请求
      * @param callback 回调函数
      * @param level 限流级别
@@ -179,7 +177,7 @@ public:
     );
 
     /**
-     * @brief 从请求中提取限流键
+     * 从请求中提取限流键
      * @param req HTTP请求
      * @param level 限流级别
      * @return 限流键
@@ -190,7 +188,7 @@ public:
     );
 
     /**
-     * @brief 创建限流响应
+     * 创建限流响应
      * @param result 限流结果
      * @return HTTP响应
      */

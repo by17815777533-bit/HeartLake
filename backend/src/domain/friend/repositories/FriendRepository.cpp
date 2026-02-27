@@ -1,6 +1,5 @@
 /**
- * @file FriendRepository.cpp
- * @brief 好友仓储实现 - 异步化改造
+ * 好友仓储实现 - 异步化改造
  */
 
 #include "domain/friend/repositories/FriendRepository.h"

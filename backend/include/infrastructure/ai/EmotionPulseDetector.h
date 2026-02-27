@@ -1,11 +1,9 @@
 /**
- * @file EmotionPulseDetector.h
- * @brief 实时情绪脉搏检测子系统
+ * 实时情绪脉搏检测子系统
  *
  * 从 EdgeAIEngine 提取的独立模块。基于滑动窗口统计，
  * 支持时间衰减加权、EWMA趋势分析、鲁棒抗噪（中位数+MAD离群点检测）。
  *
- * Created by 王璐瑶
  */
 
 #pragma once
@@ -28,7 +26,7 @@ namespace ai {
 // ============================================================================
 
 /**
- * @brief 情绪脉搏快照
+ * 情绪脉搏快照
  */
 struct EmotionPulse {
     std::chrono::steady_clock::time_point timestamp;
@@ -60,7 +58,7 @@ struct EmotionPulse {
 // ============================================================================
 
 /**
- * @brief 实时情绪脉搏检测器
+ * 实时情绪脉搏检测器
  *
  * 线程安全。通过滑动窗口收集情绪样本，计算加权统计指标，
  * 每积累一定样本数自动生成脉搏快照。
@@ -74,14 +72,14 @@ struct EmotionPulse {
 class EmotionPulseDetector {
 public:
     /**
-     * @brief 配置检测器参数
+     * 配置检测器参数
      * @param windowSeconds 滑动窗口大小（秒）
      * @param maxHistory 最大脉搏历史数
      */
     void configure(int windowSeconds, int maxHistory);
 
     /**
-     * @brief 提交情绪样本
+     * 提交情绪样本
      * @param score 情感分数 [-1.0, 1.0]
      * @param mood 情绪类型
      * @param confidence 置信度 [0.0, 1.0]
@@ -89,20 +87,20 @@ public:
     void submitEmotionSample(float score, const std::string& mood, float confidence = 1.0f);
 
     /**
-     * @brief 获取当前情绪脉搏快照
+     * 获取当前情绪脉搏快照
      * @return 当前窗口的情绪统计
      */
     EmotionPulse getCurrentPulse();
 
     /**
-     * @brief 获取情绪脉搏历史（最近N个快照）
+     * 获取情绪脉搏历史（最近N个快照）
      * @param count 快照数量
      * @return 历史脉搏列表
      */
     std::vector<EmotionPulse> getPulseHistory(int count = 10);
 
     /**
-     * @brief 清空所有数据
+     * 清空所有数据
      */
     void clear();
 

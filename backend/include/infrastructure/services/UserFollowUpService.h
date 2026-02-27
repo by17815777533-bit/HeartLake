@@ -1,6 +1,5 @@
 /**
- * @file UserFollowUpService.h
- * @brief 用户回访与持续关怀系统
+ * 用户回访与持续关怀系统
  */
 
 #pragma once

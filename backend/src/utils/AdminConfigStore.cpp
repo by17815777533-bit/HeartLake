@@ -1,7 +1,5 @@
 /**
- * @file AdminConfigStore.cpp
- * @brief AdminConfigStore 模块实现
- * Created by 林子怡
+ * AdminConfigStore 模块实现
  */
 #include "utils/AdminConfigStore.h"
 #include <fstream>

@@ -1,11 +1,9 @@
 /**
- * @file E2EEncryption.cpp
- * @brief 端到端加密模块实现
+ * 端到端加密模块实现
  *
  * X25519 密钥交换 + HKDF-SHA256 密钥派生 + AES-256-GCM 认证加密
  * 提供 IND-CCA2 安全性，通过临时密钥对实现前向保密。
  *
- * Created by 白洋
  */
 
 #include "utils/E2EEncryption.h"

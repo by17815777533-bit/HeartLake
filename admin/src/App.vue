@@ -1,7 +1,5 @@
 <!--
-  @file App.vue
-  @brief App 组件
-  Created by 林子怡
+  App 组件
 -->
 
 <template>

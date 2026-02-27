@@ -1,7 +1,5 @@
 <!--
-  @file Users.vue
-  @brief Users 组件
-  Created by 林子怡
+  Users 组件
 -->
 
 <template>

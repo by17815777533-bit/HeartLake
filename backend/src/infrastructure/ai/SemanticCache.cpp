@@ -1,6 +1,5 @@
 /**
- * @file SemanticCache.cpp
- * @brief 语义缓存实现
+ * 语义缓存实现
  *
  * L2 语义搜索已从 O(n) 线性扫描升级为 HNSW ANN 检索。
  * 插入缓存时同步插入 HNSW 索引，查询时用 HNSW 做近似最近邻检索，

@@ -1,7 +1,5 @@
 <!--
-  @file ChartsSection.vue
-  @brief 图表区域 - 用户增长趋势 + 情绪分布 + 情绪趋势 + 热门话题 + 活跃时段
-  Created by 林子怡
+  图表区域 - 用户增长趋势 + 情绪分布 + 情绪趋势 + 热门话题 + 活跃时段
 -->
 
 <template>

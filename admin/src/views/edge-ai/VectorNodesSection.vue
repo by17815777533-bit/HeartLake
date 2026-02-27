@@ -1,7 +1,5 @@
 <!--
-  @file VectorNodesSection.vue
-  @brief 向量搜索测试 + 边缘节点列表
-  Created by 林子怡
+  向量搜索测试 + 边缘节点列表
 -->
 
 <template>

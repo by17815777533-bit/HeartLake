@@ -1,6 +1,5 @@
 /**
- * @file test_admin_config_store.cpp
- * @brief AdminConfigStore 单元测试 - 配置读写、默认值、并发安全
+ * AdminConfigStore 单元测试 - 配置读写、默认值、并发安全
  */
 
 #include <gtest/gtest.h>

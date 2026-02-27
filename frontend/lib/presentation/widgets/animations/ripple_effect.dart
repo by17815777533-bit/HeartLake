@@ -1,6 +1,4 @@
-// @file ripple_effect.dart
-// @brief 涟漪效果动画组件
-// Created by 吴睿璐
+// 涟漪效果动画组件
 
 library;
 

@@ -1,7 +1,5 @@
 /**
- * @file main.cpp
- * @brief main 模块实现
- * Created by 白洋
+ * main 模块实现
  */
 #include <drogon/drogon.h>
 #include "utils/PasetoUtil.h"

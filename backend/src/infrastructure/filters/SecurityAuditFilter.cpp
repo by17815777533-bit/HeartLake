@@ -1,6 +1,5 @@
 /**
- * @file SecurityAuditFilter.cpp
- * @brief SecurityAuditFilter 实现
+ * SecurityAuditFilter 实现
  */
 
 #include "infrastructure/filters/SecurityAuditFilter.h"

@@ -1,6 +1,5 @@
 /**
- * @file safe_harbor_service_test.cpp
- * @brief SafeHarborService 单元测试
+ * SafeHarborService 单元测试
  */
 
 #include <gtest/gtest.h>

@@ -1,6 +1,4 @@
-// @file user.dart
-// @brief 用户数据模型
-// Created by 王璐瑶
+// 用户数据模型
 
 class User {
   final String userId;

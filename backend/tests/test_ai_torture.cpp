@@ -1,6 +1,5 @@
 /**
- * @file test_ai_torture.cpp
- * @brief AI引擎8大子系统极限压力测试
+ * AI引擎8大子系统极限压力测试
  */
 
 #include <gtest/gtest.h>

@@ -1,6 +1,5 @@
 /**
- * @file websocket.js
- * @brief WebSocket 服务 - 安全认证 + 心跳保活 + 消息类型白名单
+ * WebSocket 服务 - 安全认证 + 心跳保活 + 消息类型白名单
  */
 
 import { useAppStore } from '@/stores'

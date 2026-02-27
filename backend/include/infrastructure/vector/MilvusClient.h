@@ -1,6 +1,5 @@
 /**
- * @file MilvusClient.h
- * @brief Milvus向量数据库客户端
+ * Milvus向量数据库客户端
  */
 
 #pragma once
@@ -39,7 +38,7 @@ public:
     void initialize(const MilvusConfig& config = MilvusConfig{});
 
     /**
-     * @brief 主动探测 Milvus 健康状态并刷新连接标记
+     * 主动探测 Milvus 健康状态并刷新连接标记
      * @return true=可用，false=不可用
      */
     bool ping();

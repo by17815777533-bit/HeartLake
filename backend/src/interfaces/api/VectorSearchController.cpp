@@ -1,7 +1,5 @@
 /**
- * @file VectorSearchController.cpp
- * @brief VectorSearchController 模块实现
- * Created by 白洋
+ * VectorSearchController 模块实现
  */
 #include "interfaces/api/VectorSearchController.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"

@@ -1,5 +1,4 @@
-// @file consultation_screen.dart
-// @brief 心理咨询预约和会话页面 - 支持E2E加密
+// 心理咨询预约和会话页面 - 支持E2E加密
 import 'package:flutter/material.dart';
 import '../../data/datasources/consultation_service.dart';
 import '../../di/service_locator.dart';

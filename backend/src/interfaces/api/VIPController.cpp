@@ -1,7 +1,5 @@
 /**
- * @file VIPController.cpp
- * @brief VIP控制器实现
- * Created by 白洋
+ * VIP控制器实现
  */
 
 #include "interfaces/api/VIPController.h"

@@ -1,6 +1,5 @@
 /**
- * @file MilvusClient.cpp
- * @brief Milvus向量数据库客户端实现
+ * Milvus向量数据库客户端实现
  */
 
 #include "infrastructure/vector/MilvusClient.h"

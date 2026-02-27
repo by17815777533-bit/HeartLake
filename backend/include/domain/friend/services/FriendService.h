@@ -1,6 +1,5 @@
 /**
- * @file FriendService.h
- * @brief 好友领域服务 - 异步化改造
+ * 好友领域服务 - 异步化改造
  */
 
 #pragma once

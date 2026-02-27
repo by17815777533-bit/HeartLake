@@ -1,6 +1,5 @@
 /**
- * @file EdgeNodeMonitor.h
- * @brief 边缘节点健康监控与自适应负载均衡
+ * 边缘节点健康监控与自适应负载均衡
  *
  * 从 EdgeAIEngine 提取的独立子系统，负责：
  * - 边缘节点注册与心跳管理
@@ -24,7 +23,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief 熔断器状态枚举 (经典三状态模式)
+ * 熔断器状态枚举 (经典三状态模式)
  *
  * CLOSED  -> 正常状态，请求正常通过，失败率超阈值时转 OPEN
  * OPEN    -> 熔断状态，拒绝请求，冷却时间后转 HALF_OPEN
@@ -37,7 +36,7 @@ enum class CircuitState {
 };
 
 /**
- * @brief 边缘节点状态
+ * 边缘节点状态
  */
 struct EdgeNodeStatus {
     std::string nodeId;                                ///< 节点标识
@@ -82,7 +81,7 @@ struct EdgeNodeStatus {
 };
 
 /**
- * @brief 边缘节点健康监控器
+ * 边缘节点健康监控器
  *
  * 线程安全。提供节点注册、心跳更新、健康评分、熔断器状态机、
  * 自适应最优节点选择等完整的边缘节点管理能力。
@@ -90,19 +89,19 @@ struct EdgeNodeStatus {
 class EdgeNodeMonitor {
 public:
     /**
-     * @brief 注册边缘节点
+     * 注册边缘节点
      * @param nodeId 节点标识
      */
     void registerNode(const std::string& nodeId);
 
     /**
-     * @brief 更新节点状态（心跳）
+     * 更新节点状态（心跳）
      * @param status 节点状态
      */
     void updateNodeStatus(const EdgeNodeStatus& status);
 
     /**
-     * @brief 选择最优节点（自适应负载均衡）
+     * 选择最优节点（自适应负载均衡）
      *
      * 综合评分公式：
      * score = w1*(1-cpu) + w2*(1-mem) + w3*(1-latency/maxLatency) + w4*(1-failRate)
@@ -112,18 +111,18 @@ public:
     std::optional<std::string> selectBestNode();
 
     /**
-     * @brief 获取所有节点状态
+     * 获取所有节点状态
      * @return 节点状态列表（按健康分降序）
      */
     std::vector<EdgeNodeStatus> getAllNodeStatus() const;
 
     /**
-     * @brief 获取节点监控统计信息
+     * 获取节点监控统计信息
      * @return JSON格式统计
      */
     Json::Value getNodeMonitorStats() const;
 
-    /** @brief 清空所有节点注册信息 */
+    /** 清空所有节点注册信息 */
     void clear();
 
 private:
@@ -131,7 +130,7 @@ private:
     mutable std::shared_mutex nodeMutex_;
 
     /**
-     * @brief 计算节点综合健康分
+     * 计算节点综合健康分
      *
      * score = w1*(1-cpu) + w2*(1-mem) + w3*(1-latency/maxLatency) + w4*(1-failRate)
      * 心跳超时30秒后指数衰减惩罚

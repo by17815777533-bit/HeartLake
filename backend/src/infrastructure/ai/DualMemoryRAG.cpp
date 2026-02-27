@@ -1,6 +1,5 @@
 /**
- * @file DualMemoryRAG.cpp
- * @brief 双记忆RAG情感守护系统实现
+ * 双记忆RAG情感守护系统实现
  *
  * 基于SoulSpeak论文(arXiv, Dec 2024)的双记忆架构：
  * - 短期记忆：滑动窗口保留最近5次交互
@@ -22,6 +21,7 @@
 #include <iomanip>
 #include <vector>
 #include <cctype>
+#include <cstdlib>
 #include <memory>
 
 using heartlake::utils::safeRow;
@@ -204,6 +204,21 @@ bool isGenericTemplateReply(const std::string& text) {
         return true;
     }
     return false;
+}
+
+int ragResponseTimeoutSeconds() {
+    static int timeoutSec = []() {
+        int value = 3;  // 默认快速回退，避免前端长时间卡住
+        if (const char* raw = std::getenv("RAG_RESPONSE_TIMEOUT_SEC")) {
+            try {
+                value = std::stoi(raw);
+            } catch (...) {
+                value = 3;
+            }
+        }
+        return std::clamp(value, 1, 10);
+    }();
+    return timeoutSec;
 }
 
 std::string buildLocalCompanionReply(
@@ -684,13 +699,14 @@ std::string DualMemoryRAG::generateResponse(
         }
     );
 
-    // 等待回复，最多10秒
+    // 等待回复（默认3秒），超时快速回退到本地陪伴文案
     bool completed = false;
+    const int timeoutSec = ragResponseTimeoutSeconds();
     {
         std::unique_lock<std::mutex> lock(waitState->mutex);
         completed = waitState->cv.wait_for(
             lock,
-            std::chrono::seconds(10),
+            std::chrono::seconds(timeoutSec),
             [waitState]() { return waitState->done; }
         );
         if (completed) {
@@ -703,7 +719,8 @@ std::string DualMemoryRAG::generateResponse(
     }
 
     if (!completed) {
-        LOG_WARN << "DualMemoryRAG AI response timeout, fallback to local companion reply";
+        LOG_WARN << "DualMemoryRAG AI response timeout(" << timeoutSec
+                 << "s), fallback to local companion reply";
     }
 
     if (!aiError.empty()) {

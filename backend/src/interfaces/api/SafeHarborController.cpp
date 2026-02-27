@@ -1,6 +1,5 @@
 /**
- * @file SafeHarborController.cpp
- * @brief 安全港湾危机干预控制器实现 - 心湖最后一片社交净土的守护者
+ * 安全港湾危机干预控制器实现 - 心湖最后一片社交净土的守护者
  */
 
 #include "interfaces/api/SafeHarborController.h"

@@ -1,5 +1,4 @@
-// @file emotion_trend_point.dart
-// @brief 情绪趋势数据点模型
+// 情绪趋势数据点模型
 
 /// 情绪趋势数据点
 class EmotionTrendPoint {

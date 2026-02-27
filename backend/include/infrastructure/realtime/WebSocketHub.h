@@ -1,6 +1,5 @@
 /**
- * @file WebSocketHub.h
- * @brief WebSocket实时通信中心 - 房间管理、心跳检测、消息广播
+ * WebSocket实时通信中心 - 房间管理、心跳检测、消息广播
  */
 #pragma once
 

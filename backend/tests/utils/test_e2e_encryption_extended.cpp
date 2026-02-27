@@ -1,6 +1,5 @@
 /**
- * @file test_e2e_encryption_extended.cpp
- * @brief E2EEncryption 扩展单元测试 - X25519/ECDH/AES-256-GCM/HKDF
+ * E2EEncryption 扩展单元测试 - X25519/ECDH/AES-256-GCM/HKDF
  */
 
 #include <gtest/gtest.h>

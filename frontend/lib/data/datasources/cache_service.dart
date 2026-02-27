@@ -1,6 +1,4 @@
-// @file cache_service.dart
-// @brief 缓存服务 - 内存缓存管理
-// Created by 王璐瑶
+// 缓存服务 - 内存缓存管理
 
 library;
 

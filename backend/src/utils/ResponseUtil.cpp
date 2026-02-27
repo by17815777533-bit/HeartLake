@@ -1,6 +1,5 @@
 /**
- * @file ResponseUtil.cpp
- * @brief ResponseUtil 模块实现
+ * ResponseUtil 模块实现
  */
 
 #include "utils/ResponseUtil.h"

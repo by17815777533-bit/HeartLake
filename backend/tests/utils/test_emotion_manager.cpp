@@ -1,6 +1,5 @@
 /**
- * @file test_emotion_manager.cpp
- * @brief EmotionManager 单元测试 - 情绪分类、分数映射、关键词分析
+ * EmotionManager 单元测试 - 情绪分类、分数映射、关键词分析
  */
 
 #include <gtest/gtest.h>

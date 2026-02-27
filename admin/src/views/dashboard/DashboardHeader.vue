@@ -1,7 +1,5 @@
 <!--
-  @file DashboardHeader.vue
-  @brief Dashboard 页面头部 - 欢迎信息 + 操作按钮 + 技术标签
-  Created by 林子怡
+  Dashboard 页面头部 - 欢迎信息 + 操作按钮 + 技术标签
 -->
 
 <template>

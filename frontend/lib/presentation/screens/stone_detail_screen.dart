@@ -1,6 +1,4 @@
-// @file stone_detail_screen.dart
-// @brief 石头详情页
-// Created by 林子怡
+// 石头详情页
 
 library;
 

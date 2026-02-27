@@ -1,6 +1,5 @@
 /**
- * @file dashboard.test.ts
- * @brief Dashboard 相关 API 调用测试
+ * Dashboard 相关 API 调用测试
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import MockAdapter from 'axios-mock-adapter'

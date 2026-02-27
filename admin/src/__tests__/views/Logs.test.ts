@@ -1,6 +1,5 @@
 /**
- * @file views/Logs.test.ts
- * @brief Logs.vue 组件测试
+ * Logs.vue 组件测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'

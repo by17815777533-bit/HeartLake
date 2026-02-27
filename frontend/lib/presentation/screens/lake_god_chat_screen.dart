@@ -1,5 +1,4 @@
-// @file lake_god_chat_screen.dart
-// @brief 湖神聊天界面 - 温馨治愈风格的AI咨询，集成EdgeAI情感分析与内容审核
+// 湖神聊天界面 - 温馨治愈风格的AI咨询，集成EdgeAI情感分析与内容审核
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';

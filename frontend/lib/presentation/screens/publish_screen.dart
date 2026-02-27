@@ -1,9 +1,8 @@
-// @file publish_screen.dart
-// @brief 发布石头界面
-// Created by 林子怡
+// 发布石头界面
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../widgets/water_background.dart';
 import '../widgets/psych_support_dialog.dart';
 import '../widgets/ai_content_preview.dart';
@@ -41,6 +40,26 @@ class _PublishScreenState extends State<PublishScreen> {
   double _aiSuggestionConfidence = 0.0;
   bool _manualMoodLocked = false;
   int _analysisSeq = 0;
+
+  void _handlePreviewResultChanged(AIPreviewResult preview) {
+    final unchanged =
+        _previewResult.status == preview.status &&
+        _previewResult.message == preview.message;
+    if (unchanged) return;
+
+    void applyUpdate() {
+      if (!mounted) return;
+      setState(() => _previewResult = preview);
+    }
+
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      applyUpdate();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => applyUpdate());
+    }
+  }
 
   final Map<String, String> _stoneTypes = {
     'light': '轻石',
@@ -181,10 +200,7 @@ class _PublishScreenState extends State<PublishScreen> {
                           const SizedBox(height: 10),
                           AIContentPreview(
                             text: _contentController.text,
-                            onResultChanged: (preview) {
-                              if (!mounted) return;
-                              setState(() => _previewResult = preview);
-                            },
+                            onResultChanged: _handlePreviewResultChanged,
                           ),
                         ],
 

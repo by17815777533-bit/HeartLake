@@ -1,6 +1,5 @@
 /**
- * @file SummaryService.cpp
- * @brief AI智能摘要服务实现
+ * AI智能摘要服务实现
  */
 #include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/ai/AIService.h"

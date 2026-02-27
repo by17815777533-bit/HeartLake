@@ -1,6 +1,5 @@
 /**
- * @file FriendshipTTLEngine.cpp
- * @brief 石友关系TTL引擎实现
+ * 石友关系TTL引擎实现
  */
 
 #include "infrastructure/services/FriendshipTTLEngine.h"

@@ -1,6 +1,5 @@
 /**
- * @file SemanticCache.h
- * @brief 语义缓存 - 基于向量相似度的智能缓存（前沿技术）
+ * 语义缓存 - 基于向量相似度的智能缓存（前沿技术）
  *
  * 核心创新：不仅缓存精确匹配，还能通过语义相似度命中近似查询。
  * L2 语义搜索已从 O(n) 线性扫描升级为 HNSW ANN 检索（O(log n)），
@@ -57,7 +56,7 @@ public:
     }
 
     /**
-     * @brief 查询缓存（L1精确匹配 + L2 HNSW ANN语义匹配）
+     * 查询缓存（L1精确匹配 + L2 HNSW ANN语义匹配）
      * @return true if cache hit
      */
     bool get(const std::string& query, const std::vector<float>& queryEmbedding, std::string& response);

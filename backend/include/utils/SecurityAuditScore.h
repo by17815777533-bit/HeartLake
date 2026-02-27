@@ -1,7 +1,5 @@
 /**
- * @file SecurityAuditScore.h
- * @brief 安全审计评分系统 - 实时计算安全评分
- * Created by 白洋
+ * 安全审计评分系统 - 实时计算安全评分
  */
 
 #pragma once

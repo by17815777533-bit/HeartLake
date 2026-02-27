@@ -1,6 +1,5 @@
 /**
- * @file test_circuit_breaker_extended.cpp
- * @brief CircuitBreaker 扩展测试 - 并发、边界、超时精度、异常传播
+ * CircuitBreaker 扩展测试 - 并发、边界、超时精度、异常传播
  */
 
 #include <gtest/gtest.h>

@@ -1,7 +1,5 @@
 /**
- * @file RBACManager.cpp
- * @brief RBACManager 模块实现
- * Created by 林子怡
+ * RBACManager 模块实现
  */
 #include "utils/RBACManager.h"
 #include <drogon/drogon.h>

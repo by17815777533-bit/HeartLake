@@ -1,6 +1,5 @@
 /**
- * @file EnvUtils.h
- * @brief 环境变量解析工具
+ * 环境变量解析工具
  */
 
 #pragma once

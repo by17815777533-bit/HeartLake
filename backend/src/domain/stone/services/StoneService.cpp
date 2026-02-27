@@ -1,6 +1,5 @@
 /**
- * @file StoneService.cpp
- * @brief 石头领域服务实现
+ * 石头领域服务实现
  */
 
 #include "domain/stone/services/StoneService.h"

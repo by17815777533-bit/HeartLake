@@ -1,6 +1,4 @@
-// @file media_picker.dart
-// @brief 媒体选择工具
-// Created by 王璐瑶
+// 媒体选择工具
 
 import 'package:flutter/material.dart';
 import 'dart:io';

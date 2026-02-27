@@ -1,7 +1,5 @@
 <!--
-  @file Reports.vue
-  @brief Reports 组件
-  Created by 林子怡
+  Reports 组件
 -->
 
 <template>

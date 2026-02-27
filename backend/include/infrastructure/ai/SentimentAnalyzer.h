@@ -1,6 +1,5 @@
 /**
- * @file SentimentAnalyzer.h
- * @brief 轻量级情感分析引擎
+ * 轻量级情感分析引擎
  *
  * 从 EdgeAIEngine 拆分的独立子系统。
  * 三层融合：规则(emoji/标点) + 词典(中英文) + 统计(TTR/词长)
@@ -30,7 +29,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief 轻量级情感分析结果
+ * 轻量级情感分析结果
  */
 struct EdgeSentimentResult {
     float score;              ///< 情感分数 [-1.0, 1.0]
@@ -51,22 +50,22 @@ struct EdgeSentimentResult {
 class SentimentAnalyzer {
 public:
     /**
-     * @brief 配置缓存参数
+     * 配置缓存参数
      */
     void configure(int cacheTTLSec, size_t cacheMaxSize);
 
     /**
-     * @brief 加载中英文情感词典
+     * 加载中英文情感词典
      */
     void loadLexicon();
 
     /**
-     * @brief 分析文本情感（带缓存 + 飞行中去重）
+     * 分析文本情感（带缓存 + 飞行中去重）
      */
     EdgeSentimentResult analyzeSentiment(const std::string& text);
 
     /**
-     * @brief 清空缓存和飞行中状态
+     * 清空缓存和飞行中状态
      */
     void clearCache();
 

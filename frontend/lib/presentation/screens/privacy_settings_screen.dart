@@ -1,7 +1,6 @@
-// @file privacy_settings_screen.dart
-// @brief 隐私与安全设置页面 - 隐私开关、数据导出、账号注销
-// Created by 白洋
+// 隐私与安全设置页面 - 隐私开关、数据导出、账号注销
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/account_service.dart';
@@ -20,9 +19,12 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isExporting = false;
+  bool _pendingSaveRequested = false;
+  Timer? _saveDebounceTimer;
 
   // 隐私设置项
   bool _showOnlineStatus = true;
+  bool _allowFriendRequest = true;
   bool _allowStrangerBoat = true;
   bool _showMoodHistory = false;
   bool _allowResonanceMatch = true;
@@ -40,11 +42,13 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       final data = result['data'] as Map<String, dynamic>? ?? {};
       if (mounted) {
         setState(() {
+          final visibility = data['profile_visibility']?.toString() ?? 'public';
           _showOnlineStatus = data['show_online_status'] ?? true;
-          _allowStrangerBoat = data['allow_stranger_boat'] ?? true;
+          _allowFriendRequest = data['allow_friend_request'] ?? true;
+          _allowStrangerBoat = data['allow_message_from_stranger'] ?? data['allow_stranger_boat'] ?? true;
           _showMoodHistory = data['show_mood_history'] ?? false;
           _allowResonanceMatch = data['allow_resonance_match'] ?? true;
-          _showProfileToStranger = data['show_profile_to_stranger'] ?? true;
+          _showProfileToStranger = data['show_profile_to_stranger'] ?? (visibility != 'private');
           _isLoading = false;
         });
       }
@@ -55,16 +59,35 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
   }
 
+  Map<String, dynamic> _buildPrivacyPayload() {
+    final visibility = _showProfileToStranger ? 'public' : 'private';
+    return {
+      // 后端当前生效字段
+      'profile_visibility': visibility,
+      'show_online_status': _showOnlineStatus,
+      'allow_friend_request': _allowFriendRequest,
+      'allow_message_from_stranger': _allowStrangerBoat,
+      // 兼容字段（便于前后端灰度）
+      'allow_stranger_boat': _allowStrangerBoat,
+      'show_mood_history': _showMoodHistory,
+      'allow_resonance_match': _allowResonanceMatch,
+      'show_profile_to_stranger': _showProfileToStranger,
+    };
+  }
+
+  void _scheduleSave() {
+    _saveDebounceTimer?.cancel();
+    _saveDebounceTimer = Timer(const Duration(milliseconds: 350), _saveSettings);
+  }
+
   Future<void> _saveSettings() async {
+    if (_isSaving) {
+      _pendingSaveRequested = true;
+      return;
+    }
     setState(() => _isSaving = true);
     try {
-      await _accountService.updatePrivacySettings({
-        'show_online_status': _showOnlineStatus,
-        'allow_stranger_boat': _allowStrangerBoat,
-        'show_mood_history': _showMoodHistory,
-        'allow_resonance_match': _allowResonanceMatch,
-        'show_profile_to_stranger': _showProfileToStranger,
-      });
+      await _accountService.updatePrivacySettings(_buildPrivacyPayload());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('隐私设置已保存'), behavior: SnackBarBehavior.floating),
@@ -79,7 +102,17 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+      if (_pendingSaveRequested) {
+        _pendingSaveRequested = false;
+        _scheduleSave();
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _saveDebounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _exportData() async {
@@ -223,35 +256,35 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                         icon: Icons.circle, iconColor: isDark ? Colors.greenAccent : Colors.green,
                         title: '显示在线状态', subtitle: '其他用户可以看到你是否在线',
                         value: _showOnlineStatus,
-                        onChanged: (v) { setState(() => _showOnlineStatus = v); _saveSettings(); },
+                        onChanged: (v) { setState(() => _showOnlineStatus = v); _scheduleSave(); },
                       ),
                       const Divider(height: 1),
                       _buildSwitch(
                         icon: Icons.mail_outline, iconColor: AppTheme.skyBlue,
                         title: '允许陌生人发纸船', subtitle: '关闭后只有好友可以给你发纸船',
                         value: _allowStrangerBoat,
-                        onChanged: (v) { setState(() => _allowStrangerBoat = v); _saveSettings(); },
+                        onChanged: (v) { setState(() => _allowStrangerBoat = v); _scheduleSave(); },
                       ),
                       const Divider(height: 1),
                       _buildSwitch(
                         icon: Icons.show_chart, iconColor: Colors.orange,
                         title: '公开情绪历史', subtitle: '其他用户可以看到你的情绪变化趋势',
                         value: _showMoodHistory,
-                        onChanged: (v) { setState(() => _showMoodHistory = v); _saveSettings(); },
+                        onChanged: (v) { setState(() => _showMoodHistory = v); _scheduleSave(); },
                       ),
                       const Divider(height: 1),
                       _buildSwitch(
                         icon: Icons.favorite_outline, iconColor: Colors.pink,
                         title: '参与情绪共鸣匹配', subtitle: '允许系统根据情绪状态为你匹配共鸣伙伴',
                         value: _allowResonanceMatch,
-                        onChanged: (v) { setState(() => _allowResonanceMatch = v); _saveSettings(); },
+                        onChanged: (v) { setState(() => _allowResonanceMatch = v); _scheduleSave(); },
                       ),
                       const Divider(height: 1),
                       _buildSwitch(
                         icon: Icons.person_outline, iconColor: AppTheme.skyBlue,
                         title: '对陌生人可见', subtitle: '关闭后你的资料页仅好友可见',
                         value: _showProfileToStranger,
-                        onChanged: (v) { setState(() => _showProfileToStranger = v); _saveSettings(); },
+                        onChanged: (v) { setState(() => _showProfileToStranger = v); _scheduleSave(); },
                       ),
                     ],
                   ),

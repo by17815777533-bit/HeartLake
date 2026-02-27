@@ -1,6 +1,4 @@
-// @file my_ripples_screen.dart
-// @brief 我的涟漪列表界面
-// Created by 林子怡
+// 我的涟漪列表界面
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';

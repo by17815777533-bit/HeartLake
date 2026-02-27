@@ -1,5 +1,4 @@
-// @file similar_stones_section.dart
-// @brief 相似石头推荐 - 光遇风格飘浮卡片
+// 相似石头推荐 - 光遇风格飘浮卡片
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';

@@ -1,7 +1,5 @@
 <!--
-  @file LakeWeatherSection.vue
-  @brief 湖面天气可视化 + 心情分布饼图
-  Created by 林子怡
+  湖面天气可视化 + 心情分布饼图
 -->
 
 <template>

@@ -1,6 +1,4 @@
-// @file friend_service.dart
-// @brief 好友服务 - 处理好友请求和关系管理
-// Created by 王璐瑶
+// 好友服务 - 处理好友请求和关系管理
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';

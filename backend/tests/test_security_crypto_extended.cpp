@@ -1,6 +1,5 @@
 /**
- * @file test_security_crypto_extended.cpp
- * @brief 安全加密模块扩展测试 - PASETO、PBKDF2、影子映射、恢复密钥
+ * 安全加密模块扩展测试 - PASETO、PBKDF2、影子映射、恢复密钥
  */
 
 #include <gtest/gtest.h>

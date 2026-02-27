@@ -1,7 +1,5 @@
 /**
- * @file UserApplicationService.h
- * @brief UserApplicationService 模块接口定义
- * Created by 白洋
+ * UserApplicationService 模块接口定义
  */
 
 #pragma once
@@ -33,12 +31,12 @@ public:
         eventBus_(eventBus) {}
 
     /**
-     * @brief 获取用户资料
+     * 获取用户资料
      */
     Json::Value getUserProfile(const std::string& userId);
 
     /**
-     * @brief 更新用户资料
+     * 更新用户资料
      */
     void updateUserProfile(
         const std::string& userId,
@@ -46,7 +44,7 @@ public:
     );
 
     /**
-     * @brief 搜索用户
+     * 搜索用户
      */
     Json::Value searchUsers(
         const std::string& keyword,
@@ -55,7 +53,7 @@ public:
     );
 
     /**
-     * @brief 批量获取用户信息
+     * 批量获取用户信息
      */
     Json::Value getUsersBatch(const std::vector<std::string>& userIds);
 };

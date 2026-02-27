@@ -1,6 +1,4 @@
-// @file api_response.dart
-// @brief 通用API响应模型
-// Created by 王璐瑶
+// 通用API响应模型
 
 /// 通用 API 响应模型
 class ApiResponse<T> {

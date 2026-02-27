@@ -1,5 +1,4 @@
-// @file useDashboardLoaders.ts
-// @brief Dashboard 数据加载函数 composable
+// Dashboard 数据加载函数 composable
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
 import api from '@/api'

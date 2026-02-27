@@ -1,6 +1,5 @@
 /**
- * @file StoneRepository.cpp
- * @brief 石头仓储实现
+ * 石头仓储实现
  */
 
 #include "domain/stone/repositories/StoneRepository.h"

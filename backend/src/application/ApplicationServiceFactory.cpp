@@ -1,6 +1,5 @@
 /**
- * @file ApplicationServiceFactory.cpp
- * @brief 应用服务工厂实现
+ * 应用服务工厂实现
  */
 
 #include "application/ApplicationServiceFactory.h"

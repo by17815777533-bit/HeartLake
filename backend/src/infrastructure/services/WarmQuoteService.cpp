@@ -1,6 +1,5 @@
 /**
- * @file WarmQuoteService.cpp
- * @brief 暖心语录服务实现 - 多场景触发
+ * 暖心语录服务实现 - 多场景触发
  */
 
 #include "infrastructure/services/WarmQuoteService.h"

@@ -1,7 +1,5 @@
 /**
- * @file AdminManagementController.cpp
- * @brief AdminManagementController 模块实现
- * Created by 白洋
+ * AdminManagementController 模块实现
  */
 #include "interfaces/api/AdminManagementController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"

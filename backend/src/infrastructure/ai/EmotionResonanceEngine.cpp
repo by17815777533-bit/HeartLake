@@ -1,6 +1,5 @@
 /**
- * @file EmotionResonanceEngine.cpp
- * @brief 情绪感知时序共鸣引擎实现
+ * 情绪感知时序共鸣引擎实现
  *
  * 核心算法：
  * ResonanceScore = α·SemanticSim + β·EmotionTrajectorySim + γ·TemporalDecay + δ·DiversityBonus

@@ -1,5 +1,4 @@
-// @file emotion_trends_screen.dart
-// @brief 情绪趋势可视化 - 蓝色湖面风格
+// 情绪趋势可视化 - 蓝色湖面风格
 import 'package:flutter/material.dart';
 import '../../data/datasources/ai_recommendation_service.dart';
 import '../../data/datasources/edge_ai_service.dart';

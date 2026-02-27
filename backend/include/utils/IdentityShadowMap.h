@@ -1,7 +1,5 @@
 /**
- * @file IdentityShadowMap.h
- * @brief 身份影子映射 - 隔离物理标识与匿名ID
- * Created by 白洋
+ * 身份影子映射 - 隔离物理标识与匿名ID
  */
 
 #pragma once
@@ -14,7 +12,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * @brief 影子身份数据
+ * 影子身份数据
  */
 struct ShadowIdentity {
     std::string shadowId;        // 影子ID（对外展示）
@@ -24,7 +22,7 @@ struct ShadowIdentity {
 };
 
 /**
- * @brief 身份影子映射管理器
+ * 身份影子映射管理器
  *
  * 实现物理标识与匿名ID的完全隔离：
  * - 物理IP、设备指纹经过单向哈希后存储

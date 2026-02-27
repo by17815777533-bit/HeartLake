@@ -1,6 +1,4 @@
-// @file account_service.dart
-// @brief 账号服务 - 账号管理功能
-// Created by 王璐瑶
+// 账号服务 - 账号管理功能
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
@@ -11,9 +9,22 @@ class AccountService extends BaseService {
 
   // 隐私设置允许的 key
   static const _allowedPrivacyKeys = [
-    'show_online_status', 'allow_friend_request', 'show_emotion_heatmap',
-    'allow_stranger_message', 'show_stone_count', 'data_collection',
-    'personalized_recommendation', 'anonymous_analytics',
+    // 后端当前生效字段
+    'profile_visibility',
+    'show_online_status',
+    'allow_friend_request',
+    'allow_message_from_stranger',
+    // 兼容历史/前端扩展字段（后端可忽略未知字段）
+    'allow_stranger_boat',
+    'show_mood_history',
+    'allow_resonance_match',
+    'show_profile_to_stranger',
+    'show_emotion_heatmap',
+    'allow_stranger_message',
+    'show_stone_count',
+    'data_collection',
+    'personalized_recommendation',
+    'anonymous_analytics',
   ];
 
   // 个人资料允许的 key

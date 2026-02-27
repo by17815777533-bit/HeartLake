@@ -1,6 +1,5 @@
 /**
- * @file errorHelper.test.ts
- * @brief errorHelper 工具函数测试
+ * errorHelper 工具函数测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

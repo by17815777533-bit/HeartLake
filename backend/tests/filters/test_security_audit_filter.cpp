@@ -1,6 +1,5 @@
 /**
- * @file test_security_audit_filter.cpp
- * @brief SecurityAuditFilter 单元测试
+ * SecurityAuditFilter 单元测试
  *
  * 覆盖：
  * 1. sanitizeForLog 日志注入防护（换行符、控制字符、tab保留）

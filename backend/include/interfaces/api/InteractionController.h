@@ -1,7 +1,5 @@
 /**
- * @file InteractionController.h
- * @brief InteractionController 模块接口定义
- * Created by 白洋
+ * InteractionController 模块接口定义
  */
 
 #pragma once
@@ -15,7 +13,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 互动相关的HTTP控制器
+ * 互动相关的HTTP控制器
  *
  * 详细说明
  *

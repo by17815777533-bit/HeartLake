@@ -1,6 +1,4 @@
-// @file staggered_list.dart
-// @brief 交错入场动画包装器
-// Created by 吴睿璐
+// 交错入场动画包装器
 
 library;
 

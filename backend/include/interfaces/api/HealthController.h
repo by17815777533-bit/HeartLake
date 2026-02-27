@@ -1,6 +1,5 @@
 /**
- * @file HealthController.h
- * @brief 健康检查控制器 - 服务状态监控
+ * 健康检查控制器 - 服务状态监控
  * @author 白洋
  * @date 2025-02-15
  * @copyright Copyright (c) 2025 HeartLake. All rights reserved.
@@ -17,7 +16,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 健康检查HTTP控制器
+ * 健康检查HTTP控制器
  *
  * 提供服务健康状态检查：
  * - 基础健康检查（状态、版本、时间戳）

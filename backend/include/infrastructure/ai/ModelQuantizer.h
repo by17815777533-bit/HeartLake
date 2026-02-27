@@ -1,6 +1,5 @@
 /**
- * @file ModelQuantizer.h
- * @brief 模型量化推理子系统 - INT8量化/反量化与量化矩阵运算
+ * 模型量化推理子系统 - INT8量化/反量化与量化矩阵运算
  *
  * 从 EdgeAIEngine 提取的独立量化推理模块。
  * 纯函数式、无外部依赖、线程安全（仅 atomic 计数器）。
@@ -24,7 +23,7 @@ namespace ai {
 class ModelQuantizer {
 public:
     /**
-     * @brief INT8量化后的张量
+     * INT8量化后的张量
      */
     struct QuantizedTensor {
         std::vector<int8_t> data;   ///< 量化后的INT8数据
@@ -33,7 +32,7 @@ public:
         std::vector<size_t> shape;  ///< 张量形状
 
         /**
-         * @brief 反量化为float32
+         * 反量化为float32
          * @return float32向量
          */
         std::vector<float> dequantize() const {
@@ -46,7 +45,7 @@ public:
     };
 
     /**
-     * @brief 将float32张量量化为INT8（对称量化）
+     * 将float32张量量化为INT8（对称量化）
      * @param tensor 输入float32数据
      * @param shape 张量形状
      * @return 量化后的QuantizedTensor
@@ -55,7 +54,7 @@ public:
                                    const std::vector<size_t>& shape);
 
     /**
-     * @brief INT8量化矩阵乘法 (M×K) × (K×N) → (M×N)
+     * INT8量化矩阵乘法 (M×K) × (K×N) → (M×N)
      * @param a 左矩阵（量化）
      * @param b 右矩阵（量化）
      * @param M 左矩阵行数
@@ -68,7 +67,7 @@ public:
                                        size_t M, size_t K, size_t N);
 
     /**
-     * @brief 量化前向推理（量化输入→矩阵乘→加偏置→ReLU）
+     * 量化前向推理（量化输入→矩阵乘→加偏置→ReLU）
      * @param input 输入向量 (inDim)
      * @param weights 权重矩阵 (outDim × inDim)，已量化
      * @param biases 偏置向量 (outDim)
@@ -79,7 +78,7 @@ public:
                                         const std::vector<float>& biases);
 
     /**
-     * @brief 获取累计量化操作次数
+     * 获取累计量化操作次数
      */
     size_t getTotalOps() const { return totalQuantizedOps_.load(); }
 

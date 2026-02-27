@@ -1,5 +1,4 @@
-// @file consultation_service.dart
-// @brief 心理咨询服务 - 预约咨询和E2E加密会话
+// 心理咨询服务 - 预约咨询和E2E加密会话
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'base_service.dart';

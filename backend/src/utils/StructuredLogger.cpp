@@ -1,7 +1,5 @@
 /**
- * @file StructuredLogger.cpp
- * @brief StructuredLogger 模块实现
- * Created by 林子怡
+ * StructuredLogger 模块实现
  */
 #include "utils/StructuredLogger.h"
 #include <iostream>

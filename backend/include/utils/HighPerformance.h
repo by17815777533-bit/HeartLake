@@ -1,7 +1,5 @@
 /**
- * @file HighPerformance.h
- * @brief HighPerformance 模块接口定义
- * Created by 林子怡
+ * HighPerformance 模块接口定义
  */
 
 #pragma once
@@ -70,7 +68,7 @@ namespace perf {
  */
 template<typename T, size_t BlockSize = 4096>
 /**
- * @brief LockFreePool类
+ * LockFreePool类
  *
  * 详细说明
  *
@@ -117,7 +115,7 @@ public:
     }
 
     /**
-     * @brief deallocate方法
+     * deallocate方法
      *
      * @param ptr 参数说明
      */
@@ -137,7 +135,7 @@ public:
 
 private:
     /**
-     * @brief expandPool方法
+     * expandPool方法
      */
     void expandPool() {
         std::lock_guard<std::mutex> lock(expandMutex_);
@@ -170,7 +168,7 @@ private:
  */
 template<typename T, size_t Capacity = 65536>
 /**
- * @brief MPMCQueue类
+ * MPMCQueue类
  *
  * 详细说明
  *
@@ -194,7 +192,7 @@ public:
     }
 
     /**
-     * @brief enqueue方法
+     * enqueue方法
      *
      * @param data 参数说明
      * @return 返回值说明
@@ -225,7 +223,7 @@ public:
     }
 
     /**
-     * @brief dequeue方法
+     * dequeue方法
      *
      * @param data 参数说明
      * @return 返回值说明
@@ -256,7 +254,7 @@ public:
     }
 
     /**
-     * @brief size方法
+     * size方法
      * @return 返回值说明
      */
     size_t size() const {
@@ -266,7 +264,7 @@ public:
     }
 
     /**
-     * @brief empty方法
+     * empty方法
      * @return 返回值说明
      */
     bool empty() const { return size() == 0; }
@@ -284,7 +282,7 @@ private:
  */
 template<size_t Size = 1048576, size_t HashCount = 8>
 /**
- * @brief CountingBloomFilter类
+ * CountingBloomFilter类
  *
  * 详细说明
  *
@@ -293,7 +291,7 @@ template<size_t Size = 1048576, size_t HashCount = 8>
 class CountingBloomFilter {
 public:
     /**
-     * @brief insert方法
+     * insert方法
      *
      * @param item 参数说明
      */
@@ -306,7 +304,7 @@ public:
     }
 
     /**
-     * @brief remove方法
+     * remove方法
      *
      * @param item 参数说明
      */
@@ -323,7 +321,7 @@ public:
     }
 
     /**
-     * @brief mayContain方法
+     * mayContain方法
      *
      * @param item 参数说明
      * @return 返回值说明
@@ -338,7 +336,7 @@ public:
     }
 
     /**
-     * @brief count方法
+     * count方法
      *
      * @param memory_order_relaxed 参数说明
      * @return 返回值说明
@@ -353,7 +351,7 @@ public:
     }
 
     /**
-     * @brief falsePositiveRate方法
+     * falsePositiveRate方法
      * @return 返回值说明
      */
     double falsePositiveRate() const {
@@ -367,7 +365,7 @@ public:
 
 private:
     /**
-     * @brief hash方法
+     * hash方法
      *
      * @param str 参数说明
      * @param seed 参数说明
@@ -393,7 +391,7 @@ private:
  * 支持UTF-8中文和ASCII混合匹配
  */
 /**
- * @brief ACAutomaton类
+ * ACAutomaton类
  *
  * 详细说明
  *
@@ -444,7 +442,7 @@ private:
  */
 template<typename K, typename V, size_t ShardBits = 6, size_t MaxPerShard = 1024>
 /**
- * @brief ShardedLRUCache类
+ * ShardedLRUCache类
  *
  * 详细说明
  *
@@ -468,7 +466,7 @@ class ShardedLRUCache {
         mutable std::shared_mutex mutex;
         
     /**
-     * @brief moveToFront方法
+     * moveToFront方法
      *
      * @param node 参数说明
      */
@@ -485,7 +483,7 @@ class ShardedLRUCache {
         }
         
     /**
-     * @brief evict方法
+     * evict方法
      */
         void evict() {
             if (!tail) return;
@@ -519,7 +517,7 @@ public:
     }
 
     /**
-     * @brief put方法
+     * put方法
      *
      * @param key 参数说明
      * @param value 参数说明
@@ -548,7 +546,7 @@ public:
     }
 
     /**
-     * @brief contains方法
+     * contains方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -560,7 +558,7 @@ public:
     }
 
     /**
-     * @brief remove方法
+     * remove方法
      *
      * @param key 参数说明
      */
@@ -582,7 +580,7 @@ public:
     }
 
     /**
-     * @brief size方法
+     * size方法
      * @return 返回值说明
      */
     size_t size() const {
@@ -610,7 +608,7 @@ public:
 
 private:
     /**
-     * @brief shardIndex方法
+     * shardIndex方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -629,7 +627,7 @@ private:
  */
 template<typename K, typename V, int MaxLevel = 16>
 /**
- * @brief SkipList类
+ * SkipList类
  *
  * 详细说明
  *
@@ -663,7 +661,7 @@ public:
     }
 
     /**
-     * @brief find方法
+     * find方法
      *
      * @param key 参数说明
      * @param value 参数说明
@@ -686,7 +684,7 @@ public:
     }
 
     /**
-     * @brief insert方法
+     * insert方法
      *
      * @param key 参数说明
      * @param value 参数说明
@@ -735,7 +733,7 @@ public:
     }
 
     /**
-     * @brief remove方法
+     * remove方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -765,7 +763,7 @@ public:
 
 private:
     /**
-     * @brief findPosition方法
+     * findPosition方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -789,7 +787,7 @@ private:
     }
 
     /**
-     * @brief randomLevel方法
+     * randomLevel方法
      * @return 返回值说明
      */
     int randomLevel() {
@@ -812,7 +810,7 @@ private:
  */
 template<typename Node, size_t VirtualNodes = 150>
 /**
- * @brief ConsistentHash类
+ * ConsistentHash类
  *
  * 详细说明
  *
@@ -821,7 +819,7 @@ template<typename Node, size_t VirtualNodes = 150>
 class ConsistentHash {
 public:
     /**
-     * @brief addNode方法
+     * addNode方法
      *
      * @param node 参数说明
      */
@@ -836,7 +834,7 @@ public:
     }
 
     /**
-     * @brief removeNode方法
+     * removeNode方法
      *
      * @param node 参数说明
      */
@@ -851,7 +849,7 @@ public:
     }
 
     /**
-     * @brief getNode方法
+     * getNode方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -871,7 +869,7 @@ public:
     }
 
     /**
-     * @brief nodeCount方法
+     * nodeCount方法
      * @return 返回值说明
      */
     size_t nodeCount() const {
@@ -889,7 +887,7 @@ private:
     }
 
     /**
-     * @brief hashFunction方法
+     * hashFunction方法
      *
      * @param key 参数说明
      * @return 返回值说明
@@ -915,7 +913,7 @@ private:
  * 使用SSE2指令集加速
  */
 /**
- * @brief SIMDString类
+ * SIMDString类
  *
  * 详细说明
  *
@@ -934,7 +932,7 @@ public:
  * 高性能线程池 - 工作窃取算法
  */
 /**
- * @brief ThreadPool类
+ * ThreadPool类
  *
  * 详细说明
  *
@@ -983,7 +981,7 @@ private:
  * 支持突发流量
  */
 /**
- * @brief TokenBucket类
+ * TokenBucket类
  *
  * 详细说明
  *

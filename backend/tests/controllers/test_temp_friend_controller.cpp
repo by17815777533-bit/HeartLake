@@ -1,6 +1,5 @@
 /**
- * @file test_temp_friend_controller.cpp
- * @brief TempFriendController 单元测试
+ * TempFriendController 单元测试
  * 覆盖：临时好友创建、列表获取、详情、升级为永久好友、删除、状态检查、过期处理
  */
 

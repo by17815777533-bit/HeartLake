@@ -1,7 +1,5 @@
 /**
- * @file SecurityLogger.cpp
- * @brief SecurityLogger 模块实现
- * Created by 白洋
+ * SecurityLogger 模块实现
  */
 
 #include "utils/SecurityLogger.h"

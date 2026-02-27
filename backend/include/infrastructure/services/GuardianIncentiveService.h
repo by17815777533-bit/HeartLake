@@ -1,6 +1,5 @@
 /**
- * @file GuardianIncentiveService.h
- * @brief 守望者激励系统 - 共鸣积分与成就
+ * 守望者激励系统 - 共鸣积分与成就
  */
 
 #pragma once

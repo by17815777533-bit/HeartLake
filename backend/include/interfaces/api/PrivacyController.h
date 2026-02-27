@@ -1,6 +1,5 @@
 /**
- * @file PrivacyController.h
- * @brief 差分隐私统计控制器
+ * 差分隐私统计控制器
  *
  * 提供隐私保护的情绪聚合统计接口
  * 基于 FedMultiEmo / FED-PsyAU 论文的差分隐私机制

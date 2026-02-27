@@ -1,7 +1,5 @@
 /**
- * @file Validator.cpp
- * @brief Validator 模块实现
- * Created by 林子怡
+ * Validator 模块实现
  */
 #include "utils/Validator.h"
 #include <algorithm>

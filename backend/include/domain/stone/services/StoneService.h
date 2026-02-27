@@ -1,6 +1,5 @@
 /**
- * @file StoneService.h
- * @brief 石头领域服务
+ * 石头领域服务
  */
 
 #pragma once

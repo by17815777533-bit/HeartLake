@@ -1,7 +1,5 @@
 /**
- * @file ContentFilter.h
- * @brief ContentFilter 模块接口定义
- * Created by 林子怡
+ * ContentFilter 模块接口定义
  */
 
 #pragma once
@@ -21,7 +19,7 @@ using namespace perf;  // 使用高性能组件
  * 计数布隆过滤器预检测，分片LRU缓存热点结果
  */
 /**
- * @brief 内容过滤器，用于过滤不适当内容
+ * 内容过滤器，用于过滤不适当内容
  *
  * 详细说明
  *
@@ -35,23 +33,23 @@ public:
     }
 
     /**
-     * @brief initialize方法
+     * initialize方法
      */
     void initialize();
 
     /**
-     * @brief 热更新敏感词库
+     * 热更新敏感词库
      * @param words 词条列表: {word, category, level}
      */
     void reload(const std::vector<std::tuple<std::string, uint8_t, uint8_t>>& words);
 
     /**
-     * @brief 规范化文本，移除干扰字符
+     * 规范化文本，移除干扰字符
      */
     static std::string normalize(const std::string& text);
 
     /**
-     * @brief addWord方法
+     * addWord方法
      *
      * @param word 参数说明
      * @param category 参数说明
@@ -68,7 +66,7 @@ public:
     std::string getPattern(uint16_t id) const;
 
     /**
-     * @brief containsHighRiskWords方法
+     * containsHighRiskWords方法
      *
      * @param content 参数说明
      * @return 返回值说明
@@ -78,12 +76,12 @@ public:
     static std::string getMentalHealthTip();
 
     /**
-     * @brief cacheSize方法
+     * cacheSize方法
      * @return 返回值说明
      */
     size_t cacheSize() const { return resultCache_.size(); }
     /**
-     * @brief wordCount方法
+     * wordCount方法
      * @return 返回值说明
      */
     size_t wordCount() const { return wordCount_; }

@@ -1,7 +1,5 @@
 /**
- * @file UserController.cpp
- * @brief 用户控制器 - 匿名登录 + 关键词恢复
- * Created by 白洋
+ * 用户控制器 - 匿名登录 + 关键词恢复
  */
 #include "interfaces/api/UserController.h"
 #include "utils/IdGenerator.h"
@@ -45,6 +43,7 @@ void UserController::anonymousLogin(
 
     Json::Value responseData;
     std::string user_id;
+    bool isNewUser = false;
 
     if (auto rowOpt = safeRow(result)) {
       auto row = *rowOpt;
@@ -57,6 +56,7 @@ void UserController::anonymousLogin(
       responseData["user_id"] = user_id;
       responseData["nickname"] = row["nickname"].as<std::string>();
       responseData["is_anonymous"] = row["is_anonymous"].as<bool>();
+      isNewUser = false;
     } else {
       user_id = IdGenerator::generateAnonymousId();
       std::string nickname = IdGenerator::generateNickname();
@@ -84,12 +84,14 @@ void UserController::anonymousLogin(
       responseData["nickname"] = nickname;
       responseData["is_anonymous"] = true;
       responseData["recovery_key"] = recoveryKey;
+      isNewUser = true;
     }
 
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(user_id, key, 24);
 
     responseData["token"] = token;
+    responseData["is_new_user"] = isNewUser;
     responseData["expires_at"] =
         static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 
@@ -174,6 +176,7 @@ void UserController::recoverWithKey(
         responseData["user_id"] = userId;
         responseData["nickname"] = nickname;
         responseData["token"] = token;
+        responseData["is_new_user"] = false;
         responseData["expires_at"] =
             static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 

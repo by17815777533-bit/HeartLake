@@ -1,6 +1,5 @@
 /**
- * @file ModelQuantizer.cpp
- * @brief 边缘端 INT8 对称量化推理子系统
+ * 边缘端 INT8 对称量化推理子系统
  *
  * 量化策略选型：INT8 对称量化（symmetric, per-tensor）
  *   - 选择对称而非非对称的原因：

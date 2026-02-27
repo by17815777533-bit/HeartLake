@@ -1,5 +1,4 @@
-// @file edge_ai_service.dart
-// @brief EdgeAI引擎服务 - 封装用户可用的EdgeAI端点
+// EdgeAI引擎服务 - 封装用户可用的EdgeAI端点
 //
 // 注意：以下端点为管理后台专用（AdminAuthFilter），普通用户不可调用：
 //   - /api/admin/edge-ai/moderate   （内容审核 - 后端在createStone/lakeGodChat中已内置）

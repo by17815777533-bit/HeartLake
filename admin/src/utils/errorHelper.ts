@@ -1,6 +1,5 @@
 /**
- * @file errorHelper.ts
- * @brief 统一错误处理工具函数
+ * 统一错误处理工具函数
  * 与后端 ErrorCode.h / ErrorCode.cpp 保持一致
  */
 

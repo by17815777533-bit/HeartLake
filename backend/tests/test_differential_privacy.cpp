@@ -1,6 +1,5 @@
 /**
- * @file test_differential_privacy.cpp
- * @brief DifferentialPrivacyEngine 单元测试
+ * DifferentialPrivacyEngine 单元测试
  *
  * 覆盖：
  * - Laplace噪声采样分布验证

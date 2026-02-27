@@ -1,7 +1,5 @@
 /**
- * @file PasswordUtil.cpp
- * @brief PasswordUtil 模块实现
- * Created by 林子怡
+ * PasswordUtil 模块实现
  */
 #include "utils/PasswordUtil.h"
 #include <openssl/evp.h>

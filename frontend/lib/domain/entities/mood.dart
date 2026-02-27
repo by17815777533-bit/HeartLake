@@ -1,6 +1,4 @@
-// @file mood.dart
-// @brief 情绪类型定义 - 统一使用 mood_colors.dart 的 MoodType
-// Created by 王璐瑶
+// 情绪类型定义 - 统一使用 mood_colors.dart 的 MoodType
 
 library;
 

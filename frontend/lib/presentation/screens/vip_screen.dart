@@ -1,6 +1,4 @@
-// @file vip_screen.dart
-// @brief 灯权益页面 - 温暖灯火概念
-// Created by 林子怡
+// 灯权益页面 - 温暖灯火概念
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/vip_service.dart';

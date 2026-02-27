@@ -1,6 +1,4 @@
-// @file emotion_calendar_screen.dart
-// @brief 情绪日历页面 - 精美可视化
-// Created by 林子怡
+// 情绪日历页面 - 精美可视化
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

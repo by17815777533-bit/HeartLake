@@ -1,6 +1,5 @@
 /**
- * @file FriendRepository.h
- * @brief 好友仓储实现
+ * 好友仓储实现
  */
 
 #pragma once

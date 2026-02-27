@@ -1,7 +1,5 @@
 /**
- * @file ConsultationController.cpp
- * @brief 咨询室控制器实现 - E2EE端到端加密
- * Created by 白洋
+ * 咨询室控制器实现 - E2EE端到端加密
  */
 
 #include "interfaces/api/ConsultationController.h"

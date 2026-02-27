@@ -1,6 +1,5 @@
 /**
- * @file UserFollowUpService.cpp
- * @brief 用户回访与持续关怀系统实现
+ * 用户回访与持续关怀系统实现
  */
 
 #include "infrastructure/services/UserFollowUpService.h"

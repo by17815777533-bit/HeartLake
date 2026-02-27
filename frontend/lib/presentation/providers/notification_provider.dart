@@ -1,6 +1,4 @@
-// @file notification_provider.dart
-// @brief 通知状态管理
-// Created by 林子怡
+// 通知状态管理
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';

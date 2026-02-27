@@ -1,6 +1,5 @@
 /**
- * @file test_psychological_risk_assessment.cpp
- * @brief PsychologicalRiskAssessment 单元测试
+ * PsychologicalRiskAssessment 单元测试
  */
 
 #include <gtest/gtest.h>

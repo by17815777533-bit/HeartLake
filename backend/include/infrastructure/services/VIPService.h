@@ -1,7 +1,5 @@
 /**
- * @file VIPService.h
- * @brief VIPService 模块接口定义
- * Created by 白洋
+ * VIPService 模块接口定义
  */
 
 #pragma once
@@ -14,7 +12,7 @@ namespace heartlake {
 namespace services {
 
 /**
- * @brief VIP服务类
+ * VIP服务类
  *
  * 处理VIP相关的业务逻辑，包括：
  * - 情绪检测自动升级VIP
@@ -24,7 +22,7 @@ namespace services {
 class VIPService {
 public:
     /**
-     * @brief 检查用户情绪并可能自动赠送VIP
+     * 检查用户情绪并可能自动赠送VIP
      *
      * @param userId 用户ID
      * @param emotionScore 情绪分数 (-1到1，负数表示负面情绪)
@@ -38,7 +36,7 @@ public:
     );
 
     /**
-     * @brief 检查用户是否有特定VIP特权
+     * 检查用户是否有特定VIP特权
      *
      * @param userId 用户ID
      * @param privilegeKey 特权键名
@@ -50,7 +48,7 @@ public:
     );
 
     /**
-     * @brief 获取用户的所有VIP特权
+     * 获取用户的所有VIP特权
      *
      * @param userId 用户ID
      * @return 特权列表
@@ -58,7 +56,7 @@ public:
     static std::vector<std::string> getUserPrivileges(const std::string& userId);
 
     /**
-     * @brief 检查VIP是否过期
+     * 检查VIP是否过期
      *
      * @param userId 用户ID
      * @return 是否过期
@@ -66,7 +64,7 @@ public:
     static bool isVIPExpired(const std::string& userId);
 
     /**
-     * @brief 手动升级用户VIP
+     * 手动升级用户VIP
      *
      * @param userId 用户ID
      * @param vipLevel VIP等级
@@ -82,14 +80,14 @@ public:
     );
 
     /**
-     * @brief 批量检查用户情绪并自动赠送VIP
+     * 批量检查用户情绪并自动赠送VIP
      *
      * @return 成功赠送的用户数量
      */
     static int batchCheckEmotionsForVIP();
 
     /**
-     * @brief 获取用户VIP状态信息
+     * 获取用户VIP状态信息
      *
      * @param userId 用户ID
      * @return VIP状态JSON对象
@@ -97,7 +95,7 @@ public:
     static Json::Value getVIPStatus(const std::string& userId);
 
     /**
-     * @brief 检查并记录VIP权益使用
+     * 检查并记录VIP权益使用
      *
      * @param userId 用户ID
      * @param privilegeKey 权益键名
@@ -111,7 +109,7 @@ public:
     );
 
     /**
-     * @brief 获取AI评论频率（小时）
+     * 获取AI评论频率（小时）
      *
      * @param userId 用户ID
      * @return 评论频率（小时），VIP用户返回更短的时间
@@ -119,7 +117,7 @@ public:
     static float getAICommentFrequency(const std::string& userId);
 
     /**
-     * @brief 检查用户是否有免费心理咨询额度
+     * 检查用户是否有免费心理咨询额度
      *
      * @param userId 用户ID
      * @return 是否有免费额度
@@ -127,7 +125,7 @@ public:
     static bool hasFreeCounselingQuota(const std::string& userId);
 
     /**
-     * @brief 预约心理咨询
+     * 预约心理咨询
      *
      * @param userId 用户ID
      * @param appointmentTime 预约时间
@@ -142,7 +140,7 @@ public:
 
 private:
     /**
-     * @brief 判断是否为负面情绪
+     * 判断是否为负面情绪
      *
      * @param emotionScore 情绪分数
      * @param emotionTags 情绪标签
@@ -154,7 +152,7 @@ private:
     );
 
     /**
-     * @brief 发送VIP升级通知
+     * 发送VIP升级通知
      *
      * @param userId 用户ID
      * @param vipLevel VIP等级

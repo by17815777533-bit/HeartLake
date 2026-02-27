@@ -1,11 +1,9 @@
 /**
- * @file OnnxSentimentEngine.h
- * @brief ONNX Runtime 中文情感分析引擎
+ * ONNX Runtime 中文情感分析引擎
  *
  * 使用 Erlangshen-Roberta-110M-Sentiment 模型进行高精度中文情感分析。
  * 内置 BERT WordPiece Tokenizer，无需额外依赖。
  *
- * Created by 王璐瑶
  */
 
 #pragma once
@@ -24,7 +22,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief ONNX 情感分析结果
+ * ONNX 情感分析结果
  */
 struct OnnxSentimentResult {
     float score;          ///< 情感分数 [-1.0, 1.0]
@@ -33,7 +31,7 @@ struct OnnxSentimentResult {
 };
 
 /**
- * @brief ONNX 中文情感分析引擎
+ * ONNX 中文情感分析引擎
  *
  * 封装 ONNX Runtime 推理和 BERT WordPiece Tokenizer。
  * 线程安全：OrtSession::Run() 本身支持并发调用。
@@ -44,7 +42,7 @@ public:
     ~OnnxSentimentEngine() = default;
 
     /**
-     * @brief 初始化引擎
+     * 初始化引擎
      * @param modelPath ONNX 模型文件路径
      * @param vocabPath vocab.txt 词表文件路径
      * @param numThreads 推理线程数
@@ -55,19 +53,19 @@ public:
                     int numThreads = 2);
 
     /**
-     * @brief 是否已初始化
+     * 是否已初始化
      */
     bool isInitialized() const { return initialized_.load(); }
 
     /**
-     * @brief 分析文本情感
+     * 分析文本情感
      * @param text 输入文本
      * @return 情感分析结果
      */
     OnnxSentimentResult analyze(const std::string& text);
 
     /**
-     * @brief 获取统计信息
+     * 获取统计信息
      */
     size_t getTotalCalls() const { return totalCalls_.load(); }
     double getAvgLatencyMs() const;
@@ -89,12 +87,12 @@ private:
     int maxSeqLen_ = 128;
 
     /**
-     * @brief 加载词表
+     * 加载词表
      */
     bool loadVocab(const std::string& vocabPath);
 
     /**
-     * @brief 完整 tokenize 流程
+     * 完整 tokenize 流程
      * @return {input_ids, attention_mask, token_type_ids}
      */
     struct TokenizerOutput {
@@ -105,32 +103,32 @@ private:
     TokenizerOutput tokenize(const std::string& text);
 
     /**
-     * @brief 基础分词：按空格/标点/中文字符切分
+     * 基础分词：按空格/标点/中文字符切分
      */
     std::vector<std::string> basicTokenize(const std::string& text);
 
     /**
-     * @brief WordPiece 子词切分
+     * WordPiece 子词切分
      */
     std::vector<std::string> wordPieceTokenize(const std::string& word);
 
     /**
-     * @brief 判断是否为中文字符
+     * 判断是否为中文字符
      */
     static bool isChineseChar(uint32_t cp);
 
     /**
-     * @brief 判断是否为标点
+     * 判断是否为标点
      */
     static bool isPunctuation(uint32_t cp);
 
     /**
-     * @brief UTF-8 解码单个码点
+     * UTF-8 解码单个码点
      */
     static uint32_t decodeUTF8(const std::string& s, size_t& pos);
 
     /**
-     * @brief 分数映射到情绪标签
+     * 分数映射到情绪标签
      */
     static std::string scoresToMood(float score);
 

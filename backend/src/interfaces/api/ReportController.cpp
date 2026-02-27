@@ -1,7 +1,5 @@
 /**
- * @file ReportController.cpp
- * @brief ReportController 模块实现
- * Created by 白洋
+ * ReportController 模块实现
  */
 #include "interfaces/api/ReportController.h"
 #include "utils/ResponseUtil.h"

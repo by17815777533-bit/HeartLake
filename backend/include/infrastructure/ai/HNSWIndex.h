@@ -1,6 +1,5 @@
 /**
- * @file HNSWIndex.h
- * @brief HNSW (Hierarchical Navigable Small World) 向量检索引擎
+ * HNSW (Hierarchical Navigable Small World) 向量检索引擎
  *
  * 从 EdgeAIEngine 拆分的独立子系统，提供高性能近似最近邻搜索。
  * 特性：
@@ -25,7 +24,7 @@
 namespace heartlake::ai {
 
 /**
- * @brief HNSW 图节点
+ * HNSW 图节点
  */
 struct HNSWNode {
     std::string id;                                    ///< 节点唯一标识
@@ -35,7 +34,7 @@ struct HNSWNode {
 };
 
 /**
- * @brief 向量检索结果
+ * 向量检索结果
  */
 struct VectorSearchResult {
     std::string id;       ///< 节点标识
@@ -44,7 +43,7 @@ struct VectorSearchResult {
 };
 
 /**
- * @brief HNSW 向量检索引擎
+ * HNSW 向量检索引擎
  *
  * 独立的 HNSW 索引，支持插入、删除、KNN 搜索和 Matryoshka 重排序。
  * 线程安全：所有公开方法均可并发调用。
@@ -61,14 +60,14 @@ public:
     HNSWIndex& operator=(HNSWIndex&&) = delete;
 
     /**
-     * @brief 插入向量
+     * 插入向量
      * @param id 唯一标识
      * @param vec 向量数据（维度必须与已有向量一致）
      */
     void addVector(const std::string& id, const std::vector<float>& vec);
 
     /**
-     * @brief KNN 搜索（带 Ada-EF 自适应搜索宽度）
+     * KNN 搜索（带 Ada-EF 自适应搜索宽度）
      * @param query 查询向量
      * @param k 返回最近邻数量
      * @return 按相似度降序排列的结果
@@ -76,14 +75,14 @@ public:
     std::vector<VectorSearchResult> searchKNN(const std::vector<float>& query, int k);
 
     /**
-     * @brief 删除向量（逻辑删除 + 邻居断链）
+     * 删除向量（逻辑删除 + 邻居断链）
      * @param id 要删除的向量标识
      * @return 是否成功删除
      */
     bool removeVector(const std::string& id);
 
     /**
-     * @brief Matryoshka 融合 cosine 重排序
+     * Matryoshka 融合 cosine 重排序
      * @param query 查询向量
      * @param candidates 候选结果集
      * @param topK 返回数量
@@ -94,17 +93,17 @@ public:
         const std::vector<VectorSearchResult>& candidates,
         int topK) const;
 
-    /** @brief 获取索引中向量数量 */
+    /** 获取索引中向量数量 */
     size_t getVectorCount() const;
 
-    /** @brief 获取索引统计信息（JSON） */
+    /** 获取索引统计信息（JSON） */
     Json::Value getHNSWStats() const;
 
-    /** @brief 获取当前向量维度（无向量时返回 0） */
+    /** 获取当前向量维度（无向量时返回 0） */
     size_t getHNSWVectorDimension() const;
 
     /**
-     * @brief 配置 HNSW 参数
+     * 配置 HNSW 参数
      * @param m 每层最大邻居数
      * @param mMax0 第0层最大邻居数
      * @param efConstruction 构建搜索宽度
@@ -112,7 +111,7 @@ public:
      */
     void configure(int m, int mMax0, int efConstruction, int efSearch);
 
-    /** @brief 清空索引 */
+    /** 清空索引 */
     void clear();
 
 private:

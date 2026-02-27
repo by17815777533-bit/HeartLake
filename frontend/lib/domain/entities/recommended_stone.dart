@@ -1,5 +1,4 @@
-// @file recommended_stone.dart
-// @brief 推荐石头模型与推荐类型枚举
+// 推荐石头模型与推荐类型枚举
 
 /// 推荐类型枚举
 enum RecommendationType {

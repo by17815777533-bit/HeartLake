@@ -1,6 +1,5 @@
 /**
- * @file EventHandlers.h
- * @brief 事件处理器
+ * 事件处理器
  */
 
 #pragma once

@@ -1,6 +1,4 @@
-// @file app_router.dart
-// @brief 声明式路由配置 - 基于 go_router 实现路由守卫与深度链接
-// Created by 林子怡
+// 声明式路由配置 - 基于 go_router 实现路由守卫与深度链接
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -34,6 +32,7 @@ import '../presentation/screens/user_detail_screen.dart';
 import '../presentation/screens/discover_screen.dart';
 import '../presentation/screens/lake_feed_screen.dart';
 import '../utils/storage_util.dart';
+import '../data/datasources/api_client.dart';
 
 /// 全局 navigatorKey，保持与旧代码兼容（ApiClient 401 回调等场景）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -251,8 +250,16 @@ Future<String?> _routeGuard(BuildContext context, GoRouterState state) async {
   if (publicPaths.contains(path)) return null;
 
   // 检查是否有 token
-  final token = await StorageUtil.getToken();
-  if (token == null) {
+  String? token;
+  try {
+    token = await StorageUtil.getToken();
+  } catch (_) {
+    // Web 环境安全存储不可用时，回退到内存态 token。
+    token = ApiClient().token;
+  }
+
+  token ??= ApiClient().token;
+  if (token == null || token.isEmpty) {
     return AppRoutes.splash;
   }
 

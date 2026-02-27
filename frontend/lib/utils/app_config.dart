@@ -1,6 +1,4 @@
-// @file app_config.dart
-// @brief 应用配置管理
-// Created by 王璐瑶
+// 应用配置管理
 
 library;
 
@@ -99,7 +97,7 @@ class AppConfig {
   /// WebSocket URL
   String get wsUrl {
     final baseUrl = apiBaseUrl;
-    return '${baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://').replaceFirst('/api', '').replaceFirst(RegExp(r'/+$'), '')}/chat/ws';
+    return '${baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://').replaceFirst('/api', '').replaceFirst(RegExp(r'/+$'), '')}/ws/broadcast';
   }
 
   // ============================================================

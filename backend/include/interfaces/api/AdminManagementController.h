@@ -1,7 +1,5 @@
 /**
- * @file AdminManagementController.h
- * @brief AdminManagementController 模块接口定义
- * Created by 白洋
+ * AdminManagementController 模块接口定义
  */
 
 #pragma once
@@ -15,7 +13,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 管理员管理相关的HTTP控制器
+ * 管理员管理相关的HTTP控制器
  *
  * 详细说明
  *

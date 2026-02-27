@@ -1,6 +1,5 @@
 /**
- * @file useTablePagination.test.ts
- * @brief useTablePagination composable 测试
+ * useTablePagination composable 测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useTablePagination } from '@/composables/useTablePagination'

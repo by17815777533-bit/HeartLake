@@ -1,10 +1,8 @@
 /**
- * @file OnnxSentimentEngine.cpp
- * @brief ONNX Runtime 中文情感分析引擎实现
+ * ONNX Runtime 中文情感分析引擎实现
  *
  * 包含完整的 BERT WordPiece Tokenizer 和 ONNX 推理逻辑。
  *
- * Created by 王璐瑶
  */
 
 #ifdef HEARTLAKE_USE_ONNX

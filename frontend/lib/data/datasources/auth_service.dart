@@ -1,6 +1,4 @@
-// @file auth_service.dart
-// @brief 认证服务 - 匿名登录 + 关键词恢复
-// Created by 王璐瑶
+// 认证服务 - 匿名登录 + 关键词恢复
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
@@ -49,6 +47,7 @@ class AuthService extends BaseService {
       'user_id': userId,
       'nickname': data['nickname'],
       'recovery_key': data['recovery_key'],
+      'is_new_user': data['is_new_user'] == true,
     };
   }
 
@@ -69,7 +68,12 @@ class AuthService extends BaseService {
       userId: userId,
       nickname: data['nickname'],
     );
-    return {'success': true, 'user_id': userId, 'nickname': data['nickname']};
+    return {
+      'success': true,
+      'user_id': userId,
+      'nickname': data['nickname'],
+      'is_new_user': data['is_new_user'] == true,
+    };
   }
 
   Future<bool> isLoggedIn() async {

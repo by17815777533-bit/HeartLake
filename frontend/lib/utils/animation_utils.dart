@@ -1,6 +1,4 @@
-// @file animation_utils.dart
-// @brief 动画工具类
-// Created by 王璐瑶
+// 动画工具类
 
 library;
 

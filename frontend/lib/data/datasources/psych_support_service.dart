@@ -1,6 +1,4 @@
-// @file psych_support_service.dart
-// @brief 心理支持服务 - 获取心理援助资源
-// Created by frontend-artist
+// 心理支持服务 - 获取心理援助资源
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

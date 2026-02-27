@@ -1,7 +1,5 @@
 /**
- * @file FederatedLearner.cpp
- * @brief 联邦学习聚合器实现
- * Created by 白洋
+ * 联邦学习聚合器实现
  */
 #include "infrastructure/ai/FederatedLearner.h"
 #include <algorithm>

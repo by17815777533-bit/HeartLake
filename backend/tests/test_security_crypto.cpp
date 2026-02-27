@@ -1,6 +1,5 @@
 /**
- * @file test_security_crypto.cpp
- * @brief 安全加密模块单元测试
+ * 安全加密模块单元测试
  *
  * 覆盖：
  * 1. E2EEncryption: X25519密钥交换、AES-256-GCM加解密、HKDF会话密钥派生

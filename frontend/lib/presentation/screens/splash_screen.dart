@@ -1,6 +1,4 @@
-// @file splash_screen.dart
-// @brief 启动页面
-// Created by 林子怡
+// 启动页面
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +7,7 @@ import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../di/service_locator.dart';
+import '../../utils/storage_util.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -46,6 +45,9 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkLoginAndNavigate() async {
     await Future.delayed(const Duration(seconds: 2));
 
+    bool? isNewUser;
+    String? loginUserId;
+
     try {
       var isLoggedIn = await _authService.isLoggedIn();
 
@@ -56,7 +58,11 @@ class _SplashScreenState extends State<SplashScreen>
           if (code == 401) {
             // token 过期，降级为匿名
             await _authService.logout();
-            await _authService.anonymousLogin();
+            final loginResult = await _authService.anonymousLogin();
+            if (loginResult['success'] == true) {
+              isNewUser = loginResult['is_new_user'] == true;
+              loginUserId = loginResult['user_id']?.toString();
+            }
           } else {
             // 网络错误(code==null)或服务器错误，保留 token 继续进入
             if (kDebugMode) { debugPrint('Token 刷新失败(code=$code)，保留登录状态'); }
@@ -66,6 +72,9 @@ class _SplashScreenState extends State<SplashScreen>
         final loginResult = await _authService.anonymousLogin();
         if (!loginResult['success']) {
           if (kDebugMode) { debugPrint('匿名登录失败: ${loginResult['message']}'); }
+        } else {
+          isNewUser = loginResult['is_new_user'] == true;
+          loginUserId = loginResult['user_id']?.toString();
         }
       }
     } catch (e) {
@@ -74,12 +83,33 @@ class _SplashScreenState extends State<SplashScreen>
     }
     if (!mounted) return;
 
-    // 首次启动显示引导页
     final prefs = await SharedPreferences.getInstance();
-    final isFirstLaunch = prefs.getString('onboarding_done') == null;
+    final legacyOnboardingDone =
+        prefs.getString('onboarding_done') == 'true' ||
+        (prefs.getBool('onboarding_done') ?? false);
+    final userId = loginUserId ?? await StorageUtil.getUserId();
+
+    bool userOnboardingDone = false;
+    if (userId != null && userId.isNotEmpty) {
+      final userFlagKey = 'onboarding_done_user_$userId';
+      userOnboardingDone =
+          prefs.getString(userFlagKey) == 'true' ||
+          (prefs.getBool(userFlagKey) ?? false);
+
+      // 老用户不再重复显示新手引导
+      if (isNewUser == false && !userOnboardingDone) {
+        await prefs.setString(userFlagKey, 'true');
+        userOnboardingDone = true;
+      }
+    }
+
+    final showOnboarding = isNewUser == true
+        ? !userOnboardingDone
+        : !legacyOnboardingDone && isNewUser == null;
+
     if (!mounted) return;
 
-    final targetPath = isFirstLaunch ? '/onboarding' : '/home';
+    final targetPath = showOnboarding ? '/onboarding' : '/home';
 
     context.go(targetPath);
   }

@@ -1,6 +1,5 @@
 /**
- * @file test_friend_service.cpp
- * @brief FriendService 领域服务单元测试
+ * FriendService 领域服务单元测试
  * 通过 Mock 仓储测试好友领域服务的同步方法，覆盖：
  * - 好友请求发送/接受/拒绝
  * - 好友删除

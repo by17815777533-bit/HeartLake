@@ -1,6 +1,4 @@
-// @file user_service.dart
-// @brief 用户服务 - 用户信息查询和管理
-// Created by 王璐瑶
+// 用户服务 - 用户信息查询和管理
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

@@ -1,7 +1,5 @@
 /**
- * @file RecommendationController.cpp
- * @brief RecommendationController 模块实现
- * Created by 白洋
+ * RecommendationController 模块实现
  */
 #include "interfaces/api/RecommendationController.h"
 #include "infrastructure/cache/RedisCache.h"

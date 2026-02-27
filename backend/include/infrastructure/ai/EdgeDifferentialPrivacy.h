@@ -1,7 +1,5 @@
 /**
- * @file EdgeDifferentialPrivacy.h
- * @brief 边缘差分隐私引擎接口
- * Created by 白洋
+ * 边缘差分隐私引擎接口
  */
 #pragma once
 
@@ -19,7 +17,7 @@ namespace ai {
 // 注意：DPConfig 已在 DifferentialPrivacyEngine.h 中定义，此处不再重复声明。
 
 /**
- * @brief 独立差分隐私引擎（从 EdgeAIEngine 提取）
+ * 独立差分隐私引擎（从 EdgeAIEngine 提取）
  *
  * 支持 Laplace 机制和 Gaussian 机制，带隐私预算追踪。
  * - Laplace 机制：noise ~ Lap(Δf / ε)
@@ -30,13 +28,13 @@ namespace ai {
 class EdgeDifferentialPrivacy {
 public:
     /**
-     * @brief 配置差分隐私参数
+     * 配置差分隐私参数
      * @param config 差分隐私配置
      */
     void configure(const DPConfig& config);
 
     /**
-     * @brief 对浮点值添加Laplace噪声
+     * 对浮点值添加Laplace噪声
      *
      * Laplace机制：noise ~ Lap(Δf / ε)
      * 其中 Δf 为敏感度，ε 为隐私预算
@@ -48,7 +46,7 @@ public:
     float addLaplaceNoise(float value, float sensitivity);
 
     /**
-     * @brief 对向量添加Laplace噪声（组合定理均分ε到每维）
+     * 对向量添加Laplace噪声（组合定理均分ε到每维）
      * @param values 原始向量
      * @param sensitivity L1敏感度
      * @return 添加噪声后的向量
@@ -56,7 +54,7 @@ public:
     std::vector<float> addLaplaceNoiseVec(const std::vector<float>& values, float sensitivity);
 
     /**
-     * @brief 对向量添加Gaussian噪声（(ε,δ)-DP，高维场景推荐）
+     * 对向量添加Gaussian噪声（(ε,δ)-DP，高维场景推荐）
      *
      * Gaussian机制：σ = Δ₂ · √(2·ln(1.25/δ)) / ε
      * 噪声尺度 O(√d) 而非 Laplace 的 O(d)，d=128 时噪声降低约 11 倍
@@ -73,30 +71,30 @@ public:
                                             float delta = 0.0f);
 
     /**
-     * @brief 获取剩余隐私预算
+     * 获取剩余隐私预算
      * @return 剩余 ε 值
      */
     float getRemainingPrivacyBudget() const;
 
     /**
-     * @brief 获取剩余 δ 预算
+     * 获取剩余 δ 预算
      * @return 剩余 δ 值
      */
     float getRemainingDeltaBudget() const;
 
     /**
-     * @brief 隐私预算是否已耗尽
+     * 隐私预算是否已耗尽
      * @return true 如果 ε 预算已用完
      */
     bool isPrivacyBudgetExhausted() const;
 
     /**
-     * @brief 重置隐私预算（新一轮计算，同时重置 ε 和 δ）
+     * 重置隐私预算（新一轮计算，同时重置 ε 和 δ）
      */
     void resetPrivacyBudget();
 
     /**
-     * @brief 获取当前差分隐私配置
+     * 获取当前差分隐私配置
      * @return DPConfig 配置副本
      */
     DPConfig getDPConfig() const;
@@ -114,7 +112,7 @@ private:
     mutable std::shared_mutex dpMutex_;
 
     /**
-     * @brief Laplace分布采样（逆CDF方法）
+     * Laplace分布采样（逆CDF方法）
      * @param scale 尺度参数 b
      * @return Laplace(0, scale) 样本
      */

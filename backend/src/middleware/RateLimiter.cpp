@@ -1,7 +1,5 @@
 /**
- * @file RateLimiter.cpp
- * @brief RateLimiter 模块实现
- * Created by 白洋
+ * RateLimiter 模块实现
  */
 
 

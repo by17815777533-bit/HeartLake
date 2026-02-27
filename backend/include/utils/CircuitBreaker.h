@@ -1,6 +1,5 @@
 /**
- * @file CircuitBreaker.h
- * @brief 熔断器模式实现
+ * 熔断器模式实现
  */
 
 #pragma once

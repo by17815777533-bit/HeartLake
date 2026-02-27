@@ -1,6 +1,4 @@
-// @file emotion_type.dart
-// @brief 情绪类型统一定义 — 基于 MoodType，消除重复枚举
-// Created by 王璐瑶
+// 情绪类型统一定义 — 基于 MoodType，消除重复枚举
 
 library;
 

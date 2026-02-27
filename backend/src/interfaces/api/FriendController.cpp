@@ -1,7 +1,5 @@
 /**
- * @file FriendController.cpp
- * @brief FriendController 模块实现
- * Created by 白洋
+ * FriendController 模块实现
  */
 
 #include "interfaces/api/FriendController.h"
@@ -30,6 +28,8 @@ static std::string intimacyLevelZh(const std::string& level) {
     if (level == "warm") return "温暖连接";
     return "初识";
 }
+
+constexpr double kIntimacyThreshold = 12.0;
 
 
 // ==================== 好友请求相关 ====================
@@ -76,7 +76,7 @@ void FriendController::sendFriendRequest(
         data["intimacy_score"] = score;
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
-        data["can_chat"] = score >= 20.0;
+        data["can_chat"] = score >= kIntimacyThreshold;
 
         callback(ResponseUtil::success(data, "已切换为亲密分自动关系，无需发送好友请求"));
     } catch (const std::exception& e) {
@@ -106,7 +106,7 @@ void FriendController::acceptFriendRequest(
         data["intimacy_score"] = score;
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
-        data["can_chat"] = score >= 20.0;
+        data["can_chat"] = score >= kIntimacyThreshold;
         callback(ResponseUtil::success(data, "无需接受：关系由互动亲密分自动判定"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in acceptFriendRequest(auto mode): " << e.what();
@@ -191,7 +191,7 @@ void FriendController::getFriends(
         limit = std::clamp(limit, 1, 200);
 
         auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
-        auto peers = intimacy.getTopIntimacyPeers(userId, limit, 20.0);
+        auto peers = intimacy.getTopIntimacyPeers(userId, limit, kIntimacyThreshold);
 
         Json::Value friends(Json::arrayValue);
         for (const auto& peer : peers) {
@@ -292,8 +292,8 @@ void FriendController::sendMessage(
         try {
             auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
             const double score = intimacy.getIntimacyScore(userId, friendId);
-            if (score < 20.0) {
-                callback(ResponseUtil::forbidden("亲密分不足，暂不可私聊（>=20可开启）"));
+            if (score < kIntimacyThreshold) {
+                callback(ResponseUtil::forbidden("亲密分不足，暂不可私聊（>=12可开启）"));
                 co_return;
             }
 
@@ -338,8 +338,8 @@ void FriendController::getMessages(
         try {
             auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
             const double score = intimacy.getIntimacyScore(userId, friendId);
-            if (score < 20.0) {
-                callback(ResponseUtil::forbidden("亲密分不足，暂不可查看私聊（>=20可开启）"));
+            if (score < kIntimacyThreshold) {
+                callback(ResponseUtil::forbidden("亲密分不足，暂不可查看私聊（>=12可开启）"));
                 co_return;
             }
 

@@ -1,6 +1,5 @@
 /**
- * @file stone_controller_test.cpp
- * @brief StoneController 单元测试
+ * StoneController 单元测试
  */
 
 #include <gtest/gtest.h>

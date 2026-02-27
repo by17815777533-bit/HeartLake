@@ -1,7 +1,5 @@
 /**
- * @file PasswordUtil.h
- * @brief PasswordUtil 模块接口定义
- * Created by 林子怡
+ * PasswordUtil 模块接口定义
  */
 
 #pragma once
@@ -17,7 +15,7 @@ namespace utils {
  * 使用 PBKDF2 (SHA256) 算法，带盐值和多次迭代
  */
 /**
- * @brief 密码工具类，用于密码处理
+ * 密码工具类，用于密码处理
  *
  * 详细说明
  *

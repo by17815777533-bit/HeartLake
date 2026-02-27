@@ -1,7 +1,5 @@
 /**
- * @file StoneApplicationService.cpp
- * @brief StoneApplicationService 模块实现
- * Created by 白洋
+ * StoneApplicationService 模块实现
  */
 
 #include "application/StoneApplicationService.h"

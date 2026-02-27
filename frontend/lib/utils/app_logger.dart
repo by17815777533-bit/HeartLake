@@ -1,6 +1,4 @@
-// @file app_logger.dart
-// @brief 统一日志工具
-// Created by 王璐瑶
+// 统一日志工具
 
 library;
 

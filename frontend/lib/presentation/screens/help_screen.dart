@@ -1,6 +1,4 @@
-// @file help_screen.dart
-// @brief 帮助页面
-// Created by 林子怡
+// 帮助页面
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';

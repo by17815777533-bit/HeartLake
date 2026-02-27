@@ -1,10 +1,8 @@
 /**
- * @file DifferentialPrivacyEngine.cpp
- * @brief 差分隐私引擎
+ * 差分隐私引擎
  *
  * 从 EdgeAIEngine 提取的独立模块。Laplace机制，隐私预算追踪。
  *
- * Created by 王璐瑶
  */
 
 #include "infrastructure/ai/DifferentialPrivacyEngine.h"

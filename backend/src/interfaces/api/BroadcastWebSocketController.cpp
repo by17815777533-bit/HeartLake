@@ -1,6 +1,5 @@
 /**
- * @file BroadcastWebSocketController.cpp
- * @brief WebSocket广播控制器实现 - 集成WebSocketHub
+ * WebSocket广播控制器实现 - 集成WebSocketHub
  */
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/PasetoUtil.h"
@@ -16,10 +15,18 @@ void BroadcastWebSocketController::handleNewConnection(
 ) {
     std::string token = req->getParameter("token");
 
-    // VUL-02 修复：token 验证失败时拒绝 WebSocket 连接
+    // 兼容旧客户端：允许首包 auth 认证；URL token 仍为优先鉴权路径
     if (token.empty()) {
-        LOG_WARN << "WebSocket 连接被拒绝：缺少 token";
-        conn->shutdown(drogon::CloseCode::kViolation, "认证失败：缺少 token");
+        conn->setContext(std::make_shared<std::string>(""));
+        auto weakConn = std::weak_ptr<drogon::WebSocketConnection>(conn);
+        drogon::app().getLoop()->runAfter(5.0, [weakConn]() {
+            if (auto locked = weakConn.lock()) {
+                auto ctx = locked->getContext<std::string>();
+                if (!ctx || ctx->empty()) {
+                    locked->shutdown(drogon::CloseCode::kViolation, "认证超时");
+                }
+            }
+        });
         return;
     }
 
@@ -78,15 +85,49 @@ void BroadcastWebSocketController::handleNewMessage(
 
     const std::string msgType = json["type"].asString();
 
-    // VUL-02 增强：获取已认证的用户ID，用于房间级别权限控制
+    // 获取已认证的用户ID，用于房间级别权限控制
     auto ctx = conn->getContext<std::string>();
     std::string connUserId = ctx ? *ctx : "";
+
+    if (msgType == "auth") {
+        if (!connUserId.empty()) {
+            return;
+        }
+        const std::string token = json["token"].asString();
+        if (token.empty()) {
+            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：缺少 token");
+            return;
+        }
+        try {
+            connUserId = utils::PasetoUtil::verifyToken(token, utils::PasetoUtil::getKey());
+        } catch (const std::exception& e) {
+            LOG_WARN << "WebSocket 首包认证失败：token 验证失败 - " << e.what();
+            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：无效 token");
+            return;
+        }
+        if (connUserId.empty()) {
+            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：无效用户");
+            return;
+        }
+        Hub::getInstance().addConnection(conn, connUserId);
+        conn->setContext(std::make_shared<std::string>(connUserId));
+        return;
+    }
 
     if (msgType == "ping") {
         Json::Value pong;
         pong["type"] = "pong";
         conn->send(Json::FastWriter().write(pong));
-    } else if (msgType == "join") {
+        return;
+    }
+
+    // 仅允许已认证连接处理业务消息
+    if (connUserId.empty()) {
+        conn->shutdown(drogon::CloseCode::kViolation, "认证失败：请先发送 auth");
+        return;
+    }
+
+    if (msgType == "join") {
         std::string room = json["room"].asString();
         // 私有房间权限验证
         if (room.find("private:") == 0) {

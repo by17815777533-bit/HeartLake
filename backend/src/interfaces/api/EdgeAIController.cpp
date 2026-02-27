@@ -1,11 +1,9 @@
 /**
- * @file EdgeAIController.cpp
- * @brief 边缘AI控制器实现 — 提供本地AI推理、联邦学习、差分隐私与向量检索的HTTP接口
+ * 边缘AI控制器实现 — 提供本地AI推理、联邦学习、差分隐私与向量检索的HTTP接口
  *
  * 实现 EdgeAIController.h 中声明的全部10个公开端点处理函数
  * 以及7个私有辅助方法。
  *
- * Created by 白洋
  */
 
 #include "interfaces/api/EdgeAIController.h"

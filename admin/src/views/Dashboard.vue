@@ -1,7 +1,5 @@
 <!--
-  @file Dashboard.vue
-  @brief Dashboard 组件 - 数据大屏 + 欢迎信息（组合子组件）
-  Created by 林子怡
+  Dashboard 组件 - 数据大屏 + 欢迎信息（组合子组件）
 
   组件结构说明：
   本页面已拆分为 6 个子组件（位于 views/dashboard/ 目录下），各自负责独立的展示区域：

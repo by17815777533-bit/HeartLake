@@ -1,7 +1,5 @@
 /**
- * @file ErrorCode.cpp
- * @brief ErrorCode 模块实现
- * Created by 林子怡
+ * ErrorCode 模块实现
  */
 #include "utils/ErrorCode.h"
 

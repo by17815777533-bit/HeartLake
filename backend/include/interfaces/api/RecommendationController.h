@@ -1,7 +1,5 @@
 /**
- * @file RecommendationController.h
- * @brief RecommendationController 模块接口定义
- * Created by 白洋
+ * RecommendationController 模块接口定义
  */
 
 #pragma once
@@ -23,7 +21,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 推荐相关的HTTP控制器
+ * 推荐相关的HTTP控制器
  *
  * 详细说明
  *

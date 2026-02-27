@@ -1,6 +1,4 @@
-// @file atmospheric_background.dart
-// @brief 氛围背景组件
-// Created by 吴睿璐
+// 氛围背景组件
 
 library;
 import 'package:flutter/material.dart';

@@ -1,6 +1,5 @@
 /**
- * @file ResonanceSearchService.cpp
- * @brief 同频共鸣搜索服务实现 - 使用Milvus向量数据库
+ * 同频共鸣搜索服务实现 - 使用Milvus向量数据库
  */
 
 #include "infrastructure/services/ResonanceSearchService.h"

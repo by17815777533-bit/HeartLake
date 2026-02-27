@@ -1,6 +1,4 @@
-// @file temp_friends_screen.dart
-// @brief 临时好友列表界面
-// Created by 林子怡
+// 临时好友列表界面
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -20,7 +18,7 @@ class TempFriendsScreen extends StatefulWidget {
 class _TempFriendsScreenState extends State<TempFriendsScreen>
     with SingleTickerProviderStateMixin {
   final TempFriendService _tempFriendService = sl<TempFriendService>();
-  List<dynamic> _tempFriends = [];
+  List<Map<String, dynamic>> _tempFriends = [];
   bool _isLoading = true;
   Timer? _expiryTimer;
   late AnimationController _listAnimController;
@@ -53,8 +51,15 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       final result = await _tempFriendService.getMyTempFriends();
 
       if (result['success'] && mounted) {
+        final rawTempFriends = result['temp_friends'];
+        final tempFriends = rawTempFriends is List
+            ? rawTempFriends
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList()
+            : <Map<String, dynamic>>[];
         setState(() {
-          _tempFriends = result['temp_friends'] ?? [];
+          _tempFriends = tempFriends;
           _isLoading = false;
         });
         _listAnimController.forward();

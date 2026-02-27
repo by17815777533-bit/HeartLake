@@ -1,7 +1,5 @@
 /**
- * @file ArchitectureBootstrap.h
- * @brief ArchitectureBootstrap 模块接口定义
- * Created by 白洋
+ * ArchitectureBootstrap 模块接口定义
  */
 
 #pragma once
@@ -41,7 +39,7 @@ namespace heartlake::domain::friend_domain {
 namespace heartlake {
 
 /**
- * @brief 架构初始化器
+ * 架构初始化器
  *
  * 负责按正确顺序初始化整个应用架构:
  * 1. 基础设施层 (缓存、数据库)
@@ -52,7 +50,7 @@ namespace heartlake {
 class ArchitectureBootstrap {
 public:
     /**
-     * @brief 初始化整个架构
+     * 初始化整个架构
      */
     static void initialize() {
         LOG_INFO << "=== Initializing HeartLake Architecture ===";

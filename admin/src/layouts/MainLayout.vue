@@ -1,7 +1,5 @@
 <!--
-  @file MainLayout.vue
-  @brief MainLayout 组件 - 光遇(Sky: Children of the Light)风格
-  Created by 林子怡
+  MainLayout 组件 - 光遇(Sky: Children of the Light)风格
 -->
 
 <template>

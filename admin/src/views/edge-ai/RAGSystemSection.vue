@@ -1,7 +1,5 @@
 <!--
-  @file RAGSystemSection.vue
-  @brief 双记忆RAG系统统计面板
-  Created by 林子怡
+  双记忆RAG系统统计面板
 -->
 
 <template>

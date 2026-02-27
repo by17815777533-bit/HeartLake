@@ -1,6 +1,5 @@
 /**
- * @file test_security_torture.cpp
- * @brief 安全模块极限压力测试 - 100+ 测试用例覆盖 CircuitBreaker、PASETO、E2E、Password/Identity、Validator
+ * 安全模块极限压力测试 - 100+ 测试用例覆盖 CircuitBreaker、PASETO、E2E、Password/Identity、Validator
  */
 
 #include <gtest/gtest.h>

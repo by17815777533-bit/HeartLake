@@ -1,5 +1,4 @@
-// @file guardian_service.dart
-// @brief 守望者服务 - 灯火转赠与激励系统
+// 守望者服务 - 灯火转赠与激励系统
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';

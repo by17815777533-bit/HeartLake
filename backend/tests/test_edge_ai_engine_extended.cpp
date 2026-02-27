@@ -1,6 +1,5 @@
 /**
- * @file test_edge_ai_engine_extended.cpp
- * @brief EdgeAIEngine 扩展单元测试
+ * EdgeAIEngine 扩展单元测试
  */
 
 #include <gtest/gtest.h>

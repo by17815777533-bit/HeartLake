@@ -1,6 +1,5 @@
 /**
- * @file test_paseto_extended.cpp
- * @brief PasetoUtil 扩展单元测试
+ * PasetoUtil 扩展单元测试
  *
  * 覆盖：
  * 1. admin token 生成和验证

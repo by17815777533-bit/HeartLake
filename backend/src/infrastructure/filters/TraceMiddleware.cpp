@@ -1,7 +1,5 @@
 /**
- * @file TraceMiddleware.cpp
- * @brief OpenTelemetry 风格的请求链路追踪中间件实现
- * Created by 白洋
+ * OpenTelemetry 风格的请求链路追踪中间件实现
  */
 
 #include "infrastructure/filters/TraceMiddleware.h"

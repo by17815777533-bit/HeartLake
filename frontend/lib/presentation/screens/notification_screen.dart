@@ -1,6 +1,4 @@
-// @file notification_screen.dart
-// @brief 通知列表界面
-// Created by 林子怡
+// 通知列表界面
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

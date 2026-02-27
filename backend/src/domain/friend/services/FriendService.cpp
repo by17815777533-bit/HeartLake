@@ -1,6 +1,5 @@
 /**
- * @file FriendService.cpp
- * @brief 好友领域服务实现 - 异步化改造
+ * 好友领域服务实现 - 异步化改造
  */
 
 #include "domain/friend/services/FriendService.h"

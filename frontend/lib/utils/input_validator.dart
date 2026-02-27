@@ -1,6 +1,4 @@
-// @file input_validator.dart
-// @brief 输入验证工具 - 统一的参数校验，防止无效数据到达后端
-// Created by 王璐瑶
+// 输入验证工具 - 统一的参数校验，防止无效数据到达后端
 
 /// 验证异常 - 参数不合法时抛出
 class ValidationException implements Exception {
@@ -18,6 +16,16 @@ class InputValidator {
   // UUID v4 正则（标准格式 8-4-4-4-12）
   static final _uuidRegex = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  // 业务ID常见格式：前缀 + UUID（如 stone_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx）
+  static final _prefixedUuidRegex = RegExp(
+    r'^[A-Za-z][A-Za-z0-9]*_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  // 通用安全ID格式：字母数字开头，可包含下划线和连字符（如 anonymous_xxx、admin_001）
+  static final _safeIdRegex = RegExp(
+    r'^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$',
   );
 
   // HTML标签匹配（含自闭合标签）
@@ -158,7 +166,7 @@ class InputValidator {
     return value;
   }
 
-  /// UUID v4 格式校验，防路径注入
+  /// 安全ID格式校验（兼容 UUID / 前缀UUID / 业务ID），并防路径注入
   static String validateUUID(String? id, String fieldName) {
     if (id == null || id.isEmpty) {
       throw ValidationException('$fieldName不能为空');
@@ -167,10 +175,12 @@ class InputValidator {
     if (id.contains('..') || id.contains('/') || id.contains('\\')) {
       throw ValidationException('$fieldName包含非法字符');
     }
-    if (!_uuidRegex.hasMatch(id)) {
-      throw ValidationException('$fieldName格式无效，需要UUID格式');
+    if (_uuidRegex.hasMatch(id) ||
+        _prefixedUuidRegex.hasMatch(id) ||
+        _safeIdRegex.hasMatch(id)) {
+      return id;
     }
-    return id;
+    throw ValidationException('$fieldName格式无效');
   }
 
   /// XSS 过滤 - 去除 HTML 标签、script 标签、事件属性

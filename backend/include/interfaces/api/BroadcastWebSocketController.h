@@ -1,6 +1,5 @@
 /**
- * @file BroadcastWebSocketController.h
- * @brief WebSocket广播控制器 - 集成WebSocketHub实现实时通信
+ * WebSocket广播控制器 - 集成WebSocketHub实现实时通信
  */
 #pragma once
 

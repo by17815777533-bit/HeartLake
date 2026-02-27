@@ -1,7 +1,5 @@
 /**
- * @file VIPService.cpp
- * @brief VIPService 模块实现
- * Created by 白洋
+ * VIPService 模块实现
  */
 
 #include "infrastructure/services/VIPService.h"

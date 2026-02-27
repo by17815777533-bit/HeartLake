@@ -1,7 +1,5 @@
 /**
- * @file AdminAuthFilter.cpp
- * @brief AdminAuthFilter 模块实现
- * Created by 白洋
+ * AdminAuthFilter 模块实现
  */
 #include "infrastructure/filters/AdminAuthFilter.h"
 #include "utils/ResponseUtil.h"

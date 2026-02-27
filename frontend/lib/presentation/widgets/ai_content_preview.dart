@@ -1,5 +1,4 @@
-// @file ai_content_preview.dart
-// @brief AI内容审核预览组件 - 实时情感分析 + 内容审核
+// AI内容审核预览组件 - 实时情感分析 + 内容审核
 // 类光遇温暖风格：毛玻璃卡片、柔和渐变、脉动动画
 
 import 'dart:async';

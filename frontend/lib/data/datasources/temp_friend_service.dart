@@ -1,6 +1,4 @@
-// @file temp_friend_service.dart
-// @brief 临时好友服务 - 24小时好友管理
-// Created by 王璐瑶
+// 临时好友服务 - 24小时好友管理
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

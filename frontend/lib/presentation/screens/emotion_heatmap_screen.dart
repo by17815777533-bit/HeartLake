@@ -1,5 +1,4 @@
-// @file emotion_heatmap_screen.dart
-// @brief 情绪热力图页面（与情绪日历拆分）
+// 情绪热力图页面（与情绪日历拆分）
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';

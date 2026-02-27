@@ -1,6 +1,5 @@
 /**
- * @file moderation.test.ts
- * @brief Moderation.vue API 调用测试
+ * Moderation.vue API 调用测试
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import MockAdapter from 'axios-mock-adapter'

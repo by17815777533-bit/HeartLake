@@ -1,7 +1,5 @@
 /**
- * @file RedisCache.cpp
- * @brief RedisCache 模块实现
- * Created by 王璐瑶
+ * RedisCache 模块实现
  */
 #include "infrastructure/cache/RedisCache.h"
 #include <drogon/drogon.h>

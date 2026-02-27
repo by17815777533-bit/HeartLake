@@ -1,6 +1,4 @@
-// @file mood_colors.dart
-// @brief 情绪色彩映射系统
-// Created by 王璐瑶
+// 情绪色彩映射系统
 
 library;
 

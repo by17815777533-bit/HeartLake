@@ -1,6 +1,4 @@
-// @file user_detail_screen.dart
-// @brief 用户详情界面
-// Created by 林子怡
+// 用户详情界面
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';

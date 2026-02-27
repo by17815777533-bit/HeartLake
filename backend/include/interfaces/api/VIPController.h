@@ -1,7 +1,5 @@
 /**
- * @file VIPController.h
- * @brief VIP控制器接口定义
- * Created by 白洋
+ * VIP控制器接口定义
  */
 
 #pragma once
@@ -14,7 +12,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief VIP控制器
+ * VIP控制器
  *
  * 处理VIP相关的HTTP请求，包括：
  * - 查询VIP状态
@@ -44,7 +42,7 @@ public:
     METHOD_LIST_END
 
     /**
-     * @brief 获取用户VIP状态
+     * 获取用户VIP状态
      */
     void getVIPStatus(
         const HttpRequestPtr& req,
@@ -52,7 +50,7 @@ public:
     );
 
     /**
-     * @brief 获取用户VIP权益列表
+     * 获取用户VIP权益列表
      */
     void getPrivileges(
         const HttpRequestPtr& req,
@@ -60,7 +58,7 @@ public:
     );
 
     /**
-     * @brief 检查是否有免费心理咨询额度
+     * 检查是否有免费心理咨询额度
      */
     void checkFreeCounseling(
         const HttpRequestPtr& req,
@@ -68,7 +66,7 @@ public:
     );
 
     /**
-     * @brief 预约心理咨询
+     * 预约心理咨询
      */
     void bookCounseling(
         const HttpRequestPtr& req,
@@ -76,7 +74,7 @@ public:
     );
 
     /**
-     * @brief 获取AI评论频率
+     * 获取AI评论频率
      */
     void getAICommentFrequency(
         const HttpRequestPtr& req,

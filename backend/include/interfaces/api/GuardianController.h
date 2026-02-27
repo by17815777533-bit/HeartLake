@@ -1,6 +1,5 @@
 /**
- * @file GuardianController.h
- * @brief 守望者控制器 - 灯火转赠与激励系统API
+ * 守望者控制器 - 灯火转赠与激励系统API
  */
 
 #pragma once

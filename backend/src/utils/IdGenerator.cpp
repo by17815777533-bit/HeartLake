@@ -1,6 +1,5 @@
 /**
- * @file IdGenerator.cpp
- * @brief ID生成器实现
+ * ID生成器实现
  */
 
 #include "utils/IdGenerator.h"

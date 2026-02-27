@@ -1,6 +1,5 @@
 /**
- * @file EmotionTrackingService.cpp
- * @brief 负重者监测系统实现
+ * 负重者监测系统实现
  */
 
 #include "infrastructure/services/EmotionTrackingService.h"

@@ -1,9 +1,9 @@
-// @file onboarding_screen.dart
-// @brief 新用户引导页面 - 介绍心湖核心概念
+// 新用户引导页面 - 介绍心湖核心概念
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 
@@ -22,10 +22,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _completeOnboarding() async {
     if (_isNavigating) return;
     setState(() => _isNavigating = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('onboarding_done', 'true');
-    if (!mounted) return;
-    context.go('/home');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('onboarding_done', 'true');
+      final userId = await StorageUtil.getUserId();
+      if (userId != null && userId.isNotEmpty) {
+        await prefs.setString('onboarding_done_user_$userId', 'true');
+      }
+      if (!mounted) return;
+      context.go('/home');
+    } catch (_) {
+      if (!mounted) return;
+      // 即使本地持久化失败，也允许继续进入应用，避免按钮卡死。
+      context.go('/home');
+    } finally {
+      if (mounted) {
+        setState(() => _isNavigating = false);
+      }
+    }
   }
 
   static const _pages = [

@@ -1,6 +1,4 @@
-// @file water_background.dart
-// @brief 水背景组件
-// Created by 林子怡
+// 水背景组件
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

@@ -1,6 +1,5 @@
 /**
- * @file LakeGodGuardianService.h
- * @brief 湖神守护服务 - 自动为零互动石头派送暖心纸船
+ * 湖神守护服务 - 自动为零互动石头派送暖心纸船
  */
 
 #pragma once

@@ -1,7 +1,5 @@
 /**
- * @file AIService.h
- * @brief AIService 模块接口定义
- * Created by 王璐瑶
+ * AIService 模块接口定义
  */
 
 #pragma once
@@ -27,7 +25,7 @@ namespace ai {
  * 支持 DeepSeek、OpenAI 等大模型API
  */
 /**
- * @brief AI服务，提供AI相关功能
+ * AI服务，提供AI相关功能
  *
  * 详细说明
  *
@@ -38,7 +36,7 @@ public:
     static AIService& getInstance();
     
     /**
-     * @brief initialize方法
+     * initialize方法
      *
      * @param config 参数说明
      */
@@ -148,7 +146,7 @@ public:
         bool needsAlert;       // 是否需要特别关注（如自伤倾向）
     };
     /**
-     * @brief localModerate方法
+     * localModerate方法
      *
      * @param text 参数说明
      * @return 返回值说明

@@ -1,6 +1,5 @@
 /**
- * @file IntimacyService.cpp
- * @brief 亲密分服务实现（多信号融合 + 时序衰减 + AI共鸣）
+ * 亲密分服务实现（多信号融合 + 时序衰减 + AI共鸣）
  */
 
 #include "infrastructure/services/IntimacyService.h"
@@ -14,7 +13,7 @@ namespace heartlake::infrastructure {
 
 namespace {
 
-constexpr double kDefaultMinFriendScore = 20.0;
+constexpr double kDefaultMinFriendScore = 12.0;
 
 inline double clamp01(double v) {
     return std::clamp(v, 0.0, 1.0);
@@ -720,7 +719,7 @@ bool IntimacyService::canChat(
 std::string IntimacyService::levelFromScore(double score) {
     if (score >= 80.0) return "soulmate";
     if (score >= 55.0) return "close";
-    if (score >= 20.0) return "warm";
+    if (score >= 12.0) return "warm";
     return "stranger";
 }
 

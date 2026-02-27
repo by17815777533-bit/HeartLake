@@ -1,7 +1,5 @@
 /**
- * @file HighPerformance.cpp
- * @brief HighPerformance 非模板类方法实现
- * Created by 林子怡
+ * HighPerformance 非模板类方法实现
  */
 
 #include "utils/HighPerformance.h"

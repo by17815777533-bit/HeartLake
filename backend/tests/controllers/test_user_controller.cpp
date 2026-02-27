@@ -1,8 +1,6 @@
 /**
- * @file test_user_controller.cpp
- * @brief UserController 单元测试
+ * UserController 单元测试
  * 覆盖匿名登录、恢复密钥登录、token刷新、用户信息、搜索、情感热力图/日历、统计等接口
- * Created by 白洋
  */
 
 #include <gtest/gtest.h>

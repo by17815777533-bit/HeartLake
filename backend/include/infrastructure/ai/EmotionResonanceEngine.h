@@ -1,6 +1,5 @@
 /**
- * @file EmotionResonanceEngine.h
- * @brief 情绪感知时序共鸣引擎
+ * 情绪感知时序共鸣引擎
  *
  * 创新点：融合语义相似度、情绪轨迹匹配、时间衰减和多样性促进的
  * 多维度共鸣推荐算法。不同于传统的内容推荐，本算法关注用户的
@@ -61,7 +60,7 @@ public:
     static EmotionResonanceEngine& getInstance();
 
     /**
-     * @brief 计算多维度共鸣推荐
+     * 计算多维度共鸣推荐
      */
     std::vector<ResonanceResult> findResonance(
         const std::string& userId,
@@ -70,7 +69,7 @@ public:
     );
 
     /**
-     * @brief LB_Keogh 下界：DTW 距离的快速下界估计，O(n) 时间
+     * LB_Keogh 下界：DTW 距离的快速下界估计，O(n) 时间
      * 用于剪枝，避免不必要的完整 DTW 计算
      */
     float lbKeogh(
@@ -80,7 +79,7 @@ public:
     );
 
     /**
-     * @brief LB_Improved 双向包络下界 — 比 LB_Keogh 更紧的 DTW 下界
+     * LB_Improved 双向包络下界 — 比 LB_Keogh 更紧的 DTW 下界
      *
      * 算法来源: Lemire 2009 "Faster Retrieval with a Two-Pass Dynamic-Time-Warping
      * Lower Bound"。在 LB_Keogh 基础上，对 query 超出 candidate 包络的位置做
@@ -94,7 +93,7 @@ public:
     );
 
     /**
-     * @brief 计算两个情绪轨迹的相似度
+     * 计算两个情绪轨迹的相似度
      * 使用DTW (Dynamic Time Warping) + Sakoe-Chiba band 约束
      */
     float trajectorySimDTW(
@@ -103,7 +102,7 @@ public:
     );
 
     /**
-     * @brief 带 early abandoning 的 DTW 相似度计算
+     * 带 early abandoning 的 DTW 相似度计算
      *
      * 当某行的最小累积代价已超过 bestSoFar 对应的距离阈值时，提前终止计算。
      * 参考: Rakthanmanon et al. 2012 "Searching and Mining Trillions of Time
@@ -119,13 +118,13 @@ public:
     );
 
     /**
-     * @brief 计算时间衰减因子
+     * 计算时间衰减因子
      * 使用指数衰减：decay = exp(-λ * Δt)
      */
     float temporalDecay(const std::string& timestamp, float lambda = 0.1f);
 
     /**
-     * @brief 计算多样性奖励
+     * 计算多样性奖励
      * 避免推荐相同情绪类型的内容，促进情绪多样性
      */
     float diversityBonus(
@@ -135,7 +134,7 @@ public:
     );
 
     /**
-     * @brief 生成人类可读的共鸣原因
+     * 生成人类可读的共鸣原因
      */
     std::string generateResonanceReason(
         const ResonanceResult& result,
@@ -157,7 +156,7 @@ public:
     }
 
     /**
-     * @brief 基于 EMA 的在线权重自适应学习
+     * 基于 EMA 的在线权重自适应学习
      *
      * 根据用户对推荐结果的隐式反馈（点击/忽略），用指数移动平均更新四维权重。
      * 参考: "MultiSentimentArcs" (Frontiers 2024) 中的时序情绪自适应建模思路。

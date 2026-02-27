@@ -1,6 +1,4 @@
-// @file privacy_badge.dart
-// @brief 差分隐私保护徽章组件
-// Created by 白洋
+// 差分隐私保护徽章组件
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';

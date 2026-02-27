@@ -1,6 +1,5 @@
 /**
- * @file EventBus.h
- * @brief 事件总线 - 领域事件发布订阅
+ * 事件总线 - 领域事件发布订阅
  */
 
 #pragma once

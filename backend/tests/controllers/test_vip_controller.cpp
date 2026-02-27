@@ -1,6 +1,5 @@
 /**
- * @file test_vip_controller.cpp
- * @brief VIPController 单元测试
+ * VIPController 单元测试
  * 覆盖：VIP状态、特权列表、免费咨询配额、咨询预约、AI评论频率、参数校验
  */
 

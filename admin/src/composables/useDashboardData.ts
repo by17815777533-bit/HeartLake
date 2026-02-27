@@ -1,5 +1,4 @@
-// @file useDashboardData.js
-// @brief Dashboard 数据逻辑主 composable - 整合图表配置和数据加载
+// Dashboard 数据逻辑主 composable - 整合图表配置和数据加载
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'

@@ -1,10 +1,8 @@
 /**
- * @file EmotionPulseDetector.cpp
- * @brief 实时情绪脉搏检测子系统实现
+ * 实时情绪脉搏检测子系统实现
  *
  * 从 EdgeAIEngine 提取的独立模块。
  *
- * Created by 王璐瑶
  */
 
 #include "infrastructure/ai/EmotionPulseDetector.h"

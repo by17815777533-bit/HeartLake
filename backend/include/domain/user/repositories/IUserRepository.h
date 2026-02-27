@@ -1,6 +1,5 @@
 /**
- * @file IUserRepository.h
- * @brief 用户仓储接口
+ * 用户仓储接口
  */
 
 #pragma once

@@ -1,6 +1,5 @@
 /**
- * @file IntimacyService.h
- * @brief 亲密分服务：基于石头互动自动判断关系，无需手动通过/拒绝
+ * 亲密分服务：基于石头互动自动判断关系，无需手动通过/拒绝
  */
 
 #pragma once
@@ -45,7 +44,7 @@ public:
     std::vector<IntimacyProfile> getTopIntimacyPeers(
         const std::string& userId,
         int limit = 80,
-        double minScore = 20.0
+        double minScore = 12.0
     ) const;
 
     double getIntimacyScore(
@@ -56,7 +55,7 @@ public:
     bool canChat(
         const std::string& userId,
         const std::string& peerId,
-        double threshold = 20.0
+        double threshold = 12.0
     ) const;
 
     static std::string levelFromScore(double score);

@@ -1,6 +1,4 @@
-// @file stone_service.dart
-// @brief 石头服务 - 负责石头的发布、获取、编辑、删除
-// Created by 王璐瑶
+// 石头服务 - 负责石头的发布、获取、编辑、删除
 
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
@@ -34,7 +32,8 @@ class StoneService extends BaseService {
     InputValidator.requireLength(content, '石头内容', min: 1, max: 5000);
     content = InputValidator.sanitizeText(content);
     InputValidator.requireInList(stoneType, const [
-      'text', 'voice', 'image', 'mood', 'story',
+      // 与后端 StoneController 的 stone_type 白名单保持一致
+      'small', 'medium', 'large', 'light', 'heavy',
     ], '石头类型');
     InputValidator.requireNonEmpty(stoneColor, '石头颜色');
     InputValidator.optionalInList(moodType, const [

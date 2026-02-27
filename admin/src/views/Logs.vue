@@ -1,6 +1,5 @@
 <!--
-  @file Logs.vue
-  @brief 操作日志页面
+  操作日志页面
 -->
 
 <template>

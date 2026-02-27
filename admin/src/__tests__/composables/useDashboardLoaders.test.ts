@@ -1,6 +1,5 @@
 /**
- * @file useDashboardLoaders.test.ts
- * @brief useDashboardLoaders composable 测试
+ * useDashboardLoaders composable 测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, reactive } from 'vue'

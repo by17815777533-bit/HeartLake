@@ -1,6 +1,5 @@
 <!--
-  @file Moderation.vue
-  @brief 内容审核管理页面
+  内容审核管理页面
 -->
 
 <template>

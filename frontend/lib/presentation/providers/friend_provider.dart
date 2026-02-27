@@ -1,6 +1,4 @@
-// @file friend_provider.dart
-// @brief 好友状态管理 - 好友列表、临时好友、好友请求
-// Created by 林子怡
+// 好友状态管理 - 好友列表、临时好友、好友请求
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/friend_service.dart';

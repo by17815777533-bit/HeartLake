@@ -1,6 +1,5 @@
 /**
- * @file UserRepository.cpp
- * @brief 用户仓储实现
+ * 用户仓储实现
  */
 
 #include "domain/user/repositories/UserRepository.h"

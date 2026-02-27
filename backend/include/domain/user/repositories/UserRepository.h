@@ -1,6 +1,5 @@
 /**
- * @file UserRepository.h
- * @brief 用户仓储实现
+ * 用户仓储实现
  */
 
 #pragma once

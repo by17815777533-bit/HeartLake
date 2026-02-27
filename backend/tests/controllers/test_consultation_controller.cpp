@@ -1,6 +1,5 @@
 /**
- * @file test_consultation_controller.cpp
- * @brief ConsultationController 单元测试
+ * ConsultationController 单元测试
  * 覆盖：创建会话、密钥交换、发送消息、获取消息、会话列表、参数校验
  */
 

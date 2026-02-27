@@ -1,7 +1,5 @@
 /**
- * @file IdGenerator.h
- * @brief IdGenerator 模块接口定义
- * Created by 林子怡
+ * IdGenerator 模块接口定义
  */
 
 #pragma once
@@ -13,7 +11,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * @brief ID生成器，用于生成唯一ID
+ * ID生成器，用于生成唯一ID
  *
  * 详细说明
  *
@@ -39,7 +37,7 @@ private:
     static std::string generateSecureRandomId(size_t length);  // CSPRNG，用于安全敏感的 ID
 
     /**
-     * @brief generateRandomNumber方法
+     * generateRandomNumber方法
      *
      * @param min 参数说明
      * @param max 参数说明

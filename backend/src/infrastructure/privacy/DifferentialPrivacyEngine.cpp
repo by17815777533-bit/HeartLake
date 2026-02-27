@@ -1,6 +1,5 @@
 /**
- * @file DifferentialPrivacyEngine.cpp
- * @brief 差分隐私情绪聚合引擎实现
+ * 差分隐私情绪聚合引擎实现
  *
  * 基于拉普拉斯机制实现ε-差分隐私保证
  * 参考：FedMultiEmo (arXiv:2507.15470, July 2025)

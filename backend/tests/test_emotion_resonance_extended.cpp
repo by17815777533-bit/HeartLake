@@ -1,6 +1,5 @@
 /**
- * @file test_emotion_resonance_extended.cpp
- * @brief EmotionResonanceEngine 扩展测试
+ * EmotionResonanceEngine 扩展测试
  */
 
 #include <gtest/gtest.h>

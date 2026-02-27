@@ -1,6 +1,5 @@
 /**
- * @file test_guardian_controller.cpp
- * @brief GuardianController 单元测试
+ * GuardianController 单元测试
  * 覆盖：守护者统计、灯火转赠、情感洞察、守护者对话、参数校验
  */
 

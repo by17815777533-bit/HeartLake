@@ -1,6 +1,4 @@
-// @file home_screen.dart
-// @brief 主页框架 - 底部导航和页面切换
-// Created by 林子怡
+// 主页框架 - 底部导航和页面切换
 
 import 'package:flutter/material.dart';
 import 'lake_screen.dart';

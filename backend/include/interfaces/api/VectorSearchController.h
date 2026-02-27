@@ -1,7 +1,5 @@
 /**
- * @file VectorSearchController.h
- * @brief VectorSearchController 模块接口定义
- * Created by 白洋
+ * VectorSearchController 模块接口定义
  */
 
 #pragma once
@@ -21,7 +19,7 @@ namespace controllers {
  * 提供基于内容相似度的石头推荐功能
  */
 /**
- * @brief 向量搜索相关的HTTP控制器
+ * 向量搜索相关的HTTP控制器
  *
  * 详细说明
  *

@@ -1,7 +1,5 @@
 /**
- * @file TempFriendController.h
- * @brief TempFriendController 模块接口定义
- * Created by 白洋
+ * TempFriendController 模块接口定义
  */
 
 #pragma once
@@ -18,7 +16,7 @@ namespace controllers {
  * 临时好友会在24小时后自动失效，可以升级为永久好友
  */
 /**
- * @brief 临时好友相关的HTTP控制器
+ * 临时好友相关的HTTP控制器
  *
  * 详细说明
  *

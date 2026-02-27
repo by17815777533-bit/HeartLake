@@ -1,7 +1,5 @@
 /**
- * @file ReportController.h
- * @brief ReportController 模块接口定义
- * Created by 白洋
+ * ReportController 模块接口定义
  */
 
 #pragma once
@@ -15,7 +13,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 举报相关的HTTP控制器
+ * 举报相关的HTTP控制器
  *
  * 详细说明
  *

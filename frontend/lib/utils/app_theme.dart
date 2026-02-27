@@ -1,5 +1,4 @@
-// @file app_theme.dart
-// @brief 心湖主题系统 - 蓝色湖面风格
+// 心湖主题系统 - 蓝色湖面风格
 
 import 'package:flutter/material.dart';
 

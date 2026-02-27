@@ -1,6 +1,5 @@
 /**
- * @file test_emotion_resonance.cpp
- * @brief EmotionResonanceEngine 单元测试
+ * EmotionResonanceEngine 单元测试
  *
  * 覆盖：
  * - DTW (Dynamic Time Warping) 轨迹相似度

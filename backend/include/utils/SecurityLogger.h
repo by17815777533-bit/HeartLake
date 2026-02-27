@@ -1,7 +1,5 @@
 /**
- * @file SecurityLogger.h
- * @brief SecurityLogger 模块接口定义
- * Created by 白洋
+ * SecurityLogger 模块接口定义
  */
 
 #pragma once
@@ -13,7 +11,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * @brief 安全事件类型枚举
+ * 安全事件类型枚举
  */
 enum class SecurityEventType {
     LOGIN_SUCCESS,           // 登录成功
@@ -45,7 +43,7 @@ enum class SecurityEventType {
 };
 
 /**
- * @brief 安全事件严重程度
+ * 安全事件严重程度
  */
 enum class SecuritySeverity {
     LOW,      // 低：正常操作
@@ -55,7 +53,7 @@ enum class SecuritySeverity {
 };
 
 /**
- * @brief 安全日志记录器
+ * 安全日志记录器
  *
  * 提供统一的安全事件日志记录功能
  * 记录到数据库的security_events表

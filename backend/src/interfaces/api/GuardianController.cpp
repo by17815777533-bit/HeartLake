@@ -1,6 +1,5 @@
 /**
- * @file GuardianController.cpp
- * @brief 守望者控制器实现
+ * 守望者控制器实现
  */
 
 #include "interfaces/api/GuardianController.h"

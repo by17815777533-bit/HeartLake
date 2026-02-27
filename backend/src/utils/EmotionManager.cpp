@@ -1,7 +1,5 @@
 /**
- * @file EmotionManager.cpp
- * @brief EmotionManager 模块实现
- * Created by 王璐瑶
+ * EmotionManager 模块实现
  */
 #include "utils/EmotionManager.h"
 #include <algorithm>

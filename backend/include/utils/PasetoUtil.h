@@ -1,6 +1,5 @@
 /**
- * @file PasetoUtil.h
- * @brief PASETO Token工具 - 替代JWT的更安全认证方案（前沿技术）
+ * PASETO Token工具 - 替代JWT的更安全认证方案（前沿技术）
  *
  * PASETO vs JWT 优势：
  * 1. 消除alg:none攻击漏洞
@@ -33,12 +32,12 @@ public:
     static std::string getKey();
 
     /**
-     * @brief 生成PASETO v4.local token
+     * 生成PASETO v4.local token
      */
     static std::string generateToken(const std::string& userId, const std::string& key, int expireHours = 24);
 
     /**
-     * @brief 验证并解析PASETO token
+     * 验证并解析PASETO token
      * @return userId if valid
      */
     static std::string verifyToken(const std::string& token, const std::string& key);

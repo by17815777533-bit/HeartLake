@@ -1,6 +1,5 @@
 /**
- * @file test_advanced_embedding.cpp
- * @brief AdvancedEmbeddingEngine 单元测试
+ * AdvancedEmbeddingEngine 单元测试
  * @author 白洋
  * @date 2025-02-08
  */

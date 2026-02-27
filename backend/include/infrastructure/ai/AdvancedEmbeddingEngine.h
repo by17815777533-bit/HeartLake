@@ -1,7 +1,5 @@
 /**
- * @file AdvancedEmbeddingEngine.h
- * @brief AdvancedEmbeddingEngine 模块接口定义
- * Created by 王璐瑶
+ * AdvancedEmbeddingEngine 模块接口定义
  */
 
 #pragma once
@@ -22,7 +20,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief 高性能嵌入向量引擎（纯C++实现）
+ * 高性能嵌入向量引擎（纯C++实现）
  *
  * 特性：
  * 1. 多层次特征提取（TF-IDF、N-gram、情感、统计）
@@ -36,28 +34,28 @@ public:
     static AdvancedEmbeddingEngine& getInstance();
 
     /**
-     * @brief 初始化引擎
+     * 初始化引擎
      * @param embeddingDim 嵌入向量维度（默认128）
      * @param cacheSize LRU缓存大小（默认10000）
      */
     void initialize(size_t embeddingDim = 128, size_t cacheSize = 10000);
 
     /**
-     * @brief 生成文本嵌入向量（单个）
+     * 生成文本嵌入向量（单个）
      * @param text 输入文本
      * @return 嵌入向量
      */
     std::vector<float> generateEmbedding(const std::string& text);
 
     /**
-     * @brief 批量生成嵌入向量（高性能）
+     * 批量生成嵌入向量（高性能）
      * @param texts 文本列表
      * @return 嵌入向量列表
      */
     std::vector<std::vector<float>> generateEmbeddingBatch(const std::vector<std::string>& texts);
 
     /**
-     * @brief 计算两个向量的余弦相似度
+     * 计算两个向量的余弦相似度
      * @param vec1 向量1
      * @param vec2 向量2
      * @return 相似度 [0, 1]
@@ -65,18 +63,18 @@ public:
     static float cosineSimilarity(const std::vector<float>& vec1, const std::vector<float>& vec2);
 
     /**
-     * @brief 从数据库加载训练数据并更新模型
+     * 从数据库加载训练数据并更新模型
      * @param texts 训练文本集合
      */
     void trainFromCorpus(const std::vector<std::string>& texts);
 
     /**
-     * @brief 清除缓存
+     * 清除缓存
      */
     void clearCache();
 
     /**
-     * @brief 获取缓存统计信息
+     * 获取缓存统计信息
      */
     struct CacheStats {
         size_t hits;

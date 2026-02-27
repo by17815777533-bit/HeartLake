@@ -1,7 +1,5 @@
 /**
- * @file FriendController.h
- * @brief FriendController 模块接口定义
- * Created by 白洋
+ * FriendController 模块接口定义
  */
 
 #pragma once
@@ -15,7 +13,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 好友相关的HTTP控制器
+ * 好友相关的HTTP控制器
  *
  * 详细说明
  *

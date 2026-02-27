@@ -1,7 +1,5 @@
 /**
- * @file StoneApplicationService.h
- * @brief StoneApplicationService 模块接口定义
- * Created by 白洋
+ * StoneApplicationService 模块接口定义
  */
 
 #pragma once
@@ -18,7 +16,7 @@ namespace heartlake {
 namespace application {
 
 /**
- * @brief 石头应用服务
+ * 石头应用服务
  *
  * 职责:
  * - 用例编排 (协调多个领域服务)
@@ -46,7 +44,7 @@ public:
         eventBus_(eventBus) {}
 
     /**
-     * @brief 发布石头
+     * 发布石头
      */
     Json::Value publishStone(
         const std::string& userId,
@@ -58,14 +56,14 @@ public:
     );
 
     /**
-     * @brief 获取石头详情
+     * 获取石头详情
      * @param stoneId 石头ID
      * @param currentUserId 当前用户ID（用于判断 has_rippled）
      */
     Json::Value getStoneDetail(const std::string& stoneId, const std::string& currentUserId = "");
 
     /**
-     * @brief 获取石头列表
+     * 获取石头列表
      * @param page 页码
      * @param pageSize 每页数量
      * @param sortBy 排序字段
@@ -83,17 +81,17 @@ public:
     );
 
     /**
-     * @brief 删除石头
+     * 删除石头
      */
     void deleteStone(const std::string& stoneId, const std::string& userId);
 
     /**
-     * @brief 增加石头浏览量
+     * 增加石头浏览量
      */
     void incrementViewCount(const std::string& stoneId);
 
     /**
-     * @brief 异步处理石头发布后的AI任务
+     * 异步处理石头发布后的AI任务
      */
     void processStoneAsync(const std::string& stoneId, const std::string& userId,
                            const std::string& content, const std::string& moodType);

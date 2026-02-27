@@ -1,5 +1,4 @@
-// @file lake_god_service.dart
-// @brief 湖神AI对话服务 - 对接 EdgeAIController 的湖神端点（有消息持久化+历史记录）
+// 湖神AI对话服务 - 对接 EdgeAIController 的湖神端点（有消息持久化+历史记录）
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 

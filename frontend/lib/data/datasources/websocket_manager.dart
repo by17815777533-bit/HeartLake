@@ -1,5 +1,4 @@
-// @file websocket_manager.dart
-// @brief WebSocket广播管理器 - 仅用于实时通知
+// WebSocket广播管理器 - 仅用于实时通知
 
 import 'dart:async';
 import 'dart:convert';

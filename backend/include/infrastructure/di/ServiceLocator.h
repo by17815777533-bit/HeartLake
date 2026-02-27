@@ -1,6 +1,5 @@
 /**
- * @file ServiceLocator.h
- * @brief 依赖注入容器
+ * 依赖注入容器
  */
 
 #pragma once

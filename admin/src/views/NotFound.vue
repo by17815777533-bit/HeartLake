@@ -1,7 +1,5 @@
 <!--
-  @file NotFound.vue
-  @brief 404 页面 - 访问不存在的路径时展示
-  Created by 林子怡
+  404 页面 - 访问不存在的路径时展示
 -->
 
 <template>

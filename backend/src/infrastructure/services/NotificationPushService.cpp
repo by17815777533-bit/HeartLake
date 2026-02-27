@@ -1,6 +1,5 @@
 /**
- * @file NotificationPushService.cpp
- * @brief 实时通知推送服务实现
+ * 实时通知推送服务实现
  */
 
 #include "infrastructure/services/NotificationPushService.h"

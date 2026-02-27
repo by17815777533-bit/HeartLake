@@ -1,6 +1,5 @@
 /**
- * @file views/Moderation.test.ts
- * @brief Moderation.vue 组件测试
+ * Moderation.vue 组件测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'

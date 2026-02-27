@@ -1,7 +1,5 @@
 /**
- * @file InteractionApplicationService.cpp
- * @brief InteractionApplicationService 模块实现
- * Created by 白洋
+ * InteractionApplicationService 模块实现
  */
 
 #include "application/InteractionApplicationService.h"

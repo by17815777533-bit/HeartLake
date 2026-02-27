@@ -1,6 +1,5 @@
 /**
- * @file StoneRepository.h
- * @brief 石头仓储实现
+ * 石头仓储实现
  */
 
 #pragma once

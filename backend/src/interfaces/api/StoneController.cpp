@@ -1,7 +1,5 @@
 /**
- * @file StoneController.cpp
- * @brief StoneController 模块实现
- * Created by 白洋
+ * StoneController 模块实现
  */
 
 #include "interfaces/api/StoneController.h"

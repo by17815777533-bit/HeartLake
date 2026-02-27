@@ -1,6 +1,5 @@
 /**
- * @file PrivacyController.cpp
- * @brief 差分隐私统计控制器实现
+ * 差分隐私统计控制器实现
  */
 
 #include "interfaces/api/PrivacyController.h"

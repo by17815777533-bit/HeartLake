@@ -1,9 +1,8 @@
-// @file storage_util.dart
-// @brief 本地存储工具类
-// Created by 王璐瑶
+// 本地存储工具类
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
 class StorageUtil {
@@ -16,6 +15,10 @@ class StorageUtil {
 
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static SharedPreferences? _prefs;
+  static bool _webSecureStorageRepairAttempted = false;
+  static String? _runtimeToken;
+  static String? _runtimeRefreshToken;
+  static String? _runtimeUserId;
 
   /// 获取缓存的SharedPreferences实例，避免重复异步调用
   static Future<SharedPreferences> get _instance async {
@@ -23,44 +26,168 @@ class StorageUtil {
     return _prefs!;
   }
 
+  static void _setRuntimeByKey(String key, String value) {
+    if (key == _tokenKey) _runtimeToken = value;
+    if (key == _refreshTokenKey) _runtimeRefreshToken = value;
+    if (key == _userIdKey) _runtimeUserId = value;
+  }
+
+  static void _clearRuntimeByKey(String key) {
+    if (key == _tokenKey) _runtimeToken = null;
+    if (key == _refreshTokenKey) _runtimeRefreshToken = null;
+    if (key == _userIdKey) _runtimeUserId = null;
+  }
+
+  static String? _runtimeByKey(String key) {
+    if (key == _tokenKey) return _runtimeToken;
+    if (key == _refreshTokenKey) return _runtimeRefreshToken;
+    if (key == _userIdKey) return _runtimeUserId;
+    return null;
+  }
+
+  static Future<void> _cleanupLegacyWebPlaintextKey(String key) async {
+    if (!kIsWeb) return;
+    final prefs = await _instance;
+    if (prefs.containsKey(key)) {
+      await prefs.remove(key);
+    }
+  }
+
+  static Future<void> _repairWebSecureStorageIfNeeded({
+    required String operation,
+    required Object error,
+  }) async {
+    if (!kIsWeb || _webSecureStorageRepairAttempted) return;
+    _webSecureStorageRepairAttempted = true;
+    if (kDebugMode) {
+      debugPrint('secure storage repair triggered [$operation]: $error');
+    }
+    try {
+      await _secureStorage.deleteAll();
+      if (kDebugMode) {
+        debugPrint('secure storage repair finished');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('secure storage repair failed: $e');
+      }
+    }
+  }
+
+  static Future<void> _secureWrite(String key, String value) async {
+    _setRuntimeByKey(key, value);
+    try {
+      await _secureStorage.write(key: key, value: value);
+      await _cleanupLegacyWebPlaintextKey(key);
+    } catch (e) {
+      await _repairWebSecureStorageIfNeeded(operation: 'write:$key', error: e);
+      try {
+        await _secureStorage.write(key: key, value: value);
+        await _cleanupLegacyWebPlaintextKey(key);
+      } catch (e2) {
+        if (kDebugMode) {
+          debugPrint('secure write failed [$key]: $e2');
+        }
+      }
+    }
+  }
+
+  static Future<String?> _secureRead(String key) async {
+    try {
+      final value = await _secureStorage.read(key: key);
+      if (value != null && value.isNotEmpty) {
+        _setRuntimeByKey(key, value);
+      }
+      await _cleanupLegacyWebPlaintextKey(key);
+      return value ?? _runtimeByKey(key);
+    } catch (e) {
+      await _repairWebSecureStorageIfNeeded(operation: 'read:$key', error: e);
+      try {
+        final retryValue = await _secureStorage.read(key: key);
+        if (retryValue != null && retryValue.isNotEmpty) {
+          _setRuntimeByKey(key, retryValue);
+        }
+        await _cleanupLegacyWebPlaintextKey(key);
+        return retryValue ?? _runtimeByKey(key);
+      } catch (e2) {
+        if (kDebugMode) {
+          debugPrint('secure read failed [$key]: $e2');
+        }
+        if (kIsWeb) {
+          final prefs = await _instance;
+          final legacy = prefs.getString(key);
+          if (legacy != null && legacy.isNotEmpty) {
+            try {
+              await _secureStorage.write(key: key, value: legacy);
+              await prefs.remove(key);
+              _setRuntimeByKey(key, legacy);
+              return legacy;
+            } catch (_) {
+              return _runtimeByKey(key);
+            }
+          }
+        }
+        return _runtimeByKey(key);
+      }
+    }
+  }
+
+  static Future<void> _secureDelete(String key) async {
+    try {
+      await _secureStorage.delete(key: key);
+    } catch (e) {
+      await _repairWebSecureStorageIfNeeded(operation: 'delete:$key', error: e);
+      try {
+        await _secureStorage.delete(key: key);
+      } catch (e2) {
+        if (kDebugMode) {
+          debugPrint('secure delete failed [$key]: $e2');
+        }
+      }
+    } finally {
+      _clearRuntimeByKey(key);
+      await _cleanupLegacyWebPlaintextKey(key);
+    }
+  }
+
   // 保存 Token (安全存储)
   static Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    await _secureWrite(_tokenKey, token);
   }
 
   // 获取 Token (安全存储)
   static Future<String?> getToken() async {
-    return await _secureStorage.read(key: _tokenKey);
+    return await _secureRead(_tokenKey);
   }
 
   // 清除 Token (安全存储)
   static Future<void> clearToken() async {
-    await _secureStorage.delete(key: _tokenKey);
+    await _secureDelete(_tokenKey);
   }
 
   // 保存 RefreshToken (安全存储)
   static Future<void> saveRefreshToken(String token) async {
-    await _secureStorage.write(key: _refreshTokenKey, value: token);
+    await _secureWrite(_refreshTokenKey, token);
   }
 
   // 获取 RefreshToken (安全存储)
   static Future<String?> getRefreshToken() async {
-    return await _secureStorage.read(key: _refreshTokenKey);
+    return await _secureRead(_refreshTokenKey);
   }
 
   // 清除 RefreshToken (安全存储)
   static Future<void> clearRefreshToken() async {
-    await _secureStorage.delete(key: _refreshTokenKey);
+    await _secureDelete(_refreshTokenKey);
   }
 
   // 保存用户ID (安全存储)
   static Future<void> saveUserId(String userId) async {
-    await _secureStorage.write(key: _userIdKey, value: userId);
+    await _secureWrite(_userIdKey, userId);
   }
 
   // 获取用户ID (安全存储)
   static Future<String?> getUserId() async {
-    return await _secureStorage.read(key: _userIdKey);
+    return await _secureRead(_userIdKey);
   }
 
   // 保存用户名
@@ -116,17 +243,31 @@ class StorageUtil {
   // 清除所有数据（保留引导页标记和设备ID）
   static Future<void> clearAll() async {
     final prefs = await _instance;
-    final onboardingDone = prefs.getString('onboarding_done');
+    final onboardingDoneString = prefs.getString('onboarding_done');
+    final onboardingDoneBool = prefs.getBool('onboarding_done');
     final deviceId = prefs.getString(_deviceIdKey);
     await prefs.clear();
     // 清除安全存储中的 token
-    await _secureStorage.deleteAll();
-    if (onboardingDone != null) {
-      await prefs.setString('onboarding_done', onboardingDone);
+    try {
+      await _secureStorage.deleteAll();
+    } catch (e) {
+      await _repairWebSecureStorageIfNeeded(
+          operation: 'deleteAll', error: e);
+      if (kDebugMode) {
+        debugPrint('clear secure storage failed: $e');
+      }
+    }
+    if (onboardingDoneString != null) {
+      await prefs.setString('onboarding_done', onboardingDoneString);
+    } else if (onboardingDoneBool != null) {
+      await prefs.setBool('onboarding_done', onboardingDoneBool);
     }
     if (deviceId != null) {
       await prefs.setString(_deviceIdKey, deviceId);
     }
+    _runtimeToken = null;
+    _runtimeRefreshToken = null;
+    _runtimeUserId = null;
   }
 
   // 通用字符串保存方法

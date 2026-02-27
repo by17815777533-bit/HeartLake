@@ -1,7 +1,5 @@
 /**
- * @file IdentityShadowMap.cpp
- * @brief 身份影子映射实现
- * Created by 白洋
+ * 身份影子映射实现
  */
 
 #include "utils/IdentityShadowMap.h"

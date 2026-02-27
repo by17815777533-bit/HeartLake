@@ -1,6 +1,5 @@
 /**
- * @file ResonanceSearchService.h
- * @brief 同频共鸣搜索服务 - 向量相似度匹配灵魂伴侣
+ * 同频共鸣搜索服务 - 向量相似度匹配灵魂伴侣
  */
 
 #pragma once

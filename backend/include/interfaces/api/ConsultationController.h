@@ -1,7 +1,5 @@
 /**
- * @file ConsultationController.h
- * @brief 咨询室控制器 - E2EE端到端加密通信
- * Created by 白洋
+ * 咨询室控制器 - E2EE端到端加密通信
  */
 
 #pragma once

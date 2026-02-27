@@ -1,6 +1,4 @@
-// @file stone_card_controller.dart
-// @brief StoneCard状态控制器
-// Created by 吴睿璐
+// StoneCard状态控制器
 
 import 'package:flutter/material.dart';
 import '../../../domain/entities/stone.dart';

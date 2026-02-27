@@ -1,7 +1,5 @@
 /**
- * @file FriendApplicationService.h
- * @brief FriendApplicationService 模块接口定义
- * Created by 白洋
+ * FriendApplicationService 模块接口定义
  */
 
 #pragma once

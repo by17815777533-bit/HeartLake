@@ -1,6 +1,5 @@
 /**
- * @file LakeGodGuardianService.cpp
- * @brief 湖神守护服务实现
+ * 湖神守护服务实现
  */
 
 #include "infrastructure/services/LakeGodGuardianService.h"

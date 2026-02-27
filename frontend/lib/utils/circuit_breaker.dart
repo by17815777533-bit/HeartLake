@@ -1,5 +1,4 @@
-// @file circuit_breaker.dart
-// @brief 熔断器模式 - 防止级联故障，支持自动恢复
+// 熔断器模式 - 防止级联故障，支持自动恢复
 
 library;
 

@@ -1,7 +1,5 @@
 /**
- * @file AIService.cpp
- * @brief AIService 模块实现
- * Created by 王璐瑶
+ * AIService 模块实现
  */
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/EdgeAIEngine.h"

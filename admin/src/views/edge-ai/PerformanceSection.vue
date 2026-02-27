@@ -1,7 +1,5 @@
 <!--
-  @file PerformanceSection.vue
-  @brief 性能指标 + 情绪分析（仪表盘 + 脉搏折线）
-  Created by 林子怡
+  性能指标 + 情绪分析（仪表盘 + 脉搏折线）
 -->
 
 <template>

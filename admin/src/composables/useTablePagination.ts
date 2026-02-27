@@ -1,6 +1,5 @@
 /**
- * @file useTablePagination.ts
- * @brief 表格分页 + 搜索 + 重置 + loading 状态 composable
+ * 表格分页 + 搜索 + 重置 + loading 状态 composable
  */
 
 import { reactive, ref } from 'vue'

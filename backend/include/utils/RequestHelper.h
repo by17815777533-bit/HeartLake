@@ -1,7 +1,5 @@
 /**
- * @file RequestHelper.h
- * @brief HTTP请求辅助工具
- * Created by 白洋
+ * HTTP请求辅助工具
  */
 #pragma once
 #include <string>

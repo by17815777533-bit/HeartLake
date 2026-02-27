@@ -1,6 +1,4 @@
-// @file received_boats_screen.dart
-// @brief 收到的纸船列表界面
-// Created by 林子怡
+// 收到的纸船列表界面
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';

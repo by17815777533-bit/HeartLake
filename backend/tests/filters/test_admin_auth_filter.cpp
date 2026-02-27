@@ -1,6 +1,5 @@
 /**
- * @file test_admin_auth_filter.cpp
- * @brief AdminAuthFilter 单元测试
+ * AdminAuthFilter 单元测试
  *
  * 覆盖：
  * 1. PASETO token 认证流程（有效/无效/空/过期）

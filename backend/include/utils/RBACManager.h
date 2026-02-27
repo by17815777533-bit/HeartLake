@@ -1,7 +1,5 @@
 /**
- * @file RBACManager.h
- * @brief RBACManager 模块接口定义
- * Created by 林子怡
+ * RBACManager 模块接口定义
  */
 
 #pragma once
@@ -29,7 +27,7 @@ namespace utils {
  * - analyst: 分析师（只读数据）
  */
 /**
- * @brief 基于角色的访问控制管理器
+ * 基于角色的访问控制管理器
  *
  * 详细说明
  *
@@ -40,12 +38,12 @@ public:
     static RBACManager& getInstance();
     
     /**
-     * @brief initialize方法
+     * initialize方法
      */
     void initialize();
     
     /**
-     * @brief hasPermission方法
+     * hasPermission方法
      *
      * @param role 参数说明
      * @param resource 参数说明
@@ -57,7 +55,7 @@ public:
     std::vector<std::string> getRolePermissions(const std::string& role);
     
     /**
-     * @brief checkPathPermission方法
+     * checkPathPermission方法
      *
      * @param role 参数说明
      * @param path 参数说明
@@ -68,14 +66,14 @@ public:
     
     std::vector<std::string> getAllRoles();
     /**
-     * @brief isValidRole方法
+     * isValidRole方法
      *
      * @param role 参数说明
      * @return 返回值说明
      */
     bool isValidRole(const std::string& role);
     /**
-     * @brief getRoleLevel方法
+     * getRoleLevel方法
      *
      * @param role 参数说明
      * @return 返回值说明

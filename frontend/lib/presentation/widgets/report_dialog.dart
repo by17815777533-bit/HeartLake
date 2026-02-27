@@ -1,6 +1,4 @@
-// @file report_dialog.dart
-// @brief 举报对话框组件
-// Created by 林子怡
+// 举报对话框组件
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/report_service.dart';

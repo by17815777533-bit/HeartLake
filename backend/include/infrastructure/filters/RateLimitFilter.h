@@ -1,7 +1,5 @@
 /**
- * @file RateLimitFilter.h
- * @brief RateLimitFilter 模块接口定义
- * Created by 白洋
+ * RateLimitFilter 模块接口定义
  */
 
 #pragma once
@@ -24,7 +22,7 @@ namespace filters {
  * - 滑动窗口算法
  */
 /**
- * @brief 速率限制过滤器，用于防止API滥用
+ * 速率限制过滤器，用于防止API滥用
  *
  * 详细说明
  *
@@ -42,14 +40,14 @@ public:
                   FilterChainCallback&& fccb) override;
     
     /**
-     * @brief setRateLimit方法
+     * setRateLimit方法
      *
      * @param requestsPerWindow 参数说明
      * @param windowSeconds 参数说明
      */
     static void setRateLimit(int requestsPerWindow, int windowSeconds);
     /**
-     * @brief setAIRateLimit方法
+     * setAIRateLimit方法
      *
      * @param requestsPerWindow 参数说明
      * @param windowSeconds 参数说明
@@ -70,7 +68,7 @@ private:
     static int aiWindowSeconds_;
     
     /**
-     * @brief checkRateLimit方法
+     * checkRateLimit方法
      *
      * @param key 参数说明
      * @param isAI 参数说明
@@ -78,7 +76,7 @@ private:
      */
     bool checkRateLimit(const std::string& key, bool isAI = false);
     /**
-     * @brief cleanupOldEntries方法
+     * cleanupOldEntries方法
      *
      * @param entry 参数说明
      * @param isAI 参数说明
@@ -92,7 +90,7 @@ private:
  * AI专用限流过滤器
  */
 /**
- * @brief AIRateLimitFilter类
+ * AIRateLimitFilter类
  *
  * 详细说明
  *

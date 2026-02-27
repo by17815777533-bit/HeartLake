@@ -1,6 +1,5 @@
 /**
- * @file IFriendRepository.h
- * @brief 好友仓储接口
+ * 好友仓储接口
  */
 
 #pragma once

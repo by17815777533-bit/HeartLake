@@ -1,7 +1,5 @@
 /**
- * @file PaperBoatController.h
- * @brief PaperBoatController 模块接口定义
- * Created by 白洋
+ * PaperBoatController 模块接口定义
  */
 
 #pragma once
@@ -15,7 +13,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 纸船相关的HTTP控制器
+ * 纸船相关的HTTP控制器
  *
  * 仅保留石头评论纸船链路：
  * - 回复石头

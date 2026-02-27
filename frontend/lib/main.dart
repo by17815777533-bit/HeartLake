@@ -1,6 +1,4 @@
-// @file main.dart
-// @brief 应用入口
-// Created by 林子怡
+// 应用入口
 
 import 'dart:async';
 import 'package:flutter/material.dart';

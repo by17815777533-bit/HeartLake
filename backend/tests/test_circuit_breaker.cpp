@@ -1,6 +1,5 @@
 /**
- * @file test_circuit_breaker.cpp
- * @brief 熔断器状态机单元测试
+ * 熔断器状态机单元测试
  *
  * 覆盖：
  * 1. 初始状态为 CLOSED

@@ -1,6 +1,4 @@
-// @file error_handler.dart
-// @brief 统一错误处理
-// Created by 王璐瑶
+// 统一错误处理
 
 library;
 

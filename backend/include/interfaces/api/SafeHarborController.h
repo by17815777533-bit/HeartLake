@@ -1,6 +1,5 @@
 /**
- * @file SafeHarborController.h
- * @brief 安全港湾危机干预控制器
+ * 安全港湾危机干预控制器
  */
 
 #pragma once

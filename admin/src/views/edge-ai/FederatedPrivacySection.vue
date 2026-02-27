@@ -1,7 +1,5 @@
 <!--
-  @file FederatedPrivacySection.vue
-  @brief 联邦学习控制 + 差分隐私预算监控
-  Created by 林子怡
+  联邦学习控制 + 差分隐私预算监控
 -->
 
 <template>

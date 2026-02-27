@@ -1,7 +1,5 @@
 /**
- * @file PsychologicalRiskAssessment.h
- * @brief PsychologicalRiskAssessment 模块接口定义
- * Created by 王璐瑶
+ * PsychologicalRiskAssessment 模块接口定义
  */
 
 #pragma once
@@ -76,7 +74,7 @@ struct BehaviorPattern {
  * 心理风险评估器
  */
 /**
- * @brief 心理风险评估工具
+ * 心理风险评估工具
  *
  * 详细说明
  *
@@ -150,7 +148,7 @@ private:
     PsychologicalRiskAssessment& operator=(const PsychologicalRiskAssessment&) = delete;
 
     /**
-     * @brief analyzeLinguisticMarkers方法
+     * analyzeLinguisticMarkers方法
      *
      * @param text 参数说明
      * @param factors 参数说明
@@ -159,7 +157,7 @@ private:
     float analyzeLinguisticMarkers(const std::string& text, std::vector<RiskFactor>& factors);
 
     /**
-     * @brief detectSelfHarmIntent方法
+     * detectSelfHarmIntent方法
      *
      * @param text 参数说明
      * @param keywords 参数说明
@@ -168,7 +166,7 @@ private:
     float detectSelfHarmIntent(const std::string& text, std::vector<std::string>& keywords);
 
     /**
-     * @brief detectHopelessness方法
+     * detectHopelessness方法
      *
      * @param text 参数说明
      * @return 返回值说明
@@ -176,7 +174,7 @@ private:
     float detectHopelessness(const std::string& text);
 
     /**
-     * @brief detectIsolation方法
+     * detectIsolation方法
      *
      * @param text 参数说明
      * @return 返回值说明
@@ -184,7 +182,7 @@ private:
     float detectIsolation(const std::string& text);
 
     /**
-     * @brief detectTemporalUrgency方法
+     * detectTemporalUrgency方法
      *
      * @param text 参数说明
      * @return 返回值说明
@@ -204,7 +202,7 @@ private:
     KeywordSet keywords_;
 
     /**
-     * @brief initializeKeywords方法
+     * initializeKeywords方法
      */
     void initializeKeywords();
 };

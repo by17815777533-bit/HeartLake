@@ -1,6 +1,4 @@
-// @file image_preview.dart
-// @brief 图片全屏预览组件
-// Created by 吴睿璐
+// 图片全屏预览组件
 
 library;
 

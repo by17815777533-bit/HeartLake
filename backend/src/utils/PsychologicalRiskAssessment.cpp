@@ -1,7 +1,5 @@
 /**
- * @file PsychologicalRiskAssessment.cpp
- * @brief PsychologicalRiskAssessment 模块实现
- * Created by 王璐瑶
+ * PsychologicalRiskAssessment 模块实现
  */
 #include "utils/PsychologicalRiskAssessment.h"
 #include <drogon/drogon.h>

@@ -1,6 +1,5 @@
 /**
- * @file DifferentialPrivacyEngine.h
- * @brief 差分隐私情绪聚合引擎
+ * 差分隐私情绪聚合引擎
  *
  * 创新点：基于2025年FedMultiEmo/FED-PsyAU论文的隐私保护机制
  * - 对情绪数据添加拉普拉斯噪声，保护个体隐私
@@ -33,7 +32,7 @@ public:
     static DifferentialPrivacyEngine& getInstance();
 
     /**
-     * @brief 使用差分隐私聚合情绪统计
+     * 使用差分隐私聚合情绪统计
      * @param epsilon 隐私预算参数（越小越隐私，推荐1.0-3.0）
      * @param timeWindowHours 时间窗口（小时）
      * @return 加噪后的聚合统计
@@ -41,7 +40,7 @@ public:
     PrivateEmotionStats aggregateWithPrivacy(double epsilon = 1.0, int timeWindowHours = 24);
 
     /**
-     * @brief 对单个值添加拉普拉斯噪声
+     * 对单个值添加拉普拉斯噪声
      * @param value 原始值
      * @param sensitivity 查询敏感度
      * @param epsilon 隐私预算
@@ -50,13 +49,13 @@ public:
     double addLaplaceNoise(double value, double sensitivity, double epsilon);
 
     /**
-     * @brief 获取湖面情绪天气（隐私保护版）
+     * 获取湖面情绪天气（隐私保护版）
      * 替代原有的直接统计，使用差分隐私
      */
     Json::Value getPrivateLakeWeather(double epsilon = 2.0);
 
     /**
-     * @brief 获取隐私预算消耗报告
+     * 获取隐私预算消耗报告
      */
     Json::Value getPrivacyReport();
 

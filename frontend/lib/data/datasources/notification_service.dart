@@ -1,6 +1,4 @@
-// @file notification_service.dart
-// @brief 通知服务层
-// Created by 林子怡
+// 通知服务层
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

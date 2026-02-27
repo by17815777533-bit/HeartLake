@@ -1,6 +1,5 @@
 /**
- * @file CacheManager.h
- * @brief 缓存管理器 - 支持LRU淘汰和容量限制
+ * 缓存管理器 - 支持LRU淘汰和容量限制
  */
 
 #pragma once

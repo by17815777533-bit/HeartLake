@@ -1,5 +1,4 @@
-// @file emotion_pulse_widget.dart
-// @brief 情绪脉搏 - 光遇风格呼吸光球
+// 情绪脉搏 - 光遇风格呼吸光球
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';

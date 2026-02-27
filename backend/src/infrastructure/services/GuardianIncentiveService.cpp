@@ -1,6 +1,5 @@
 /**
- * @file GuardianIncentiveService.cpp
- * @brief 守望者激励系统实现
+ * 守望者激励系统实现
  */
 
 #include "infrastructure/services/GuardianIncentiveService.h"

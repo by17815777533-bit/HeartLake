@@ -1,6 +1,5 @@
 /**
- * @file stress_test.cpp
- * @brief 全链路压力测试
+ * 全链路压力测试
  */
 
 #include <gtest/gtest.h>

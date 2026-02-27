@@ -1,9 +1,7 @@
 /**
- * @file test_admin_controller.cpp
- * @brief AdminController 单元测试
+ * AdminController 单元测试
  * 覆盖管理员登录/登出、权限验证、仪表盘统计、用户增长、情绪分布、
  * 活跃时段、高风险用户/事件、风险事件处理、安全审计等接口
- * Created by 白洋
  */
 
 #include <gtest/gtest.h>

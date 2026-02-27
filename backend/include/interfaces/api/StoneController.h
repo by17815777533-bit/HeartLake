@@ -1,7 +1,5 @@
 /**
- * @file StoneController.h
- * @brief StoneController 模块接口定义
- * Created by 白洋
+ * StoneController 模块接口定义
  */
 
 #pragma once
@@ -14,7 +12,7 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * @brief 石头相关的HTTP控制器
+ * 石头相关的HTTP控制器
  *
  * 详细说明
  *

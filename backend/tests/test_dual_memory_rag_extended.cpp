@@ -1,6 +1,5 @@
 /**
- * @file test_dual_memory_rag_extended.cpp
- * @brief DualMemoryRAG 扩展测试
+ * DualMemoryRAG 扩展测试
  */
 
 #include <gtest/gtest.h>

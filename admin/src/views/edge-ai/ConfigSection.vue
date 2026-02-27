@@ -1,7 +1,5 @@
 <!--
-  @file ConfigSection.vue
-  @brief Edge AI 配置管理面板
-  Created by 林子怡
+  Edge AI 配置管理面板
 -->
 
 <template>

@@ -1,6 +1,5 @@
 /**
- * @file test_id_generator_extended.cpp
- * @brief IdGenerator 扩展单元测试 - 格式、长度、唯一性、并发
+ * IdGenerator 扩展单元测试 - 格式、长度、唯一性、并发
  */
 
 #include <gtest/gtest.h>

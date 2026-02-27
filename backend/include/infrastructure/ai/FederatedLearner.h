@@ -1,7 +1,5 @@
 /**
- * @file FederatedLearner.h
- * @brief 联邦学习聚合器接口
- * Created by 白洋
+ * 联邦学习聚合器接口
  */
 #pragma once
 #include <string>

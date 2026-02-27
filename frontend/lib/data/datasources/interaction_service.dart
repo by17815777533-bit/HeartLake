@@ -1,6 +1,4 @@
-// @file interaction_service.dart
-// @brief 互动服务 - 处理涟漪和纸船
-// Created by 王璐瑶
+// 互动服务 - 处理涟漪和纸船
 
 import '../../utils/input_validator.dart';
 import '../../di/service_locator.dart';

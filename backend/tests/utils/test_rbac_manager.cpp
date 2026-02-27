@@ -1,6 +1,5 @@
 /**
- * @file test_rbac_manager.cpp
- * @brief RBACManager 单元测试
+ * RBACManager 单元测试
  *
  * 覆盖：
  * 1. 角色层级（super_admin > admin > moderator > analyst）

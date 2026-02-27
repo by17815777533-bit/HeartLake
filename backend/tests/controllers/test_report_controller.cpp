@@ -1,6 +1,5 @@
 /**
- * @file test_report_controller.cpp
- * @brief ReportController 单元测试
+ * ReportController 单元测试
  * 覆盖：创建举报、我的举报列表、举报类型验证、无效targetType、分页、重复举报
  */
 

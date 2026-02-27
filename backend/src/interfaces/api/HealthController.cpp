@@ -1,6 +1,5 @@
 /**
- * @file HealthController.cpp
- * @brief 健康检查控制器实现
+ * 健康检查控制器实现
  * @author 白洋
  * @date 2025-02-15
  * @copyright Copyright (c) 2025 HeartLake. All rights reserved.
@@ -20,7 +19,7 @@ const std::chrono::steady_clock::time_point HealthController::startTime_ =
     std::chrono::steady_clock::now();
 
 /**
- * @brief 基础健康检查
+ * 基础健康检查
  * 返回服务状态、版本号和当前时间戳
  */
 void HealthController::health(
@@ -37,7 +36,7 @@ void HealthController::health(
 }
 
 /**
- * @brief 详细健康检查
+ * 详细健康检查
  * 包含数据库状态、Redis状态、运行时间和内存使用
  */
 void HealthController::healthDetailed(
@@ -180,7 +179,7 @@ void HealthController::healthDetailed(
 }
 
 /**
- * @brief 从 /proc/self/status 读取 VmRSS 获取内存使用量
+ * 从 /proc/self/status 读取 VmRSS 获取内存使用量
  * @return 内存使用量（MB），读取失败返回 -1.0
  */
 double HealthController::getMemoryUsageMB() {

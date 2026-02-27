@@ -1,6 +1,5 @@
 /**
- * @file test_utils.cpp
- * @brief 工具类单元测试 (Validator, PasswordUtil, IdGenerator)
+ * 工具类单元测试 (Validator, PasswordUtil, IdGenerator)
  */
 
 #include <gtest/gtest.h>

@@ -1,7 +1,5 @@
 /**
- * @file UserController.h
- * @brief 用户控制器 - 匿名登录 + 关键词恢复
- * Created by 白洋
+ * 用户控制器 - 匿名登录 + 关键词恢复
  */
 
 #pragma once

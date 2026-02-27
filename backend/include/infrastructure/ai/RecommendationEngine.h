@@ -1,6 +1,5 @@
 /**
- * @file RecommendationEngine.h
- * @brief 高级推荐引擎 - 多算法融合推荐系统
+ * 高级推荐引擎 - 多算法融合推荐系统
  */
 
 #pragma once

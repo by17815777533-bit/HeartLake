@@ -1,7 +1,5 @@
 <!--
-  @file Login.vue
-  @brief Login 组件 - 光遇(Sky)梦幻风格
-  Created by 林子怡
+  Login 组件 - 光遇(Sky)梦幻风格
 -->
 
 <template>

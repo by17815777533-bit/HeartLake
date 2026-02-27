@@ -1,7 +1,5 @@
 /**
- * @file StructuredLogger.h
- * @brief StructuredLogger 模块接口定义
- * Created by 林子怡
+ * StructuredLogger 模块接口定义
  */
 
 #pragma once
@@ -23,7 +21,7 @@ namespace utils {
  * 支持JSON格式日志，便于日志收集和分析
  */
 /**
- * @brief 结构化日志记录器
+ * 结构化日志记录器
  *
  * 详细说明
  *
@@ -42,7 +40,7 @@ public:
     static StructuredLogger& getInstance();
     
     /**
-     * @brief initialize方法
+     * initialize方法
      *
      * @param jsonFormat 参数说明
      * @param minLevel 参数说明
@@ -50,35 +48,35 @@ public:
     void initialize(bool jsonFormat = true, Level minLevel = Level::INFO);
     
     /**
-     * @brief debug方法
+     * debug方法
      *
      * @param message 参数说明
      * @param context 参数说明
      */
     void debug(const std::string& message, const Json::Value& context = Json::Value());
     /**
-     * @brief info方法
+     * info方法
      *
      * @param message 参数说明
      * @param context 参数说明
      */
     void info(const std::string& message, const Json::Value& context = Json::Value());
     /**
-     * @brief warn方法
+     * warn方法
      *
      * @param message 参数说明
      * @param context 参数说明
      */
     void warn(const std::string& message, const Json::Value& context = Json::Value());
     /**
-     * @brief error方法
+     * error方法
      *
      * @param message 参数说明
      * @param context 参数说明
      */
     void error(const std::string& message, const Json::Value& context = Json::Value());
     /**
-     * @brief fatal方法
+     * fatal方法
      *
      * @param message 参数说明
      * @param context 参数说明
@@ -105,7 +103,7 @@ public:
               bool success);
     
     /**
-     * @brief setGlobalContext方法
+     * setGlobalContext方法
      *
      * @param key 参数说明
      * @param value 参数说明
@@ -113,7 +111,7 @@ public:
     void setGlobalContext(const std::string& key, const std::string& value);
     
     /**
-     * @brief log方法
+     * log方法
      *
      * @param level 参数说明
      * @param message 参数说明
@@ -138,7 +136,7 @@ private:
 };
 
 /**
- * @brief LogBuilder类
+ * LogBuilder类
  *
  * 详细说明
  *
@@ -159,7 +157,7 @@ public:
     LogBuilder& error(const std::string& err);
     
     /**
-     * @brief emit方法
+     * emit方法
      */
     void emit();
     

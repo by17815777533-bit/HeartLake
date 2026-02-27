@@ -1,7 +1,5 @@
 /**
- * @file InteractionController.cpp
- * @brief InteractionController 模块实现
- * Created by 白洋
+ * InteractionController 模块实现
  */
 
 #include "interfaces/api/InteractionController.h"
@@ -120,6 +118,7 @@ void InteractionController::deleteRipple(
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
+            BroadcastWebSocketController::broadcast(broadcastMsg);
         }
 
         callback(ResponseUtil::success(Json::Value(), "删除涟漪成功"));
@@ -203,6 +202,7 @@ void InteractionController::createBoat(
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
+            BroadcastWebSocketController::broadcast(broadcastMsg);
 
             // 通知石头主人有新纸船评论
             auto dbClient = drogon::app().getDbClient("default");
@@ -299,6 +299,7 @@ void InteractionController::deleteBoat(
             broadcastMsg["triggered_by"] = userId;
             broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             BroadcastWebSocketController::sendToRoom("stone:" + stoneId, broadcastMsg);
+            BroadcastWebSocketController::broadcast(broadcastMsg);
         }
 
         callback(ResponseUtil::success(Json::Value(), "删除纸船成功"));

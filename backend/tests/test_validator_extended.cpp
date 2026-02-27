@@ -1,6 +1,5 @@
 /**
- * @file test_validator_extended.cpp
- * @brief Validator 扩展单元测试 - URL、手机号、验证码、SQL注入、XSS、路径遍历、sanitizeHtml
+ * Validator 扩展单元测试 - URL、手机号、验证码、SQL注入、XSS、路径遍历、sanitizeHtml
  */
 
 #include <gtest/gtest.h>

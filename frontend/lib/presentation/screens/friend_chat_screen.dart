@@ -1,5 +1,4 @@
-// @file friend_chat_screen.dart
-// @brief 好友聊天界面
+// 好友聊天界面
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';

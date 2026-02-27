@@ -1,7 +1,5 @@
 /**
- * @file InteractionApplicationService.h
- * @brief InteractionApplicationService 模块接口定义
- * Created by 白洋
+ * InteractionApplicationService 模块接口定义
  */
 
 #pragma once
@@ -30,7 +28,7 @@ public:
     // ==================== 涟漪 ====================
 
     /**
-     * @brief 创建涟漪
+     * 创建涟漪
      */
     Json::Value createRipple(
         const std::string& stoneId,
@@ -38,7 +36,7 @@ public:
     );
 
     /**
-     * @brief 获取石头的涟漪列表
+     * 获取石头的涟漪列表
      */
     Json::Value getRipples(
         const std::string& stoneId,
@@ -47,7 +45,7 @@ public:
     );
 
     /**
-     * @brief 删除涟漪
+     * 删除涟漪
      */
     void deleteRipple(
         const std::string& rippleId,
@@ -60,7 +58,7 @@ public:
     // - 纸船（Paper Boat）= 评论
 
     /**
-     * @brief 发送纸船（带接收者的私密评论）
+     * 发送纸船（带接收者的私密评论）
      */
     Json::Value sendBoat(
         const std::string& stoneId,
@@ -70,7 +68,7 @@ public:
     );
 
     /**
-     * @brief 获取收到的纸船
+     * 获取收到的纸船
      */
     Json::Value getReceivedBoats(
         const std::string& userId,
@@ -79,7 +77,7 @@ public:
     );
 
     /**
-     * @brief 获取发送的纸船
+     * 获取发送的纸船
      */
     Json::Value getSentBoats(
         const std::string& userId,
@@ -88,7 +86,7 @@ public:
     );
 
     /**
-     * @brief 创建纸船（公开评论，简化版本）
+     * 创建纸船（公开评论，简化版本）
      */
     Json::Value createBoat(
         const std::string& stoneId,
@@ -97,7 +95,7 @@ public:
     );
 
     /**
-     * @brief 删除纸船
+     * 删除纸船
      */
     Json::Value deleteBoat(
         const std::string& boatId,
@@ -107,7 +105,7 @@ public:
     // ==================== 通知 ====================
 
     /**
-     * @brief 标记通知为已读
+     * 标记通知为已读
      */
     void markNotificationRead(
         const std::string& notificationId,
@@ -115,14 +113,14 @@ public:
     );
 
     /**
-     * @brief 标记所有通知为已读
+     * 标记所有通知为已读
      */
     void markAllNotificationsRead(
         const std::string& userId
     );
 
     /**
-     * @brief 获取通知列表
+     * 获取通知列表
      */
     Json::Value getNotifications(
         const std::string& userId,
@@ -133,7 +131,7 @@ public:
     // ==================== 临时连接 ====================
 
     /**
-     * @brief 为石头创建临时连接
+     * 为石头创建临时连接
      */
     Json::Value createConnectionForStone(
         const std::string& stoneId,
@@ -141,7 +139,7 @@ public:
     );
 
     /**
-     * @brief 直接创建临时连接
+     * 直接创建临时连接
      */
     Json::Value createConnection(
         const std::string& targetUserId,
@@ -149,7 +147,7 @@ public:
     );
 
     /**
-     * @brief 发送连接消息
+     * 发送连接消息
      */
     Json::Value createConnectionMessage(
         const std::string& connectionId,
@@ -158,7 +156,7 @@ public:
     );
 
     /**
-     * @brief 获取石头的纸船列表
+     * 获取石头的纸船列表
      */
     Json::Value getBoats(
         const std::string& stoneId,
@@ -167,7 +165,7 @@ public:
     );
 
     /**
-     * @brief 获取连接消息列表
+     * 获取连接消息列表
      */
     Json::Value getConnectionMessages(
         const std::string& connectionId,
@@ -176,7 +174,7 @@ public:
     );
 
     /**
-     * @brief 升级临时连接为好友
+     * 升级临时连接为好友
      */
     Json::Value upgradeConnectionToFriend(
         const std::string& connectionId,
@@ -184,7 +182,7 @@ public:
     );
 
     /**
-     * @brief 获取我的涟漪
+     * 获取我的涟漪
      */
     Json::Value getMyRipples(
         const std::string& userId,
@@ -193,7 +191,7 @@ public:
     );
 
     /**
-     * @brief 获取我的纸船
+     * 获取我的纸船
      */
     Json::Value getMyBoats(
         const std::string& userId,

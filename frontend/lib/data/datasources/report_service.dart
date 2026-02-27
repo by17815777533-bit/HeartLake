@@ -1,6 +1,4 @@
-// @file report_service.dart
-// @brief 举报服务 - 内容举报处理
-// Created by 王璐瑶
+// 举报服务 - 内容举报处理
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';

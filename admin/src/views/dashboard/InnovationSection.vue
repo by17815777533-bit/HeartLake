@@ -1,7 +1,5 @@
 <!--
-  @file InnovationSection.vue
-  @brief 创新功能区 - 隐私保护统计 + 情绪共鸣统计 + 情绪脉搏
-  Created by 林子怡
+  创新功能区 - 隐私保护统计 + 情绪共鸣统计 + 情绪脉搏
 -->
 
 <template>

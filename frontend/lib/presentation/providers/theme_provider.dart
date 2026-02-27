@@ -1,6 +1,4 @@
-// @file theme_provider.dart
-// @brief 主题状态管理
-// Created by 林子怡
+// 主题状态管理
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';

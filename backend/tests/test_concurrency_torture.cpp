@@ -1,6 +1,5 @@
 /**
- * @file test_concurrency_torture.cpp
- * @brief 并发极限压力测试 - 多模块混合并发/速率限制/线程安全
+ * 并发极限压力测试 - 多模块混合并发/速率限制/线程安全
  */
 
 #include <gtest/gtest.h>

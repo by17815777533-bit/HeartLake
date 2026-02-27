@@ -1,6 +1,4 @@
-// @file deep_dive_layer.dart
-// @brief 3D深潜空间 - 垂直分层渲染
-// Created by 林子怡
+// 3D深潜空间 - 垂直分层渲染
 
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';

@@ -1,7 +1,5 @@
 /**
- * @file ContentFilter.cpp
- * @brief ContentFilter 模块实现
- * Created by 林子怡
+ * ContentFilter 模块实现
  */
 
 #include "utils/ContentFilter.h"

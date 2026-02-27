@@ -1,6 +1,4 @@
-// @file shimmer_loading.dart
-// @brief 骨架屏加载组件
-// Created by 吴睿璐
+// 骨架屏加载组件
 
 library;
 import 'package:flutter/material.dart';

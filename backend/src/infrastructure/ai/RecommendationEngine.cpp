@@ -1,6 +1,5 @@
 /**
- * @file RecommendationEngine.cpp
- * @brief 高级推荐引擎实现 - 多算法融合
+ * 高级推荐引擎实现 - 多算法融合
  */
 
 #include "infrastructure/ai/RecommendationEngine.h"

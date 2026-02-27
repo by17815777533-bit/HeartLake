@@ -1,5 +1,4 @@
-// @file e2e_encryption.dart
-// @brief E2E 端到端加密工具 - X25519 密钥交换 + AES-256-GCM 加密
+// E2E 端到端加密工具 - X25519 密钥交换 + AES-256-GCM 加密
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';

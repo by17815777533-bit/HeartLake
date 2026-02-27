@@ -1,6 +1,5 @@
 /**
- * @file test_dual_memory_rag.cpp
- * @brief DualMemoryRAG 双记忆系统单元测试
+ * DualMemoryRAG 双记忆系统单元测试
  *
  * 覆盖：
  * - 短期记忆滑动窗口

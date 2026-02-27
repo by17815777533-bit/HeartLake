@@ -1,6 +1,4 @@
-// @file api_client.dart
-// @brief API客户端 - 统一HTTP请求处理
-// Created by 王璐瑶
+// API客户端 - 统一HTTP请求处理
 
 library;
 

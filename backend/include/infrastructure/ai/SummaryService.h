@@ -1,6 +1,5 @@
 /**
- * @file SummaryService.h
- * @brief AI智能摘要服务 - 使用千问API为长文本生成摘要
+ * AI智能摘要服务 - 使用千问API为长文本生成摘要
  */
 
 #pragma once

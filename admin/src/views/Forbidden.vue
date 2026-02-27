@@ -1,7 +1,5 @@
 <!--
-  @file Forbidden.vue
-  @brief 403 权限不足页面
-  Created by 林子怡
+  403 权限不足页面
 -->
 
 <template>

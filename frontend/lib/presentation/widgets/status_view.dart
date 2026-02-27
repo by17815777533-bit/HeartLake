@@ -1,6 +1,4 @@
-// @file status_view.dart
-// @brief 状态视图组件
-// Created by 林子怡
+// 状态视图组件
 
 import 'package:flutter/material.dart';
 

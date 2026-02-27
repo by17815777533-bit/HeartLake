@@ -1,6 +1,5 @@
 /**
- * @file test_rate_limit_filter.cpp
- * @brief RateLimitFilter + AIRateLimitFilter 单元测试
+ * RateLimitFilter + AIRateLimitFilter 单元测试
  *
  * 覆盖：
  * 1. 正常请求通过

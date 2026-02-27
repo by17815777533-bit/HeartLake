@@ -1,7 +1,5 @@
 /**
- * @file AdminConfigStore.h
- * @brief AdminConfigStore 模块接口定义
- * Created by 林子怡
+ * AdminConfigStore 模块接口定义
  */
 
 #pragma once
@@ -14,7 +12,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * @brief 管理员配置存储
+ * 管理员配置存储
  *
  * 详细说明
  *
@@ -24,7 +22,7 @@ class AdminConfigStore {
 public:
     static Json::Value load();
     /**
-     * @brief save方法
+     * save方法
      *
      * @param config 参数说明
      * @return 返回值说明

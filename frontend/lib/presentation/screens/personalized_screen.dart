@@ -1,5 +1,4 @@
-// @file personalized_screen.dart
-// @brief 个性化推荐 - 蓝色湖面风格
+// 个性化推荐 - 蓝色湖面风格
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';

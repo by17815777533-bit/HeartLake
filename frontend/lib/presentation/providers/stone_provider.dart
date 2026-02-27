@@ -1,6 +1,4 @@
-// @file stone_provider.dart
-// @brief 石头状态管理 - 统一管理石头列表、投石、捡石、分页、缓存与WebSocket实时更新
-// Created by 林子怡
+// 石头状态管理 - 统一管理石头列表、投石、捡石、分页、缓存与WebSocket实时更新
 
 library;
 

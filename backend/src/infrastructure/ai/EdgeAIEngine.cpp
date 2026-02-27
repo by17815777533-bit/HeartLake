@@ -1,10 +1,8 @@
 /**
- * @file EdgeAIEngine.cpp
- * @brief 边缘AI推理引擎 - 门面实现
+ * 边缘AI推理引擎 - 门面实现
  *
  * 所有方法委托给对应的子系统类。
  *
- * Created by 王璐瑶
  */
 
 #include "infrastructure/ai/EdgeAIEngine.h"

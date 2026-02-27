@@ -1,7 +1,5 @@
 /**
- * @file RedisCache.h
- * @brief RedisCache 模块接口定义
- * Created by 王璐瑶
+ * RedisCache 模块接口定义
  */
 
 #pragma once
@@ -31,7 +29,7 @@ namespace cache {
  * - 缓存失效
  */
 /**
- * @brief Redis缓存管理器
+ * Redis缓存管理器
  *
  * 详细说明
  *
@@ -128,7 +126,7 @@ public:
     static constexpr int TTL_DAY = 86400;        // 1天
     
     /**
-     * @brief isConnected方法
+     * isConnected方法
      * @return 返回值说明
      */
     bool isConnected() const { return connected_; }
@@ -185,7 +183,7 @@ private:
  * 缓存AI生成的回复，避免重复调用API
  */
 /**
- * @brief AIResponseCache类
+ * AIResponseCache类
  *
  * 详细说明
  *
@@ -196,7 +194,7 @@ public:
     static AIResponseCache& getInstance();
     
     /**
-     * @brief cacheSentiment方法
+     * cacheSentiment方法
      *
      * @param text 参数说明
      * @param score 参数说明
@@ -204,7 +202,7 @@ public:
      */
     void cacheSentiment(const std::string& text, float score, const std::string& mood);
     /**
-     * @brief getSentiment方法
+     * getSentiment方法
      *
      * @param text 参数说明
      * @param score 参数说明
@@ -214,14 +212,14 @@ public:
     bool getSentiment(const std::string& text, float& score, std::string& mood);
     
     /**
-     * @brief cacheReply方法
+     * cacheReply方法
      *
      * @param context 参数说明
      * @param reply 参数说明
      */
     void cacheReply(const std::string& context, const std::string& reply);
     /**
-     * @brief getReply方法
+     * getReply方法
      *
      * @param context 参数说明
      * @param reply 参数说明
@@ -230,7 +228,7 @@ public:
     bool getReply(const std::string& context, std::string& reply);
     
     /**
-     * @brief cacheModeration方法
+     * cacheModeration方法
      *
      * @param text 参数说明
      * @param passed 参数说明
@@ -238,7 +236,7 @@ public:
      */
     void cacheModeration(const std::string& text, bool passed, const std::string& reason);
     /**
-     * @brief getModeration方法
+     * getModeration方法
      *
      * @param text 参数说明
      * @param passed 参数说明

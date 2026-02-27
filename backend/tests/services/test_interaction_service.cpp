@@ -1,6 +1,5 @@
 /**
- * @file test_interaction_service.cpp
- * @brief InteractionApplicationService 单元测试
+ * InteractionApplicationService 单元测试
  * 由于 InteractionApplicationService 的方法直接依赖 drogon::app().getDbClient()，
  * 无法在无数据库环境下直接调用，因此测试聚焦于：
  * 1. 输入验证逻辑（空参数、边界值）

@@ -1,6 +1,5 @@
 /**
- * @file test_user_service.cpp
- * @brief UserApplicationService 单元测试
+ * UserApplicationService 单元测试
  * UserApplicationService 直接依赖 drogon::app().getDbClient()，
  * 因此测试聚焦于可独立验证的逻辑：
  * 1. CacheManager 缓存读写/失效

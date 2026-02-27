@@ -1,7 +1,5 @@
 /**
- * @file RateLimitFilter.cpp
- * @brief RateLimitFilter 模块实现
- * Created by 白洋
+ * RateLimitFilter 模块实现
  */
 #include "infrastructure/filters/RateLimitFilter.h"
 #include "utils/ResponseUtil.h"

@@ -1,6 +1,5 @@
 /**
- * @file test_response_util.cpp
- * @brief ResponseUtil 单元测试 - 响应格式、状态码映射、分页
+ * ResponseUtil 单元测试 - 响应格式、状态码映射、分页
  */
 
 #include <gtest/gtest.h>

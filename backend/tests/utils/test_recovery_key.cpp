@@ -1,6 +1,5 @@
 /**
- * @file test_recovery_key.cpp
- * @brief RecoveryKeyGenerator 单元测试
+ * RecoveryKeyGenerator 单元测试
  *
  * 覆盖：
  * 1. 密钥生成格式正确（8个中文词，用 - 分隔）

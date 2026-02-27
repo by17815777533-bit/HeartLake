@@ -1,6 +1,4 @@
-// @file vip_service.dart
-// @brief VIP服务 - 会员功能管理
-// Created by 王璐瑶
+// VIP服务 - 会员功能管理
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';

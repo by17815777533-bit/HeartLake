@@ -1,5 +1,4 @@
-// @file useChartOptions.js
-// @brief Dashboard 图表配置 composable - Material Design 3 风格
+// Dashboard 图表配置 composable - Material Design 3 风格
 import { ref } from 'vue'
 import type { EChartsTooltipParam } from '@/types'
 

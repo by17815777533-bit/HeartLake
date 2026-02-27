@@ -1,6 +1,5 @@
 <!--
-  @file SensitiveWords.vue
-  @brief 敏感词管理页面
+  敏感词管理页面
 -->
 
 <template>

@@ -1,7 +1,5 @@
 /**
- * @file TempFriendController.cpp
- * @brief TempFriendController 模块实现
- * Created by 白洋
+ * TempFriendController 模块实现
  */
 #include "interfaces/api/TempFriendController.h"
 #include "infrastructure/services/NotificationPushService.h"

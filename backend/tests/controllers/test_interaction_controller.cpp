@@ -1,8 +1,6 @@
 /**
- * @file test_interaction_controller.cpp
- * @brief InteractionController 单元测试
+ * InteractionController 单元测试
  * 覆盖涟漪创建/删除、纸船创建/获取/删除、通知、连接创建/升级/消息、分页参数等接口
- * Created by 白洋
  */
 
 #include <gtest/gtest.h>

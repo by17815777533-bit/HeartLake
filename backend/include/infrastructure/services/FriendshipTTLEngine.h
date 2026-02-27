@@ -1,6 +1,5 @@
 /**
- * @file FriendshipTTLEngine.h
- * @brief 石友关系TTL引擎 - 监听Redis键过期事件，处理24h好友关系到期
+ * 石友关系TTL引擎 - 监听Redis键过期事件，处理24h好友关系到期
  */
 
 #pragma once

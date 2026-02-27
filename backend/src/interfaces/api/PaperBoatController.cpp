@@ -1,7 +1,5 @@
 /**
- * @file PaperBoatController.cpp
- * @brief PaperBoatController 模块实现
- * Created by 白洋
+ * PaperBoatController 模块实现
  */
 #include "interfaces/api/PaperBoatController.h"
 #include "utils/ResponseUtil.h"

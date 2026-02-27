@@ -1,10 +1,8 @@
 /**
- * @file DifferentialPrivacyEngine.h
- * @brief 差分隐私引擎
+ * 差分隐私引擎
  *
  * 从 EdgeAIEngine 提取的独立模块。Laplace机制，隐私预算追踪。
  *
- * Created by 王璐瑶
  */
 
 #pragma once
@@ -18,7 +16,7 @@
 namespace heartlake::ai {
 
 /**
- * @brief 差分隐私配置
+ * 差分隐私配置
  */
 struct DPConfig {
     float epsilon;          ///< 隐私预算 ε（越小越隐私）
@@ -29,7 +27,7 @@ struct DPConfig {
 };
 
 /**
- * @brief 差分隐私引擎
+ * 差分隐私引擎
  *
  * 提供 Laplace / Gaussian 噪声注入与隐私预算追踪。
  * 线程安全：内部使用 mutex 保护随机数生成器，atomic 保护预算计数器。
@@ -40,27 +38,27 @@ public:
     explicit DifferentialPrivacyEngine(const DPConfig& config);
 
     /**
-     * @brief 设置是否启用
+     * 设置是否启用
      */
     void setEnabled(bool enabled);
 
     /**
-     * @brief 检查引擎是否已启用
+     * 检查引擎是否已启用
      */
     bool isEnabled() const;
 
     /**
-     * @brief 更新配置
+     * 更新配置
      */
     void setConfig(const DPConfig& config);
 
     /**
-     * @brief 获取当前配置
+     * 获取当前配置
      */
     DPConfig getConfig() const;
 
     /**
-     * @brief 对浮点值添加Laplace噪声
+     * 对浮点值添加Laplace噪声
      *
      * Laplace机制：noise ~ Lap(Δf / ε)
      * 其中 Δf 为敏感度，ε 为隐私预算
@@ -72,7 +70,7 @@ public:
     float addLaplaceNoise(float value, float sensitivity);
 
     /**
-     * @brief 对向量添加Laplace噪声（组合定理均分ε到每维）
+     * 对向量添加Laplace噪声（组合定理均分ε到每维）
      * @param values 原始向量
      * @param sensitivity L1敏感度
      * @return 添加噪声后的向量
@@ -80,7 +78,7 @@ public:
     std::vector<float> addLaplaceNoiseVec(const std::vector<float>& values, float sensitivity);
 
     /**
-     * @brief 对向量添加Gaussian噪声（(ε,δ)-DP，高维场景推荐）
+     * 对向量添加Gaussian噪声（(ε,δ)-DP，高维场景推荐）
      *
      * Gaussian机制：σ = Δ₂ · √(2·ln(1.25/δ)) / ε
      * 噪声尺度 O(√d) 而非 Laplace 的 O(d)，d=128 时噪声降低约 11 倍
@@ -97,19 +95,19 @@ public:
                                             float delta = 0.0f);
 
     /**
-     * @brief 获取剩余隐私预算
+     * 获取剩余隐私预算
      * @return 剩余 ε 值
      */
     float getRemainingPrivacyBudget() const;
 
     /**
-     * @brief 获取剩余 δ 预算
+     * 获取剩余 δ 预算
      * @return 剩余 δ 值
      */
     float getRemainingDeltaBudget() const;
 
     /**
-     * @brief 重置隐私预算（新一轮计算，同时重置 ε 和 δ）
+     * 重置隐私预算（新一轮计算，同时重置 ε 和 δ）
      */
     void resetPrivacyBudget();
 

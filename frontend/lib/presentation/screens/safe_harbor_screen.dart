@@ -1,5 +1,4 @@
-// @file safe_harbor_screen.dart
-// @brief 安全港湾 - 心理支持与自助资源页面
+// 安全港湾 - 心理支持与自助资源页面
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';

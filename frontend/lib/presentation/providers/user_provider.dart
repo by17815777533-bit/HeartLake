@@ -1,6 +1,4 @@
-// @file user_provider.dart
-// @brief 用户状态管理 - 符合中国用户习惯
-// Created by 林子怡
+// 用户状态管理 - 符合中国用户习惯
 
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user.dart';

@@ -1,6 +1,5 @@
 /**
- * @file test_content_filter.cpp
- * @brief ContentFilter 单元测试 - AC自动机多模式匹配、分级过滤、白名单
+ * ContentFilter 单元测试 - AC自动机多模式匹配、分级过滤、白名单
  */
 
 #include <gtest/gtest.h>

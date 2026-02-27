@@ -1,5 +1,4 @@
-// @file auth_screen.dart
-// @brief 认证界面 - 匿名登录 + 关键词恢复
+// 认证界面 - 匿名登录 + 关键词恢复
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

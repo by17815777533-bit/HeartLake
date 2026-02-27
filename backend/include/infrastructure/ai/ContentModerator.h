@@ -1,6 +1,5 @@
 /**
- * @file ContentModerator.h
- * @brief 内容审核子系统 - 从 EdgeAIEngine 提取的独立模块
+ * 内容审核子系统 - 从 EdgeAIEngine 提取的独立模块
  *
  * 两阶段审核：
  * 1. AC自动机快速多模式匹配（O(n)复杂度）
@@ -23,7 +22,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief 五因子心理风险评估详情
+ * 五因子心理风险评估详情
  */
 struct FiveFactorRiskDetail {
     float selfHarmIntent;       ///< 自残意图 (weight 0.9)
@@ -46,7 +45,7 @@ struct FiveFactorRiskDetail {
 };
 
 /**
- * @brief 本地审核结果
+ * 本地审核结果
  */
 struct EdgeModerationResult {
     bool passed;                              ///< 是否通过审核
@@ -79,14 +78,14 @@ struct EdgeModerationResult {
 };
 
 /**
- * @brief 内容审核器 - AC自动机 + 五因子心理风险评估
+ * 内容审核器 - AC自动机 + 五因子心理风险评估
  *
  * 线程安全。使用前需调用 buildModerationAC() 构建自动机。
  */
 class ContentModerator {
 public:
     /**
-     * @brief 构建AC自动机敏感词库
+     * 构建AC自动机敏感词库
      *
      * 包含四大类别：
      * - category 1: 自伤/自杀 (self_harm)
@@ -97,7 +96,7 @@ public:
     void buildModerationAC();
 
     /**
-     * @brief 本地文本审核
+     * 本地文本审核
      *
      * 两阶段审核：
      * 1. AC自动机快速多模式匹配（O(n)复杂度）
@@ -109,23 +108,23 @@ public:
     EdgeModerationResult moderateTextLocal(const std::string& text);
 
     /**
-     * @brief 获取总审核调用次数
+     * 获取总审核调用次数
      */
     size_t getTotalCalls() const { return totalModerationCalls_.load(); }
 
     /**
-     * @brief 设置启用状态
+     * 设置启用状态
      */
     void setEnabled(bool enabled) { enabled_ = enabled; }
 
     /**
-     * @brief 检查是否启用
+     * 检查是否启用
      */
     bool isEnabled() const { return enabled_; }
 
 private:
     /**
-     * @brief 语义风险分析（融合AC匹配风险 + 五因子心理风险评估）
+     * 语义风险分析（融合AC匹配风险 + 五因子心理风险评估）
      */
     float semanticRiskAnalysis(const std::string& text,
                                const std::vector<perf::ACAutomaton::Match>& matches) const;

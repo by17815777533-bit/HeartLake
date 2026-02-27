@@ -1,7 +1,5 @@
 <!--
-  @file AIToolboxSection.vue
-  @brief AI 工具箱 - 情感分析测试 + 内容审核测试
-  Created by 林子怡
+  AI 工具箱 - 情感分析测试 + 内容审核测试
 -->
 
 <template>

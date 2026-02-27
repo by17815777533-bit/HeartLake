@@ -1,6 +1,5 @@
 /**
- * @file useChartOptions.test.ts
- * @brief useChartOptions composable 测试
+ * useChartOptions composable 测试
  */
 import { describe, it, expect } from 'vitest'
 import { useChartOptions, moodColors, moodNames, moodGradients } from '@/composables/useChartOptions'

@@ -1,6 +1,5 @@
 /**
- * @file AwsSigner.cpp
- * @brief AWS Signature V4 签名实现
+ * AWS Signature V4 签名实现
  */
 
 #include "utils/AwsSigner.h"

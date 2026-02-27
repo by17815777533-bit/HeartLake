@@ -1,6 +1,5 @@
 /**
- * @file test_websocket_hub.cpp
- * @brief WebSocketHub 单元测试
+ * WebSocketHub 单元测试
  * WebSocketHub 是单例的内存状态管理器，大部分方法可以直接测试。
  * 需要 mock WebSocketConnection 来模拟真实连接对象。
  */

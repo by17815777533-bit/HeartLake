@@ -1,6 +1,5 @@
 /**
- * @file DualMemoryRAG.h
- * @brief 双记忆RAG情感守护系统
+ * 双记忆RAG情感守护系统
  *
  * 创新点：基于2024年SoulSpeak论文的双记忆架构
  * - 短期记忆：最近5次交互上下文
@@ -52,7 +51,7 @@ public:
     static DualMemoryRAG& getInstance();
 
     /**
-     * @brief 生成带有双记忆上下文的AI回复
+     * 生成带有双记忆上下文的AI回复
      * @param userId 用户ID（使用shadow_id保护隐私）
      * @param currentContent 当前内容
      * @param currentEmotion 当前情绪
@@ -67,7 +66,7 @@ public:
     );
 
     /**
-     * @brief 更新用户的短期记忆
+     * 更新用户的短期记忆
      */
     void updateShortTermMemory(
         const std::string& userId,
@@ -77,12 +76,12 @@ public:
     );
 
     /**
-     * @brief 从数据库加载/刷新长期记忆
+     * 从数据库加载/刷新长期记忆
      */
     void refreshLongTermMemory(const std::string& userId);
 
     /**
-     * @brief 构建RAG提示词（含双记忆上下文）
+     * 构建RAG提示词（含双记忆上下文）
      */
     std::string buildRAGPrompt(
         const EmotionMemory& memory,
@@ -91,12 +90,12 @@ public:
     );
 
     /**
-     * @brief 获取用户情绪画像（用于insights API）
+     * 获取用户情绪画像（用于insights API）
      */
     Json::Value getEmotionInsights(const std::string& userId);
 
     /**
-     * @brief 获取RAG系统运行指标
+     * 获取RAG系统运行指标
      */
     Json::Value getStats() const;
 
@@ -114,7 +113,7 @@ private:
     float calculateVolatility(const std::vector<float>& scores);
 
     /**
-     * @brief 基于相关性的短期记忆淘汰
+     * 基于相关性的短期记忆淘汰
      * 当短期记忆超过上限时，淘汰与当前上下文最不相关的条目
      */
     void evictLeastRelevant(

@@ -1,6 +1,4 @@
-// @file stone.dart
-// @brief 石头数据模型
-// Created by 王璐瑶
+// 石头数据模型
 
 import 'package:flutter/foundation.dart';
 

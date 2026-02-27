@@ -1,6 +1,4 @@
-// @file lake_screen.dart
-// @brief 观湖主页面
-// Created by 林子怡
+// 观湖主页面
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

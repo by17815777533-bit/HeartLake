@@ -1,6 +1,5 @@
 /**
- * @file SafeHarborService.cpp
- * @brief 安全港湾危机干预服务实现
+ * 安全港湾危机干预服务实现
  */
 
 #include "infrastructure/services/SafeHarborService.h"

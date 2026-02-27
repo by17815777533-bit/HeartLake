@@ -1,6 +1,5 @@
 /**
- * @file EdgeAIEngine.h
- * @brief 边缘AI推理引擎 - 门面模式
+ * 边缘AI推理引擎 - 门面模式
  *
  * 八大核心子系统的统一入口，委托给独立的子系统类实现：
  * 1. SentimentAnalyzer - 轻量级情感分析
@@ -12,7 +11,6 @@
  * 7. ModelQuantizer - 模型量化推理
  * 8. EdgeNodeMonitor - 边缘节点健康监控
  *
- * Created by 王璐瑶
  */
 
 #pragma once
@@ -42,7 +40,7 @@ namespace heartlake {
 namespace ai {
 
 /**
- * @brief 边缘AI推理引擎 - 门面类
+ * 边缘AI推理引擎 - 门面类
  *
  * 单例模式，统一管理八大子系统。
  * 所有公开方法签名与拆分前完全一致，保持 API 向后兼容。

@@ -1,11 +1,9 @@
 /**
- * @file SentimentAnalyzer.cpp
- * @brief 轻量级情感分析引擎实现
+ * 轻量级情感分析引擎实现
  *
  * 从 EdgeAIEngine 拆分的独立子系统。
  * 三层融合：规则(emoji/标点) + 词典(中英文) + 统计(TTR/词长)
  *
- * Created by 王璐瑶
  */
 
 #include "infrastructure/ai/SentimentAnalyzer.h"

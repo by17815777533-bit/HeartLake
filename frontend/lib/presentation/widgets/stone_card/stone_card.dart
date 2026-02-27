@@ -1,6 +1,4 @@
-// @file stone_card.dart
-// @brief 石头卡片组件
-// Created by 吴睿璐
+// 石头卡片组件
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

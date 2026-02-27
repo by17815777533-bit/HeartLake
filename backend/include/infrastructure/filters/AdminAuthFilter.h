@@ -1,7 +1,5 @@
 /**
- * @file AdminAuthFilter.h
- * @brief AdminAuthFilter 模块接口定义
- * Created by 白洋
+ * AdminAuthFilter 模块接口定义
  */
 
 #pragma once
@@ -17,7 +15,7 @@ namespace filters {
  * Admin认证过滤器 - 管理后台Token验证
  */
 /**
- * @brief 管理员认证过滤器，用于验证管理员权限
+ * 管理员认证过滤器，用于验证管理员权限
  *
  * 详细说明
  *
@@ -34,7 +32,7 @@ public:
                   
 private:
     /**
-     * @brief verifyAdminToken方法
+     * verifyAdminToken方法
      *
      * @param token 参数说明
      * @param adminId 参数说明

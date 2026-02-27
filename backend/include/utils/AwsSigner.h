@@ -1,6 +1,5 @@
 /**
- * @file AwsSigner.h
- * @brief AWS Signature V4 签名工具
+ * AWS Signature V4 签名工具
  */
 
 #pragma once

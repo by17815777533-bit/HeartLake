@@ -1,7 +1,5 @@
 /**
- * @file AccountController.h
- * @brief 账号管理控制器
- * Created by 白洋
+ * 账号管理控制器
  */
 
 #pragma once

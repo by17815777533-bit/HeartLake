@@ -1,6 +1,4 @@
-// @file stone_card_header.dart
-// @brief StoneCard头部组件
-// Created by 吴睿璐
+// StoneCard头部组件
 
 import 'package:flutter/material.dart';
 import '../../../domain/entities/stone.dart';

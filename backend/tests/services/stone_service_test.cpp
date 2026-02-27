@@ -1,6 +1,5 @@
 /**
- * @file stone_service_test.cpp
- * @brief StoneService 单元测试
+ * StoneService 单元测试
  */
 
 #include <gtest/gtest.h>

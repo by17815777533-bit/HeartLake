@@ -1,6 +1,4 @@
-// @file base_service.dart
-// @brief 统一服务基类 - 提供HTTP请求方法和错误处理
-// Created by 王璐瑶
+// 统一服务基类 - 提供HTTP请求方法和错误处理
 
 library;
 

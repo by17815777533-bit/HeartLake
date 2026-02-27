@@ -1,6 +1,5 @@
 /**
- * @file test_paper_boat_controller.cpp
- * @brief PaperBoatController 单元测试
+ * PaperBoatController 单元测试
  * 覆盖：纸船创建(回复石头)、纸船详情、发送列表、接收列表、分页、参数校验
  */
 

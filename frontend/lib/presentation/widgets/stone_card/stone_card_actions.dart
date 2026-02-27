@@ -1,6 +1,4 @@
-// @file stone_card_actions.dart
-// @brief StoneCard操作按钮组件
-// Created by 吴睿璐
+// StoneCard操作按钮组件
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

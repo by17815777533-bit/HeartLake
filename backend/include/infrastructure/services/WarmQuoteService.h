@@ -1,6 +1,5 @@
 /**
- * @file WarmQuoteService.h
- * @brief 暖心语录服务 - 根据场景和情绪状态选择合适的关怀语录
+ * 暖心语录服务 - 根据场景和情绪状态选择合适的关怀语录
  */
 
 #pragma once

@@ -1,6 +1,5 @@
 /**
- * @file IStoneRepository.h
- * @brief 石头仓储接口
+ * 石头仓储接口
  */
 
 #pragma once

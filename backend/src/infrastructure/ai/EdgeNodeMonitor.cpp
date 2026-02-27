@@ -1,6 +1,5 @@
 /**
- * @file EdgeNodeMonitor.cpp
- * @brief 边缘节点健康监控与自适应负载均衡 - 实现
+ * 边缘节点健康监控与自适应负载均衡 - 实现
  *
  * 从 EdgeAIEngine 提取的独立子系统实现。
  */

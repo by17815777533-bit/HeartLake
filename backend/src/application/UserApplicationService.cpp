@@ -1,7 +1,5 @@
 /**
- * @file UserApplicationService.cpp
- * @brief UserApplicationService 模块实现
- * Created by 白洋
+ * UserApplicationService 模块实现
  */
 
 #include "application/UserApplicationService.h"

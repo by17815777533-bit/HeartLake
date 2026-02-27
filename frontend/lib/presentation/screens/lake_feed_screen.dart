@@ -1,6 +1,4 @@
-// @file lake_feed_screen.dart
-// @brief 心湖动态流界面
-// Created by 林子怡
+// 心湖动态流界面
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/stone_service.dart';

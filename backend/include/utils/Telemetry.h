@@ -1,6 +1,5 @@
 /**
- * @file Telemetry.h
- * @brief OpenTelemetry可观测性模块 - 支持Trace/Metrics/Logs三大支柱
+ * OpenTelemetry可观测性模块 - 支持Trace/Metrics/Logs三大支柱
  */
 
 #pragma once

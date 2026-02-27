@@ -1,6 +1,5 @@
 /**
- * @file test_recommendation_controller.cpp
- * @brief RecommendationController 单元测试
+ * RecommendationController 单元测试
  * 覆盖：个性化推荐、情绪发现、交互追踪、趋势获取、搜索、批量追踪、高级推荐
  */
 

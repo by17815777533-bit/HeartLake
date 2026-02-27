@@ -1,6 +1,5 @@
 /**
- * @file views/Settings.test.ts
- * @brief Settings.vue 组件测试
+ * Settings.vue 组件测试
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'

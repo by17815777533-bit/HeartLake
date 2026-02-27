@@ -1,6 +1,5 @@
 /**
- * @file ContentModerator.cpp
- * @brief 内容审核子系统实现 - 从 EdgeAIEngine 提取的独立模块
+ * 内容审核子系统实现 - 从 EdgeAIEngine 提取的独立模块
  */
 
 #include "infrastructure/ai/ContentModerator.h"

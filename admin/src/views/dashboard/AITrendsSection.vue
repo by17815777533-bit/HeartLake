@@ -1,7 +1,5 @@
 <!--
-  @file AITrendsSection.vue
-  @brief AI 情绪趋势 + AI 热门内容推荐
-  Created by 林子怡
+  AI 情绪趋势 + AI 热门内容推荐
 -->
 
 <template>

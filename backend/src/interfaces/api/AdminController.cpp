@@ -1,7 +1,5 @@
 /**
- * @file AdminController.cpp
- * @brief AdminController 模块实现
- * Created by 白洋
+ * AdminController 模块实现
  */
 #include "interfaces/api/AdminController.h"
 #include "utils/ResponseUtil.h"
@@ -16,7 +14,7 @@ using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
 /**
- * @brief 时间恒定字符串比较，防止时序攻击
+ * 时间恒定字符串比较，防止时序攻击
  * 无论字符串是否匹配，比较时间恒定
  */
 static bool constantTimeCompare(const std::string& a, const std::string& b) {

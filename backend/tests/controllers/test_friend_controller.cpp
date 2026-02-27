@@ -1,8 +1,6 @@
 /**
- * @file test_friend_controller.cpp
- * @brief FriendController 单元测试
+ * FriendController 单元测试
  * 覆盖好友请求发送/接受/拒绝、好友删除、好友列表、待处理请求、聊天记录、消息发送等接口
- * Created by 白洋
  */
 
 #include <gtest/gtest.h>

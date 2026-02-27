@@ -1,7 +1,5 @@
 /**
- * @file CorsUtil.h
- * @brief CORS 响应头工具 — 统一管理跨域配置，避免各 Filter 重复实现
- * Created by 白洋
+ * CORS 响应头工具 — 统一管理跨域配置，避免各 Filter 重复实现
  */
 #pragma once
 

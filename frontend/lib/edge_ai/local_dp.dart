@@ -1,5 +1,4 @@
-// @file local_dp.dart
-// @brief 本地差分隐私引擎 - Laplace机制
+// 本地差分隐私引擎 - Laplace机制
 
 import 'dart:math';
 

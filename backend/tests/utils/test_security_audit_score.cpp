@@ -1,6 +1,5 @@
 /**
- * @file test_security_audit_score.cpp
- * @brief SecurityAuditScore 单元测试 - 审计评分、检查项、风险等级
+ * SecurityAuditScore 单元测试 - 审计评分、检查项、风险等级
  */
 
 #include <gtest/gtest.h>
