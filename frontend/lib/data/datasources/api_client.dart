@@ -65,7 +65,8 @@ class ApiClient {
       baseUrl: appConfig.apiBaseUrl,
       connectTimeout: appConfig.connectTimeout,
       receiveTimeout: appConfig.receiveTimeout,
-      sendTimeout: appConfig.sendTimeout,
+      // Web 平台 GET/HEAD 等无请求体场景设置 sendTimeout 会产生噪音告警。
+      sendTimeout: kIsWeb ? null : appConfig.sendTimeout,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -273,8 +274,8 @@ class ApiClient {
     }
     try {
       _refreshToken ??= await StorageUtil.getRefreshToken();
-      final response = await _dio.post('/auth/refresh',
-          data: {'refresh_token': _refreshToken});
+      final response = await _dio
+          .post('/auth/refresh', data: {'refresh_token': _refreshToken});
       final data = response.data;
       if (data is Map<String, dynamic> &&
           data['code'] == 0 &&
@@ -298,6 +299,48 @@ class ApiClient {
   }
 
   int _hashCode() => identityHashCode(this) % 10000;
+
+  bool _shouldBypassCache(String path) {
+    // 这些端点强调实时性，禁用 GET 缓存
+    const dynamicPrefixes = <String>[
+      '/users/my/',
+      '/interactions/my/',
+      '/guardian/',
+      '/account/privacy',
+      '/lake-god/',
+      '/vip/status',
+      '/vip/',
+      '/edge-ai/emotion-pulse',
+      '/edge-ai/privacy-budget',
+      '/recommendations/emotion-trends',
+      '/notifications/',
+      '/friends',
+    ];
+    if (dynamicPrefixes.any(path.startsWith)) {
+      return true;
+    }
+    // 互动链路（评论/涟漪）需要强实时，禁用缓存
+    if (path.contains('/boats') || path.contains('/ripples')) {
+      return true;
+    }
+    return false;
+  }
+
+  void _invalidateAfterMutation(String path, int? statusCode) {
+    if (statusCode == null || statusCode < 200 || statusCode >= 300) return;
+    logger.debug('变更请求触发缓存失效: $path', category: LogCategory.system);
+
+    // 清理当前用户相关 GET 缓存，避免“接口成功但页面还是旧数据”
+    if (_userId != null && _userId!.isNotEmpty) {
+      cacheService.removeByPrefix('u:$_userId:GET:/');
+    }
+    // 兼容无用户前缀的历史缓存键
+    cacheService.removeByPrefix('GET:/');
+
+    // 业务侧石头列表本地缓存
+    cacheService.removeByPrefix('stones_');
+    cacheService.removeByPrefix('stone_');
+  }
 
   /// 加载保存的Token
   Future<void> _loadToken() async {
@@ -373,11 +416,13 @@ class ApiClient {
     bool useCache = true,
     Duration? cacheDuration,
   }) async {
+    final effectiveUseCache = useCache && !_shouldBypassCache(path);
+
     // 生成缓存键
     final cacheKey = _generateCacheKey('GET', path, queryParameters);
 
     // 尝试从缓存获取
-    if (useCache) {
+    if (effectiveUseCache) {
       final cachedData = cacheService.get<Map<String, dynamic>>(cacheKey);
       if (cachedData != null) {
         logger.debug('从缓存返回: $path', category: LogCategory.network);
@@ -393,7 +438,9 @@ class ApiClient {
     final response = await _dio.get(path, queryParameters: queryParameters);
 
     // 缓存成功响应
-    if (useCache && response.statusCode == 200 && response.data != null) {
+    if (effectiveUseCache &&
+        response.statusCode == 200 &&
+        response.data != null) {
       cacheService.set(cacheKey, response.data, ttl: cacheDuration);
     }
 
@@ -417,31 +464,39 @@ class ApiClient {
   ///
   /// [path] - API路径
   /// [data] - 请求体数据
-  Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
+  Future<Response> post(String path, {dynamic data}) async {
+    final response = await _dio.post(path, data: data);
+    _invalidateAfterMutation(path, response.statusCode);
+    return response;
   }
 
   /// PUT请求
   ///
   /// [path] - API路径
   /// [data] - 请求体数据
-  Future<Response> put(String path, {dynamic data}) {
-    return _dio.put(path, data: data);
+  Future<Response> put(String path, {dynamic data}) async {
+    final response = await _dio.put(path, data: data);
+    _invalidateAfterMutation(path, response.statusCode);
+    return response;
   }
 
   /// PATCH请求
   ///
   /// [path] - API路径
   /// [data] - 请求体数据
-  Future<Response> patch(String path, {dynamic data}) {
-    return _dio.patch(path, data: data);
+  Future<Response> patch(String path, {dynamic data}) async {
+    final response = await _dio.patch(path, data: data);
+    _invalidateAfterMutation(path, response.statusCode);
+    return response;
   }
 
   /// DELETE请求
   ///
   /// [path] - API路径
-  Future<Response> delete(String path, {dynamic data}) {
-    return _dio.delete(path, data: data);
+  Future<Response> delete(String path, {dynamic data}) async {
+    final response = await _dio.delete(path, data: data);
+    _invalidateAfterMutation(path, response.statusCode);
+    return response;
   }
 
   /// 上传文件
@@ -484,7 +539,11 @@ class ApiClient {
   }) async {
     try {
       final response = await get(path, queryParameters: queryParameters);
-      final data = parser != null ? parser(response.data) : response.data is T ? response.data as T : response.data;
+      final data = parser != null
+          ? parser(response.data)
+          : response.data is T
+              ? response.data as T
+              : response.data;
       return Result.success(data);
     } catch (e) {
       return Result.failure(ErrorHandler.handle(e, context: 'GET $path'));

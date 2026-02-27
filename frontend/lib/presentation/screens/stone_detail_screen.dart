@@ -4,6 +4,7 @@
 
 library;
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
@@ -86,6 +87,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   }
 
   void _setupWebSocketListener() {
+    // 详情页可能从非湖面入口进入，确保实时连接被主动拉起
+    unawaited(_wsManager.connect());
     // 加入该石头的 WS 房间，只接收与此石头相关的实时消息
     _wsManager.joinRoom('stone:${widget.stone.stoneId}');
 
@@ -149,7 +152,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         // 使用 addPostFrameCallback 确保在安全的时机执行导航
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && Navigator.canPop(context)) {
-            Navigator.of(context).pop({'deleted': true, 'stone_id': widget.stone.stoneId});
+            Navigator.of(context)
+                .pop({'deleted': true, 'stone_id': widget.stone.stoneId});
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('这颗石头已被删除'),
@@ -218,9 +222,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           if (result['pagination'] != null &&
               result['pagination']['total'] != null &&
               result['pagination']['total'] is int) {
-             _localBoatsCount = result['pagination']['total'];
+            _localBoatsCount = result['pagination']['total'];
           } else if (_boats.isNotEmpty) {
-             _localBoatsCount = _boats.length;
+            _localBoatsCount = _boats.length;
           }
           _isLoading = false;
         });
@@ -253,10 +257,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         setState(() {
           _hasInteraction = true; // 标记有互动
           _hasRippled = true; // 标记已涟漪
-          if (result['data'] != null && result['data']['ripple_count'] != null) {
-             _localRipplesCount = result['data']['ripple_count'];
+          if (result['data'] != null &&
+              result['data']['ripple_count'] != null) {
+            _localRipplesCount = result['data']['ripple_count'];
           } else {
-             _localRipplesCount++;
+            _localRipplesCount++;
           }
         });
 
@@ -359,15 +364,15 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           ),
         );
 
-          // 更新临时评论为正式评论（使用服务器返回的ID）
+        // 更新临时评论为正式评论（使用服务器返回的ID）
         if (result['data'] != null) {
-           if (result['data']['boat_count'] != null) {
-              setState(() {
-                 _localBoatsCount = result['data']['boat_count'];
-              });
-           }
-           
-           if (result['data']['boat_id'] != null) {
+          if (result['data']['boat_count'] != null) {
+            setState(() {
+              _localBoatsCount = result['data']['boat_count'];
+            });
+          }
+
+          if (result['data']['boat_id'] != null) {
             setState(() {
               final index = _boats.indexWhere((b) => b['_isTemp'] == true);
               if (index >= 0) {
@@ -375,7 +380,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 _boats[index].remove('_isTemp');
               }
             });
-           }
+          }
         }
 
         // 延迟刷新列表以获取最新数据
@@ -488,7 +493,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     padding: const EdgeInsets.all(16),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.nightSurface.withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                        color: isDark
+                            ? AppTheme.nightSurface.withValues(alpha: 0.95)
+                            : Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: moodConfig.primary.withValues(alpha: 0.3),
@@ -514,7 +521,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: moodConfig.primary.withValues(alpha: 0.2),
+                                color:
+                                    moodConfig.primary.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
@@ -565,7 +573,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 _formatTime(widget.stone.createdAt),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: moodConfig.textColor.withValues(alpha: 0.6),
+                                  color: moodConfig.textColor
+                                      .withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -594,7 +603,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: moodConfig.primary.withValues(alpha: 0.1),
+                                    color: moodConfig.primary
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -618,7 +628,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                 count: _localRipplesCount,
                                 onTap: _hasRippled ? null : _sendRipple,
                                 isLoading: _isSendingRipple,
-                                color: _hasRippled ? moodConfig.rippleColor : moodConfig.rippleColor.withValues(alpha: 0.5),
+                                color: _hasRippled
+                                    ? moodConfig.rippleColor
+                                    : moodConfig.rippleColor
+                                        .withValues(alpha: 0.5),
                                 animation: _heartScaleAnimation,
                               ),
                               const SizedBox(width: 24),
@@ -673,14 +686,16 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                     Icon(
                                       Icons.sailing_outlined,
                                       size: 64,
-                                      color: Colors.white.withValues(alpha: 0.3),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.3),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       '还没有纸船漂来',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.white.withValues(alpha: 0.6),
+                                        color:
+                                            Colors.white.withValues(alpha: 0.6),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -688,7 +703,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                       '写下你的感受，让它随波漂流吧',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.white.withValues(alpha: 0.4),
+                                        color:
+                                            Colors.white.withValues(alpha: 0.4),
                                       ),
                                     ),
                                   ],
@@ -844,7 +860,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 ),
                 child: CircleAvatar(
                   radius: 14,
-                  backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
+                  backgroundColor:
+                      isDark ? const Color(0xFF16213E) : Colors.white,
                   child: Icon(
                     isTemp ? Icons.hourglass_empty : Icons.person,
                     size: 14,
@@ -917,7 +934,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.5,
-                      color: isDark ? const Color(0xFFE8EAED) : Colors.grey[800],
+                      color:
+                          isDark ? const Color(0xFFE8EAED) : Colors.grey[800],
                     ),
                   ),
                 ),
@@ -937,7 +955,9 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         color: isDark ? const Color(0xFF1B2838) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.transparent
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -954,16 +974,17 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                 maxLength: 200,
                 decoration: InputDecoration(
                   hintText: '写一张纸船漂给TA...',
-                  hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey[400]),
+                  hintStyle: TextStyle(
+                      color: isDark ? Colors.white30 : Colors.grey[400]),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide:
-                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(
+                        color: moodConfig.primary.withValues(alpha: 0.3)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide:
-                        BorderSide(color: moodConfig.primary.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(
+                        color: moodConfig.primary.withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),

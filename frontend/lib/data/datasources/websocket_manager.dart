@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_config.dart';
 import 'cache_service.dart';
+import 'api_client.dart';
 
 class WebSocketManager {
   static final WebSocketManager _instance = WebSocketManager._internal();
@@ -17,6 +18,7 @@ class WebSocketManager {
   WebSocketChannel? _channel;
   final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
   final List<String> _offlineQueue = [];
+  final Set<String> _joinedRooms = <String>{};
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   bool _isConnected = false;
@@ -30,8 +32,20 @@ class WebSocketManager {
 
   bool get isConnected => _isConnected;
 
+  String? _normalizeToken(String? raw) {
+    if (raw == null) return null;
+    final token = raw.trim();
+    if (token.isEmpty) return null;
+    // 兼容现网 PASETO/JWT，避免读取到损坏缓存值后陷入重连死循环
+    final looksLikePaseto =
+        token.startsWith('v4.local.') || token.startsWith('v4.public.');
+    final looksLikeJwt = token.startsWith('eyJ');
+    if (!looksLikePaseto && !looksLikeJwt) return null;
+    return token;
+  }
+
   /// 连接 WebSocket
-  /// 连接后通过首条消息发送 token 认证（不在 URL 中暴露），避免 token 泄漏到日志
+  /// 后端在握手阶段要求 URL query 带 token，否则会立即断开连接
   Future<bool> connect() async {
     if (_isConnected) return true;
 
@@ -43,21 +57,33 @@ class WebSocketManager {
     _connectCompleter = Completer<bool>();
 
     try {
-      final token = await StorageUtil.getToken();
-      if (token == null) {
+      // 优先使用内存态 token，避免 Web SecureStorage 异常时读到损坏旧值
+      var token = _normalizeToken(ApiClient().token);
+      token ??= _normalizeToken(await StorageUtil.getToken());
+      if (token == null || token.isEmpty) {
+        // 登录态尚未就绪时保持重连尝试，避免首帧 connect 失败后永久失联
+        _scheduleReconnect();
         _connectCompleter!.complete(false);
         return false;
       }
 
       final baseUrl = appConfig.apiBaseUrl.replaceFirst('/api', '');
-      final wsUrl = baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-      // 连接时不在 URL 中暴露 token，连接后通过首条消息认证
-      final uri = Uri.parse('$wsUrl/ws/broadcast');
+      final wsUrl = baseUrl
+          .replaceFirst('http://', 'ws://')
+          .replaceFirst('https://', 'wss://');
+      final baseUri = Uri.parse('$wsUrl/ws/broadcast');
+      final uri = baseUri.replace(
+        queryParameters: <String, String>{
+          ...baseUri.queryParameters,
+          'token': token,
+        },
+      );
 
       _channel = WebSocketChannel.connect(uri);
-      _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDone, cancelOnError: false);
+      _channel!.stream.listen(_onMessage,
+          onError: _onError, onDone: _onDone, cancelOnError: false);
 
-      // 连接建立后立即发送认证消息
+      // 保留首包认证，兼容后端后续可能的消息级鉴权
       _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
 
       // 标记为已连接（WebSocket 通道已建立）
@@ -70,12 +96,15 @@ class WebSocketManager {
       }
       _reconnectAttempts = 0;
       _startHeartbeat();
+      _rejoinRooms();
       _flushQueue();
       _emit('connected', {'type': 'connected'});
       _connectCompleter!.complete(true);
       return true;
     } catch (e) {
-      if (kDebugMode) { debugPrint('WebSocket连接失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('WebSocket连接失败: $e');
+      }
       _connectCompleter!.complete(false);
       _scheduleReconnect();
       return false;
@@ -102,11 +131,16 @@ class WebSocketManager {
 
   /// 加入 WS 房间（服务端房间隔离，只接收该房间的消息）
   void joinRoom(String room) {
+    _joinedRooms.add(room);
+    if (!_isConnected) {
+      unawaited(connect());
+    }
     send({'type': 'join', 'room': room});
   }
 
   /// 离开 WS 房间
   void leaveRoom(String room) {
+    _joinedRooms.remove(room);
     send({'type': 'leave', 'room': room});
   }
 
@@ -125,12 +159,15 @@ class WebSocketManager {
 
   /// P0-3 修复：遍历前复制列表，避免并发修改错误
   void _emit(String eventType, Map<String, dynamic> data) {
-    final callbacks = List<void Function(Map<String, dynamic>)>.from(_listeners[eventType] ?? []);
+    final callbacks = List<void Function(Map<String, dynamic>)>.from(
+        _listeners[eventType] ?? []);
     for (final listener in callbacks) {
       try {
         listener(data);
       } catch (e) {
-        if (kDebugMode) { debugPrint('事件处理错误: $e'); }
+        if (kDebugMode) {
+          debugPrint('事件处理错误: $e');
+        }
       }
     }
   }
@@ -154,7 +191,9 @@ class WebSocketManager {
       }
       if (type != null) _emit(type, data);
     } catch (e) {
-      if (kDebugMode) { debugPrint('消息解析失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('消息解析失败: $e');
+      }
     }
   }
 
@@ -178,6 +217,8 @@ class WebSocketManager {
       _channel!.sink.add(message);
     } else if (_offlineQueue.length < _maxQueueSize) {
       _offlineQueue.add(message);
+      // 保证离线队列有机会被及时冲刷
+      unawaited(connect());
     }
   }
 
@@ -187,6 +228,13 @@ class WebSocketManager {
     _offlineQueue.clear();
     for (final message in pending) {
       _channel!.sink.add(message);
+    }
+  }
+
+  void _rejoinRooms() {
+    if (!_isConnected || _channel == null || _joinedRooms.isEmpty) return;
+    for (final room in _joinedRooms) {
+      _channel!.sink.add(jsonEncode({'type': 'join', 'room': room}));
     }
   }
 
@@ -219,7 +267,9 @@ class WebSocketManager {
         final now = DateTime.now();
         if (_lastPongTime != null &&
             now.difference(_lastPongTime!).inSeconds > 90) {
-          if (kDebugMode) { debugPrint('超过90秒未收到后端ping，判定半开连接，主动断开重连'); }
+          if (kDebugMode) {
+            debugPrint('超过90秒未收到后端ping，判定半开连接，主动断开重连');
+          }
           _isConnected = false;
           _heartbeatTimer?.cancel();
           _channel?.sink.close();
