@@ -133,7 +133,7 @@ class ErrorCodes {
         return '不能添加自己为好友哦~';
       case friendLimitExceeded:
         return '好友数量已达上限~';
-      // 人工智能
+      // AI
       case aiServiceError:
       case aiApiError:
       case aiInvalidResponse:

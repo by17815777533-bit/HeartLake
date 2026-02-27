@@ -94,7 +94,7 @@ class AppConfig {
     }
   }
 
-  /// WebSocket 地址
+  /// WebSocket URL
   String get wsUrl {
     final baseUrl = apiBaseUrl;
     return '${baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://').replaceFirst('/api', '').replaceFirst(RegExp(r'/+$'), '')}/ws/broadcast';
