@@ -7,10 +7,8 @@
 
 #include "middleware/RateLimiter.h"
 #include "infrastructure/cache/RedisCache.h"
-#include "utils/ResponseUtil.h"
 #include <drogon/drogon.h>
 #include <algorithm>
-#include <sstream>
 #include <thread>
 
 using namespace drogon;
@@ -73,10 +71,6 @@ void RateLimiter::initialize() {
     LOG_INFO << "RateLimiter initialized successfully";
 }
 
-void RateLimiter::loadDefaultConfigs() {
-    // 已移至 initialize() 中以避免死锁
-    LOG_INFO << "Loaded default rate limit configs";
-}
 
 void RateLimiter::setConfig(RateLimitLevel level, const RateLimitConfig& config) {
     std::lock_guard<std::mutex> lock(mutex_);

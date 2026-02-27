@@ -9,7 +9,6 @@
 
 #include <drogon/drogon.h>
 #include <string>
-#include <memory>
 #include <functional>
 #include <chrono>
 #include <unordered_map>
@@ -160,7 +159,6 @@ private:
     std::string buildRedisKey(const std::string& key, const RateLimitConfig& config);
     void refillTokens(LocalBucket& bucket, const RateLimitConfig& config);
     RateLimitConfig getConfigForLevel(RateLimitLevel level);
-    void loadDefaultConfigs();
 };
 
 /**

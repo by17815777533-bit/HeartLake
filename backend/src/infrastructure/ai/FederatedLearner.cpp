@@ -1,3 +1,8 @@
+/**
+ * @file FederatedLearner.cpp
+ * @brief 联邦学习聚合器实现
+ * Created by 白洋
+ */
 #include "infrastructure/ai/FederatedLearner.h"
 #include <algorithm>
 #include <cmath>
@@ -73,7 +78,6 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
     // 先过滤结构不一致的本地模型，避免脏更新污染聚合结果
     std::vector<size_t> validIndices;
     validIndices.reserve(localModels_.size());
-    int maxEpoch = ref.epoch;
     for (size_t i = 0; i < localModels_.size(); ++i) {
         const auto& model = localModels_[i];
         if (model.weights.size() != numLayers || model.biases.size() != biasSize) {
@@ -96,9 +100,6 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
         }
 
         validIndices.push_back(i);
-        if (model.epoch > maxEpoch) {
-            maxEpoch = model.epoch;
-        }
     }
 
     if (validIndices.empty()) {
@@ -124,6 +125,12 @@ FederatedModelParams FederatedLearner::aggregateFedAvg(float clippingBound, floa
 
     // Asynchronous FL: stale-aware 权重衰减（仅影响权重，不影响接口）
     // 参考 2024-2026 的异步联邦学习实践：旧 epoch 更新按 staleness 衰减。
+    int maxEpoch = ref.epoch;
+    for (size_t idx : validIndices) {
+        if (localModels_[idx].epoch > maxEpoch) {
+            maxEpoch = localModels_[idx].epoch;
+        }
+    }
     std::vector<float> rawMass(validIndices.size(), 0.0f);
     float totalMass = 0.0f;
     for (size_t i = 0; i < validIndices.size(); ++i) {

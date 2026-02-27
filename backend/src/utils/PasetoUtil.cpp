@@ -1,3 +1,8 @@
+/**
+ * @file PasetoUtil.cpp
+ * @brief PASETO v4 令牌工具实现
+ * Created by 白洋
+ */
 #include "utils/PasetoUtil.h"
 
 #include <cstdlib>

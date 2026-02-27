@@ -90,17 +90,17 @@ describe('Settings API', () => {
       mock.onPut('/admin/config').reply(200, { code: 0 })
       const payload = {
         ai: {
-          provider: 'openai',
+          provider: 'deepseek',
           api_key: 'sk-new',
-          base_url: 'https://api.openai.com',
-          model: 'gpt-4',
+          base_url: 'https://api.deepseek.com',
+          model: 'deepseek-chat',
           enable_sentiment: false,
           enable_auto_reply: false,
         },
       }
       await api.updateSystemConfig(payload)
       const body = JSON.parse(mock.history.put[0].data as string)
-      expect(body.ai.provider).toBe('openai')
+      expect(body.ai.provider).toBe('deepseek')
       expect(body.ai.api_key).toBe('sk-new')
     })
 

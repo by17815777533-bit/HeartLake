@@ -1,3 +1,8 @@
+/**
+ * @file EdgeDifferentialPrivacy.h
+ * @brief 边缘差分隐私引擎接口
+ * Created by 白洋
+ */
 #pragma once
 
 #include <vector>
