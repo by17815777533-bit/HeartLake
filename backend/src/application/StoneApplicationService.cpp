@@ -1,5 +1,14 @@
 /**
- * StoneApplicationService 模块实现
+ * @file StoneApplicationService.cpp
+ * @brief 石头应用服务 —— 石头发布、详情、列表、删除的完整业务编排
+ *
+ * 发布石头的异步处理管线（processStoneAsync）：
+ *   1. 情感分析 → 更新 emotion_score/mood_type → 心理风险评估 → 暖心语录推送
+ *   2. 向量嵌入 → 持久化到 stone_embeddings → 插入 HNSW 索引
+ *   3. 长文本自动摘要（> MIN_LENGTH 才触发）
+ *   4. DualMemoryRAG 生成 AI 暖心评论（湖神纸船）
+ *
+ * 浏览量采用 Redis 聚合策略：每次 INCR，累积 10 次后批量写回数据库。
  */
 
 #include "application/StoneApplicationService.h"
@@ -27,6 +36,13 @@ using namespace heartlake::utils;
 namespace heartlake {
 namespace application {
 
+/**
+ * 发布石头：
+ *   1. INSERT RETURNING 获取完整记录
+ *   2. 发布 StonePublishedEvent 触发异步处理管线
+ *   3. 本地情感分析 → 记录情绪追踪 → 负面情绪触发自动赠灯判定
+ *   4. 失效列表缓存
+ */
 Json::Value StoneApplicationService::publishStone(
     const std::string& userId,
     const std::string& content,
@@ -98,6 +114,7 @@ Json::Value StoneApplicationService::publishStone(
     }
 }
 
+/// 获取石头详情：cache-aside 策略，has_rippled 每次单独查询（用户相关不可缓存）
 Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId, const std::string& currentUserId) {
     // 定义数据库查询函数
     auto fetchFromDb = [&stoneId]() -> Json::Value {
@@ -195,6 +212,7 @@ Json::Value StoneApplicationService::getStoneDetail(const std::string& stoneId, 
     return result;
 }
 
+/// 石头列表：支持按用户/情绪过滤、多种排序方式、分页，附带 has_rippled 状态
 Json::Value StoneApplicationService::getStoneList(
     int page,
     int pageSize,
@@ -341,6 +359,7 @@ Json::Value StoneApplicationService::getStoneList(
     }
 }
 
+/// 软删除石头：校验所有权后标记 deleted_at，同时失效缓存
 void StoneApplicationService::deleteStone(const std::string& stoneId, const std::string& userId) {
     auto dbClient = drogon::app().getDbClient("default");
 
@@ -368,6 +387,7 @@ void StoneApplicationService::deleteStone(const std::string& stoneId, const std:
     }
 }
 
+/// 浏览量递增：Redis INCR 聚合，每累积 10 次批量写回数据库，降低 DB 写压力
 void StoneApplicationService::incrementViewCount(const std::string& stoneId) {
     // 使用Redis聚合浏览量，带持久化保障
     auto& redis = cache::RedisCache::getInstance();
@@ -400,6 +420,13 @@ void StoneApplicationService::incrementViewCount(const std::string& stoneId) {
     });
 }
 
+/**
+ * 石头发布后的异步处理管线（由事件驱动触发）：
+ *   管线 1: 情感分析 → 更新 DB → 社区脉搏 → 心理风险评估 → 暖心语录
+ *   管线 2: 向量嵌入 → 持久化 stone_embeddings → HNSW 索引插入
+ *   管线 3: 长文本自动摘要
+ *   管线 4: DualMemoryRAG 生成 AI 暖心评论 → WebSocket 广播
+ */
 void StoneApplicationService::processStoneAsync(
     const std::string& stoneId,
     const std::string& userId,

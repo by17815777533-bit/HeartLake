@@ -9,6 +9,14 @@ import '../../data/datasources/cache_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 
+/// 石头列表状态管理器
+///
+/// 职责：
+/// - 分页加载石头列表（下拉刷新 + 上拉加载更多）
+/// - 投石（发布）、涟漪、纸船等写操作后乐观更新本地状态
+/// - 通过 WebSocket 监听实时事件（新石头、涟漪、纸船、删除），
+///   自动同步列表数据，无需手动刷新
+/// - 本地缓存兜底，网络异常时展示上次成功数据
 class StoneProvider with ChangeNotifier {
   final StoneService _stoneService = sl<StoneService>();
   final CacheService _cache = CacheService();
@@ -126,7 +134,8 @@ class StoneProvider with ChangeNotifier {
       stoneType: stoneData['stone_type'] ?? 'medium',
       stoneColor: stoneData['stone_color'] ?? '#7A92A3',
       moodType: stoneData['mood_type'],
-      isAnonymous: stoneData['is_anonymous'] ?? true,
+      isAnonymous:
+          Stone.parseBool(stoneData['is_anonymous'], defaultValue: true),
       rippleCount: 0,
       boatCount: 0,
       createdAt: DateTime.now(),
@@ -144,8 +153,7 @@ class StoneProvider with ChangeNotifier {
     final index = _stones.indexWhere((s) => s.stoneId == stoneId);
     if (index >= 0) {
       _stones[index] = _stones[index].copyWith(
-        boatCount:
-            boatCount is int ? boatCount : _stones[index].boatCount + 1,
+        boatCount: boatCount is int ? boatCount : _stones[index].boatCount + 1,
       );
       notifyListeners();
     }
@@ -188,9 +196,7 @@ class StoneProvider with ChangeNotifier {
       _stones[index] = _stones[index].copyWith(
         boatCount: boatCount is int
             ? boatCount
-            : (_stones[index].boatCount > 0
-                ? _stones[index].boatCount - 1
-                : 0),
+            : (_stones[index].boatCount > 0 ? _stones[index].boatCount - 1 : 0),
       );
       notifyListeners();
     }

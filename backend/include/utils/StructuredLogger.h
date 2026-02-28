@@ -1,5 +1,9 @@
 /**
- * StructuredLogger 模块接口定义
+ * @brief 结构化日志记录器，支持JSON格式输出
+ *
+ * 单例模式，提供分级日志（DEBUG/INFO/WARN/ERR/FATAL）和场景化日志
+ * （请求日志、错误日志、业务事件、智能引擎调用），便于ELK等日志平台采集分析。
+ * 内置敏感信息脱敏（邮箱、手机号），线程安全。
  */
 
 #pragma once
@@ -16,119 +20,76 @@
 namespace heartlake {
 namespace utils {
 
-/**
- * 结构化日志工具
- * 支持JSON格式日志，便于日志收集和分析
- */
-/**
- * 结构化日志记录器
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class StructuredLogger {
 public:
     enum class Level {
         DEBUG,
         INFO,
         WARN,
-        ERR,  // Renamed from ERROR to avoid Windows macro conflict
+        ERR,  // 避免与 Windows ERROR 宏冲突
         FATAL
     };
-    
+
     static StructuredLogger& getInstance();
-    
+
     /**
-     * initialize方法
-     *
-     * @param jsonFormat 参数说明
-     * @param minLevel 参数说明
+     * @brief 初始化日志配置
+     * @param jsonFormat 是否输出JSON格式（false则输出纯文本）
+     * @param minLevel 最低输出级别，低于此级别的日志会被丢弃
      */
     void initialize(bool jsonFormat = true, Level minLevel = Level::INFO);
-    
-    /**
-     * debug方法
-     *
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+
+    /// 输出 DEBUG 级别日志
     void debug(const std::string& message, const Json::Value& context = Json::Value());
-    /**
-     * info方法
-     *
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+    /// 输出 INFO 级别日志
     void info(const std::string& message, const Json::Value& context = Json::Value());
-    /**
-     * warn方法
-     *
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+    /// 输出 WARN 级别日志
     void warn(const std::string& message, const Json::Value& context = Json::Value());
-    /**
-     * error方法
-     *
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+    /// 输出 ERR 级别日志
     void error(const std::string& message, const Json::Value& context = Json::Value());
-    /**
-     * fatal方法
-     *
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+    /// 输出 FATAL 级别日志，通常伴随进程退出
     void fatal(const std::string& message, const Json::Value& context = Json::Value());
-    
-    void logRequest(const drogon::HttpRequestPtr& req, 
+
+    /** @brief 记录HTTP请求日志，包含耗时和响应状态 */
+    void logRequest(const drogon::HttpRequestPtr& req,
                    const drogon::HttpResponsePtr& resp = nullptr,
                    double durationMs = 0.0);
-    
-    void logError(const std::string& errorType, 
+
+    /** @brief 记录异常/错误，附带堆栈和扩展信息 */
+    void logError(const std::string& errorType,
                  const std::string& message,
                  const std::string& stackTrace = "",
                  const Json::Value& extra = Json::Value());
-    
+
+    /** @brief 记录业务事件（登录、发帖、点赞等） */
     void logBusiness(const std::string& event,
                     const std::string& userId = "",
                     const Json::Value& data = Json::Value());
-    
+
+    /** @brief 记录智能引擎调用（情感分析、推荐等），含输入输出和耗时 */
     void logAI(const std::string& operation,
               const std::string& input,
               const std::string& output,
               double duration,
               bool success);
-    
-    /**
-     * setGlobalContext方法
-     *
-     * @param key 参数说明
-     * @param value 参数说明
-     */
+
+    /** @brief 设置全局上下文字段，会附加到每条日志中（如服务名、版本号） */
     void setGlobalContext(const std::string& key, const std::string& value);
-    
-    /**
-     * log方法
-     *
-     * @param level 参数说明
-     * @param message 参数说明
-     * @param context 参数说明
-     */
+
+    /// 通用日志输出，由各级别快捷方法内部调用
     void log(Level level, const std::string& message, const Json::Value& context);
 
-    // 敏感信息脱敏
+    /** @brief 邮箱脱敏，保留首尾字符和域名 */
     static std::string maskEmail(const std::string& email);
+    /** @brief 手机号脱敏，保留前3后4 */
     static std::string maskPhone(const std::string& phone);
 
 private:
     StructuredLogger() = default;
-    
+
     std::string levelToString(Level level);
     std::string getCurrentTimestamp();
-    
+
     bool jsonFormat_ = true;
     Level minLevel_ = Level::INFO;
     std::unordered_map<std::string, std::string> globalContext_;
@@ -136,31 +97,36 @@ private:
 };
 
 /**
- * LogBuilder类
+ * @brief 链式日志构建器，用于灵活组装结构化日志字段
  *
- * 详细说明
- *
- * @note 注意事项
+ * 用法示例: LogBuilder(Level::INFO).message("下单成功").userId("u123").duration(42.5).emit();
  */
 class LogBuilder {
 public:
     LogBuilder(StructuredLogger::Level level);
-    
+
+    /// 设置日志消息正文
     LogBuilder& message(const std::string& msg);
+    /// 添加字符串类型的自定义字段
     LogBuilder& field(const std::string& key, const std::string& value);
+    /// 添加整型自定义字段
     LogBuilder& field(const std::string& key, int value);
+    /// 添加浮点型自定义字段
     LogBuilder& field(const std::string& key, double value);
+    /// 添加布尔型自定义字段
     LogBuilder& field(const std::string& key, bool value);
+    /// 设置关联的用户ID
     LogBuilder& userId(const std::string& id);
+    /// 设置关联的请求ID，用于链路追踪
     LogBuilder& requestId(const std::string& id);
+    /// 设置操作耗时（毫秒）
     LogBuilder& duration(double ms);
+    /// 设置错误信息
     LogBuilder& error(const std::string& err);
-    
-    /**
-     * emit方法
-     */
+
+    /** @brief 提交日志到 StructuredLogger */
     void emit();
-    
+
 private:
     StructuredLogger::Level level_;
     std::string message_;

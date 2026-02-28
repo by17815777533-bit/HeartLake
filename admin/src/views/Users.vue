@@ -1,5 +1,11 @@
 <!--
-  Users 组件
+  旅人关怀（用户管理）页面
+
+  功能：
+  - 按用户ID、昵称（300ms 防抖）、状态筛选用户列表
+  - 用户详情弹窗展示完整信息
+  - 封禁操作需输入原因，解封需二次确认
+  - 输入校验：用户ID 最长 64 字符，昵称最长 50 字符
 -->
 
 <template>
@@ -220,7 +226,7 @@ const users = ref<User[]>([])
 const detailVisible = ref(false)
 const currentUser = ref<User | null>(null)
 
-// L-11: 搜索输入防抖，避免频繁请求
+// 搜索输入防抖，昵称输入 300ms 后自动触发搜索
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const onSearchInput = () => {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
@@ -240,11 +246,15 @@ const defaultFilters = {
 
 const filters = reactive({ ...defaultFilters })
 
-// 获取用户列表
+/**
+ * 拉取用户列表，兼容后端两种响应格式：
+ * - { data: { users, total } }
+ * - { users, total }
+ */
 const fetchUsers = async () => {
   loading.value = true
   try {
-    // M-8: 构建搜索参数，将 nickname 作为 search 传递给后端
+    // 构建搜索参数，将 nickname 作为 search 传递给后端
     const extra: Record<string, unknown> = {}
     if (filters.userId) extra.user_id = filters.userId
     if (filters.nickname) extra.search = filters.nickname
@@ -283,13 +293,13 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 
-// 查看详情
+/** 查看用户详情 */
 const handleViewDetail = (row: User) => {
   currentUser.value = row
   detailVisible.value = true
 }
 
-// 封禁用户
+/** 封禁用户，弹窗输入原因后调用后端接口 */
 const handleBan = async (row: User) => {
   const { value: reason } = await ElMessageBox.prompt('请输入封禁原因', '封禁用户', {
     confirmButtonText: '确定',
@@ -305,12 +315,12 @@ const handleBan = async (row: User) => {
     ElMessage.success('封禁成功')
     fetchUsers()
   } catch (e) {
-    // H-3: 使用统一错误处理
+    // 统一错误处理
     ElMessage.error(getErrorMessage(e, '封禁失败'))
   }
 }
 
-// 解封用户
+/** 解封用户，二次确认后调用后端接口 */
 const handleUnban = async (row: User) => {
   try {
     await ElMessageBox.confirm('确定要解封该用户吗？', '解封用户', {
@@ -319,7 +329,7 @@ const handleUnban = async (row: User) => {
       type: 'warning',
     })
   } catch {
-    return // 用户取消
+    return
   }
 
   try {
@@ -327,7 +337,7 @@ const handleUnban = async (row: User) => {
     ElMessage.success('解封成功')
     fetchUsers()
   } catch (e) {
-    // H-3: 使用统一错误处理
+    // 统一错误处理
     ElMessage.error(getErrorMessage(e, '解封失败'))
   }
 }

@@ -1,5 +1,14 @@
 /**
- * TempFriendController 模块接口定义
+ * 临时好友控制器 - 24小时限时社交关系
+ *
+ * 实现"心湖"特色的临时好友机制：用户因石头共鸣而建立的
+ * 临时关系，24小时后自动失效。在有效期内双方可以聊天，
+ * 如果彼此认可，可升级为永久好友。
+ *
+ * 设计理念：降低社交压力，让用户在安全的时间窗口内
+ * 自然地建立连接，避免永久关系带来的心理负担。
+ *
+ * 所有端点经 SecurityAuditFilter 进行 PASETO 令牌校验。
  */
 
 #pragma once
@@ -12,15 +21,19 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * 临时好友控制器
- * 临时好友会在24小时后自动失效，可以升级为永久好友
- */
-/**
- * 临时好友相关的HTTP控制器
+ * @brief 临时好友 HTTP 控制器
  *
- * 详细说明
- *
- * @note 注意事项
+ * @details 路由表：
+ * | 方法   | 路径                              | 说明                |
+ * |--------|----------------------------------|-------------------|
+ * | POST   | /api/temp-friends                | 创建临时好友关系     |
+ * | POST   | /api/friends/temp                | 同上（兼容路由）     |
+ * | GET    | /api/temp-friends                | 获取临时好友列表     |
+ * | GET    | /api/friends/temp                | 同上（兼容路由）     |
+ * | GET    | /api/temp-friends/{id}           | 获取临时好友详情     |
+ * | POST   | /api/temp-friends/{id}/upgrade   | 升级为永久好友       |
+ * | DELETE | /api/temp-friends/{id}           | 删除临时好友关系     |
+ * | GET    | /api/temp-friends/check/{userId} | 检查临时好友状态     |
  */
 class TempFriendController : public drogon::HttpController<TempFriendController> {
 public:
@@ -49,25 +62,79 @@ public:
                   "/api/temp-friends/check/{1}", Get, "heartlake::filters::SecurityAuditFilter");
 
     METHOD_LIST_END
-    
+
+    /**
+     * @brief 创建临时好友关系
+     * @details POST /api/temp-friends
+     *
+     * 请求体: { "target_user_id": "对方用户ID", "source": "stone|boat" }
+     * 关系有效期 24 小时，到期后自动清理。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     */
     void createTempFriend(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
-    
+
+    /**
+     * @brief 获取当前用户的临时好友列表
+     * @details GET /api/temp-friends
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @return 临时好友列表，包含剩余有效时间
+     */
     void getMyTempFriends(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
-    
+
+    /**
+     * @brief 获取临时好友关系详情
+     * @details GET /api/temp-friends/{tempFriendId}
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @param tempFriendId 临时好友关系ID
+     */
     void getTempFriendDetail(const HttpRequestPtr &req,
                             std::function<void(const HttpResponsePtr &)> &&callback,
                             const std::string &tempFriendId);
-    
+
+    /**
+     * @brief 将临时好友升级为永久好友
+     * @details POST /api/temp-friends/{tempFriendId}/upgrade
+     *
+     * 需要双方都同意才能升级。升级后临时关系自动删除，
+     * 转为 FriendController 管理的永久好友关系。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @param tempFriendId 临时好友关系ID
+     */
     void upgradeToPermanent(const HttpRequestPtr &req,
                            std::function<void(const HttpResponsePtr &)> &&callback,
                            const std::string &tempFriendId);
-    
+
+    /**
+     * @brief 主动删除临时好友关系
+     * @details DELETE /api/temp-friends/{tempFriendId}
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @param tempFriendId 临时好友关系ID
+     */
     void deleteTempFriend(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback,
                          const std::string &tempFriendId);
-    
+
+    /**
+     * @brief 检查与目标用户的临时好友状态
+     * @details GET /api/temp-friends/check/{targetUserId}
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @param targetUserId 目标用户ID
+     * @return 是否存在临时好友关系、剩余时间、是否可升级
+     */
     void checkTempFriendStatus(const HttpRequestPtr &req,
                               std::function<void(const HttpResponsePtr &)> &&callback,
                               const std::string &targetUserId);

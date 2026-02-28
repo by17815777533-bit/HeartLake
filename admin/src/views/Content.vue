@@ -1,5 +1,11 @@
 <!--
-  Content 组件
+  内容管理页面 -- 石头与纸船的查看、筛选、删除
+
+  功能：
+  - 按类型（石头/纸船）、状态（已发布/待审核/已删除）、关键词筛选
+  - 关键词输入 300ms 防抖，减少无效请求
+  - 删除操作强制输入原因（>=5字），根据内容类型调用不同 API
+  - 内容详情弹窗展示完整文本
 -->
 
 <template>
@@ -236,7 +242,7 @@ const contentList = ref<ContentItem[]>([])
 const detailVisible = ref(false)
 const currentContent = ref<ContentItem | null>(null)
 
-// L-10: 搜索关键词输入防抖，避免频繁请求
+// 搜索关键词输入防抖，避免每次按键都触发请求
 let keywordDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const onKeywordInput = () => {
   if (keywordDebounceTimer) clearTimeout(keywordDebounceTimer)
@@ -266,16 +272,22 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 
+/** 内容状态 → el-tag type 映射 */
 const getStatusType = (status: string) => {
   const map: Record<string, string> = { published: 'success', pending: 'warning', deleted: 'danger' }
   return map[status] || 'info'
 }
 
+/** 内容状态 → 中文标签映射 */
 const getStatusLabel = (status: string) => {
   const map: Record<string, string> = { published: '已发布', pending: '待审核', deleted: '已删除' }
   return map[status] || status
 }
 
+/**
+ * 拉取内容列表，兼容后端 stones/boats/list 三种响应字段名。
+ * 统一映射为前端 ContentItem 结构。
+ */
 async function fetchContent() {
   loading.value = true
   try {
@@ -303,12 +315,16 @@ async function fetchContent() {
   }
 }
 
+/** 打开内容详情弹窗 */
 const viewContent = (row: { id: string; type: string; content: string; user?: { nickname: string }; status: string; created_at: string }) => {
   currentContent.value = row
   detailVisible.value = true
 }
 
-// M-6: 删除内容需输入原因
+/**
+ * 删除内容，需输入原因（>=5字）。
+ * 根据内容类型分别调用 deleteStone / deleteBoat 接口。
+ */
 const deleteContent = async (row: { id: string; type: string }) => {
   const { value: reason } = await ElMessageBox.prompt('请输入删除原因', '删除内容', {
     confirmButtonText: '确定',

@@ -8,6 +8,14 @@ import 'package:heart_lake/di/service_locator.dart';
 import 'package:heart_lake/presentation/widgets/water_background.dart';
 import 'package:heart_lake/utils/app_theme.dart';
 
+/// 认证页面
+///
+/// 心湖的登录入口，提供两种认证方式：
+/// - 匿名登录：一键生成匿名账号，登录成功后弹出恢复密钥保存对话框
+/// - 关键词恢复：通过之前保存的恢复密钥找回已有账号
+///
+/// 页面包含水面背景、淡入动画和按钮按压缩放反馈，
+/// 整体风格强调隐私保护（不收集个人身份信息）。
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 

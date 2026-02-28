@@ -1,3 +1,27 @@
+//! @file main.rs
+//! @brief HeartLake QUIC 网关入口
+//! @details 基于 quinn + tokio 实现的 QUIC 实时通信网关，负责 TLS 终结、
+//!          PASETO v4 token 认证和 Redis Pub/Sub 消息扇出。
+//!          客户端通过 QUIC 双向流完成认证后，网关通过单向流推送实时事件。
+//!          支持 broadcast（全局广播）、user（定向推送）、room（房间广播）三种消息分发模式。
+//!
+//! 核心流程：
+//!   1. 启动 QUIC endpoint，加载 TLS 证书（生产环境）或自签名证书（开发环境）
+//!   2. 后台 task 订阅 Redis `heartlake:realtime` 频道，接收后端发来的实时事件
+//!   3. 主循环 accept 新连接 → 认证 → 注册到 SessionMap → 等待连接关闭
+//!   4. Redis 收到事件后，根据 scope 查找目标连接，通过 QUIC 单向流推送
+//!
+//! 环境变量：
+//!   - `QUIC_GATEWAY_BIND`：监听地址，默认 `0.0.0.0:8443`
+//!   - `QUIC_GATEWAY_LOG`：日志过滤器，默认 `info,quinn=warn,hyper=warn`
+//!   - `QUIC_TLS_CERT` / `QUIC_TLS_KEY`：TLS 证书和私钥文件路径
+//!   - `QUIC_MAX_CONNECTIONS`：最大并发连接数，默认 1000
+//!   - `PASETO_KEY`：PASETO v4.local 对称密钥（base64 或原始字节）
+//!   - `REDIS_URL` 或 `REDIS_HOST` + `REDIS_PORT` + `REDIS_PASSWORD`：Redis 连接信息
+//!
+//! @author HeartLake Dev Team
+//! @date 2025
+
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use chacha20poly1305::{aead::Aead, KeyInit};
@@ -13,31 +37,59 @@ use std::time::Duration;
 use tokio::sync::{RwLock, Semaphore};
 use tracing::{error, info, warn};
 
+/// 在线会话表：user_id -> { connection_stable_id -> Connection }
+///
+/// 同一用户可能有多个 QUIC 连接（多设备登录），所以内层用 HashMap 按连接 ID 区分。
+/// 外层用 `RwLock` 保护，读多写少场景下性能优于 Mutex。
 type SessionMap = Arc<RwLock<HashMap<String, HashMap<usize, Connection>>>>;
 
+/// Redis Pub/Sub 频道名，后端服务通过此频道发布实时事件
 const REALTIME_CHANNEL: &str = "heartlake:realtime";
 
+/// 客户端认证数据包
+///
+/// 连接建立后，客户端必须在第一个双向流中发送此 JSON 包完成身份验证。
+/// `type` 字段必须为 `"auth"`，`token` 为 PASETO v4.local 格式的访问令牌。
 #[derive(Debug, Deserialize)]
 struct AuthPacket {
+    /// 包类型，必须为 `"auth"`，缺省为空字符串（会被拒绝）
     #[serde(default)]
     r#type: String,
+    /// PASETO v4.local 格式的访问令牌
     token: String,
 }
 
+/// PASETO token 解密后的载荷
+///
+/// 仅提取认证所需的最小字段集，其余字段忽略。
 #[derive(Debug, Deserialize)]
 struct PasetoPayload {
+    /// 用户 ID（subject）
     sub: String,
+    /// 过期时间，格式 `%Y-%m-%dT%H:%M:%SZ`
     exp: String,
 }
 
+/// Redis 实时事件信封
+///
+/// 后端通过 Redis Pub/Sub 发布的每条消息都遵循此格式，
+/// 网关根据 `scope` 决定消息的分发策略。
 #[derive(Debug, Deserialize)]
 struct RealtimeEnvelope {
+    /// 分发范围：`"broadcast"` 全局广播 / `"user"` 定向推送 / `"room"` 房间广播
     scope: String,
+    /// 目标标识：scope 为 `"user"` 时是 user_id，为 `"room"` 时是房间名
     #[serde(default)]
     target: String,
+    /// 实际推送给客户端的消息体（透传，网关不解析内容）
     payload: String,
 }
 
+/// 网关主入口
+///
+/// 初始化日志、加载配置、启动 QUIC endpoint 和 Redis 订阅，
+/// 然后进入主循环持续接受新连接。每个连接在独立的 tokio task 中处理，
+/// 通过 Semaphore 控制并发上限，避免资源耗尽。
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -103,6 +155,13 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// 读取 PASETO 对称密钥
+///
+/// 从环境变量 `PASETO_KEY` 读取密钥材料，支持两种格式：
+/// - Base64 编码（Standard 或 URL-safe no-pad）：自动解码
+/// - 原始字符串：直接取 UTF-8 字节
+///
+/// 密钥长度必须 >= 32 字节，取前 32 字节作为 ChaCha20-Poly1305 的对称密钥。
 fn read_paseto_key() -> Result<[u8; 32]> {
     let key = std::env::var("PASETO_KEY").context("PASETO_KEY is required for QUIC gateway auth")?;
     // 优先尝试 base64 解码，失败则当作原始字节
@@ -121,6 +180,10 @@ fn read_paseto_key() -> Result<[u8; 32]> {
     Ok(out)
 }
 
+/// 构建 Redis 连接 URL
+///
+/// 优先使用 `REDIS_URL` 环境变量；若未设置，则从 `REDIS_HOST`、`REDIS_PORT`、
+/// `REDIS_PASSWORD` 拼接。默认连接 `127.0.0.1:6379`，无密码。
 fn build_redis_url() -> String {
     if let Ok(url) = std::env::var("REDIS_URL") {
         if !url.trim().is_empty() {
@@ -137,12 +200,21 @@ fn build_redis_url() -> String {
     }
 }
 
+/// 创建并启动 QUIC server endpoint
+///
+/// 绑定指定地址，使用 [`build_server_config`] 生成的 TLS + 传输层配置。
 fn start_quic_server(bind_addr: SocketAddr) -> Result<Endpoint> {
     let server_config = build_server_config()?;
     let endpoint = Endpoint::server(server_config, bind_addr)?;
     Ok(endpoint)
 }
 
+/// 构建 QUIC server 的 TLS 和传输层配置
+///
+/// 传输层参数：
+/// - 单向流并发上限 32，双向流并发上限 64（防止恶意客户端开大量流耗尽资源）
+/// - keep-alive 间隔 20s（维持 NAT 映射，避免连接被中间设备丢弃）
+/// - 空闲超时 120s（超时后自动断开，释放服务端资源）
 fn build_server_config() -> Result<ServerConfig> {
     let (cert_der, key_der) = load_tls_identity()?;
 
@@ -157,8 +229,12 @@ fn build_server_config() -> Result<ServerConfig> {
     Ok(server_config)
 }
 
-/// 加载 TLS 证书和私钥。优先从 QUIC_TLS_CERT / QUIC_TLS_KEY 环境变量指定的文件读取，
-/// 若未配置则回退到自签名证书（仅适用于开发环境）。
+/// 加载 TLS 证书和私钥
+///
+/// 优先从 `QUIC_TLS_CERT` / `QUIC_TLS_KEY` 环境变量指定的 PEM 文件读取，
+/// 若未配置则回退到 rcgen 生成的自签名证书（仅适用于开发环境）。
+///
+/// 生产部署时务必配置正式证书，自签名证书会导致客户端验证失败。
 fn load_tls_identity() -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>)> {
     let cert_path = std::env::var("QUIC_TLS_CERT").ok();
     let key_path = std::env::var("QUIC_TLS_KEY").ok();
@@ -193,6 +269,16 @@ fn load_tls_identity() -> Result<(CertificateDer<'static>, PrivateKeyDer<'static
     Ok((cert_der, key_der))
 }
 
+/// 处理单个 QUIC 连接的完整生命周期
+///
+/// 流程：
+///   1. 等待客户端打开第一个双向流，读取 [`AuthPacket`]
+///   2. 验证 PASETO token，提取 user_id
+///   3. 将连接注册到 [`SessionMap`]，回复 `auth_ok`
+///   4. 阻塞等待连接关闭（期间 Redis fanout 会通过单向流推送消息）
+///   5. 连接关闭后从 SessionMap 中移除，释放资源
+///
+/// 认证数据包大小限制为 8KB，防止恶意客户端发送超大包。
 async fn handle_connection(conn: Connection, sessions: SessionMap, paseto_key: [u8; 32]) -> Result<()> {
     let conn_id = conn.stable_id();
     let remote = conn.remote_address();
@@ -241,6 +327,9 @@ async fn handle_connection(conn: Connection, sessions: SessionMap, paseto_key: [
     Ok(())
 }
 
+/// 向客户端发送认证错误响应
+///
+/// 通过双向流的发送端写入 JSON 格式的错误消息，然后关闭流。
 async fn send_error(send: &mut quinn::SendStream, message: &str) -> Result<()> {
     let err = serde_json::json!({
         "type": "auth_error",
@@ -251,6 +340,15 @@ async fn send_error(send: &mut quinn::SendStream, message: &str) -> Result<()> {
     Ok(())
 }
 
+/// 验证 PASETO v4.local token 并提取用户 ID
+///
+/// 手动实现 PASETO v4.local 解密流程（未依赖完整的 paseto 库）：
+///   1. 校验 `v4.local.` 前缀
+///   2. Base64url 解码 token body
+///   3. 前 12 字节为 nonce，其余为 ChaCha20-Poly1305 密文 + tag
+///   4. 解密后解析 JSON 载荷，校验过期时间和 user_id 非空
+///
+/// 返回 token 中的 `sub` 字段（即 user_id）。
 fn verify_paseto_token(token: &str, key_material: [u8; 32]) -> Result<String> {
     const HEADER: &str = "v4.local.";
     if !token.starts_with(HEADER) {
@@ -259,6 +357,7 @@ fn verify_paseto_token(token: &str, key_material: [u8; 32]) -> Result<String> {
     let raw = URL_SAFE_NO_PAD
         .decode(&token[HEADER.len()..])
         .context("invalid base64url token body")?;
+    // nonce 12 字节 + 至少 16 字节的 Poly1305 tag
     if raw.len() < 12 + 16 {
         return Err(anyhow!("token body too short"));
     }
@@ -283,6 +382,10 @@ fn verify_paseto_token(token: &str, key_material: [u8; 32]) -> Result<String> {
     Ok(payload.sub)
 }
 
+/// Redis Pub/Sub 消息扇出（带自动重连）
+///
+/// 持续订阅 Redis 频道，断线后按指数退避策略重连（2s → 4s → 8s → ... → 60s 封顶）。
+/// 连接成功后重置退避计时器。这个函数永远不会正常返回，除非 Semaphore 被关闭。
 async fn run_redis_fanout(redis_url: String, sessions: SessionMap) -> Result<()> {
     let mut backoff_secs = 2_u64;
     const MAX_BACKOFF: u64 = 60;
@@ -302,6 +405,10 @@ async fn run_redis_fanout(redis_url: String, sessions: SessionMap) -> Result<()>
     }
 }
 
+/// 单次 Redis Pub/Sub 订阅循环
+///
+/// 连接 Redis，订阅 [`REALTIME_CHANNEL`] 频道，逐条接收消息并调用
+/// [`fanout_event`] 分发到对应的 QUIC 连接。连接断开时返回，由调用方负责重连。
 async fn run_redis_fanout_once(redis_url: &str, sessions: &SessionMap) -> Result<()> {
     let client = redis::Client::open(redis_url).context("open redis client failed")?;
     let mut pubsub = client.get_async_pubsub().await.context("create redis pubsub failed")?;
@@ -321,6 +428,15 @@ async fn run_redis_fanout_once(redis_url: &str, sessions: &SessionMap) -> Result
     Ok(())
 }
 
+/// 将一条实时事件分发到目标 QUIC 连接
+///
+/// 根据 [`RealtimeEnvelope::scope`] 确定分发策略：
+/// - `"broadcast"`：推送给所有在线连接
+/// - `"user"`：推送给指定 user_id 的所有连接
+/// - `"room"`：解析房间名提取相关用户，推送给这些用户的所有连接
+///
+/// 推送失败的连接会被标记为 stale 并从 SessionMap 中清除，
+/// 避免后续事件继续尝试向已断开的连接发送数据。
 async fn fanout_event(event_text: &str, sessions: &SessionMap) -> Result<()> {
     let envelope: RealtimeEnvelope =
         serde_json::from_str(event_text).context("invalid realtime envelope json")?;
@@ -372,6 +488,7 @@ async fn fanout_event(event_text: &str, sessions: &SessionMap) -> Result<()> {
         }
     }
 
+    // 批量清理推送失败的过期连接
     if !stale.is_empty() {
         let mut guard = sessions.write().await;
         for (uid, conn_id) in stale {
@@ -387,6 +504,12 @@ async fn fanout_event(event_text: &str, sessions: &SessionMap) -> Result<()> {
     Ok(())
 }
 
+/// 从房间名解析出关联的用户 ID 列表
+///
+/// 房间命名约定：
+/// - `private:<uid1>_<uid2>`：私聊房间，返回两个用户 ID
+/// - `user:<uid>`：用户专属频道，返回单个用户 ID
+/// - 其他格式：返回空列表（不推送）
 fn users_from_room(room: &str) -> Vec<String> {
     if let Some(rest) = room.strip_prefix("private:") {
         return rest
@@ -403,6 +526,10 @@ fn users_from_room(room: &str) -> Vec<String> {
     Vec::new()
 }
 
+/// 通过 QUIC 单向流向客户端推送一条消息
+///
+/// 打开一个新的单向流，写入完整 payload 后立即 finish。
+/// 每条消息独占一个流，利用 QUIC 的多路复用避免队头阻塞。
 async fn send_to_connection(conn: &Connection, payload: &[u8]) -> Result<()> {
     let mut stream = conn.open_uni().await.context("open uni stream failed")?;
     stream.write_all(payload).await.context("write stream failed")?;

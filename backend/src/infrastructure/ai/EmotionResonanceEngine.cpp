@@ -1,8 +1,16 @@
 /**
- * 情绪感知时序共鸣引擎实现
+ * @file EmotionResonanceEngine.cpp
+ * @brief 情绪感知时序共鸣引擎 —— 四维加权共鸣推荐
  *
- * 核心算法：
- * ResonanceScore = α·SemanticSim + β·EmotionTrajectorySim + γ·TemporalDecay + δ·DiversityBonus
+ * 核心公式：
+ *   ResonanceScore = α·SemanticSim + β·EmotionTrajectorySim + γ·TemporalDecay + δ·DiversityBonus
+ *
+ * 关键算法：
+ *   - DTW (Dynamic Time Warping) 情绪轨迹相似度，Sakoe-Chiba band O(n*w)
+ *   - LB_Keogh / LB_Improved 下界剪枝，O(n) 快速排除差异过大的轨迹
+ *   - Early Abandoning DTW：以当前最优分数为阈值提前终止
+ *   - 互补情绪多样性奖励（心理学治愈模型）
+ *   - EMA 在线权重自适应，根据用户隐式反馈动态调整四维权重
  */
 
 #include "infrastructure/ai/EmotionResonanceEngine.h"

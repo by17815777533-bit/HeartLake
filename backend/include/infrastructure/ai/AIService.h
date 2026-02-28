@@ -1,5 +1,15 @@
 /**
- * AIService 模块接口定义
+ * AI 服务统一入口 - 大模型 API 调用层
+ *
+ * 封装情感分析、内容审核、智能回复、嵌入向量生成等 AI 能力，
+ * 支持 DeepSeek / OpenAI / Ollama 等多种后端。
+ *
+ * 核心设计：
+ * - 三级降级策略：大模型 API → EdgeAIEngine 本地推理 → EmotionManager 规则兜底
+ * - 熔断器保护：连续失败超阈值后自动熔断，冷却后半开探测恢复
+ * - 双层缓存：L1 精确哈希命中 + L2 语义缓存（HNSW ANN 加速）
+ * - 飞行中请求合并（in-flight coalescing）：相同文本的并发请求只发一次 API
+ * - 自适应本地置信度阈值：高并发时动态降低阈值，减少尾延迟
  */
 
 #pragma once
@@ -21,24 +31,25 @@ namespace heartlake {
 namespace ai {
 
 /**
- * AI服务 - 情感分析、内容审核、智能回复
- * 支持 DeepSeek、OpenAI 等大模型API
- */
-/**
- * AI服务，提供AI相关功能
+ * AI 服务单例
  *
- * 详细说明
+ * 线程安全。内部通过 shared_mutex / mutex / atomic 分别保护
+ * 情感缓存、审核缓存、飞行中请求表和统计计数器。
  *
- * @note 注意事项
+ * 调用链路示例（情感分析）：
+ * analyzeSentiment → L1缓存命中? → 飞行中合并? → 本地高置信度? → 大模型API → 降级兜底
  */
 class AIService {
 public:
     static AIService& getInstance();
-    
+
     /**
-     * initialize方法
+     * 初始化 AI 服务
      *
-     * @param config 参数说明
+     * 从配置中读取 provider / apiKey / baseUrl / model 等参数，
+     * 创建复用的 HTTP 客户端，初始化语义缓存和熔断器。
+     *
+     * @param config JSON 配置（provider, api_key, base_url, model, timeout 等）
      */
     void initialize(const Json::Value& config);
     
@@ -135,9 +146,9 @@ public:
     
     
     /**
-     * 本地敏感词快速检测（不调用AI API）
+     * 本地敏感词快速检测（不调用 AI API，委托 ContentFilter AC 自动机）
      * @param text 待检测文本
-     * @return 检测结果: {passed, matched_words, category}
+     * @return 检测结果，包含是否通过、匹配词列表、风险类别、是否需要紧急关注
      */
     struct LocalModerationResult {
         bool passed;
@@ -145,12 +156,6 @@ public:
         std::string category;  // "self_harm", "violence", "sexual", "normal"
         bool needsAlert;       // 是否需要特别关注（如自伤倾向）
     };
-    /**
-     * localModerate方法
-     *
-     * @param text 参数说明
-     * @return 返回值说明
-     */
     LocalModerationResult localModerate(const std::string& text);
     
     /**

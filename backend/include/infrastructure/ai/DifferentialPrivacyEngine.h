@@ -1,8 +1,17 @@
 /**
- * 差分隐私引擎
+ * 差分隐私引擎（独立模块）
  *
- * 从 EdgeAIEngine 提取的独立模块。Laplace机制，隐私预算追踪。
+ * 提供 Laplace 和 Gaussian 两种噪声机制，配合严格的隐私预算追踪。
  *
+ * Laplace 机制：noise ~ Lap(Δf / ε)，适用于标量和低维向量
+ * Gaussian 机制：σ = Δ₂ · √(2·ln(1.25/δ)) / ε，高维场景噪声尺度 O(√d)
+ *
+ * 预算追踪采用 zCDP（zero-Concentrated DP）框架：
+ *   - Gaussian 操作消耗 ρ = Δ²/(2σ²)，ρ 线性可加
+ *   - 通过 ρ → (ε,δ) 转换公式回推等效 (ε,δ) 消耗
+ *   - 同时维护 ε / δ / ρ 三个原子计数器，支持混合机制场景
+ *
+ * 线程安全：shared_mutex 保护配置和 RNG，atomic 保护预算计数器。
  */
 
 #pragma once

@@ -8,6 +8,9 @@ import '../../domain/entities/stone.dart';
 import '../widgets/stone_card/stone_card.dart';
 import 'dart:async';
 
+/// 心湖动态流页面，按时间线展示最新石头
+///
+/// 支持无限滚动分页加载，通过 WebSocket 实时接收新石头并插入列表顶部。
 class LakeFeedScreen extends StatefulWidget {
   const LakeFeedScreen({super.key});
 
@@ -49,16 +52,19 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
       final stoneId = stoneData['stone_id'] ?? '';
       if (_stones.any((s) => s.stoneId == stoneId)) return;
       setState(() {
-        _stones.insert(0, Stone(
-          stoneId: stoneId,
-          content: stoneData['content'] ?? '',
-          userId: stoneData['user_id'] ?? '',
-          stoneType: stoneData['stone_type'] ?? 'medium',
-          stoneColor: stoneData['stone_color'] ?? '#7A92A3',
-          moodType: stoneData['mood_type'],
-          isAnonymous: stoneData['is_anonymous'] ?? true,
-          createdAt: DateTime.now(),
-        ));
+        _stones.insert(
+            0,
+            Stone(
+              stoneId: stoneId,
+              content: stoneData['content'] ?? '',
+              userId: stoneData['user_id'] ?? '',
+              stoneType: stoneData['stone_type'] ?? 'medium',
+              stoneColor: stoneData['stone_color'] ?? '#7A92A3',
+              moodType: stoneData['mood_type'],
+              isAnonymous: Stone.parseBool(stoneData['is_anonymous'],
+                  defaultValue: true),
+              createdAt: DateTime.now(),
+            ));
       });
     };
     _wsManager.on('new_stone', _newStoneListener);
@@ -184,122 +190,134 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
           ),
         ),
         child: _isLoading && _stones.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () => _loadData(),
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  // 湖面气象
-                  if (_weather != null)
-                    SliverToBoxAdapter(
-                      child: Container(
-                        margin: const EdgeInsets.all(15),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              isDark ? const Color(0xFF1B2838).withValues(alpha: 0.9) : const Color(0xFF9DB2BF).withValues(alpha: 0.8),
-                              isDark ? const Color(0xFF0D1B2A) : const Color(0xFFDDE6ED),
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: () => _loadData(),
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    // 湖面气象
+                    if (_weather != null)
+                      SliverToBoxAdapter(
+                        child: Container(
+                          margin: const EdgeInsets.all(15),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                isDark
+                                    ? const Color(0xFF1B2838)
+                                        .withValues(alpha: 0.9)
+                                    : const Color(0xFF9DB2BF)
+                                        .withValues(alpha: 0.8),
+                                isDark
+                                    ? const Color(0xFF0D1B2A)
+                                    : const Color(0xFFDDE6ED),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: isDark
+                                    ? Colors.transparent
+                                    : Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.cloud,
-                              size: 40,
-                              color: Colors.blue[300],
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _weather!['description'] ?? '湖面平静',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? const Color(0xFFE8EAED) : const Color(0xFF526D82),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    '最近 ${_weather!['total_stones'] ?? 0} 颗石子',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? const Color(0xFF9AA0A6) : const Color(0xFF9DB2BF),
-                                    ),
-                                  ),
-                                ],
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.cloud,
+                                size: 40,
+                                color: Colors.blue[300],
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _weather!['description'] ?? '湖面平静',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? const Color(0xFFE8EAED)
+                                            : const Color(0xFF526D82),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '最近 ${_weather!['total_stones'] ?? 0} 颗石子',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? const Color(0xFF9AA0A6)
+                                            : const Color(0xFF9DB2BF),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    // 石头列表
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            if (index >= _stones.length) return null;
+                            final stone = _stones[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 15),
+                              child: StoneCard(
+                                stone: stone,
+                                onRippleSuccess: () {
+                                  // 涉漪成功后更新本地计数
+                                  setState(() {
+                                    final idx = _stones.indexWhere(
+                                        (s) => s.stoneId == stone.stoneId);
+                                    if (idx != -1) {
+                                      _stones[idx] = Stone.fromJson({
+                                        ..._stones[idx].toJson(),
+                                        'ripple_count':
+                                            _stones[idx].rippleCount + 1,
+                                      });
+                                    }
+                                  });
+                                },
+                                onDeleted: () {
+                                  // 删除后从列表中移除
+                                  setState(() {
+                                    _stones.removeWhere(
+                                        (s) => s.stoneId == stone.stoneId);
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                          childCount: _stones.length,
                         ),
                       ),
                     ),
 
-                  // 石头列表
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index >= _stones.length) return null;
-                          final stone = _stones[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 15),
-                            child: StoneCard(
-                              stone: stone,
-                              onRippleSuccess: () {
-                                // 涉漪成功后更新本地计数
-                                setState(() {
-                                  final idx = _stones.indexWhere(
-                                      (s) => s.stoneId == stone.stoneId);
-                                  if (idx != -1) {
-                                    _stones[idx] = Stone.fromJson({
-                                      ..._stones[idx].toJson(),
-                                      'ripple_count':
-                                          _stones[idx].rippleCount + 1,
-                                    });
-                                  }
-                                });
-                              },
-                              onDeleted: () {
-                                // 删除后从列表中移除
-                                setState(() {
-                                  _stones.removeWhere(
-                                      (s) => s.stoneId == stone.stoneId);
-                                });
-                              },
-                            ),
-                          );
-                        },
-                        childCount: _stones.length,
+                    // 加载更多指示器
+                    if (_isLoading)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
                       ),
-                    ),
-                  ),
-
-                  // 加载更多指示器
-                  if (_isLoading)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
       ),
     );
   }

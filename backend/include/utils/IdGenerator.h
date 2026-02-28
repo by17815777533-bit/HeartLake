@@ -1,5 +1,8 @@
 /**
- * IdGenerator 模块接口定义
+ * @brief 各类业务实体的唯一ID生成器
+ *
+ * 为用户、Stone、涟漪、漂流瓶、通知等实体生成带业务前缀的唯一标识。
+ * 安全敏感场景（如会话ID）使用 CSPRNG 保证不可预测性。
  */
 
 #pragma once
@@ -10,13 +13,6 @@
 namespace heartlake {
 namespace utils {
 
-/**
- * ID生成器，用于生成唯一ID
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class IdGenerator {
 public:
     static std::string generateUserId();
@@ -35,14 +31,6 @@ public:
 private:
     static std::string generateRandomId(size_t length);
     static std::string generateSecureRandomId(size_t length);  // CSPRNG，用于安全敏感的 ID
-
-    /**
-     * generateRandomNumber方法
-     *
-     * @param min 参数说明
-     * @param max 参数说明
-     * @return 返回值说明
-     */
     static int generateRandomNumber(int min, int max);
 };
 

@@ -6,7 +6,10 @@ import '../../data/datasources/temp_friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 
-/// 好友状态管理Provider
+/// 好友系统状态管理器
+///
+/// 统一管理正式好友、临时好友（纸船互动产生的 24h 限时好友）和好友请求。
+/// 通过 WebSocket 监听好友上下线、请求、接受、删除等实时事件。
 class FriendProvider with ChangeNotifier {
   final FriendService _friendService = sl<FriendService>();
   final TempFriendService _tempFriendService = sl<TempFriendService>();

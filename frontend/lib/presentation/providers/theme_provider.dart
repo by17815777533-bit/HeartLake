@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 主题模式状态管理器，持久化用户的亮/暗色偏好
+///
+/// 初始化时从 [SharedPreferences] 读取上次选择，
+/// 切换后立即写入本地存储，下次启动自动恢复。
 class ThemeProvider with ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.light; // 默认浅色模式
 

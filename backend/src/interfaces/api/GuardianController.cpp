@@ -1,5 +1,12 @@
 /**
- * 守望者控制器实现
+ * @file GuardianController.cpp
+ * @brief 守望者系统控制器 — 守护者激励、灯火转赠、情绪洞察、湖神对话
+ *
+ * 守望者是心湖社区的核心角色：通过高质量涟漪和温暖纸船积累共鸣点数，
+ * 达标后晋升为"点灯人"。getStats 返回守护者统计（共鸣点、涟漪数、
+ * 纸船数、是否可转赠灯火），transferLamp 实现灯火在守护者间流转，
+ * getEmotionInsights 借助 DualMemoryRAG 生成个性化情绪洞察报告，
+ * chat 接口提供湖神 AI 对话能力（带情绪感知和上下文记忆）。
  */
 
 #include "interfaces/api/GuardianController.h"

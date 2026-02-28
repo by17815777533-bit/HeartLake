@@ -1,24 +1,20 @@
 /**
- * HighPerformance 模块接口定义
+ * @brief HeartLake 高性能算法与数据结构工具箱
+ *
+ * 汇集项目中频繁使用的高并发/低延迟基础组件：
+ * - LockFreePool: 无锁内存池，CAS + Tagged Pointer 避免 ABA
+ * - MPMCQueue: 多生产者多消费者无锁队列，基于 Lamport 环形缓冲区
+ * - CountingBloomFilter: 计数布隆过滤器，支持删除操作
+ * - ACAutomaton: Aho-Corasick 多模式匹配自动机，O(n) 扫描
+ * - ShardedLRUCache: 分片 LRU 缓存，读写锁分离降低竞争
+ * - SkipList: 无锁跳表，O(logN) 有序查找/插入/删除
+ * - ConsistentHash: 一致性哈希环，虚拟节点均衡负载
+ * - SIMDString: SSE2 向量化字符串处理
+ * - ThreadPool: 线程池，std::packaged_task 异步提交
+ * - TokenBucket: 令牌桶限流器，支持突发流量
  */
 
 #pragma once
-
-/**
- * HeartLake 极致高性能算法优化模块 v2.0
- * 
- * 核心优化技术:
- * 1. 无锁内存池 - Lock-free内存分配
- * 2. MPMC无锁队列 - 多生产者多消费者高并发队列
- * 3. 布隆过滤器 - 概率数据结构快速过滤
- * 4. AC自动机 - O(n)多模式匹配
- * 5. 跳表 - O(logN)有序数据结构
- * 6. 一致性哈希 - 分布式负载均衡
- * 7. B+树索引 - 高效范围查询
- * 8. SIMD字符串处理 - 向量化加速
- * 9. 无锁LRU缓存 - 高并发缓存
- * 10. 协程池 - 轻量级并发
- */
 
 #include <atomic>
 #include <memory>
@@ -63,17 +59,16 @@ namespace perf {
 
 
 /**
- * Lock-Free 内存池 (使用Tagged Pointer避免ABA问题)
- * 比传统内存池快3-5倍
+ * @brief 无锁内存池，基于 CAS free-list 实现快速分配/回收
+ *
+ * 预分配 BlockSize 个节点的内存块，用完自动扩容。
+ * 分配和回收均为 O(1) CAS 操作，适合高频小对象场景。
+ *
+ * @tparam T 管理的对象类型
+ * @tparam BlockSize 每次扩容的节点数量
+ * @note 扩容操作持有 mutex，但不影响已有节点的无锁分配
  */
 template<typename T, size_t BlockSize = 4096>
-/**
- * LockFreePool类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class LockFreePool {
     struct Node {
         std::atomic<Node*> next;
@@ -96,6 +91,12 @@ public:
         }
     }
 
+    /**
+     * @brief 从池中分配一个对象，就地构造
+     * @tparam Args 构造函数参数类型
+     * @param args 转发给 T 构造函数的参数
+     * @return 指向新构造对象的指针；池耗尽时自动扩容
+     */
     template<typename... Args>
     T* allocate(Args&&... args) {
         Node* node = nullptr;
@@ -115,9 +116,8 @@ public:
     }
 
     /**
-     * deallocate方法
-     *
-     * @param ptr 参数说明
+     * @brief 回收对象到池中，调用析构函数后归还节点到 free-list
+     * @param ptr 之前由 allocate() 返回的指针，nullptr 安全
      */
     void deallocate(T* ptr) {
         if (!ptr) return;
@@ -134,9 +134,7 @@ public:
     }
 
 private:
-    /**
-     * expandPool方法
-     */
+    /// 分配新的内存块并链入 free-list（持锁操作，仅扩容时触发）
     void expandPool() {
         std::lock_guard<std::mutex> lock(expandMutex_);
         
@@ -163,17 +161,15 @@ private:
 
 
 /**
- * 多生产者多消费者无锁队列
- * 基于循环缓冲区实现，支持高并发
+ * @brief 多生产者多消费者无锁队列（Lamport 风格环形缓冲区）
+ *
+ * 每个 Cell 携带 sequence 计数器，生产者和消费者通过 CAS 竞争各自的位置，
+ * 无需全局锁即可实现线程安全的并发入队/出队。
+ *
+ * @tparam T 元素类型
+ * @tparam Capacity 队列容量，必须为 2 的幂（编译期断言）
  */
 template<typename T, size_t Capacity = 65536>
-/**
- * MPMCQueue类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class MPMCQueue {
     static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be power of 2");
     
@@ -192,10 +188,9 @@ public:
     }
 
     /**
-     * enqueue方法
-     *
-     * @param data 参数说明
-     * @return 返回值说明
+     * @brief 入队，队列满时立即返回 false（非阻塞）
+     * @param data 要入队的元素
+     * @return 成功返回 true，队列满返回 false
      */
     bool enqueue(const T& data) {
         Cell* cell;
@@ -223,10 +218,9 @@ public:
     }
 
     /**
-     * dequeue方法
-     *
-     * @param data 参数说明
-     * @return 返回值说明
+     * @brief 出队，队列空时立即返回 false（非阻塞）
+     * @param[out] data 出队元素通过 move 写入此引用
+     * @return 成功返回 true，队列空返回 false
      */
     bool dequeue(T& data) {
         Cell* cell;
@@ -253,20 +247,14 @@ public:
         return true;
     }
 
-    /**
-     * size方法
-     * @return 返回值说明
-     */
+    /// 当前队列中的元素数量（近似值，非精确快照）
     size_t size() const {
         size_t e = enqueuePos_.load(std::memory_order_relaxed);
         size_t d = dequeuePos_.load(std::memory_order_relaxed);
         return e >= d ? e - d : 0;
     }
 
-    /**
-     * empty方法
-     * @return 返回值说明
-     */
+    /// 队列是否为空
     bool empty() const { return size() == 0; }
 
 private:
@@ -277,24 +265,18 @@ private:
 
 
 /**
- * 计数布隆过滤器 - 支持删除操作
- * 使用多个哈希函数和计数器
+ * @brief 计数布隆过滤器 — 支持删除操作的概率数据结构
+ *
+ * 每个槽位使用 uint8_t 计数器（而非单 bit），因此支持 remove()。
+ * 存在假阳性（mayContain 返回 true 但实际不存在），但不存在假阴性。
+ *
+ * @tparam Size 计数器数组大小，必须为 2 的幂
+ * @tparam HashCount 哈希函数数量，越多假阳性率越低但插入越慢
  */
 template<size_t Size = 1048576, size_t HashCount = 8>
-/**
- * CountingBloomFilter类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class CountingBloomFilter {
 public:
-    /**
-     * insert方法
-     *
-     * @param item 参数说明
-     */
+    /// 插入元素，对应的 HashCount 个计数器各加 1
     void insert(std::string_view item) {
         for (size_t i = 0; i < HashCount; ++i) {
             size_t idx = hash(item, i) & (Size - 1);
@@ -303,11 +285,7 @@ public:
         count_.fetch_add(1, std::memory_order_relaxed);
     }
 
-    /**
-     * remove方法
-     *
-     * @param item 参数说明
-     */
+    /// 删除元素，对应计数器各减 1（计数器不会下溢到负数）
     void remove(std::string_view item) {
         for (size_t i = 0; i < HashCount; ++i) {
             size_t idx = hash(item, i) & (Size - 1);
@@ -320,12 +298,7 @@ public:
         count_.fetch_sub(1, std::memory_order_relaxed);
     }
 
-    /**
-     * mayContain方法
-     *
-     * @param item 参数说明
-     * @return 返回值说明
-     */
+    /// 概率性查询：返回 false 则一定不存在，返回 true 可能存在（假阳性）
     bool mayContain(std::string_view item) const {
         for (size_t i = 0; i < HashCount; ++i) {
             if (counters_[hash(item, i) & (Size - 1)].load(std::memory_order_relaxed) == 0) {
@@ -335,12 +308,7 @@ public:
         return true;
     }
 
-    /**
-     * count方法
-     *
-     * @param memory_order_relaxed 参数说明
-     * @return 返回值说明
-     */
+    /// 已插入的元素总数
     size_t count() const { return count_.load(std::memory_order_relaxed); }
 
     void clear() {
@@ -350,10 +318,7 @@ public:
         count_.store(0, std::memory_order_relaxed);
     }
 
-    /**
-     * falsePositiveRate方法
-     * @return 返回值说明
-     */
+    /// 估算当前假阳性率：(非零槽位比例)^HashCount
     double falsePositiveRate() const {
         size_t setBits = 0;
         for (const auto& c : counters_) {
@@ -364,13 +329,7 @@ public:
     }
 
 private:
-    /**
-     * hash方法
-     *
-     * @param str 参数说明
-     * @param seed 参数说明
-     * @return 返回值说明
-     */
+    /// MurmurHash 变体，seed 参数实现多哈希函数
     size_t hash(std::string_view str, size_t seed) const {
         size_t h = seed ^ str.size();
         for (char c : str) {
@@ -387,15 +346,14 @@ private:
 
 
 /**
- * 优化的AC自动机 - 使用数组代替map提升缓存命中率
- * 支持UTF-8中文和ASCII混合匹配
- */
-/**
- * ACAutomaton类
+ * @brief Aho-Corasick 多模式匹配自动机
  *
- * 详细说明
+ * 支持 UTF-8 中文和 ASCII 混合文本的 O(n) 扫描。
+ * 节点按 cache line 对齐（64 字节），children 使用 256 大小的数组
+ * 代替 map，以提升 CPU 缓存命中率。每个模式可标记类别（自伤/暴力/色情等）
+ * 和级别（低/中/高），供 ContentFilter 分级处理。
  *
- * @note 注意事项
+ * @note build() 构建失败链后才能调用 match()/hasMatch()，线程安全（内部持锁）
  */
 class ACAutomaton {
     static constexpr int CHARSET = 256;
@@ -437,17 +395,18 @@ private:
 
 
 /**
- * 分片无锁LRU缓存 - 通过分片减少锁竞争
- * 比单锁LRU快10倍以上
+ * @brief 分片 LRU 缓存 — 通过哈希分片降低锁竞争
+ *
+ * 将 key 空间按哈希值分散到 2^ShardBits 个独立分片，
+ * 每个分片维护独立的双向链表 + HashMap，使用 shared_mutex 读写分离。
+ * 读操作先获取共享锁查找，命中后升级为独占锁调整 LRU 顺序。
+ *
+ * @tparam K 键类型，需支持 std::hash
+ * @tparam V 值类型
+ * @tparam ShardBits 分片数 = 2^ShardBits，默认 64 个分片
+ * @tparam MaxPerShard 每个分片的最大容量，超出时淘汰最久未访问的条目
  */
 template<typename K, typename V, size_t ShardBits = 6, size_t MaxPerShard = 1024>
-/**
- * ShardedLRUCache类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class ShardedLRUCache {
     static constexpr size_t NumShards = 1 << ShardBits;
     
@@ -465,11 +424,7 @@ class ShardedLRUCache {
         size_t size = 0;
         mutable std::shared_mutex mutex;
         
-    /**
-     * moveToFront方法
-     *
-     * @param node 参数说明
-     */
+        /// 将节点移到链表头部（最近访问）
         void moveToFront(Node* node) {
             if (node == head) return;
             if (node->prev) node->prev->next = node->next;
@@ -482,9 +437,7 @@ class ShardedLRUCache {
             if (!tail) tail = node;
         }
         
-    /**
-     * evict方法
-     */
+        /// 淘汰链表尾部（最久未访问）的节点
         void evict() {
             if (!tail) return;
             Node* old = tail;
@@ -516,12 +469,7 @@ public:
         return it->second->value;
     }
 
-    /**
-     * put方法
-     *
-     * @param key 参数说明
-     * @param value 参数说明
-     */
+    /// 插入或更新键值对，容量满时淘汰最久未访问的条目
     void put(const K& key, const V& value) {
         auto& shard = shards_[shardIndex(key)];
         std::unique_lock lock(shard.mutex);
@@ -545,23 +493,14 @@ public:
         ++shard.size;
     }
 
-    /**
-     * contains方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// 检查 key 是否存在（不更新 LRU 顺序）
     bool contains(const K& key) {
         auto& shard = shards_[shardIndex(key)];
         std::shared_lock lock(shard.mutex);
         return shard.map.find(key) != shard.map.end();
     }
 
-    /**
-     * remove方法
-     *
-     * @param key 参数说明
-     */
+    /// 删除指定 key 的缓存条目
     void remove(const K& key) {
         auto& shard = shards_[shardIndex(key)];
         std::unique_lock lock(shard.mutex);
@@ -579,10 +518,7 @@ public:
         --shard.size;
     }
 
-    /**
-     * size方法
-     * @return 返回值说明
-     */
+    /// 所有分片的缓存条目总数
     size_t size() const {
         size_t total = 0;
         for (const auto& shard : shards_) {
@@ -607,12 +543,7 @@ public:
     }
 
 private:
-    /**
-     * shardIndex方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// 根据 key 的哈希值确定所属分片索引
     size_t shardIndex(const K& key) const {
         return std::hash<K>{}(key) & (NumShards - 1);
     }
@@ -622,17 +553,16 @@ private:
 
 
 /**
- * 无锁跳表 - 支持有序数据的快速查找
- * O(logN) 查找、插入、删除
+ * @brief 无锁跳表 — O(logN) 有序数据结构，支持并发查找/插入/删除
+ *
+ * 基于 CAS 实现无锁并发，逻辑删除（marked 标记）后物理摘除。
+ * 层高随机生成（概率 0.5 递增），最大 MaxLevel 层。
+ *
+ * @tparam K 键类型，需支持 < 和 == 运算符
+ * @tparam V 值类型
+ * @tparam MaxLevel 最大层高，默认 16（可容纳约 2^16 个元素）
  */
 template<typename K, typename V, int MaxLevel = 16>
-/**
- * SkipList类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class SkipList {
     struct Node {
         K key;
@@ -661,11 +591,10 @@ public:
     }
 
     /**
-     * find方法
-     *
-     * @param key 参数说明
-     * @param value 参数说明
-     * @return 返回值说明
+     * @brief 查找 key 对应的值
+     * @param key 查找键
+     * @param[out] value 找到时写入此引用
+     * @return 找到且未被标记删除返回 true
      */
     bool find(const K& key, V& value) {
         Node* pred = head_;
@@ -683,12 +612,7 @@ public:
         return false;
     }
 
-    /**
-     * insert方法
-     *
-     * @param key 参数说明
-     * @param value 参数说明
-     */
+    /// 插入或更新键值对，key 已存在时覆盖 value
     void insert(const K& key, const V& value) {
         Node* preds[MaxLevel];
         Node* succs[MaxLevel];
@@ -732,12 +656,7 @@ public:
         }
     }
 
-    /**
-     * remove方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// 逻辑删除 key 对应的节点，返回是否成功（已被其他线程删除则返回 false）
     bool remove(const K& key) {
         Node* preds[MaxLevel];
         Node* succs[MaxLevel];
@@ -762,12 +681,7 @@ public:
     }
 
 private:
-    /**
-     * findPosition方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// 在各层中定位 key 的前驱和后继节点，返回 key 是否存在
     bool findPosition(const K& key, Node* preds[], Node* succs[]) {
         Node* pred = head_;
         for (int i = level_ - 1; i >= 0; --i) {
@@ -786,10 +700,7 @@ private:
         return succs[0] && succs[0]->key == key && !succs[0]->marked.load(std::memory_order_acquire);
     }
 
-    /**
-     * randomLevel方法
-     * @return 返回值说明
-     */
+    /// 随机生成层高，概率 0.5 递增，上限 MaxLevel
     int randomLevel() {
         static thread_local std::mt19937 gen(std::random_device{}());
         static std::uniform_real_distribution<> dis(0, 1);
@@ -805,24 +716,19 @@ private:
 
 
 /**
- * 一致性哈希 - 用于分布式负载均衡
- * 虚拟节点提升均匀性
+ * @brief 一致性哈希环 — 虚拟节点均衡分布式负载
+ *
+ * 每个物理节点映射为 VirtualNodes 个虚拟节点均匀分布在哈希环上，
+ * 查找时顺时针定位最近的虚拟节点，从而将 key 路由到对应物理节点。
+ * 节点增减时仅影响相邻区间的 key 映射，最小化数据迁移。
+ *
+ * @tparam Node 节点类型，需支持 std::to_string 或为 std::string
+ * @tparam VirtualNodes 每个物理节点的虚拟节点数量，越大分布越均匀
  */
 template<typename Node, size_t VirtualNodes = 150>
-/**
- * ConsistentHash类
- *
- * 详细说明
- *
- * @note 注意事项
- */
 class ConsistentHash {
 public:
-    /**
-     * addNode方法
-     *
-     * @param node 参数说明
-     */
+    /// 添加物理节点，生成 VirtualNodes 个虚拟节点插入哈希环
     void addNode(const Node& node) {
         std::lock_guard<std::mutex> lock(mutex_);
         for (size_t i = 0; i < VirtualNodes; ++i) {
@@ -833,11 +739,7 @@ public:
         nodes_.insert(node);
     }
 
-    /**
-     * removeNode方法
-     *
-     * @param node 参数说明
-     */
+    /// 移除物理节点及其全部虚拟节点
     void removeNode(const Node& node) {
         std::lock_guard<std::mutex> lock(mutex_);
         for (size_t i = 0; i < VirtualNodes; ++i) {
@@ -848,12 +750,7 @@ public:
         nodes_.erase(node);
     }
 
-    /**
-     * getNode方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// 根据 key 的哈希值顺时针查找最近的物理节点；环为空时抛出异常
     Node getNode(const std::string& key) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (ring_.empty()) {
@@ -868,10 +765,7 @@ public:
         return it->second;
     }
 
-    /**
-     * nodeCount方法
-     * @return 返回值说明
-     */
+    /// 当前物理节点数量
     size_t nodeCount() const {
         std::lock_guard<std::mutex> lock(mutex_);
         return nodes_.size();
@@ -886,12 +780,7 @@ private:
         }
     }
 
-    /**
-     * hashFunction方法
-     *
-     * @param key 参数说明
-     * @return 返回值说明
-     */
+    /// MurmurHash 变体，用于将 key 映射到哈希环上的位置
     size_t hashFunction(const std::string& key) {
         size_t h = 0;
         for (char c : key) {
@@ -909,15 +798,10 @@ private:
 
 
 /**
- * SIMD优化的字符串处理
- * 使用SSE2指令集加速
- */
-/**
- * SIMDString类
+ * @brief SSE2 向量化字符串处理工具
  *
- * 详细说明
- *
- * @note 注意事项
+ * 利用 128-bit SIMD 寄存器一次处理 16 个字节，
+ * 在大文本场景下比标量实现快 4~8 倍。
  */
 class SIMDString {
 public:
@@ -929,14 +813,11 @@ public:
 
 
 /**
- * 高性能线程池 - 工作窃取算法
- */
-/**
- * ThreadPool类
+ * @brief 线程池 — 基于任务队列的并发执行器
  *
- * 详细说明
- *
- * @note 注意事项
+ * 固定数量的工作线程从共享队列中取任务执行，
+ * submit() 返回 std::future 供调用方异步获取结果。
+ * 析构时等待所有已提交任务完成后再退出。
  */
 class ThreadPool {
 public:
@@ -977,15 +858,11 @@ private:
 
 
 /**
- * 高精度令牌桶限流器
- * 支持突发流量
- */
-/**
- * TokenBucket类
+ * @brief 令牌桶限流器 — 支持突发流量的平滑限速
  *
- * 详细说明
- *
- * @note 注意事项
+ * 以固定速率 rate 向桶中添加令牌，桶容量上限为 burst。
+ * tryAcquire() 非阻塞尝试消费令牌，acquire() 阻塞等待直到令牌可用。
+ * 适用于 API 限流、连接速率控制等场景。
  */
 class TokenBucket {
 public:

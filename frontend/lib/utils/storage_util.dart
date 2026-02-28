@@ -1,10 +1,20 @@
-// 本地存储工具类
+/// 本地持久化存储工具
+///
+/// 分层管理敏感数据和普通数据。敏感数据（token、userId）使用
+/// FlutterSecureStorage加密存储，普通数据（昵称、设备ID、偏好设置）
+/// 使用SharedPreferences。
+///
+/// Web平台下SecureStorage可能因浏览器限制失败，此时自动降级到
+/// SharedPreferences并在下次成功时迁移回安全存储。
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
+/// 本地存储工具
+///
+/// 提供统一的本地数据存储接口。
 class StorageUtil {
   static const String _tokenKey = 'user_token';
   static const String _refreshTokenKey = 'refresh_token';
@@ -31,7 +41,9 @@ class StorageUtil {
     return null;
   }
 
-  /// 获取缓存的SharedPreferences实例，避免重复异步调用
+  /// 获取SharedPreferences实例
+  ///
+  /// 缓存实例，避免重复异步调用。
   static Future<SharedPreferences> get _instance async {
     _prefs ??= await SharedPreferences.getInstance();
     return _prefs!;
@@ -161,12 +173,16 @@ class StorageUtil {
     }
   }
 
-  // 保存 Token (安全存储)
+  /// 保存Token
+  ///
+  /// 使用安全存储保存访问令牌。
   static Future<void> saveToken(String token) async {
     await _secureWrite(_tokenKey, token);
   }
 
-  // 获取 Token (安全存储)
+  /// 获取Token
+  ///
+  /// 从安全存储读取访问令牌。
   static Future<String?> getToken() async {
     return await _secureRead(_tokenKey);
   }
@@ -251,7 +267,9 @@ class StorageUtil {
     return jsonDecode(jsonString);
   }
 
-  // 清除所有数据（保留引导页标记和设备ID）
+  /// 清除所有数据
+  ///
+  /// 清除所有存储数据，但保留引导页标记和设备ID。
   static Future<void> clearAll() async {
     final prefs = await _instance;
     final onboardingDoneBool = _readBoolCompat(prefs, 'onboarding_done');

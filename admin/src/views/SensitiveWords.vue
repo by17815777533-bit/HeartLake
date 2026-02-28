@@ -1,5 +1,12 @@
 <!--
-  敏感词管理页面
+  风险词典（敏感词管理）页面
+
+  功能：
+  - 敏感词列表展示，支持按关键词搜索和分页
+  - 新增敏感词：填写词条、风险等级（low/medium/high/critical）、替换词
+  - 编辑敏感词：弹窗修改词条属性
+  - 删除敏感词：二次确认后删除
+  - 风险等级以不同颜色 tag 区分，便于快速识别
 -->
 
 <template>
@@ -67,7 +74,7 @@
 
     <!-- 敏感词列表 -->
     <el-card shadow="never">
-      <!-- L-13: 批量操作栏 -->
+      <!-- 批量操作栏 -->
       <div
         v-if="selectedWords.length > 0"
         class="batch-bar"
@@ -272,7 +279,7 @@ const formRef = ref<FormInstance | null>(null)
 const tableRef = ref<TableInstance | null>(null)
 const currentId = ref<string | number | null>(null)
 
-// L-13: 批量选中，最多100条
+// 批量选中，最多100条
 const MAX_BATCH_SIZE = 100
 const selectedWords = ref<Array<{ id: string | number }>>([])
 
@@ -326,7 +333,7 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 const form = reactive({ word: '', level: 'medium', replacement: '' })
-// L-26: 保存编辑前的原始值，用于变更检测
+// 保存编辑前的原始值，用于变更检测
 const originalForm = reactive({ word: '', level: 'medium', replacement: '' })
 const hasFormChanged = computed(() => {
   if (!isEdit.value) return true // 新增模式始终允许提交
@@ -349,7 +356,6 @@ async function fetchWords() {
     wordList.value = res.data?.words || res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('获取敏感词列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取敏感词列表失败'))
     wordList.value = []
@@ -372,7 +378,7 @@ const showEditDialog = (row: { id: number; word: string; level: string; replacem
   currentId.value = row.id
   const values = { word: row.word, level: row.level, replacement: row.replacement || '' }
   Object.assign(form, values)
-  Object.assign(originalForm, values) // L-26: 记录原始值用于变更检测
+  Object.assign(originalForm, values) // 记录原始值用于变更检测
   dialogVisible.value = true
 }
 
@@ -404,7 +410,6 @@ const handleDelete = async (row: { id: number }) => {
     ElMessage.success('删除成功')
     fetchWords()
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('删除敏感词失败:', e)
     ElMessage.error(getErrorMessage(e, '删除失败'))
   }

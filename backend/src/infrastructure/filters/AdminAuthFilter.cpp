@@ -1,5 +1,13 @@
 /**
- * AdminAuthFilter 模块实现
+ * 管理后台认证过滤器实现
+ *
+ * 拦截所有 /api/admin/* 请求（登录接口除外），完成以下校验链：
+ * 1. 从 Authorization 头提取 PASETO v4 token
+ * 2. 验证 token 签名与有效期，解析出 admin_id 和 role
+ * 3. 通过 RBACManager 检查角色对当前 path+method 的访问权限
+ * 4. 校验通过后将 admin_id / admin_role 注入 request attributes
+ *
+ * CORS 策略：仅允许 CORS_ALLOWED_ORIGIN 环境变量中显式列出的域名。
  */
 #include "infrastructure/filters/AdminAuthFilter.h"
 #include "utils/ResponseUtil.h"

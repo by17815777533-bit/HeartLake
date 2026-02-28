@@ -1,5 +1,10 @@
 <!--
-  操作日志页面
+  服务记录（操作日志）页面
+
+  功能：
+  - 管理员操作审计日志列表，支持分页浏览
+  - 展示操作人、操作类型、操作目标、详情、IP 地址、时间
+  - 用于安全审计追踪，记录所有管理后台的关键操作
 -->
 
 <template>
@@ -168,7 +173,7 @@ const loading = ref(false)
 const logList = ref<OperationLog[]>([])
 const filters = reactive({ operator: '', action: '', dateRange: null as string[] | null })
 
-// L-12: 日期范围限制最大90天，且不能选择未来日期
+// 日期范围限制最大90天，且不能选择未来日期
 const MAX_DATE_RANGE_DAYS = 90
 const disabledDate = (date: Date) => {
   // 不能选择未来日期

@@ -8,6 +8,13 @@ import '../../di/service_locator.dart';
 import '../widgets/water_background.dart';
 import 'friend_chat_screen.dart';
 
+/// 临时好友列表页面
+///
+/// 临时好友是通过纸船互动建立的 24 小时有效期关系。
+/// 页面展示所有临时好友及剩余有效时间，支持：
+/// - 点击进入聊天
+/// - 升级为永久好友
+/// - 到期自动移除（定时器刷新）
 class TempFriendsScreen extends StatefulWidget {
   const TempFriendsScreen({super.key});
 

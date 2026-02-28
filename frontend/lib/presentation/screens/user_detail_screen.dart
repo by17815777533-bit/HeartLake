@@ -6,6 +6,10 @@ import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import 'friend_chat_screen.dart';
 
+/// 用户详情页面
+///
+/// 展示指定用户的公开信息（昵称、签名、统计数据等），
+/// 提供发起聊天、添加好友等操作入口。
 class UserDetailScreen extends StatefulWidget {
   final String userId;
   final String? nickname;

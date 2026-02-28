@@ -1,5 +1,10 @@
 /**
- * OpenTelemetry 风格的请求链路追踪中间件实现
+ * 请求链路追踪中间件实现
+ *
+ * 兼容 OpenTelemetry 规范的轻量级 trace 方案。
+ * 每个请求分配 128-bit trace_id（支持上游网关透传）和 64-bit span_id，
+ * 注入 request attributes 后由 postHandlingAdvice 统一写入响应头和耗时日志。
+ * 使用 thread_local mt19937_64 避免跨线程竞争。
  */
 
 #include "infrastructure/filters/TraceMiddleware.h"

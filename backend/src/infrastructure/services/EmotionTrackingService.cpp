@@ -1,5 +1,15 @@
 /**
  * 负重者监测系统实现
+ *
+ * 后台定时扫描服务，识别持续发布负面内容的用户并触发关怀干预。
+ * 扫描逻辑：
+ * 1. 每 SCAN_INTERVAL_MINUTES 分钟查询 72 小时内发布过石头的活跃用户
+ * 2. 对每个用户计算负面石头数量和平均情绪分数
+ * 3. 当负面石头 >= MIN_POST_COUNT 且均分 <= EXTREME_BURDEN_THRESHOLD 时判定为"极度负重"
+ * 4. 触发干预：自动发放 VIP（灯）+ 推送个性化暖心语录
+ * 5. 72 小时内同一用户不重复干预
+ *
+ * 情绪分数来源优先级：emotion_score > sentiment_score > mood_type 映射值
  */
 
 #include "infrastructure/services/EmotionTrackingService.h"

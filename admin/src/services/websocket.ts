@@ -1,22 +1,36 @@
 /**
- * WebSocket 服务 - 安全认证 + 心跳保活 + 消息类型白名单
+ * WebSocket 服务 -- 安全认证、心跳保活、消息类型白名单
+ *
+ * 连接策略：
+ * - 连接时不在 URL 中携带 token，通过 onopen 后发送 auth 消息认证
+ * - 心跳间隔 30s，超过 2 个周期未收到 pong 判定连接已死并强制重连
+ * - 非正常关闭时指数退避重连（基础 1s，最大 30s），叠加随机抖动避免惊群
+ * - 最多重连 10 次，disconnect() 后不再自动重连
+ *
+ * 安全设计：
+ * - 消息类型白名单校验，未知类型直接丢弃并 warn
+ * - token 从 Pinia store 读取，不持久化在 WebSocket 层
  */
 
 import { useAppStore } from '@/stores'
 import type { WSListener } from '@/types'
 
+/** 按消息类型分组的监听器注册表 */
 const listeners: Record<string, WSListener[]> = {}
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectAttempts = 0
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+/** 上次收到 pong 的时间戳，用于心跳超时检测 */
 let lastPongTime = Date.now()
 const MAX_RECONNECT_ATTEMPTS = 10
-const RECONNECT_BASE_INTERVAL = 1000 // 基础重连间隔1秒，指数退避
-const HEARTBEAT_INTERVAL = 30000 // 30秒心跳间隔
+const RECONNECT_BASE_INTERVAL = 1000
+const HEARTBEAT_INTERVAL = 30000
 
-// 允许的 WebSocket 消息类型白名单
-// 新增消息类型时在此处统一维护，避免硬编码散落在业务逻辑中
+/**
+ * 允许的消息类型白名单。
+ * 新增消息类型时在此追加，onmessage 中会校验，不在白名单内的消息直接丢弃。
+ */
 const WS_MESSAGE_TYPE_LIST = [
   'stats_update',
   'new_report',
@@ -45,12 +59,12 @@ type WSMessageType = typeof WS_MESSAGE_TYPE_LIST[number]
 
 export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
 
-// M-2: 启动心跳定时器
+/** 启动心跳定时器，定期发送 ping 并检测 pong 超时 */
 function startHeartbeat() {
   stopHeartbeat()
   heartbeatTimer = setInterval(() => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      // 检测 pong 超时：超过2个心跳周期未收到 pong，判定连接已死
+      // 超过2个心跳周期未收到 pong，判定连接已死
       if (Date.now() - lastPongTime > HEARTBEAT_INTERVAL * 2) {
         console.warn('WebSocket pong 超时，强制重连')
         ws.close(4000, 'pong timeout')
@@ -70,26 +84,27 @@ function stopHeartbeat() {
 }
 
 export default {
+  /** 建立 WebSocket 连接，已连接时跳过 */
   connect() {
     if (ws && ws.readyState === WebSocket.OPEN) return
     // 清理残留连接
     this._cleanup()
 
-    // C-2: 统一从 Pinia store 读取 token
+    // 从 Pinia store 读取 token
     const appStore = useAppStore()
     const token = appStore.getToken()
     if (!token) return
 
-    // S-2: 连接时不带 token，避免凭据暴露在 URL / 日志中
+    // 连接时不带 token，避免凭据暴露在 URL 或日志中
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
     ws = new WebSocket(`${protocol}//${location.host}/ws/broadcast`)
 
     ws.onopen = () => {
-      // 连接后发送认证消息，避免 token 暴露在 URL 中
+      // 连接建立后通过消息体发送认证 token
       ws!.send(JSON.stringify({ type: 'auth', token }))
       reconnectAttempts = 0
       lastPongTime = Date.now()
-      // M-2: 启动心跳保活
+      // 启动心跳保活
       startHeartbeat()
     }
 
@@ -100,7 +115,7 @@ export default {
         if (type === 'pong') {
           lastPongTime = Date.now()
         }
-        // M-3: 消息类型白名单校验
+        // 消息类型白名单校验
         if (!WS_MESSAGE_TYPES.has(type)) {
           console.warn('收到未知 WebSocket 消息类型:', type)
           return
@@ -118,11 +133,10 @@ export default {
     ws.onclose = (e: CloseEvent) => {
       ws = null
       stopHeartbeat()
-      // 非主动关闭时自动重连（code 1000 为正常关闭）
-      // 使用指数退避策略，最大间隔30秒
+      // 非主动关闭时自动重连（code 1000 为正常关闭），指数退避最大30秒
       if (e.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         const baseDelay = Math.min(RECONNECT_BASE_INTERVAL * Math.pow(2, reconnectAttempts), 30000)
-        // L-23: 乘性随机抖动，延迟在 [0.5x, 1.5x] 范围内波动，避免惊群效应
+        // 乘性随机抖动 [0.5x, 1.5x]，避免多客户端同时重连的惊群效应
         const jitteredDelay = Math.round(baseDelay * (0.5 + Math.random()))
         reconnectTimer = setTimeout(() => {
           reconnectAttempts++
@@ -132,6 +146,7 @@ export default {
     }
   },
 
+  /** 主动断开连接，停止重连和心跳 */
   disconnect() {
     // 停止重连和心跳
     if (reconnectTimer) {
@@ -143,6 +158,7 @@ export default {
     this._cleanup()
   },
 
+  /** 清理底层 WebSocket 实例，移除事件监听后关闭连接 */
   _cleanup() {
     if (ws) {
       ws.onclose = null // 防止触发自动重连
@@ -153,15 +169,17 @@ export default {
     }
   },
 
+  /** 注册指定消息类型的监听器 */
   on(type: string, fn: WSListener) {
     (listeners[type] ||= []).push(fn)
   },
 
+  /** 移除指定消息类型的监听器 */
   off(type: string, fn: WSListener) {
     listeners[type] = listeners[type]?.filter(f => f !== fn)
   },
 
-  // 清理所有监听器（用于完全断开时）
+  /** 清理所有监听器（用于完全断开时） */
   clearAllListeners() {
     Object.keys(listeners).forEach(key => delete listeners[key])
   }

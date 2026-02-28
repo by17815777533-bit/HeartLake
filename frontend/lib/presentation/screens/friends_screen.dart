@@ -12,6 +12,14 @@ import 'temp_friends_screen.dart';
 import 'friend_chat_screen.dart';
 import 'user_detail_screen.dart';
 
+/// 好友列表页面
+///
+/// 展示当前用户的所有永久好友，支持：
+/// - 下拉刷新好友列表
+/// - WebSocket 实时监听好友变动（添加/删除）自动刷新
+/// - 点击好友进入聊天、查看详情、复制ID、删除好友
+/// - 临时好友入口（24小时有效期机制）
+/// - 列表项交错淡入动画 + 漂浮小船装饰动画
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 
@@ -76,6 +84,10 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.off('friend_accepted', _onFriendRemoved);
   }
 
+  /// 从好友数据中提取用户ID
+  ///
+  /// 后端返回的字段名不统一（user_id / friend_id / userId / friendId），
+  /// 按优先级逐个尝试，返回第一个非空值。
   String? _extractFriendId(Map<String, dynamic> friend) {
     final candidates = [
       friend['user_id'],
@@ -92,6 +104,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     return null;
   }
 
+  /// 加载好友列表，加载完成后触发列表交错淡入动画
   Future<void> _loadFriends() async {
     if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
@@ -392,6 +405,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
+  /// 弹出删除好友确认对话框，确认后调用后端删除接口
   void _confirmDeleteFriend(String? friendId) {
     if (friendId == null || friendId.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

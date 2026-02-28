@@ -8,6 +8,11 @@ import '../../utils/input_validator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 
+/// 好友聊天页面
+///
+/// 与指定好友的一对一实时聊天，基于 WebSocket 收发消息。
+/// 消息内容经过 [InputValidator] 校验和 sanitize 处理。
+/// 支持加载历史消息、实时接收新消息、自动滚动到底部。
 class FriendChatScreen extends StatefulWidget {
   final String friendId;
   final String? friendName;

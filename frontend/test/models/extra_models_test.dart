@@ -305,7 +305,7 @@ void main() {
       expect(stone.rippleCount, 0);
       expect(stone.boatCount, 0);
       expect(stone.recommendationType, RecommendationType.random);
-      expect(stone.recommendationReason, '为你推荐');
+      expect(stone.recommendationReason, '为你送来共鸣');
       expect(stone.score, 0.0);
     });
 

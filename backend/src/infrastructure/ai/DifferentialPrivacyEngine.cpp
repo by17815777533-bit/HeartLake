@@ -1,8 +1,20 @@
 /**
- * 差分隐私引擎
+ * @file DifferentialPrivacyEngine.cpp
+ * @brief 差分隐私引擎 —— Laplace / Gaussian 噪声注入与隐私预算追踪
  *
- * 从 EdgeAIEngine 提取的独立模块。Laplace机制，隐私预算追踪。
+ * 从 EdgeAIEngine 拆分的独立子系统，支持两种噪声机制：
+ *   - Laplace 机制：纯 ε-DP，适用于标量和低维向量
+ *   - Gaussian 机制：(ε,δ)-DP，基于 zCDP（concentrated DP）组合，
+ *     通过 ρ 参数实现更紧凑的预算追踪
  *
+ * 隐私预算管理：
+ *   - ε 预算：Laplace 线性累加，Gaussian 通过 ρ→ε 转换后累加
+ *   - δ 预算：仅 Gaussian 消耗
+ *   - ρ 预算：zCDP 的核心度量，σ = Δ/√(2ρ)
+ *   - 预算耗尽时返回原始值，不注入噪声（安全降级）
+ *
+ * 线程安全：dpMutex_ (shared_mutex) 保护配置读写，
+ * 原子变量 consumedEpsilon_/consumedDelta_/consumedRho_ 保护预算计数。
  */
 
 #include "infrastructure/ai/DifferentialPrivacyEngine.h"
@@ -19,10 +31,13 @@ namespace {
 
 constexpr float kMinDelta = 1e-12f;
 
+/// 将 delta 钳位到有效范围，避免 log(0) 或 log(负数)
 float clampDelta(float delta) {
     return std::clamp(delta, kMinDelta, 1.0f - kMinDelta);
 }
 
+/// zCDP 转换：从 (ε, δ) 计算对应的 ρ 值
+/// 公式来源: Bun & Steinke (2016) "Concentrated Differential Privacy"
 float rhoFromEpsilonDelta(float epsilon, float delta) {
     const float eps = std::max(epsilon, 1e-10f);
     const float d = clampDelta(delta);
@@ -31,6 +46,7 @@ float rhoFromEpsilonDelta(float epsilon, float delta) {
     return std::max(x * x, 1e-12f);
 }
 
+/// zCDP 逆转换：从 ρ 和 δ 反推等效 ε
 float epsilonFromRhoDelta(float rho, float delta) {
     const float d = clampDelta(delta);
     const float logInv = std::log(1.0f / d);
@@ -39,6 +55,7 @@ float epsilonFromRhoDelta(float rho, float delta) {
 
 }  // namespace
 
+/// 默认构造：ε=1.0, δ=1e-5, sensitivity=1.0, maxBudget=10.0
 DifferentialPrivacyEngine::DifferentialPrivacyEngine()
     : dpConfig_{1.0f, 1e-5f, 1.0f, 10.0f, 1e-3f}
     , dpRng_(std::random_device{}()) {}

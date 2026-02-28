@@ -4,7 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// 情绪类型枚举
+/// 情绪类型枚举，涵盖心湖支持的 12 种情绪
 enum MoodType {
   happy, // 开心
   calm, // 平静
@@ -71,6 +71,10 @@ class MoodColorConfig {
 }
 
 /// 情绪色彩管理器
+///
+/// 将情绪类型映射为完整的视觉配色方案（主色、渐变、湖面色、文字色等），
+/// 支持从字符串名称、情感分数推断情绪类型，
+/// 并提供创建背景渐变和湖面渐变的便捷方法。
 class MoodColors {
   MoodColors._();
 
@@ -263,6 +267,9 @@ class MoodColors {
   }
 
   /// 根据字符串获取情绪类型
+  ///
+  /// 支持英文枚举名和中文别名（如 '开心'、'快乐'、'高兴' 均映射到 happy），
+  /// 无法识别时返回 [MoodType.neutral]。
   static MoodType fromString(String? mood) {
     if (mood == null || mood.isEmpty) return MoodType.neutral;
 
@@ -322,7 +329,9 @@ class MoodColors {
   }
 
   /// 根据情感分数推断情绪类型
-  /// sentimentScore: -1.0 到 1.0，负数为消极，正数为积极
+  ///
+  /// [score] 范围 -1.0 到 1.0，负数为消极，正数为积极。
+  /// 按阈值分段映射：happy > calm > neutral > confused > sad > angry。
   static MoodType fromSentimentScore(double score) {
     if (score >= 0.6) return MoodType.happy;
     if (score >= 0.3) return MoodType.calm;
@@ -352,7 +361,9 @@ class MoodColors {
     );
   }
 
-  /// 创建完整的湖面渐变（天空 + 湖水）
+  /// 创建完整的湖面渐变（天空 -> 水面过渡 -> 湖底）
+  ///
+  /// 五段式渐变，模拟从天空到湖底的自然过渡效果。
   static LinearGradient createLakeGradient(MoodType mood) {
     final config = getConfig(mood);
     return LinearGradient(

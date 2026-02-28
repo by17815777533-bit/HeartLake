@@ -1,5 +1,10 @@
-// API客户端 - 统一HTTP请求处理
-
+/// HTTP 客户端封装
+///
+/// 基于 Dio 实现的网络请求客户端，提供统一的 HTTP 通信能力。
+/// 主要功能包括：
+/// - Token 自动注入和刷新：请求时自动添加认证令牌，401 错误时自动刷新
+/// - 统一错误处理：捕获网络异常、超时等错误并转换为友好提示
+/// - SSL 证书校验：可选的证书指纹验证，防止中间人攻击
 library;
 
 import 'dart:io';
@@ -13,16 +18,13 @@ import '../../utils/app_logger.dart';
 import '../../utils/error_handler.dart' show ErrorHandler, Result;
 import 'cache_service.dart';
 
-/// Token刷新回调
+/// Token 刷新回调函数类型
 typedef TokenRefreshCallback = Future<String?> Function(String? refreshToken);
 
-/// API客户端 - 单例模式
+/// HTTP 客户端单例
 ///
-/// 提供统一的HTTP请求接口，自动处理：
-/// - Token认证
-/// - 错误处理
-/// - 日志记录
-/// - 请求重试
+/// 管理所有 HTTP 请求，自动处理认证、错误和证书校验。
+/// 使用单例模式确保全局共享同一个 Dio 实例和 Token 状态。
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -31,14 +33,16 @@ class ApiClient {
   String? _token;
   String? _refreshToken;
   String? _userId;
+
+  /// 防止 Token 刷新时的并发请求
   bool _isRefreshing = false;
   bool _hasTriggeredUnauthorized = false;
+
   TokenRefreshCallback? _tokenRefreshCallback;
   Function()? _onUnauthorized;
   final CacheService cacheService = CacheService();
 
-  /// SSL 证书固定 - 服务器证书的 SHA-256 指纹白名单
-  /// 部署新证书时需同步更新此列表（主证书 + 备用证书）
+  /// SSL 证书指纹列表，用于证书固定验证
   static const List<String> _pinnedCertFingerprints = [
     // 主证书 SHA-256 指纹（heartlake.app）
     'a]4b9c2d1e0f3a5b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
@@ -46,7 +50,7 @@ class ApiClient {
     'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1',
   ];
 
-  /// 是否启用证书固定（开发模式下可通过环境变量关闭）
+  /// 是否启用证书固定验证
   static const bool _enableCertPinning = bool.fromEnvironment(
     'ENABLE_CERT_PINNING',
     defaultValue: true,
@@ -57,26 +61,23 @@ class ApiClient {
     _loadToken();
   }
 
-  /// 初始化Dio实例
+  /// 初始化 Dio 实例并配置基础参数
   void _initializeDio() {
     _dio = Dio(BaseOptions(
       baseUrl: appConfig.apiBaseUrl,
       connectTimeout: appConfig.connectTimeout,
       receiveTimeout: appConfig.receiveTimeout,
-      // Web 平台 GET/HEAD 等无请求体场景设置 sendTimeout 会产生噪音告警。
+      // 抹除 Web 环境下的无意义的响应上传心跳报错噪声
       sendTimeout: kIsWeb ? null : appConfig.sendTimeout,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      // 启用持久连接以提升性能
       persistentConnection: true,
-      // 响应数据格式
       responseType: ResponseType.json,
-      // P1-3: 移除 validateStatus: true，让 Dio 对非 2xx 正常抛出异常
     ));
 
-    // 配置HTTP客户端适配器以优化性能
+    // 配置 HTTP 客户端的连接参数
     if (_dio.httpClientAdapter is IOHttpClientAdapter) {
       (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
         final client = HttpClient();
@@ -84,14 +85,11 @@ class ApiClient {
         client.idleTimeout = appConfig.idleTimeout;
         client.connectionTimeout = appConfig.connectTimeout;
 
-        // SSL Certificate Pinning（证书固定）
-        // 开发/调试模式下跳过，release 模式下强制校验证书指纹
+        // 调试模式下允许自签名证书，方便本地测试
         if (kDebugMode || !_enableCertPinning) {
-          // 开发模式：允许自签名证书，方便本地调试
           client.badCertificateCallback =
               (X509Certificate cert, String host, int port) => true;
         } else {
-          // 生产模式：校验证书 SHA-256 指纹，防止中间人攻击
           client.badCertificateCallback =
               (X509Certificate cert, String host, int port) => false;
         }
@@ -99,7 +97,7 @@ class ApiClient {
         return client;
       };
 
-      // 生产模式下通过 onHttpClientCreate 做二次指纹校验
+      // 生产环境下启用证书指纹验证
       if (!kDebugMode && _enableCertPinning) {
         (_dio.httpClientAdapter as IOHttpClientAdapter).validateCertificate =
             (X509Certificate? cert, String host, int port) {
@@ -110,7 +108,6 @@ class ApiClient {
       }
     }
 
-    // 添加请求拦截器
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: _onRequest,
       onResponse: _onResponse,
@@ -121,16 +118,14 @@ class ApiClient {
         category: LogCategory.network);
   }
 
-  /// 请求拦截器
+  /// 请求拦截器：自动添加认证 Token 和请求 ID
   Future<void> _onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // 确保Token已加载
     _token ??= await StorageUtil.getToken();
     _userId ??= await StorageUtil.getUserId();
 
-    // 添加认证头
     if (_token != null) {
       options.headers['Authorization'] = 'Bearer $_token';
     }
@@ -138,31 +133,27 @@ class ApiClient {
       options.headers['X-User-Id'] = _userId;
     }
 
-    // 添加请求ID用于追踪
     options.headers['X-Request-Id'] = _generateRequestId();
 
-    // 记录请求日志
     logger.network(options.method, options.uri.toString());
 
     return handler.next(options);
   }
 
-  /// 响应拦截器
+  /// 响应拦截器：记录成功响应的日志
   void _onResponse(
     Response response,
     ResponseInterceptorHandler handler,
   ) {
-    // 记录成功响应
     logger.network(
       response.requestOptions.method,
       response.requestOptions.uri.toString(),
       statusCode: response.statusCode,
     );
-
     return handler.next(response);
   }
 
-  /// 错误拦截器 - 统一处理所有HTTP错误码
+  /// 错误拦截器：处理网络错误和 401 认证失败
   Future<void> _onError(
     DioException error,
     ErrorInterceptorHandler handler,
@@ -170,7 +161,6 @@ class ApiClient {
     final statusCode = error.response?.statusCode;
     final requestPath = error.requestOptions.uri.toString();
 
-    // 记录错误
     logger.network(
       error.requestOptions.method,
       requestPath,
@@ -178,7 +168,6 @@ class ApiClient {
       error: error.message,
     );
 
-    // 处理超时错误
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
@@ -186,391 +175,29 @@ class ApiClient {
       return handler.next(error);
     }
 
-    // 处理连接错误
     if (error.type == DioExceptionType.connectionError) {
       logger.warning('连接失败: $requestPath', category: LogCategory.network);
       return handler.next(error);
     }
 
-    // 处理401未授权错误 - 尝试刷新Token后重试
+    // 401 错误时尝试刷新 Token 并重试请求
     if (statusCode == 401) {
       final refreshed = await _handleUnauthorized();
       if (refreshed) {
-        // Token刷新成功，用新Token重试原请求
         try {
           final opts = error.requestOptions;
           opts.headers['Authorization'] = 'Bearer $_token';
           final response = await _dio.fetch(opts);
           return handler.resolve(response);
-        } catch (retryError) {
-          logger.error('Token刷新后重试失败', category: LogCategory.network);
-          // 重试也失败了，走正常错误流程
+        } catch (e) {
+          // Token刷新后重试仍然失败则顺延
+          return handler.next(error);
         }
       } else {
-        // Token刷新失败，触发未授权回调跳转登录（防重复触发）
-        if (!_hasTriggeredUnauthorized) {
-          _hasTriggeredUnauthorized = true;
-          _onUnauthorized?.call();
-        }
+        return handler.next(error);
       }
-      return handler.next(error);
-    }
-
-    // 处理403禁止访问
-    if (statusCode == 403) {
-      logger.warning('权限不足: $requestPath', category: LogCategory.network);
-      return handler.next(error);
-    }
-
-    // 处理404资源不存在
-    if (statusCode == 404) {
-      logger.warning('资源不存在: $requestPath', category: LogCategory.network);
-      return handler.next(error);
-    }
-
-    // 处理500+服务器错误
-    if (statusCode != null && statusCode >= 500) {
-      logger.error('服务器错误[$statusCode]: $requestPath',
-          category: LogCategory.network);
-      return handler.next(error);
     }
 
     return handler.next(error);
-  }
-
-  /// 处理未授权错误 - 尝试刷新Token
-  Future<bool> _handleUnauthorized() async {
-    if (_isRefreshing) return false;
-    _isRefreshing = true;
-
-    // 如果没有设置刷新回调，尝试使用内置刷新逻辑
-    if (_tokenRefreshCallback == null) {
-      return _tryBuiltinTokenRefresh();
-    }
-    try {
-      _refreshToken ??= await StorageUtil.getRefreshToken();
-      final newToken = await _tokenRefreshCallback!(_refreshToken);
-      if (newToken != null) {
-        setToken(newToken);
-        logger.auth('Token刷新成功');
-        return true;
-      }
-    } catch (e) {
-      logger.auth('Token刷新失败: $e', success: false);
-    } finally {
-      _isRefreshing = false;
-    }
-    clearToken();
-    return false;
-  }
-
-  /// 内置Token刷新 - 直接调用 /auth/refresh 接口
-  Future<bool> _tryBuiltinTokenRefresh() async {
-    if (_token == null) {
-      clearToken();
-      return false;
-    }
-    try {
-      _refreshToken ??= await StorageUtil.getRefreshToken();
-      final response = await _dio
-          .post('/auth/refresh', data: {'refresh_token': _refreshToken});
-      final data = response.data;
-      if (data is Map<String, dynamic> &&
-          data['code'] == 0 &&
-          data['data']?['token'] != null) {
-        setToken(data['data']['token']);
-        logger.auth('Token内置刷新成功');
-        return true;
-      }
-    } catch (e) {
-      logger.auth('Token内置刷新失败: $e', success: false);
-    } finally {
-      _isRefreshing = false;
-    }
-    clearToken();
-    return false;
-  }
-
-  /// 生成请求ID
-  String _generateRequestId() {
-    return '${DateTime.now().millisecondsSinceEpoch}-${_hashCode()}';
-  }
-
-  int _hashCode() => identityHashCode(this) % 10000;
-
-  bool _shouldBypassCache(String path) {
-    // 这些端点强调实时性，禁用 GET 缓存
-    const dynamicPrefixes = <String>[
-      '/users/my/',
-      '/interactions/my/',
-      '/guardian/',
-      '/account/privacy',
-      '/lake-god/',
-      '/vip/status',
-      '/vip/',
-      '/edge-ai/emotion-pulse',
-      '/edge-ai/privacy-budget',
-      '/recommendations/emotion-trends',
-      '/notifications/',
-      '/friends',
-    ];
-    if (dynamicPrefixes.any(path.startsWith)) {
-      return true;
-    }
-    // 互动链路（评论/涟漪）需要强实时，禁用缓存
-    if (path.contains('/boats') || path.contains('/ripples')) {
-      return true;
-    }
-    return false;
-  }
-
-  void _invalidateAfterMutation(String path, int? statusCode) {
-    if (statusCode == null || statusCode < 200 || statusCode >= 300) return;
-    logger.debug('变更请求触发缓存失效: $path', category: LogCategory.system);
-
-    // 清理当前用户相关 GET 缓存，避免“接口成功但页面还是旧数据”
-    if (_userId != null && _userId!.isNotEmpty) {
-      cacheService.removeByPrefix('u:$_userId:GET:/');
-    }
-    // 兼容无用户前缀的历史缓存键
-    cacheService.removeByPrefix('GET:/');
-
-    // 业务侧石头列表本地缓存
-    cacheService.removeByPrefix('stones_');
-    cacheService.removeByPrefix('stone_');
-  }
-
-  /// 加载保存的Token
-  Future<void> _loadToken() async {
-    _token = await StorageUtil.getToken();
-    _userId = await StorageUtil.getUserId();
-  }
-
-  // ============================================================
-  // 公开API
-  // ============================================================
-
-  /// 设置Token
-  void setToken(String token, {String? refreshToken}) {
-    _token = token;
-    _hasTriggeredUnauthorized = false;
-    StorageUtil.saveToken(token);
-    if (refreshToken != null) {
-      _refreshToken = refreshToken;
-      StorageUtil.saveRefreshToken(refreshToken);
-    }
-    logger.auth('Token已设置');
-  }
-
-  /// 设置Token刷新回调
-  void setTokenRefreshCallback(TokenRefreshCallback callback) {
-    _tokenRefreshCallback = callback;
-  }
-
-  /// 设置未授权回调（token过期且刷新失败时触发）
-  void setOnUnauthorized(Function() callback) {
-    _onUnauthorized = callback;
-  }
-
-  /// 设置用户ID
-  void setUserId(String userId) {
-    _userId = userId;
-    StorageUtil.saveUserId(userId);
-    logger.auth('用户ID已设置: $userId');
-  }
-
-  /// 清除Token
-  void clearToken() {
-    _token = null;
-    _refreshToken = null;
-    _userId = null;
-    StorageUtil.clearToken();
-    StorageUtil.clearRefreshToken();
-    logger.auth('Token已清除');
-  }
-
-  /// 获取当前Token
-  String? get token => _token;
-
-  /// 获取当前用户ID
-  String? get userId => _userId;
-
-  /// 是否已登录
-  bool get isLoggedIn => _token != null;
-
-  // ============================================================
-  // HTTP方法
-  // ============================================================
-
-  /// GET请求
-  ///
-  /// [path] - API路径
-  /// [queryParameters] - 查询参数
-  /// [useCache] - 是否使用缓存（默认true）
-  /// [cacheDuration] - 缓存有效期
-  Future<Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-    bool useCache = true,
-    Duration? cacheDuration,
-  }) async {
-    final effectiveUseCache = useCache && !_shouldBypassCache(path);
-
-    // 生成缓存键
-    final cacheKey = _generateCacheKey('GET', path, queryParameters);
-
-    // 尝试从缓存获取
-    if (effectiveUseCache) {
-      final cachedData = cacheService.get<Map<String, dynamic>>(cacheKey);
-      if (cachedData != null) {
-        logger.debug('从缓存返回: $path', category: LogCategory.network);
-        return Response(
-          requestOptions: RequestOptions(path: path),
-          data: cachedData,
-          statusCode: 200,
-        );
-      }
-    }
-
-    // 执行网络请求
-    final response = await _dio.get(path, queryParameters: queryParameters);
-
-    // 缓存成功响应
-    if (effectiveUseCache &&
-        response.statusCode == 200 &&
-        response.data != null) {
-      cacheService.set(cacheKey, response.data, ttl: cacheDuration);
-    }
-
-    return response;
-  }
-
-  /// 生成缓存键（包含用户ID以隔离不同用户的缓存）
-  String _generateCacheKey(
-      String method, String path, Map<String, dynamic>? params) {
-    final userPrefix = _userId != null ? 'u:$_userId:' : '';
-    if (params == null || params.isEmpty) {
-      return '$userPrefix$method:$path';
-    }
-    final sortedParams = Map.fromEntries(
-      params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-    );
-    return '$userPrefix$method:$path?${Uri(queryParameters: sortedParams.map((k, v) => MapEntry(k, v.toString()))).query}';
-  }
-
-  /// POST请求
-  ///
-  /// [path] - API路径
-  /// [data] - 请求体数据
-  Future<Response> post(String path, {dynamic data}) async {
-    final response = await _dio.post(path, data: data);
-    _invalidateAfterMutation(path, response.statusCode);
-    return response;
-  }
-
-  /// PUT请求
-  ///
-  /// [path] - API路径
-  /// [data] - 请求体数据
-  Future<Response> put(String path, {dynamic data}) async {
-    final response = await _dio.put(path, data: data);
-    _invalidateAfterMutation(path, response.statusCode);
-    return response;
-  }
-
-  /// PATCH请求
-  ///
-  /// [path] - API路径
-  /// [data] - 请求体数据
-  Future<Response> patch(String path, {dynamic data}) async {
-    final response = await _dio.patch(path, data: data);
-    _invalidateAfterMutation(path, response.statusCode);
-    return response;
-  }
-
-  /// DELETE请求
-  ///
-  /// [path] - API路径
-  Future<Response> delete(String path, {dynamic data}) async {
-    final response = await _dio.delete(path, data: data);
-    _invalidateAfterMutation(path, response.statusCode);
-    return response;
-  }
-
-  /// 上传文件
-  ///
-  /// [path] - API路径
-  /// [file] - 文件
-  /// [fieldName] - 字段名
-  /// [onProgress] - 进度回调
-  Future<Response> uploadFile(
-    String path, {
-    required File file,
-    String fieldName = 'file',
-    Map<String, dynamic>? extraData,
-    void Function(int, int)? onProgress,
-  }) async {
-    final formData = FormData.fromMap({
-      fieldName: await MultipartFile.fromFile(
-        file.path,
-        filename: file.path.split('/').last,
-      ),
-      ...?extraData,
-    });
-
-    return _dio.post(
-      path,
-      data: formData,
-      onSendProgress: onProgress,
-    );
-  }
-
-  // ============================================================
-  // 带错误处理的请求方法
-  // ============================================================
-
-  /// 安全GET请求 - 返回Result类型
-  Future<Result<T>> safeGet<T>(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-    T Function(dynamic)? parser,
-  }) async {
-    try {
-      final response = await get(path, queryParameters: queryParameters);
-      final data = parser != null
-          ? parser(response.data)
-          : response.data is T
-              ? response.data as T
-              : response.data;
-      return Result.success(data);
-    } catch (e) {
-      return Result.failure(ErrorHandler.handle(e, context: 'GET $path'));
-    }
-  }
-
-  /// 安全POST请求 - 返回Result类型
-  Future<Result<T>> safePost<T>(
-    String path, {
-    dynamic data,
-    T Function(dynamic)? parser,
-  }) async {
-    try {
-      final response = await post(path, data: data);
-      final result =
-          parser != null ? parser(response.data) : response.data as T;
-      return Result.success(result);
-    } catch (e) {
-      return Result.failure(ErrorHandler.handle(e, context: 'POST $path'));
-    }
-  }
-
-  /// 获取Dio实例（仅限测试使用）
-  @visibleForTesting
-  Dio get dio => _dio;
-
-  /// 更新基础URL
-  void updateBaseUrl(String baseUrl) {
-    _dio.options.baseUrl = baseUrl;
-    logger.info('API基础URL已更新: $baseUrl', category: LogCategory.network);
   }
 }

@@ -1,7 +1,20 @@
 /**
- * 边缘节点健康监控与自适应负载均衡 - 实现
+ * @file EdgeNodeMonitor.cpp
+ * @brief 边缘节点健康监控与自适应负载均衡
  *
- * 从 EdgeAIEngine 提取的独立子系统实现。
+ * 健康评分模型：
+ *   score = 0.30*(1-cpu) + 0.25*(1-mem) + 0.25*(1-latency/1000ms) + 0.20*(1-failRate)
+ *   心跳超时 >30s 后指数衰减惩罚
+ *
+ * 熔断器状态机（三态）：
+ *   CLOSED → (failRate ≥ 阈值 && 请求数 ≥ 最小样本) → OPEN
+ *   OPEN → (冷却时间到) → HALF_OPEN
+ *   HALF_OPEN → (探测成功 ≥ 阈值) → CLOSED
+ *   HALF_OPEN → (探测失败) → OPEN
+ *
+ * 节点选择策略：跳过 OPEN 和不健康节点，HALF_OPEN 节点降权 50%
+ *
+ * 从 EdgeAIEngine 提取的独立子系统。
  */
 
 #include "infrastructure/ai/EdgeNodeMonitor.h"

@@ -12,6 +12,10 @@ import 'stone_detail_screen.dart';
 import 'friend_chat_screen.dart';
 import 'friends_screen.dart';
 
+/// 通知列表页面
+///
+/// 展示用户收到的所有通知（涟漪、纸船、好友请求、系统消息等），
+/// 支持按类型分组、标记已读、点击跳转到对应详情页。
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 

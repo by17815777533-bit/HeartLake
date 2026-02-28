@@ -8,6 +8,10 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
+/// 我的石头列表页面
+///
+/// 展示当前用户投出的所有石头，支持下拉刷新和删除操作。
+/// 通过 WebSocket 监听石头删除事件实时更新列表。
 class MyStonesScreen extends StatefulWidget {
   const MyStonesScreen({super.key});
 

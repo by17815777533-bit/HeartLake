@@ -1,13 +1,14 @@
-// 通知服务层
-
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 通知服务，负责通知列表查询、未读计数和已读标记
+///
+/// 兼容后端两种返回格式：纯数组和带 notifications/items 键的对象。
 class NotificationService extends BaseService {
   @override
   String get serviceName => 'NotificationService';
 
-  /// 获取通知列表
+  /// 分页获取通知列表，同时返回未读数
   Future<Map<String, dynamic>> getNotifications({int page = 1, int pageSize = 20}) async {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
@@ -18,7 +19,7 @@ class NotificationService extends BaseService {
     if (!response.success) return toMap(response);
 
     final data = response.data;
-    // 后端返回纯数组 或 {notifications: [...], unread_count: N}
+    // 兼容后端纯数组和对象两种返回格式
     if (data is List) {
       final unread = data.where((n) => n['is_read'] != true).length;
       return {

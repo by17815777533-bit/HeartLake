@@ -1,14 +1,17 @@
-// 情绪类型定义 - 统一使用 mood_colors.dart 的 MoodType
+/// 情绪配置模型
+///
+/// 封装单种情绪的颜色、图标、描述等视觉属性，用于情绪选择器和展示组件。
 
 library;
 
 import 'package:flutter/material.dart';
 import '../../utils/mood_colors.dart';
 
-// 重新导出统一的 MoodType
 export '../../utils/mood_colors.dart' show MoodType;
 
-/// 情绪配置类 - 用于选择器等场景
+/// 情绪配置
+///
+/// 封装单种情绪的视觉属性。
 class MoodConfig {
   final MoodType type;
   final String label;
@@ -28,7 +31,12 @@ class MoodConfig {
     required this.icon,
   });
 
-  /// 从 MoodColorConfig 创建
+  /// 从颜色配置构造
+  ///
+  /// 桥接MoodColorConfig到MoodConfig。
+  ///
+  /// [type] 情绪类型
+  /// [config] 颜色配置
   factory MoodConfig.fromColorConfig(MoodType type, MoodColorConfig config) {
     return MoodConfig(
       type: type,
@@ -55,7 +63,9 @@ class MoodConfig {
       );
 }
 
-/// 情绪配置映射 - 桥接到 MoodColors
+/// 情绪配置查询入口
+///
+/// 桥接MoodColors提供统一的配置访问接口。
 class MoodConfigs {
   static MoodConfig getConfig(MoodType type) {
     final colorConfig = MoodColors.getConfig(type);
@@ -68,7 +78,9 @@ class MoodConfigs {
 
   static MoodType fromSentimentScore(double score) => MoodColors.fromSentimentScore(score);
 
-  /// 获取所有可选情绪（完整8种）
+  /// 获取可选情绪列表
+  ///
+  /// 返回全部8种可选情绪配置，按正面到负面排列。
   static List<MoodConfig> get selectableMoods {
     const types = [
       MoodType.happy,

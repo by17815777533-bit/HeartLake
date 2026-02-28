@@ -1,4 +1,6 @@
-// 声明式路由配置 - 基于 go_router 实现路由守卫与深度链接
+/// 应用路由配置
+///
+/// 基于go_router实现声明式路由，支持路由守卫、深度链接和页面过渡动画。
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -34,10 +36,14 @@ import '../presentation/screens/lake_feed_screen.dart';
 import '../utils/storage_util.dart';
 import '../data/datasources/api_client.dart';
 
-/// 全局 navigatorKey，保持与旧代码兼容（ApiClient 401 回调等场景）
+/// 全局navigatorKey
+///
+/// 保持与旧代码兼容，用于ApiClient的401回调等场景。
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-/// 路由路径常量，避免硬编码字符串
+/// 路由路径常量
+///
+/// 避免硬编码字符串，统一管理所有路由路径。
 class AppRoutes {
   static const String splash = '/';
   static const String home = '/home';
@@ -69,13 +75,9 @@ class AppRoutes {
   static const String lakeFeed = '/lake-feed';
 }
 
-/// 应用路由配置
+/// 创建路由器
 ///
-/// 使用 go_router 实现：
-/// - 声明式路由定义
-/// - 路由守卫（未登录重定向到启动页）
-/// - 深度链接支持
-/// - 页面过渡动画
+/// 配置所有路由规则和路由守卫。
 GoRouter createRouter() {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -83,7 +85,7 @@ GoRouter createRouter() {
     debugLogDiagnostics: false,
     redirect: _routeGuard,
     routes: [
-      // 启动页 - 处理登录检查和初始导航
+      // 启动页
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashScreen(),
@@ -101,7 +103,7 @@ GoRouter createRouter() {
         builder: (context, state) => const AuthScreen(),
       ),
 
-      // 主页（底部导航）
+      // 主页
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
@@ -113,7 +115,7 @@ GoRouter createRouter() {
         builder: (context, state) => const NotificationScreen(),
       ),
 
-      // 石头详情 - 通过 extra 传递 Stone 对象
+      // 石头详情
       GoRoute(
         path: AppRoutes.stoneDetail,
         builder: (context, state) {
@@ -198,7 +200,7 @@ GoRouter createRouter() {
         path: AppRoutes.friends,
         builder: (context, state) => const FriendsScreen(),
       ),
-      // 好友聊天 - 通过 extra 传递 {friendId, friendName}
+      // 好友聊天
       GoRoute(
         path: AppRoutes.friendChat,
         builder: (context, state) {
@@ -213,7 +215,7 @@ GoRouter createRouter() {
         path: AppRoutes.tempFriends,
         builder: (context, state) => const TempFriendsScreen(),
       ),
-      // 用户详情 - 通过 extra 传递 {userId, nickname}
+      // 用户详情
       GoRoute(
         path: AppRoutes.userDetail,
         builder: (context, state) {
@@ -238,11 +240,10 @@ GoRouter createRouter() {
   );
 }
 
-/// 路由守卫 - 控制未登录用户的访问权限
+/// 路由守卫
 ///
-/// 逻辑：
-/// 1. 启动页、引导页、认证页始终放行
-/// 2. 其他页面检查 token，无 token 则重定向到启动页
+/// 控制未登录用户的访问权限。启动页、引导页、认证页始终放行，
+/// 其他页面检查token，无token则重定向到启动页。
 Future<String?> _routeGuard(BuildContext context, GoRouterState state) async {
   final path = state.matchedLocation;
 
@@ -254,12 +255,11 @@ Future<String?> _routeGuard(BuildContext context, GoRouterState state) async {
   ];
   if (publicPaths.contains(path)) return null;
 
-  // 检查是否有 token
   String? token;
   try {
     token = await StorageUtil.getToken();
   } catch (_) {
-    // Web 环境安全存储不可用时，回退到内存态 token。
+    // Web环境安全存储不可用时，回退到内存态token
     token = ApiClient().token;
   }
 

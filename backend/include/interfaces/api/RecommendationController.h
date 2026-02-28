@@ -1,5 +1,16 @@
 /**
- * RecommendationController 模块接口定义
+ * 推荐控制器 - 多算法融合的内容推荐与情绪发现
+ *
+ * 实现 HeartLake 的智能推荐系统，融合多种推荐策略：
+ * - 协同过滤（基于用户行为相似度）
+ * - 内容过滤（基于石头文本语义相似度）
+ * - 随机探索（保证推荐多样性，避免信息茧房）
+ * - 高级算法：UCB 探索-利用平衡、Thompson Sampling、MMR 多样性重排
+ *
+ * 同时提供情绪发现、趋势追踪、交互记录等辅助功能，
+ * 构成完整的推荐闭环：推荐 → 交互 → 学习 → 优化推荐。
+ *
+ * 所有端点经 SecurityAuditFilter 进行 PASETO 令牌校验。
  */
 
 #pragma once
@@ -21,11 +32,20 @@ namespace heartlake {
 namespace controllers {
 
 /**
- * 推荐相关的HTTP控制器
+ * @brief 智能推荐 HTTP 控制器
  *
- * 详细说明
- *
- * @note 注意事项
+ * @details 路由表：
+ * | 方法 | 路径                                  | 说明                          |
+ * |------|--------------------------------------|------------------------------|
+ * | GET  | /api/recommendations/stones          | 混合推荐石头                   |
+ * | GET  | /api/recommendations/discover/{mood} | 按情绪发现内容                 |
+ * | GET  | /api/discover/{mood}                 | 同上（兼容路由）               |
+ * | POST | /api/recommendations/track           | 记录单次交互                   |
+ * | POST | /api/recommendations/track-batch     | 批量记录交互                   |
+ * | GET  | /api/recommendations/emotion-trends  | 个人情绪趋势                   |
+ * | GET  | /api/recommendations/trending        | 热门内容                       |
+ * | POST | /api/recommendations/search          | 语义搜索推荐                   |
+ * | GET  | /api/recommendations/advanced        | 高级多算法推荐                 |
  */
 class RecommendationController : public HttpController<RecommendationController> {
 public:
@@ -59,89 +79,141 @@ public:
     METHOD_LIST_END
 
     /**
-     * 获取推荐的石头
-     * 算法：混合推荐（协同过滤 40% + 内容过滤 40% + 随机探索 20%）
+     * @brief 获取混合推荐石头
+     * @details GET /api/recommendations/stones?limit=20
+     *
+     * 算法权重：协同过滤 40% + 内容过滤 40% + 随机探索 20%。
+     * 对新用户自动降级为热门推荐 + 随机探索。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void getRecommendedStones(const HttpRequestPtr &req,
                              std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 基于情绪的发现
-     * 发现当前处于特定情绪的用户和内容
+     * @brief 按情绪发现内容
+     * @details GET /api/recommendations/discover/{mood}?limit=20
+     *
+     * 发现当前处于指定情绪的石头和用户，
+     * 帮助用户找到情绪共鸣的内容。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     * @param mood 情绪类型（calm/happy/sad/anxious/angry/hopeful）
      */
     void discoverByMood(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback,
                        const std::string &mood);
 
     /**
-     * 记录用户交互
-     * 用于学习用户偏好
+     * @brief 记录用户交互行为
+     * @details POST /api/recommendations/track
+     *
+     * 请求体: { "stone_id": "...", "action": "view|ripple|boat|share", "duration_ms": 3000 }
+     * 交互数据用于更新用户偏好模型。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void trackInteraction(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 获取个人情绪趋势
-     * 展示用户的情绪变化曲线
+     * @brief 获取个人情绪趋势
+     * @details GET /api/recommendations/emotion-trends?days=30
+     *
+     * 基于用户投石和交互历史，展示情绪变化曲线。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void getEmotionTrends(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 获取热门内容
-     * 发现当前热门的石头、标签、情绪
+     * @brief 获取热门内容
+     * @details GET /api/recommendations/trending?limit=20
+     *
+     * 基于近期涟漪数、纸船数、浏览量综合排序。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void getTrendingContent(const HttpRequestPtr &req,
                            std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 搜索推荐内容
-     * 全文搜索 + 智能排序
+     * @brief 语义搜索推荐
+     * @details POST /api/recommendations/search
+     *
+     * 请求体: { "query": "搜索关键词", "limit": 20 }
+     * 全文搜索 + 向量语义匹配，结果按相关性智能排序。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void searchRecommendations(const HttpRequestPtr &req,
                               std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 批量追踪交互
-     * 批量上传用户交互数据
+     * @brief 批量记录交互行为
+     * @details POST /api/recommendations/track-batch
+     *
+     * 请求体: { "interactions": [{ "stone_id": "...", "action": "..." }, ...] }
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void trackBatchInteractions(const HttpRequestPtr &req,
                                std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 高级推荐（多算法融合）
-     * GET /api/recommendations/advanced?limit=20
-     * 使用UCB、Thompson Sampling、MMR等高级算法
+     * @brief 高级多算法融合推荐
+     * @details GET /api/recommendations/advanced?limit=20
+     *
+     * 使用 UCB（探索-利用平衡）、Thompson Sampling（贝叶斯采样）、
+     * MMR（最大边际相关性）等高级算法，在推荐质量和多样性之间取得平衡。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
      */
     void getAdvancedRecommendations(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
     /**
-     * 计算石头推荐
-     * 混合推荐算法的核心实现
+     * @brief 混合推荐算法核心实现
+     * @param userId 当前用户ID
+     * @param dbClient 数据库连接
+     * @param callback 响应回调
      */
     void calculateStoneRecommendations(const std::string &userId,
                                       const orm::DbClientPtr &dbClient,
                                       std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * 更新用户偏好
-     * 基于最近的交互自动学习
+     * @brief 基于最近交互自动更新用户偏好向量
+     * @param userId 用户ID
+     * @param dbClient 数据库连接
      */
     void updateUserPreferences(const std::string &userId,
                               const orm::DbClientPtr &dbClient);
 
     /**
-     * 生成温馨的推荐理由
-     * 例如："你们都在寻找内心的平静"
+     * @brief 生成温馨的推荐理由文案
+     * @param mood1 用户当前情绪
+     * @param mood2 推荐石头的情绪
+     * @param relationshipType 推荐关系类型（similar/complementary/trending）
+     * @return 推荐理由文案，如"你们都在寻找内心的平静"
      */
     std::string generateRecommendationReason(const std::string &mood1,
                                             const std::string &mood2,
                                             const std::string &relationshipType);
 
     /**
-     * 计算热门内容（内部方法）
+     * @brief 计算热门内容排行（内部方法）
+     * @param callback 响应回调
      */
     void calculateTrendingContent(std::function<void(const HttpResponsePtr &)> &&callback);
 };

@@ -4,6 +4,12 @@ import '../../data/datasources/vip_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
+/// 灯火计划页面（原 VIP）
+///
+/// 展示灯火计划的权益介绍和订阅状态：
+/// - 当前订阅等级与到期时间
+/// - 各等级权益对比
+/// - 订阅/续费操作
 class VIPScreen extends StatefulWidget {
   const VIPScreen({super.key});
 

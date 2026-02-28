@@ -1,4 +1,13 @@
-// Dashboard 数据加载函数 composable
+/**
+ * Dashboard 数据拉取函数集合，统一处理接口兼容与异常回退。
+ *
+ * 每个 loader 负责一个 API 端点，内部做了两层兼容：
+ * 1. 响应结构兼容 -- 同时支持 { data: { data: ... } } 和 { data: ... } 两种后端格式
+ * 2. 字段名兼容 -- 同时支持 snake_case 和 camelCase（后端迭代过程中两种都出现过）
+ *
+ * 异常策略：单个 loader 失败不影响其他数据加载，console.warn 记录后静默降级。
+ * 关键接口（stats / growth / mood）额外弹 ElMessage 提示用户。
+ */
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
 import api from '@/api'
@@ -9,6 +18,7 @@ import type {
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 
+/** Dashboard 核心统计数据（前端 camelCase 版本） */
 interface DashboardStats {
   totalUsers: number
   todayStones: number
@@ -16,24 +26,31 @@ interface DashboardStats {
   pendingReports: number
 }
 
-// ECharts 图表配置的最小结构定义，仅描述 loader 实际访问的字段
+/** ECharts 图表最小结构，仅保留 loader 会访问的字段，避免引入完整 ECharts 类型 */
 interface ChartOptionWithAxisAndSeries {
   xAxis: { data: string[] }
   series: Array<{ data: (number | string)[] }>
 }
 
+/** 仅含 series 的图表（如活跃时段柱状图，x 轴固定不变） */
 interface SeriesOnlyChartOption {
   series: Array<{ data: (number | string)[] }>
 }
 
+/** 饼图 option 最小结构 */
 interface PieChartOption {
   series: Array<{ data: Array<{ name: string; value: number; itemStyle: unknown }> }>
 }
 
+/** 仪表盘 option 最小结构 */
 interface GaugeChartOption {
   series: Array<{ data: Array<{ value: number; name: string }> }>
 }
 
+/**
+ * useDashboardLoaders 的依赖注入接口。
+ * 所有字段均由 useDashboardData 创建后传入，loader 直接修改这些响应式引用。
+ */
 interface LoaderDeps {
   stats: DashboardStats
   chartRange: Ref<number>
@@ -58,6 +75,7 @@ export function useDashboardLoaders({
   userGrowthOption, moodDistributionOption, moodTrendOption,
   activeTimeOption, emotionPulseOption, emotionTrendsOption,
 }: LoaderDeps) {
+  /** 读取核心统计信息。 */
   const loadStats = async () => {
     try {
       const [dashRes, realtimeRes] = await Promise.all([
@@ -76,6 +94,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取用户增长曲线。 */
   const loadGrowthData = async () => {
     try {
       const res = await api.getUserGrowthStats(String(chartRange.value))
@@ -91,6 +110,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取情绪分布。 */
   const loadMoodDistribution = async () => {
     try {
       const res = await api.getMoodDistribution()
@@ -117,6 +137,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取情绪趋势。 */
   const loadMoodTrend = async () => {
     try {
       const res = await api.getMoodTrend?.(String(moodTrendRange.value)) || { data: null }
@@ -139,6 +160,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取热门话题。 */
   const loadTrendingTopics = async () => {
     try {
       const res = await api.getTrendingTopics?.() || { data: null }
@@ -149,6 +171,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取活跃时段。 */
   const loadActiveTimeStats = async () => {
     try {
       const res = await api.getActiveTimeStats?.() || { data: null }
@@ -163,6 +186,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取隐私预算状态。 */
   const loadPrivacyStats = async () => {
     privacyLoading.value = true
     try {
@@ -179,6 +203,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取共鸣统计。 */
   const loadResonanceStats = async () => {
     resonanceLoading.value = true
     try {
@@ -195,6 +220,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取情绪温度。 */
   const loadEmotionPulse = async () => {
     try {
       const res = await api.getEmotionPulse()
@@ -206,6 +232,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取情绪趋势折线。 */
   const loadEmotionTrends = async () => {
     try {
       const res = await api.getEmotionTrends()
@@ -223,6 +250,7 @@ export function useDashboardLoaders({
     }
   }
 
+  /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
       const res = await api.getTrendingContent()

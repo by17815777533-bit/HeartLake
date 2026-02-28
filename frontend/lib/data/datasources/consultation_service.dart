@@ -5,6 +5,16 @@ import 'base_service.dart';
 import '../../utils/e2e_encryption.dart';
 import '../../utils/input_validator.dart';
 
+/// 心理咨询服务
+///
+/// 封装咨询会话的完整生命周期，核心特性：
+/// - 会话创建与历史查询
+/// - X25519 密钥交换 + AES-GCM 端到端加密（E2E）
+/// - 消息收发自动加密/解密，E2E 未就绪时拒绝发送明文
+/// - 兼容两种加密信封格式（旧版 encrypted=true、新版 envelope 对象）
+///
+/// 隐私保护策略：咨询消息涉及用户心理隐私，
+/// 当 E2E 通道未建立时会直接拒绝发送，而非降级为明文传输。
 class ConsultationService extends BaseService {
   @override
   String get serviceName => 'ConsultationService';
@@ -23,7 +33,11 @@ class ConsultationService extends BaseService {
     return toMap(resp);
   }
 
-  /// 初始化 E2E 加密：生成密钥对、交换公钥、派生共享密钥
+  /// 初始化 E2E 加密通道
+  ///
+  /// 流程：生成本地 X25519 密钥对 -> 将公钥发送给服务端 ->
+  /// 接收对端公钥 -> 派生 ECDH 共享密钥。
+  /// 成功返回 true，任何环节失败返回 false。
   Future<bool> initE2E(String sessionId) async {
     InputValidator.validateUUID(sessionId, '会话ID');
     try {
@@ -46,7 +60,10 @@ class ConsultationService extends BaseService {
     }
   }
 
-  /// 发送消息（加密就绪时自动加密）
+  /// 发送咨询消息
+  ///
+  /// E2E 就绪时自动加密后发送；未就绪时拒绝发送明文，
+  /// 返回 `{success: false, message: '安全通道未建立...'}`。
   Future<Map<String, dynamic>> sendMessage({
     required String sessionId,
     required String content,
@@ -79,7 +96,12 @@ class ConsultationService extends BaseService {
     return toMap(resp);
   }
 
-  /// 获取消息历史（加密消息自动解密）
+  /// 获取消息历史
+  ///
+  /// 自动解密加密消息，兼容两种格式：
+  /// - 旧版：`encrypted=true` + `content` 为密文字符串
+  /// - 新版：`encrypted` 为 `{ciphertext, iv, tag}` 信封对象
+  /// 解密失败的消息内容会被替换为 `[无法解密]`。
   Future<Map<String, dynamic>> getMessages(String sessionId) async {
     InputValidator.validateUUID(sessionId, '会话ID');
     final resp = await get('/consultation/messages/$sessionId');
@@ -134,7 +156,9 @@ class ConsultationService extends BaseService {
     return toMap(resp);
   }
 
-  /// 密钥交换（E2E加密）
+  /// 密钥交换
+  ///
+  /// 将本地公钥发送到服务端，换取对端公钥用于 ECDH 派生。
   Future<Map<String, dynamic>> exchangeKey({
     required String sessionId,
     required String publicKey,
@@ -148,8 +172,10 @@ class ConsultationService extends BaseService {
     return toMap(resp);
   }
 
+  /// E2E 加密通道是否已就绪
   bool get isE2EReady => _e2e.isReady;
 
+  /// 释放加密资源，清除密钥对
   void dispose() {
     _e2e.dispose();
     _keyPair = null;

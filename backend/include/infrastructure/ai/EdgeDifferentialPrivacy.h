@@ -1,5 +1,16 @@
 /**
- * 边缘差分隐私引擎接口
+ * @brief 边缘差分隐私引擎 — EdgeAIEngine 子系统级 DP 接口
+ *
+ * @details 与 DifferentialPrivacyEngine（独立模块）功能类似，但作为 EdgeAIEngine
+ * 八大子系统之一存在，由门面类统一管理生命周期。DPConfig 定义复用
+ * DifferentialPrivacyEngine.h 中的版本，避免 ODR 违规。
+ *
+ * 支持 Laplace 和 Gaussian 两种噪声机制：
+ * - Laplace: noise ~ Lap(sensitivity / epsilon)，适合标量和低维场景
+ * - Gaussian: sigma = delta_2 * sqrt(2*ln(1.25/delta)) / epsilon，高维推荐
+ *
+ * 隐私预算追踪采用 zCDP 框架，同时维护 epsilon / delta / rho 三个原子计数器。
+ * 线程安全：shared_mutex 保护配置和 RNG，atomic 保护预算计数器。
  */
 #pragma once
 
@@ -99,17 +110,20 @@ public:
      */
     DPConfig getDPConfig() const;
 
+    /** @brief 已消耗的 epsilon 预算 */
     float getConsumedEpsilon() const { return consumedEpsilon_.load(); }
+    /** @brief 已消耗的 delta 预算 */
     float getConsumedDelta() const { return consumedDelta_.load(); }
+    /** @brief 已消耗的 zCDP rho 预算（仅 Gaussian 机制累积） */
     float getConsumedRho() const { return consumedRho_.load(); }
 
 private:
-    DPConfig dpConfig_{};
-    std::atomic<float> consumedEpsilon_{0.0f};
-    std::atomic<float> consumedDelta_{0.0f};
-    std::atomic<float> consumedRho_{0.0f};
-    std::mt19937 dpRng_{std::random_device{}()};
-    mutable std::shared_mutex dpMutex_;
+    DPConfig dpConfig_{};                              ///< 当前 DP 配置
+    std::atomic<float> consumedEpsilon_{0.0f};         ///< 已消耗 epsilon 预算（Laplace 直接累加）
+    std::atomic<float> consumedDelta_{0.0f};           ///< 已消耗 delta 预算（Gaussian 机制累加）
+    std::atomic<float> consumedRho_{0.0f};             ///< 已消耗 zCDP rho 预算（Gaussian: rho = delta^2 / 2*sigma^2）
+    std::mt19937 dpRng_{std::random_device{}()};       ///< Mersenne Twister 随机数生成器
+    mutable std::shared_mutex dpMutex_;                ///< 保护配置和 RNG 的读写锁
 
     /**
      * Laplace分布采样（逆CDF方法）

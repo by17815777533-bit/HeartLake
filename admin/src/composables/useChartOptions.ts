@@ -1,15 +1,28 @@
-// Dashboard 图表配置 composable - Material Design 3 风格
+/**
+ * Dashboard 图表配置工厂，提供各类 ECharts option 的响应式引用。
+ *
+ * 所有 option 均为 ref 包装，loader 直接修改 .value 内部字段即可触发 ECharts 重绘。
+ * 配色方案遵循 Material Design 3 色板，暗色模式下由 CSS 变量自动适配。
+ *
+ * 导出的常量（moodColors / moodNames / moodGradients）供 loader 和子组件共享，
+ * 避免在多处硬编码情绪类型与色值的映射关系。
+ */
 import { ref } from 'vue'
 import type { EChartsTooltipParam } from '@/types'
 
-// XSS 安全转义
+/**
+ * 转义 HTML 特殊字符，防止 tooltip formatter 中的 XSS。
+ * ECharts tooltip 默认使用 innerHTML 渲染，外部数据必须转义。
+ */
 const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c => ({
   '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
 }[c] ?? c))
 
-// Material Design 3 配色
+/** 五种情绪类型对应的主色 */
 export const moodColors = ['#1565C0', '#2E7D32', '#BA1A1A', '#E65100', '#44474E']
+/** 情绪类型中文名，顺序与 moodColors 一一对应 */
 export const moodNames = ['开心', '平静', '难过', '焦虑', '其他']
+/** 饼图渐变色对，start → end 方向为左上到右下 */
 export const moodGradients = [
   { start: '#1565C0', end: '#0D47A1' },
   { start: '#2E7D32', end: '#1B5E20' },
@@ -18,7 +31,14 @@ export const moodGradients = [
   { start: '#44474E', end: '#2B2B2F' },
 ]
 
+/**
+ * 创建 Dashboard 所有图表的 ECharts option 响应式引用。
+ *
+ * @returns 六个 ref 对象，分别对应用户增长折线、情绪趋势多线、
+ *          情绪分布饼图、活跃时段柱状、情绪温度仪表盘、情绪三维趋势折线
+ */
 export function useChartOptions() {
+  /** 用户增长折线图 -- 单线 + 面积渐变 */
   const userGrowthOption = ref({
     tooltip: {
       trigger: 'axis',
@@ -42,6 +62,7 @@ export function useChartOptions() {
     }],
   })
 
+  /** 情绪趋势多线图 -- 五种情绪各一条线，按 moodNames 顺序 */
   const moodTrendOption = ref({
     tooltip: {
       trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E',
@@ -58,6 +79,7 @@ export function useChartOptions() {
     }))
   })
 
+  /** 情绪分布环形饼图 -- 初始数据为占位，loader 加载后覆盖 */
   const moodDistributionOption = ref({
     tooltip: {
       trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
@@ -83,6 +105,7 @@ export function useChartOptions() {
     }],
   })
 
+  /** 24 小时活跃时段柱状图 -- x 轴固定 0:00-23:00 */
   const activeTimeOption = ref({
     tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
     grid: { left: 50, right: 20, top: 20, bottom: 30 },
@@ -91,6 +114,7 @@ export function useChartOptions() {
     series: [{ type: 'bar', data: [], itemStyle: { color: '#2E7D32', borderRadius: [2, 2, 0, 0] } }]
   })
 
+  /** 情绪温度仪表盘 -- 0-100 度，四段色带对应冷静→焦虑 */
   const emotionPulseOption = ref({
     series: [{
       type: 'gauge', center: ['50%', '60%'], radius: '90%',
@@ -106,6 +130,7 @@ export function useChartOptions() {
     }]
   })
 
+  /** 情绪三维趋势折线 -- 积极/中性/消极三条线，面积渐变填充 */
   const emotionTrendsOption = ref({
     tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
     legend: { data: ['积极', '中性', '消极'], bottom: 0, textStyle: { color: '#44474E' } },

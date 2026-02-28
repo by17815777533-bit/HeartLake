@@ -30,6 +30,16 @@ import 'emotion_heatmap_screen.dart';
 import 'received_boats_screen.dart';
 import 'consultation_screen.dart';
 
+/// 个人中心页面
+///
+/// 用户的个人信息管理入口，包含：
+/// - 头像编辑（支持相册选取和裁剪）
+/// - 昵称/签名修改
+/// - 我的石头/涟漪/纸船统计与列表入口
+/// - 情绪日历、热力图、趋势分析入口
+/// - 守护者、安全港、心理咨询入口
+/// - 隐私设置、灯火计划、帮助中心
+/// - 登出操作
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 

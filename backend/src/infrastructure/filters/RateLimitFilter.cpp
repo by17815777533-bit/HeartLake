@@ -1,5 +1,10 @@
 /**
- * RateLimitFilter 模块实现
+ * 请求限流过滤器实现
+ *
+ * 基于滑动窗口算法的 HTTP 请求限流。每个客户端（按 token hash 或 IP 标识）
+ * 在时间窗口内的请求时间戳被记录在 vector 中，超过阈值则返回 429。
+ * 普通 API 默认 100 次/分钟，AI API 默认 20 次/分钟。
+ * AIRateLimitFilter 额外实现了 map 膨胀保护：超过 10000 个 key 时淘汰最旧的一半。
  */
 #include "infrastructure/filters/RateLimitFilter.h"
 #include "utils/ResponseUtil.h"
@@ -10,11 +15,12 @@ using namespace drogon;
 using namespace heartlake::filters;
 using namespace heartlake::utils;
 
+// 静态成员初始化：限流参数和共享状态
 std::unordered_map<std::string, RateLimitFilter::RateLimitEntry> RateLimitFilter::rateLimitMap_;
 std::mutex RateLimitFilter::mutex_;
-int RateLimitFilter::requestsPerWindow_ = 100;  // 默认100请求/分钟
+int RateLimitFilter::requestsPerWindow_ = 100;  // 普通 API：100 次/分钟
 int RateLimitFilter::windowSeconds_ = 60;
-int RateLimitFilter::aiRequestsPerWindow_ = 20; // AI API: 20请求/分钟
+int RateLimitFilter::aiRequestsPerWindow_ = 20; // AI API：20 次/分钟
 int RateLimitFilter::aiWindowSeconds_ = 60;
 
 void RateLimitFilter::setRateLimit(int requestsPerWindow, int windowSeconds) {
@@ -41,6 +47,7 @@ void RateLimitFilter::doFilter(const HttpRequestPtr& req,
     fccb();
 }
 
+/// 滑动窗口限流核心：清理过期记录后判断窗口内请求数是否超限
 bool RateLimitFilter::checkRateLimit(const std::string& key, bool isAI) {
     std::lock_guard<std::mutex> lock(mutex_);
     
@@ -60,6 +67,7 @@ bool RateLimitFilter::checkRateLimit(const std::string& key, bool isAI) {
     return true;
 }
 
+/// 移除窗口起点之前的过期时间戳（erase-remove 惯用法）
 void RateLimitFilter::cleanupOldEntries(RateLimitEntry& entry, bool isAI) {
     auto now = std::chrono::steady_clock::now();
     int windowSecs = isAI ? aiWindowSeconds_ : windowSeconds_;
@@ -74,6 +82,7 @@ void RateLimitFilter::cleanupOldEntries(RateLimitEntry& entry, bool isAI) {
     );
 }
 
+/// 定期清理长时间无请求的 key，防止 map 无限增长
 void RateLimitFilter::cleanupStaleKeys() {
     std::lock_guard<std::mutex> lock(mutex_);
     auto now = std::chrono::steady_clock::now();
@@ -89,6 +98,7 @@ void RateLimitFilter::cleanupStaleKeys() {
     }
 }
 
+/// 提取客户端标识：优先用 Bearer token 的 hash，其次用 X-Forwarded-For 或直连 IP
 std::string RateLimitFilter::getClientKey(const HttpRequestPtr& req) {
     // 优先使用Token识别用户
     std::string authHeader = req->getHeader("Authorization");

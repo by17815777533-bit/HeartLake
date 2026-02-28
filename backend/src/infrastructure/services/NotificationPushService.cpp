@@ -1,5 +1,9 @@
 /**
  * 实时通知推送服务实现
+ *
+ * 通过 WebSocketHub 向在线用户推送实时通知。
+ * 消息格式统一为 { type: "new_notification", data: NotificationMessage }。
+ * 提供好友请求通知、系统公告、批量推送等便捷方法。
  */
 
 #include "infrastructure/services/NotificationPushService.h"

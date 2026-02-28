@@ -10,6 +10,14 @@ import '../../data/datasources/api_client.dart';
 import '../../di/service_locator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 启动页面
+///
+/// 应用冷启动时的第一个页面，负责：
+/// 1. 展示水面动画和品牌 Logo
+/// 2. 检查本地 token 是否存在且有效
+/// 3. 根据检查结果导航到首页、引导页或认证页
+///
+/// 首次安装时会跳转到引导页，已登录用户直接进入首页。
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

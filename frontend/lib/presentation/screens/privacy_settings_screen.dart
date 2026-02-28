@@ -7,6 +7,12 @@ import '../../data/datasources/account_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
+/// 隐私与安全设置页面
+///
+/// 用户可在此管理个人隐私偏好：
+/// - 隐私开关：资料可见性、在线状态、好友请求、陌生人消息等
+/// - 数据导出：申请导出个人数据（GDPR 合规）
+/// - 账号停用 / 永久删除（不可逆操作，需二次确认）
 class PrivacySettingsScreen extends StatefulWidget {
   const PrivacySettingsScreen({super.key});
 

@@ -1,5 +1,8 @@
 <!--
-  App 组件
+  应用根组件 -- 注入 Element Plus 中文语言包，挂载全局路由出口
+
+  el-config-provider 确保所有 Element Plus 组件（分页、日期选择器等）
+  默认使用中文文案，无需在每个组件单独配置。
 -->
 
 <template>

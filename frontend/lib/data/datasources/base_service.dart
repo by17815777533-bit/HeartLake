@@ -77,6 +77,7 @@ abstract class BaseService {
   /// Service名称（用于日志）
   String get serviceName;
 
+  /// 将路径中的 "vip" 替换为 "light"，用于日志脱敏展示
   String _humanizePath(String path) {
     return path
         .replaceAll('/vip/', '/light/')
@@ -84,7 +85,10 @@ abstract class BaseService {
         .replaceAll('/vip', '/light');
   }
 
-  /// 从DioException提取用户友好的错误消息
+  /// 从 DioException 中提取用户友好的错误消息
+  ///
+  /// 优先级：业务错误码 > 响应体 message > HTTP 状态码 > 通用兜底文案。
+  /// 所有错误消息都使用心湖风格的温和措辞。
   String _friendlyError(dynamic e) {
     if (e is DioException) {
       // 超时类错误
@@ -125,7 +129,9 @@ abstract class BaseService {
     return '遇到了一点小波澜，请稍后再试~';
   }
 
-  /// 从DioException响应体提取data字段（用于传递服务端附加数据，如心理援助信息）
+  /// 从 DioException 响应体提取 data 字段
+  ///
+  /// 用于传递服务端附加数据（如心理援助触发时的干预信息）。
   dynamic _extractData(DioException e) {
     if (e.response?.data is Map) {
       return (e.response!.data as Map<String, dynamic>)['data'];

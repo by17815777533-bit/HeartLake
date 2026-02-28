@@ -1,16 +1,17 @@
 <!--
-  边缘AI管理页面 - 状态监控 + 性能指标 + 联邦学习 + 隐私预算（组合子组件）
+  心湖智能（Edge AI 管理）页面 -- 状态监控 + 性能指标 + 联邦学习 + 隐私预算
 
-  组件结构说明：
-  本页面已拆分为 7 个子组件（位于 views/edge-ai/ 目录下），各自负责独立的功能区域：
-    - EdgeAIHeader: 页面头部、技术标签、状态卡片
-    - PerformanceSection: 性能指标仪表盘、情绪分析图表
-    - FederatedPrivacySection: 联邦学习控制面板、隐私预算可视化
-    - VectorNodesSection: 向量搜索工具、边缘节点列表
-    - RAGSystemSection: 双记忆RAG系统指标展示
-    - ConfigSection: 引擎配置管理表单
-    - AIToolboxSection: 情感分析/内容审核在线工具
-  当前文件保留状态管理和数据加载逻辑，作为子组件的协调层，结构合理无需进一步拆分。
+  组件结构（7 个子组件位于 views/edge-ai/ 目录下）：
+  - EdgeAIHeader: 页面头部、技术标签、状态卡片
+  - PerformanceSection: 性能指标仪表盘、情绪脉搏图表
+  - FederatedPrivacySection: 联邦学习控制面板、隐私预算可视化
+  - VectorNodesSection: HNSW 向量搜索工具、边缘节点列表
+  - RAGSystemSection: 双记忆 RAG 系统指标展示
+  - ConfigSection: 引擎配置管理表单
+  - AIToolboxSection: 情感分析/内容审核在线调试工具
+
+  本文件作为子组件的协调层，保留所有响应式状态和数据加载逻辑。
+  定时器统一由 timerIds 数组管理，onUnmounted 时批量清理。
 -->
 
 <template>
@@ -91,11 +92,13 @@ import AIToolboxSection from './edge-ai/AIToolboxSection.vue'
 
 
 // ========== 响应式状态 ==========
+
+/** 全局加载标志，刷新全部数据时为 true */
 const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
 const currentTime = computed(() => dayjs().format('YYYY-MM-DD HH:mm'))
 
-// 技术标签
+/** 技术能力标签，展示在页面头部 */
 const techBadges = [
   { icon: '🧠', label: 'Edge Inference' },
   { icon: '🔗', label: 'Federated Learning' },
@@ -105,7 +108,7 @@ const techBadges = [
   { icon: '⚡', label: 'Real-time Analytics' },
 ]
 
-// 引擎状态
+/** 引擎运行状态，由 loadStatus() 填充 */
 const engineStatus = reactive({
   enabled: false,
   modulesLoaded: 0,
@@ -118,7 +121,7 @@ const engineStatus = reactive({
   activeNodes: 0,
 })
 
-// 性能指标
+/** 四项性能指标，驱动 PerformanceSection 的进度条渲染 */
 const performanceMetrics = computed(() => [
   {
     label: '推理延迟',
@@ -146,7 +149,7 @@ const performanceMetrics = computed(() => [
   },
 ])
 
-// 状态卡片
+/** 头部四张状态卡片 */
 const statusCards = computed(() => [
   {
     title: '引擎状态',
@@ -174,7 +177,7 @@ const statusCards = computed(() => [
   },
 ])
 
-// 情绪脉搏
+/** 情绪脉搏数据，驱动仪表盘和历史折线图 */
 const emotionPulse = reactive({
   temperature: 50,
   trend: 'stable',
@@ -182,6 +185,7 @@ const emotionPulse = reactive({
   timestamps: [],
 })
 
+/** 情绪温度仪表盘 ECharts option */
 const emotionGaugeOption = computed(() => ({
   series: [{
     type: 'gauge',
@@ -225,6 +229,7 @@ const emotionGaugeOption = computed(() => ({
   }],
 }))
 
+/** 情绪脉搏历史折线图 ECharts option */
 const emotionPulseLineOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   grid: { top: 20, right: 20, bottom: 30, left: 45 },
@@ -262,7 +267,7 @@ const emotionPulseLineOption = computed(() => ({
   }],
 }))
 
-// 联邦学习
+/** 联邦学习状态 */
 const federated = reactive({
   status: 'idle',
   currentRound: 0,
@@ -273,7 +278,7 @@ const federated = reactive({
   aggregating: false,
 })
 
-// 隐私预算
+/** 差分隐私预算状态 */
 const privacy = reactive({
   epsilonUsed: 0,
   epsilonTotal: 10,
@@ -285,13 +290,14 @@ const privacy = reactive({
   allocation: [],
 })
 
-// 隐私预算颜色（根据消耗比例变化）
+/** 隐私预算进度条颜色，随消耗比例从绿→橙→红变化 */
 const privacyBudgetColor = computed(() => {
   if (privacy.epsilonPercent < 50) return '#2E7D32'
   if (privacy.epsilonPercent < 80) return '#E65100'
   return '#C62828'
 })
 
+/** 隐私预算各子系统分配饼图 ECharts option */
 const privacyPieOption = computed(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: ε={c} ({d}%)' },
   legend: { bottom: 0, textStyle: { color: '#44474E', fontSize: 11 } },
@@ -315,7 +321,7 @@ const privacyPieOption = computed(() => ({
   }],
 }))
 
-// 向量搜索
+/** 向量搜索状态 */
 const vectorSearch = reactive({
   query: '',
   searching: false,
@@ -329,13 +335,13 @@ const vectorQuery = computed({
 const vectorSearching = computed(() => vectorSearch.searching)
 const vectorResults = computed(() => vectorSearch.results)
 
-// 边缘节点
+/** 边缘推理节点列表 */
 const edgeNodes = ref([])
 
-// 双记忆RAG指标
+/** 双记忆 RAG 系统指标 */
 const ragStats = ref({})
 
-// 配置管理
+/** 引擎配置表单数据 */
 const edgeConfig = reactive({
   inferenceTimeout: 5000,
   maxBatchSize: 32,
@@ -349,11 +355,14 @@ const edgeConfig = reactive({
 const configLoading = ref(false)
 const configSaving = ref(false)
 
-// AI 工具箱
+/** 情感分析在线调试工具状态 */
 const sentimentTool = reactive({ text: '', loading: false, result: null })
+/** 内容审核在线调试工具状态 */
 const moderationTool = reactive({ text: '', loading: false, result: null })
 
 // ========== 数据加载函数 ==========
+
+/** 加载引擎整体状态（运行/停止、模块数、运行时间等） */
 async function loadStatus() {
   try {
     const { data } = await api.getEdgeAIStatus()
@@ -372,6 +381,7 @@ async function loadStatus() {
   } catch { /* 静默 */ }
 }
 
+/** 加载性能指标、节点列表和 RAG 统计 */
 async function loadMetrics() {
   try {
     const { data } = await api.getEdgeAIMetrics()
@@ -391,6 +401,10 @@ async function loadMetrics() {
   } catch { /* 静默 */ }
 }
 
+/**
+ * 加载情绪脉搏数据。
+ * 支持多种后端响应格式：avg_score / temperature / history / mood_distribution
+ */
 async function loadEmotionPulse() {
   try {
     const { data } = await api.getEmotionPulse()
@@ -415,6 +429,7 @@ async function loadEmotionPulse() {
   } catch { /* 静默 */ }
 }
 
+/** 加载联邦学习状态（轮次、节点数、准确率、收敛率） */
 async function loadFederatedStatus() {
   try {
     const { data } = await api.getEdgeAIMetrics()
@@ -432,6 +447,7 @@ async function loadFederatedStatus() {
   } catch { /* 静默 */ }
 }
 
+/** 加载差分隐私预算（epsilon 消耗/总量/分配） */
 async function loadPrivacyBudget() {
   try {
     const { data } = await api.getPrivacyBudget()
@@ -462,6 +478,7 @@ async function loadPrivacyBudget() {
   } catch { /* 静默 */ }
 }
 
+/** 加载引擎配置表单数据 */
 async function loadConfig() {
   configLoading.value = true
   try {
@@ -483,6 +500,8 @@ async function loadConfig() {
 }
 
 // ========== 操作函数 ==========
+
+/** 手动触发联邦学习聚合（下一轮） */
 async function triggerAggregation() {
   federated.aggregating = true
   try {
@@ -494,6 +513,7 @@ async function triggerAggregation() {
   }
 }
 
+/** 调用情感分析接口，展示分数/类别/置信度 */
 async function doSentimentAnalysis() {
   if (!sentimentTool.text.trim()) return
   sentimentTool.loading = true
@@ -513,6 +533,7 @@ async function doSentimentAnalysis() {
   }
 }
 
+/** 调用内容审核接口，展示通过/拒绝/风险等级/原因 */
 async function doContentModeration() {
   if (!moderationTool.text.trim()) return
   moderationTool.loading = true
@@ -532,6 +553,7 @@ async function doContentModeration() {
   }
 }
 
+/** 执行 HNSW 向量搜索，结果按相似度排序 */
 async function doVectorSearch() {
   if (!vectorSearch.query.trim()) return
   vectorSearched.value = false
@@ -556,6 +578,7 @@ async function doVectorSearch() {
   }
 }
 
+/** 保存引擎配置到后端 */
 async function saveConfig() {
   configSaving.value = true
   try {
@@ -568,6 +591,7 @@ async function saveConfig() {
   }
 }
 
+/** 并行刷新所有数据面板 */
 async function refreshAll() {
   loading.value = true
   try {
@@ -587,9 +611,11 @@ async function refreshAll() {
 
 
 // ========== 生命周期 ==========
-// L-19: 统一管理所有定时器，onUnmounted 中批量清理
+
+/** 统一管理所有定时器 ID，onUnmounted 中批量清理 */
 const timerIds: ReturnType<typeof setInterval>[] = []
 
+/** 注册定时器并记录 ID，确保卸载时能全部清理 */
 function addTimer(fn: () => void, interval: number): void {
   const id = setInterval(fn, interval)
   timerIds.push(id)

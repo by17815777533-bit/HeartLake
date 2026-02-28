@@ -9,6 +9,11 @@ import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 import 'stone_detail_screen.dart';
 
+/// 个性化推荐页面
+///
+/// 基于 AI 推荐引擎为用户量身定制的石头推荐列表，
+/// 融合协同过滤、内容推荐和情绪轨迹 DTW 匹配算法。
+/// 点击石头会上报交互事件，用于推荐模型的在线学习。
 class PersonalizedScreen extends StatefulWidget {
   const PersonalizedScreen({super.key});
   @override

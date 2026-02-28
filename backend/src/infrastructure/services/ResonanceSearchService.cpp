@@ -1,5 +1,19 @@
 /**
- * 同频共鸣搜索服务实现 - 使用Milvus向量数据库
+ * 同频共鸣搜索服务实现
+ *
+ * 三阶段检索管线，为每颗石头找到情感共鸣的伙伴：
+ *
+ * Phase 1 - 候选召回：
+ *   优先走 Milvus 向量数据库做 ANN 检索（COSINE 距离），
+ *   Milvus 不可用时降级到 DB 全量 cosine similarity 扫描。
+ *   使用宽松阈值（threshold - 0.2）多取 5 倍候选。
+ *
+ * Phase 2 - 四维重排序（EmotionResonanceEngine）：
+ *   α=0.30 语义相似度 + β=0.35 DTW 情绪轨迹相似度
+ *   + γ=0.20 时间衰减 + δ=0.15 多样性奖励
+ *
+ * Phase 3 - Top-K 截取 + 投递延迟计算：
+ *   共鸣度越高延迟越短（60s ~ 600s），模拟"缘分到来"的体验。
  */
 
 #include "infrastructure/services/ResonanceSearchService.h"

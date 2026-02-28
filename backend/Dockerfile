@@ -3,33 +3,31 @@
 FROM ubuntu:24.04 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        cmake g++ git ca-certificates \
-        libssl-dev libcurl4-openssl-dev libjsoncpp-dev \
+        cmake make g++ ca-certificates \
+        libdrogon-dev \
+        libssl-dev libcurl4-openssl-dev libjsoncpp-dev zlib1g-dev libsqlite3-dev \
+        libyaml-cpp-dev libbrotli-dev \
+        default-libmysqlclient-dev \
         libpq-dev libhiredis-dev libc-ares-dev uuid-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 编译 Drogon
-ARG DROGON_VERSION=v1.9.11
-RUN git clone --depth 1 --branch ${DROGON_VERSION} \
-        https://github.com/drogonframework/drogon.git /tmp/drogon \
-    && cd /tmp/drogon && git submodule update --init \
-    && mkdir build && cd build \
-    && cmake .. -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_EXAMPLES=OFF -DBUILD_CTL=OFF -DBUILD_ORM=OFF \
-    && make -j"$(nproc)" && make install \
-    && rm -rf /tmp/drogon
+# Drogon 直接使用 Ubuntu 官方包，避免构建期依赖外网源码仓库
 
 WORKDIR /src
 COPY . .
 
 RUN mkdir -p build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release \
+        -DHEARTLAKE_BUILD_TESTS=OFF \
+        -DMYSQL_INCLUDE_DIRS=/usr/include/mysql \
+        -DMYSQL_LIBRARIES=/usr/lib/x86_64-linux-gnu/libmysqlclient.so \
     && make -j"$(nproc)"
 
 # 阶段2: 最小运行时镜像
 FROM ubuntu:24.04 AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        libdrogon1t64 \
         libssl3t64 libcurl4t64 libjsoncpp25 \
         libpq5 libhiredis1.1.0 libc-ares2 \
         ca-certificates tzdata curl postgresql-client \
@@ -40,11 +38,11 @@ RUN groupadd -r heartlake && useradd -r -g heartlake -s /sbin/nologin heartlake
 WORKDIR /app
 
 COPY --from=builder /src/build/HeartLake .
-COPY --from=builder /src/config.json.example ./config.json
 COPY --from=builder /src/start-docker.sh ./start-docker.sh
 COPY --from=builder /src/migrations ./migrations
 
-RUN chown -R heartlake:heartlake /app
+RUN mkdir -p /app/logs \
+    && chown -R heartlake:heartlake /app
 RUN chmod +x /app/start-docker.sh
 
 USER heartlake

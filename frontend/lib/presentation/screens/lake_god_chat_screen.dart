@@ -6,6 +6,15 @@ import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
 
+/// 湖神聊天页面
+///
+/// 用户与 AI 湖神的对话界面，提供温馨治愈风格的情感陪伴。
+/// 集成 EdgeAI 端侧能力：
+/// - 发送前进行情感分析，识别用户当前情绪状态
+/// - 内容审核过滤不当内容
+/// - 高风险情绪自动触发安全港引导
+///
+/// 对话历史通过 [LakeGodService] 与后端同步。
 class LakeGodChatScreen extends StatefulWidget {
   const LakeGodChatScreen({super.key});
 

@@ -1,13 +1,23 @@
-// 好友服务 - 处理好友请求和关系管理
+/// 好友关系管理服务
+///
+/// 处理好友请求的发送、接受、拒绝以及聊天消息收发。
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
 
+/// 好友关系管理服务
+///
+/// 提供好友关系管理和聊天功能。
 class FriendService extends BaseService {
   @override
   String get serviceName => 'FriendService';
 
-  // 发送好友请求
+  /// 发送好友请求
+  ///
+  /// 向指定用户发送好友请求，可附带一条附言。
+  ///
+  /// [userId] 目标用户ID
+  /// [message] 附言，最长200字符
   Future<Map<String, dynamic>> sendFriendRequest({
     required String userId,
     String? message,
@@ -30,28 +40,36 @@ class FriendService extends BaseService {
     };
   }
 
-  // 接受好友请求
+  /// 接受好友请求
+  ///
+  /// [userId] 发送请求的用户ID
   Future<Map<String, dynamic>> acceptFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/accept/$userId');
     return toMap(response);
   }
 
-  // 拒绝好友请求
+  /// 拒绝好友请求
+  ///
+  /// [userId] 发送请求的用户ID
   Future<Map<String, dynamic>> rejectFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/reject/$userId');
     return toMap(response);
   }
 
-  // 删除好友
+  /// 删除好友
+  ///
+  /// [friendId] 好友ID
   Future<Map<String, dynamic>> removeFriend(String friendId) async {
     InputValidator.validateUUID(friendId, '好友ID');
     final response = await delete('/friends/$friendId');
     return toMap(response);
   }
 
-  // 获取好友列表
+  /// 获取好友列表
+  ///
+  /// 返回当前用户的好友列表和总数。
   Future<Map<String, dynamic>> getFriends() async {
     final response = await get('/friends');
 
@@ -64,7 +82,9 @@ class FriendService extends BaseService {
     };
   }
 
-  // 获取待处理的好友请求
+  /// 获取待处理的好友请求
+  ///
+  /// 返回尚未处理的好友请求列表。
   Future<Map<String, dynamic>> getPendingRequests() async {
     final response = await get('/friends/requests/pending');
 
@@ -77,16 +97,18 @@ class FriendService extends BaseService {
     };
   }
 
-  // 获取与好友的聊天记录
-  // 后端返回 { "code": 0, "data": [ {id, sender_id, receiver_id, content, created_at}, ... ] }
-  // data 直接是数组，不是 { "messages": [...] }
+  /// 获取聊天记录
+  ///
+  /// 获取与指定好友的聊天记录，兼容多种返回格式。
+  ///
+  /// [friendId] 好友ID
   Future<Map<String, dynamic>> getMessages(String friendId) async {
     InputValidator.validateUUID(friendId, '好友ID');
     final response = await get('/friends/$friendId/messages');
 
     if (!response.success) return toMap(response);
 
-    // response.data 可能是 List（后端直接返回数组）或 Map
+    // 兼容后端两种返回格式：直接数组 或 { "messages": [...] }
     final rawData = response.data;
     List messages;
     if (rawData is List) {
@@ -103,7 +125,10 @@ class FriendService extends BaseService {
     };
   }
 
-  // 发送消息给好友
+  /// 发送聊天消息
+  ///
+  /// [friendId] 好友ID
+  /// [content] 消息内容，1-2000字符
   Future<Map<String, dynamic>> sendMessage(String friendId, String content) async {
     InputValidator.validateUUID(friendId, '好友ID');
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);

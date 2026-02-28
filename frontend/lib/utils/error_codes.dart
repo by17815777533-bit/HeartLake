@@ -1,6 +1,13 @@
-// 后端业务错误码映射 - 与 ErrorCode.h 对齐
+/// 业务错误码映射
+///
+/// 与后端ErrorCode.h对齐，提供错误码常量和用户友好的错误消息转换。
+/// 错误码分段规则：100xxx通用错误、200xxx认证错误、300xxx用户错误、
+/// 400xxx内容错误、410xxx好友错误、500xxx AI错误、600xxx数据库错误、
+/// 700xxx网络错误。
 
-/// 业务错误码常量，与后端 ErrorCode.h 一一对应
+/// 业务错误码常量
+///
+/// 与后端ErrorCode.h一一对应。
 class ErrorCodes {
   ErrorCodes._();
 
@@ -68,7 +75,11 @@ class ErrorCodes {
   static const int requestTimeout = 700002;
   static const int upstreamError = 700003;
 
-  /// 错误码 → 用户友好消息
+  /// 错误码转用户友好消息
+  ///
+  /// 将错误码转为心湖风格的用户提示语。
+  ///
+  /// [code] 错误码
   static String friendlyMessage(int? code) {
     switch (code) {
       case success:
@@ -169,6 +180,10 @@ class ErrorCodes {
   }
 
   /// 是否需要重新登录
+  ///
+  /// 判断错误码是否表示需要重新登录。
+  ///
+  /// [code] 错误码
   static bool requiresReLogin(int? code) {
     return code == unauthorized ||
         code == tokenExpired ||

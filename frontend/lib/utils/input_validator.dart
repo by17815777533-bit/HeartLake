@@ -1,6 +1,12 @@
-// 输入验证工具 - 统一的参数校验，防止无效数据到达后端
+/// 输入验证工具
+///
+/// 提供前端参数校验，在数据发送到后端之前进行预校验，包括字符串校验、
+/// UUID格式校验、XSS过滤、文件类型和大小限制等。所有校验失败均抛出
+/// ValidationException。
 
-/// 验证异常 - 参数不合法时抛出
+/// 验证异常
+///
+/// 参数不合法时抛出，携带用户友好的错误消息。
 class ValidationException implements Exception {
   final String message;
   const ValidationException(this.message);
@@ -10,6 +16,8 @@ class ValidationException implements Exception {
 }
 
 /// 输入验证工具集
+///
+/// 提供统一的参数校验方法。
 class InputValidator {
   InputValidator._();
 
@@ -59,7 +67,12 @@ class InputValidator {
     r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$',
   );
 
-  /// 校验非空字符串，去除首尾空白后判断
+  /// 校验非空字符串
+  ///
+  /// 去除首尾空白后判断是否为空。
+  ///
+  /// [value] 待校验的值
+  /// [fieldName] 字段名称，用于错误提示
   static String requireNonEmpty(String? value, String fieldName) {
     if (value == null || value.trim().isEmpty) {
       throw ValidationException('$fieldName不能为空');
@@ -166,7 +179,12 @@ class InputValidator {
     return value;
   }
 
-  /// 安全ID格式校验（兼容 UUID / 前缀UUID / 业务ID），并防路径注入
+  /// 安全ID格式校验
+  ///
+  /// 兼容UUID、前缀UUID、业务ID，并防止路径注入攻击。
+  ///
+  /// [id] 待校验的ID
+  /// [fieldName] 字段名称
   static String validateUUID(String? id, String fieldName) {
     if (id == null || id.isEmpty) {
       throw ValidationException('$fieldName不能为空');
@@ -183,7 +201,11 @@ class InputValidator {
     throw ValidationException('$fieldName格式无效');
   }
 
-  /// XSS 过滤 - 去除 HTML 标签、script 标签、事件属性
+  /// XSS过滤
+  ///
+  /// 去除HTML标签、script标签、事件属性，防止XSS攻击。
+  ///
+  /// [text] 待过滤的文本
   static String sanitizeText(String text) {
     var sanitized = text;
     // 先移除 script 标签及其内容

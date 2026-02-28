@@ -1,5 +1,17 @@
 /**
- * 事件总线 - 领域事件发布订阅
+ * @brief 领域事件总线 -- 发布-订阅模式解耦业务模块
+ *
+ * @details
+ * 基于 std::type_index 做事件类型路由，支持同一事件类型注册多个处理器。
+ * 所有领域事件继承自 DomainEvent 基类，携带产生时间戳。
+ *
+ * 线程安全策略：
+ * - 使用 recursive_mutex 保护 handlers_ 的读写
+ * - publish 时先在锁内拷贝 handler 列表快照，再在锁外逐个调用，
+ *   避免回调中再次操作 EventBus 导致死锁
+ * - 单个 handler 抛异常不影响后续 handler 的执行
+ *
+ * 典型事件流：Stone 发布 -> AI 情绪分析 -> 缓存更新 -> 推荐刷新
  */
 
 #pragma once
@@ -17,13 +29,13 @@
 
 namespace heartlake::core::events {
 
-// 基础事件类
+/// 领域事件基类，所有具体事件必须继承此类
 struct DomainEvent {
     virtual ~DomainEvent() = default;
-    int64_t timestamp = std::time(nullptr);
+    int64_t timestamp = std::time(nullptr);  ///< 事件产生的 Unix 时间戳
 };
 
-// 石头发布事件
+/// 石头发布事件：用户投出一颗新石头时触发
 struct StonePublishedEvent : DomainEvent {
     std::string stoneId;
     std::string userId;
@@ -31,21 +43,21 @@ struct StonePublishedEvent : DomainEvent {
     std::string moodType;
 };
 
-// 情绪分析完成事件
+/// 情绪分析完成事件：AI 引擎完成情感分析后触发
 struct EmotionAnalyzedEvent : DomainEvent {
     std::string stoneId;
-    float emotionScore;
-    std::string detectedMood;
+    float emotionScore;       ///< 情感分数 [-1, 1]
+    std::string detectedMood; ///< 检测到的情绪类型
 };
 
-// 涟漪创建事件
+/// 涟漪创建事件：用户对石头产生共鸣时触发
 struct RippleCreatedEvent : DomainEvent {
     std::string rippleId;
     std::string stoneId;
     std::string userId;
 };
 
-// 纸船发送事件
+/// 纸船发送事件：用户向石头发送纸船回复时触发
 struct BoatSentEvent : DomainEvent {
     std::string boatId;
     std::string stoneId;
@@ -53,15 +65,25 @@ struct BoatSentEvent : DomainEvent {
     std::string content;
 };
 
-// 事件处理器接口
+/**
+ * @brief 事件处理器接口
+ * @tparam E 事件类型，必须继承自 DomainEvent
+ */
 template<typename E>
 class IEventHandler {
 public:
     virtual ~IEventHandler() = default;
+    /// 处理事件，实现类需保证线程安全
     virtual void handle(const E& event) = 0;
 };
 
-// 事件总线
+/**
+ * @brief 事件总线，全局单例
+ *
+ * @details
+ * 使用 std::any 做类型擦除存储 handler，publish 时通过 any_cast 还原。
+ * subscribe 和 publish 均为 O(n)，n 为该事件类型的 handler 数量。
+ */
 class EventBus {
 public:
     static EventBus& getInstance() {
@@ -69,6 +91,11 @@ public:
         return instance;
     }
 
+    /**
+     * @brief 订阅指定类型的事件
+     * @tparam E 事件类型
+     * @param handler 事件处理器，通过 shared_ptr 持有以延长生命周期
+     */
     template<typename E>
     void subscribe(std::shared_ptr<IEventHandler<E>> handler) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -78,6 +105,12 @@ public:
         });
     }
 
+    /**
+     * @brief 发布事件，同步通知所有已订阅的处理器
+     * @tparam E 事件类型
+     * @param event 事件对象
+     * @note 先拷贝 handler 快照再逐个调用，单个 handler 异常不影响其余
+     */
     template<typename E>
     void publish(const E& event) {
         // 拷贝handler列表后释放锁，避免回调中再次操作EventBus导致死锁
@@ -102,6 +135,7 @@ public:
         }
     }
 
+    /// 清空所有订阅关系（主要用于测试）
     void clear() {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         handlers_.clear();
@@ -109,8 +143,8 @@ public:
 
 private:
     EventBus() = default;
-    std::unordered_map<std::type_index, std::vector<std::function<void(const std::any&)>>> handlers_;
-    std::recursive_mutex mutex_;
+    std::unordered_map<std::type_index, std::vector<std::function<void(const std::any&)>>> handlers_;  ///< 事件类型 -> handler 列表
+    std::recursive_mutex mutex_;  ///< 递归锁，允许 handler 内部再次 subscribe
 };
 
 } // namespace heartlake::core::events

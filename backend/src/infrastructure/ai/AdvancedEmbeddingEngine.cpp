@@ -1,5 +1,20 @@
 /**
- * AdvancedEmbeddingEngine 模块实现
+ * @file AdvancedEmbeddingEngine.cpp
+ * @brief 本地多层次文本嵌入向量引擎 —— TF-IDF + 情感 + 统计 + N-gram 四通道融合
+ *
+ * 向量生成流水线（维度分配以 embeddingDim_=256 为例）：
+ *   1. TF-IDF 特征（60%）：签名特征哈希（Weinberger et al., ICML 2009），
+ *      IDF 权重从语料库离线训练
+ *   2. 情感特征（15维）：基于中文情感词典的极性/强度/波动/复杂度
+ *   3. 统计特征（15维）：文本长度/词汇多样性/词频熵/单次词比例
+ *   4. N-gram 特征（10%）：2-gram + 3-gram 滑窗哈希，归一化后编码局部词序
+ *
+ * 性能优化：
+ *   - LRU 缓存避免重复计算（text → embedding）
+ *   - L2 归一化使用 double 累加 + 4路展开减少浮点误差
+ *   - cosine similarity 同样 4路展开 + double 精度
+ *   - N-gram 内联滑窗哈希，避免构造中间 string
+ *   - 后台 jthread 异步预热训练语料
  */
 
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"

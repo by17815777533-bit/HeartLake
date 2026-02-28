@@ -1,27 +1,56 @@
+/**
+ * @file index.ts
+ * @brief 核心 HTTP 通信模块及全站 API 注册注册表
+ *
+ * 包装底层 Axios 引擎以构建前端数据获取层统一规范。包含以下安全及架构特性：
+ * - 自动化拦截模型：自动组装和注入符合 Oauth / JWT 及 PASETO 标准的 Bearer Token，挂载全局加载态计数器。
+ *   包含路由切换及相同参数并发情况下的请求去重（基于 CancelToken 或 AbortController）。
+ * - 响应降级及容错：统一梳理并拦截应用层非成功状态（响应 200 即代码为非零标识），处理幂等情况下的接口异常。
+ *   特定场景（GET 协议类接口，指定无尽休眠或超时等场景下）执行渐进式指数退避重试（最高限额三次）。
+ * - 认证衰退安全：鉴权失败（如 HTTP 401 及特定业务校验错误码区间 200001-200005）统一下达强制登出及单一实例防重入的重定向任务。
+ * - 防跨站攻击体系 (CSRF)：支持主动抓取预置 `csrf_token` cookie 并追加防御头 `X-CSRF-Token` 以保护长轮询及提交。
+ * - 多维耗时补偿策略：默认接口 15 秒通讯截断，为边缘计算聚合 (EdgeAI) 及流式上传/导出配置 60 秒延长窗口。
+ */
 import axios, { type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { useAppStore } from '@/stores'
 import { getBusinessMessage } from '@/utils/errorHelper'
 
-// 扩展 Axios 类型：支持 skipLoading 自定义配置
+/**
+ * @brief 自定义 Axios 顶级请求配置拓展
+ */
 interface CustomAxiosRequestConfig extends AxiosRequestConfig {
+  /** @brief 标识此事务是否主动静默全局 UI 刷新阻塞遮罩 */
   skipLoading?: boolean
+  /** @brief 标识此事务在遭逢认证错误是否忽略自动退场指令 */
   skipAuthRedirect?: boolean
 }
 
+/**
+ * @brief 自定义 Axios 拦截器专属内部拓展配置
+ */
 interface CustomInternalConfig extends InternalAxiosRequestConfig {
   skipLoading?: boolean
   skipAuthRedirect?: boolean
+  /** @brief 标记系统化自动重试机制已激活及当下重试顺位 */
   _retryCount?: number
 }
 
-// 业务错误类型
+/**
+ * @brief 带特定业务语义指纹的扩展异常协议模型
+ */
 interface BusinessError extends Error {
+  /** @brief 后台规培定义的独立业务领域异常溯源码 */
   _businessCode?: number
+  /** @brief 网络通讯层的底层附带响应对象，支持溯源追踪 */
   response?: AxiosResponse
 }
 
+/** 
+ * @brief HttpClient 底层通信实例 
+ * @details 采用 VITE 宏指令提取基准微服务基址，兼收 CSRF 标准配置并统一下发请求策略。
+ */
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000,
@@ -29,12 +58,17 @@ export const http = axios.create({
   xsrfHeaderName: 'X-CSRF-Token',
 })
 
-// 防止 401 重复跳转的标志
+/**
+ * @brief 阻塞重定向互斥锁，规避弱网或接口齐发引发的登出死锁
+ */
 let isRedirectingToLogin = false
 
 /**
- * L-22: 统一认证失败处理 —— 业务码 200001-200005 和 HTTP 401 共用
- * 清除本地 token，显示提示，跳转登录页（防重复跳转）
+ * @brief 本地响应授权崩塌及清理策略核心函数
+ * 
+ * 摧毁现有证书，发起路由出栈处理。
+ * 
+ * @param msg 指引层外抛的具体用户视界提示语句
  */
 function handleAuthFailure(msg?: string): void {
   const appStore = useAppStore()
@@ -48,12 +82,18 @@ function handleAuthFailure(msg?: string): void {
   }
 }
 
-// 请求取消机制：基于 AbortController
+/**
+ * @brief 会话请求注册池，键值为哈希标志符，绑定网络终止手柄对象
+ */
 const pendingRequests = new Map<string, AbortController>()
 
 /**
- * 生成请求唯一标识，用于去重
- * 包含 method + url + 序列化的 params/data，避免同 URL 不同参数的请求被误取消
+ * @brief 创建网络请求身份摘要
+ * 
+ * 支持比对请求五元组及内容序列。若前后双请求匹配该摘要，先导请求即视作无效作废（防重复并发机制）。
+ * 
+ * @param config 当前拦截周期的请求组态对象
+ * @return 构造哈希字符串
  */
 function getRequestKey(config: CustomInternalConfig): string {
   const params = config.params ? JSON.stringify(config.params, Object.keys(config.params).sort()) : ''
@@ -61,18 +101,32 @@ function getRequestKey(config: CustomInternalConfig): string {
   return `${config.method}:${config.url}:${params}:${data}`
 }
 
-export function cancelAllRequests(): void {
+/** 
+ * @brief 全局抛弃排队池中待决口网络事务 
+ * @details 多使用于 SPA 路由栈清场等大型生命周期场景。
+ */
+export function clearPendingRequests(): void {
   pendingRequests.forEach(controller => controller.abort())
   pendingRequests.clear()
 }
 
-// 请求拦截器：注入 token + 全局 loading + 请求去重
+/** 
+ * @brief 旧版请求清洗 API 暴露别名支持
+ */
+export function cancelAllRequests(): void {
+  clearPendingRequests()
+}
+
+/** 
+ * @brief Axios 全局请求门神拦截装置
+ * @details 第一时间推入验证字典，排遣未完结相同冲突体，挂载事务标识信号标。同时触犯阻塞性遮罩。
+ */
 http.interceptors.request.use((config: CustomInternalConfig) => {
   const appStore = useAppStore()
   const token = appStore.getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
 
-  // 请求去重：相同 method:url 自动取消前一个
+  // 相同 method:url:params 的请求自动取消前一个，防止重复提交
   const key = getRequestKey(config)
   if (pendingRequests.has(key)) {
     pendingRequests.get(key)!.abort()
@@ -88,7 +142,10 @@ http.interceptors.request.use((config: CustomInternalConfig) => {
   return config
 })
 
-// 响应拦截器：统一处理错误 + 全局 loading + 清理 pending
+/** 
+ * @brief Axios 全局响应归档拦截装置
+ * @details 负责脱钩排队池对应事务键值；收起前端动画负反馈，拆解与剥离响应状态并分类传递异常流或正反馈数据实体。
+ */
 http.interceptors.response.use(
   (response: AxiosResponse) => {
     pendingRequests.delete(getRequestKey(response.config as CustomInternalConfig))
@@ -97,10 +154,10 @@ http.interceptors.response.use(
       appStore.stopLoading()
     }
 
-    // 检查业务错误码：HTTP 200 但 code 非 0/200 表示业务失败
+    // HTTP 200 但 code 非 0/200 表示业务层失败
     const { code, message } = response.data ?? {}
     if (code != null && code !== 0 && code !== 200) {
-      // 认证类业务错误码 (200001-200005)：清 token 并跳转登录
+      // 认证类业务错误码 (200001-200005)：清 token 跳转登录
       if (code >= 200001 && code <= 200005) {
         handleAuthFailure(getBusinessMessage(code) || '登录已过期，请重新登录')
       }
@@ -124,7 +181,7 @@ http.interceptors.response.use(
       }
     }
 
-    // 可重试的 HTTP 状态码（网络抖动、服务端临时过载）
+    // GET 请求遇到可重试状态码时自动重试（指数退避，最多3次）
     const RETRYABLE_CODES = new Set([408, 429, 500, 502, 503, 504])
     const MAX_RETRIES = 3
 
@@ -144,7 +201,7 @@ http.interceptors.response.use(
       }
     }
 
-    // HTTP 401：token 过期或无效
+    // HTTP 401：token 过期或无效，跳转登录
     if (axiosError.response?.status === 401) {
       const config = axiosError.config as CustomInternalConfig | undefined
       if (!config?.skipAuthRedirect) {
@@ -158,29 +215,41 @@ http.interceptors.response.use(
   },
 )
 
-// 通用参数类型，用于灵活的查询/请求体
+/** 
+ * @brief 通用不定参数映射表 
+ */
 type Params = Record<string, unknown>
 
-// L-15: 针对耗时操作的差异化超时配置（默认 15s 不够用）
-const LONG_TIMEOUT = 60000 // 文件上传、数据导出、AI分析等慢操作用 60s
+/** 
+ * @brief 重量级事务强制截断常量
+ */
+const LONG_TIMEOUT = 60000
 
-// 登录请求参数
+/** 
+ * @brief 通行证口令握手包裹模型 
+ */
 interface LoginPayload {
   username: string
   password: string
 }
 
-// 高频 API 具体参数类型
+// 高频 API 的具体参数类型
 import type {
   HandleReportParams, AddSensitiveWordParams, UpdateSensitiveWordParams,
   BroadcastMessageParams, SaveConfigPayload,
   FederatedAggregationParams, VectorSearchParams,
 } from '@/types'
 
+/**
+ * @brief 封禁管控专用指令集
+ */
 interface BanUserParams {
   reason: string
 }
 
+/**
+ * @brief 后端全类目业务门面通讯实例集
+ */
 export default {
   // Auth
   login: (data: LoginPayload) => http.post('/admin/login', data),
@@ -238,7 +307,7 @@ export default {
   // AI Analysis
   analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
   moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
-  // Recommendations (非 admin 接口，401 不触发登出)
+  // Recommendation System
   getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
   getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
   getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),

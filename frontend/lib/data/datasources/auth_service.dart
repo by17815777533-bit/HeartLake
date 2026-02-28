@@ -1,4 +1,7 @@
-// 认证服务 - 匿名登录 + 关键词恢复
+/// 认证服务
+///
+/// 提供匿名登录和账号恢复功能，支持设备ID绑定和恢复密钥机制。
+/// 所有认证数据会同步到本地存储和内存缓存。
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
@@ -6,10 +9,20 @@ import 'api_client.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/storage_util.dart';
 
+/// 认证服务
+///
+/// 提供匿名登录和账号恢复功能。
 class AuthService extends BaseService {
   @override
   String get serviceName => 'AuthService';
 
+  /// 保存认证数据
+  ///
+  /// 将认证数据同步写入ApiClient内存态和本地持久化存储。
+  ///
+  /// [token] 访问令牌
+  /// [userId] 用户ID
+  /// [nickname] 用户昵称（可选）
   Future<void> _saveAuthData({
     required String token,
     required String userId,
@@ -24,7 +37,16 @@ class AuthService extends BaseService {
     ]);
   }
 
-  // 匿名登录（游客模式）
+  /// 匿名登录
+  ///
+  /// 首次使用时自动生成设备ID并持久化到本地存储。
+  ///
+  /// 返回包含token、用户ID和恢复密钥的Map：
+  /// - success: 是否成功
+  /// - user_id: 用户ID
+  /// - nickname: 用户昵称
+  /// - recovery_key: 恢复密钥
+  /// - is_new_user: 是否新用户
   Future<Map<String, dynamic>> anonymousLogin() async {
     String? deviceId = await StorageUtil.getDeviceId();
     if (deviceId == null) {
@@ -53,7 +75,11 @@ class AuthService extends BaseService {
     };
   }
 
-  // 关键词恢复账号
+  /// 通过恢复密钥找回账号
+  ///
+  /// [recoveryKey] 恢复密钥，长度8-512字符
+  ///
+  /// 返回包含token和用户信息的Map。
   Future<Map<String, dynamic>> recoverWithKey(String recoveryKey) async {
     InputValidator.requireLength(recoveryKey, '恢复密钥', min: 8, max: 512);
     final response =
@@ -79,19 +105,31 @@ class AuthService extends BaseService {
     };
   }
 
+  /// 检查是否已登录
+  ///
+  /// 检查本地是否存有有效token。
   Future<bool> isLoggedIn() async {
     final token = await StorageUtil.getToken();
     return token != null;
   }
 
+  /// 退出登录
+  ///
+  /// 清除所有本地凭证并标记为主动退出，下次启动进入登录页。
   Future<void> logout() async {
     ApiClient().clearToken();
     await StorageUtil.clearAll();
-    // 标记为主动退出：下次启动先进入登录页，而不是立即匿名登录。
+    // 标记主动退出，下次启动进入登录页而非自动匿名登录
     await StorageUtil.saveString('manual_logout', 'true');
   }
 
-  // 更新个人资料
+  /// 更新用户个人资料
+  ///
+  /// 仅提交非空字段，昵称会做XSS过滤和长度校验。
+  ///
+  /// [avatarUrl] 头像URL，最长500字符
+  /// [bio] 个人简介，最长200字符
+  /// [nickname] 昵称，2-20字符
   Future<Map<String, dynamic>> updateProfile(
       {String? avatarUrl, String? bio, String? nickname}) async {
     final Map<String, dynamic> data = {};
@@ -126,7 +164,9 @@ class AuthService extends BaseService {
     };
   }
 
-  // Token 刷新
+  /// 刷新访问令牌
+  ///
+  /// 使用refresh_token刷新访问令牌。
   Future<Map<String, dynamic>> refreshToken() async {
     final refreshTk = await StorageUtil.getRefreshToken();
     if (refreshTk == null) return {'success': false, 'code': 401};
@@ -144,6 +184,11 @@ class AuthService extends BaseService {
     return {'success': true};
   }
 
+  /// 更新昵称
+  ///
+  /// 快捷方法，仅更新昵称。
+  ///
+  /// [nickname] 新昵称
   Future<Map<String, dynamic>> updateNickname(String nickname) async {
     final result = await updateProfile(nickname: nickname);
     if (result['success'] != true) {

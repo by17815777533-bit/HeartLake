@@ -2,7 +2,13 @@
 
 import 'package:flutter/material.dart';
 
+/// 心湖全局主题配置
+///
+/// 定义了完整的 Material 3 主题体系，包括核心色、功能色、湖面业务色、
+/// 石头业务色、VIP 灯火色等。同时提供亮色/暗色两套 [ThemeData]，
+/// 暗色主题采用深蓝夜空色调，与湖面意象保持一致。
 class AppTheme {
+  /// Material 3 种子色，用于 [ColorScheme.fromSeed] 自动派生色板
   static const Color seedColor = Color(0xFF4285F4);
 
   // 核心色

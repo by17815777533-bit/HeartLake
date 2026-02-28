@@ -1,0 +1,10 @@
+build
+build-*
+logs
+quic_gateway
+.git
+.idea
+.vscode
+*.log
+core
+core.*

@@ -1,5 +1,13 @@
 /**
  * 数据导出服务实现
+ *
+ * 支持用户个人数据的异步导出（GDPR 合规），流程：
+ * 1. 创建导出任务（状态 pending → processing → completed/failed）
+ * 2. 从 users / stones 表提取用户数据，序列化为 JSON
+ * 3. 计算 SHA-256 校验和，写入本地文件
+ * 4. 更新任务状态并生成下载链接（7 天有效期）
+ *
+ * taskId 经过白名单校验（仅字母数字和连字符），防止路径穿越攻击。
  */
 
 #include "infrastructure/services/DataExportService.h"

@@ -1,5 +1,12 @@
 <!--
-  内容审核管理页面
+  温暖守护（内容审核）页面
+
+  功能：
+  - 双 Tab 切换：待审核队列 / 审核历史
+  - 待审核列表展示 AI 预审分数和触发原因，支持通过/拒绝操作
+  - 拒绝操作需输入原因（>=5字），通过操作直接执行
+  - 审核历史支持分页浏览
+  - AI 风险分以进度条可视化，颜色随分值变化（绿→橙→红）
 -->
 
 <template>
@@ -280,7 +287,6 @@ async function fetchPending() {
     pendingList.value = res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('获取待审核列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取待审核列表失败'))
     pendingList.value = []
@@ -296,7 +302,6 @@ async function fetchHistory() {
     historyList.value = res.data?.list || []
     historyPagination.total = res.data?.total || 0
   } catch (e) {
-    // M-7: 空 catch 块添加 console.error
     console.error('获取审核历史失败:', e)
     ElMessage.error(getErrorMessage(e, '获取审核历史失败'))
     historyList.value = []
@@ -307,7 +312,7 @@ async function fetchHistory() {
 
 const handleTabChange = (tab: string) => { tab === 'pending' ? fetchPending() : fetchHistory() }
 
-// M-6: 审核通过添加二次确认
+// 审核通过添加二次确认
 const handleApprove = async (row: ModerationItem) => {
   try {
     await ElMessageBox.confirm('确定通过该内容的审核吗？', '审核确认', {
@@ -316,9 +321,9 @@ const handleApprove = async (row: ModerationItem) => {
       type: 'info',
     })
   } catch {
-    return // 用户取消
+    return
   }
-  // L-25: 乐观更新 — 先从本地列表移除，再异步请求后端
+  // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
   const removedIndex = pendingList.value.findIndex(
     (item) => (item.moderation_id || item.content_id) === itemId
@@ -343,7 +348,7 @@ const handleReject = async (row: ModerationItem) => {
     confirmButtonText: '确定', cancelButtonText: '取消', inputPattern: /\S+/, inputErrorMessage: '请输入原因'
   }).catch(() => ({ value: null }))
   if (!reason) return
-  // L-25: 乐观更新 — 先从本地列表移除，再异步请求后端
+  // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
   const removedIndex = pendingList.value.findIndex(
     (item) => (item.moderation_id || item.content_id) === itemId

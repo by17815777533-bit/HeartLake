@@ -1,5 +1,12 @@
 <!--
-  Dashboard 页面头部 - 欢迎信息 + 操作按钮 + 技术标签
+  Dashboard 页面头部 -- 时段问候语、当前时间、最后更新时间、导出/刷新按钮、技术标签栏
+
+  props:
+  - greeting: 根据当前小时计算的问候语（早上好/下午好等）
+  - currentDateTime: 格式化的当前日期时间
+  - lastUpdateTime: 上次数据刷新的 HH:mm:ss
+  - loading: 刷新按钮的 loading 状态
+  - techBadges: 技术能力标签数组（DTW 共鸣 / DP 隐私 / RAG 守护 / 端侧推理）
 -->
 
 <template>

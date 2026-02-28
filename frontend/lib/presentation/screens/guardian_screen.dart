@@ -7,6 +7,12 @@ import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 import 'lake_god_chat_screen.dart';
 
+/// 守护者页面
+///
+/// 守护者机制允许用户指定信任的好友作为守护人，
+/// 当系统检测到异常情绪或行为时自动通知守护者。
+/// 页面功能：查看当前守护者、从好友列表中添加/移除守护者、
+/// 查看守护状态和告警记录。
 class GuardianScreen extends StatefulWidget {
   const GuardianScreen({super.key});
 

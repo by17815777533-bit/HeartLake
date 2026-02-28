@@ -1,5 +1,17 @@
 /**
- * 内容审核子系统实现 - 从 EdgeAIEngine 提取的独立模块
+ * @file ContentModerator.cpp
+ * @brief 内容审核子系统 —— AC 自动机多模式匹配 + 五因子心理风险融合
+ *
+ * 审核流水线：
+ *   1. buildModerationAC() 构建 Aho-Corasick 自动机，覆盖 5 大类别：
+ *      自伤(1)、暴力(2)、不当内容(3)、违法犯罪(4)、脏话侮辱(0)
+ *   2. moderateTextLocal() 三阶段审核：
+ *      阶段1: AC 自动机 O(n) 快速扫描全部敏感模式
+ *      阶段2: semanticRiskAnalysis() 综合匹配密度、文本长度、
+ *             五因子心理风险评估计算融合风险分
+ *      阶段3: 自伤检测特殊路径 —— AC 匹配或五因子模型任一触发即升级为紧急告警
+ *
+ * 从 EdgeAIEngine 提取的独立模块。
  */
 
 #include "infrastructure/ai/ContentModerator.h"
@@ -12,6 +24,7 @@
 namespace heartlake {
 namespace ai {
 
+/// 构建 AC 自动机：注册中英文敏感词模式，按类别(0-4)和风险等级(1-3)标注
 void ContentModerator::buildModerationAC() {
     std::lock_guard<std::mutex> lock(moderationMutex_);
 
@@ -95,6 +108,15 @@ void ContentModerator::buildModerationAC() {
     LOG_INFO << "[ContentModerator] Moderation AC automaton built successfully";
 }
 
+/**
+ * 语义风险分析：融合 AC 匹配结果与五因子心理风险评估。
+ *
+ * 计算逻辑：
+ *   1. 每个匹配按 level 映射基础风险（low=0.3, medium=0.6, high=0.9），自伤类 ×1.2
+ *   2. 多匹配叠加：combinedRisk = maxRisk*0.6 + avgRisk*0.4，再乘密度因子 log2(N)
+ *   3. 短文本惩罚：<50字 ×1.3，<200字 ×1.1，≥200字 ×0.9
+ *   4. 与五因子心理风险取 max，确保任一维度高风险不被低估
+ */
 float ContentModerator::semanticRiskAnalysis(const std::string& text,
                                               const std::vector<perf::ACAutomaton::Match>& matches) const {
     if (matches.empty()) return 0.0f;
@@ -147,6 +169,14 @@ float ContentModerator::semanticRiskAnalysis(const std::string& text,
     return std::clamp(std::max(acRisk, fiveFactorScore), 0.0f, 1.0f);
 }
 
+/**
+ * 本地文本审核入口 —— 三阶段流水线。
+ *
+ * 阶段1: AC 自动机扫描（转小写后匹配），无命中直接返回 safe
+ * 阶段2: semanticRiskAnalysis 融合风险评分 + 五因子心理评估
+ * 阶段3: 自伤特殊路径 —— AC 匹配到 category=1 或五因子 selfHarmIntent>0.5
+ *         均触发 needsAlert，强制升级为 high_risk
+ */
 EdgeModerationResult ContentModerator::moderateTextLocal(const std::string& text) {
     ++totalModerationCalls_;
 

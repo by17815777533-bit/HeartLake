@@ -5,7 +5,10 @@ import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 
-/// 通知状态管理Provider
+/// 通知中心状态管理器
+///
+/// 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
+/// `new_notification` 事件实时更新未读角标。
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = sl<NotificationService>();
   final WebSocketManager _wsManager = WebSocketManager();

@@ -1,5 +1,10 @@
 /**
- * ArchitectureBootstrap 模块接口定义
+ * @brief DDD 架构引导器
+ *
+ * @details
+ * 按照 Infrastructure -> Domain -> Application -> EventHandler 的顺序
+ * 完成整个应用的依赖注入和服务初始化。遵循 DDD 分层架构约束：
+ * 上层可依赖下层，下层不可反向依赖上层。
  */
 
 #pragma once
@@ -39,18 +44,24 @@ namespace heartlake::domain::friend_domain {
 namespace heartlake {
 
 /**
- * 架构初始化器
+ * @brief 架构引导器 -- 应用启动时的"总装配线"
  *
- * 负责按正确顺序初始化整个应用架构:
- * 1. 基础设施层 (缓存、数据库)
- * 2. 领域层 (仓储、领域服务)
- * 3. 应用层 (应用服务)
- * 4. 事件处理器
+ * @details
+ * 严格按照 DDD 分层顺序完成初始化：
+ *   1. 基础设施层 -- 缓存、Milvus 向量库、AI 摘要等
+ *   2. 领域层     -- 仓储接口绑定、领域服务注册
+ *   3. 应用层     -- 应用服务工厂
+ *   4. 事件处理器 -- 领域事件 -> 处理器的订阅关系
+ *
+ * 单例通过 ServiceLocator 注册时使用空删除器包装，
+ * 避免 DI 容器析构时 double-free 静态单例。
  */
 class ArchitectureBootstrap {
 public:
     /**
-     * 初始化整个架构
+     * @brief 初始化整个架构
+     * @details 按 基础设施 -> 领域 -> 应用 -> 事件处理器 的顺序依次启动，
+     *          任何一步失败都会抛出异常终止启动流程
      */
     static void initialize() {
         LOG_INFO << "=== Initializing HeartLake Architecture ===";
@@ -71,6 +82,7 @@ public:
     }
 
 private:
+    /// 初始化基础设施层：缓存、事件总线、Milvus、AI 摘要服务
     static void initializeInfrastructure() {
         LOG_INFO << "Initializing Infrastructure Layer...";
 
@@ -104,6 +116,7 @@ private:
         LOG_INFO << "Infrastructure Layer initialized";
     }
 
+    /// 初始化领域层：绑定仓储接口、注册领域服务
     static void initializeDomain() {
         LOG_INFO << "Initializing Domain Layer...";
 
@@ -131,6 +144,7 @@ private:
         LOG_INFO << "Domain Layer initialized";
     }
 
+    /// 初始化应用层：通过 ApplicationServiceFactory 装配应用服务
     static void initializeApplication() {
         LOG_INFO << "Initializing Application Layer...";
 
@@ -139,6 +153,7 @@ private:
         LOG_INFO << "Application Layer initialized";
     }
 
+    /// 注册领域事件处理器：建立事件 -> handler 的订阅关系
     static void registerEventHandlers() {
         LOG_INFO << "Registering Event Handlers...";
 

@@ -1,9 +1,3 @@
-/**
- * 账号管理控制器实现
- * @author 白洋
- * @date 2025-02-08
- */
-
 #include "interfaces/api/AccountController.h"
 #include "infrastructure/services/DataExportService.h"
 #include "utils/IdGenerator.h"
@@ -68,7 +62,18 @@ bool parseBoolCompat(const Json::Value &json, const char *key,
 }
 
 std::string parseVisibilityCompat(const Json::Value &json) {
-  std::string visibility = json.get("profile_visibility", "public").asString();
+  std::string visibility = "public";
+  if (json.isMember("profile_visibility")) {
+    const auto &value = json["profile_visibility"];
+    if (value.isString()) {
+      visibility = value.asString();
+    } else if (value.isBool()) {
+      visibility = value.asBool() ? "public" : "private";
+    } else if (value.isInt() || value.isUInt()) {
+      visibility = value.asInt() == 0 ? "private" : "public";
+    }
+  }
+
   std::transform(visibility.begin(), visibility.end(), visibility.begin(),
                  [](unsigned char c) {
                    return static_cast<char>(std::tolower(c));

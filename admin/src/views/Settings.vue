@@ -1,5 +1,12 @@
 <!--
-  Settings 组件
+  系统偏好（设置）页面 -- 仅 super_admin 角色可访问
+
+  功能：
+  - 系统配置：站点名称、描述、注册/匿名开关
+  - AI 配置：模型提供商、API Key、情感分析/自动回复开关
+  - 速率限制：投石/纸船/消息频率、内容最大长度
+  - 全站广播：向所有在线用户推送消息（info/warning/danger 三级）
+  - 配置读取和保存通过 GET/PUT /admin/config 接口
 -->
 
 <template>
@@ -62,7 +69,7 @@
         name="ai"
       >
         <el-card shadow="never">
-          <!-- M-4: AI 配置添加表单验证 -->
+          <!-- AI 配置表单验证 -->
           <el-form
             ref="aiFormRef"
             :model="aiConfig"
@@ -156,7 +163,7 @@
         name="rate"
       >
         <el-card shadow="never">
-          <!-- M-4: 限流配置添加表单验证 -->
+          <!-- 限流配置表单验证 -->
           <el-form
             ref="rateFormRef"
             :model="rateConfig"
@@ -293,7 +300,7 @@ const systemFormRef = ref<FormInstance | null>(null)
 const apiKeyEdited = ref(false)
 const apiKeyVisible = ref(false)
 
-// L-6: 原始 API Key 存储在非响应式变量中，避免 Vue DevTools 泄漏明文
+// 原始 API Key 存储在非响应式变量中，避免 Vue DevTools 泄漏明文
 let rawApiKey = ''
 
 // API Key 脱敏：仅显示最后4位，其余用 * 替代
@@ -341,14 +348,14 @@ const onApiKeyFocus = () => {
   }
 }
 
-// L-6: 输入时同步到非响应式变量，避免 DevTools 长期持有明文
+// 输入时同步到非响应式变量，避免 DevTools 长期持有明文
 const onApiKeyInput = (val: string) => {
   if (apiKeyEdited.value) {
     rawApiKey = val
   }
 }
 
-// M-4: AI 配置验证规则
+// AI 配置验证规则
 const aiRules = {
   provider: [{ required: true, message: '请选择 AI 服务提供商', trigger: 'change' }],
   apiKey: [
@@ -378,7 +385,7 @@ const rateConfig = reactive({
   maxContentLength: 2000,
 })
 
-// M-4: 限流配置验证规则
+// 限流配置验证规则
 const rateRules = {
   stonePerHour: [{ required: true, message: '请设置每小时投石限制', trigger: 'change' }],
   boatPerHour: [{ required: true, message: '请设置每小时纸船限制', trigger: 'change' }],
@@ -495,7 +502,7 @@ onMounted(() => {
   loadConfig()
 })
 
-// M-5: 发送广播添加二次确认和内容长度限制
+// 发送广播前二次确认并限制内容长度
 const sendBroadcast = async () => {
   const msg = broadcastForm.message.trim()
   if (!msg) {

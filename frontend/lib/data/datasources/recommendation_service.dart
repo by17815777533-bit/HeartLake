@@ -1,16 +1,15 @@
-// 推荐服务 - 封装热门/搜索/情绪发现等推荐API
-
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
 export '../../domain/entities/recommended_stone.dart';
 export '../../domain/entities/emotion_trend_point.dart';
 
+/// 推荐服务，提供热门石头、关键词搜索和按情绪发现等推荐能力
 class RecommendationService extends BaseService {
   @override
   String get serviceName => '共鸣服务';
 
-  // 情绪类型白名单（与后端/psych_support_service保持一致）
+  /// 允许传入的情绪类型
   static const _allowedMoods = [
     'happy',
     'sad',
@@ -62,6 +61,7 @@ class RecommendationService extends BaseService {
     return [];
   }
 
+  /// 从后端响应中提取石头列表，兼容多种返回格式
   List<Map<String, dynamic>> _extractList(dynamic data) {
     if (data is List) {
       return data.whereType<Map<String, dynamic>>().toList();

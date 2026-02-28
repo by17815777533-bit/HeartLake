@@ -1,14 +1,13 @@
-// 石头数据模型
+/// 石头数据模型
+///
+/// 代表用户投入心湖的情感内容载体，包含基本信息、互动数据、
+/// AI分析结果和媒体文件等。
 
 import 'package:flutter/foundation.dart';
 
 /// 石头模型
 ///
-/// 代表用户投入心湖的情感内容载体，包含：
-/// - 基本信息：内容、类型、颜色
-/// - 互动数据：涟漪数、纸船数
-/// - AI分析：情绪类型、情感分数、AI标签
-/// - 媒体文件：图片、视频等
+/// 用户投入心湖的情感内容载体。
 class Stone {
   final String stoneId;
   final String userId;
@@ -82,7 +81,7 @@ class Stone {
         content: json['content'] ?? '',
         stoneType: json['stone_type'] ?? 'medium',
         stoneColor: json['stone_color'] ?? '#7A92A3',
-        isAnonymous: json['is_anonymous'] ?? true,
+        isAnonymous: parseBool(json['is_anonymous'], defaultValue: true),
         status: json['status'] ?? 'published',
         viewCount: json['view_count'] is int
             ? json['view_count']
@@ -93,20 +92,25 @@ class Stone {
         boatCount: json['boat_count'] is int
             ? json['boat_count']
             : int.tryParse(json['boat_count']?.toString() ?? '0') ?? 0,
-        tags: json['tags'] is List ? (json['tags'] as List).map((e) => e.toString()).toList() : [],
+        tags: json['tags'] is List
+            ? (json['tags'] as List).map((e) => e.toString()).toList()
+            : [],
         createdAt: _parseDate(json['created_at']),
         // 兼容推荐API的平铺 author_name 和标准API的嵌套 author.nickname
-        authorNickname: json['author']?['nickname'] ?? json['author_name'] ?? json['nickname'],
+        authorNickname: json['author']?['nickname'] ??
+            json['author_name'] ??
+            json['nickname'],
         // AI 分析字段 - 兼容 emotion_score 和 sentiment_score
         moodType: json['mood_type'],
-        sentimentScore: _parseDouble(json['sentiment_score'] ?? json['emotion_score']),
+        sentimentScore:
+            _parseDouble(json['sentiment_score'] ?? json['emotion_score']),
         aiTags:
             json['ai_tags'] != null ? List<String>.from(json['ai_tags']) : null,
         // 媒体字段
         mediaIds: mediaIds,
-        hasMedia: json['has_media'] == true ||
+        hasMedia: parseBool(json['has_media']) ||
             (mediaIds != null && mediaIds.isNotEmpty),
-        hasRippled: json['has_rippled'] == true,
+        hasRippled: parseBool(json['has_rippled']),
       );
     } catch (e, stackTrace) {
       // 记录详细错误信息，包含原始JSON便于排查
@@ -117,6 +121,21 @@ class Stone {
         'Stone JSON 解析失败: $e, keys=${json.keys.toList()}',
       );
     }
+  }
+
+  static bool parseBool(dynamic value, {bool defaultValue = false}) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return defaultValue;
   }
 
   static double? _parseDouble(dynamic value) {
@@ -166,7 +185,9 @@ class Stone {
     };
   }
 
-  /// 复制并修改石头属性
+  /// 复制石头
+  ///
+  /// 创建一个新的Stone实例，可选择性地修改部分属性。
   Stone copyWith({
     String? stoneId,
     String? userId,

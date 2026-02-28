@@ -1,5 +1,14 @@
 /**
- * UserApplicationService 模块实现
+ * @file UserApplicationService.cpp
+ * @brief 用户应用服务 —— 用户资料的查询、更新、搜索、批量获取
+ *
+ * 缓存策略：
+ *   - getUserProfile 采用 cache-aside，命中缓存直接返回，未命中查库后回写（TTL 300s）
+ *   - updateUserProfile 写入后主动失效缓存
+ *
+ * 安全措施：
+ *   - searchUsers 对 LIKE 通配符做转义，防止通配符注入
+ *   - getUsersBatch 使用参数化查询，超过 5 个 ID 时自动分批递归
  */
 
 #include "application/UserApplicationService.h"
@@ -11,6 +20,7 @@ using namespace heartlake::utils;
 namespace heartlake {
 namespace application {
 
+/// 获取用户资料，优先走缓存
 Json::Value UserApplicationService::getUserProfile(const std::string& userId) {
     // 尝试从缓存获取
     std::string cacheKey = "user:" + userId;
@@ -74,6 +84,7 @@ Json::Value UserApplicationService::getUserProfile(const std::string& userId) {
     }
 }
 
+/// 更新用户资料：动态构建 SET 子句，只更新传入的字段
 void UserApplicationService::updateUserProfile(
     const std::string& userId,
     const Json::Value& updates
@@ -153,6 +164,7 @@ void UserApplicationService::updateUserProfile(
     }
 }
 
+/// 搜索用户：按 username/nickname 模糊匹配，LIKE 通配符已转义
 Json::Value UserApplicationService::searchUsers(
     const std::string& keyword,
     int page,
@@ -211,6 +223,7 @@ Json::Value UserApplicationService::searchUsers(
     }
 }
 
+/// 批量获取用户基本信息，超过 5 个 ID 时自动分批递归查询
 Json::Value UserApplicationService::getUsersBatch(const std::vector<std::string>& userIds) {
     if (userIds.empty()) {
         return Json::Value(Json::arrayValue);

@@ -12,6 +12,16 @@ import '../../data/datasources/cache_service.dart';
 import '../../di/service_locator.dart';
 import '../../providers/edge_ai_provider.dart';
 
+/// 投石（发布石头）页面
+///
+/// 用户在此编写心声并投入心湖，核心流程：
+/// 1. 输入文字内容（最多 500 字）
+/// 2. 端侧 EdgeAI 实时分析情绪，自动选择情绪标签和背景色
+/// 3. AI 内容预览（摘要、情绪分析结果）
+/// 4. 提交到后端，成功后清除缓存并返回
+///
+/// 如果 EdgeAI 检测到心理风险内容，会弹出 [PsychSupportDialog]
+/// 提供心理援助资源引导。
 class PublishScreen extends StatefulWidget {
   const PublishScreen({super.key, this.onPublished});
 

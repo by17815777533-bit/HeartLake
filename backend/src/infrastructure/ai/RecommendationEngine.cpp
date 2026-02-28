@@ -1,5 +1,20 @@
 /**
- * 高级推荐引擎实现 - 多算法融合
+ * @file RecommendationEngine.cpp
+ * @brief 多算法融合推荐引擎 —— 协同过滤 + 内容推荐 + 探索的混合推荐系统
+ *
+ * 算法组成：
+ *   - User-based CF：基于用户相似度矩阵找相似用户喜欢的内容
+ *   - Item-based CF：基于用户历史交互物品的共现关系推荐
+ *   - Content-based：基于情绪兼容性矩阵的内容推荐
+ *   - Exploration：Thompson Sampling 探索未知内容，平衡 exploit/explore
+ *
+ * 后处理：
+ *   - 时效衰减（72h 半衰期）+ 热门抑制（log 阻尼）
+ *   - MMR 重排序：贪心选择兼顾相关性和多样性，附带作者去重惩罚
+ *
+ * 用户画像：
+ *   - 潜在因子向量（MF 风格）+ 交互计数 + 探索率衰减
+ *   - 用户相似度 = 0.7 * 加权 Jaccard 交互重叠 + 0.3 * latent cosine
  */
 
 #include "infrastructure/ai/RecommendationEngine.h"
@@ -34,6 +49,7 @@ void RecommendationEngine::setDbClientProvider(DbClientProvider provider) {
 
 // ===== 核心算法实现 =====
 
+/// Matrix Factorization 预测：用户/物品潜在因子点积 → Sigmoid 归一化到 [0,1]
 double RecommendationEngine::predictMF(
     const std::vector<float>& userFactors,
     const std::vector<float>& itemFactors
@@ -47,6 +63,7 @@ double RecommendationEngine::predictMF(
     return 1.0 / (1.0 + std::exp(-dot));
 }
 
+/// UCB1 算法：exploitation(平均奖励) + exploration(置信上界)，未探索项优先
 double RecommendationEngine::computeUCB(double avgReward, int itemCount, int totalCount) {
     if (itemCount == 0) return std::numeric_limits<double>::max(); // 未探索优先
     double exploitation = avgReward;
@@ -54,6 +71,7 @@ double RecommendationEngine::computeUCB(double avgReward, int itemCount, int tot
     return exploitation + exploration;
 }
 
+/// Thompson Sampling：Beta(α,β) 采样，用 Gamma 分布近似实现
 double RecommendationEngine::thompsonSample(int successes, int failures) {
     // Beta分布采样 (使用Gamma分布近似)
     std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -66,6 +84,7 @@ double RecommendationEngine::thompsonSample(int successes, int failures) {
     return x / sum;
 }
 
+/// 时间衰减函数：指数衰减，halfLifeHours 控制半衰期（默认 24h）
 double RecommendationEngine::timeDecay(int64_t timestampMs, double halfLifeHours) {
     if (halfLifeHours <= 0.0) halfLifeHours = 24.0;  // 默认24小时
     auto now = std::chrono::system_clock::now().time_since_epoch();
@@ -74,6 +93,7 @@ double RecommendationEngine::timeDecay(int64_t timestampMs, double halfLifeHours
     return std::exp(-0.693 * hoursOld / halfLifeHours); // ln(2) ≈ 0.693
 }
 
+/// 情绪兼容性评分：基于心理学情绪共鸣模型的静态矩阵查表
 double RecommendationEngine::emotionCompatibilityScore(
     const std::string& userMood,
     const std::string& itemMood
@@ -98,6 +118,12 @@ double RecommendationEngine::emotionCompatibilityScore(
     return 0.5;
 }
 
+/**
+ * MMR (Maximal Marginal Relevance) 重排序：
+ *   贪心选择 score = λ * relevance - (1-λ) * maxSimilarity - authorPenalty
+ *   embedding 已 L2 归一化，cosine similarity 直接用点积计算。
+ *   作者去重惩罚避免同一用户的内容垄断推荐列表。
+ */
 std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
     std::vector<RecommendationCandidate> pool,
     double lambda,
@@ -186,6 +212,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
     return result;
 }
 
+/// 图传播评分：通过 user-item 二部图的两跳路径计算关联强度
 double RecommendationEngine::graphPropagationScore(
     const std::string& userId,
     const std::string& itemId,
@@ -217,6 +244,7 @@ double RecommendationEngine::graphPropagationScore(
     return pathCount > 0 ? score / pathCount : 0.0;
 }
 
+/// 获取或创建用户画像：潜在因子用正态分布随机初始化，初始探索率 0.2
 UserProfile& RecommendationEngine::getOrCreateProfile(const std::string& userId) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     auto it = userProfiles_.find(userId);
@@ -239,6 +267,7 @@ UserProfile& RecommendationEngine::getOrCreateProfile(const std::string& userId)
     return userProfiles_[userId];
 }
 
+/// SGD 更新潜在因子：error * 交叉梯度 - L2 正则化
 void RecommendationEngine::updateLatentFactors(
     std::vector<float>& userFactors,
     std::vector<float>& itemFactors,
@@ -254,6 +283,7 @@ void RecommendationEngine::updateLatentFactors(
     }
 }
 
+/// 记录用户交互并衰减探索率（每次交互 × 0.99，下限 0.05）
 void RecommendationEngine::recordInteraction(
     const std::string& userId,
     const std::string& itemId,
@@ -268,6 +298,7 @@ void RecommendationEngine::recordInteraction(
     profile.explorationRate = std::max(0.05, profile.explorationRate * 0.99);
 }
 
+/// 用户相似度 = 0.7 * 加权 Jaccard 交互重叠 + 0.3 * latent cosine
 double RecommendationEngine::computeUserSimilarity(
     const std::string& userId1,
     const std::string& userId2
@@ -316,6 +347,7 @@ double RecommendationEngine::computeUserSimilarity(
     return std::clamp(0.7 * interactionSim + 0.3 * latentSim, 0.0, 1.0);
 }
 
+/// 物品相似度：基于用户共现的 Cosine-like 计算
 double RecommendationEngine::computeItemSimilarity(
     const std::string& itemId1,
     const std::string& itemId2
@@ -354,6 +386,7 @@ void RecommendationEngine::getRecommendations(
 
 // ===== 协同过滤算法实现 =====
 
+/// User-based CF：找相似用户喜欢但当前用户未交互的石头
 std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
@@ -400,6 +433,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     return results;
 }
 
+/// Item-based CF：基于用户最近交互的 10 个石头，通过共现关系推荐相似内容
 std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
     std::vector<RecommendationCandidate> results;
@@ -455,6 +489,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     return results;
 }
 
+/// 基于情绪兼容性的内容推荐：用户当前心情 → 情绪矩阵 → 匹配石头
 std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend(
     const std::string& userId, const std::string& userMood, int topK) {
     std::vector<RecommendationCandidate> results;
@@ -503,6 +538,14 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
     return results;
 }
 
+/**
+ * 混合推荐主入口：
+ *   1. 获取用户最近情绪画像
+ *   2. 并行调用 userCF / itemCF / contentBased 三路候选
+ *   3. 加权合并 → 时效衰减 + 热门抑制后处理
+ *   4. Thompson Sampling 探索项补充
+ *   5. MMR 重排序输出最终 topK
+ */
 std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     const std::string& userId, int topK,
     double cfWeight, double contentWeight, double exploreWeight) {

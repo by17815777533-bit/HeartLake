@@ -1,5 +1,14 @@
 /**
- * SecurityAuditFilter 实现
+ * 安全审计过滤器实现
+ *
+ * 全局请求拦截器，职责：
+ * 1. 路径规范化（去重斜杠、拒绝路径遍历 /..）
+ * 2. 白名单放行（精确匹配 + 前缀匹配）
+ * 3. PASETO v4 token 鉴权，解析 user_id 注入 request attributes
+ * 4. 安全审计日志（sanitize 后记录 method/path/ip/ua）
+ *
+ * CORS 策略比 AdminAuthFilter 更严格：不接受通配符 '*'，
+ * 生产环境必须在 CORS_ALLOWED_ORIGIN 中显式列出允许的域名。
  */
 
 #include "infrastructure/filters/SecurityAuditFilter.h"

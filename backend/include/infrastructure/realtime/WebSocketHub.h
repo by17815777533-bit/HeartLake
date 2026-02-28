@@ -1,5 +1,21 @@
 /**
- * WebSocket实时通信中心 - 房间管理、心跳检测、消息广播
+ * @brief WebSocket 实时通信中心 -- 房间管理、心跳检测、消息广播
+ *
+ * @details
+ * 全局单例，管理所有 WebSocket 长连接的生命周期。核心能力：
+ *
+ * 1. 连接管理：维护 conn -> userId 的双向映射，支持同一用户多端在线
+ * 2. 房间机制：用户可加入/离开多个房间，支持房间级消息广播
+ * 3. 心跳检测：定时发送 ping 帧，超时未响应的连接自动踢出
+ * 4. 消息投递：支持单用户推送、房间广播、全局广播三种模式
+ * 5. 事件溯源：每条消息分配单调递增序号，通过 Redis Pub/Sub 发布，
+ *    便于多实例间同步和客户端断线重连后的消息补偿
+ *
+ * 线程安全策略：使用 shared_mutex 实现读写分离——
+ * 消息发送时先在读锁下拷贝连接列表，再在锁外逐个发送，
+ * 避免持锁期间阻塞其他连接的加入/退出操作。
+ *
+ * 单条消息上限 64KB，超限直接丢弃并记录警告日志。
  */
 #pragma once
 
@@ -15,21 +31,23 @@
 
 namespace heartlake::realtime {
 
+/// 单条 WebSocket 连接的元信息
 struct ConnectionInfo {
-    std::string userId;
-    std::unordered_set<std::string> rooms;
-    std::chrono::steady_clock::time_point lastPing;
-    bool supportsCompression = false;
+    std::string userId;                                  ///< 连接所属用户
+    std::unordered_set<std::string> rooms;               ///< 已加入的房间集合
+    std::chrono::steady_clock::time_point lastPing;      ///< 最近一次心跳时间
+    bool supportsCompression = false;                    ///< 客户端是否支持压缩
 };
 
 class WebSocketHub {
 public:
+    /// 实时事件描述，每条消息发送后生成，用于 Redis Pub/Sub 广播
     struct RealtimeEvent {
-        uint64_t seq = 0;
-        int64_t tsMs = 0;
-        std::string scope;
-        std::string target;
-        std::string payload;
+        uint64_t seq = 0;       ///< 单调递增序号，用于客户端断线补偿
+        int64_t tsMs = 0;       ///< 事件产生的毫秒时间戳
+        std::string scope;      ///< 投递范围："user" / "room" / "broadcast"
+        std::string target;     ///< 投递目标：userId 或 roomName
+        std::string payload;    ///< 消息体 JSON 字符串
     };
 
     static WebSocketHub& getInstance() {
@@ -37,13 +55,16 @@ public:
         return instance;
     }
 
-    // 连接管理
+    // ---- 连接管理 ----
+
+    /// 注册新连接，建立 conn <-> userId 双向映射
     void addConnection(const drogon::WebSocketConnectionPtr& conn, const std::string& userId) {
         std::unique_lock lock(mutex_);
         connections_[conn] = {userId, {}, std::chrono::steady_clock::now(), false};
         userConnections_[userId].insert(conn);
     }
 
+    /// 移除连接，同时清理其所在的所有房间和用户映射
     void removeConnection(const drogon::WebSocketConnectionPtr& conn) {
         std::unique_lock lock(mutex_);
         auto it = connections_.find(conn);
@@ -60,7 +81,9 @@ public:
         connections_.erase(it);
     }
 
-    // 房间管理
+    // ---- 房间管理 ----
+
+    /// 将连接加入指定房间
     void joinRoom(const drogon::WebSocketConnectionPtr& conn, const std::string& room) {
         std::unique_lock lock(mutex_);
         if (auto it = connections_.find(conn); it != connections_.end()) {
@@ -69,6 +92,7 @@ public:
         }
     }
 
+    /// 将连接从指定房间移除，房间为空时自动销毁
     void leaveRoom(const drogon::WebSocketConnectionPtr& conn, const std::string& room) {
         std::unique_lock lock(mutex_);
         if (auto it = connections_.find(conn); it != connections_.end()) {
@@ -78,7 +102,9 @@ public:
         }
     }
 
-    // 消息发送
+    // ---- 消息投递 ----
+
+    /// 向指定用户的所有连接推送消息（多端同步）
     void sendToUser(const std::string& userId, const std::string& message) {
         if (message.size() > MAX_MESSAGE_SIZE) {
             LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
@@ -107,6 +133,12 @@ public:
         publishEventAsync(event);
     }
 
+    /**
+     * @brief 向房间内所有连接广播消息
+     * @param room 房间名
+     * @param message 消息体
+     * @param exclude 排除的连接（通常是消息发送者自身），可为 nullptr
+     */
     void sendToRoom(const std::string& room, const std::string& message,
                     const drogon::WebSocketConnectionPtr& exclude = nullptr) {
         if (message.size() > MAX_MESSAGE_SIZE) {
@@ -137,6 +169,7 @@ public:
         publishEventAsync(event);
     }
 
+    /// 向所有在线连接广播消息（全局推送，慎用）
     void broadcast(const std::string& message) {
         if (message.size() > MAX_MESSAGE_SIZE) {
             LOG_WARN << "消息体超限(" << message.size() << " bytes)，丢弃";
@@ -165,7 +198,9 @@ public:
         publishEventAsync(event);
     }
 
-    // 心跳处理
+    // ---- 心跳检测 ----
+
+    /// 更新连接的最近心跳时间（客户端发来 pong 时调用）
     void updatePing(const drogon::WebSocketConnectionPtr& conn) {
         std::unique_lock lock(mutex_);
         if (auto it = connections_.find(conn); it != connections_.end()) {
@@ -173,6 +208,7 @@ public:
         }
     }
 
+    /// 扫描所有连接，强制关闭超过 timeoutSec 未心跳的连接
     void checkTimeouts(int timeoutSec = 90) {
         auto now = std::chrono::steady_clock::now();
         std::vector<drogon::WebSocketConnectionPtr> stale;
@@ -189,6 +225,11 @@ public:
         }
     }
 
+    /**
+     * @brief 启动心跳定时器
+     * @param intervalSec 心跳发送间隔（秒），默认 30s
+     * @param timeoutSec 超时阈值（秒），默认 90s，超过则踢出连接
+     */
     void startHeartbeat(int intervalSec = 30, int timeoutSec = 90) {
         drogon::app().getLoop()->runEvery(intervalSec, [this, timeoutSec]() {
             checkTimeouts(timeoutSec);
@@ -207,12 +248,15 @@ public:
         });
     }
 
-    // 查询
+    // ---- 状态查询 ----
+
+    /// 当前在线连接总数
     size_t getConnectionCount() const {
         std::shared_lock lock(mutex_);
         return connections_.size();
     }
 
+    /// 指定房间的在线连接数
     size_t getRoomSize(const std::string& room) const {
         std::shared_lock lock(mutex_);
         if (auto it = rooms_.find(room); it != rooms_.end()) {
@@ -221,6 +265,7 @@ public:
         return 0;
     }
 
+    /// 判断指定用户是否有至少一个在线连接
     bool isUserOnline(const std::string& userId) const {
         std::shared_lock lock(mutex_);
         return userConnections_.count(userId) > 0;
@@ -229,11 +274,13 @@ public:
 private:
     WebSocketHub() = default;
 
+    /// 获取当前毫秒时间戳
     static int64_t nowMs() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
     }
 
+    /// 在写锁保护下追加事件并分配序号（调用方须持有 unique_lock）
     RealtimeEvent appendEventLocked(const std::string& scope,
                                     const std::string& target,
                                     const std::string& payload) {
@@ -246,6 +293,7 @@ private:
         return event;
     }
 
+    /// 将事件通过 Redis PUBLISH 异步广播到 heartlake:realtime 频道
     static void publishEventAsync(const RealtimeEvent& event) {
         try {
             Json::Value envelope;
@@ -283,13 +331,13 @@ private:
         }
     }
 
-    static constexpr size_t MAX_MESSAGE_SIZE = 64 * 1024;  // 单条消息上限 64KB
+    static constexpr size_t MAX_MESSAGE_SIZE = 64 * 1024;  ///< 单条消息上限 64KB
 
-    mutable std::shared_mutex mutex_;
-    std::unordered_map<drogon::WebSocketConnectionPtr, ConnectionInfo> connections_;
-    std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> userConnections_;
-    std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> rooms_;
-    uint64_t nextEventSeq_ = 1;  // 仅在 unique_lock 下访问（appendEventLocked），线程安全
+    mutable std::shared_mutex mutex_;  ///< 读写锁：查询/发送共享，连接增删独占
+    std::unordered_map<drogon::WebSocketConnectionPtr, ConnectionInfo> connections_;  ///< conn -> 连接元信息
+    std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> userConnections_;  ///< userId -> 该用户的所有连接
+    std::unordered_map<std::string, std::unordered_set<drogon::WebSocketConnectionPtr>> rooms_;  ///< roomName -> 房间内的所有连接
+    uint64_t nextEventSeq_ = 1;  ///< 事件序号，仅在 unique_lock 下递增
 };
 
 } // namespace heartlake::realtime

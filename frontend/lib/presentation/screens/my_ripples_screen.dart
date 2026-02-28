@@ -8,6 +8,10 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
+/// 我的涟漪列表页面
+///
+/// 涟漪是用户对石头的共鸣（类似点赞）。
+/// 展示当前用户产生过涟漪的所有石头，支持下拉刷新。
 class MyRipplesScreen extends StatefulWidget {
   const MyRipplesScreen({super.key});
 

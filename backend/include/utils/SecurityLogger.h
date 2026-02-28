@@ -1,5 +1,13 @@
 /**
- * SecurityLogger 模块接口定义
+ * @brief 安全事件日志记录器
+ *
+ * 提供统一的安全事件采集接口，覆盖认证、授权、账号生命周期、
+ * 隐私变更等 25 种事件类型，按 LOW/MEDIUM/HIGH/CRITICAL 四级严重度分类。
+ * 事件持久化到 security_events 表，支持后续审计查询和异常行为检测。
+ *
+ * @details 提供两类 API：
+ *   1. 通用接口 logEvent() / logEventFromRequest() — 灵活记录任意安全事件
+ *   2. 场景化便捷方法 logLoginSuccess() 等 — 预填充事件类型和严重度，减少调用方负担
  */
 
 #pragma once
@@ -11,7 +19,7 @@ namespace heartlake {
 namespace utils {
 
 /**
- * 安全事件类型枚举
+ * @brief 安全事件类型枚举 — 覆盖认证、授权、账号、隐私等全部安全场景
  */
 enum class SecurityEventType {
     LOGIN_SUCCESS,           // 登录成功
@@ -43,20 +51,20 @@ enum class SecurityEventType {
 };
 
 /**
- * 安全事件严重程度
+ * @brief 安全事件严重程度，决定告警优先级和响应策略
  */
 enum class SecuritySeverity {
-    LOW,      // 低：正常操作
-    MEDIUM,   // 中：需要关注的操作
-    HIGH,     // 高：可疑操作
-    CRITICAL  // 严重：安全威胁
+    LOW,      ///< 正常操作记录（如登录成功）
+    MEDIUM,   ///< 需关注的操作（如密码修改、隐私设置变更）
+    HIGH,     ///< 可疑操作（如多次登录失败、异地登录）
+    CRITICAL  ///< 安全威胁（如暴力破解、越权访问）
 };
 
 /**
- * 安全日志记录器
+ * @brief 安全日志记录器（纯静态方法，无需实例化）
  *
- * 提供统一的安全事件日志记录功能
- * 记录到数据库的security_events表
+ * 所有事件异步写入 security_events 表，包含用户ID、事件类型、
+ * 严重度、IP、User-Agent、时间戳和可扩展的 metadata JSON。
  */
 class SecurityLogger {
 public:

@@ -1,4 +1,4 @@
-# Environment files (CRITICAL: contains API keys)
+# Environment files
 **/.env
 !**/.env.example
 
@@ -23,6 +23,7 @@ logs/
 *.log
 .runtime/
 *.rdb
+*.pid
 
 # Uploads
 uploads/
@@ -44,14 +45,20 @@ backend/quic_gateway/target/
 # ONNX Runtime (large binaries)
 backend/third_party/onnxruntime-*/
 
-# CI workflow (token lacks workflow scope)
+# CI workflow
 .github/workflows/
 
-# Sensitive config (use config.json.example as template)
+# Sensitive config
 backend/config.json
 backend/config.runtime.json
+
+# Testing & temporary
 Testing/
 .claude/
 .codex/
-.github/workflows/ci.yml
+.playwright-mcp/
+papers/
 *_rows.json
+
+# MCP config
+.mcp.json

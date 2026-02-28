@@ -1,5 +1,8 @@
 /**
- * Validator 模块接口定义
+ * @brief 请求参数验证模块
+ *
+ * 提供统一的输入验证能力，涵盖格式校验、安全防护（XSS/SQL注入/路径遍历）等，
+ * 供各Controller层复用，避免重复的校验逻辑散落在业务代码中。
  */
 
 #pragma once
@@ -12,47 +15,28 @@ namespace heartlake {
 namespace utils {
 
 /**
- * 验证结果
+ * @brief 验证结果封装，支持隐式bool转换以简化条件判断
  */
 struct ValidationResult {
     bool isValid;
     std::string errorMessage;
-    
-    /**
-     * valid方法
-     * @return 返回值说明
-     */
+
     static ValidationResult valid() {
         return {true, ""};
     }
-    
-    /**
-     * invalid方法
-     *
-     * @param message 参数说明
-     * @return 返回值说明
-     */
+
     static ValidationResult invalid(const std::string& message) {
         return {false, message};
     }
-    
-    /**
-     * bool方法
-     * @return 返回值说明
-     */
+
     operator bool() const { return isValid; }
 };
 
 /**
- * 统一验证器
- * 减少控制器中重复的验证代码
- */
-/**
- * 验证器，用于数据验证
+ * @brief 统一验证器，集中管理各类输入校验规则
  *
- * 详细说明
- *
- * @note 注意事项
+ * 包含基础格式验证（邮箱、手机号、密码强度等）和安全防护验证
+ * （XSS过滤、SQL注入检测、路径遍历检测），减少Controller层重复代码。
  */
 class Validator {
 public:
@@ -181,47 +165,23 @@ public:
 };
 
 /**
- * 常用验证规则
- */
-/**
- * ValidationRules类
+ * @brief 业务层常用验证规则集合
  *
- * 详细说明
- *
- * @note 注意事项
+ * 封装Stone内容、昵称、标签、媒体附件等业务字段的校验逻辑，
+ * 与Validator的通用校验互补，专注于HeartLake业务约束。
  */
 class ValidationRules {
 public:
-    /**
-     * content方法
-     *
-     * @param value 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 校验Stone内容（长度、敏感词等） */
     static ValidationResult content(const std::string& value);
-    
-    /**
-     * nickname方法
-     *
-     * @param value 参数说明
-     * @return 返回值说明
-     */
+
+    /** @brief 校验昵称格式与长度 */
     static ValidationResult nickname(const std::string& value);
-    
-    /**
-     * tags方法
-     *
-     * @param tags 参数说明
-     * @return 返回值说明
-     */
+
+    /** @brief 校验标签数组（数量上限、单标签长度） */
     static ValidationResult tags(const Json::Value& tags);
-    
-    /**
-     * mediaIds方法
-     *
-     * @param mediaIds 参数说明
-     * @return 返回值说明
-     */
+
+    /** @brief 校验媒体附件ID列表（数量上限、格式） */
     static ValidationResult mediaIds(const Json::Value& mediaIds);
 };
 

@@ -1,4 +1,7 @@
-// 缓存服务 - 内存缓存管理
+/// 缓存服务
+///
+/// 提供内存缓存管理功能，使用最旧优先淘汰策略（FIFO）。
+/// 支持自动过期清理和缓存命中率统计。
 
 library;
 
@@ -8,6 +11,8 @@ import '../../utils/app_config.dart';
 import '../../utils/app_logger.dart';
 
 /// 缓存条目
+///
+/// 内部类，存储缓存数据、时间戳和有效期。
 class _CacheEntry<T> {
   final T data;
   final DateTime timestamp;
@@ -32,7 +37,7 @@ class _CacheEntry<T> {
 
 /// 缓存服务
 ///
-/// 使用最旧优先淘汰策略的内存缓存
+/// 使用最旧优先淘汰策略的内存缓存管理器。
 class CacheService {
   static final CacheService _instance = CacheService._internal();
   factory CacheService() => _instance;
@@ -56,9 +61,11 @@ class CacheService {
 
   /// 设置缓存
   ///
+  /// 如果缓存已满，会自动淘汰最旧的条目。
+  ///
   /// [key] 缓存键
   /// [data] 缓存数据
-  /// [ttl] 有效期，默认1小时
+  /// [ttl] 有效期，默认使用配置的石头缓存时长
   void set<T>(String key, T data, {Duration? ttl}) {
     // 检查缓存大小限制
     if (_cache.length >= appConfig.maxCacheEntries) {
@@ -81,7 +88,9 @@ class CacheService {
 
   /// 获取缓存
   ///
-  /// 返回缓存数据，如果不存在或已过期返回null
+  /// 返回缓存数据，如果不存在或已过期返回null。
+  ///
+  /// [key] 缓存键
   T? get<T>(String key) {
     final entry = _cache[key];
 
@@ -109,12 +118,16 @@ class CacheService {
   }
 
   /// 删除缓存
+  ///
+  /// [key] 缓存键
   void remove(String key) {
     _cache.remove(key);
     logger.debug('缓存已删除: $key', category: LogCategory.system);
   }
 
   /// 删除指定前缀的所有缓存
+  ///
+  /// [prefix] 缓存键前缀
   void removeByPrefix(String prefix) {
     final keysToRemove = _cache.keys.where((key) => key.startsWith(prefix)).toList();
     for (final key in keysToRemove) {
@@ -126,6 +139,8 @@ class CacheService {
   }
 
   /// 清空所有缓存
+  ///
+  /// 清除所有缓存条目并重置统计数据。
   void clear() {
     _cache.clear();
     _hits = 0;
@@ -134,6 +149,8 @@ class CacheService {
   }
 
   /// 清空过期缓存
+  ///
+  /// 遍历所有缓存条目，删除已过期的条目。
   void clearExpired() {
     final expiredKeys = _cache.entries
         .where((entry) => entry.value.isExpired)
@@ -174,6 +191,8 @@ class CacheService {
   }
 
   /// 获取缓存统计信息
+  ///
+  /// 返回包含总条目数、命中率、过期条目数等统计数据的Map。
   Map<String, dynamic> getStats() {
     return {
       'total_entries': _cache.length,
@@ -185,7 +204,9 @@ class CacheService {
     };
   }
 
-  /// 打印缓存统计（调试用）
+  /// 打印缓存统计
+  ///
+  /// 调试用，输出缓存统计信息到日志。
   void printStats() {
     final stats = getStats();
     logger.info(
@@ -197,6 +218,10 @@ class CacheService {
   }
 
   /// 启动定时清理任务
+  ///
+  /// 定期清理过期缓存，默认每5分钟执行一次。
+  ///
+  /// [interval] 清理间隔
   void startAutoCleanup({Duration interval = const Duration(minutes: 5)}) {
     // 如果已经有定时器在运行，先取消
     _cleanupTimer?.cancel();
@@ -215,6 +240,8 @@ class CacheService {
   }
 
   /// 停止定时清理任务
+  ///
+  /// 取消定时器，停止自动清理。
   void stopAutoCleanup() {
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
@@ -226,6 +253,8 @@ class CacheService {
   }
 
   /// 释放资源
+  ///
+  /// 停止定时清理任务并清空所有缓存。
   void dispose() {
     stopAutoCleanup();
     _cache.clear();

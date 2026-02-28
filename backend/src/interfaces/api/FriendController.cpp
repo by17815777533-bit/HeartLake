@@ -1,5 +1,13 @@
 /**
- * FriendController 模块实现
+ * @file FriendController.cpp
+ * @brief 好友系统控制器 — 基于亲密分的自动关系管理
+ *
+ * 心湖采用"亲密分自动好友"模式取代传统的手动申请/同意流程：
+ * IntimacyService 根据互动频率、涟漪共振、情绪共鸣等多维度指标
+ * 实时计算双方亲密分，达到阈值（kIntimacyThreshold = 12）自动开启
+ * 私聊权限。getFriends 返回按亲密分排序的好友列表（含14维评分明细），
+ * removeFriend 仅标记为 hidden 而非真正删除关系。私聊消息通过
+ * WebSocket 实时推送，使用协程避免回调嵌套导致的连接池竞争。
  */
 
 #include "interfaces/api/FriendController.h"

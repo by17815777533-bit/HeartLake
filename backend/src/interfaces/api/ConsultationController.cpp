@@ -1,5 +1,12 @@
 /**
- * 咨询室控制器实现 - E2EE端到端加密
+ * @file ConsultationController.cpp
+ * @brief 心理咨询室控制器 — E2EE 端到端加密会话管理
+ *
+ * 实现用户与咨询师之间的加密通信：createSession 生成会话并分配服务端密钥，
+ * exchangeKey 完成 Diffie-Hellman 风格的密钥交换，sendMessage 存储
+ * AES-GCM 密文（ciphertext + iv + tag），getMessages 按时序返回加密消息。
+ * 所有操作均验证用户为会话参与方，使用 IdentityShadowMap 隐藏真实身份。
+ * 会话 ID 由 OpenSSL RAND_bytes 生成，保证不可预测。
  */
 
 #include "interfaces/api/ConsultationController.h"

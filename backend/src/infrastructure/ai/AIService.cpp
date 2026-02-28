@@ -1,5 +1,19 @@
 /**
- * AIService 模块实现
+ * @file AIService.cpp
+ * @brief AI 统一服务层 —— 情感分析、内容审核、对话生成、嵌入向量
+ *
+ * 核心职责：
+ *   - 情感分析：本地 EdgeAI 优先（高置信度直接返回），低置信度降级到大模型，
+ *     高并发下自适应阈值保护尾延迟，支持 in-flight 请求合并（coalescing）
+ *   - 内容审核：本地 AC 自动机快速检测 → 大模型深度审核，结果缓存
+ *   - 对话生成：湖神回复 / 纸船回复 / 石头评论，带语义缓存和模板检测
+ *   - 嵌入向量：委托 AdvancedEmbeddingEngine 本地生成
+ *
+ * 可靠性机制：
+ *   - Circuit Breaker：连续失败达阈值后熔断，冷却后自动恢复
+ *   - 指数退避重试：网络错误 / 5xx 自动重试（1s → 2s → 4s）
+ *   - Ollama 适配层：自动转换 OpenAI 格式到 /api/chat 原生格式
+ *   - 多级缓存：情感分析缓存（读写锁）+ 审核缓存（mutex）+ 语义缓存（HNSW）
  */
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/EdgeAIEngine.h"

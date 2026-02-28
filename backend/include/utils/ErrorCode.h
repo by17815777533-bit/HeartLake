@@ -1,5 +1,9 @@
 /**
- * ErrorCode 模块接口定义
+ * @brief 全局统一错误码定义
+ *
+ * 按模块分段编号：100xxx通用、200xxx认证、300xxx用户、400xxx内容、
+ * 410xxx好友、500xxx智能引擎、600xxx数据库、700xxx网络。
+ * 配套 ErrorCodeHelper 提供HTTP状态码映射和中英文消息。
  */
 
 #pragma once
@@ -9,6 +13,7 @@
 namespace heartlake {
 namespace utils {
 
+/// 全局统一错误码，按模块分段编号
 enum class ErrorCode {
     SUCCESS = 200,
     
@@ -67,26 +72,35 @@ enum class ErrorCode {
     UPSTREAM_ERROR = 700003,           // 上游服务错误
 };
 
+/// 多语言标识
 enum class Language { ZH, EN };
 
 /**
- * ErrorCodeHelper类 - 错误码辅助工具
+ * @brief 错误码辅助工具，提供HTTP状态码映射和多语言错误消息
  */
 class ErrorCodeHelper {
 public:
+    /// 获取错误码对应的 HTTP 状态码
     static int getHttpStatus(ErrorCode code);
+    /// 获取中文错误消息
     static std::string getMessageZh(ErrorCode code);
+    /// 获取英文错误消息
     static std::string getMessageEn(ErrorCode code);
+    /// 根据语言获取错误消息
     static std::string getMessage(ErrorCode code, Language lang);
+    /// 获取错误码的整型值
     static int getCodeValue(ErrorCode code);
+    /// 判断是否为成功码
     static bool isSuccess(ErrorCode code);
+    /// 判断是否为客户端错误（4xx 类）
     static bool isClientError(ErrorCode code);
+    /// 判断是否为服务端错误（5xx 类）
     static bool isServerError(ErrorCode code);
 
 private:
-    static const std::unordered_map<ErrorCode, int> httpStatusMap;
-    static const std::unordered_map<ErrorCode, std::string> messageZhMap;
-    static const std::unordered_map<ErrorCode, std::string> messageEnMap;
+    static const std::unordered_map<ErrorCode, int> httpStatusMap;           ///< 错误码 -> HTTP 状态码
+    static const std::unordered_map<ErrorCode, std::string> messageZhMap;   ///< 错误码 -> 中文消息
+    static const std::unordered_map<ErrorCode, std::string> messageEnMap;   ///< 错误码 -> 英文消息
 };
 
 } // namespace utils

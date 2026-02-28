@@ -1,5 +1,9 @@
 /**
- * PsychologicalRiskAssessment 模块接口定义
+ * @brief 心理风险评估模块
+ *
+ * 通过语言学标记（自伤意图、绝望感、孤立感、紧迫性）和行为模式分析
+ * （发帖频率、参与度变化、社交孤立度）综合评估用户心理风险等级，
+ * 为SafeHarbor安全港机制提供风险信号输入。
  */
 
 #pragma once
@@ -12,9 +16,7 @@
 namespace heartlake {
 namespace utils {
 
-/**
- * 风险等级
- */
+/** @brief 风险等级，按分数区间划分 */
 enum class RiskLevel {
     NONE = 0,       // 无风险
     LOW = 1,        // 低风险 (0.0-0.3)
@@ -23,24 +25,20 @@ enum class RiskLevel {
     CRITICAL = 4    // 危急 (0.8-1.0)
 };
 
-/**
- * 风险因素
- */
+/** @brief 单个风险因素的评分与权重 */
 struct RiskFactor {
     std::string category;       // 类别: linguistic, behavioral, contextual
-    std::string name;           // 因素名称
+    std::string name;
     float score;                // 因素得分 (0.0-1.0)
-    float weight;               // 权重
-    std::string description;    // 描述
+    float weight;
+    std::string description;
 };
 
-/**
- * 心理风险评估结果
- */
+/** @brief 心理风险评估的完整结果 */
 struct PsychologicalRiskResult {
     float overallScore;                     // 总体风险分数 (0.0-1.0)
-    RiskLevel riskLevel;                    // 风险等级
-    std::vector<RiskFactor> factors;        // 风险因素列表
+    RiskLevel riskLevel;
+    std::vector<RiskFactor> factors;
     std::vector<std::string> keywords;      // 触发的关键词
     std::string primaryConcern;             // 主要关注点
     std::vector<std::string> interventions; // 干预建议
@@ -48,9 +46,7 @@ struct PsychologicalRiskResult {
     std::string supportMessage;             // 支持性消息
 };
 
-/**
- * 用户情绪历史记录
- */
+/** @brief 用户情绪历史记录条目 */
 struct EmotionHistoryEntry {
     std::string userId;
     float sentimentScore;
@@ -59,9 +55,7 @@ struct EmotionHistoryEntry {
     int64_t timestamp;
 };
 
-/**
- * 行为模式分析结果
- */
+/** @brief 行为模式分析结果，用于辅助风险判定 */
 struct BehaviorPattern {
     float negativePostFrequency;    // 负面发帖频率
     float engagementDecline;        // 参与度下降
@@ -71,26 +65,23 @@ struct BehaviorPattern {
 };
 
 /**
- * 心理风险评估器
- */
-/**
- * 心理风险评估工具
+ * @brief 心理风险评估器（单例）
  *
- * 详细说明
- *
- * @note 注意事项
+ * 融合语言学分析和行为模式分析两个维度，对用户心理状态进行综合评估。
+ * 语言学维度检测自伤意图、绝望感、孤立感和紧迫性四类标记；
+ * 行为维度追踪发帖频率、参与度变化和社交孤立度。
  */
 class PsychologicalRiskAssessment {
 public:
     static PsychologicalRiskAssessment& getInstance();
 
     /**
-     * 评估文本内容的心理风险
-     * @param text 文本内容
-     * @param userId 用户ID
-     * @param sentimentScore 情感分数
-     * @param emotion 情绪类型
-     * @return 风险评估结果
+     * @brief 评估文本内容的心理风险
+     * @param text 待评估文本
+     * @param userId 用户ID，用于关联历史数据
+     * @param sentimentScore 情感分析分数
+     * @param emotion 情绪类型标签
+     * @return 完整的风险评估结果
      */
     PsychologicalRiskResult assessRisk(
         const std::string& text,
@@ -100,9 +91,9 @@ public:
     );
 
     /**
-     * 分析用户行为模式
-     * @param  用户ID
-     * @param callback 回调函数
+     * @brief 异步分析用户行为模式
+     * @param userId 用户ID
+     * @param callback 分析完成后的回调
      */
     void analyzeBehaviorPattern(
         const std::string& userId,
@@ -110,11 +101,11 @@ public:
     );
 
     /**
-     * 记录用户情绪历史
+     * @brief 记录用户情绪历史，供后续趋势分析使用
      * @param userId 用户ID
      * @param sentimentScore 情感分数
      * @param emotion 情绪类型
-     * @param content 内容
+     * @param content 原始内容
      */
     void recordEmotionHistory(
         const std::string& userId,
@@ -124,21 +115,16 @@ public:
     );
 
     /**
-     * 获取用户情绪趋势
+     * @brief 获取用户近N天的情绪分数趋势
      * @param userId 用户ID
-     * @param days 天数
-     * @return 情绪分数列表
+     * @param days 回溯天数，默认7天
+     * @return 按时间排序的情绪分数序列
      */
     std::vector<float> getEmotionTrend(const std::string& userId, int days = 7);
 
-    /**
-     * 获取风险等级描述
-     */
+    /// 获取风险等级的中文描述
     static std::string getRiskLevelDescription(RiskLevel level);
-
-    /**
-     * 获取风险等级对应的颜色
-     */
+    /// 获取风险等级对应的颜色标识（用于前端展示）
     static std::string getRiskLevelColor(RiskLevel level);
 
 private:
@@ -147,63 +133,32 @@ private:
     PsychologicalRiskAssessment(const PsychologicalRiskAssessment&) = delete;
     PsychologicalRiskAssessment& operator=(const PsychologicalRiskAssessment&) = delete;
 
-    /**
-     * analyzeLinguisticMarkers方法
-     *
-     * @param text 参数说明
-     * @param factors 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 分析文本中的语言学风险标记，返回该维度的综合得分 */
     float analyzeLinguisticMarkers(const std::string& text, std::vector<RiskFactor>& factors);
-
-    /**
-     * detectSelfHarmIntent方法
-     *
-     * @param text 参数说明
-     * @param keywords 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 检测自伤意图关键词，返回匹配强度 */
     float detectSelfHarmIntent(const std::string& text, std::vector<std::string>& keywords);
-
-    /**
-     * detectHopelessness方法
-     *
-     * @param text 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 检测绝望感表达 */
     float detectHopelessness(const std::string& text);
-
-    /**
-     * detectIsolation方法
-     *
-     * @param text 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 检测社交孤立感表达 */
     float detectIsolation(const std::string& text);
-
-    /**
-     * detectTemporalUrgency方法
-     *
-     * @param text 参数说明
-     * @return 返回值说明
-     */
+    /** @brief 检测时间紧迫性表达（如"最后一次"） */
     float detectTemporalUrgency(const std::string& text);
 
+    /// 根据风险分数和主要关注点生成干预建议列表
     std::vector<std::string> generateInterventions(float riskScore, const std::string& primaryConcern);
-
+    /// 根据风险等级生成温和的支持性消息
     std::string generateSupportMessage(RiskLevel level, const std::string& primaryConcern);
 
+    /// 各类风险关键词集合
     struct KeywordSet {
-        std::vector<std::string> selfHarm;   // 自伤关键词
-        std::vector<std::string> hopelessness;  // 绝望关键词
-        std::vector<std::string> isolation;     // 孤立关键词
-        std::vector<std::string> urgency;       // 紧迫性关键词
+        std::vector<std::string> selfHarm;      ///< 自伤意图关键词
+        std::vector<std::string> hopelessness;   ///< 绝望感关键词
+        std::vector<std::string> isolation;      ///< 孤立感关键词
+        std::vector<std::string> urgency;        ///< 紧迫性关键词
     };
-    KeywordSet keywords_;
+    KeywordSet keywords_;   ///< 当前加载的关键词库
 
-    /**
-     * initializeKeywords方法
-     */
+    /// 初始化内置关键词库
     void initializeKeywords();
 };
 

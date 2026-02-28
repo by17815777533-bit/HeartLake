@@ -1,5 +1,10 @@
 <!--
-  Edge AI 配置管理面板
+  EdgeAI 引擎配置管理面板
+
+  表单字段：
+  - 推理超时(ms)、最大批处理大小、缓存开关及 TTL
+  - 联邦学习开关、隐私 epsilon 值、情绪模型选择、向量搜索开关
+  保存调用 PUT /admin/edge-ai/config，重置从 GET /admin/edge-ai/config 重新加载
 -->
 
 <template>

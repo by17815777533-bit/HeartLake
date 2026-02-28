@@ -9,6 +9,10 @@ import '../../utils/mood_colors.dart';
 import '../../domain/entities/stone.dart';
 import 'stone_detail_screen.dart';
 
+/// 我发出的纸船列表页面
+///
+/// 纸船是用户对他人石头的匿名回应。
+/// 展示当前用户发出的所有纸船记录，点击可跳转到对应石头详情。
 class MyBoatsScreen extends StatefulWidget {
   const MyBoatsScreen({super.key});
 

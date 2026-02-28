@@ -7,6 +7,11 @@ import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../../utils/app_theme.dart';
 
+/// 新用户引导页面
+///
+/// 首次安装时展示，通过多页滑动介绍心湖的核心概念：
+/// 投石、涟漪、纸船、匿名社交等。
+/// 完成引导后标记 SharedPreferences，后续启动不再展示。
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 

@@ -12,6 +12,11 @@ import '../widgets/emotion_heatmap.dart';
 import '../widgets/emotion_insights_card.dart';
 import '../widgets/shimmer_loading.dart';
 
+/// 情绪热力图页面
+///
+/// 以 GitHub Contribution 风格的热力图展示用户长期情绪分布，
+/// 配合 AI 生成的情绪洞察卡片。
+/// 通过 WebSocket 实时监听石头增删事件，自动刷新热力图数据。
 class EmotionHeatmapScreen extends StatefulWidget {
   const EmotionHeatmapScreen({super.key});
 

@@ -1,11 +1,10 @@
 /**
- * 端到端加密模块 - X25519 + HKDF + AES-256-GCM
+ * @brief 端到端加密模块 — X25519 + HKDF + AES-256-GCM
  *
  * 提供 IND-CCA2 安全性，通过临时密钥对实现前向保密。
- * 密钥交换: X25519 ECDH
- * 密钥派生: HKDF-SHA256
- * 认证加密: AES-256-GCM
- *
+ * - 密钥交换: X25519 ECDH
+ * - 密钥派生: HKDF-SHA256
+ * - 认证加密: AES-256-GCM (96-bit IV, 128-bit tag)
  */
 
 #pragma once

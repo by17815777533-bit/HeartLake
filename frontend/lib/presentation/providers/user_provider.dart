@@ -1,4 +1,4 @@
-// 用户状态管理 - 符合中国用户习惯
+// 用户状态管理
 
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user.dart';
@@ -8,6 +8,10 @@ import '../../data/datasources/api_client.dart';
 import '../../utils/storage_util.dart';
 import '../../di/service_locator.dart';
 
+/// 用户认证与会话状态管理器
+///
+/// 管理匿名登录、恢复密钥找回、用户信息加载等认证流程。
+/// 登录成功后自动建立 WebSocket 连接，登出时断开并清理本地存储。
 class UserProvider with ChangeNotifier {
   final AuthService _authService = sl<AuthService>();
   final WebSocketManager _wsManager = WebSocketManager();

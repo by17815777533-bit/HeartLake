@@ -11,6 +11,14 @@ import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
 
+/// 情绪趋势可视化页面
+///
+/// 以湖面风格展示用户近期的情绪变化趋势，数据来源：
+/// - 后端 AI 推荐引擎的情绪趋势 API
+/// - 端侧 EdgeAI 的本地情绪分析结果
+///
+/// 通过 WebSocket 实时监听新石头事件，自动追加最新情绪数据点。
+/// 包含情绪脉搏动画组件 [EmotionPulseWidget] 实时反映当前情绪状态。
 class EmotionTrendsScreen extends StatefulWidget {
   const EmotionTrendsScreen({super.key});
   @override

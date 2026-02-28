@@ -1,12 +1,12 @@
-// 临时好友服务 - 24小时好友管理
-
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 临时好友服务，管理24小时限时好友关系的创建、升级和删除
 class TempFriendService extends BaseService {
   @override
   String get serviceName => 'TempFriendService';
 
+  /// 获取当前用户的所有临时好友
   Future<Map<String, dynamic>> getMyTempFriends() async {
     final response = await get('/temp-friends');
     if (!response.success) return toMap(response);
@@ -18,6 +18,7 @@ class TempFriendService extends BaseService {
     };
   }
 
+  /// 获取指定临时好友的详细信息
   Future<Map<String, dynamic>> getTempFriendDetail(String tempFriendId) async {
     InputValidator.validateUUID(tempFriendId, '临时好友ID');
     final response = await get('/temp-friends/$tempFriendId');
@@ -29,6 +30,7 @@ class TempFriendService extends BaseService {
     };
   }
 
+  /// 将临时好友升级为永久好友关系
   Future<Map<String, dynamic>> upgradeToPermanent(String tempFriendId) async {
     InputValidator.validateUUID(tempFriendId, '临时好友ID');
     final response = await post('/temp-friends/$tempFriendId/upgrade');
@@ -40,6 +42,7 @@ class TempFriendService extends BaseService {
     };
   }
 
+  /// 删除指定的临时好友关系
   Future<Map<String, dynamic>> deleteTempFriend(String tempFriendId) async {
     InputValidator.validateUUID(tempFriendId, '临时好友ID');
     return toMap(await delete('/temp-friends/$tempFriendId'));

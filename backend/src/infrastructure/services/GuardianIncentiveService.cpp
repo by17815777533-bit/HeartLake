@@ -1,5 +1,13 @@
 /**
  * 守望者激励系统实现
+ *
+ * 通过"共鸣积分"机制激励用户在社区中传递温暖：
+ * - 优质涟漪（RIPPLE_POINTS）和暖心纸船（WARM_BOAT_POINTS * warmthScore）累积积分
+ * - 积分达到 GUARDIAN_THRESHOLD 时自动授予"守护者"称号
+ * - 守护者积分达到 2 倍阈值后解锁"转赠灯火"功能
+ * - 灯火转赠在事务中完成：扣除积分 + 给接收者发放 7 天 VIP + 推送通知
+ *
+ * 纸船暖心分数经过 clamp(0.2, 1.0) 归一化，避免极端值影响积分公平性。
  */
 
 #include "infrastructure/services/GuardianIncentiveService.h"

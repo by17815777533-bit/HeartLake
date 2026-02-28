@@ -1,5 +1,10 @@
 /**
  * RedisCache 模块实现
+ *
+ * 双层缓存架构：优先走 Redis，连接不可用时自动降级到进程内 LRU 内存缓存。
+ * 断线后通过指数退避策略自动重连（5s → 10s → 20s → ... → 60s 上限）。
+ * 所有 Redis 命令均采用异步回调模式，避免阻塞 Drogon I/O 线程。
+ * 同时提供协程版本（getCoro / setExCoro / ttlCoro）供 C++20 协程上下文使用。
  */
 #include "infrastructure/cache/RedisCache.h"
 #include <drogon/drogon.h>
@@ -17,6 +22,8 @@ RedisCache& RedisCache::getInstance() {
     return instance;
 }
 
+/// 初始化 Redis 连接参数并尝试首次连接
+/// 连接失败不会抛异常，而是静默降级到内存缓存
 void RedisCache::initialize(const std::string& host, int port,
                            const std::string& password, int db,
                            const RedisPoolConfig& poolConfig) {
@@ -33,6 +40,7 @@ void RedisCache::initialize(const std::string& host, int port,
     }
 }
 
+/// 尝试从 Drogon 获取 Redis 客户端，成功则标记 connected_
 void RedisCache::tryConnect() {
     try {
         auto redisClient = drogon::app().getRedisClient("default");
@@ -46,6 +54,7 @@ void RedisCache::tryConnect() {
     }
 }
 
+/// 标记 Redis 断开，触发异步重连调度
 void RedisCache::markDisconnected() {
     if (connected_) {
         connected_ = false;
@@ -54,6 +63,7 @@ void RedisCache::markDisconnected() {
     }
 }
 
+/// 指数退避重连：延迟从 5s 翻倍增长，上限 60s，重连成功后重置
 void RedisCache::scheduleReconnect() {
     if (reconnecting_) return;
     reconnecting_ = true;
@@ -73,6 +83,7 @@ void RedisCache::scheduleReconnect() {
     });
 }
 
+/// 异步 SET（无 TTL），失败时降级到内存缓存
 void RedisCache::set(const std::string& key, const std::string& value,
                      std::function<void(bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
@@ -103,6 +114,7 @@ void RedisCache::set(const std::string& key, const std::string& value,
     }
 }
 
+/// 异步 SETEX（带 TTL），失败时降级到内存缓存
 void RedisCache::setEx(const std::string& key, const std::string& value, int ttlSeconds,
                        std::function<void(bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
@@ -133,6 +145,7 @@ void RedisCache::setEx(const std::string& key, const std::string& value, int ttl
     }
 }
 
+/// 异步 GET，Redis 返回 nil 时 exists=false；断线降级到内存缓存
 void RedisCache::get(const std::string& key,
                      std::function<void(const std::string&, bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
@@ -167,6 +180,7 @@ void RedisCache::get(const std::string& key,
     }
 }
 
+/// 异步 DEL，同时清理内存缓存中的对应条目
 void RedisCache::del(const std::string& key, std::function<void(bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     
@@ -217,6 +231,7 @@ void RedisCache::del(const std::string& key, std::function<void(bool)> callback)
     }
 }
 
+/// JSON 便捷写入：序列化后根据 TTL 选择 setEx 或 set
 void RedisCache::setJson(const std::string& key, const Json::Value& value, int ttlSeconds,
                          std::function<void(bool)> callback) {
     Json::StreamWriterBuilder writer;
@@ -229,6 +244,7 @@ void RedisCache::setJson(const std::string& key, const Json::Value& value, int t
     }
 }
 
+/// JSON 便捷读取：反序列化 get() 返回的字符串
 void RedisCache::getJson(const std::string& key,
                          std::function<void(const Json::Value&, bool)> callback) {
     get(key, [callback](const std::string& value, bool exists) {
@@ -250,6 +266,7 @@ void RedisCache::getJson(const std::string& key,
     });
 }
 
+/// 异步 INCR 原子自增
 void RedisCache::incr(const std::string& key, std::function<void(int64_t)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     
@@ -276,6 +293,7 @@ void RedisCache::incr(const std::string& key, std::function<void(int64_t)> callb
     }
 }
 
+/// 异步 INCRBY 原子增量
 void RedisCache::incrBy(const std::string& key, int64_t delta,
                         std::function<void(int64_t)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
@@ -303,6 +321,7 @@ void RedisCache::incrBy(const std::string& key, int64_t delta,
     }
 }
 
+/// 执行 Lua 脚本（EVAL），用于原子性复合操作（如分布式锁、限流令牌桶等）
 void RedisCache::eval(const std::string& script, const std::vector<std::string>& keys,
                       const std::vector<std::string>& args,
                       std::function<void(int64_t)> callback) {
@@ -332,6 +351,7 @@ void RedisCache::eval(const std::string& script, const std::vector<std::string>&
     }
 }
 
+/// 异步设置 key 的过期时间（秒）
 void RedisCache::expire(const std::string& key, int seconds,
                         std::function<void(bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
@@ -357,6 +377,7 @@ void RedisCache::expire(const std::string& key, int seconds,
     }
 }
 
+/// 查询 key 剩余生存时间（秒），-2 表示 key 不存在或查询失败
 void RedisCache::ttl(const std::string& key, std::function<void(int)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     if (connected_) {
@@ -380,6 +401,7 @@ void RedisCache::ttl(const std::string& key, std::function<void(int)> callback) 
     }
 }
 
+/// 检查 key 是否存在，内存降级模式下同时检查过期时间
 void RedisCache::exists(const std::string& key, std::function<void(bool)> callback) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     if (connected_) {
@@ -414,6 +436,7 @@ void RedisCache::exists(const std::string& key, std::function<void(bool)> callba
     }
 }
 
+/// 按通配符模式查找 key（生产环境慎用，O(N) 扫描）
 void RedisCache::keys(const std::string& pattern, std::function<void(const std::vector<std::string>&)> callback) {
     std::string fullPattern = std::string(KEY_PREFIX) + pattern;
     if (connected_) {
@@ -443,10 +466,12 @@ void RedisCache::keys(const std::string& pattern, std::function<void(const std::
     }
 }
 
+/// 拼接业务分类前缀，生成完整缓存 key
 std::string RedisCache::makeKey(const std::string& category, const std::string& id) {
     return category + id;
 }
 
+/// 内存降级写入：LRU 链表 + 容量淘汰，超过 MAX_CACHE_SIZE 时从尾部驱逐
 void RedisCache::fallbackSet(const std::string& key, const std::string& value, int ttlSeconds) {
     std::lock_guard<std::mutex> lock(cacheMutex_);
     auto expireTime = ttlSeconds > 0
@@ -472,6 +497,7 @@ void RedisCache::fallbackSet(const std::string& key, const std::string& value, i
     memoryCache_[key] = lruList_.begin();
 }
 
+/// 内存降级读取：命中时 splice 到链表头部维护 LRU 顺序，过期则惰性删除
 std::pair<std::string, bool> RedisCache::fallbackGet(const std::string& key) {
     std::lock_guard<std::mutex> lock(cacheMutex_);
     auto it = memoryCache_.find(key);
@@ -491,17 +517,22 @@ std::pair<std::string, bool> RedisCache::fallbackGet(const std::string& key) {
     return {entry.value, true};
 }
 
-// 同步方法实现
+// ==================== 同步方法（仅走内存缓存） ====================
+
+/// 同步读取，直接走内存 fallback（不经过 Redis 异步通道）
 std::string RedisCache::getSync(const std::string& key) {
     auto [value, exists] = fallbackGet(std::string(KEY_PREFIX) + key);
     return value;
 }
 
+/// 同步写入，直接走内存 fallback
 void RedisCache::setexSync(const std::string& key, const std::string& value, int ttlSeconds) {
     fallbackSet(std::string(KEY_PREFIX) + key, value, ttlSeconds);
 }
 
-// 协程方法实现
+// ==================== 协程方法（C++20 coroutine） ====================
+
+/// 协程版 GET，断线时降级到内存缓存
 drogon::Task<std::pair<std::string, bool>> RedisCache::getCoro(const std::string& key) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     if (!connected_) {
@@ -520,6 +551,7 @@ drogon::Task<std::pair<std::string, bool>> RedisCache::getCoro(const std::string
     }
 }
 
+/// 协程版 SETEX，断线时降级到内存缓存
 drogon::Task<void> RedisCache::setExCoro(const std::string& key, const std::string& value, int ttlSeconds) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     if (!connected_) {
@@ -535,6 +567,7 @@ drogon::Task<void> RedisCache::setExCoro(const std::string& key, const std::stri
     }
 }
 
+/// 协程版 TTL 查询，断线返回 -2
 drogon::Task<int64_t> RedisCache::ttlCoro(const std::string& key) {
     std::string fullKey = std::string(KEY_PREFIX) + key;
     if (!connected_) co_return -2;
@@ -548,6 +581,10 @@ drogon::Task<int64_t> RedisCache::ttlCoro(const std::string& key) {
         co_return -2;
     }
 }
+
+// ==================== AIResponseCache：AI 推理结果缓存 ====================
+// 对情感分析、AI 回复、内容审核等高开销推理结果做缓存，
+// 使用文本 hash 作为 key，避免重复调用 AI 模型。
 
 AIResponseCache& AIResponseCache::getInstance() {
     static AIResponseCache instance;

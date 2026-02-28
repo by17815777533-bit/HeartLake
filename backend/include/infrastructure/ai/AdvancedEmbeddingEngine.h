@@ -1,5 +1,17 @@
 /**
- * AdvancedEmbeddingEngine 模块接口定义
+ * 高性能文本嵌入向量引擎（纯 C++ 实现，无外部模型依赖）
+ *
+ * 多层次特征提取流水线：
+ *   1. TF-IDF 特征（60% 维度）— 签名特征哈希降维，IDF 权重可增量学习
+ *   2. 情感特征（15 维）— 中英文情感词典匹配，提取极性/强度/波动/复杂度
+ *   3. 统计特征（15 维）— 词汇多样性(TTR)、词频熵、词长分布
+ *   4. N-gram 特征（10% 维度）— 2-gram/3-gram 签名哈希，捕捉局部语序
+ *
+ * 性能优化：
+ *   - LRU 缓存避免重复计算（默认 10000 条）
+ *   - 4 路循环展开 + double 累加减少浮点误差（normalizeVector / cosineSimilarity）
+ *   - N-gram 内联滑窗哈希，零中间 string 分配
+ *   - jthread 后台异步预热训练语料
  */
 
 #pragma once
@@ -20,17 +32,23 @@ namespace heartlake {
 namespace ai {
 
 /**
- * 高性能嵌入向量引擎（纯C++实现）
+ * @brief 高性能嵌入向量引擎（纯 C++ 实现，无外部模型依赖）
  *
- * 特性：
- * 1. 多层次特征提取（TF-IDF、N-gram、情感、统计）
- * 2. 特征哈希降维
- * 3. LRU缓存机制
- * 4. 批量处理支持
- * 5. 增量学习能力
+ * @details 单例模式。多层次特征提取流水线：
+ * 1. TF-IDF 特征（60% 维度）— 签名特征哈希降维，IDF 权重可增量学习
+ * 2. 情感特征（15 维）— 中英文情感词典匹配，提取极性/强度/波动/复杂度
+ * 3. 统计特征（15 维）— 词汇多样性(TTR)、词频熵、词长分布
+ * 4. N-gram 特征（10% 维度）— 2-gram/3-gram 签名哈希，捕捉局部语序
+ *
+ * 性能优化：
+ * - LRU 缓存避免重复计算（默认 10000 条）
+ * - 4 路循环展开 + double 累加减少浮点误差
+ * - N-gram 内联滑窗哈希，零中间 string 分配
+ * - jthread 后台异步预热训练语料
  */
 class AdvancedEmbeddingEngine {
 public:
+    /** @brief 获取全局单例 */
     static AdvancedEmbeddingEngine& getInstance();
 
     /**
@@ -74,17 +92,19 @@ public:
     void clearCache();
 
     /**
-     * 获取缓存统计信息
+     * @brief 获取缓存统计信息
      */
     struct CacheStats {
-        size_t hits;
-        size_t misses;
-        size_t size;
-        float hitRate;
+        size_t hits;      ///< 缓存命中次数
+        size_t misses;    ///< 缓存未命中次数
+        size_t size;      ///< 当前缓存条目数
+        float hitRate;    ///< 命中率 [0, 1]
     };
     CacheStats getCacheStats() const;
 
+    /** @brief 是否已完成初始化 */
     bool isInitialized() const { return initialized_; }
+    /** @brief 获取当前 embedding 维度 */
     size_t getEmbeddingDimension() const { return embeddingDim_; }
 
 private:
@@ -94,19 +114,21 @@ private:
     AdvancedEmbeddingEngine& operator=(const AdvancedEmbeddingEngine&) = delete;
 
     // 配置参数
-    size_t embeddingDim_ = 128;
-    size_t cacheSize_ = 10000;
-    std::atomic<bool> initialized_{false};  ///< 多线程读写，必须原子
+    size_t embeddingDim_ = 128;                ///< embedding 向量维度
+    size_t cacheSize_ = 10000;                 ///< LRU 缓存最大容量
+    std::atomic<bool> initialized_{false};     ///< 初始化标记
 
-    // IDF权重（词 -> IDF值）
+    // IDF 权重（词 -> IDF 值），支持增量更新
     std::unordered_map<std::string, float> idfWeights_;
-    size_t totalDocs_ = 0;
-    mutable std::shared_mutex idfMutex_;
+    size_t totalDocs_ = 0;                     ///< 已处理文档总数（用于 IDF 计算）
+    mutable std::shared_mutex idfMutex_;       ///< 保护 IDF 权重表的读写锁
 
-    // 情感词典
-    std::unordered_map<std::string, float> sentimentLexicon_;
+    std::unordered_map<std::string, float> sentimentLexicon_;  ///< 中英文情感词典 (词 -> 极性分数)
 
-    // LRU缓存
+    /**
+     * @brief LRU 缓存，避免对相同文本重复计算 embedding
+     * @details 使用 list + unordered_map 实现 O(1) 的 get/put 操作
+     */
     struct LRUCache {
         std::unordered_map<std::string, std::pair<std::vector<float>, std::list<std::string>::iterator>> cache;
         std::list<std::string> lruList;
@@ -157,29 +179,54 @@ private:
             misses = 0;
         }
     };
-    std::unique_ptr<LRUCache> embeddingCache_;
-    mutable std::mutex cacheMutex_;
+    std::unique_ptr<LRUCache> embeddingCache_;  ///< embedding 结果缓存
+    mutable std::mutex cacheMutex_;              ///< 保护缓存的互斥锁
 
-    // 内部方法
+    // ---- 内部特征提取方法 ----
+
+    /** @brief UTF-8 分词（中文按字、英文按空格/标点） */
     std::vector<std::string> tokenize(const std::string& text) const;
+    /** @brief 提取 N-gram 序列 */
     std::vector<std::string> extractNGrams(const std::vector<std::string>& tokens, int n) const;
+    /** @brief TF-IDF 特征提取（签名哈希降维到 60% 维度） */
     std::vector<float> extractTFIDFFeatures(const std::vector<std::string>& tokens) const;
+    /** @brief 情感特征提取（极性/强度/波动/复杂度，15 维） */
     std::vector<float> extractSentimentFeatures(const std::vector<std::string>& tokens) const;
+    /** @brief 统计特征提取（TTR/词频熵/词长分布，15 维） */
     std::vector<float> extractStatisticalFeatures(const std::vector<std::string>& tokens, const std::string& text) const;
+    /** @brief N-gram 特征提取（2-gram/3-gram 签名哈希，10% 维度） */
     std::vector<float> extractNGramFeatures(const std::vector<std::string>& tokens) const;
+
+    /**
+     * @brief 拼接四类特征向量为最终 embedding
+     * @details 按 TF-IDF(60%) + sentiment(15d) + statistical(15d) + ngram(10%) 拼接
+     */
     std::vector<float> combineFeatures(
         const std::vector<float>& tfidf,
         const std::vector<float>& sentiment,
         const std::vector<float>& statistical,
         const std::vector<float>& ngram
     ) const;
+
+    /** @brief L2 归一化（4 路展开 + double 累加减少浮点误差） */
     static void normalizeVector(std::vector<float>& vec);
+
+    /**
+     * @brief 签名特征哈希：将特征字符串映射到桶索引和符号
+     * @param feature 特征字符串
+     * @param numBuckets 桶数量
+     * @return {桶索引, 符号(+1/-1)}
+     */
     std::pair<size_t, int> featureHash(const std::string& feature, size_t numBuckets) const;
+
+    /** @brief 从文本集合计算 IDF 权重 */
     void computeIDF(const std::vector<std::string>& texts);
+    /** @brief 加载内置中英文情感词典 */
     void loadSentimentLexicon();
+    /** @brief 后台异步预热：从数据库加载训练语料更新 IDF */
     void warmupTrainingDataAsync();
 
-    // 后台预热训练线程，jthread 析构时自动 request_stop + join
+    /// 后台预热训练线程，jthread 析构时自动 request_stop + join
     std::jthread warmupThread_;
 };
 

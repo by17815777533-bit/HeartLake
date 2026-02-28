@@ -1,5 +1,3 @@
-// 石头服务 - 负责石头的发布、获取、编辑、删除
-
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/circuit_breaker.dart';
@@ -7,7 +5,9 @@ import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'cache_service.dart';
 
-/// 石头服务 - 负责发布、获取、编辑、删除石头
+/// 石头（帖子）服务，负责石头的发布、列表查询、详情获取和删除
+///
+/// 列表接口通过 [CircuitBreaker] 做熔断保护，熔断时降级到本地缓存。
 class StoneService extends BaseService {
   @override
   String get serviceName => 'StoneService';
@@ -20,7 +20,9 @@ class StoneService extends BaseService {
   );
   final CacheService _cache = CacheService();
 
-  // 发布石头
+  /// 发布一颗石头，内容经过 XSS 过滤和长度校验
+  ///
+  /// 后端返回 403 表示高危内容被拦截，此时返回 high_risk 标记。
   Future<Map<String, dynamic>> createStone({
     required String content,
     required String stoneType,
@@ -32,7 +34,6 @@ class StoneService extends BaseService {
     InputValidator.requireLength(content, '石头内容', min: 1, max: 5000);
     content = InputValidator.sanitizeText(content);
     InputValidator.requireInList(stoneType, const [
-      // 与后端 StoneController 的 stone_type 白名单保持一致
       'small', 'medium', 'large', 'light', 'heavy',
     ], '石头类型');
     InputValidator.requireNonEmpty(stoneColor, '石头颜色');
@@ -42,7 +43,6 @@ class StoneService extends BaseService {
     ], '情绪类型');
     if (tags != null) {
       InputValidator.requireListLength(tags, '标签', max: 10);
-      // 对每个标签做 XSS 过滤
       tags = tags.map((t) => InputValidator.sanitizeText(t)).toList();
     }
     final response = await post('/stones', data: {
@@ -54,7 +54,7 @@ class StoneService extends BaseService {
       if (tags != null) 'tags': tags,
     });
 
-    // 高危内容检测 - 必须在success检查之前
+    // 403 表示高危内容被内容审核拦截
     if (response.code == 403) {
       return {
         'success': false,
@@ -74,7 +74,9 @@ class StoneService extends BaseService {
     };
   }
 
-  // 获取石头列表（观湖）- 带熔断器 + 缓存降级
+  /// 获取湖面石头列表，支持分页和排序
+  ///
+  /// 通过熔断器保护，失败时降级到本地缓存数据。
   Future<Map<String, dynamic>> getStones({
     int page = 1,
     int pageSize = 20,
@@ -116,7 +118,7 @@ class StoneService extends BaseService {
       });
       return result;
     } catch (_) {
-      // 熔断或异常，降级到缓存
+      // 熔断降级到本地缓存
       final cached = _cache.get<Map<String, dynamic>>(cacheKey);
       if (cached != null) {
         if (kDebugMode) debugPrint('[StoneService] 熔断降级到缓存: $cacheKey');
@@ -126,7 +128,7 @@ class StoneService extends BaseService {
     }
   }
 
-  // 获取我的石头
+  /// 获取当前用户发布的石头列表
   Future<Map<String, dynamic>> getMyStones({
     int page = 1,
     int pageSize = 20,
@@ -160,7 +162,7 @@ class StoneService extends BaseService {
     };
   }
 
-  // 获取湖面气象 - 带熔断器 + 缓存降级
+  /// 获取湖面实时气象数据，熔断时降级到缓存
   Future<Map<String, dynamic>> getLakeWeather() async {
     const cacheKey = 'lake_weather';
     try {
@@ -178,14 +180,14 @@ class StoneService extends BaseService {
     }
   }
 
-  // 删除石头
+  /// 删除指定石头
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await delete('/stones/$stoneId');
     return toMap(response);
   }
 
-  // 构建分页信息（API返回的分页字段在data顶层，不是嵌套的pagination对象）
+  /// 从后端响应中提取分页信息
   Map<String, dynamic> _buildPagination(Map<String, dynamic>? data) {
     final page = data?['page'] ?? 1;
     final totalPages = data?['total_pages'] ?? 1;
@@ -200,7 +202,7 @@ class StoneService extends BaseService {
     };
   }
 
-  // 获取石头详情
+  /// 获取单颗石头的详细信息
   Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await get('/stones/$stoneId');

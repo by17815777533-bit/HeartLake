@@ -23,7 +23,7 @@ set +a
 ACCOUNT_ID="${1:-heartlake_full_access}"
 ACCOUNT_USERNAME="${2:-heartlake_guardian}"
 ACCOUNT_NICKNAME="${3:-灯火守护员}"
-ACCOUNT_KEYWORD="${4:-HeartLake-Lamp-2026-Guardian}"
+ACCOUNT_KEYWORD="${4:-峰峦-霜降-海棠-书香-赤金-月光-绿水-岛屿}"
 export ACCOUNT_KEYWORD
 
 if ! command -v psql >/dev/null 2>&1; then

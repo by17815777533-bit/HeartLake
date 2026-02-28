@@ -1,4 +1,7 @@
-// 应用配置管理
+/// 应用配置管理
+///
+/// 单例模式，管理应用的全局配置，包括环境配置、API配置、超时配置、
+/// 缓存配置、功能开关等。
 
 library;
 
@@ -14,7 +17,7 @@ enum AppEnvironment {
 
 /// 应用配置类
 ///
-/// 单例模式，全局配置管理
+/// 单例模式，提供全局配置访问。
 class AppConfig {
   static final AppConfig _instance = AppConfig._internal();
   factory AppConfig() => _instance;
@@ -45,6 +48,8 @@ class AppConfig {
   );
 
   /// 获取API基础URL
+  ///
+  /// 根据当前环境返回对应的API地址。
   String get apiBaseUrl {
     if (_apiBaseUrlOverride.isNotEmpty) {
       return _apiBaseUrlOverride;
@@ -60,7 +65,9 @@ class AppConfig {
     }
   }
 
-  /// 获取开发环境API URL（根据平台自动切换）
+  /// 获取开发环境API URL
+  ///
+  /// 根据平台自动切换合适的地址。
   String _getDevelopmentApiUrl() {
     if (kIsWeb) {
       final scheme = Uri.base.scheme.isNotEmpty ? Uri.base.scheme : 'http';
@@ -221,13 +228,17 @@ class AppConfig {
   // ============================================================
 
   /// 初始化配置
+  ///
+  /// 根据编译模式和运行环境自动判断当前环境。
+  ///
+  /// [environment] 可选的环境配置，不提供则自动判断
   void initialize({
     AppEnvironment? environment,
   }) {
     if (environment != null) {
       _environment = environment;
     } else if (kIsWeb) {
-      // Web 场景下优先按访问域名判断环境，避免本地 --release 被误判为生产环境
+      // Web场景下优先按访问域名判断环境
       final host = Uri.base.host;
       final isPrivateIp = RegExp(
         r'^(127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$',
@@ -241,7 +252,7 @@ class AppConfig {
                       ? AppEnvironment.staging
                       : AppEnvironment.development));
     } else {
-      // 非 Web 端维持原有编译模式策略
+      // 非Web端维持原有编译模式策略
       if (kReleaseMode) {
         _environment = AppEnvironment.production;
       } else if (kProfileMode) {
@@ -257,7 +268,9 @@ class AppConfig {
     debugPrint('   WS URL: $wsUrl');
   }
 
-  /// 打印所有配置（调试用）
+  /// 打印所有配置
+  ///
+  /// 调试用，输出当前配置信息。
   void printConfig() {
     debugPrint('''
 ╔══════════════════════════════════════════════════════════════╗

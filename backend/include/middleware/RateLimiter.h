@@ -1,5 +1,12 @@
 /**
- * RateLimiter 模块接口定义
+ * @brief 多策略分布式限流器
+ *
+ * 支持三种限流算法（令牌桶、滑动窗口、固定窗口），四种限流粒度
+ * （用户级、IP级、接口级、全局级），可选 Redis 后端实现分布式限流，
+ * 也可退化为本地内存模式。
+ *
+ * @details 典型用法：在 Drogon Filter 中调用 RateLimitFilter::apply()，
+ *          自动从请求中提取限流键并检查配额，超限时返回 429 响应。
  */
 
 
@@ -15,66 +22,59 @@
 namespace heartlake {
 namespace middleware {
 
-/**
- * 限流策略
- */
+/// 限流算法策略
 enum class RateLimitStrategy {
-    TOKEN_BUCKET,      // 令牌桶
-    SLIDING_WINDOW,    // 滑动窗口
-    FIXED_WINDOW       // 固定窗口
+    TOKEN_BUCKET,      ///< 令牌桶：平滑限速，允许突发
+    SLIDING_WINDOW,    ///< 滑动窗口：精确统计时间窗口内的请求数
+    FIXED_WINDOW       ///< 固定窗口：按固定时间段计数，实现简单但有边界突发问题
 };
 
-/**
- * 限流级别
- */
+/// 限流粒度级别
 enum class RateLimitLevel {
-    USER,              // 用户级别
-    IP,                // IP级别
-    ENDPOINT,          // 接口级别
-    GLOBAL             // 全局级别
+    USER,              ///< 按用户ID限流
+    IP,                ///< 按客户端IP限流
+    ENDPOINT,          ///< 按接口路径限流
+    GLOBAL             ///< 全局统一限流
 };
 
-/**
- * 限流配置
- */
+/// 限流配置参数
 struct RateLimitConfig {
     RateLimitStrategy strategy = RateLimitStrategy::TOKEN_BUCKET;
-    int capacity;              // 容量（令牌桶大小或窗口大小）
-    int refillRate;            // 填充速率（每秒添加的令牌数）
-    int windowSeconds;         // 时间窗口（秒）
-    bool useRedis = true;      // 是否使用Redis（分布式）
+    int capacity;              ///< 令牌桶容量 / 窗口内最大请求数
+    int refillRate;            ///< 令牌填充速率（个/秒）
+    int windowSeconds;         ///< 时间窗口长度（秒）
+    bool useRedis = true;      ///< 是否使用 Redis 实现分布式限流
     std::string redisKeyPrefix = "ratelimit:";
 };
 
-/**
- * 限流结果
- */
+/// 限流检查结果
 struct RateLimitResult {
-    bool allowed;              // 是否允许
-    int remaining;             // 剩余配额
-    int limit;                 // 总配额
-    int retryAfter;            // 重试等待时间（秒）
-    std::string reason;        // 原因
+    bool allowed;              ///< 本次请求是否放行
+    int remaining;             ///< 剩余可用配额
+    int limit;                 ///< 总配额上限
+    int retryAfter;            ///< 被限流时建议的重试等待秒数
+    std::string reason;        ///< 限流原因描述
 };
 
 /**
- * 分布式限流器
+ * @brief 限流器核心（单例）
+ *
+ * 根据配置的策略和级别执行限流检查，内部同时维护
+ * Redis 远程实现和本地内存实现，按 useRedis 配置自动切换。
  */
 class RateLimiter {
 public:
     static RateLimiter& getInstance();
 
-    /**
-     * 初始化限流器
-     */
+    /// 加载默认限流配置，服务启动时调用
     void initialize();
 
     /**
-     * 检查是否允许请求
-     * @param key 限流键（用户ID、IP等）
-     * @param level 限流级别
-     * @param endpoint 接口路径（可选）
-     * @return 限流结果
+     * @brief 执行限流检查
+     * @param key 限流键（用户ID、IP地址等，取决于 level）
+     * @param level 限流粒度
+     * @param endpoint 接口路径（仅 ENDPOINT 级别使用）
+     * @return 限流结果，包含是否放行、剩余配额等信息
      */
     RateLimitResult checkLimit(
         const std::string& key,
@@ -96,18 +96,15 @@ public:
      */
     void setEndpointConfig(const std::string& endpoint, const RateLimitConfig& config);
 
-    /**
-     * 获取限流统计
-     * @param key 限流键
-     * @return 统计信息
-     */
+    /// 限流统计信息
     struct RateLimitStats {
-        int totalRequests;
-        int allowedRequests;
-        int blockedRequests;
-        float blockRate;
-        int64_t lastRequestTime;
+        int totalRequests;      ///< 总请求数
+        int allowedRequests;    ///< 放行请求数
+        int blockedRequests;    ///< 被拦截请求数
+        float blockRate;        ///< 拦截率（0.0~1.0）
+        int64_t lastRequestTime; ///< 最近一次请求的时间戳
     };
+    /// 获取指定限流键的统计数据
     RateLimitStats getStats(const std::string& key);
 
     /**
@@ -129,38 +126,43 @@ private:
     std::unordered_map<RateLimitLevel, RateLimitConfig> configs_;
     std::unordered_map<std::string, RateLimitConfig> endpointConfigs_;
 
-    // 本地缓存（用于非Redis模式）
+    /// 本地令牌桶状态（非 Redis 模式下使用）
     struct LocalBucket {
-        int tokens;
-        std::chrono::steady_clock::time_point lastRefill;
-        int requestCount;
-        int blockedCount;
+        int tokens;                                    ///< 当前可用令牌数
+        std::chrono::steady_clock::time_point lastRefill; ///< 上次填充时间
+        int requestCount;                              ///< 累计请求数
+        int blockedCount;                              ///< 累计拦截数
     };
     std::unordered_map<std::string, LocalBucket> localBuckets_;
 
-    // 内部方法
+    // ---- 策略分发：根据 config.strategy 选择算法 ----
     RateLimitResult checkTokenBucket(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkSlidingWindow(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkFixedWindow(const std::string& key, const RateLimitConfig& config);
 
-    // Redis 实现
+    // ---- Redis 分布式实现 ----
     RateLimitResult checkTokenBucketRedis(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkSlidingWindowRedis(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkFixedWindowRedis(const std::string& key, const RateLimitConfig& config);
 
-    // 本地实现
+    // ---- 本地内存实现（单机模式或 Redis 不可用时的降级） ----
     RateLimitResult checkTokenBucketLocal(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkSlidingWindowLocal(const std::string& key, const RateLimitConfig& config);
     RateLimitResult checkFixedWindowLocal(const std::string& key, const RateLimitConfig& config);
 
-    // 辅助方法
+    /// 构建 Redis key（prefix + 限流键）
     std::string buildRedisKey(const std::string& key, const RateLimitConfig& config);
+    /// 根据时间差补充本地令牌桶的令牌
     void refillTokens(LocalBucket& bucket, const RateLimitConfig& config);
+    /// 获取指定级别的限流配置，接口级别优先查 endpointConfigs_
     RateLimitConfig getConfigForLevel(RateLimitLevel level);
 };
 
 /**
- * 限流过滤器（Drogon Filter）
+ * @brief 限流 Drogon Filter 适配层
+ *
+ * 封装 RateLimiter 的调用逻辑，提供从 HTTP 请求中提取限流键、
+ * 执行检查、构建 429 响应的一站式方法，供 Controller Filter 直接使用。
  */
 class RateLimitFilter {
 public:

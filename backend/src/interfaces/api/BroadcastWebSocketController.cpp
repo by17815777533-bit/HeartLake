@@ -1,5 +1,12 @@
 /**
- * WebSocket广播控制器实现 - 集成WebSocketHub
+ * @file BroadcastWebSocketController.cpp
+ * @brief WebSocket 广播控制器 — PASETO 鉴权、房间管理、消息路由
+ *
+ * 基于 WebSocketHub 实现实时通信：连接建立时通过 URL token 或首包 auth
+ * 完成 PASETO v4 身份验证（5 秒超时自动断开），支持 join/leave 房间、
+ * 私有房间权限校验（private:{uid1}_{uid2}）、64KB 消息体限制、
+ * 心跳保活（30s 间隔 / 90s 超时）。静态方法 broadcast / sendToUser /
+ * sendToRoom 供其他 Controller 调用以推送实时事件。
  */
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/PasetoUtil.h"

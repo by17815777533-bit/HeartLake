@@ -1,5 +1,12 @@
 /**
- * 石友关系TTL引擎实现
+ * 石友关系 TTL 引擎实现
+ *
+ * 管理临时好友关系的生命周期。核心机制：
+ * - Redis 双 key 方案：data key（存关系元数据，TTL+60s 冗余）+ ttl key（精确倒计时）
+ * - 后台轮询线程每 30 秒扫描 DB 中已过期的临时好友，标记为 expired
+ * - 过期处理通过 Redis Lua 脚本获取分布式锁，防止多实例重复处理
+ * - 过期后自动删除 DB 记录、清理 Redis、通知双方用户
+ * - 批量 TTL 查询使用协程并行发起，避免 N+1 串行等待
  */
 
 #include "infrastructure/services/FriendshipTTLEngine.h"

@@ -1,8 +1,16 @@
 /**
- * 实时情绪脉搏检测子系统实现
+ * @file EmotionPulseDetector.cpp
+ * @brief 实时情绪脉搏检测子系统 —— 滑动窗口 + 时间衰减加权的情绪趋势分析
+ *
+ * 核心算法：
+ *   - 样本提交时做 MAD (Median Absolute Deviation) 鲁棒抗噪，
+ *     限制离群点对脉搏的污染
+ *   - 脉搏计算采用指数时间衰减 × 置信度双重加权，
+ *     近期高置信样本对均值/方差贡献更大
+ *   - 趋势斜率通过 EWMA 平滑 + 加权线性回归拟合，单位为"每分钟"
+ *   - 主导情绪按加权票数而非简单计数选取，避免旧样本干扰
  *
  * 从 EdgeAIEngine 提取的独立模块。
- *
  */
 
 #include "infrastructure/ai/EmotionPulseDetector.h"
@@ -15,6 +23,7 @@ namespace ai {
 // 配置
 // ============================================================================
 
+/// 运行时调整检测窗口长度和历史快照上限（写锁保护）
 void EmotionPulseDetector::configure(int windowSeconds, int maxHistory) {
     std::unique_lock<std::shared_mutex> lock(pulseMutex_);
     pulseWindowSeconds_ = windowSeconds;
@@ -35,6 +44,7 @@ void EmotionPulseDetector::clear() {
 // 辅助函数
 // ============================================================================
 
+/// 求中位数：使用 nth_element O(n) 选择算法，偶数长度取中间两值均值
 float EmotionPulseDetector::medianValue(std::vector<float> values) {
     if (values.empty()) {
         return 0.0f;
@@ -54,6 +64,7 @@ float EmotionPulseDetector::medianValue(std::vector<float> values) {
 // 窗口修剪
 // ============================================================================
 
+/// 从队列头部逐个弹出超出时间窗口的过期样本（deque 保证时间有序）
 void EmotionPulseDetector::pruneEmotionWindow() {
     auto now = std::chrono::steady_clock::now();
     auto windowDuration = std::chrono::seconds(pulseWindowSeconds_);
@@ -73,6 +84,15 @@ void EmotionPulseDetector::pruneEmotionWindow() {
 // 脉搏计算
 // ============================================================================
 
+/**
+ * 从当前窗口样本计算一次脉搏快照。
+ *
+ * 计算步骤：
+ *   1. 指数时间衰减 × 置信度加权求均值（τ = max(45s, window*0.45)）
+ *   2. 同权重体系下计算加权标准差
+ *   3. EWMA(α=0.35) 平滑后做加权线性回归拟合趋势斜率（≥4 样本）
+ *   4. 按加权票数选取主导情绪
+ */
 EmotionPulse EmotionPulseDetector::computePulseFromWindow() const {
     EmotionPulse pulse;
     pulse.timestamp = std::chrono::steady_clock::now();
@@ -174,6 +194,19 @@ EmotionPulse EmotionPulseDetector::computePulseFromWindow() const {
 // 提交样本
 // ============================================================================
 
+/**
+ * 提交一个情绪样本到滑动窗口。
+ *
+ * 处理流程：
+ *   1. 将 score 钳位到 [-1, 1]，confidence 归一化到 [0, 1]
+ *   2. 置信度映射为样本权重：weight = 0.25 + 0.75 * confidence
+ *   3. 窗口内样本 ≥ 6 时启用 MAD 鲁棒抗噪：
+ *      - 取最近 15 个样本计算中位数和 MAD
+ *      - 低置信度样本采用更严格的 3σ 边界
+ *      - 离群点被拉回到 0.75*bounded + 0.25*median
+ *   4. 入队后修剪过期样本
+ *   5. 每 10 个样本生成一次脉搏快照存入历史
+ */
 void EmotionPulseDetector::submitEmotionSample(float score, const std::string& mood, float confidence) {
     std::unique_lock<std::shared_mutex> lock(pulseMutex_);
 

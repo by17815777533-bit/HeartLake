@@ -8,6 +8,11 @@ import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
 import 'stone_detail_screen.dart';
 
+/// 收到的纸船列表页面
+///
+/// 展示其他用户对我的石头发出的匿名纸船回应，
+/// 点击可跳转到对应石头详情查看完整内容。
+/// 通过 WebSocket 实时监听新纸船到达事件。
 class ReceivedBoatsScreen extends StatefulWidget {
   const ReceivedBoatsScreen({super.key});
 

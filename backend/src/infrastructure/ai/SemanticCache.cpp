@@ -1,12 +1,16 @@
 /**
- * 语义缓存实现
+ * @file SemanticCache.cpp
+ * @brief 两级语义缓存 —— L1 精确哈希 + L2 HNSW ANN 近似匹配
  *
- * L2 语义搜索已从 O(n) 线性扫描升级为 HNSW ANN 检索。
- * 插入缓存时同步插入 HNSW 索引，查询时用 HNSW 做近似最近邻检索，
- * 再将 L2 距离转换为 cosine similarity 与阈值比较。
+ * 架构设计：
+ *   L1 层：std::string hash → CacheEntry，O(1) 精确命中
+ *   L2 层：向量 L2 归一化后存入 HNSW 索引，查询时取 top-5 候选，
+ *          利用 squared_L2 = 2 - 2*cosine 换算余弦相似度与阈值比较
  *
- * 归一化技巧：存入 HNSW 前对向量做 L2 归一化，
- * 这样 squared_L2 = 2 - 2*cosine，可直接换算。
+ * 淘汰策略：
+ *   - TTL 过期清理（purgeExpired）
+ *   - 容量满时 LFU 淘汰命中次数最少的条目
+ *   - HNSW 索引与 semanticEntries_ 保持同步删除
  */
 
 #include "infrastructure/ai/SemanticCache.h"
@@ -21,6 +25,7 @@ namespace ai {
 // 内部工具
 // ============================================================================
 
+/// 延迟初始化 HNSW 索引，M=16 / efSearch=64 适合缓存场景的精度需求
 void SemanticCache::initHNSWIndex() {
     hnswIndex_ = std::make_unique<HNSWIndex>();
     // 语义缓存场景：精度优先，M=16 / efSearch=64 足够覆盖高相似度候选
@@ -31,6 +36,7 @@ std::string SemanticCache::makeCacheNodeId(size_t seq) {
     return "sc_" + std::to_string(seq);
 }
 
+/// L2 归一化：零向量跳过，保证 HNSW 中 squared_L2 可直接换算 cosine
 std::vector<float> SemanticCache::normalizeVec(const std::vector<float>& v) {
     float norm = 0.0f;
     for (float x : v) norm += x * x;
@@ -48,6 +54,10 @@ std::vector<float> SemanticCache::normalizeVec(const std::vector<float>& v) {
 // 查询：L1 精确匹配 + L2 HNSW ANN 语义匹配
 // ============================================================================
 
+/**
+ * 两级缓存查询：先 L1 精确哈希匹配，未命中再走 L2 HNSW ANN 语义匹配。
+ * L2 取 top-5 候选后逐个检查 TTL 和 cosine 阈值，≥0.99 时提前终止。
+ */
 bool SemanticCache::get(const std::string& query, const std::vector<float>& queryEmbedding, std::string& response) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -109,6 +119,7 @@ bool SemanticCache::get(const std::string& query, const std::vector<float>& quer
 // 插入：同时写入精确缓存和 HNSW 索引
 // ============================================================================
 
+/// 插入缓存：同时写入 L1 精确哈希和 L2 HNSW 索引，插入前清理过期 + LFU 淘汰
 void SemanticCache::put(const std::string& query, const std::vector<float>& embedding, const std::string& response) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -146,6 +157,7 @@ std::string SemanticCache::computeHash(const std::string& query) {
     return std::to_string(hasher(query));
 }
 
+/// LFU 淘汰：遍历找 hitCount 最小的条目，同步从 HNSW 索引移除
 void SemanticCache::evictLFU() {
     if (semanticEntries_.empty()) return;
 

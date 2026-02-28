@@ -7,6 +7,12 @@ import 'publish_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
 
+/// 应用主页框架
+///
+/// 底部五个 Tab：观湖、共鸣、投石、好友、我的。
+/// 采用懒加载策略：Tab 首次访问时才创建页面实例，
+/// 创建后缓存在 [_cachedTabs] 中避免重复构建。
+/// 切换回观湖 Tab 时自动刷新石头列表。
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 

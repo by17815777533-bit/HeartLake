@@ -1,4 +1,15 @@
-// Dashboard 数据逻辑主 composable - 整合图表配置和数据加载
+/**
+ * 大屏数据组合逻辑，聚合图表配置、统计加载与数据导出。
+ *
+ * 这是 Dashboard 页面的核心 composable，职责包括：
+ * 1. 聚合 useChartOptions（图表配置）和 useDashboardLoaders（数据拉取）
+ * 2. 维护统计卡片、隐私预算、情绪共鸣等业务状态
+ * 3. 提供湖面天气模型（情绪温度 → 天气隐喻的映射）
+ * 4. 数据导出（JSON 格式，自动脱敏只保留展示字段）
+ * 5. 全量刷新（Promise.allSettled 并行拉取，单个失败不阻塞其他）
+ *
+ * 返回值直接解构给 Dashboard.vue 使用，子组件通过 props 接收。
+ */
 import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
@@ -7,7 +18,7 @@ import { useChartOptions, moodColors, moodNames } from './useChartOptions'
 import { useDashboardLoaders } from './useDashboardLoaders'
 
 export function useDashboardData() {
-  // ── 基础状态 ──
+  /** 基础状态。 */
   const loading = ref(false)
   const privacyLoading = ref(false)
   const resonanceLoading = ref(false)
@@ -19,10 +30,10 @@ export function useDashboardData() {
   const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 
   const techBadges = [
-    { icon: '🧠', label: 'DTW情绪共鸣算法' },
-    { icon: '🔒', label: 'ε-差分隐私' },
-    { icon: '💬', label: '双记忆RAG守护' },
-    { icon: '📱', label: '端侧AI推理' },
+    { icon: 'AI', label: 'DTW 情绪共鸣' },
+    { icon: 'DP', label: 'ε-差分隐私' },
+    { icon: 'RAG', label: '双记忆守护链路' },
+    { icon: 'EDGE', label: '端侧推理' },
   ]
 
   const greeting = computed(() => {
@@ -38,7 +49,7 @@ export function useDashboardData() {
   const formatNumber = (num: number) =>
     num >= 10000 ? (num / 10000).toFixed(1) + 'w' : num.toLocaleString()
 
-  // ── 统计数据 ──
+  /** 统计卡片基础数据。 */
   const stats = reactive({
     totalUsers: 0, todayStones: 0, onlineCount: 0, pendingReports: 0,
   })
@@ -49,7 +60,7 @@ export function useDashboardData() {
     { title: '待处理举报', value: stats.pendingReports, color: '#E65100', icon: 'Warning' },
   ])
 
-  // ── 隐私保护统计 ──
+  /** 隐私预算与查询统计。 */
   const privacyStats = reactive({
     queryCount: 0, epsilonUsed: 0, epsilonTotal: 1.0, protectedUsers: 0,
   })
@@ -63,15 +74,15 @@ export function useDashboardData() {
     return '#BA1A1A'
   })
 
-  // ── 情绪共鸣统计 ──
+  /** 情绪共鸣统计。 */
   const resonanceStats = reactive({
     todayMatches: 0, avgScore: 0, topMood: '', successRate: 0,
   })
 
-  // ── 图表配置 ──
+  /** 图表配置。 */
   const charts = useChartOptions()
 
-  // ── 湖面天气 ──
+  /** 情绪温度对应的湖面天气模型。 */
   const lakeWeather = computed(() => {
     const temp = charts.emotionPulseOption.value.series[0].data[0]?.value ?? 50
     if (temp > 60) return { icon: '☀️', label: '晴朗', desc: '社区积极', color: '#E65100', bg: 'linear-gradient(135deg, #FFF3E0 0%, #FFB74D 100%)' }
@@ -83,7 +94,7 @@ export function useDashboardData() {
     charts.emotionPulseOption.value.series[0].data[0]?.value ?? 50
   )
 
-  // ── 天气心情饼图 ──
+  /** 天气心情饼图配置。 */
   const escapeHtml = (str: string | number) => String(str).replace(/[<>&"']/g, (c: string) => ({
     '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
   }[c] ?? c))
@@ -115,14 +126,16 @@ export function useDashboardData() {
     }
   })
 
-  // ── 数据加载 ──
+  /** 远程加载器集合。 */
   const loaders = useDashboardLoaders({
     stats, chartRange, moodTrendRange, trendingTopics, aiTrendingContent,
     privacyStats, privacyLoading, resonanceStats, resonanceLoading,
     ...charts,
   })
 
-  // ── 导出数据（仅包含业务需要的字段，过滤原始响应中的冗余/敏感信息） ──
+  /**
+   * 导出大屏数据为 JSON 文件，只保留展示用的业务字段。
+   */
   const exportData = () => {
     // 清洗统计数据，只保留展示用的业务字段
     const cleanedStats = {
@@ -165,7 +178,7 @@ export function useDashboardData() {
     ElMessage.success('数据导出成功')
   }
 
-  // ── 刷新所有数据 ──
+  /** 并行刷新大屏全部数据。 */
   const refreshData = async () => {
     loading.value = true
     await Promise.allSettled([

@@ -1,13 +1,12 @@
-// 灯火服务 - 灯火守护能力管理
-
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 灯火（VIP）服务，管理会员状态、权益查询和心理咨询预约
 class VIPService extends BaseService {
   @override
   String get serviceName => '灯火服务';
 
-  /// 获取用户VIP状态
+  /// 获取当前用户的灯火会员状态
   Future<Map<String, dynamic>> getVIPStatus() async {
     final response = await get('/vip/status');
     return toMap(response);

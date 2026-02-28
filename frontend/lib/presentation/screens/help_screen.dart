@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
+/// 帮助与反馈页面
+///
+/// 提供常见问题解答（FAQ）和用户反馈入口，
+/// 帮助用户了解心湖的核心功能和使用方式。
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 

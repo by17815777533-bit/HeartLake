@@ -1,5 +1,18 @@
 /**
- * main 模块实现
+ * @file main.cpp
+ * @brief Heart Lake 后端服务入口 —— 启动引导、中间件注册、子系统初始化
+ *
+ * 启动流程概览：
+ *   1. 加载 .env 环境变量（支持多候选路径 + 显式 HEARTLAKE_ENV_PATH）
+ *   2. 校验关键安全配置（PASETO_KEY、DB_PASSWORD）
+ *   3. 根据 CPU 核数 / ONNX 推理需求自适应设置 IO 线程数
+ *   4. 注册 Drogon 中间件链：CORS → 安全响应头 → PASETO 认证 → 链路追踪
+ *   5. 按依赖顺序初始化子系统：
+ *      Architecture → RBAC → ContentFilter → AIService → EmbeddingEngine
+ *      → EdgeAI → EmotionResonance → Recommendation → DualMemoryRAG
+ *      → RateLimiter → Redis → FriendshipTTL → ResonanceSearch
+ *   6. 启动后台守护任务（LakeGod / EmotionTracking / UserFollowUp / WS心跳）
+ *   7. 调用 app.run() 进入事件循环
  */
 #include <drogon/drogon.h>
 #include "utils/PasetoUtil.h"
@@ -37,6 +50,7 @@
 
 using namespace drogon;
 
+/// 构造统一格式的 JSON 错误响应，自动映射业务 code 到 HTTP 状态码
 static HttpResponsePtr createErrorResponse(int code, const std::string& message) {
     Json::Value json;
     json["code"] = code;
@@ -55,6 +69,7 @@ static HttpResponsePtr createErrorResponse(int code, const std::string& message)
     return resp;
 }
 
+/// 根据硬件并发度计算默认 IO 线程数，上限 8、下限 2，避免低配机器过度抢占
 static int getDefaultServerThreads() {
     const unsigned int hw = std::thread::hardware_concurrency();
     if (hw == 0) {
@@ -65,6 +80,7 @@ static int getDefaultServerThreads() {
     return static_cast<int>(std::max(2u, capped));
 }
 
+/// 去除字符串首尾空白字符
 static std::string trimWhitespace(std::string value) {
     value.erase(value.begin(), std::find_if(value.begin(), value.end(),
         [](unsigned char ch) { return !std::isspace(ch); }));
@@ -73,6 +89,7 @@ static std::string trimWhitespace(std::string value) {
     return value;
 }
 
+/// 剥离值两端的可选引号（单引号或双引号），用于 .env 解析
 static std::string stripOptionalQuotes(const std::string& value) {
     if (value.size() >= 2 &&
         ((value.front() == '"' && value.back() == '"') ||
@@ -82,6 +99,12 @@ static std::string stripOptionalQuotes(const std::string& value) {
     return value;
 }
 
+/**
+ * 解析 .env 文件并注入环境变量。
+ * 支持 # 注释、export 前缀、内联注释裁剪、引号剥离。
+ * @param overrideExisting 为 true 时覆盖已有同名环境变量
+ * @return 文件存在且成功加载返回 true
+ */
 static bool loadEnvFileIfExists(const std::filesystem::path& path, bool overrideExisting = false) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -133,6 +156,7 @@ static bool loadEnvFileIfExists(const std::filesystem::path& path, bool override
     return true;
 }
 
+/// 按优先级搜索 .env 文件：HEARTLAKE_ENV_PATH > .env > ../.env > ./backend/.env
 static void bootstrapEnvFromDotEnv() {
     const char* explicitEnvPath = std::getenv("HEARTLAKE_ENV_PATH");
     if (explicitEnvPath && *explicitEnvPath != '\0') {
@@ -157,6 +181,7 @@ static void bootstrapEnvFromDotEnv() {
     }
 }
 
+/// 解析 config.json 路径：优先使用指定路径，不存在时依次尝试 fallback 候选
 static std::string resolveConfigPath(std::string requestedPath) {
     if (!requestedPath.empty()) {
         std::error_code ec;

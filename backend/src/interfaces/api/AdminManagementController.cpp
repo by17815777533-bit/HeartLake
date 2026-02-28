@@ -1,5 +1,10 @@
 /**
- * AdminManagementController 模块实现
+ * @file AdminManagementController.cpp
+ * @brief 管理后台业务操作控制器 — 用户/内容/举报/敏感词/系统配置的 CRUD
+ *
+ * 提供管理员日常运营所需的全部管理接口：用户列表与封禁、石头与纸船管理、
+ * 举报审核流转、敏感词维护、系统配置读写、广播消息下发、操作日志查询等。
+ * 所有查询均使用参数化 SQL 防注入，状态值通过白名单校验。
  */
 #include "interfaces/api/AdminManagementController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"

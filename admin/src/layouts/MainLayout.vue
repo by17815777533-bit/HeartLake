@@ -1,7 +1,3 @@
-<!--
-  MainLayout 组件 - 光遇(Sky: Children of the Light)风格
--->
-
 <template>
   <div class="main-layout">
     <!-- 全局加载进度条 -->
@@ -67,7 +63,7 @@
         <div class="header-left">
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/' }">
-              首页
+              心湖
             </el-breadcrumb-item>
             <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
@@ -161,28 +157,28 @@ const router = useRouter()
 const appStore = useAppStore()
 const isCollapsed = ref(false)
 
-// 侧边栏菜单项配置
-// 当前版本所有管理员权限相同，菜单项静态定义。
-// 后续接入角色权限系统后，可根据用户角色动态过滤：
-//   const menuItems = computed(() => allMenuItems.filter(item => hasPermission(item.requiredRole)))
+/**
+ * 主导航菜单。
+ * 当前版本管理员权限一致，按固定顺序展示关键业务入口。
+ */
 const menuItems = [
-  { path: '/dashboard', title: '数据大屏', icon: 'DataAnalysis' },
-  { path: '/users', title: '用户管理', icon: 'User' },
-  { path: '/content', title: '内容管理', icon: 'Document' },
-  { path: '/moderation', title: '内容审核', icon: 'Check' },
-  { path: '/reports', title: '举报处理', icon: 'Bell' },
-  { path: '/sensitive-words', title: '敏感词', icon: 'Warning' },
-  { path: '/logs', title: '操作日志', icon: 'Tickets' },
-  { path: '/settings', title: '系统设置', icon: 'Setting' },
-  { path: '/edge-ai', title: '边缘AI', icon: 'Monitor' },
+  { path: '/dashboard', title: '湖面总览', icon: 'DataAnalysis' },
+  { path: '/users', title: '旅人关怀', icon: 'User' },
+  { path: '/content', title: '石头与纸船', icon: 'Document' },
+  { path: '/moderation', title: '温暖守护', icon: 'Check' },
+  { path: '/reports', title: '求助处理', icon: 'Bell' },
+  { path: '/sensitive-words', title: '风险词典', icon: 'Warning' },
+  { path: '/logs', title: '服务记录', icon: 'Tickets' },
+  { path: '/settings', title: '系统偏好', icon: 'Setting' },
+  { path: '/edge-ai', title: '心湖智能', icon: 'Monitor' },
 ]
 
-// 管理员信息 — 优先使用 store 中登录时存储的用户信息
+/** 管理员展示信息。 */
 const adminInfo = reactive({
   nickname: appStore.userInfo?.nickname || appStore.userInfo?.username || '管理员',
 })
 
-// 实时统计
+/** 顶部实时统计。 */
 const realtimeStats = reactive({
   onlineCount: 0,
   todayStones: 0,
@@ -190,7 +186,7 @@ const realtimeStats = reactive({
 
 let statsInterval: ReturnType<typeof setInterval> | null = null
 
-// L-4: 获取管理员信息
+/** 拉取管理员资料。 */
 const fetchAdminInfo = async () => {
   try {
     const res = await api.getAdminInfo()
@@ -202,7 +198,7 @@ const fetchAdminInfo = async () => {
   }
 }
 
-// 获取实时统计
+/** 拉取实时统计。 */
 const fetchRealtimeStats = async () => {
   try {
     const res = await api.getRealtimeStats()
@@ -216,7 +212,7 @@ const fetchRealtimeStats = async () => {
   }
 }
 
-// 处理下拉菜单命令
+/** 处理用户下拉菜单行为。 */
 const handleCommand = async (command: string) => {
   if (command === 'logout') {
     try {
@@ -237,7 +233,7 @@ const handleCommand = async (command: string) => {
   }
 }
 
-// WebSocket 实时数据更新
+/** 处理 WebSocket 推送的统计更新。 */
 const handleStatsUpdate = (data: { online_count?: number; today_stones?: number }) => {
   if (data) {
     realtimeStats.onlineCount = data.online_count ?? realtimeStats.onlineCount
@@ -245,16 +241,14 @@ const handleStatsUpdate = (data: { online_count?: number; today_stones?: number 
   }
 }
 
-// L-5: 页面可见性检测 — 不可见时暂停轮询，可见时恢复
+/** 页面可见性切换时管理轮询，避免后台页无效请求。 */
 const handleVisibilityChange = () => {
   if (document.hidden) {
-    // 页面不可见，暂停轮询
     if (statsInterval) {
       clearInterval(statsInterval)
       statsInterval = null
     }
   } else {
-    // 页面恢复可见，立即刷新并重启轮询
     fetchRealtimeStats()
     if (!statsInterval) {
       statsInterval = setInterval(fetchRealtimeStats, 30000)
@@ -263,19 +257,14 @@ const handleVisibilityChange = () => {
 }
 
 onMounted(() => {
-  // L-4: 获取管理员信息
   fetchAdminInfo()
   fetchRealtimeStats()
 
-  // 每30秒更新一次实时数据
   statsInterval = setInterval(fetchRealtimeStats, 30000)
 
-  // 连接WebSocket并监听实时更新
-  // M-15: 重连逻辑统一由 websocket.ts 管理（指数退避 + 最大10次上限），此处不额外实现
   websocket.connect()
   websocket.on('stats_update', handleStatsUpdate)
 
-  // L-5: 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
@@ -285,16 +274,11 @@ onUnmounted(() => {
     statsInterval = null
   }
   websocket.off('stats_update', handleStatsUpdate)
-  // L-5: 移除可见性监听
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
 <style lang="scss" scoped>
-/* ============================================
-   Material Design 3 主题
-   ============================================ */
-
 @keyframes loading-progress {
   0% {
     width: 0%;
@@ -334,19 +318,30 @@ onUnmounted(() => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: var(--m3-surface);
+  position: relative;
+  background: linear-gradient(180deg, #fff8e8 0%, #fffdf7 58%, #f4f9ff 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(600px 280px at 20% -10%, rgba(255, 217, 142, 0.28), transparent 70%),
+      radial-gradient(700px 300px at 90% 110%, rgba(144, 205, 255, 0.25), transparent 72%);
+  }
 }
 
 /* 侧边栏 */
 .sidebar {
-  background: var(--m3-surface-container-low);
-  border-right: 1px solid var(--m3-outline-variant);
+  background: rgba(255, 253, 246, 0.96);
+  border-right: 1px solid #f3d9ad;
   display: flex;
   flex-direction: column;
   transition: var(--m3-transition);
   position: relative;
   z-index: 10;
-  box-shadow: var(--m3-elevation-1);
+  box-shadow: 0 10px 28px rgba(162, 130, 58, 0.12);
 
   .logo {
     height: 64px;
@@ -355,8 +350,8 @@ onUnmounted(() => {
     justify-content: center;
     gap: 12px;
     padding: 0 20px;
-    border-bottom: 1px solid var(--m3-outline-variant);
-    background: var(--m3-surface-container);
+    border-bottom: 1px solid #f3e4c7;
+    background: rgba(255, 252, 242, 0.95);
 
     img {
       width: 32px;
@@ -366,7 +361,7 @@ onUnmounted(() => {
     .logo-text {
       font-size: 18px;
       font-weight: 600;
-      color: var(--m3-primary);
+      color: #a76f00;
       letter-spacing: 0.5px;
     }
   }
@@ -386,24 +381,24 @@ onUnmounted(() => {
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--m3-outline-variant);
+      background: #e8d2a9;
       border-radius: var(--m3-shape-sm);
     }
 
     :deep(.el-menu-item) {
       margin: 4px 0;
       border-radius: var(--m3-shape-md);
-      color: var(--m3-on-surface-variant);
+      color: #67563f;
       transition: var(--m3-transition);
 
       &:hover {
-        background: var(--m3-surface-container-highest);
-        color: var(--m3-on-surface);
+        background: #fff1d6;
+        color: #4f3f2c;
       }
 
       &.is-active {
-        background: var(--m3-secondary-container);
-        color: var(--m3-on-secondary-container);
+        background: linear-gradient(135deg, #ffe3a4 0%, #ffd18f 100%);
+        color: #4f3a20;
         font-weight: 500;
       }
 
@@ -419,14 +414,14 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: var(--m3-on-surface-variant);
-    border-top: 1px solid var(--m3-outline-variant);
-    background: var(--m3-surface-container);
+    color: #67563f;
+    border-top: 1px solid #f3e4c7;
+    background: rgba(255, 251, 239, 0.98);
     transition: var(--m3-transition);
 
     &:hover {
-      background: var(--m3-surface-container-high);
-      color: var(--m3-on-surface);
+      background: #ffefcf;
+      color: #4f3f2c;
     }
   }
 }
@@ -444,13 +439,13 @@ onUnmounted(() => {
 /* 顶部栏 */
 .header {
   height: 64px;
-  background: var(--m3-surface);
-  border-bottom: 1px solid var(--m3-outline-variant);
+  background: rgba(255, 254, 249, 0.94);
+  border-bottom: 1px solid #eed9b3;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  box-shadow: var(--m3-elevation-1);
+  box-shadow: 0 10px 18px rgba(162, 130, 58, 0.08);
   position: relative;
   z-index: 5;
 
@@ -458,11 +453,11 @@ onUnmounted(() => {
     :deep(.el-breadcrumb) {
       .el-breadcrumb__item {
         .el-breadcrumb__inner {
-          color: var(--m3-on-surface-variant);
+          color: #725f45;
           transition: var(--m3-transition);
 
           &:hover {
-            color: var(--m3-primary);
+            color: #a76f00;
           }
 
           &.is-link {
@@ -471,12 +466,12 @@ onUnmounted(() => {
         }
 
         &:last-child .el-breadcrumb__inner {
-          color: var(--m3-on-surface);
+          color: #3f3326;
         }
       }
 
       .el-breadcrumb__separator {
-        color: var(--m3-outline);
+        color: #b8a281;
       }
     }
   }
@@ -491,9 +486,9 @@ onUnmounted(() => {
       gap: 12px;
 
       :deep(.el-tag) {
-        background: var(--m3-surface-container-high);
-        border-color: var(--m3-outline-variant);
-        color: var(--m3-on-surface);
+        background: #fff4dc;
+        border-color: #efd6ab;
+        color: #4d3f2f;
         font-weight: 500;
 
         .el-icon {
@@ -503,13 +498,13 @@ onUnmounted(() => {
     }
 
     .dark-toggle {
-      background: var(--m3-surface-container-high);
-      border-color: var(--m3-outline-variant);
-      color: var(--m3-on-surface);
+      background: #fff4dc;
+      border-color: #efd6ab;
+      color: #4d3f2f;
 
       &:hover {
-        background: var(--m3-surface-container-highest);
-        border-color: var(--m3-outline);
+        background: #ffe8bb;
+        border-color: #ddb47a;
       }
     }
 
@@ -519,20 +514,20 @@ onUnmounted(() => {
       gap: 12px;
       padding: 8px 16px;
       border-radius: var(--m3-shape-lg);
-      background: var(--m3-surface-container-high);
+      background: #fff4dc;
       cursor: pointer;
       transition: var(--m3-transition);
 
       &:hover {
-        background: var(--m3-surface-container-highest);
+        background: #ffe8bb;
       }
 
       :deep(.el-avatar) {
-        border: 2px solid var(--m3-outline-variant);
+        border: 2px solid #edd4aa;
       }
 
       .username {
-        color: var(--m3-on-surface);
+        color: #3f3326;
         font-weight: 500;
         font-size: 14px;
       }
@@ -546,24 +541,24 @@ onUnmounted(() => {
   padding: 24px;
   overflow-y: auto;
   position: relative;
-  background: var(--m3-surface-dim);
+  background: linear-gradient(180deg, rgba(255, 250, 240, 0.9) 0%, rgba(246, 252, 255, 0.95) 100%);
 
   &::-webkit-scrollbar {
     width: 8px;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--m3-surface-container);
+    background: #fff4df;
     border-radius: var(--m3-shape-sm);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--m3-outline-variant);
+    background: #e5c998;
     border-radius: var(--m3-shape-sm);
     transition: var(--m3-transition);
 
     &:hover {
-      background: var(--m3-outline);
+      background: #d0a768;
     }
   }
 }

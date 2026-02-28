@@ -10,6 +10,15 @@ import '../../utils/app_theme.dart';
 import 'personalized_screen.dart';
 import 'stone_detail_screen.dart';
 
+/// 共鸣发现页面
+///
+/// 三个 Tab 组成的内容发现入口：
+/// - 热门：按热度排序的石头列表，使用 [DeepDiveSpace] 深潜式布局
+/// - 找心声：关键词搜索石头（语义搜索仅管理端可用，前端返回空）
+/// - 湖神陪伴：AI 个性化推荐 + 高级共鸣推荐，合并去重后展示
+///
+/// 切换 Tab 时自动加载对应数据，支持下拉刷新。
+/// 点击推荐石头会上报 click 交互事件，用于推荐引擎在线学习。
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
 
@@ -39,6 +48,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     _loadTrending();
   }
 
+  /// Tab 切换回调，热门和湖神陪伴 Tab 自动加载数据
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
     if (_tabController.index == 0) {
@@ -56,6 +66,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     super.dispose();
   }
 
+  /// 加载热门石头列表
   Future<void> _loadTrending() async {
     setState(() => _isLoading = true);
     try {
@@ -229,7 +240,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     );
   }
 
-  /// 构建查找结果，区分文字相近和心意相近
+  /// 构建搜索结果区域，区分文字相近和心意相近两个分组
   Widget _buildSearchResults() {
     if (_keywordResults.isEmpty && _semanticResults.isEmpty) {
       return Center(

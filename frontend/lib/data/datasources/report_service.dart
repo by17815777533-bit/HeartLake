@@ -1,11 +1,12 @@
-// 举报服务 - 内容举报处理
-
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
+
+/// 内容举报服务，支持对石头、漂流瓶、用户、消息、评论的举报提交和查询
 class ReportService extends BaseService {
   @override
   String get serviceName => 'ReportService';
 
+  /// 提交一条举报，[targetType] 限定为 stone/boat/user/message/comment
   Future<Map<String, dynamic>> createReport({
     required String targetType,
     required String targetId,
@@ -34,6 +35,8 @@ class ReportService extends BaseService {
       'report_id': response.data?['report_id'],
     };
   }
+
+  /// 分页获取当前用户提交的举报记录
   Future<Map<String, dynamic>> getMyReports({
     int page = 1,
     int pageSize = 20,

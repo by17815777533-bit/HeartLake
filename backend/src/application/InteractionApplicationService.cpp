@@ -1,5 +1,15 @@
 /**
- * InteractionApplicationService 模块实现
+ * @file InteractionApplicationService.cpp
+ * @brief 互动应用服务 —— 涟漪、纸船、通知、临时连接的完整业务流程
+ *
+ * 核心交互模型：
+ *   - 涟漪（Ripple）：类似"点赞"，每个用户对同一石头只能涟漪一次（唯一约束幂等）
+ *   - 纸船（Boat）：类似"评论"，支持匿名发送，附带情感暖意评分
+ *   - 通知（Notification）：系统推送，支持单条/全部已读
+ *   - 临时连接（Connection）：24h 有效的匿名聊天通道，可升级为好友
+ *
+ * 事务策略：涟漪/纸船的创建和计数器更新在同一事务内完成，保证一致性。
+ * 缓存策略：每次写操作后主动失效对应石头缓存，确保前端读到最新计数。
  */
 
 #include "application/InteractionApplicationService.h"
@@ -17,6 +27,12 @@ namespace application {
 
 // ==================== 涟漪 ====================
 
+/**
+ * 创建涟漪（点赞）：
+ *   1. 事务内验证石头存在 → 插入涟漪 → 递增计数器
+ *   2. 失效缓存 → 发布事件 → 记录激励积分
+ *   3. 唯一约束冲突时走幂等分支，返回已有涟漪信息
+ */
 Json::Value InteractionApplicationService::createRipple(
     const std::string& stoneId,
     const std::string& userId
@@ -204,8 +220,9 @@ void InteractionApplicationService::deleteRipple(
     }
 }
 
-// ==================== 纸船 ====================
+// ==================== 纸船（私信） ====================
 
+/// 发送纸船私信：生成 ID → 入库 → 发布事件 → 返回结果
 Json::Value InteractionApplicationService::sendBoat(
     const std::string& stoneId,
     const std::string& senderId,
@@ -361,6 +378,11 @@ Json::Value InteractionApplicationService::getSentBoats(
 
 // ==================== 纸船（评论系统）====================
 
+/**
+ * 创建纸船评论：
+ *   1. 入库 → 递增石头的 boat_count → 失效缓存
+ *   2. 用 EdgeAIEngine 本地情感分析评估暖意分，按比例发放激励积分
+ */
 Json::Value InteractionApplicationService::createBoat(
     const std::string& stoneId,
     const std::string& userId,
@@ -421,6 +443,7 @@ Json::Value InteractionApplicationService::createBoat(
     }
 }
 
+/// 删除纸船：事务内删除记录 + RETURNING 递减计数器 + 失效缓存
 Json::Value InteractionApplicationService::deleteBoat(
     const std::string& boatId,
     const std::string& userId
@@ -475,6 +498,7 @@ Json::Value InteractionApplicationService::deleteBoat(
 
 // ==================== 通知 ====================
 
+/// 标记单条通知为已读
 void InteractionApplicationService::markNotificationRead(
     const std::string& notificationId,
     const std::string& userId
@@ -496,6 +520,7 @@ void InteractionApplicationService::markNotificationRead(
     }
 }
 
+/// 一键标记用户所有通知为已读
 void InteractionApplicationService::markAllNotificationsRead(
     const std::string& userId
 ) {
@@ -558,6 +583,7 @@ Json::Value InteractionApplicationService::getNotifications(
 
 // ==================== 临时连接 ====================
 
+/// 基于石头创建临时连接（24h 有效），用于匿名聊天
 Json::Value InteractionApplicationService::createConnectionForStone(
     const std::string& stoneId,
     const std::string& userId
@@ -593,6 +619,7 @@ Json::Value InteractionApplicationService::createConnectionForStone(
     }
 }
 
+/// 基于目标用户创建直接临时连接（24h 有效）
 Json::Value InteractionApplicationService::createConnection(
     const std::string& targetUserId,
     const std::string& userId
@@ -625,6 +652,7 @@ Json::Value InteractionApplicationService::createConnection(
     }
 }
 
+/// 在连接内发送消息，先验证用户是连接参与者（防 IDOR）
 Json::Value InteractionApplicationService::createConnectionMessage(
     const std::string& connectionId,
     const std::string& userId,
@@ -825,6 +853,7 @@ Json::Value InteractionApplicationService::getConnectionMessages(
     }
 }
 
+/// 将临时连接升级为正式好友关系，同时将连接状态标记为 'upgraded'
 Json::Value InteractionApplicationService::upgradeConnectionToFriend(
     const std::string& connectionId,
     const std::string& userId

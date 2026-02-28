@@ -14,9 +14,19 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/privacy_badge.dart';
 import 'emotion_heatmap_screen.dart';
 
+/// 涟漪色彩范围：低分偏蓝、高分偏紫
 const _kRippleColorLow = Color(0xFF90CAF9);
 const _kRippleColorHigh = Color(0xFF7C4DFF);
 
+/// 情绪日历页面
+///
+/// 以月历形式展示用户每日的情绪记录，核心功能：
+/// - 按月切换，每个日期格子根据情绪分数着色（使用 [MoodColors] 映射）
+/// - 点击有数据的日期弹出情绪详情 BottomSheet
+/// - WebSocket 实时监听 new_stone / stone_deleted 事件，自动刷新当月数据
+/// - 顶部统计卡片（愉悦/平静/低落天数 + 平均情绪指数）
+/// - 本周心情趋势摘要
+/// - 底部提供情绪热力图页面入口
 class EmotionCalendarScreen extends StatefulWidget {
   const EmotionCalendarScreen({super.key});
 

@@ -4,6 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
+/// 动态水面背景组件
+///
+/// 使用 CustomPainter 绘制多层正弦波叠加的水面效果，
+/// 通过 AnimationController 驱动波浪持续运动。
+/// 支持明暗主题自适应和强制暗色模式（[forceDark]）。
+/// 当 [isActive] 为 false 时暂停动画以节省性能。
 class WaterBackground extends StatefulWidget {
   final bool? forceDark;
   final bool isActive;

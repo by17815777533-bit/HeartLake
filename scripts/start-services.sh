@@ -1,39 +1,33 @@
-#!/bin/bash
-# HeartLake 服务启动脚本
-# 用法: ./scripts/start-services.sh [all|db|dev]
-#   all - 启动所有服务
-#   db  - 只启动数据库和缓存 (开发模式)
-#   dev - 启动数据库+缓存+ollama (本地开发)
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT_DIR}"
 
-cd "$(dirname "$0")/.."
+MODE="${1:-all}"
 
-case "${1:-dev}" in
+case "${MODE}" in
   all)
-    echo "🚀 启动交付环境 (postgres + redis + backend + admin)..."
-    docker compose up -d postgres redis backend admin
+    ./scripts/docker-up.sh all
+    ;;
+  full)
+    ./scripts/docker-up.sh full
     ;;
   db)
-    echo "🗄️  启动数据库和缓存..."
-    docker compose up -d postgres redis
+    ./scripts/docker-up.sh db
     ;;
   dev)
-    echo "🔧 启动开发环境 (postgres + redis + ollama + backend + admin)..."
-    docker compose --profile dev up -d postgres redis ollama backend admin
+    ./scripts/docker-up.sh dev
     ;;
   stop)
-    echo "⏹️  停止所有服务..."
-    docker compose down
+    ./scripts/docker-down.sh
     ;;
   *)
-    echo "用法: $0 [all|db|dev|stop]"
-    echo "  all  - 启动交付环境 (postgres + redis + backend + admin)"
-    echo "  db   - 只启动 postgres + redis"
-    echo "  dev  - 启动 postgres + redis + ollama + backend + admin (默认)"
-    echo "  stop - 停止所有服务"
+    echo "用法: $0 [all|full|db|dev|stop]"
+    echo "  all/full - 启动全部功能环境（默认启动全部服务）"
+    echo "  db   - 仅启动 postgres + redis"
+    echo "  dev  - 启动开发环境（与 full 等价）"
+    echo "  stop - 停止服务"
     exit 1
     ;;
 esac
-
-echo "✅ 完成！使用 'docker compose ps' 查看服务状态"

@@ -1,5 +1,11 @@
-// 用户数据模型
+/// 用户数据模型
+///
+/// 对应后端User表，包含基本信息、匿名状态、灯火等级等。
+/// 时间字段兼容Unix时间戳（秒）和ISO 8601字符串两种格式。
 
+/// 心湖用户实体
+///
+/// 用户的基本信息和状态。
 class User {
   final String userId;
   final String nickname;
@@ -25,8 +31,15 @@ class User {
     this.lastActiveAt,
   });
 
-  bool get isVIP => vipLevel > 0 && (vipExpiresAt?.isAfter(DateTime.now()) ?? false);
+  /// 是否为VIP用户
+  ///
+  /// vipLevel大于0且未过期时返回true。
+  bool get isVIP =>
+      vipLevel > 0 && (vipExpiresAt?.isAfter(DateTime.now()) ?? false);
 
+  /// 复制用户
+  ///
+  /// 创建一个新的User实例，可选择性地修改部分属性。
   User copyWith({
     String? nickname,
     String? avatarUrl,
@@ -52,7 +65,7 @@ class User {
     return User(
       userId: json['user_id'] ?? '',
       nickname: json['nickname'] ?? '',
-      isAnonymous: json['is_anonymous'] ?? true,
+      isAnonymous: _parseBool(json['is_anonymous'], defaultValue: true),
       status: json['status'] ?? 'active',
       avatarUrl: json['avatar_url'],
       bio: json['bio'],
@@ -63,13 +76,32 @@ class User {
     );
   }
 
+  static bool _parseBool(dynamic value, {bool defaultValue = false}) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return defaultValue;
+  }
+
   static DateTime? _parseDateTime(dynamic date) {
     if (date == null) return null;
     if (date is int) return DateTime.fromMillisecondsSinceEpoch(date * 1000);
-    if (date is double) return DateTime.fromMillisecondsSinceEpoch(date.toInt() * 1000);
+    if (date is double) {
+      return DateTime.fromMillisecondsSinceEpoch(date.toInt() * 1000);
+    }
     if (date is String) {
       final numVal = int.tryParse(date);
-      if (numVal != null) return DateTime.fromMillisecondsSinceEpoch(numVal * 1000);
+      if (numVal != null) {
+        return DateTime.fromMillisecondsSinceEpoch(numVal * 1000);
+      }
       return DateTime.tryParse(date);
     }
     return null;
@@ -84,9 +116,14 @@ class User {
       'avatar_url': avatarUrl,
       'bio': bio,
       'vip_level': vipLevel,
-      'vip_expires_at': vipExpiresAt != null ? vipExpiresAt!.millisecondsSinceEpoch ~/ 1000 : null,
-      'created_at': createdAt != null ? createdAt!.millisecondsSinceEpoch ~/ 1000 : null,
-      'last_active_at': lastActiveAt != null ? lastActiveAt!.millisecondsSinceEpoch ~/ 1000 : null,
+      'vip_expires_at': vipExpiresAt != null
+          ? vipExpiresAt!.millisecondsSinceEpoch ~/ 1000
+          : null,
+      'created_at':
+          createdAt != null ? createdAt!.millisecondsSinceEpoch ~/ 1000 : null,
+      'last_active_at': lastActiveAt != null
+          ? lastActiveAt!.millisecondsSinceEpoch ~/ 1000
+          : null,
     };
   }
 }

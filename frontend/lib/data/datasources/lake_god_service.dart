@@ -1,21 +1,21 @@
-// 湖神AI对话服务 - 对接 EdgeAIController 的湖神端点（有消息持久化+历史记录）
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 湖神对话服务，对接 EdgeAI 的湖神聊天端点
+///
+/// 支持带情绪上下文的对话，消息在后端持久化并可查询历史。
 class LakeGodService extends BaseService {
   @override
   String get serviceName => 'LakeGodService';
 
-  // 湖神支持的情绪类型白名单
+  /// 允许传入的情绪类型
   static const _allowedEmotions = [
     'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
     'hopeful', 'lonely', 'grateful', 'neutral', 'fearful',
     'surprised', 'disgusted', 'depressed', 'excited',
   ];
 
-  /// 发送消息给湖神
-  /// 后端 POST /api/lake-god/chat
-  /// 返回: { "code": 0, "data": { "reply": "...", "emotion": {...}, "rag_context": [...] } }
+  /// 发送消息给湖神，可附带当前情绪类型和情绪分数作为上下文
   Future<Map<String, dynamic>> sendMessage(String content, {String? emotion, double? emotionScore}) async {
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
@@ -33,9 +33,7 @@ class LakeGodService extends BaseService {
     return toMap(resp);
   }
 
-  /// 获取历史消息
-  /// 后端 GET /api/lake-god/history
-  /// 返回: { "code": 0, "data": { "messages": [{ "role": "user"/"assistant", "content": "...", "created_at": "..." }] } }
+  /// 获取与湖神的历史对话记录
   Future<Map<String, dynamic>> getMessages() async {
     final resp = await get('/lake-god/history');
     return toMap(resp);

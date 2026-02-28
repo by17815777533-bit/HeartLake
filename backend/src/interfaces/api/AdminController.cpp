@@ -1,5 +1,11 @@
 /**
- * AdminController 模块实现
+ * @file AdminController.cpp
+ * @brief 管理后台控制器 — 登录鉴权、仪表盘统计、心理风险监控
+ *
+ * 管理员通过环境变量配置凭证（ADMIN_USERNAME / ADMIN_PASSWORD_HASH），
+ * 登录成功后签发 PASETO v4 admin token。仪表盘接口聚合用户增长、
+ * 情绪分布、活跃时段等运营指标；心理风险模块提供高危用户列表、
+ * 风险事件处理和用户风险历史追溯。
  */
 #include "interfaces/api/AdminController.h"
 #include "utils/ResponseUtil.h"

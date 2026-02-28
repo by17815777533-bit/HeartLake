@@ -3,11 +3,22 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 用户信息查询与管理服务
+///
+/// 提供面向当前用户和其他用户的查询能力：
+/// - 用户搜索（关键词匹配，带 XSS 过滤）
+/// - 用户详情与统计数据
+/// - 情绪热力图 / 情绪日历（个人情绪可视化数据源）
+/// - 收到的纸船列表
+/// - 通用文件上传（头像、音频、视频等）
 class UserService extends BaseService {
   @override
   String get serviceName => 'UserService';
 
   /// 搜索用户
+  ///
+  /// 关键词经过 sanitize 处理后提交，长度限制 1~50 字符。
+  /// 返回 `{success, users, total}`。
   Future<Map<String, dynamic>> searchUsers(String query) async {
     InputValidator.requireLength(query, '想找的人', min: 1, max: 50);
     query = InputValidator.sanitizeText(query);
@@ -43,14 +54,19 @@ class UserService extends BaseService {
     return {'success': true, 'data': response.data};
   }
 
-  /// 获取情绪热力图
+  /// 获取情绪热力图数据
+  ///
+  /// 返回当前用户近期的情绪分布热力图原始数据，
+  /// 不走缓存以保证实时性。
   Future<Map<String, dynamic>> getEmotionHeatmap() async {
     final response = await get('/users/my/emotion-heatmap', useCache: false);
     if (!response.success) return toMap(response);
     return {'success': true, 'data': response.data};
   }
 
-  /// 获取情绪日历
+  /// 获取情绪日历数据
+  ///
+  /// 按年月查询当月每日的情绪记录，用于日历视图渲染。
   Future<Map<String, dynamic>> getEmotionCalendar(int year, int month) async {
     InputValidator.validateDateRange(year, month);
     final response = await get(
@@ -62,7 +78,9 @@ class UserService extends BaseService {
     return {'success': true, 'data': response.data};
   }
 
-  /// 获取我收到的纸船
+  /// 获取我收到的纸船（分页）
+  ///
+  /// 纸船是其他用户对我的石头的匿名回应。
   Future<Map<String, dynamic>> getMyBoats(
       {int page = 1, int pageSize = 100}) async {
     InputValidator.requirePage(page);
@@ -73,7 +91,10 @@ class UserService extends BaseService {
     return {'success': true, 'data': response.data};
   }
 
-  /// 上传文件（头像等）
+  /// 上传文件（头像、音频、视频等）
+  ///
+  /// 支持格式：jpg/jpeg/png/webp/gif/mp3/wav/aac/mp4。
+  /// 通过 [ApiClient.uploadFile] 走 multipart 上传。
   Future<Map<String, dynamic>> uploadFile(dynamic file,
       {String? filename}) async {
     if (filename != null) {

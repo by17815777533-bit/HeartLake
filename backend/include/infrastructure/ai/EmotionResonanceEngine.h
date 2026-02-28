@@ -28,31 +28,41 @@
 
 namespace heartlake::ai {
 
+/**
+ * @brief 用户情绪轨迹，记录一段时间内的情绪变化序列
+ */
 struct EmotionTrajectory {
-    std::string userId;
-    std::vector<float> scores;      // 时序情绪分数
-    std::vector<std::string> moods; // 时序情绪类型
-    float currentScore;
-    std::string currentMood;
+    std::string userId;                    ///< 用户标识
+    std::vector<float> scores;             ///< 时序情绪分数序列 [-1.0, 1.0]
+    std::vector<std::string> moods;        ///< 时序情绪类型序列（与 scores 一一对应）
+    float currentScore;                    ///< 最新一次情绪分数
+    std::string currentMood;               ///< 最新一次情绪类型
 };
 
+/**
+ * @brief 共鸣推荐结果，包含四维评分分解和人类可读的共鸣原因
+ */
 struct ResonanceResult {
-    std::string stoneId;
-    std::string userId;
-    float totalScore;
-    float semanticScore;
-    float trajectoryScore;
-    float temporalScore;
-    float diversityScore;
-    std::string resonanceReason; // 人类可读的共鸣原因
+    std::string stoneId;                   ///< 推荐的石头 ID
+    std::string userId;                    ///< 石头作者 ID
+    float totalScore;                      ///< 四维加权总分
+    float semanticScore;                   ///< 语义相似度分量
+    float trajectoryScore;                 ///< 情绪轨迹匹配分量
+    float temporalScore;                   ///< 时间衰减分量
+    float diversityScore;                  ///< 多样性奖励分量
+    std::string resonanceReason;           ///< 人类可读的共鸣原因描述
 };
 
-/// 共鸣评分四维权重，打包为不可变值对象，通过原子指针交换避免 torn-read
+/**
+ * @brief 共鸣评分四维权重，打包为不可变值对象
+ * @details 通过 atomic<shared_ptr> 交换实现无锁一致读取，杜绝 torn-read。
+ *          约束：a + b + g + d = 1.0
+ */
 struct ResonanceWeights {
-    float a;  // 语义相似度权重
-    float b;  // 情绪轨迹权重
-    float g;  // 时间衰减权重
-    float d;  // 多样性权重
+    float a;  ///< 语义相似度权重 (alpha)
+    float b;  ///< 情绪轨迹权重 (beta)
+    float g;  ///< 时间衰减权重 (gamma)
+    float d;  ///< 多样性权重 (delta)
 };
 
 class EmotionResonanceEngine {
@@ -142,14 +152,24 @@ public:
         const std::string& candidateMood
     );
 
-    // 权重参数 — std::atomic<shared_ptr> 成员函数，读取时拿到一致的快照，无 torn-read
+    // 权重参数 — atomic<shared_ptr> 保证读取时拿到一致快照，无 torn-read
+    /** @brief 获取当前四维权重快照 */
     ResonanceWeights getWeights() const {
         return *weights_.load(std::memory_order_acquire);
     }
-    float getAlpha() const { return getWeights().a; }
-    float getBeta()  const { return getWeights().b; }
-    float getGamma() const { return getWeights().g; }
-    float getDelta() const { return getWeights().d; }
+    float getAlpha() const { return getWeights().a; }  ///< 语义相似度权重
+    float getBeta()  const { return getWeights().b; }   ///< 情绪轨迹权重
+    float getGamma() const { return getWeights().g; }   ///< 时间衰减权重
+    float getDelta() const { return getWeights().d; }   ///< 多样性权重
+
+    /**
+     * @brief 原子替换四维权重
+     * @param a 语义相似度权重
+     * @param b 情绪轨迹权重
+     * @param g 时间衰减权重
+     * @param d 多样性权重
+     * @note 调用方需保证 a+b+g+d = 1.0
+     */
     void setWeights(float a, float b, float g, float d) {
         auto newW = std::make_shared<const ResonanceWeights>(ResonanceWeights{a, b, g, d});
         weights_.store(newW, std::memory_order_release);
@@ -172,15 +192,21 @@ private:
     EmotionResonanceEngine(const EmotionResonanceEngine&) = delete;
     EmotionResonanceEngine& operator=(const EmotionResonanceEngine&) = delete;
 
+    /**
+     * @brief 从数据库加载用户最近 N 天的情绪轨迹
+     * @param userId 用户 ID
+     * @param days 回溯天数，默认 7 天
+     * @return 用户情绪轨迹
+     */
     EmotionTrajectory loadTrajectory(const std::string& userId, int days = 7);
 
-    // 共鸣评分四维权重，满足 α+β+γ+δ = 1.0
+    // 共鸣评分四维权重，满足 alpha + beta + gamma + delta = 1.0
     // 调参依据（基于 A/B 测试 + 用户留存数据）：
-    //   β 最高(0.35): 情绪轨迹匹配是核心差异化特性，相似情绪旅程的用户互动率最高
-    //   α 次之(0.30): 语义相似度保证内容相关性，是推荐质量的基础保障
-    //   γ 适中(0.20): 时间衰减避免推荐过旧内容，但不宜过强以免冷启动困难
-    //   δ 最低(0.15): 多样性奖励防止回音室效应，权重过高会牺牲相关性
-    // 通过 atomic shared_ptr 交换实现无锁一致读取，杜绝 torn-read
+    //   beta 最高(0.35): 情绪轨迹匹配是核心差异化特性，相似情绪旅程的用户互动率最高
+    //   alpha 次之(0.30): 语义相似度保证内容相关性，是推荐质量的基础保障
+    //   gamma 适中(0.20): 时间衰减避免推荐过旧内容，但不宜过强以免冷启动困难
+    //   delta 最低(0.15): 多样性奖励防止回音室效应，权重过高会牺牲相关性
+    // 通过 atomic<shared_ptr> 交换实现无锁一致读取，杜绝 torn-read
     std::atomic<std::shared_ptr<const ResonanceWeights>> weights_{
         std::make_shared<const ResonanceWeights>(ResonanceWeights{0.30f, 0.35f, 0.20f, 0.15f})
     };

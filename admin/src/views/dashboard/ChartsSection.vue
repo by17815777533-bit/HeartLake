@@ -1,7 +1,12 @@
 <!--
-  图表区域 - 用户增长趋势 + 情绪分布 + 情绪趋势 + 热门话题 + 活跃时段
--->
+  图表区域 -- 四张图表卡片
 
+  上排：用户增长折线图（支持 7/14/30 天切换）+ 情绪分布环形饼图
+  下排：情绪趋势多线图（支持 7/14/30 天切换）+ 24h 活跃时段柱状图 + 热门话题 Top10
+
+  图表范围切换通过 v-model 双向绑定 chartRange / moodTrendRange，
+  切换时 emit load-growth / load-mood-trend 事件触发父组件重新拉取数据。
+-->
 <template>
   <!-- 用户增长 + 情绪分布 -->
   <el-row
@@ -126,14 +131,14 @@
         <div class="topics-list">
           <div
             v-for="(topic, i) in trendingTopics"
-            :key="topic.topic"
+            :key="topic.topic || topic.keyword || i"
             class="topic-item"
           >
             <span
               class="topic-rank"
               :class="{ top: i < 3 }"
             >{{ i + 1 }}</span>
-            <span class="topic-name">{{ topic.topic }}</span>
+            <span class="topic-name">{{ topic.topic || topic.keyword || '未命名话题' }}</span>
             <span class="topic-count">{{ topic.count }} 条</span>
           </div>
           <el-empty
@@ -168,7 +173,8 @@
 import VChart from 'vue-echarts'
 
 interface TrendingTopic {
-  topic: string
+  topic?: string
+  keyword?: string
   count: number
 }
 

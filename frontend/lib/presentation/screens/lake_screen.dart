@@ -19,6 +19,10 @@ import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
 
+/// 观湖主页面 - 心湖的核心浏览界面
+///
+/// 以瀑布流形式展示湖中的石头，支持下拉刷新和上拉加载更多。
+/// 背景使用水波纹动画营造湖面氛围，通过 WebSocket 实时接收新石头推送。
 class LakeScreen extends StatefulWidget {
   const LakeScreen({super.key});
 
@@ -269,7 +273,8 @@ class LakeScreenState extends State<LakeScreen> {
         stoneType: stoneData['stone_type'] ?? 'medium',
         stoneColor: stoneData['stone_color'] ?? '#7A92A3',
         moodType: stoneData['mood_type'], // 添加心情类型字段
-        isAnonymous: stoneData['is_anonymous'] ?? true,
+        isAnonymous:
+            Stone.parseBool(stoneData['is_anonymous'], defaultValue: true),
         rippleCount: 0,
         boatCount: 0,
         createdAt: DateTime.now(),

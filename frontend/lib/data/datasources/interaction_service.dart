@@ -11,6 +11,10 @@ class InteractionService extends BaseService {
 
   final StoneService _stoneService = sl<StoneService>();
 
+  bool _isReadonlyShowcaseStone(String stoneId) {
+    return stoneId.startsWith('showcase_stone_');
+  }
+
   Map<String, dynamic> _friendlyStoneNotFound(
       Map<String, dynamic> raw, String stoneId) {
     final message = raw['message']?.toString() ?? '';
@@ -26,6 +30,13 @@ class InteractionService extends BaseService {
   // 创建涟漪（点赞）
   Future<Map<String, dynamic>> createRipple(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
+    if (_isReadonlyShowcaseStone(stoneId)) {
+      return {
+        'success': false,
+        'code': 'SHOWCASE_READ_ONLY',
+        'message': '示例石头仅供浏览，不能进行涟漪操作',
+      };
+    }
     final response = await post('/stones/$stoneId/ripples');
     if (!response.success) {
       return _friendlyStoneNotFound(toMap(response), stoneId);
@@ -52,6 +63,13 @@ class InteractionService extends BaseService {
     bool isAnonymous = true,
   }) async {
     InputValidator.validateUUID(stoneId, '石头ID');
+    if (_isReadonlyShowcaseStone(stoneId)) {
+      return {
+        'success': false,
+        'code': 'SHOWCASE_READ_ONLY',
+        'message': '示例石头仅供浏览，不能发送纸船',
+      };
+    }
     InputValidator.requireLength(content, '纸船内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
     final response = await post('/stones/$stoneId/boats', data: {

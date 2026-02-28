@@ -7,6 +7,15 @@ import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
 
+/// 安全港湾页面
+///
+/// 为处于心理困境的用户提供即时支持资源：
+/// - 心理援助热线（一键拨打）
+/// - 自助放松练习（呼吸训练、正念引导）
+/// - 专业咨询入口
+/// - 紧急求助通道
+///
+/// 当 EdgeAI 检测到高风险情绪内容时，会自动引导用户来到此页面。
 class SafeHarborScreen extends StatefulWidget {
   const SafeHarborScreen({super.key});
 

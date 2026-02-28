@@ -1,4 +1,6 @@
-// 依赖注入容器 - 基于 get_it 统一管理 Service 实例
+/// 依赖注入容器
+///
+/// 基于get_it统一管理Service实例，所有Service注册为惰性单例。
 
 import 'package:get_it/get_it.dart';
 import '../data/datasources/auth_service.dart';
@@ -19,13 +21,13 @@ import '../data/datasources/ai_recommendation_service.dart';
 import '../data/datasources/recommendation_service.dart';
 import '../data/datasources/edge_ai_service.dart';
 
-/// 全局 ServiceLocator 实例
+/// 全局ServiceLocator实例
 final GetIt sl = GetIt.instance;
 
 /// 初始化依赖注入容器
 ///
-/// 所有 Service 注册为惰性单例，首次访问时创建，后续复用同一实例。
-/// 在 main() 中调用一次即可。
+/// 所有Service注册为惰性单例，首次访问时创建，后续复用同一实例。
+/// 在main()中调用一次即可。
 void setupServiceLocator() {
   // 认证与用户
   sl.registerLazySingleton<AuthService>(() => AuthService());

@@ -1,5 +1,11 @@
 <!--
-  Login 组件 - 光遇(Sky)梦幻风格
+  管理员登录页面
+
+  安全机制：
+  - 连续登录失败 3 次后启动 30 秒客户端冷却，配合后端 429 速率限制双重防护
+  - 非 HTTPS 环境弹出安全警告
+  - PASETO token 不可客户端解码，用户信息从登录响应中提取并存入 sessionStorage
+  - 密码字段支持 Enter 键提交，提升操作效率
 -->
 
 <template>
@@ -89,11 +95,12 @@ const rules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
-// L-17: 连续登录失败计数与冷却倒计时
+// 连续登录失败计数与冷却倒计时（防暴力破解的客户端侧限制）
 const failCount = ref(0)
 const cooldownSeconds = ref(0)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
+/** 启动冷却倒计时，每秒递减直到归零 */
 function startCooldown(seconds: number) {
   cooldownSeconds.value = seconds
   cooldownTimer = setInterval(() => {
@@ -137,14 +144,14 @@ const handleLogin = async () => {
       startCooldown(30)
       ElMessage.warning('连续登录失败多次，请 30 秒后重试')
     }
-    // H-3: 使用统一错误处理，登录失败给出友好提示
+    // 统一错误处理
     ElMessage.error(getErrorMessage(e, '登录失败，请检查用户名和密码'))
   } finally {
     loading.value = false
   }
 }
 
-// M-12: 非 HTTPS 环境安全警告
+// 非 HTTPS 环境安全警告
 onMounted(() => {
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
     ElMessage.warning({

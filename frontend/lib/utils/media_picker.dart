@@ -5,10 +5,18 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 
+/// 多媒体文件选择器，封装图片/视频/音频的拾取逻辑
+///
+/// 统一处理 [ImagePicker] 和 [FilePicker] 的调用，提供：
+/// - 相册多选图片（限制数量）
+/// - 相机拍照/录像
+/// - 音频文件选择
+/// - BottomSheet 交互式选择器
+/// - 文件大小和扩展名校验
 class MediaPicker {
   final ImagePicker _imagePicker = ImagePicker();
 
-  // 从相册选择图片（支持多选）
+  /// 从相册选择图片，支持多选，最多 [maxCount] 张
   Future<List<File>> pickImages({int maxCount = 9}) async {
     try {
       final List<XFile> images = await _imagePicker.pickMultiImage();
@@ -26,7 +34,7 @@ class MediaPicker {
     }
   }
 
-  // 拍照
+  /// 调用相机拍照，压缩质量 85%
   Future<File?> takePhoto() async {
     try {
       final XFile? photo = await _imagePicker.pickImage(
@@ -42,7 +50,7 @@ class MediaPicker {
     }
   }
 
-  // 选择视频
+  /// 从相册选择视频，最长 5 分钟
   Future<File?> pickVideo() async {
     try {
       final XFile? video = await _imagePicker.pickVideo(
@@ -58,7 +66,7 @@ class MediaPicker {
     }
   }
 
-  // 录制视频
+  /// 调用相机录制视频，最长 5 分钟
   Future<File?> recordVideo() async {
     try {
       final XFile? video = await _imagePicker.pickVideo(
@@ -74,7 +82,7 @@ class MediaPicker {
     }
   }
 
-  // 选择音频文件
+  /// 通过系统文件选择器选取音频文件
   Future<File?> pickAudio() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -94,7 +102,7 @@ class MediaPicker {
     }
   }
 
-  // 显示媒体选择器对话框
+  /// 弹出 BottomSheet 媒体选择器，按需显示图片/视频/音频选项
   Future<List<File>?> showMediaPicker(
     BuildContext context, {
     bool allowImages = true,
@@ -174,13 +182,13 @@ class MediaPicker {
     );
   }
 
-  // 获取文件大小（MB）
+  /// 获取文件大小（单位 MB）
   Future<double> getFileSizeMB(File file) async {
     int bytes = await file.length();
     return bytes / (1024 * 1024);
   }
 
-  // 验证文件
+  /// 校验文件大小和扩展名，返回 `{valid, message?, size_mb?}`
   Future<Map<String, dynamic>> validateFile(
     File file, {
     double maxSizeMB = 100,

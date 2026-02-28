@@ -1,5 +1,12 @@
 <!--
-  页面头部 + 技术标签 + 状态卡片
+  EdgeAI 页面头部 -- 标题栏、技术能力标签、四张引擎状态卡片
+
+  props:
+  - currentTime: 当前时间（YYYY-MM-DD HH:mm）
+  - lastUpdateTime: 上次刷新时间（HH:mm:ss）
+  - loading: 刷新按钮 loading 状态
+  - techBadges: 技术标签数组（Edge Inference / Federated Learning / DP / ...）
+  - statusCards: 引擎状态/模块加载/运行时间/活跃节点四张卡片数据
 -->
 
 <template>

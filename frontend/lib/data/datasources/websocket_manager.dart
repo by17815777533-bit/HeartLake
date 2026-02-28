@@ -1,5 +1,3 @@
-// WebSocket广播管理器 - 仅用于实时通知
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -9,6 +7,13 @@ import '../../utils/app_config.dart';
 import 'cache_service.dart';
 import 'api_client.dart';
 
+/// WebSocket 广播管理器（单例），负责实时消息推送
+///
+/// 核心机制：
+/// - 握手阶段通过 URL query 传递 token 完成鉴权
+/// - 房间采用引用计数，多页面订阅同一房间不会互相误退
+/// - 断线后指数退避自动重连，离线期间消息暂存队列
+/// - 心跳检测由后端驱动（30s ping），客户端回 pong 并监测半开连接
 class WebSocketManager {
   static final WebSocketManager _instance = WebSocketManager._internal();
   factory WebSocketManager() => _instance;
@@ -17,7 +22,7 @@ class WebSocketManager {
   WebSocketChannel? _channel;
   final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
   final List<String> _offlineQueue = [];
-  // 房间采用引用计数，避免多个页面同时订阅同一房间时互相误退房
+  /// 房间引用计数，防止多页面订阅同一房间时互相误退
   final Map<String, int> _roomRefCounts = <String, int>{};
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -27,16 +32,17 @@ class WebSocketManager {
   static const int _maxReconnectAttempts = 10;
   static const int _maxQueueSize = 50;
 
-  /// 用 Completer 防止并发重连竞态
+  /// 防止并发重连竞态的 Completer
   Completer<bool>? _connectCompleter;
 
   bool get isConnected => _isConnected;
 
+  /// 校验 token 格式，兼容 PASETO v4 和 JWT，过滤损坏的缓存值
   String? _normalizeToken(String? raw) {
     if (raw == null) return null;
     final token = raw.trim();
     if (token.isEmpty) return null;
-    // 兼容现网 PASETO/JWT，避免读取到损坏缓存值后陷入重连死循环
+    // 兼容 PASETO v4 和 JWT 两种格式
     final looksLikePaseto =
         token.startsWith('v4.local.') || token.startsWith('v4.public.');
     final looksLikeJwt = token.startsWith('eyJ');
@@ -57,11 +63,11 @@ class WebSocketManager {
     _connectCompleter = Completer<bool>();
 
     try {
-      // 优先使用内存态 token，避免 Web SecureStorage 异常时读到损坏旧值
+      // 优先使用内存态 token，SecureStorage 在 Web 端可能读到旧值
       var token = _normalizeToken(ApiClient().token);
       token ??= _normalizeToken(await StorageUtil.getToken());
       if (token == null || token.isEmpty) {
-        // 登录态尚未就绪时保持重连尝试，避免首帧 connect 失败后永久失联
+        // 登录态未就绪，延迟重连
         _scheduleReconnect();
         _connectCompleter!.complete(false);
         return false;
@@ -83,13 +89,13 @@ class WebSocketManager {
       _channel!.stream.listen(_onMessage,
           onError: _onError, onDone: _onDone, cancelOnError: false);
 
-      // 保留首包认证，兼容后端后续可能的消息级鉴权
+      // 首包认证，兼容后端消息级鉴权
       _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
 
       // 标记为已连接（WebSocket 通道已建立）
       _isConnected = true;
       if (_reconnectAttempts > 0) {
-        // 重连后清除缓存，确保各Screen刷新时拿到最新数据
+        // 重连成功后清除缓存，确保页面刷新时拿到最新数据
         CacheService().removeByPrefix('stones_');
         CacheService().removeByPrefix('stone_');
         _emit('reconnected', {'type': 'reconnected'});
@@ -122,7 +128,7 @@ class WebSocketManager {
     _channel = null;
   }
 
-  /// P0-2 修复：添加 dispose 方法，清理所有资源
+  /// 释放所有资源，包括连接、监听器和离线队列
   void dispose() {
     disconnect();
     _listeners.clear();
@@ -130,7 +136,7 @@ class WebSocketManager {
     _roomRefCounts.clear();
   }
 
-  /// 加入 WS 房间（服务端房间隔离，只接收该房间的消息）
+  /// 加入指定房间，首次订阅时发送 join 指令，后续仅增加引用计数
   void joinRoom(String room) {
     final normalizedRoom = room.trim();
     if (normalizedRoom.isEmpty) return;
@@ -140,13 +146,13 @@ class WebSocketManager {
       unawaited(connect());
       return;
     }
-    // 仅在第一次订阅时真正发 join，后续由引用计数持有
+    // 首次订阅时发送 join，后续仅增加引用计数
     if (current == 0) {
       send({'type': 'join', 'room': normalizedRoom});
     }
   }
 
-  /// 离开 WS 房间
+  /// 离开指定房间，引用计数归零时才真正发送 leave 指令
   void leaveRoom(String room) {
     final normalizedRoom = room.trim();
     if (normalizedRoom.isEmpty) return;
@@ -162,11 +168,13 @@ class WebSocketManager {
     }
   }
 
+  /// 注册事件监听器
   void on(String eventType, void Function(Map<String, dynamic>) listener) {
     _listeners[eventType] ??= [];
     _listeners[eventType]!.add(listener);
   }
 
+  /// 移除事件监听器，不传 listener 则移除该事件的全部监听
   void off(String eventType, [void Function(Map<String, dynamic>)? listener]) {
     if (listener == null) {
       _listeners.remove(eventType);
@@ -175,7 +183,7 @@ class WebSocketManager {
     }
   }
 
-  /// P0-3 修复：遍历前复制列表，避免并发修改错误
+  /// 触发事件回调，遍历前复制列表以避免并发修改
   void _emit(String eventType, Map<String, dynamic> data) {
     final callbacks = List<void Function(Map<String, dynamic>)>.from(
         _listeners[eventType] ?? []);
@@ -195,7 +203,7 @@ class WebSocketManager {
       if (message is! String) return;
       final data = jsonDecode(message) as Map<String, dynamic>;
       final type = data['type']?.toString();
-      // 收到后端 ping，回 pong 并更新时间戳（由后端驱动心跳）
+      // 收到后端 ping 时回 pong 并更新时间戳
       if (type == 'ping') {
         _lastPongTime = DateTime.now();
         if (_channel != null) {
@@ -229,17 +237,18 @@ class WebSocketManager {
     _scheduleReconnect();
   }
 
+  /// 发送消息，离线时暂存到队列（上限 50 条）
   void send(Map<String, dynamic> data) {
     final message = jsonEncode(data);
     if (_isConnected && _channel != null) {
       _channel!.sink.add(message);
     } else if (_offlineQueue.length < _maxQueueSize) {
       _offlineQueue.add(message);
-      // 保证离线队列有机会被及时冲刷
       unawaited(connect());
     }
   }
 
+  /// 冲刷离线队列中暂存的消息
   void _flushQueue() {
     if (!_isConnected || _channel == null) return;
     final pending = List<String>.from(_offlineQueue);
@@ -249,6 +258,7 @@ class WebSocketManager {
     }
   }
 
+  /// 重连后重新加入之前订阅的所有房间
   void _rejoinRooms() {
     if (!_isConnected || _channel == null || _roomRefCounts.isEmpty) return;
     for (final room in _roomRefCounts.keys) {

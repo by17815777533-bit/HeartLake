@@ -1,6 +1,11 @@
-// 推荐石头模型与推荐类型枚举
+/// 推荐石头模型
+///
+/// 在Stone基础上附加推荐元信息，包括推荐类型、推荐理由和相关性分数。
+/// 由后端RecommendationEngine的HNSW向量检索和协同过滤多路召回生成。
 
-/// 推荐类型枚举
+/// 推荐算法类型
+///
+/// 对应后端RecommendationEngine的多路召回策略。
 enum RecommendationType {
   similar,
   collaborative,
@@ -12,6 +17,8 @@ enum RecommendationType {
 }
 
 /// 推荐石头模型
+///
+/// 在Stone基础上附加推荐元信息。
 class RecommendedStone {
   final String stoneId;
   final String content;

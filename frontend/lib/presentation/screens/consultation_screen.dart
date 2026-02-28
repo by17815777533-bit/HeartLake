@@ -5,9 +5,14 @@ import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
 
-// ============================================================
-// 主页面：预约咨询 + 我的会话 两个Tab
-// ============================================================
+/// 心理咨询主页面
+///
+/// 双 Tab 结构：
+/// - 预约咨询：展示咨询师列表（资质、评分、咨询次数），点击预约进入聊天
+/// - 我的会话：历史咨询会话列表，点击继续对话
+///
+/// 聊天界面内置 E2E 加密保护，所有消息经 X25519 + AES-GCM 加密后传输，
+/// 仅用户和咨询师双方可见。
 class ConsultationScreen extends StatefulWidget {
   const ConsultationScreen({super.key});
 
@@ -100,9 +105,7 @@ class _ConsultationScreenState extends State<ConsultationScreen>
   }
 }
 
-// ============================================================
-// Tab1: 咨询师列表（占位数据）
-// ============================================================
+/// 咨询师列表 Tab（预约咨询）
 class _CounselorListTab extends StatelessWidget {
   final void Function(String counselorId, String counselorName) onStartChat;
 
@@ -167,9 +170,7 @@ class _CounselorListTab extends StatelessWidget {
   }
 }
 
-// ============================================================
-// 咨询师卡片
-// ============================================================
+/// 咨询师信息卡片，展示资质、评分和预约按钮
 class _CounselorCard extends StatelessWidget {
   final String name;
   final String avatar;
@@ -284,9 +285,7 @@ class _CounselorCard extends StatelessWidget {
   }
 }
 
-// ============================================================
-// Tab2: 我的会话列表
-// ============================================================
+/// 我的会话列表 Tab，展示历史咨询记录
 class _SessionListTab extends StatefulWidget {
   final void Function(String sessionId, String counselorName) onOpenSession;
 
@@ -458,9 +457,11 @@ class _SessionListTabState extends State<_SessionListTab> {
   }
 }
 
-// ============================================================
-// 聊天界面
-// ============================================================
+/// E2E 加密聊天界面
+///
+/// 进入时自动创建会话（如无 sessionId）并初始化 E2E 加密通道，
+/// 加载历史消息并自动解密。发送消息前强制加密，
+/// 未建立安全通道时拒绝发送。
 class _ConsultationChatScreen extends StatefulWidget {
   final String? counselorId;
   final String? sessionId;
@@ -802,9 +803,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   }
 }
 
-// ============================================================
-// 聊天气泡
-// ============================================================
+/// 聊天气泡组件，区分用户消息和咨询师消息
 class _ChatBubble extends StatelessWidget {
   final String content;
   final bool isMe;

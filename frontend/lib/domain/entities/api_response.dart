@@ -1,10 +1,26 @@
-// 通用API响应模型
+/// 通用API响应模型
+///
+/// 后端统一返回{code, message, data}结构，code为0表示成功。
+/// 泛型参数T对应data字段的业务类型，通过fromJsonT反序列化。
 
-/// 通用 API 响应模型
+/// 通用API响应模型
+///
+/// 封装后端统一响应格式。
 class ApiResponse<T> {
+  /// 业务状态码
+  ///
+  /// 0表示成功，非0为具体错误码。
   final int code;
+
+  /// 提示信息
   final String message;
+
+  /// 业务数据
   final T? data;
+
+  /// 是否成功
+  ///
+  /// code为0时为true。
   final bool success;
 
   ApiResponse({
@@ -13,6 +29,10 @@ class ApiResponse<T> {
     this.data,
   }) : success = code == 0;
 
+  /// 从JSON反序列化
+  ///
+  /// [json] JSON数据
+  /// [fromJsonT] data字段的反序列化函数
   factory ApiResponse.fromJson(
     Map<String, dynamic> json,
     T Function(dynamic)? fromJsonT,
@@ -36,6 +56,8 @@ class ApiResponse<T> {
 }
 
 /// 分页响应模型
+///
+/// 封装列表数据和分页元信息，后端返回{items, total, page, page_size}结构。
 class PagedResponse<T> {
   final List<T> items;
   final int total;

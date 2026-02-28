@@ -3,6 +3,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
+/// 端到端加密工具，保护用户间私密通信
+///
+/// 加密流程：
+/// 1. 双方各自生成 X25519 密钥对，交换公钥
+/// 2. 通过 ECDH 派生 256-bit 共享密钥
+/// 3. 使用 AES-256-GCM 对消息进行认证加密
+///
+/// 密文格式为 base64(nonce[12] + ciphertext + mac[16])，
+/// 也支持分离字段格式（ciphertext/iv/tag 各自独立 base64）。
 class E2EEncryption {
   SecretKey? _sharedSecret;
 
@@ -86,8 +95,10 @@ class E2EEncryption {
     return utf8.decode(decrypted);
   }
 
+  /// 共享密钥是否已建立，加密/解密前必须为 true
   bool get isReady => _sharedSecret != null;
 
+  /// 释放共享密钥，切换聊天对象时应调用
   void dispose() {
     _sharedSecret = null;
   }

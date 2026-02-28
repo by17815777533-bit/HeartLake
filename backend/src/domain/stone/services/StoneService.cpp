@@ -1,5 +1,9 @@
 /**
- * 石头领域服务实现
+ * @file StoneService.cpp
+ * @brief 石头领域服务 —— 封装石头的核心业务规则
+ *
+ * 作为领域层的业务入口，协调 Repository 完成石头的创建、查询、删除等操作。
+ * 删除时校验所有权，防止越权操作。
  */
 
 #include "domain/stone/services/StoneService.h"
@@ -7,6 +11,7 @@
 
 namespace heartlake::domain::stone {
 
+/// 创建石头：组装实体字段后委托 Repository 持久化
 StoneEntity StoneService::createStone(const std::string& userId, const std::string& content,
                                       const std::string& stoneType, const std::string& stoneColor,
                                       const std::string& moodType, bool isAnonymous) {
@@ -40,6 +45,7 @@ int StoneService::getUserStoneCount(const std::string& userId) {
     return repository_->countByUserId(userId);
 }
 
+/// 删除石头：先校验存在性和所有权，再执行软删除
 void StoneService::deleteStone(const std::string& stoneId, const std::string& userId) {
     auto stone = repository_->findById(stoneId);
     if (!stone) throw std::runtime_error("石头不存在");

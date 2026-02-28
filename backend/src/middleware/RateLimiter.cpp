@@ -1,5 +1,16 @@
 /**
  * RateLimiter 模块实现
+ *
+ * 多策略限流器，支持三种算法：
+ * - TOKEN_BUCKET：令牌桶，适合突发流量场景（用户级限流）
+ * - SLIDING_WINDOW：滑动窗口，精确控制时间窗口内请求数（IP 级限流）
+ * - FIXED_WINDOW：固定窗口，低开销的粗粒度限流（接口/全局级限流）
+ *
+ * 每种算法优先走 Redis（Lua 脚本保证原子性），Redis 不可用时降级到进程内实现。
+ * Redis Lua 脚本通过 EVAL 执行，单次往返完成读-判-写，避免竞态条件。
+ * 异步回调模式 + 短暂自旋等待（最多 10ms）获取 Redis 结果。
+ *
+ * RateLimitFilter 作为 Drogon 过滤器，从请求中提取限流 key 并返回标准 429 响应。
  */
 
 
@@ -19,6 +30,7 @@ RateLimiter& RateLimiter::getInstance() {
     return instance;
 }
 
+/// 四级限流默认配置：USER(令牌桶20/s) → IP(滑动窗口60/s) → ENDPOINT(固定窗口100/s) → GLOBAL(固定窗口1000/s)
 void RateLimiter::initialize() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (initialized_) {
@@ -95,6 +107,8 @@ RateLimitConfig RateLimiter::getConfigForLevel(RateLimitLevel level) {
     return defaultConfig;
 }
 
+/// 限流入口：先查 endpoint 专属配置，再查 level 通用配置，最后按策略分发
+/// 注意：config 读取在独立锁作用域内完成，避免持锁调用算法方法导致死锁
 RateLimitResult RateLimiter::checkLimit(
     const std::string& key,
     RateLimitLevel level,
@@ -143,6 +157,8 @@ RateLimitResult RateLimiter::checkTokenBucket(const std::string& key, const Rate
     }
 }
 
+/// Redis 令牌桶：Lua 脚本原子执行 refill + consume，单次往返完成
+/// 脚本逻辑：根据上次填充时间计算新增令牌数，尝试消费 1 个令牌
 RateLimitResult RateLimiter::checkTokenBucketRedis(const std::string& key, const RateLimitConfig& config) {
     auto& redis = cache::RedisCache::getInstance();
     if (!redis.isConnected()) {
@@ -213,6 +229,7 @@ RateLimitResult RateLimiter::checkTokenBucketRedis(const std::string& key, const
     return gotResultPtr->load() ? *resultPtr : checkTokenBucketLocal(key, config);
 }
 
+/// 本地令牌桶：进程内 mutex 保护，适用于 Redis 不可用的降级场景
 RateLimitResult RateLimiter::checkTokenBucketLocal(const std::string& key, const RateLimitConfig& config) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -249,6 +266,7 @@ RateLimitResult RateLimiter::checkTokenBucketLocal(const std::string& key, const
     return result;
 }
 
+/// 令牌填充：根据距上次填充的时间差和 refillRate 计算新增令牌，不超过 capacity
 void RateLimiter::refillTokens(LocalBucket& bucket, const RateLimitConfig& config) {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - bucket.lastRefill).count() / 1000.0;
@@ -265,6 +283,7 @@ RateLimitResult RateLimiter::checkSlidingWindow(const std::string& key, const Ra
     }
 }
 
+/// Redis 滑动窗口：用 Sorted Set 存储请求时间戳，ZREMRANGEBYSCORE 清理过期记录
 RateLimitResult RateLimiter::checkSlidingWindowRedis(const std::string& key, const RateLimitConfig& config) {
     auto& redis = cache::RedisCache::getInstance();
     if (!redis.isConnected()) {
@@ -340,6 +359,7 @@ RateLimitResult RateLimiter::checkFixedWindow(const std::string& key, const Rate
     }
 }
 
+/// Redis 固定窗口：INCR + EXPIRE 实现，首次请求时设置窗口过期时间
 RateLimitResult RateLimiter::checkFixedWindowRedis(const std::string& key, const RateLimitConfig& config) {
     auto& redis = cache::RedisCache::getInstance();
     if (!redis.isConnected()) {
@@ -398,6 +418,7 @@ RateLimitResult RateLimiter::checkFixedWindowRedis(const std::string& key, const
     return gotResultPtr->load() ? *resultPtr : checkFixedWindowLocal(key, config);
 }
 
+/// 本地固定窗口：窗口到期后重置计数器
 RateLimitResult RateLimiter::checkFixedWindowLocal(const std::string& key, const RateLimitConfig& config) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -439,6 +460,7 @@ std::string RateLimiter::buildRedisKey(const std::string& key, const RateLimitCo
     return config.redisKeyPrefix + key;
 }
 
+/// 获取指定 key 的限流统计：总请求数、放行数、拦截数、拦截率
 RateLimiter::RateLimitStats RateLimiter::getStats(const std::string& key) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -457,6 +479,7 @@ RateLimiter::RateLimitStats RateLimiter::getStats(const std::string& key) {
     return stats;
 }
 
+/// 重置指定 key 的限流状态（本地 + Redis 双清）
 void RateLimiter::reset(const std::string& key) {
     std::lock_guard<std::mutex> lock(mutex_);
     localBuckets_.erase(key);
@@ -471,9 +494,11 @@ void RateLimiter::reset(const std::string& key) {
 }
 
 // ============================================================================
-// RateLimitFilter 实现
+// RateLimitFilter：Drogon 过滤器适配层
+// 将 RateLimiter 核心逻辑接入 HTTP 请求处理管线
 // ============================================================================
 
+/// 过滤器入口：提取 key → 检查限流 → 放行或返回 429
 void RateLimitFilter::apply(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback,
@@ -498,6 +523,7 @@ void RateLimitFilter::apply(
     callback(nullptr);
 }
 
+/// 按限流级别提取 key：USER→user_id, IP→客户端IP, ENDPOINT→请求路径, GLOBAL→固定字符串
 std::string RateLimitFilter::extractKey(
     const HttpRequestPtr& req,
     RateLimitLevel level
@@ -522,6 +548,7 @@ std::string RateLimitFilter::extractKey(
     }
 }
 
+/// 构造 429 响应：JSON body + 标准限流响应头（X-RateLimit-* / Retry-After）
 HttpResponsePtr RateLimitFilter::createRateLimitResponse(const RateLimitResult& result) {
     Json::Value data;
     data["code"] = 429;

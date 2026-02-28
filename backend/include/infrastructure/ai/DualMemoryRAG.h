@@ -19,35 +19,57 @@
 
 namespace heartlake::ai {
 
+/**
+ * @brief 用户情绪记忆体，包含短期交互记忆和长期情绪画像
+ * @details 所有记忆使用 shadow_id 存储，不关联真实身份，保护用户隐私。
+ */
 struct EmotionMemory {
-    std::string userId;
-    // 短期记忆：最近交互
-    struct ShortTermEntry {
-        std::string content;
-        std::string emotion;
-        float score;
-        std::string timestamp;
-        int accessCount = 0;       // 被检索命中次数
-        double lastAccessTime = 0;  // 最近被检索的时间(epoch seconds)
-    };
-    std::vector<ShortTermEntry> shortTerm;  // max 5 entries
+    std::string userId;  ///< 用户 shadow_id
 
-    // 长期记忆：情绪画像
-    struct LongTermProfile {
-        float avgEmotionScore = 0.0f;
-        float decayWeightedScore = 0.0f;  // 指数衰减加权情绪分
-        int totalPosts = 0;
-        std::string dominantMood = "neutral";
-        float emotionVolatility = 0.0f;  // 情绪波动度
-        std::string emotionTrend = "stable";  // rising/falling/stable
-        int consecutiveNegativeDays = 0;
-        std::string lastActiveDate;
+    /**
+     * @brief 短期记忆条目 — 记录单次交互的情绪快照
+     */
+    struct ShortTermEntry {
+        std::string content;           ///< 交互文本内容
+        std::string emotion;           ///< 情绪类型标签
+        float score;                   ///< 情绪分数 [-1.0, 1.0]
+        std::string timestamp;         ///< ISO 8601 时间戳
+        int accessCount = 0;           ///< 被 RAG 检索命中的次数（用于相关性淘汰）
+        double lastAccessTime = 0;     ///< 最近被检索的时间（epoch seconds）
     };
-    LongTermProfile longTerm;
+    std::vector<ShortTermEntry> shortTerm;  ///< 短期记忆队列，最多 MAX_SHORT_TERM 条
+
+    /**
+     * @brief 长期记忆画像 — 从 emotion_tracking 表聚合的用户情绪统计
+     */
+    struct LongTermProfile {
+        float avgEmotionScore = 0.0f;          ///< 历史平均情绪分数
+        float decayWeightedScore = 0.0f;       ///< Ebbinghaus 指数衰减加权情绪分
+        int totalPosts = 0;                    ///< 历史发帖总数
+        std::string dominantMood = "neutral";  ///< 主导情绪类型
+        float emotionVolatility = 0.0f;        ///< 情绪波动度（标准差）
+        std::string emotionTrend = "stable";   ///< 情绪趋势: rising / falling / stable
+        int consecutiveNegativeDays = 0;       ///< 连续负面情绪天数（用于风险预警）
+        std::string lastActiveDate;            ///< 最后活跃日期
+    };
+    LongTermProfile longTerm;  ///< 长期情绪画像
 };
 
+/**
+ * @brief 双记忆 RAG 情感守护系统
+ *
+ * @details 基于 SoulSpeak (arXiv, Dec 2024) 论文的双记忆架构，将短期交互上下文
+ * 和长期情绪画像融合到 RAG 提示词中，生成个性化的心理支持回复。
+ *
+ * 记忆管理策略：
+ * - 短期记忆：保留最近 5 条交互，超限时按相关性淘汰最不相关的条目
+ * - 长期记忆：从 emotion_tracking 表聚合最近 30 天数据，Ebbinghaus 指数衰减加权
+ *
+ * 单例模式，线程安全（shared_mutex 读多写少场景优化）。
+ */
 class DualMemoryRAG {
 public:
+    /** @brief 获取全局单例 */
     static DualMemoryRAG& getInstance();
 
     /**
@@ -101,20 +123,38 @@ public:
 
 private:
     DualMemoryRAG() = default;
-    std::unordered_map<std::string, EmotionMemory> memories_;
-    mutable std::shared_mutex mutex_;  // 读多写少，用共享锁提升并发
+    std::unordered_map<std::string, EmotionMemory> memories_;  ///< shadow_id -> 记忆体映射
+    mutable std::shared_mutex mutex_;  ///< 读多写少场景，用共享锁提升并发读性能
 
-    static constexpr int MAX_SHORT_TERM = 5;          // 短期记忆保留条数
-    static constexpr int LONG_TERM_RETENTION_DAYS = 30; // 长期记忆聚合天数
-    static constexpr float DECAY_LAMBDA = 0.05f;      // 指数衰减系数 (Ebbinghaus)
+    static constexpr int MAX_SHORT_TERM = 5;              ///< 短期记忆最大保留条数
+    static constexpr int LONG_TERM_RETENTION_DAYS = 30;   ///< 长期记忆聚合回溯天数
+    static constexpr float DECAY_LAMBDA = 0.05f;          ///< Ebbinghaus 指数衰减系数
 
+    /**
+     * @brief 获取或创建用户记忆体
+     * @param userId 用户 shadow_id
+     * @return 记忆体引用（调用方需持有锁）
+     */
     EmotionMemory& getOrCreateMemory(const std::string& userId);
+
+    /**
+     * @brief 根据情绪分数序列计算趋势方向
+     * @return "rising" / "falling" / "stable"
+     */
     std::string calculateTrend(const std::vector<float>& scores);
+
+    /**
+     * @brief 计算情绪波动度（标准差）
+     */
     float calculateVolatility(const std::vector<float>& scores);
 
     /**
-     * 基于相关性的短期记忆淘汰
-     * 当短期记忆超过上限时，淘汰与当前上下文最不相关的条目
+     * @brief 基于相关性的短期记忆淘汰
+     * @details 当短期记忆超过 MAX_SHORT_TERM 时，综合考虑与当前上下文的
+     *          情绪匹配度、访问频率和时间新鲜度，淘汰最不相关的条目。
+     * @param entries 短期记忆条目列表（会被修改）
+     * @param currentContent 当前交互内容
+     * @param currentEmotion 当前情绪类型
      */
     void evictLeastRelevant(
         std::vector<EmotionMemory::ShortTermEntry>& entries,
