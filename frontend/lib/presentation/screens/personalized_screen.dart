@@ -1,4 +1,6 @@
-// 个性化推荐 - 蓝色湖面风格
+/// 个性化推荐页面
+///
+/// 基于协同过滤和情绪匹配的个性化石头推荐。
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
@@ -20,6 +22,11 @@ class PersonalizedScreen extends StatefulWidget {
   State<PersonalizedScreen> createState() => _PersonalizedScreenState();
 }
 
+/// 个性化推荐页面状态管理
+///
+/// 使用两个 AnimationController：
+/// - _driftController: 驱动卡片微浮动效果（循环播放）
+/// - _fadeController: 数据加载完成后的淡入过渡
 class _PersonalizedScreenState extends State<PersonalizedScreen>
     with TickerProviderStateMixin {
   final AIRecommendationService _service = sl<AIRecommendationService>();
@@ -50,6 +57,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     super.dispose();
   }
 
+  /// 并行请求个性化推荐和深层共鸣推荐
   Future<void> _loadRecommendations() async {
     try {
       final results = await Future.wait([
@@ -69,6 +77,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     }
   }
 
+  /// 将后端 JSON 列表解析为 Stone 实体，最多取 10 条
   List<Stone> _parseStones(List<Map<String, dynamic>> list) {
     return list.take(10).map((e) => Stone.fromJson(e)).toList();
   }
@@ -123,6 +132,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     );
   }
 
+  /// 加载中的呼吸动画占位
   Widget _buildLoadingState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
@@ -170,6 +180,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     );
   }
 
+  /// 推荐内容主体：心灵共振 + 深层共鸣两个分区
   Widget _buildContent() {
     return ListView(
       physics: const BouncingScrollPhysics(),
@@ -220,6 +231,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     );
   }
 
+  /// 带微浮动动画的石头推荐卡片，点击时上报交互事件
   Widget _buildDriftingCard(Stone stone, int index) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mood = stone.moodType != null
@@ -357,6 +369,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     );
   }
 
+  /// 推荐列表为空时的引导提示
   Widget _buildEmptyState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(

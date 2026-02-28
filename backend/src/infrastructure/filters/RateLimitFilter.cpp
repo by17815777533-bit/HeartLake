@@ -1,8 +1,8 @@
 /**
- * 请求限流过滤器实现
+ * @brief 请求限流过滤器 —— 滑动窗口算法的 HTTP 请求限流
  *
- * 基于滑动窗口算法的 HTTP 请求限流。每个客户端（按 token hash 或 IP 标识）
- * 在时间窗口内的请求时间戳被记录在 vector 中，超过阈值则返回 429。
+ * 每个客户端（按 token hash 或 IP 标识）在时间窗口内的请求时间戳
+ * 被记录在 vector 中，超过阈值则返回 429 Too Many Requests。
  * 普通 API 默认 100 次/分钟，AI API 默认 20 次/分钟。
  * AIRateLimitFilter 额外实现了 map 膨胀保护：超过 10000 个 key 时淘汰最旧的一半。
  */

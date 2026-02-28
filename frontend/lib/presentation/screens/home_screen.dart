@@ -1,4 +1,6 @@
-// 主页框架 - 底部导航和页面切换
+/// 主页框架
+///
+/// 底部导航栏和页面切换容器，管理观湖、发现、个人中心等Tab页。
 
 import 'package:flutter/material.dart';
 import 'lake_screen.dart';
@@ -20,16 +22,21 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// 应用主页框架的状态管理
+///
+/// 使用 [IndexedStack] 保持各 Tab 页面状态，配合懒加载避免一次性创建所有页面。
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  /// 通过 GlobalKey 持有 LakeScreenState 引用，用于跨 Tab 触发刷新
   final GlobalKey<LakeScreenState> _lakeScreenKey =
       GlobalKey<LakeScreenState>();
 
-  // 记录哪些 Tab 曾经被访问过，按需创建页面
+  // 记录哪些 Tab 曾经被访问过，首次访问时才创建页面
   final Set<int> _initializedTabs = {0};
-  // 缓存已创建的 Tab 页面，避免重复创建
+  // 缓存已创建的 Tab 页面实例，避免重复构建
   final Map<int, Widget> _cachedTabs = {};
 
+  /// Tab 切换回调，切换到观湖页面时自动刷新石头列表
   void _onTabTapped(int index) {
     // 切换到观湖页面时，刷新石头列表
     if (index == 0 && _selectedIndex != 0) {
@@ -42,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// 按需创建并缓存 Tab 页面，使用 putIfAbsent 保证同一 Tab 只创建一次
   Widget _buildTab(int index) {
     return _cachedTabs.putIfAbsent(index, () {
       switch (index) {

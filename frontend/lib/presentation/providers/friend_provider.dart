@@ -1,4 +1,8 @@
-// 好友状态管理 - 好友列表、临时好友、好友请求
+/// 好友状态管理
+///
+/// 统一管理正式好友、临时好友和好友请求三类列表的状态。
+/// 通过 WebSocket 监听好友上下线、请求、接受、删除、临时好友过期等实时事件。
+/// 依赖 [FriendService] 和 [TempFriendService] 完成后端交互。
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/friend_service.dart';
@@ -8,8 +12,8 @@ import '../../di/service_locator.dart';
 
 /// 好友系统状态管理器
 ///
-/// 统一管理正式好友、临时好友（纸船互动产生的 24h 限时好友）和好友请求。
-/// 通过 WebSocket 监听好友上下线、请求、接受、删除等实时事件。
+/// 维护三类列表：正式好友、临时好友（纸船互动产生的 24h 限时好友）、待处理好友请求。
+/// 通过 WebSocket 监听 6 种实时事件自动同步列表，无需手动刷新。
 class FriendProvider with ChangeNotifier {
   final FriendService _friendService = sl<FriendService>();
   final TempFriendService _tempFriendService = sl<TempFriendService>();
@@ -21,6 +25,7 @@ class FriendProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _wsRegistered = false;
 
+  // WebSocket 事件监听器引用，dispose 时需逐个移除
   late void Function(Map<String, dynamic>) _onFriendOnline;
   late void Function(Map<String, dynamic>) _onFriendOffline;
   late void Function(Map<String, dynamic>) _onFriendRequest;
@@ -39,6 +44,7 @@ class FriendProvider with ChangeNotifier {
     _setupWebSocket();
   }
 
+  /// 注册 WebSocket 事件监听器，监听好友相关的 6 种实时事件
   void _setupWebSocket() {
     if (_wsRegistered) return;
 
@@ -93,6 +99,7 @@ class FriendProvider with ChangeNotifier {
     _wsRegistered = true;
   }
 
+  /// 释放资源，移除所有 WebSocket 监听器
   @override
   void dispose() {
     if (_wsRegistered) {
@@ -108,6 +115,7 @@ class FriendProvider with ChangeNotifier {
 
   // ==================== 好友列表 ====================
 
+  /// 从后端拉取正式好友列表
   Future<void> fetchFriends() async {
     _isLoading = true;
     notifyListeners();
@@ -126,6 +134,7 @@ class FriendProvider with ChangeNotifier {
 
   // ==================== 临时好友 ====================
 
+  /// 从后端拉取临时好友列表（纸船互动产生的 24h 限时好友）
   Future<void> fetchTempFriends() async {
     try {
       final result = await _tempFriendService.getMyTempFriends();
@@ -140,6 +149,7 @@ class FriendProvider with ChangeNotifier {
 
   // ==================== 好友请求 ====================
 
+  /// 拉取待处理的好友请求列表
   Future<void> fetchPendingRequests() async {
     try {
       final result = await _friendService.getPendingRequests();
@@ -152,6 +162,7 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// 接受好友请求，成功后刷新好友列表
   Future<Map<String, dynamic>> acceptRequest(String userId) async {
     try {
       final result = await _friendService.acceptFriendRequest(userId);
@@ -166,6 +177,7 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// 拒绝好友请求
   Future<Map<String, dynamic>> rejectRequest(String userId) async {
     try {
       final result = await _friendService.rejectFriendRequest(userId);
@@ -180,6 +192,7 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// 删除好友关系
   Future<Map<String, dynamic>> removeFriend(String friendId) async {
     try {
       final result = await _friendService.removeFriend(friendId);
@@ -194,6 +207,7 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// 向目标用户发送好友请求
   Future<Map<String, dynamic>> sendRequest(String userId, {String? message}) async {
     try {
       return await _friendService.sendFriendRequest(userId: userId, message: message);
@@ -205,6 +219,9 @@ class FriendProvider with ChangeNotifier {
 
   // ==================== 临时好友操作 ====================
 
+  /// 将临时好友升级为正式好友
+  ///
+  /// 升级成功后从临时好友列表移除，并刷新正式好友列表。
   Future<Map<String, dynamic>> upgradeToPermanent(String tempFriendId) async {
     try {
       final result = await _tempFriendService.upgradeToPermanent(tempFriendId);
@@ -219,6 +236,7 @@ class FriendProvider with ChangeNotifier {
     }
   }
 
+  /// 清空所有好友相关状态（退出登录时调用）
   void clear() {
     _friends.clear();
     _tempFriends.clear();

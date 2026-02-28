@@ -1,4 +1,6 @@
-// 通知列表界面
+/// 通知列表界面
+///
+/// 展示系统通知和互动消息，支持分页加载和已读标记。
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +37,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     _loadNotifications();
   }
 
+  /// 从后端拉取通知列表，同步未读计数到 [NotificationProvider]
   Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
 
@@ -68,6 +71,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  /// 将指定通知标记为已读，并更新本地未读计数
   Future<void> _markAsRead(String notificationId, int index) async {
     try {
       final result = await _notificationService.markAsRead(notificationId);
@@ -86,6 +90,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  /// 一键将所有通知标记为已读
   Future<void> _markAllAsRead() async {
     try {
       final result = await _notificationService.markAllAsRead();
@@ -109,6 +114,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  /// 根据通知类型跳转到对应的详情页面（石头详情、好友列表、聊天等）
   Future<void> _navigateToContent(Map<String, dynamic> notification) async {
     final type = notification['type'] ?? '';
     final targetId = notification['target_id'] ?? notification['related_id'];
@@ -154,6 +160,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
+  /// 通知类型 -> emoji 图标映射
   String _getNotificationIcon(String type) {
     switch (type) {
       case 'ripple':

@@ -1,4 +1,6 @@
-// 发布石头界面
+/// 发布石头界面
+///
+/// 投石编辑页面，支持情绪选择、标签添加和内容审核。
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -31,6 +33,13 @@ class PublishScreen extends StatefulWidget {
   State<PublishScreen> createState() => _PublishScreenState();
 }
 
+/// 投石页面状态管理
+///
+/// 核心状态：
+/// - 文本输入与 debounce 定时器
+/// - EdgeAI 情绪分析结果与 AI 建议心情
+/// - 手动/自动心情选择的锁定机制
+/// - AI 内容预览的异步合并（通过 postFrameCallback 避免 build 期间 setState）
 class _PublishScreenState extends State<PublishScreen> {
   final TextEditingController _contentController = TextEditingController();
   final StoneService _stoneService = sl<StoneService>();
@@ -52,6 +61,7 @@ class _PublishScreenState extends State<PublishScreen> {
   AIPreviewResult? _pendingPreviewResult;
   bool _previewApplyScheduled = false;
 
+  /// 接收 AIContentPreview 的结果回调，合并到下一帧统一刷新，避免 build 期间 setState
   void _handlePreviewResultChanged(AIPreviewResult preview) {
     final unchanged = _previewResult.status == preview.status &&
         _previewResult.message == preview.message;
@@ -325,6 +335,9 @@ class _PublishScreenState extends State<PublishScreen> {
     super.dispose();
   }
 
+  /// 文本变化回调，500ms debounce 后触发 EdgeAI 情绪分析
+  ///
+  /// 使用递增序列号 [_analysisSeq] 丢弃过期的分析结果
   void _onContentChanged(String text) {
     _debounceTimer?.cancel();
     final trimmed = text.trim();
@@ -363,6 +376,7 @@ class _PublishScreenState extends State<PublishScreen> {
     });
   }
 
+  /// 构建 AI 情绪分析提示文本，包含置信度和联动状态
   String _buildAIHintText() {
     if (_topEmotion == null || _emotionResult == null) return '湖神参考：分析中';
     final confidence = _emotionResult![_topEmotion!] ?? 0.0;
@@ -376,6 +390,10 @@ class _PublishScreenState extends State<PublishScreen> {
     return '湖神参考: ${_provider.getEmotionLabel(_topEmotion!)} ${(confidence * 100).toStringAsFixed(0)}%$suffix（仅供参考）';
   }
 
+  /// 尝试将 AI 建议的心情应用到选择器
+  ///
+  /// 仅在用户未手动锁定、置信度 >= 0.58 且与当前选择不同时才自动切换。
+  /// 返回 true 表示成功应用了建议。
   bool _applyAIMoodSuggestion(MoodType? suggestedMood, double confidence) {
     _aiSuggestedMood = suggestedMood;
     _aiSuggestionConfidence = confidence.clamp(0.0, 1.0).toDouble();
@@ -388,6 +406,7 @@ class _PublishScreenState extends State<PublishScreen> {
     return true;
   }
 
+  /// 触发 AI 建议心情的脉冲放大动画，1.4 秒后自动消失
   void _triggerAIMoodPulse(MoodType mood) {
     _aiPulseTimer?.cancel();
     if (!mounted) return;
@@ -398,6 +417,7 @@ class _PublishScreenState extends State<PublishScreen> {
     });
   }
 
+  /// AI 心情建议横幅，展示联动状态和置信度，支持手动接管
   Widget _buildAIMoodSuggestionBanner() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mood = _aiSuggestedMood;
@@ -449,7 +469,9 @@ class _PublishScreenState extends State<PublishScreen> {
     );
   }
 
-  // 提交石头
+  // 提交石头，内容审核由后端完成
+  /// 校验输入和预览状态后提交到后端，成功后清除缓存并返回上一页。
+  /// 若后端检测到高风险内容（403），弹出心理支持弹窗。
   Future<void> _submitStone() async {
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -546,6 +568,7 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 
   // 心情选择器UI
+  /// 构建心情 Chip 列表，AI 建议的心情带发光效果，手动选择后锁定联动
   Widget _buildMoodSelector() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moods = [
@@ -646,6 +669,7 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 
   // 根据心情和类型更新石头颜色
+  /// 将当前心情的主色按石头类型（轻/中/重）混合不同透明度，转为 hex 色值
   void _updateStoneColor() {
     final moodConfig = MoodColors.getConfig(_selectedMood);
 
@@ -686,6 +710,7 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 }
 
+/// 投石按钮，带按压缩放动画和心情主题色渐变背景
 class _PublishButton extends StatefulWidget {
   final bool isSubmitting;
   final VoidCallback onPressed;

@@ -1,4 +1,6 @@
-// 隐私与安全设置页面 - 隐私开关、数据导出、账号注销
+/// 隐私与安全设置页面
+///
+/// 提供隐私开关、数据导出和账号注销等功能。
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -20,6 +22,10 @@ class PrivacySettingsScreen extends StatefulWidget {
   State<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();
 }
 
+/// 隐私与安全设置页面状态管理
+///
+/// 通过 debounce 机制合并频繁的开关操作，减少网络请求。
+/// 保存期间禁用所有开关，防止并发写入冲突。
 class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   final AccountService _accountService = sl<AccountService>();
   bool _isLoading = true;
@@ -36,6 +42,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   bool _allowResonanceMatch = true;
   bool _showProfileToStranger = true;
 
+  /// 将动态类型安全转换为 bool，兼容 String / num / bool 三种后端返回格式
   bool _asBool(dynamic value, {bool fallback = false}) {
     if (value is bool) return value;
     if (value is String) {
@@ -55,6 +62,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     _loadPrivacySettings();
   }
 
+  /// 从后端加载当前隐私设置，映射到各开关状态
   Future<void> _loadPrivacySettings() async {
     try {
       final result = await _accountService.getPrivacySettings();
@@ -87,6 +95,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
   }
 
+  /// 组装隐私设置请求体，同时发送当前生效字段和兼容字段
   Map<String, dynamic> _buildPrivacyPayload() {
     final visibility = _showProfileToStranger ? 'public' : 'private';
     return {
@@ -103,12 +112,14 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     };
   }
 
+  /// 延迟 350ms 后触发保存，合并短时间内的多次开关操作
   void _scheduleSave() {
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer =
         Timer(const Duration(milliseconds: 350), _saveSettings);
   }
 
+  /// 提交隐私设置到后端，若保存期间有新的变更则自动重新调度
   Future<void> _saveSettings() async {
     if (_isSaving) {
       _pendingSaveRequested = true;
@@ -147,6 +158,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     super.dispose();
   }
 
+  /// 申请导出个人数据，后端异步打包完成后通知用户下载
   Future<void> _exportData() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -189,6 +201,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
   }
 
+  /// 停用账号，资料隐藏但数据保留 30 天，期间可恢复
   Future<void> _deactivateAccount() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -230,6 +243,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
   }
 
+  /// 永久删除账号，需两次确认，操作不可逆
   Future<void> _deleteAccountPermanently() async {
     final firstConfirm = await showDialog<bool>(
       context: context,
@@ -425,6 +439,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     );
   }
 
+  /// 构建分区标题（如"隐私设置"、"数据管理"）
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
@@ -436,6 +451,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     );
   }
 
+  /// 通用开关行组件，保存中自动禁用交互
   Widget _buildSwitch({
     required IconData icon,
     required Color iconColor,

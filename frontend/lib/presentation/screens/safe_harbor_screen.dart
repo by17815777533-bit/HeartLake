@@ -1,4 +1,6 @@
-// 安全港湾 - 心理支持与自助资源页面
+/// 安全港湾页面
+///
+/// 心理支持与自助资源入口，提供热线、工具和推荐资源。
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +25,10 @@ class SafeHarborScreen extends StatefulWidget {
   State<SafeHarborScreen> createState() => _SafeHarborScreenState();
 }
 
+/// 安全港湾页面状态管理
+///
+/// 初始化时并行加载温暖提示、热线、自助工具和暖心资源四类数据，
+/// 加载完成后播放淡入动画。支持下拉刷新和加载失败重试。
 class _SafeHarborScreenState extends State<SafeHarborScreen>
     with SingleTickerProviderStateMixin {
   final _service = sl<PsychSupportService>();
@@ -59,6 +65,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     super.dispose();
   }
 
+  /// 并行加载所有支持资源，完成后记录匿名访问并播放淡入动画
   Future<void> _loadAll() async {
     setState(() {
       _loading = true;
@@ -120,6 +127,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     }
   }
 
+  /// 确认后拨打心理热线，通过 url_launcher 调起系统拨号
   Future<void> _callHotline(String phone, String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -217,6 +225,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
+  /// 加载失败时的重试视图
   Widget _buildErrorView() {
     return Center(
       child: Column(
@@ -238,7 +247,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 温暖提示卡片
+  // 温暖提示卡片，展示后端配置的关怀文案
   Widget _buildPromptCard(bool isDark) {
     return Card(
       color: isDark
@@ -276,7 +285,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 心理热线区
+  // 心理热线区，点击可一键拨打
   Widget _buildHotlinesSection(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,7 +341,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 自助工具区
+  // 自助工具区，支持展开查看详细引导步骤
   Widget _buildToolsSection(bool isDark) {
     final toolIcons = <String, IconData>{
       '深呼吸': Icons.air,
@@ -462,7 +471,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 暖心资源区
+  // 暖心资源区，点击可跳转外部链接
   Widget _buildResourcesSection(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,7 +538,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
   }
 
-  // 隐私声明
+  // 隐私声明，告知用户访问记录完全匿名
   Widget _buildPrivacyNote(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),

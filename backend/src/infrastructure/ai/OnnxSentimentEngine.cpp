@@ -1,8 +1,18 @@
 /**
- * ONNX Runtime 中文情感分析引擎实现
+ * @brief ONNX Runtime 中文情感分析引擎 —— BERT 推理 + WordPiece Tokenizer
  *
- * 包含完整的 BERT WordPiece Tokenizer 和 ONNX 推理逻辑。
+ * 推理管线：
+ *   1. BasicTokenize：UTF-8 解码 → 中文字符/标点独立切分 → ASCII 小写化
+ *   2. WordPiece：贪心最长匹配子词切分，未匹配字符回退 [UNK]
+ *   3. 编码：[CLS] + tokens + [SEP] + [PAD] 填充到 maxSeqLen
+ *   4. ONNX Session::Run → logits [1,2] → softmax → score 映射到 [-1, 1]
  *
+ * 并发策略：
+ *   - Session Pool（环境变量 EDGE_AI_ONNX_SESSION_POOL 控制大小）
+ *   - Round-robin 分配（atomic fetch_add），无锁推理
+ *   - 延迟统计使用 CAS 循环实现 lock-free 累加
+ *
+ * GPU 支持：CUDA EP 可选启用，失败时自动回退 CPU（除非 hardFail=true）
  */
 
 #ifdef HEARTLAKE_USE_ONNX

@@ -1,10 +1,17 @@
 /**
- * RedisCache 模块实现
+ * @brief Redis 缓存客户端 —— 双层降级架构 + 异步命令 + 协程支持
  *
- * 双层缓存架构：优先走 Redis，连接不可用时自动降级到进程内 LRU 内存缓存。
- * 断线后通过指数退避策略自动重连（5s → 10s → 20s → ... → 60s 上限）。
- * 所有 Redis 命令均采用异步回调模式，避免阻塞 Drogon I/O 线程。
- * 同时提供协程版本（getCoro / setExCoro / ttlCoro）供 C++20 协程上下文使用。
+ * 双层缓存架构：
+ *   - L1: Redis（主路径），所有命令异步回调，不阻塞 Drogon I/O 线程
+ *   - L2: 进程内 LRU 内存缓存（降级路径），Redis 不可用时自动切换
+ *
+ * 可靠性机制：
+ *   - 断线自动重连：指数退避（5s → 10s → 20s → ... → 60s 上限）
+ *   - 连接池：支持 initialSize / maxSize 配置，空闲超时回收
+ *
+ * 接口风格：
+ *   - 回调版本：get / setEx / incr / del 等
+ *   - 协程版本：getCoro / setExCoro / ttlCoro，适配 C++20 co_await
  */
 #include "infrastructure/cache/RedisCache.h"
 #include <drogon/drogon.h>

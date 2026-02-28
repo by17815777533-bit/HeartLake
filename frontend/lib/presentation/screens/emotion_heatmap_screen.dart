@@ -1,4 +1,6 @@
-// 情绪热力图页面（与情绪日历拆分）
+/// 情绪热力图页面
+///
+/// 展示用户近期情绪分布的热力图可视化。
 
 import 'dart:async';
 
@@ -24,6 +26,10 @@ class EmotionHeatmapScreen extends StatefulWidget {
   State<EmotionHeatmapScreen> createState() => _EmotionHeatmapScreenState();
 }
 
+/// 情绪热力图页面的状态管理
+///
+/// 使用 [UserService] 获取热力图数据，通过 WebSocket 监听石头增删事件自动刷新。
+/// 本地生成情绪洞察文案（近7天趋势、连续积极天数、高能日分析）。
 class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   final UserService _userService = sl<UserService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -69,6 +75,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     super.dispose();
   }
 
+  /// 初始化 WebSocket 实时同步：获取用户ID、加入 lake 房间、注册事件监听
   Future<void> _initRealtimeSync() async {
     _currentUserId = await StorageUtil.getUserId();
     if (!_wsManager.isConnected) {
@@ -80,6 +87,9 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     _wsManager.on('reconnected', _onReconnectedListener);
   }
 
+  /// 判断 WebSocket 事件是否由当前用户触发，用于过滤无关事件
+  ///
+  /// 用户ID读取失败时降级为始终刷新，避免页面长期不更新
   bool _isCurrentUserEvent(Map<String, dynamic> payload) {
     final currentUserId = _currentUserId;
     if (currentUserId == null || currentUserId.isEmpty) {
@@ -98,6 +108,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     return candidateIds.any((id) => id != null && id == currentUserId);
   }
 
+  /// 防抖刷新：300ms 内合并多次事件，[withFollowUp] 为 true 时 2s 后再补刷一次
   void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
     _refreshDebounce?.cancel();
     _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
@@ -111,6 +122,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     });
   }
 
+  /// 从后端加载热力图数据，解析 days 字典并生成本地洞察文案
   Future<void> _loadHeatmapData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
@@ -145,6 +157,9 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     }
   }
 
+  /// 根据热力图数据生成情绪洞察文案
+  ///
+  /// 分析维度：近7天均值趋势、连续积极天数、一周中情绪最佳的星期几
   List<String> _generateInsights(Map<String, Map<String, dynamic>> data) {
     if (data.isEmpty) return [];
     final insights = <String>[];

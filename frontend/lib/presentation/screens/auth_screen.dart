@@ -1,4 +1,7 @@
-// 认证界面 - 匿名登录 + 关键词恢复
+/// 认证界面
+///
+/// 提供匿名登录和恢复密钥找回两种认证方式，
+/// 登录成功后弹出恢复密钥保存对话框。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +26,12 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
+/// 认证页面的状态管理
+///
+/// 管理匿名登录和密钥恢复两条认证流程，维护三组动画控制器：
+/// - 匿名登录按钮按压缩放
+/// - 恢复账号按钮按压缩放
+/// - 页面整体淡入
 class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final AuthService _authService = sl<AuthService>();
   bool _isLoading = false;
@@ -78,6 +87,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// 显示浮动 SnackBar 提示，[isError] 控制背景色为错误红或成功绿
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -91,6 +101,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// 登录成功后跳转到主页，使用 go_router 的 go 方法替换路由栈
   void _navigateToHome() {
     if (!mounted) return;
     context.go('/home');
@@ -98,6 +109,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   // ==================== 匿名登录 ====================
 
+  /// 匿名登录：调用后端生成匿名账号，成功后弹出恢复密钥保存对话框
   Future<void> _handleAnonymousLogin() async {
     setState(() => _isLoading = true);
     try {
@@ -124,6 +136,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   // ==================== 恢复密钥保存对话框 ====================
 
+  /// 弹出恢复密钥保存对话框（不可关闭），用户必须确认已保存后才能进入主页
   Future<void> _showRecoveryKeySaveDialog(String recoveryKey) async {
     bool hasCopied = false;
 
@@ -285,6 +298,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   // ==================== 关键词恢复对话框 ====================
 
+  /// 弹出关键词恢复对话框，用户输入恢复密钥后调用后端验证并恢复账号
   Future<void> _showRecoverDialog() async {
     final recoveryKeyController = TextEditingController();
 
@@ -491,8 +505,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Logo 区域
-
+  /// 构建应用 Logo 圆形图标，带渐变背景和阴影
   Widget _buildLogo(bool isDark) {
     return Container(
       width: 88,
@@ -530,8 +543,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== 标题 ====================
-
+  /// 构建主标题「心湖」
   Widget _buildTitle(bool isDark) {
     return Text(
       '心湖',
@@ -552,8 +564,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== 副标题 ====================
-
+  /// 构建副标题文案
   Widget _buildSubtitle(bool isDark) {
     return Text(
       '在这里，倾听内心的声音',
@@ -567,8 +578,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== 匿名登录按钮 ====================
-
+  /// 构建匿名登录按钮，带按压缩放动画反馈
   Widget _buildAnonymousLoginButton(bool isDark) {
     return AnimatedBuilder(
       animation: _enterBtnScale,
@@ -630,8 +640,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== 恢复账号按钮 ====================
-
+  /// 构建恢复账号按钮，带按压缩放动画反馈
   Widget _buildRecoverButton(bool isDark) {
     return AnimatedBuilder(
       animation: _recoverBtnScale,
@@ -692,8 +701,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ==================== 隐私声明 ====================
-
+  /// 构建底部隐私声明文案
   Widget _buildPrivacyStatement(bool isDark) {
     return Text(
       '进入即代表你同意以匿名方式使用心湖\n我们不收集任何个人身份信息',

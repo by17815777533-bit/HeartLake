@@ -1,4 +1,6 @@
-// 情绪趋势可视化 - 蓝色湖面风格
+/// 情绪趋势可视化页面
+///
+/// 展示用户情绪变化的时序折线图。
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -25,6 +27,10 @@ class EmotionTrendsScreen extends StatefulWidget {
   State<EmotionTrendsScreen> createState() => _EmotionTrendsScreenState();
 }
 
+/// 情绪趋势可视化页面的状态管理
+///
+/// 使用 [AIRecommendationService] 和 [EdgeAIService] 获取趋势数据和隐私预算，
+/// 通过 WebSocket 监听当前用户的石头增删事件，debounce 后自动刷新。
 class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     with SingleTickerProviderStateMixin {
   final AIRecommendationService _aiService = sl<AIRecommendationService>();
@@ -78,6 +84,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     super.dispose();
   }
 
+  /// 初始化 WebSocket 实时同步：获取用户ID、加入 lake 房间、注册事件监听
   Future<void> _initRealtimeSync() async {
     _currentUserId = await StorageUtil.getUserId();
     if (!_wsManager.isConnected) {
@@ -89,6 +96,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     _wsManager.on('reconnected', _onReconnectedListener);
   }
 
+  /// 判断 WebSocket 事件是否由当前用户触发，用于过滤无关事件
   bool _isCurrentUserEvent(Map<String, dynamic> payload) {
     final currentUserId = _currentUserId;
     if (currentUserId == null || currentUserId.isEmpty) {
@@ -106,6 +114,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     return candidateIds.any((id) => id != null && id == currentUserId);
   }
 
+  /// 防抖刷新：300ms 内合并多次事件，[withFollowUp] 为 true 时 2s 后再补刷一次
   void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
     _refreshDebounce?.cancel();
     _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
@@ -119,6 +128,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     });
   }
 
+  /// 并行加载情绪趋势数据和差分隐私预算，加载完成后触发淡入动画
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
@@ -183,6 +193,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     );
   }
 
+  /// 构建页面主体内容：情绪脉搏 + 隐私徽章 + 趋势卡片
   Widget _buildContent() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -204,6 +215,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     );
   }
 
+  /// 构建差分隐私保护状态徽章，展示隐私预算消耗百分比和剩余量
   Widget _buildPrivacyBadge() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final consumed = (_privacyInfo?['consumed'] as num?)?.toDouble() ?? 0.0;
@@ -250,6 +262,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     );
   }
 
+  /// 构建情绪分布条形图和湖神关怀提示卡片
   Widget _buildTrendCards() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final distribution = _trends['distribution'] is Map
@@ -412,6 +425,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     );
   }
 
+  /// 情绪类型对应的可视化颜色
   Color _moodColor(String mood) {
     const colors = {
       'happy': Color(0xFFFFD54F),
@@ -430,6 +444,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     return colors[mood] ?? const Color(0xFF90CAF9);
   }
 
+  /// 情绪类型英文 key 到中文标签的映射
   String _moodLabel(String mood) {
     const labels = {
       'happy': '开心',
@@ -448,6 +463,10 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     return labels[mood] ?? mood;
   }
 
+  /// 将后端返回的原始趋势数据标准化为 {distribution, insights, period_days, trends} 格式
+  ///
+  /// 如果原始数据已包含 distribution 和 insights 则直接返回，
+  /// 否则从 trends 列表中聚合计算情绪分布和生成洞察文案。
   Map<String, dynamic> _normalizeTrendPayload(Map<String, dynamic> raw) {
     if (raw['distribution'] is Map && raw['insights'] is List) {
       return raw;

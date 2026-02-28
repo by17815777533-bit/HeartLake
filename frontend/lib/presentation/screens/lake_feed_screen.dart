@@ -1,4 +1,6 @@
-// 心湖动态流界面
+/// 心湖动态流界面
+///
+/// 展示心湖社区的实时动态信息流。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/stone_service.dart';
@@ -11,6 +13,7 @@ import 'dart:async';
 /// 心湖动态流页面，按时间线展示最新石头
 ///
 /// 支持无限滚动分页加载，通过 WebSocket 实时接收新石头并插入列表顶部。
+/// 同时展示湖面气象卡片，涟漪/纸船计数通过 WebSocket 实时同步。
 class LakeFeedScreen extends StatefulWidget {
   const LakeFeedScreen({super.key});
 
@@ -43,6 +46,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     _initWebSocket();
   }
 
+  /// 注册 WebSocket 监听器，处理新石头、石头删除、涟漪和纸船计数更新
   void _initWebSocket() {
     _wsManager.connect();
 
@@ -102,6 +106,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     _wsManager.on('boat_update', _boatUpdateListener);
   }
 
+  /// 并行加载湖面气象和石头列表
   Future<void> _loadData() async {
     await Future.wait([
       _loadWeather(),
@@ -109,6 +114,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     ]);
   }
 
+  /// 加载湖面气象数据（描述文案 + 石头总数）
   Future<void> _loadWeather() async {
     try {
       final result = await _stoneService.getLakeWeather();
@@ -120,6 +126,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     } catch (_) {}
   }
 
+  /// 加载石头列表，[refresh] 为 true 时重置分页
   Future<void> _loadStones({bool refresh = false}) async {
     if (refresh) {
       _currentPage = 1;
@@ -152,6 +159,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
     }
   }
 
+  /// 滚动监听回调，距离底部 200px 时自动加载下一页
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {

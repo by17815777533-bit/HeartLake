@@ -1,293 +1,192 @@
-# HeartLake — 匿名情绪社交平台
+# HeartLake — 心湖 · 涟漪共鸣
 
-HeartLake 是一个面向青年群体的匿名情绪表达与心理关怀平台。用户以"石头"为载体倾诉心声，通过"涟漪"产生共鸣，借"纸船"传递温暖。系统在保护隐私的前提下，融合端侧 AI 情感分析、心理风险评估和守护者机制，构建了一个安全、温暖的情绪互助社区。
+> 匿名情绪表达与心理关怀平台
+
+## 项目概述
+
+HeartLake 是一个面向青年群体的匿名情绪社区平台。用户以匿名身份发布情绪内容（"石头"），其他用户通过轻量互动（"涟漪"）表达共鸣，或通过匿名消息（"纸船"）建立情感连接。系统内置端侧 AI 引擎，实时进行情感分析与心理风险评估，当检测到高风险状态时自动触发安全港（SafeHarbor）危机干预机制。
+
+全系统在匿名与隐私保护的约束下运行，采用差分隐私、联邦学习、端到端加密等技术保障用户数据安全。
+
+## 核心功能
+
+| 功能模块 | 说明 |
+|----------|------|
+| 投石（Stone） | 匿名发布情绪内容，支持情绪标签、情绪日历、热力图统计 |
+| 涟漪（Ripple） | 轻量级互动机制，幂等操作，触发亲密度计算 |
+| 纸船（PaperBoat） | 匿名消息传递，建立一对一情感连接 |
+| 好友系统 | 基于亲密度门槛的好友关系，支持临时连接与可恢复删除 |
+| 情绪共鸣推荐 | 四维评分算法（语义相似度 + 情绪轨迹 DTW + 时间衰减 + 多样性），五策略融合推荐引擎 |
+| 心理风险评估 | 五因子模型（自伤意图 / 绝望感 / 时间紧迫性 / 语言风险 / 社交孤立），五级风险等级 |
+| SafeHarbor 安全港 | CRITICAL 级别自动触发，提供 24h 心理热线、自助工具、个性化干预资源 |
+| Guardian 守护者 | 信任关系绑定，情绪异常时向守护者推送告警 |
+| 管理后台 | 运营看板、用户管理、内容审核、敏感词管理、系统配置，共 12 个功能模块 |
 
 ## 技术栈
 
 | 层级 | 技术选型 | 说明 |
 |------|----------|------|
-| 后端 | C++20 + Drogon | 高性能异步 HTTP/WebSocket 框架，DDD 分层架构 |
-| 前端 | Flutter 3.x (Dart) | 跨端移动应用，30+ 页面 |
-| 管理后台 | Vue 3 + Element Plus + ECharts | 运营治理看板，12 个功能模块 |
-| 数据库 | PostgreSQL 16 | 主数据存储 |
-| 缓存 | Redis 7 | 分布式缓存 + 会话管理 |
-| AI 推理 | Ollama + 自研 EdgeAI 引擎 | 本地情感分析 + 远程大模型 |
-| 部署 | Docker Compose + Nginx 网关 | 一键启动全部服务 |
+| 后端服务 | C++20 + Drogon | 异步 HTTP/WebSocket 服务，DDD 四层架构（Interfaces / Application / Domain / Infrastructure） |
+| 移动客户端 | Flutter 3.x（Dart） | 跨平台移动应用，30+ 页面，Provider 状态管理，GoRouter 路由 |
+| 管理后台 | Vue 3 + Element Plus + ECharts | SPA 管理面板，Pinia 状态管理，TypeScript |
+| 数据库 | PostgreSQL 16 | 主数据存储，15 个版本化迁移脚本，含回滚支持 |
+| 缓存 | Redis 7 | 进程内 LRU（L1）+ Redis（L2）两级缓存架构 |
+| AI 推理 | Ollama + EdgeAI 引擎 | 本地 LLM 对话 + 8 子系统端侧 AI（情感分析、内容审核、HNSW 向量检索、差分隐私、联邦学习等） |
+| 反向代理 | Nginx 1.27 | 统一网关，路由分发，WebSocket 代理 |
+| 容器编排 | Docker Compose（6 容器） | 健康检查控制启动顺序，一键部署 |
+| CI/CD | GitHub Actions | 自动构建、测试、安全扫描 |
 
 ## 快速启动
 
+### 前置条件
+
+- Docker Engine 20.10+
+- Docker Compose v2+
+- 至少 4GB 可用内存（Ollama 模型加载需要额外内存）
+
+### 启动步骤
+
 ```bash
-# 克隆仓库
-git clone <repo-url> && cd heartlake
+# 1. 克隆仓库
+git clone https://github.com/by17815777533-bit/HeartLake.git
+cd heartlake
 
-# 一键启动（Docker Compose 编排 6 个服务）
-./scripts/docker-up.sh
+# 2. 配置环境变量
+cp .env.example .env
+# 按需修改 .env 中的数据库密码、密钥等配置
 
-# 验证服务状态
+# 3. 启动全部服务（PostgreSQL + Redis + Ollama + Backend + Admin + Gateway）
+./scripts/docker-up.sh all
+
+# 4. 验证服务状态
 ./scripts/docker-test.sh
 
-# 关闭服务
+# 5. 停止服务
 ./scripts/docker-down.sh
 ```
 
-启动后的访问地址：
-- 后端 API: `http://localhost:8080`
-- 管理后台: `http://localhost:5173`
-- 统一网关: `http://localhost:3000`
+`docker-up.sh` 支持多种启动模式：
+
+| 模式 | 命令 | 启动的服务 |
+|------|------|-----------|
+| 全量 | `./scripts/docker-up.sh all` | 全部 6 个容器 |
+| 精简 | `./scripts/docker-up.sh lite` | 除 Ollama 外的全部服务（无 LLM 对话能力，EdgeAI 本地分析正常） |
+| 仅数据库 | `./scripts/docker-up.sh db` | PostgreSQL + Redis |
+
+### 服务访问地址
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| 统一网关 | `http://localhost:3000` | Nginx 反向代理入口 |
+| 后端 API | `http://localhost:8080` | Drogon REST API + WebSocket |
+| 管理后台 | `http://localhost:5173` | Vue 3 管理面板 |
+| PostgreSQL | `localhost:5432` | 数据库（默认用户 `postgres`，密码 `HeartLake`） |
+| Redis | `localhost:6379` | 缓存（默认密码 `HeartLake`） |
+| Ollama | `localhost:11434` | LLM 推理服务 |
+
+### 数据初始化
+
+首次启动后，后端会自动执行数据库迁移。如需导入演示数据：
+
+```bash
+# 重置数据库并导入种子数据（会清空现有数据）
+./scripts/reset_all_data_and_seed.sh
+
+# 仅创建表结构，不导入数据
+./scripts/reset_all_data_and_seed.sh --schemaonly
+
+# 创建具有完整权限的演示账号（VIP + Guardian）
+./scripts/create_full_accessaccount.sh
+```
 
 ## 项目结构
 
 ```
 heartlake/
-├── backend/                 # C++20 后端（Drogon 框架）
-│   ├── include/
-│   │   ├── domain/          # 领域层：Stone / User / Friend 聚合根
-│   │   ├── application/     # 应用层：服务工厂 + 事件处理器
-│   │   ├── infrastructure/  # 基础设施层
-│   │   │   ├── ai/          # EdgeAI 引擎（8 个子系统）
-│   │   │   ├── cache/       # 两级缓存（进程内 LRU + Redis）
-│   │   │   ├── events/      # 领域事件总线
-│   │   │   ├── filters/     # 认证 / 限流 / 审计过滤器
-│   │   │   ├── services/    # 基础设施服务（SafeHarbor / Guardian / VIP 等）
-│   │   │   └── di/          # 依赖注入容器
-│   │   ├── interfaces/api/  # 20 个 HTTP Controller
-│   │   └── utils/           # 工具类（加密 / 过滤 / 熔断器等）
-│   ├── src/                 # 实现文件
-│   └── tests/               # GTest 单元测试 + 压力测试
-├── frontend/                # Flutter 跨端应用
+├── backend/                        # C++20 后端服务
+│   ├── include/                    # 头文件
+│   │   ├── domain/                 # 领域层：Stone / User / Friend 聚合根，仓储接口
+│   │   ├── application/            # 应用层：ApplicationServiceFactory，EventHandlers
+│   │   ├── infrastructure/         # 基础设施层
+│   │   │   ├── ai/                 # EdgeAI 引擎（8 个子系统）
+│   │   │   ├── cache/              # 两级缓存（LRU + Redis）
+│   │   │   ├── events/             # EventBus 领域事件总线
+│   │   │   ├── filters/            # PASETO 认证 / 令牌桶限流 / 安全审计
+│   │   │   ├── services/           # VIP、SafeHarbor、Guardian 等基础设施服务
+│   │   │   ├── privacy/            # 差分隐私引擎
+│   │   │   ├── realtime/           # WebSocket 实时通信
+│   │   │   └── di/                 # ServiceLocator 依赖注入
+│   │   ├── interfaces/api/         # 20 个 HttpController
+│   │   └── utils/                  # 工具类（加密、校验、ID 生成等）
+│   ├── src/                        # 源文件（与 include/ 目录结构对应）
+│   ├── tests/                      # Google Test 测试（57 个文件）
+│   ├── migrations/                 # 数据库迁移脚本（15 个 up + 15 个 rollback）
+│   ├── Dockerfile                  # 多阶段构建（Ubuntu 24.04 → 最小运行时镜像）
+│   └── CMakeLists.txt              # CMake 构建配置
+├── frontend/                       # Flutter 移动客户端
 │   ├── lib/
-│   │   ├── data/datasources/  # 21 个 API 服务客户端
-│   │   ├── domain/entities/   # 领域实体
-│   │   ├── edge_ai/           # 端侧 AI（情感分类 + 本地差分隐私）
-│   │   └── presentation/      # 30 个页面 + Provider 状态管理
-│   └── test/                  # Dart 单元测试
-├── admin/                   # Vue 3 管理后台
-│   ├── src/views/           # 12 个管理页面
-│   ├── src/composables/     # 可组合函数
-│   └── src/__tests__/       # Vitest 单元测试 + 压力测试
-├── deploy/                  # Nginx 网关配置
-├── docs/                    # 项目文档
-├── scripts/                 # 运维脚本
-└── docker-compose.yml       # 服务编排（6 个容器）
+│   │   ├── data/datasources/       # API 客户端（Dio）、WebSocket、交互服务
+│   │   ├── domain/                 # 领域实体 + 端侧 AI（EmotionClassifier、LocalDP）
+│   │   ├── presentation/
+│   │   │   ├── screens/            # 30+ 页面
+│   │   │   ├── providers/          # Provider 状态管理
+│   │   │   └── widgets/            # 可复用组件
+│   │   ├── router/                 # GoRouter 路由配置
+│   │   └── utils/                  # 工具类
+│   └── test/                       # Dart 测试（33 个文件）
+├── admin/                          # Vue 3 管理后台
+│   ├── src/
+│   │   ├── views/                  # 管理页面 + Dashboard
+│   │   ├── composables/            # 组合函数（useChartOptions、useDashboardData 等）
+│   │   ├── stores/                 # Pinia 状态管理
+│   │   └── services/               # WebSocket 服务
+│   ├── __tests__/                  # Vitest 测试（25 个文件）
+│   └── Dockerfile                  # 多阶段构建（Node 20 → Nginx 1.27）
+├── deploy/nginx/                   # Nginx 网关配置（gateway.conf）
+├── docs/                           # 技术文档（7 份）
+├── scripts/                        # 运维脚本（启动、停止、测试、数据初始化）
+├── docker-compose.yml              # 6 容器服务编排
+├── .env.example                    # 环境变量模板
+├── CONTRIBUTING.md                 # 贡献指南
+└── README.md                       # 本文件
 ```
 
-## 架构设计
+## 系统架构
 
-### DDD 分层架构
+### DDD 四层架构
 
-后端严格遵循领域驱动设计的分层约束，通过 `ArchitectureBootstrap` 按 Infrastructure → Domain → Application → EventHandler 的顺序完成依赖注入：
-
-```
-┌─────────────────────────────────────────────┐
-│  Interfaces 层 — 20 个 HttpController       │
-│  路由注册 + 请求校验 + 响应序列化            │
-├─────────────────────────────────────────────┤
-│  Application 层 — 应用服务 + 事件处理器      │
-│  编排领域逻辑，发布/订阅领域事件             │
-├─────────────────────────────────────────────┤
-│  Domain 层 — Stone / User / Friend 聚合根    │
-│  仓储接口(I*Repository) + 领域服务           │
-├─────────────────────────────────────────────┤
-│  Infrastructure 层                           │
-│  AI引擎 / 缓存 / 事件总线 / 数据库仓储实现   │
-└─────────────────────────────────────────────┘
-```
-
-领域事件驱动的业务流转：
-- `StonePublishedEvent` → AI 情感分析 → 情绪追踪 → 心理风险评估
-- `EmotionAnalyzedEvent` → 缓存更新 → 推荐引擎刷新
-- `RippleCreatedEvent` → 通知推送 → 亲密度计算
-- `BoatSentEvent` → 匿名消息投递
-
-### EdgeAI 引擎
-
-`EdgeAIEngine` 采用门面模式统一管理 8 个子系统，单例 + `std::once_flag` 保证线程安全的一次性初始化：
-
-| 子系统 | 类名 | 核心能力 |
-|--------|------|----------|
-| 情感分析 | `SentimentAnalyzer` | 三层融合（规则 + 词典 + 统计），LRU 缓存 + 飞行中请求去重，可选 ONNX 推理 |
-| 内容审核 | `ContentModerator` | AC 自动机 O(n) 多模式匹配 + 五因子心理风险评估（自伤意图/绝望感/孤立感/紧迫性/语言标记） |
-| 情绪脉搏 | `EmotionPulseDetector` | 滑动窗口统计，时间衰减加权 + EWMA 趋势 + MAD 离群点检测 |
-| 联邦学习 | `FederatedLearner` | FedAvg 加权聚合，支持 L2 梯度裁剪 + DP 噪声注入 + FedProx 近端正则化 |
-| 差分隐私 | `EdgeDifferentialPrivacy` | Laplace + Gaussian 双机制，zCDP 框架预算追踪（ε/δ/ρ 三计数器） |
-| 向量检索 | `HNSWIndex` | 多层图 + Ada-EF 自适应搜索宽度 + Matryoshka 重排序 + RND 多样性邻居选择 |
-| 模型量化 | `ModelQuantizer` | float32→INT8 对称量化，4 路展开矩阵乘法，量化前向推理 |
-| 节点监控 | `EdgeNodeMonitor` | 边缘节点注册/心跳/负载均衡选择 |
-
-### 情绪共鸣推荐
-
-`EmotionResonanceEngine` 实现了四维共鸣评分算法：
+后端严格遵循领域驱动设计分层，`ArchitectureBootstrap` 按依赖顺序初始化：
 
 ```
-ResonanceScore = 0.30·SemanticSim + 0.35·TrajectoryDTW + 0.20·TemporalDecay + 0.15·DiversityBonus
+┌─────────────────────────────────────────────────────────────┐
+│  Interfaces 层 — 20 个 HttpController                       │
+│  路由注册 · 请求校验 · PASETO v4 认证 · 响应序列化            │
+├─────────────────────────────────────────────────────────────┤
+│  Application 层 — ApplicationServiceFactory + EventHandlers │
+│  编排跨聚合业务流程，发布/订阅领域事件                         │
+├─────────────────────────────────────────────────────────────┤
+│  Domain 层 — Stone · User · Friend 聚合根                    │
+│  仓储接口（IStoneRepository / IUserRepository / IFriend...） │
+├─────────────────────────────────────────────────────────────┤
+│  Infrastructure 层                                          │
+│  EdgeAI 引擎 · 两级缓存 · EventBus · 数据库仓储实现           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- 语义相似度：基于 `AdvancedEmbeddingEngine` 的 128 维文本向量（TF-IDF + 情感 + 统计 + N-gram 四层特征）
-- 轨迹匹配：DTW 动态时间规整 + LB_Improved 双向包络剪枝 + Early Abandoning 提前终止
-- 时间衰减：指数衰减 `exp(-λ·Δt)`
-- 多样性奖励：避免回音室效应
-- 权重通过 EMA 在线学习自适应调整，`atomic<shared_ptr>` 无锁一致读取
+### 事件驱动流程
 
-`RecommendationEngine` 融合五种推荐策略（User-CF / Item-CF / 内容推荐 / UCB 探索 / 图传播），通过 MMR 多样性重排序输出最终结果。
+| 领域事件 | 触发时机 | 处理器 | 后续动作 |
+|----------|----------|--------|----------|
+| `StonePublishedEvent` | 石头发布 | `StonePublishedHandler` | AI 情感分析 → 情绪追踪 → 风险评估 |
+| `EmotionAnalyzedEvent` | 情感分析完成 | `EmotionAnalyzedHandler` | 缓存失效 → 推荐引擎刷新 |
+| `RippleCreatedEvent` | 涟漪互动 | `RippleCreatedHandler` | 通知推送 → 亲密度计算 |
+| `BoatSentEvent` | 纸船发送 | `BoatSentHandler` | 匿名消息投递 |
 
-### 语义缓存
-
-`SemanticCache` 实现两级缓存架构：
-- L1 精确匹配：SHA256 哈希，O(1) 查找
-- L2 语义匹配：复用 `HNSWIndex` 做 ANN 检索，O(log n)，相似度阈值 0.92
-- LFU 淘汰 + TTL 过期清理
-
-### 双记忆 RAG
-
-`DualMemoryRAG` 基于 SoulSpeak 论文的双记忆架构：
-- 短期记忆：最近 5 次交互上下文，基于相关性淘汰
-- 长期记忆：用户情绪画像（均值/波动度/趋势/连续负面天数），Ebbinghaus 指数衰减加权
-- 隐私保护：所有记忆使用 shadow_id，不关联真实身份
-
-## 安全体系
-
-### 认证与加密
-
-- PASETO v4 令牌认证（替代 JWT，防止算法混淆攻击）
-- E2E 端到端加密：X25519 ECDH 密钥交换 + HKDF-SHA256 派生 + AES-256-GCM 认证加密
-- 前向保密：临时密钥对，每次会话独立
-
-### 内容安全
-
-`ContentFilter` 三级过滤架构：
-1. `CountingBloomFilter` 预检测 — 快速排除安全文本
-2. `ACAutomaton` 精确匹配 — O(n) Aho-Corasick 多模式匹配
-3. `ShardedLRUCache` 结果缓存 — 热点文本直接命中
-
-支持运行时热更新敏感词库，词条按类别（self_harm / violence / sexual / profanity）和级别分级，白名单机制减少误报。
-
-### 隐私保护
-
-- 差分隐私：`DifferentialPrivacyEngine` 提供 Laplace / Gaussian 双机制噪声注入
-  - Laplace：标量和低维向量，组合定理均分 ε
-  - Gaussian：高维场景 σ = Δ₂·√(2·ln(1.25/δ))/ε，噪声尺度 O(√d)
-  - zCDP 框架追踪：ρ = Δ²/(2σ²) 线性可加，同时维护 ε/δ/ρ 三个原子计数器
-- 联邦学习：本地训练 + 安全聚合，梯度裁剪防止模型反演
-
-### 基础设施安全
-
-- `CircuitBreaker` 熔断器：CLOSED → OPEN → HALF_OPEN 三态状态机，两阶段锁策略
-- `SecurityAuditFilter`：全链路安全审计日志
-- `AdminAuthFilter`：管理后台独立认证
-- `RateLimiter`：请求速率限制
-
-## 心理关怀体系
-
-HeartLake 的核心差异化在于将心理关怀深度融入产品机制：
-
-### SafeHarbor 安全港
-
-当系统检测到用户可能处于心理危机状态时，自动触发安全港机制：
-- 提供 24 小时心理援助热线
-- 推送自助工具和温暖提示
-- 根据情绪类型个性化推荐资源
-
-### 心理风险评估
-
-`PsychologicalRiskAssessment` 融合两个维度：
-- 语言学分析：自伤意图（权重 0.9）、绝望感（0.6）、时间紧迫性（0.5）、语言标记（0.3）、社交孤立（0.1）
-- 行为模式分析：发帖频率、参与度变化、活跃时段、连续负面天数
-- 五级风险等级：NONE / LOW / MEDIUM / HIGH / CRITICAL
-
-### Guardian 守护者
-
-守护者系统允许信任的人关注用户情绪状态，在异常时收到告警通知。配合 `GuardianIncentiveService` 激励机制，鼓励社区互助。
-
-## API 概览
-
-后端提供 20 个 Controller，覆盖完整业务功能：
-
-| Controller | 路由前缀 | 功能 |
-|------------|----------|------|
-| `HealthController` | `/api/health` | 健康检查 |
-| `UserController` | `/api/users` | 注册 / 登录 / 令牌刷新 |
-| `AccountController` | `/api/account` | 个人资料 / 设备管理 / 隐私设置 / 数据导出 / 账号注销 |
-| `StoneController` | `/api/stones` | 石头 CRUD / 情感分析 / 情绪日历 |
-| `InteractionController` | `/api/interactions` | 涟漪 / 收藏 / 举报 |
-| `FriendController` | `/api/friends` | 好友请求 / 列表 / 删除 |
-| `TempFriendController` | `/api/temp-friends` | 临时连接（限时好友） |
-| `PaperBoatController` | `/api/boats` | 纸船匿名消息 |
-| `RecommendationController` | `/api/recommendations` | 个性化推荐 |
-| `VectorSearchController` | `/api/vector` | 语义搜索 |
-| `SafeHarborController` | `/api/safe-harbor` | 安全港资源 / 热线 / 自助工具 |
-| `GuardianController` | `/api/guardian` | 守护者关系管理 |
-| `ConsultationController` | `/api/consultation` | 心理咨询 |
-| `EdgeAIController` | `/api/edge-ai` | AI 引擎状态 / 情绪脉搏 / 联邦学习 |
-| `ReportController` | `/api/reports` | 举报管理 |
-| `PrivacyController` | `/api/privacy` | 隐私设置 |
-| `VIPController` | `/api/vip` | 会员服务 |
-| `AdminController` | `/api/admin` | 管理后台数据接口 |
-| `AdminManagementController` | `/api/admin/manage` | 用户管理 / 内容审核 / 系统配置 |
-| `BroadcastWebSocketController` | `/ws` | WebSocket 实时通信 |
-
-所有需要认证的端点通过 `SecurityAuditFilter` 过滤器验证 PASETO 令牌。
-
-## 管理后台
-
-Vue 3 + Element Plus 构建的运营治理看板，12 个功能模块：
-
-- Dashboard：实时数据卡片 + ECharts 图表（用户增长、情绪分布、内容趋势）
-- Users：用户列表 / 搜索 / 详情 / 封禁管理
-- Content：内容列表 / 筛选 / 审核操作
-- Moderation：待审核队列 / 批量通过/拒绝
-- EdgeAI：AI 引擎 8 子系统实时监控面板
-- SensitiveWords：敏感词库 CRUD / 导入导出
-- Reports：举报处理流程
-- Logs：操作日志 / 时间范围筛选
-- Settings：系统配置管理
-- CareFeedback：关怀反馈统计
-
-WebSocket 实时推送数据更新，composable 函数封装图表配置和分页逻辑。
-
-## Flutter 前端
-
-30 个页面覆盖完整用户旅程：
-
-- 认证流程：闪屏 → 引导页 → 登录/注册
-- 核心功能：首页信息流 → 湖面（石头瀑布流）→ 发布石头 → 石头详情 → 涟漪互动
-- 情绪追踪：情绪日历 → 热力图 → 趋势分析
-- 社交功能：好友列表 → 聊天 → 临时连接 → 纸船收发
-- 心理关怀：安全港 → 帮助中心 → 心理咨询
-- 个人中心：个人资料 → 隐私设置 → VIP → 我的石头/涟漪/纸船
-
-端侧 AI 能力：
-- `EmotionClassifier`：本地情感分类，无需网络请求
-- `LocalDP`：本地差分隐私，数据出端前加噪保护
-
-## 测试覆盖
-
-| 模块 | 框架 | 测试文件数 | 覆盖范围 |
-|------|------|-----------|----------|
-| 后端 | Google Test | 57 | 单元测试 + AI 引擎 benchmark + 并发 torture test |
-| 前端 | Dart test | 33 | 模型测试 + EdgeAI 测试 + 服务测试 |
-| 管理后台 | Vitest | 25 | 组件测试 + API 测试 + 压力测试 |
-| 端到端 | Playwright | - | 全页面全功能浏览器测试 |
-
-```bash
-# 后端测试
-cd backend/build && cmake .. && make -j$(nproc) && ctest --output-on-failure
-
-# 前端测试
-cd frontend && flutter test
-
-# 管理后台测试
-cd admin && npx vitest run
-
-# 全部测试
-./tests/clients/run_all.sh
-```
-
-## 部署架构
+### 部署拓扑
 
 ```
                     ┌──────────────┐
                     │  Nginx 网关   │ :3000
-                    │  (gateway)   │
                     └──────┬───────┘
                            │
               ┌────────────┼────────────┐
@@ -306,33 +205,179 @@ cd admin && npx vitest run
      └────────────┘  └───────────┘  └─────────────┘
 ```
 
-Docker Compose 编排 6 个服务容器，健康检查确保启动顺序：
-1. PostgreSQL + Redis 先启动并通过健康检查
-2. Backend 等待数据库就绪后启动
-3. Admin 和 Gateway 最后启动
+## EdgeAI 引擎
+
+`EdgeAIEngine` 采用门面模式统一管理 8 个子系统，单例初始化（`std::once_flag`）保证线程安全：
+
+| 子系统 | 功能 | 核心技术 |
+|--------|------|----------|
+| SentimentAnalyzer | 情感分析 | 规则 + 词典 + 统计三层融合，LRU 缓存 + 飞行请求去重，可选 ONNX Runtime |
+| ContentModerator | 内容审核 + 心理风险评估 | Aho-Corasick O(n) 多模式匹配 + 五因子风险模型 |
+| HNSWIndex | 近似最近邻向量检索 | Ada-EF 自适应搜索宽度 + Matryoshka 重排 + RND 多样性剪枝 + ADSampling 距离截断 |
+| EmotionPulseDetector | 实时情绪统计 | 滑动窗口 + 时间衰减 + EWMA 平滑 + MAD 离群检测 |
+| FederatedLearner | 联邦学习 | FedAvg 加权聚合 + L2 梯度裁剪 + DP 噪声 + FedProx 近端正则 |
+| EdgeDifferentialPrivacy | 差分隐私 | Laplace + Gaussian 双机制，zCDP 隐私预算追踪 |
+| ModelQuantizer | 模型量化推理 | float32 → INT8 对称量化，4 路展开矩阵乘法 |
+| EdgeNodeMonitor | 边缘节点监控 | 节点注册 / 心跳检测 / 负载均衡 |
+
+### 情绪共鸣推荐算法
+
+四维评分公式：
+
+```
+ResonanceScore = 0.30·SemanticSim + 0.35·TrajectoryDTW + 0.20·TemporalDecay + 0.15·DiversityBonus
+```
+
+- 语义相似度（0.30）：128 维文本向量（TF-IDF + 情感特征 + 统计特征 + N-gram），余弦相似度
+- 情绪轨迹匹配（0.35）：DTW 动态时间规整 + LB_Improved 双向包络剪枝 + Early Abandoning 提前终止
+- 时间衰减（0.20）：`exp(-λ·Δt)` 指数衰减，抑制过旧内容
+- 多样性奖励（0.15）：防止回音室效应
+- 权重通过 EMA 在线学习自适应调整，`atomic<shared_ptr>` 无锁读取
+
+五策略推荐引擎：User-CF / Item-CF / 内容匹配 / UCB 探索 / 图传播，MMR 多样性重排序。
+
+## 安全体系
+
+### 认证与加密
+
+- PASETO v4 令牌认证（替代 JWT，杜绝算法混淆攻击），管理后台使用独立签名密钥
+- E2E 端到端加密：X25519 密钥交换 + HKDF-SHA256 密钥派生 + AES-256-GCM 认证加密
+- 前向保密：临时密钥对，每次会话独立
+
+### 内容安全
+
+三级过滤架构：CountingBloomFilter 预检 → ACAutomaton O(n) 精确匹配 → ShardedLRUCache 结果缓存。支持运行时热更新敏感词库，白名单机制降低误报率。
+
+### 隐私保护
+
+- 差分隐私：Laplace 机制（低维标量）+ Gaussian 机制（高维向量，O(√d) 噪声），zCDP 预算追踪
+- 联邦学习：本地训练 + 安全聚合，L2 梯度裁剪防止模型反演攻击
+- 身份隔离：`IdentityShadowMap` 将物理用户 ID 映射为匿名 shadow_id，AI 子系统仅接触匿名标识
+
+### 基础设施防护
+
+- 熔断器：CLOSED → OPEN → HALF_OPEN 三态状态机，两阶段锁策略避免长时间持锁
+- 令牌桶限流：`RateLimitFilter` 按 IP / 用户维度限流
+- 全链路安全审计日志：`SecurityAuditFilter` 记录所有认证请求
+
+## 心理关怀机制
+
+### 风险评估模型
+
+`PsychologicalRiskAssessment` 融合语言学分析与行为模式分析两个维度：
+
+| 评估因子 | 权重 | 检测内容 |
+|----------|------|----------|
+| 自伤意图 | 0.9 | 自伤相关关键词与表达模式 |
+| 绝望感 | 0.6 | 绝望、无助类语言表达 |
+| 时间紧迫性 | 0.5 | "最后一次"等紧迫性表达 |
+| 语言风险标记 | 0.3 | 高风险语言模式匹配 |
+| 社交孤立 | 0.1 | 孤立感相关表达 |
+
+五级风险等级：NONE → LOW → MEDIUM → HIGH → CRITICAL
+
+CRITICAL 级别自动触发 SafeHarbor 安全港机制，提供 24 小时心理援助热线、自助工具和个性化干预资源。
+
+### Guardian 守护者系统
+
+允许用户指定信任的人作为守护者。当被守护用户的情绪状态出现异常时，系统向守护者推送告警通知。配合 `GuardianIncentiveService` 激励机制鼓励社区互助。
+
+## API 概览
+
+后端提供 20 个 Controller，完整接口文档参见 [API 接口全量清单](docs/05_API接口全量清单.md)。
+
+| Controller | 路由前缀 | 功能 |
+|------------|----------|------|
+| HealthController | `/api/health` | 服务健康检查 |
+| UserController | `/api/auth` | 匿名登录、令牌刷新、账号恢复 |
+| AccountController | `/api/account` | 用户资料、设备管理、隐私设置、GDPR 数据导出、账号注销 |
+| StoneController | `/api/stones` | 石头 CRUD、情绪日历、情绪热力图 |
+| InteractionController | `/api/interactions` | 涟漪（幂等）、收藏 |
+| PaperBoatController | `/api/boats` | 纸船匿名消息 |
+| FriendController | `/api/friends` | 好友管理、消息（亲密度门槛）、可恢复删除 |
+| TempFriendController | `/api/temp-friends` | 临时连接 |
+| RecommendationController | `/api/recommendations` | 个性化推荐、热门内容、趋势 |
+| VectorSearchController | `/api/vector` | 语义向量搜索 |
+| EdgeAIController | `/api/edge-ai` | 情感分析、情绪脉搏、隐私预算查询、联邦学习状态 |
+| SafeHarborController | `/api/safe-harbor` | 安全港资源、心理热线 |
+| GuardianController | `/api/guardian` | 守护者绑定、告警管理 |
+| ConsultationController | `/api/consultation` | 心理咨询 |
+| ReportController | `/api/reports` | 内容举报 |
+| PrivacyController | `/api/privacy` | 隐私设置管理 |
+| VIPController | `/api/vip` | 会员服务 |
+| AdminController | `/api/admin` | 管理后台数据接口 |
+| AdminManagementController | `/api/admin/manage` | 用户管理、内容审核、敏感词管理、系统配置 |
+| BroadcastWebSocketController | `/ws/broadcast` | WebSocket 实时通信 |
+
+## 测试
+
+三端测试共计 115 个测试文件，覆盖单元测试、集成测试、压力测试和端到端冒烟测试。
+
+| 模块 | 框架 | 测试文件数 | 运行命令 |
+|------|------|-----------|----------|
+| 后端 | Google Test | 57 | `cd backend/build && cmake .. && make -j$(nproc) && ctest --output-on-failure -j8` |
+| 移动端 | Dart test | 33 | `cd frontend && flutter test` |
+| 管理后台 | Vitest | 25 | `cd admin && npx vitest run` |
+| 端到端 | Shell + Docker | — | `./scripts/docker-test.sh` |
 
 ## 环境变量
 
-复制 `.env.example` 为 `.env` 并按需修改：
+复制 `.env.example` 为 `.env` 后按需修改：
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DB_NAME` | heartlake | 数据库名 |
-| `DB_USER` | postgres | 数据库用户 |
-| `DB_PASSWORD` | HeartLake | 数据库密码 |
-| `REDIS_PASSWORD` | HeartLake | Redis 密码 |
-| `PASETO_KEY` | HeartLake...（32字节） | PASETO 签名密钥 |
-| `AI_PROVIDER` | ollama | AI 提供者 |
-| `AI_MODEL` | heartlake-qwen | AI 模型名 |
+| `DB_NAME` | `heartlake` | PostgreSQL 数据库名 |
+| `DB_USER` | `postgres` | PostgreSQL 用户名 |
+| `DB_PASSWORD` | `HeartLake` | PostgreSQL 密码 |
+| `REDIS_PASSWORD` | `HeartLake` | Redis 认证密码 |
+| `PASETO_KEY` | （32 字节默认值） | PASETO v4 用户端签名密钥 |
+| `ADMIN_PASETO_KEY` | （32 字节默认值） | PASETO v4 管理端签名密钥 |
+| `AI_PROVIDER` | `ollama` | AI 推理提供者 |
+| `AI_MODEL` | `heartlake-qwen` | Ollama 模型名称 |
+| `AI_TIMEOUT` | `30` | AI 推理超时时间（秒） |
+| `GATEWAY_PORT` | `3000` | Nginx 网关端口 |
+| `BACKEND_PORT` | `8080` | 后端服务端口 |
+| `ADMIN_PORT` | `5173` | 管理后台端口 |
+| `POSTGRES_PORT` | `5432` | PostgreSQL 端口 |
+| `REDIS_PORT` | `6379` | Redis 端口 |
+| `OLLAMA_PORT` | `11434` | Ollama 端口 |
+
+## 理论基础
+
+### 隐私计算
+
+- 联邦学习端侧情感建模：FedMultiEmo (arXiv:2507.15470)、FED-PsyAU (EMNLP 2024)、FedProx (MLSys 2020)
+- 最优高斯差分隐私：Balle & Wang, ICML 2018，高维 O(√d) 噪声 + zCDP 预算追踪
+
+### 向量检索
+
+- HNSW 增强：Ada-EF (arXiv:2512.06636)、Hub Highway (arXiv:2412.01940)、Vamana (NeurIPS 2019) 多样性剪枝
+- ADSampling 距离截断：Gao et al., VLDB 2024
+- DTW 早停：Rakthanmanon et al. (2012) + LB_Improved (Lemire 2009)
+- 特征哈希降维：Weinberger et al., ICML 2009
+
+### Edge AI
+
+- INT8 对称量化：Jacob et al., CVPR 2018
+- 双记忆 RAG：SoulSpeak (arXiv, 2024)，短期上下文 + Ebbinghaus 衰减长期画像
+- 语义缓存：SHA256 精确匹配 + HNSW 语义匹配（相似度阈值 0.92）
 
 ## 文档索引
 
-| 文档 | 说明 |
+| 文档 | 内容 |
 |------|------|
-| [本地启动与运行手册](docs/01_本地启动与运行手册.md) | 环境要求、依赖安装、构建步骤 |
-| [API 与实时链路手册](docs/02_API与实时链路手册.md) | API 设计理念、认证机制、WebSocket |
-| [端到端测试与故障排查](docs/03_端到端测试与故障排查手册.md) | 测试策略、故障排查流程 |
-| [技术实现全景手册](docs/04_技术实现全景手册.md) | 核心算法详解、架构决策 |
-| [API 接口全量清单](docs/05_API接口全量清单.md) | 每个端点的请求/响应格式 |
-| [测试验证与压测手册](docs/06_测试验证与压测手册.md) | 测试用例、压测方案、性能指标 |
-| [贡献指南](CONTRIBUTING.md) | 开发规范、提交流程 |
+| [新手入门指南](docs/00_新手入门指南.md) | 从零开始：环境准备、启动服务、验证运行、常见问题 |
+| [本地启动与运行手册](docs/01_本地启动与运行手册.md) | 环境要求、Docker / 本地启动、环境变量配置 |
+| [API 与实时链路手册](docs/02_API与实时链路手册.md) | 认证机制、API 分组、WebSocket 协议、缓存策略 |
+| [端到端测试与故障排查](docs/03_端到端测试与故障排查手册.md) | 验证用例、故障排查流程 |
+| [技术实现全景手册](docs/04_技术实现全景手册.md) | 架构设计、算法细节、工程决策 |
+| [API 接口全量清单](docs/05_API接口全量清单.md) | 全部端点的请求 / 响应规格 |
+| [测试验证与压测手册](docs/06_测试验证与压测手册.md) | 测试分类、压测方案、性能指标目标 |
+| [编码与注释规范](docs/07_编码与注释规范.md) | Doxygen 注释标准、各端编码规范 |
+| [贡献指南](CONTRIBUTING.md) | 开发环境搭建、Git 工作流、代码规范 |
+
+## 许可证与联系
+
+- GitHub: https://github.com/by17815777533-bit/HeartLake
+- 维护者: 白洋 (jokerbai)
+- 邮箱: by17815777533@gmail.com

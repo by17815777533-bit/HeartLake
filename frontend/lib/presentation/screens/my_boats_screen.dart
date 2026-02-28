@@ -1,4 +1,6 @@
-// 我的纸船列表界面
+/// 我的纸船列表界面
+///
+/// 展示当前用户发送的所有纸船（评论）记录。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/interaction_service.dart';
@@ -13,6 +15,7 @@ import 'stone_detail_screen.dart';
 ///
 /// 纸船是用户对他人石头的匿名回应。
 /// 展示当前用户发出的所有纸船记录，点击可跳转到对应石头详情。
+/// 支持左滑删除、长按删除，通过 WebSocket 实时同步纸船和石头的删除事件。
 class MyBoatsScreen extends StatefulWidget {
   const MyBoatsScreen({super.key});
 
@@ -20,13 +23,16 @@ class MyBoatsScreen extends StatefulWidget {
   State<MyBoatsScreen> createState() => _MyBoatsScreenState();
 }
 
+/// 纸船列表页面的状态管理
+///
+/// 通过 [InteractionService] 加载纸船数据，使用 [WebSocketManager] 监听删除事件。
 class _MyBoatsScreenState extends State<MyBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
   bool _isLoading = false;
   final InteractionService _interactionService = sl<InteractionService>();
   late final WebSocketManager _wsManager;
 
-  // WebSocket 监听器
+  // WebSocket 监听器引用，dispose 时精确移除
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
 
@@ -45,6 +51,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     super.dispose();
   }
 
+  /// 注册 WebSocket 监听器，处理纸船删除和关联石头删除事件
   void _initWebSocket() {
     // 监听纸船删除
     _boatDeletedListener = (data) {
@@ -69,6 +76,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     _wsManager.on('stone_deleted', _stoneDeletedListener);
   }
 
+  /// 从后端加载纸船列表，当前固定加载第一页（最多50条）
   Future<void> _loadMyBoats() async {
     if (mounted) setState(() => _isLoading = true);
 
@@ -99,6 +107,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     }
   }
 
+  /// 弹出确认对话框后删除指定纸船，成功后从本地列表移除
   Future<void> _deleteBoat(String boatId, int index) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -143,7 +152,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     }
   }
 
-  // 根据石头的心情获取颜色
+  /// 根据纸船关联石头的心情类型获取对应的颜色配置
   MoodColorConfig _getMoodConfig(Map<String, dynamic> boat) {
     final moodType = boat['stone_mood_type'] as String?;
     if (moodType != null) {

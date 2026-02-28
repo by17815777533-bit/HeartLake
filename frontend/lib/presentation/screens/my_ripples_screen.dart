@@ -1,4 +1,8 @@
-// 我的涟漪列表界面
+/// 我的涟漪列表界面
+///
+/// 展示当前用户产生过涟漪（共鸣/点赞）的所有石头，支持下拉刷新和左滑取消涟漪。
+/// 通过 WebSocket 监听涟漪删除、石头删除、涟漪计数更新事件实时同步列表。
+/// 依赖 [InteractionService] 加载数据和执行删除，依赖 [WebSocketManager] 接收推送。
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
@@ -11,7 +15,8 @@ import '../../utils/app_theme.dart';
 /// 我的涟漪列表页面
 ///
 /// 涟漪是用户对石头的共鸣（类似点赞）。
-/// 展示当前用户产生过涟漪的所有石头，支持下拉刷新。
+/// 展示当前用户产生过涟漪的所有石头，支持下拉刷新和左滑取消。
+/// 通过 WebSocket 监听涟漪删除、石头删除、涟漪计数更新 3 种事件。
 class MyRipplesScreen extends StatefulWidget {
   const MyRipplesScreen({super.key});
 
@@ -20,13 +25,16 @@ class MyRipplesScreen extends StatefulWidget {
 }
 
 class _MyRipplesScreenState extends State<MyRipplesScreen> {
+  /// 涟漪原始数据（保留 ripple_id 等元信息，用于删除和 WebSocket 匹配）
   final List<Map<String, dynamic>> _ripplesData = [];
+
+  /// 解析后的 Stone 列表，与 _ripplesData 索引一一对应
   final List<Stone> _ripples = [];
   bool _isLoading = false;
   final InteractionService _interactionService = sl<InteractionService>();
   final WebSocketManager _wsManager = WebSocketManager();
 
-  // WebSocket 监听器引用
+  // WebSocket 事件监听器引用
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _rippleUpdateListener;
@@ -47,6 +55,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     super.dispose();
   }
 
+  /// 注册 WebSocket 事件监听器
   void _initWebSocket() {
     // 监听涟漪删除 - 从列表中移除对应条目
     _rippleDeletedListener = (data) {
@@ -102,6 +111,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     _wsManager.on('ripple_update', _rippleUpdateListener);
   }
 
+  /// 从后端加载当前用户的涟漪列表
   Future<void> _loadMyRipples() async {
     if (mounted) setState(() => _isLoading = true);
 

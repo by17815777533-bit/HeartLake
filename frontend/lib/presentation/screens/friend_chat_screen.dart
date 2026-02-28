@@ -1,4 +1,6 @@
-// 好友聊天界面
+/// 好友聊天界面
+///
+/// 与好友的实时消息收发页面。
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
@@ -23,6 +25,10 @@ class FriendChatScreen extends StatefulWidget {
   State<FriendChatScreen> createState() => _FriendChatScreenState();
 }
 
+/// 好友聊天页面的状态管理
+///
+/// 通过 [FriendService] 收发消息，[WebSocketManager] 实时接收新消息。
+/// 采用乐观更新策略：发送消息时立即追加到本地列表，失败后回滚并恢复输入。
 class _FriendChatScreenState extends State<FriendChatScreen> {
   final FriendService _friendService = sl<FriendService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -41,6 +47,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     _wsManager.on('new_friend_message', _onNewMessage);
   }
 
+  /// 初始化流程：先获取当前用户ID，校验好友ID合法性后加载历史消息
   Future<void> _init() async {
     await _initCurrentUser();
     if (!_isFriendIdUsable(widget.friendId)) {
@@ -62,10 +69,12 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     super.dispose();
   }
 
+  /// 从本地存储读取当前登录用户ID，用于判断消息归属
   Future<void> _initCurrentUser() async {
     _currentUserId = await StorageUtil.getUserId();
   }
 
+  /// WebSocket 新消息回调，仅处理来自当前聊天好友的消息
   void _onNewMessage(Map<String, dynamic> data) {
     final senderId = data['sender_id']?.toString();
     if (senderId != widget.friendId) return;
@@ -82,6 +91,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     _scrollToBottom();
   }
 
+  /// 从后端加载历史消息，并根据 sender_id 计算 is_mine 字段
   Future<void> _loadMessages() async {
     if (!_isFriendIdUsable(widget.friendId)) {
       if (mounted) {
@@ -131,6 +141,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     }
   }
 
+  /// 在下一帧将消息列表滚动到底部
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -143,6 +154,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     });
   }
 
+  /// 发送消息，采用乐观更新：先追加到本地列表，失败后回滚并恢复输入框内容
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
@@ -205,6 +217,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     }
   }
 
+  /// 校验好友ID是否为合法 UUID 格式
   bool _isFriendIdUsable(String value) {
     try {
       InputValidator.validateUUID(value, '好友ID');
@@ -286,6 +299,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     );
   }
 
+  /// 构建单条消息气泡，用户消息靠右蓝色、好友消息靠左灰色
   Widget _buildMessageBubble(dynamic message) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = message['is_mine'] == true;
@@ -318,19 +332,8 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     );
   }
 
+  /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 8,
-        top: 8,
-        bottom: MediaQuery.of(context).padding.bottom + 8,
-      ),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF16213E).withValues(alpha: 0.92)
-            : Colors.white.withValues(alpha: 0.92),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),

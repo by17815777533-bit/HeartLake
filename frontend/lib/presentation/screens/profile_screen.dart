@@ -1,4 +1,6 @@
-// 个人资料界面
+/// 个人资料界面
+///
+/// 展示用户信息、统计数据和个人中心功能入口。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -47,6 +49,10 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+/// 个人中心页面状态管理
+///
+/// 初始化时并行加载用户信息、统计数据、完整资料和灯火状态，
+/// 通过 WebSocket 监听石头/纸船/涟漪的增删事件实时刷新统计。
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = sl<UserService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -80,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final _vipService = sl<VIPService>();
 
+  /// 查询灯火（VIP）状态：是否点亮、剩余天数
   Future<void> _loadVIPStatus() async {
     try {
       final status = await _vipService.getVIPStatus();
@@ -99,10 +106,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 并行刷新统计、资料和灯火状态
   Future<void> _refreshAll() async {
     await Future.wait([_loadUserStats(), _loadFullProfile(), _loadVIPStatus()]);
   }
 
+  /// 注册 WebSocket 事件监听器，实时更新统计数据
+  ///
+  /// 监听事件包括：新石头、纸船增删、涟漪增删、断线重连
   void _setupWebSocketListeners() async {
     await _wsManager.connect();
     if (!mounted) return;
@@ -154,6 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _wsManager.on('reconnected', _reconnectedListener!);
   }
 
+  /// 移除所有 WebSocket 监听器，防止内存泄漏
   void _removeWebSocketListeners() {
     if (_newStoneListener != null) {
       _wsManager.off('new_stone', _newStoneListener!);
@@ -186,6 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  /// 从本地存储读取用户名和昵称
   Future<void> _loadUserInfo() async {
     try {
       final username = await StorageUtil.getUsername();
@@ -203,6 +216,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 加载用户统计数据（投石数、收发纸船数、相伴天数）
+  ///
+  /// [silent] 为 true 时不显示加载状态，用于后台静默刷新
   Future<void> _loadUserStats({bool silent = false}) async {
     try {
       final token = await StorageUtil.getToken();
@@ -220,6 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 从后端拉取完整用户资料（头像、签名等），并同步昵称到本地存储
   Future<void> _loadFullProfile() async {
     try {
       final userId = await StorageUtil.getUserId();
@@ -246,6 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 从相册选取图片并上传为头像，成功后同步到 UserProvider
   Future<void> _pickAndUploadAvatar() async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -310,6 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// 弹出个性签名编辑弹窗，保存后同步到后端和 UserProvider
   void _showEditBioDialog() {
     final controller = TextEditingController(text: _bio ?? '');
     showDialog(
@@ -765,6 +784,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// 构建统计数据卡片，可选点击跳转到对应列表页
   Widget _buildStatCard(
       BuildContext context, String label, String value, IconData icon,
       {VoidCallback? onTap}) {
@@ -819,6 +839,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return card;
   }
 
+  /// 弹出昵称修改弹窗，保存后同步到后端、本地存储和 UserProvider
   void _showEditNicknameDialog() {
     final controller = TextEditingController(text: _nickname ?? '');
 

@@ -1,5 +1,19 @@
 /**
- * 边缘差分隐私引擎实现
+ * @brief 边缘差分隐私引擎 —— Laplace / Gaussian 机制 + zCDP 预算核算
+ *
+ * 隐私机制：
+ *   - Laplace 机制：噪声尺度 b = sensitivity / epsilon，适用于低维标量查询
+ *   - Gaussian 机制：基于 zCDP（concentrated DP）预算核算，
+ *     sigma = sensitivity / sqrt(2*rho)，适用于高维向量场景
+ *   - zCDP 转换：rho = (-a + sqrt(a^2 + epsilon))^2, a = sqrt(log(1/delta))
+ *
+ * 预算管理：
+ *   - epsilon / delta / rho 三维预算独立追踪（atomic CAS 累加）
+ *   - 预算耗尽时返回原始值，不注入噪声（fail-open 策略）
+ *   - configure() 重置所有预算计数器
+ *
+ * 并发安全：shared_mutex 保护 dpConfig_ 和 dpRng_，
+ * 读操作（addNoise）持 shared_lock，写操作（configure）持 unique_lock。
  */
 #include "infrastructure/ai/EdgeDifferentialPrivacy.h"
 #include <drogon/drogon.h>

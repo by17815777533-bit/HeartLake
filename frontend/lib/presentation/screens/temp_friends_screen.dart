@@ -1,4 +1,6 @@
-// 临时好友列表界面
+/// 临时好友列表界面
+///
+/// 展示24小时限时好友列表，支持升级为永久好友。
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -22,6 +24,10 @@ class TempFriendsScreen extends StatefulWidget {
   State<TempFriendsScreen> createState() => _TempFriendsScreenState();
 }
 
+/// 临时好友列表页面状态管理
+///
+/// 使用 Timer.periodic 每分钟刷新列表以更新倒计时显示，
+/// 列表加载完成后播放交错淡入动画。
 class _TempFriendsScreenState extends State<TempFriendsScreen>
     with SingleTickerProviderStateMixin {
   final TempFriendService _tempFriendService = sl<TempFriendService>();
@@ -50,6 +56,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     super.dispose();
   }
 
+  /// 加载临时好友列表，重置列表动画
   Future<void> _loadTempFriends() async {
     if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
@@ -83,6 +90,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     }
   }
 
+  /// 计算距过期时间的剩余时长，格式化为"N小时N分钟"
   String _getTimeRemaining(String expiresAt) {
     try {
       final expiryTime = DateTime.parse(expiresAt);
@@ -105,6 +113,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     }
   }
 
+  /// 根据剩余时间返回对应颜色：< 1h 警告色，已过期错误色
   Color _getExpiryColor(String expiresAt) {
     try {
       final expiryTime = DateTime.parse(expiresAt);
@@ -123,6 +132,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     }
   }
 
+  /// 确认后将临时好友升级为永久好友
   Future<void> _upgradeToPermanent(
       String tempFriendId, String friendName) async {
     final confirm = await showDialog<bool>(
@@ -169,6 +179,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     }
   }
 
+  /// 确认后删除临时好友关系
   Future<void> _deleteTempFriend(String tempFriendId, String friendName) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -392,6 +403,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     );
   }
 
+  /// 构建单个好友卡片，带交错淡入动画和过期/已升级状态标记
   Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired, bool isUpgraded, String expiresAt, bool isDark) {
     return AnimatedBuilder(
       animation: _listAnimController,
@@ -504,6 +516,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     );
   }
 
+  /// 将互动来源标识转为中文显示文本
   String _getSourceText(String? source) {
     switch (source) {
       case 'comment':

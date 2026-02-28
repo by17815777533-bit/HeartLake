@@ -1,4 +1,6 @@
-// 用户详情界面
+/// 用户详情界面
+///
+/// 展示其他用户的个人信息和统计数据。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
@@ -20,6 +22,7 @@ class UserDetailScreen extends StatefulWidget {
   State<UserDetailScreen> createState() => _UserDetailScreenState();
 }
 
+/// 用户详情页面状态管理
 class _UserDetailScreenState extends State<UserDetailScreen> {
   final UserService _userService = sl<UserService>();
   Map<String, dynamic>? _user;
@@ -32,6 +35,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     _loadUserProfile();
   }
 
+  /// 加载目标用户的公开资料和好友关系状态
   Future<void> _loadUserProfile() async {
     try {
       final result = await _userService.getUserInfo(widget.userId);
@@ -152,6 +156,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     );
   }
 
+  /// 构建单项统计数据（石头数、涟漪数）
   Widget _buildStat(String label, int count) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(

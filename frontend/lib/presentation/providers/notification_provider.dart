@@ -1,4 +1,8 @@
-// 通知状态管理
+/// 通知状态管理
+///
+/// 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
+/// 实时通知事件和纸船事件更新未读角标。
+/// 依赖 [NotificationService] 完成后端交互，依赖 [WebSocketManager] 接收推送。
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
@@ -7,13 +11,15 @@ import '../../di/service_locator.dart';
 
 /// 通知中心状态管理器
 ///
-/// 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
-/// `new_notification` 事件实时更新未读角标。
+/// 维护未读计数和通知列表两部分状态。
+/// 通过 WebSocket 监听 `new_notification` 和 `boat_update` 事件实时递增未读数。
+/// 未读计数有节流保护，[refreshInterval] 秒内不会重复请求后端。
 class NotificationProvider with ChangeNotifier {
   final NotificationService _notificationService = sl<NotificationService>();
   final WebSocketManager _wsManager = WebSocketManager();
   int _unreadCount = 0;
   bool _isLoading = false;
+  /// 上次拉取未读数的时间，用于节流
   DateTime? _lastUpdate;
   bool _wsListenerRegistered = false;
 
@@ -24,10 +30,11 @@ class NotificationProvider with ChangeNotifier {
   int _currentPage = 1;
   static const int _pageSize = 20;
 
-  // P1-1: 保存监听器引用以便精确移除
+  // WebSocket 监听器引用，dispose 时精确移除防止内存泄漏
   late final void Function(Map<String, dynamic>) _onNewNotification;
   late final void Function(Map<String, dynamic>) _onBoatUpdate;
 
+  /// 未读数拉取的最小间隔（秒），防止频繁请求
   static const int refreshInterval = 30;
 
   int get unreadCount => _unreadCount;
@@ -41,12 +48,12 @@ class NotificationProvider with ChangeNotifier {
     _setupWebSocketListener();
   }
 
+  /// 注册 WebSocket 事件监听器
   void _setupWebSocketListener() {
     if (_wsListenerRegistered) return;
-    // P1-1: 使用命名引用，dispose 时可精确移除
     _onNewNotification = (data) {
       incrementUnread();
-      // 实时推送的通知插入列表头部
+      // 实时推送的通知插入列表头部，保持时间倒序
       _notifications.insert(0, data);
       notifyListeners();
     };
@@ -58,9 +65,10 @@ class NotificationProvider with ChangeNotifier {
     _wsListenerRegistered = true;
   }
 
+  /// 释放资源，移除 WebSocket 监听器
   @override
   void dispose() {
-    // P1-1: 精确移除 WS 监听器，防止内存泄漏
+    // 精确移除监听器，防止内存泄漏
     if (_wsListenerRegistered) {
       _wsManager.off('new_notification', _onNewNotification);
       _wsManager.off('boat_update', _onBoatUpdate);
@@ -68,7 +76,7 @@ class NotificationProvider with ChangeNotifier {
     super.dispose();
   }
 
-  /// 加载未读通知数量
+  /// 加载未读通知数量（有节流保护，[refreshInterval] 秒内不重复请求）
   Future<void> loadUnreadCount() async {
     if (_lastUpdate != null &&
         DateTime.now().difference(_lastUpdate!).inSeconds < refreshInterval) {
@@ -85,7 +93,6 @@ class NotificationProvider with ChangeNotifier {
         _lastUpdate = DateTime.now();
       }
     } catch (e) {
-      // P2-3: debugPrint 包裹在 kDebugMode 检查中
       if (kDebugMode) { debugPrint('加载未读数量失败: $e'); }
     } finally {
       _isLoading = false;
@@ -93,7 +100,9 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  /// 标记单个通知为已读
+  /// 标记单个通知为已读，同时同步本地列表状态
+  ///
+  /// 先乐观递减本地未读数，再以服务端返回的实际未读数为准。
   Future<void> markAsRead(String notificationId) async {
     try {
       final result = await _notificationService.markAsRead(notificationId);
@@ -115,7 +124,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
-  /// 标记所有通知为已读
+  /// 标记所有通知为已读，批量更新本地列表状态
   Future<void> markAllAsRead() async {
     try {
       await _notificationService.markAllAsRead();
@@ -132,11 +141,13 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  /// 未读数 +1（WebSocket 推送时调用）
   void incrementUnread() {
     _unreadCount++;
     notifyListeners();
   }
 
+  /// 未读数 -1
   void decrementUnread() {
     if (_unreadCount > 0) {
       _unreadCount--;
@@ -144,6 +155,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  /// 直接设置未读数（服务端返回精确值时使用）
   void setUnreadCount(int count) {
     if (_unreadCount != count) {
       _unreadCount = count;
@@ -151,12 +163,15 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  /// 强制刷新未读数（忽略节流间隔）
   Future<void> forceRefreshUnreadCount() async {
     _lastUpdate = null;
     await loadUnreadCount();
   }
 
-  /// 加载通知列表（支持分页和刷新）
+  /// 加载通知列表（支持分页和下拉刷新）
+  ///
+  /// [refresh] 为 true 时重置分页状态从第一页开始加载。
   Future<void> loadNotifications({bool refresh = false}) async {
     if (_isLoadingNotifications) return;
 
@@ -195,6 +210,7 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 
+  /// 清空所有通知状态（退出登录时调用）
   void clear() {
     _unreadCount = 0;
     _lastUpdate = null;

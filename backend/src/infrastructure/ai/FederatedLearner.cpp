@@ -1,5 +1,17 @@
 /**
- * 联邦学习聚合器实现
+ * @brief 联邦学习聚合器 —— FedAvg / FedProx 加权聚合 + DP-SGD 隐私保护
+ *
+ * 聚合流程（aggregateFedAvg）：
+ *   1. DP-SGD 梯度裁剪：对每个本地模型权重做 l2-norm clipping（阈值 C）
+ *   2. 结构校验：过滤 layer/bias shape 不一致的脏更新
+ *   3. Stale-aware 加权：样本数 * exp(-0.35 * staleness) 衰减旧 epoch 更新
+ *   4. FedAvg 加权聚合：按归一化权重求和
+ *   5. FedProx 近端修正：w_final = (w_agg + mu * w_prev) / (1 + mu)
+ *   6. DP-SGD 高斯噪声注入：N(0, sigma^2 * C^2 * I)
+ *
+ * 并发安全：所有公开方法持有 federatedMutex_，单写者模型。
+ *
+ * @note 参考 Li et al. "Federated Optimization in Heterogeneous Networks" (MLSys 2020)
  */
 #include "infrastructure/ai/FederatedLearner.h"
 #include <algorithm>

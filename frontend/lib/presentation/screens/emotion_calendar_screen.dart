@@ -1,4 +1,6 @@
-// 情绪日历页面 - 精美可视化
+/// 情绪日历页面
+///
+/// 按月展示每日情绪记录的日历视图。
 
 import 'dart:async';
 
@@ -34,6 +36,10 @@ class EmotionCalendarScreen extends StatefulWidget {
   State<EmotionCalendarScreen> createState() => _EmotionCalendarScreenState();
 }
 
+/// 情绪日历页面的状态管理
+///
+/// 使用 [UserService] 获取月度情绪数据，通过 WebSocket 监听石头增删事件自动刷新。
+/// 维护日历网格淡入动画和统计缓存，避免重复计算。
 class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     with SingleTickerProviderStateMixin {
   final UserService _userService = sl<UserService>();
@@ -87,6 +93,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     super.dispose();
   }
 
+  /// 初始化 WebSocket 实时同步：获取用户ID、加入 lake 房间、注册事件监听
   Future<void> _initRealtimeSync() async {
     _currentUserId = await StorageUtil.getUserId();
     if (!_wsManager.isConnected) {
@@ -98,6 +105,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     _wsManager.on('reconnected', _onReconnectedListener);
   }
 
+  /// 判断 WebSocket 事件是否由当前用户触发
   bool _isCurrentUserEvent(Map<String, dynamic> payload) {
     final currentUserId = _currentUserId;
     if (currentUserId == null || currentUserId.isEmpty) {
@@ -115,6 +123,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     return candidateIds.any((id) => id != null && id == currentUserId);
   }
 
+  /// 防抖刷新：300ms 内合并多次事件，[withFollowUp] 为 true 时 2s 后再补刷一次
   void _scheduleRealtimeRefresh({bool withFollowUp = false}) {
     _refreshDebounce?.cancel();
     _refreshDebounce = Timer(const Duration(milliseconds: 300), () {
@@ -128,6 +137,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     });
   }
 
+  /// 从后端加载指定月份的情绪数据，成功后触发日历网格淡入动画
   Future<void> _loadEmotionData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
@@ -155,6 +165,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     if (mounted) setState(() => _isLoading = false);
   }
 
+  /// 标准化后端返回的日期数据，将 "2024-01-15" 格式的 key 转为纯天数 "15"
   Map<String, dynamic> _normalizeDays(dynamic rawDays) {
     if (rawDays is! Map) return {};
     final normalized = <String, dynamic>{};
@@ -181,6 +192,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     return normalized;
   }
 
+  /// 从 moods 分布中选出出现次数最多的情绪类型
   String? _pickDominantMood(dynamic moods) {
     if (moods is! Map || moods.isEmpty) return null;
     String? winner;
@@ -253,6 +265,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建页面顶部导航栏：返回按钮 + 标题 + 隐私徽章
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -271,6 +284,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建月份切换器，左右箭头切换月份，不允许超过当前月
   Widget _buildMonthSelector() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -317,12 +331,14 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 判断是否可以切换到下一个月（不超过当前月）
   bool _canGoNext() {
     final now = DateTime.now();
     return _currentMonth.year < now.year ||
         (_currentMonth.year == now.year && _currentMonth.month < now.month);
   }
 
+  /// 构建月度情绪统计卡片：愉悦/平静/低落天数 + 平均情绪指数
   Widget _buildEmotionSummary() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = _calculateStats();
@@ -353,6 +369,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建统计项：图标 + 数值 + 标签
   Widget _statItem(String value, String label, IconData icon) {
     return Column(
       children: [
@@ -370,6 +387,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 统计当月情绪数据：按分数阈值分类天数并计算平均值，结果缓存到 _cachedStats
   Map<String, dynamic> _calculateStats() {
     if (_cachedStats != null) return _cachedStats!;
     int happy = 0, calm = 0, sad = 0;
@@ -396,6 +414,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     return _cachedStats!;
   }
 
+  /// 构建星期几表头行（日 ~ 六）
   Widget _buildWeekdayHeader() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
@@ -418,6 +437,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建日历网格，每个日期格子根据情绪分数着色，带交错淡入动画
   Widget _buildCalendarGrid() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final firstDay = DateTime(_currentMonth.year, _currentMonth.month, 1);
@@ -531,6 +551,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 弹出指定日期的情绪详情 BottomSheet，展示情绪图标、名称、描述和指数
   void _showDayDetail(int day, Map<String, dynamic> emotion) {
     final score = (emotion['score'] ?? 0.5) as num;
     final mood = emotion['mood'] as String?;
@@ -596,6 +617,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建本周心情趋势摘要条，根据周均分显示趋势方向和文案
   Widget _buildWeeklySummary() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
@@ -642,6 +664,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建情绪颜色图例（愉悦/平静/低落/焦虑）
   Widget _buildLegend() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moods = [
@@ -682,6 +705,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     );
   }
 
+  /// 构建情绪热力图页面入口卡片，点击跳转到 [EmotionHeatmapScreen]
   Widget _buildHeatmapEntryCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(

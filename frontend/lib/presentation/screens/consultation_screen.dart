@@ -1,4 +1,6 @@
-// 心理咨询预约和会话页面 - 支持E2E加密
+/// 心理咨询预约和会话页面
+///
+/// 支持E2E加密的咨询会话，包含预约咨询和实时消息收发。
 import 'package:flutter/material.dart';
 import '../../data/datasources/consultation_service.dart';
 import '../../di/service_locator.dart';
@@ -20,6 +22,7 @@ class ConsultationScreen extends StatefulWidget {
   State<ConsultationScreen> createState() => _ConsultationScreenState();
 }
 
+/// 心理咨询主页面的状态管理，维护双 Tab 的 TabController
 class _ConsultationScreenState extends State<ConsultationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -80,6 +83,7 @@ class _ConsultationScreenState extends State<ConsultationScreen>
     );
   }
 
+  /// 跳转到咨询聊天页面（新建会话）
   void _goToChat(String counselorId, String counselorName) {
     Navigator.push(
       context,
@@ -92,6 +96,7 @@ class _ConsultationScreenState extends State<ConsultationScreen>
     );
   }
 
+  /// 跳转到咨询聊天页面（恢复已有会话）
   void _goToChatWithSession(String sessionId, String counselorName) {
     Navigator.push(
       context,
@@ -105,8 +110,9 @@ class _ConsultationScreenState extends State<ConsultationScreen>
   }
 }
 
-/// 咨询师列表 Tab（预约咨询）
+/// 咨询师列表 Tab（预约咨询），展示静态咨询师数据
 class _CounselorListTab extends StatelessWidget {
+  /// 点击预约后的回调，传递咨询师ID和姓名
   final void Function(String counselorId, String counselorName) onStartChat;
 
   const _CounselorListTab({required this.onStartChat});
@@ -285,8 +291,9 @@ class _CounselorCard extends StatelessWidget {
   }
 }
 
-/// 我的会话列表 Tab，展示历史咨询记录
+/// 我的会话列表 Tab，从后端加载历史咨询记录，支持下拉刷新
 class _SessionListTab extends StatefulWidget {
+  /// 点击会话后的回调，传递会话ID和咨询师姓名
   final void Function(String sessionId, String counselorName) onOpenSession;
 
   const _SessionListTab({required this.onOpenSession});
@@ -295,6 +302,7 @@ class _SessionListTab extends StatefulWidget {
   State<_SessionListTab> createState() => _SessionListTabState();
 }
 
+/// 会话列表 Tab 的状态管理
 class _SessionListTabState extends State<_SessionListTab> {
   final ConsultationService _service = sl<ConsultationService>();
   List<Map<String, dynamic>> _sessions = [];
@@ -307,6 +315,7 @@ class _SessionListTabState extends State<_SessionListTab> {
     _loadSessions();
   }
 
+  /// 从后端加载咨询会话列表
   Future<void> _loadSessions() async {
     setState(() {
       _isLoading = true;
@@ -478,6 +487,9 @@ class _ConsultationChatScreen extends StatefulWidget {
       _ConsultationChatScreenState();
 }
 
+/// E2E 加密咨询聊天页面的状态管理
+///
+/// 管理会话创建、E2E 加密初始化、消息加解密和收发流程。
 class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   final ConsultationService _service = sl<ConsultationService>();
   final TextEditingController _controller = TextEditingController();
@@ -488,6 +500,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   bool _isSending = false;
   bool _isLoading = true;
 
+  /// 将动态类型安全转换为 bool，支持 bool / String / num 类型
   bool _asBool(dynamic value, {bool fallback = false}) {
     if (value is bool) return value;
     if (value is String) {
@@ -514,6 +527,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     super.dispose();
   }
 
+  /// 初始化聊天：创建会话（如需要）-> 初始化 E2E 加密 -> 加载历史消息
   Future<void> _initChat() async {
     // 如果没有sessionId，先创建会话
     if (_sessionId == null) {
@@ -539,6 +553,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  /// 加载历史消息并解密，无历史消息时添加咨询师欢迎语
   Future<void> _loadMessages() async {
     if (_sessionId == null) return;
     try {
@@ -578,6 +593,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     _scrollToBottom();
   }
 
+  /// 添加系统/咨询师消息到本地列表（非用户发送）
   void _addSystemMessage(String content) {
     _messages.add({
       'content': content,
@@ -586,6 +602,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     });
   }
 
+  /// 发送消息：加密后发送到后端，接收咨询师回复并追加到列表
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending || _sessionId == null) return;
@@ -629,11 +646,13 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     }
   }
 
+  /// 格式化当前时间为 HH:mm 字符串
   String _nowStr() {
     final now = DateTime.now();
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
   }
 
+  /// 在下一帧将消息列表滚动到底部
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -750,15 +769,8 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     );
   }
 
+  /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 12,
-        right: 8,
-        top: 8,
-        bottom: MediaQuery.of(context).padding.bottom + 8,
-      ),
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0xFF16213E).withValues(alpha: 0.95)

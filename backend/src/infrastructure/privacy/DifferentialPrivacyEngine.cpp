@@ -1,12 +1,16 @@
 /**
- * 差分隐私情绪聚合引擎实现
+ * @brief 差分隐私情绪聚合引擎 —— Laplace 机制保护社区情绪统计
  *
- * 基于拉普拉斯机制实现 ε-差分隐私保证。
- * 核心思路：对情绪统计的每个维度（均值、用户数、情绪分布）分别注入
- * 校准噪声，使得单个用户的加入或移除不会显著改变输出分布。
- * epsilon 预算按组合定理分配：30% 给均值、20% 给用户数、50% 给 7 类情绪分布。
+ * 基于 Laplace 机制实现 epsilon-差分隐私保证。
+ * 对情绪统计的每个维度分别注入校准噪声，使得单个用户的加入或移除
+ * 不会显著改变输出分布。
  *
- * 参考：FedMultiEmo (arXiv:2507.15470, July 2025)
+ * epsilon 预算按组合定理分配：
+ *   - 30% 给情绪均值（sensitivity = 2/n）
+ *   - 20% 给用户数（sensitivity = 1）
+ *   - 50% 给 7 类情绪分布（每类 sensitivity = 1/n）
+ *
+ * @note 参考 FedMultiEmo (arXiv:2507.15470, July 2025)
  */
 
 #include "infrastructure/privacy/DifferentialPrivacyEngine.h"

@@ -1,4 +1,6 @@
-// 新用户引导页面 - 介绍心湖核心概念
+/// 新用户引导页面
+///
+/// 介绍心湖核心概念，引导新用户了解投石、涟漪、纸船等功能。
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +26,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   bool _isNavigating = false;
 
+  /// 完成引导流程，写入 SharedPreferences 标记并跳转首页
+  ///
+  /// 即使持久化失败也不阻塞用户进入应用
   Future<void> _completeOnboarding() async {
     if (_isNavigating) return;
     setState(() => _isNavigating = true);
@@ -47,6 +52,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  /// 引导页内容数据，每项对应一个滑动页面
   static const _pages = [
     _PageData(
       icon: Icons.lens_blur,
@@ -139,6 +145,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  /// 构建单个引导页内容（图标、标题、描述文字）
   Widget _buildPage(_PageData data, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -178,6 +185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  /// 底部页面指示器，当前页高亮并拉宽
   Widget _buildIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -199,6 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+/// 单个引导页的数据模型
 class _PageData {
   final IconData icon;
   final String title;

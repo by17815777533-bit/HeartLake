@@ -1,10 +1,12 @@
 /// HTTP 客户端封装
 ///
-/// 基于 Dio 实现的网络请求客户端，提供统一的 HTTP 通信能力。
-/// 主要功能包括：
-/// - Token 自动注入和刷新：请求时自动添加认证令牌，401 错误时自动刷新
-/// - 统一错误处理：捕获网络异常、超时等错误并转换为友好提示
-/// - SSL 证书校验：可选的证书指纹验证，防止中间人攻击
+/// 基于 Dio 实现的全局网络请求客户端，提供统一的 HTTP 通信能力。
+/// 依赖 [StorageUtil] 持久化 Token，依赖 [CacheService] 做 GET 请求缓存。
+///
+/// 主要功能：
+/// - Token 自动注入和刷新：请求拦截器自动添加认证令牌，401 时尝试 refreshToken 换新
+/// - 统一错误处理：捕获网络异常、超时等错误并记录日志
+/// - SSL 证书固定：生产环境下校验证书 SHA-256 指纹，防止中间人攻击
 library;
 
 import 'dart:io';
@@ -23,8 +25,8 @@ typedef TokenRefreshCallback = Future<String?> Function(String? refreshToken);
 
 /// HTTP 客户端单例
 ///
-/// 管理所有 HTTP 请求，自动处理认证、错误和证书校验。
-/// 使用单例模式确保全局共享同一个 Dio 实例和 Token 状态。
+/// 通过工厂构造函数保证全局唯一实例，所有业务 Service 共享同一个 Dio
+/// 和 Token 状态。内部通过拦截器链完成认证注入、日志记录和错误处理。
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -34,12 +36,19 @@ class ApiClient {
   String? _refreshToken;
   String? _userId;
 
-  /// 防止 Token 刷新时的并发请求
+  /// 防止多个 401 响应同时触发 Token 刷新
   bool _isRefreshing = false;
+
+  /// 标记是否已触发过未授权回调，避免重复跳转登录页
   bool _hasTriggeredUnauthorized = false;
 
+  /// Token 刷新回调，由外部（如 AuthService）注入
   TokenRefreshCallback? _tokenRefreshCallback;
+
+  /// 认证失效回调，通常用于跳转登录页
   Function()? _onUnauthorized;
+
+  /// 客户端级 GET 缓存，减少重复请求
   final CacheService cacheService = CacheService();
 
   /// SSL 证书指纹列表，用于证书固定验证
@@ -50,7 +59,7 @@ class ApiClient {
     'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1',
   ];
 
-  /// 是否启用证书固定验证
+  /// 是否启用证书固定验证（可通过编译期环境变量关闭）
   static const bool _enableCertPinning = bool.fromEnvironment(
     'ENABLE_CERT_PINNING',
     defaultValue: true,
@@ -61,7 +70,7 @@ class ApiClient {
     _loadToken();
   }
 
-  /// 初始化 Dio 实例并配置基础参数
+  /// 初始化 Dio 实例，配置超时、Header、连接池、SSL 和拦截器
   void _initializeDio() {
     _dio = Dio(BaseOptions(
       baseUrl: appConfig.apiBaseUrl,
@@ -200,4 +209,139 @@ class ApiClient {
 
     return handler.next(error);
   }
+
+  /// 从本地存储加载已持久化的认证令牌
+  Future<void> _loadToken() async {
+    _token = await StorageUtil.getToken();
+    _refreshToken = await StorageUtil.getRefreshToken();
+    _userId = await StorageUtil.getUserId();
+  }
+
+  /// 生成唯一请求标识，用于链路追踪
+  String _generateRequestId() {
+    return '${DateTime.now().millisecondsSinceEpoch}-${_token?.hashCode ?? 0}';
+  }
+
+  /// 处理 401 未授权响应，尝试通过 refreshToken 换取新令牌
+  ///
+  /// 使用 _isRefreshing 标志防止并发刷新。
+  /// 刷新成功返回 true，调用方可用新 Token 重试原请求；
+  /// 刷新失败触发 onUnauthorized 回调（通常跳转登录页）。
+  Future<bool> _handleUnauthorized() async {
+    if (_isRefreshing) return false;
+    _isRefreshing = true;
+    try {
+      if (_tokenRefreshCallback != null && _refreshToken != null) {
+        final newToken = await _tokenRefreshCallback!(_refreshToken);
+        if (newToken != null) {
+          _token = newToken;
+          await StorageUtil.saveToken(newToken);
+          return true;
+        }
+      }
+      if (!_hasTriggeredUnauthorized) {
+        _hasTriggeredUnauthorized = true;
+        _onUnauthorized?.call();
+      }
+      return false;
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  /// 设置 Token 刷新回调和未授权回调
+  ///
+  /// 通常在 App 初始化时调用一次，注入 AuthService 的刷新逻辑
+  /// 和路由层的登录跳转逻辑。
+  void configureAuth({
+    TokenRefreshCallback? tokenRefreshCallback,
+    Function()? onUnauthorized,
+  }) {
+    _tokenRefreshCallback = tokenRefreshCallback;
+    _onUnauthorized = onUnauthorized;
+  }
+
+  /// 更新认证令牌并持久化到本地存储
+  ///
+  /// 登录成功后由 AuthService 调用，同时重置未授权标记。
+  Future<void> setToken(String token, {String? refreshToken, String? userId}) async {
+    _token = token;
+    _hasTriggeredUnauthorized = false;
+    await StorageUtil.saveToken(token);
+    if (refreshToken != null) {
+      _refreshToken = refreshToken;
+      await StorageUtil.saveRefreshToken(refreshToken);
+    }
+    if (userId != null) {
+      _userId = userId;
+      await StorageUtil.saveUserId(userId);
+    }
+  }
+
+  /// 清除认证状态并清空本地存储（退出登录时调用）
+  Future<void> clearToken() async {
+    _token = null;
+    _refreshToken = null;
+    _userId = null;
+    _hasTriggeredUnauthorized = false;
+    await StorageUtil.clearAll();
+  }
+
+  /// 发起 GET 请求，支持客户端内存缓存
+  ///
+  /// [useCache] 为 true 时，优先返回缓存数据；缓存未命中再发起网络请求。
+  /// [cacheDuration] 可自定义缓存 TTL，默认使用 [CacheService] 的全局配置。
+  Future<Response> get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    bool useCache = true,
+    Duration? cacheDuration,
+  }) async {
+    if (useCache) {
+      final cacheKey = 'GET:$path:${queryParameters?.toString() ?? ''}';
+      final cached = cacheService.get(cacheKey);
+      if (cached != null) {
+        return Response(
+          requestOptions: RequestOptions(path: path),
+          data: cached,
+          statusCode: 200,
+        );
+      }
+      final response = await _dio.get(path, queryParameters: queryParameters);
+      cacheService.set(
+        cacheKey,
+        response.data,
+        ttl: cacheDuration,
+      );
+      return response;
+    }
+    return _dio.get(path, queryParameters: queryParameters);
+  }
+
+  /// 发起 POST 请求
+  Future<Response> post(String path, {dynamic data}) {
+    return _dio.post(path, data: data);
+  }
+
+  /// 发起 PUT 请求
+  Future<Response> put(String path, {dynamic data}) {
+    return _dio.put(path, data: data);
+  }
+
+  /// 发起 DELETE 请求
+  Future<Response> delete(String path, {dynamic data}) {
+    return _dio.delete(path, data: data);
+  }
+
+  /// 上传文件（multipart/form-data），支持进度回调
+  Future<Response> upload(
+    String path, {
+    required FormData data,
+    void Function(int, int)? onSendProgress,
+  }) {
+    return _dio.post(path, data: data, onSendProgress: onSendProgress);
+  }
+
+  /// 获取底层 Dio 实例（仅用于需要自定义配置的特殊场景）
+  Dio get dio => _dio;
 }

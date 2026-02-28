@@ -1,4 +1,12 @@
-// EdgeAI Provider - 管理本地AI推理状态
+/// 端侧AI推理状态管理
+///
+/// 采用「远程优先 + 本地降级」的混合推理策略：
+/// 1. 优先调用后端SentimentAnalyzer获取情绪分析结果
+/// 2. 后端弃权或置信度过低时，降级到本地规则引擎 + tflite模型
+/// 3. 两路结果按置信度加权融合，输出七维情绪概率分布
+///
+/// 本地推理链路经过LocalDPClassifier的Laplace噪声注入，
+/// 确保上传数据满足epsilon-DP隐私保证。
 
 import 'package:flutter/foundation.dart';
 import '../edge_ai/emotion_classifier.dart';
@@ -480,6 +488,7 @@ class EdgeAIProvider extends ChangeNotifier {
     return result;
   }
 
+  /// 检查文本中是否包含给定短语列表中的任意一个
   bool _containsAny(String text, List<String> phrases) {
     for (final phrase in phrases) {
       if (text.contains(phrase)) return true;
@@ -504,7 +513,7 @@ class EdgeAIProvider extends ChangeNotifier {
     return 0.5;
   }
 
-  /// 后端情感分析
+  /// 调用后端情感分析接口，失败时静默返回 null 由调用方降级处理
   Future<Map<String, dynamic>?> analyzeRemote(String text) async {
     try {
       final resp = await _edgeService.analyzeSentiment(text);

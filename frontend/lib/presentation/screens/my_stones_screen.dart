@@ -1,4 +1,8 @@
-// 我的石头列表界面
+/// 我的石头列表界面
+///
+/// 展示当前用户发布的所有石头，支持下拉刷新和删除操作。
+/// 通过 WebSocket 监听石头删除、涟漪和纸船变更事件实时更新列表。
+/// 依赖 [StoneService] 加载数据，依赖 [WebSocketManager] 接收实时推送。
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
@@ -11,7 +15,7 @@ import '../../utils/app_theme.dart';
 /// 我的石头列表页面
 ///
 /// 展示当前用户投出的所有石头，支持下拉刷新和删除操作。
-/// 通过 WebSocket 监听石头删除事件实时更新列表。
+/// 通过 WebSocket 监听石头删除、涟漪增减、纸船增减共 5 种事件实时更新列表。
 class MyStonesScreen extends StatefulWidget {
   const MyStonesScreen({super.key});
 
@@ -25,7 +29,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
   final StoneService _stoneService = sl<StoneService>();
   final WebSocketManager _wsManager = WebSocketManager();
 
-  // WebSocket 监听器
+  // WebSocket 事件监听器引用，dispose 时逐个移除
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _rippleUpdateListener;
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
@@ -50,6 +54,10 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     super.dispose();
   }
 
+  /// 注册 WebSocket 事件监听器
+  ///
+  /// 监听 5 种事件：石头删除、涟漪增/删、纸船增/删。
+  /// 所有回调都使用服务端返回的精确计数更新本地状态。
   void _initWebSocket() {
     // 监听石头删除
     _stoneDeletedListener = (data) {
@@ -123,6 +131,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     _wsManager.on('boat_deleted', _boatDeletedListener);
   }
 
+  /// 从后端加载当前用户的石头列表（一次性加载，不分页）
   Future<void> _loadMyStones() async {
     setState(() => _isLoading = true);
 

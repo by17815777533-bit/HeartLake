@@ -1,10 +1,12 @@
 /**
- * 缓存管理器实现
+ * @brief 进程内 LRU 缓存管理器 —— 热点数据本地加速层
  *
- * 进程内 LRU 缓存，用于热点数据的本地加速。
- * 底层数据结构：unordered_map + doubly-linked list，
- * get/set 均为 O(1) 均摊复杂度。
- * 读写通过 shared_mutex 保护，读操作使用 shared_lock 允许并发读取。
+ * 底层数据结构：unordered_map + doubly-linked list，get/set 均为 O(1) 均摊。
+ * 并发模型：shared_mutex 读写分离，get 持 shared_lock 允许并发读取，
+ * set/invalidate 持 unique_lock 独占写入。
+ *
+ * 淘汰策略：容量满时从链表尾部淘汰最久未访问的条目（LRU）。
+ * 支持按 key 精确失效和按 pattern 通配符批量失效。
  */
 
 #include "infrastructure/cache/CacheManager.h"

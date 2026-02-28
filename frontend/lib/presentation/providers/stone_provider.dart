@@ -1,4 +1,8 @@
-// 石头状态管理 - 统一管理石头列表、投石、捡石、分页、缓存与WebSocket实时更新
+/// 石头状态管理
+///
+/// 统一管理石头列表、投石、分页、缓存与 WebSocket 实时更新。
+/// 通过 WebSocket 监听新石头、涟漪、纸船、删除等事件自动同步列表数据。
+/// 依赖 [StoneService] 完成后端交互，依赖 [CacheService] 做分页缓存兜底。
 
 library;
 
@@ -30,7 +34,7 @@ class StoneProvider with ChangeNotifier {
   int _currentPage = 1;
   String? _errorMessage;
 
-  // WebSocket 监听器引用
+  // WebSocket 监听器引用，dispose 时逐个移除
   bool _wsRegistered = false;
   late void Function(Map<String, dynamic>) _onNewStone;
   late void Function(Map<String, dynamic>) _onBoatUpdate;
@@ -48,6 +52,7 @@ class StoneProvider with ChangeNotifier {
   int get currentPage => _currentPage;
   String? get errorMessage => _errorMessage;
 
+  /// 缓存 key 前缀，按分页存储
   static const String _cachePrefix = 'stones_';
 
   StoneProvider() {
@@ -56,6 +61,10 @@ class StoneProvider with ChangeNotifier {
 
   // ==================== WebSocket 实时更新 ====================
 
+  /// 注册 WebSocket 事件监听器，监听 8 种石头相关实时事件
+  ///
+  /// 使用 _wsRegistered 标志防止重复注册。
+  /// WebSocket 重连时自动刷新列表以同步离线期间的变更。
   void _initWebSocketListeners() {
     if (_wsRegistered) return;
     _wsRegistered = true;
@@ -120,6 +129,9 @@ class StoneProvider with ChangeNotifier {
     _wsManager.on('reconnected', _onReconnected);
   }
 
+  /// 处理新石头推送，插入列表头部
+  ///
+  /// 通过 stoneId 去重，防止 WebSocket 重复推送导致列表出现重复项。
   void _handleNewStone(Map<String, dynamic> data) {
     final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
     final stoneId = stoneData['stone_id'] ?? '';
@@ -145,6 +157,7 @@ class StoneProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 处理纸船数量更新，优先使用服务端返回的精确计数，否则 +1
   void _handleBoatUpdate(Map<String, dynamic> data) {
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
@@ -159,6 +172,7 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
+  /// 处理涟漪数量更新，优先使用服务端返回的精确计数，否则 +1
   void _handleRippleUpdate(Map<String, dynamic> data) {
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
@@ -174,6 +188,7 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
+  /// 处理石头删除事件，从列表中移除并清除缓存
   void _handleStoneDeleted(Map<String, dynamic> data) {
     final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
     if (stoneId == null) return;
@@ -186,6 +201,7 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
+  /// 处理纸船删除事件，优先使用服务端计数，否则 -1（下限为 0）
   void _handleBoatDeleted(Map<String, dynamic> data) {
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
     if (stoneId == null) return;
@@ -202,6 +218,7 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
+  /// 处理涟漪删除事件，优先使用服务端计数，否则 -1（下限为 0）
   void _handleRippleDeleted(Map<String, dynamic> data) {
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
     if (stoneId == null) return;
@@ -222,7 +239,10 @@ class StoneProvider with ChangeNotifier {
 
   // ==================== 数据加载 ====================
 
-  /// 加载石头列表（支持刷新和缓存）
+  /// 加载石头列表
+  ///
+  /// [refresh] 为 true 时从第一页重新加载，否则加载当前页。
+  /// 非刷新模式下优先读取缓存，缓存命中则直接返回。
   Future<void> loadStones({bool refresh = false}) async {
     if (_isLoading) return;
 
@@ -280,7 +300,9 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
-  /// 加载更多（分页）
+  /// 加载下一页石头（上拉加载更多）
+  ///
+  /// 已在加载中或没有更多数据时直接返回，防止重复请求。
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
 
@@ -316,6 +338,8 @@ class StoneProvider with ChangeNotifier {
   // ==================== 投石 / 删石 ====================
 
   /// 投石（创建新石头）
+  ///
+  /// 发布成功后清除缓存，新石头会通过 WebSocket 广播自动添加到列表头部。
   Future<Map<String, dynamic>> throwStone({
     required String content,
     String stoneType = 'medium',
@@ -347,7 +371,7 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
-  /// 删除石头
+  /// 删除石头，成功后从本地列表移除并清除缓存
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
     try {
       final result = await _stoneService.deleteStone(stoneId);
@@ -373,11 +397,12 @@ class StoneProvider with ChangeNotifier {
 
   // ==================== 缓存管理 ====================
 
+  /// 清除所有分页缓存（数据变更后调用）
   void _invalidateCache() {
     _cache.removeByPrefix(_cachePrefix);
   }
 
-  /// 清空所有状态
+  /// 清空所有状态并重置分页（退出登录时调用）
   void clear() {
     _stones = [];
     _currentPage = 1;

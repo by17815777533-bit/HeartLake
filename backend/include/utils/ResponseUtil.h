@@ -1,5 +1,18 @@
 /**
- * ResponseUtil 模块接口定义
+ * HTTP 响应构建工具 -- 统一 API 响应格式
+ *
+ * 所有 Controller 通过本工具类构建 HTTP 响应，确保全局一致的 JSON 格式：
+ * {
+ *   "code": <业务错误码>,
+ *   "message": "<描述>",
+ *   "data": <业务数据>
+ * }
+ *
+ * 提供两类接口：
+ *   - 语义化快捷方法：success / badRequest / unauthorized / notFound 等
+ *   - 通用构建方法：error(ErrorCode) 支持标准错误码，error(int) 兼容旧代码
+ *
+ * @note 分页响应 paged() 额外包含 total / page / pageSize 字段。
  */
 
 #pragma once

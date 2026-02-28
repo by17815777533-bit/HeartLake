@@ -1,5 +1,15 @@
 /**
- * 身份影子映射 - 隔离物理标识与匿名ID
+ * 身份影子映射 -- 物理标识与匿名 ID 的隔离层
+ *
+ * HeartLake 匿名社交的核心隐私组件。通过单向哈希和加密映射，
+ * 确保即使数据库泄露也无法将匿名内容溯源到真实用户身份。
+ *
+ * 隔离策略：
+ *   - 物理 IP、设备指纹经 HMAC-SHA256 单向哈希后存储，不可逆
+ *   - 用户 ID 与影子 ID 通过加密映射关联，定期轮换增强隐私
+ *   - 脱敏函数支持 email / phone / name 三种字段类型
+ *
+ * @note 线程安全：内部使用 shared_mutex 保护映射表的读写。
  */
 
 #pragma once
@@ -12,21 +22,22 @@ namespace heartlake {
 namespace utils {
 
 /**
- * 影子身份数据
+ * @brief 影子身份数据结构
+ * @details 存储用户的匿名化身份信息，包括对外展示的影子 ID 和轮换时间戳。
  */
 struct ShadowIdentity {
-    std::string shadowId;        // 影子ID（对外展示）
-    std::string hashedFingerprint; // 哈希后的设备指纹
-    int64_t createdAt;
-    int64_t lastRotatedAt;
+    std::string shadowId;          ///< 影子 ID（对外展示的匿名标识）
+    std::string hashedFingerprint; ///< HMAC-SHA256 哈希后的设备指纹
+    int64_t createdAt;             ///< 创建时间戳
+    int64_t lastRotatedAt;         ///< 最近一次轮换时间戳
 };
 
 /**
- * 身份影子映射管理器
+ * @brief 身份影子映射管理器（全局单例）
  *
- * 实现物理标识与匿名ID的完全隔离：
- * - 物理IP、设备指纹经过单向哈希后存储
- * - 用户ID与影子ID通过加密映射关联
+ * @details 实现物理标识与匿名 ID 的完全隔离：
+ * - 物理 IP、设备指纹经过单向哈希后存储
+ * - 用户 ID 与影子 ID 通过加密映射关联
  * - 即使数据库泄露也无法溯源真实身份
  */
 class IdentityShadowMap {

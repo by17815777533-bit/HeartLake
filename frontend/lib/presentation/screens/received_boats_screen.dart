@@ -1,4 +1,6 @@
-// 收到的纸船列表界面
+/// 收到的纸船列表界面
+///
+/// 展示其他用户对我的石头的匿名回应。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
@@ -20,6 +22,12 @@ class ReceivedBoatsScreen extends StatefulWidget {
   State<ReceivedBoatsScreen> createState() => _ReceivedBoatsScreenState();
 }
 
+/// 收到的纸船列表页面状态管理
+///
+/// 通过 WebSocket 监听四类实时事件：
+/// - new_boat / boat_update: 重新加载整个列表
+/// - boat_deleted: 按 boat_id 从本地列表移除
+/// - stone_deleted: 移除该石头关联的所有纸船
 class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
   final UserService _userService = sl<UserService>();
@@ -48,6 +56,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     super.dispose();
   }
 
+  /// 注册 WebSocket 实时事件监听器
   void _initWebSocket() {
     // 监听新纸船 - 重新加载列表
     _newBoatListener = (data) {
@@ -89,6 +98,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     _wsManager.on('stone_deleted', _stoneDeletedListener);
   }
 
+  /// 从后端加载收到的纸船列表，支持下拉刷新
   Future<void> _loadReceivedBoats() async {
     setState(() => _isLoading = true);
 

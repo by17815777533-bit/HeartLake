@@ -1,8 +1,21 @@
 /**
- * HNSW 向量检索引擎实现
+ * @brief HNSW 向量检索引擎 —— 多层导航图 + Ada-EF 自适应搜索 + Matryoshka 重排序
  *
  * 从 EdgeAIEngine 拆分的独立子系统。
- * 支持多层图结构、Ada-EF 自适应搜索、Matryoshka 融合 cosine 重排序。
+ *
+ * 核心算法：
+ *   - 插入：随机层级分配 + RND 多样性邻居选择（Vamana robust pruning）
+ *   - 搜索：贪心逐层下降 → Distribution-Aware Ada-EF 自适应 ef 调节
+ *     - pilot search 采样距离分布 → 高斯拟合 → z-score 量化查询难度
+ *     - 难查询扩大 ef 保召回，易查询缩小 ef 降延迟
+ *   - 距离计算：8路展开平方欧氏 + ADSampling 早期终止优化
+ *   - 重排序：Matryoshka 融合 cosine（60% full-dim + 40% coarse-dim）
+ *
+ * 并发模型：shared_mutex 读写分离，搜索持读锁，插入/删除持写锁。
+ * visited 标记使用 thread_local + epoch 法实现 O(1) 初始化。
+ *
+ * @note 参考 Malkov & Yashunin 2018, Vamana (NeurIPS 2019),
+ *       ADSampling (VLDB 2024), arxiv 2502.05575 (2025)
  */
 
 #include "infrastructure/ai/HNSWIndex.h"

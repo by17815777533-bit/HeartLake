@@ -1,4 +1,6 @@
-// 湖神聊天界面 - 温馨治愈风格的AI咨询，集成EdgeAI情感分析与内容审核
+/// 湖神聊天界面
+///
+/// AI陪伴对话页面，集成EdgeAI情感分析与内容审核。
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';
@@ -22,6 +24,10 @@ class LakeGodChatScreen extends StatefulWidget {
   State<LakeGodChatScreen> createState() => _LakeGodChatScreenState();
 }
 
+/// 湖神聊天页面的状态管理
+///
+/// 管理消息列表、发送状态和情绪脉搏数据。
+/// 初始化时并行加载历史消息和情绪脉搏，无历史消息时展示欢迎语。
 class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final LakeGodService _service = sl<LakeGodService>();
   final EdgeAIService _edgeAIService = sl<EdgeAIService>();
@@ -48,6 +54,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     super.dispose();
   }
 
+  /// 初始化会话：并行加载历史消息和情绪脉搏，历史加载失败时降级只加载脉搏
   Future<void> _initSession() async {
     try {
       await Future.wait([
@@ -130,6 +137,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     }
   }
 
+  /// 添加湖神欢迎语到消息列表
   void _addWelcome() {
     setState(() {
       _messages.add({
@@ -139,6 +147,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     });
   }
 
+  /// 在下一帧将消息列表滚动到底部
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -255,6 +264,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     return map[trend.toLowerCase()] ?? trend;
   }
 
+  /// 根据情绪趋势斜率判断趋势方向：上升 / 下降 / 平稳
   String _trendFromSlope(dynamic slopeRaw) {
     final slope = slopeRaw is num ? slopeRaw.toDouble() : 0.0;
     if (slope > 0.03) return 'rising';
@@ -439,6 +449,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     return const Color(0xFFFF7043); // 低落
   }
 
+  /// 构建单条消息气泡，用户消息靠右、湖神消息靠左，用户消息下方附带情绪标签
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = message['is_mine'] == true;
@@ -530,6 +541,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     );
   }
 
+  /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

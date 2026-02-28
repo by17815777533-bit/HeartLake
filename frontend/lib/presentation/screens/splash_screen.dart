@@ -1,4 +1,6 @@
-// 启动页面
+/// 启动页面
+///
+/// 应用启动时的闪屏页，负责认证状态检查和路由跳转。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,12 +27,17 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+/// 启动页面状态管理
+///
+/// 使用 1.5 秒淡入动画展示品牌元素，同时异步执行登录检查。
+/// 动画和认证检查并行，取较长者完成后跳转。
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   final AuthService _authService = sl<AuthService>();
 
+  /// 兼容读取 SharedPreferences 中的 bool 值（可能存为 String）
   bool _readBoolCompat(SharedPreferences prefs, String key) {
     final value = prefs.get(key);
     if (value is bool) return value;

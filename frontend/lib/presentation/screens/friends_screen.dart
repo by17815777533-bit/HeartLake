@@ -1,4 +1,6 @@
-// 好友列表界面
+/// 好友列表界面
+///
+/// 展示正式好友和待处理好友请求列表。
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -27,12 +29,18 @@ class FriendsScreen extends StatefulWidget {
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
+/// 好友列表页面的状态管理
+///
+/// 通过 [FriendService] 加载好友数据，使用 [WebSocketManager] 监听好友变动。
+/// 维护两个动画控制器：列表交错淡入动画和漂浮小船装饰动画。
 class _FriendsScreenState extends State<FriendsScreen>
     with TickerProviderStateMixin {
   final FriendService _friendService = sl<FriendService>();
   List<Map<String, dynamic>> _friends = [];
   bool _isLoading = true;
+  /// 列表项交错淡入动画控制器
   late AnimationController _listAnimController;
+  /// 右下角漂浮小船循环动画控制器
   late AnimationController _boatAnimController;
 
   // 保存监听器引用以便正确移除
@@ -54,6 +62,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     _setupWebSocketListeners();
   }
 
+  /// 初始化 WebSocket 事件回调闭包，统一在此处创建以便 dispose 时精确移除
   void _initListeners() {
     _onFriendRemoved = (data) {
       if (mounted) _loadFriends();
@@ -68,6 +77,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     super.dispose();
   }
 
+  /// 注册 WebSocket 监听器，监听好友删除和好友请求被接受事件
   void _setupWebSocketListeners() {
     final wsManager = WebSocketManager();
     if (!wsManager.isConnected) {
@@ -78,6 +88,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     wsManager.on('friend_accepted', _onFriendRemoved);
   }
 
+  /// 移除所有已注册的 WebSocket 监听器，防止内存泄漏
   void _removeWebSocketListeners() {
     final wsManager = WebSocketManager();
     wsManager.off('friend_removed', _onFriendRemoved);
@@ -146,6 +157,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
+  /// 构建好友列表主界面，包含水面背景、漂浮小船、临时好友入口和好友列表
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

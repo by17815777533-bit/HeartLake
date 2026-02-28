@@ -1,5 +1,17 @@
 /**
- * VIPService 模块接口定义
+ * VIP 会员服务 -- 情绪驱动的会员权益管理
+ *
+ * HeartLake 的 VIP 机制与传统付费会员不同：当系统检测到用户持续处于
+ * 低落情绪状态时，会自动赠送限时 VIP 权益（免费心理咨询、AI 陪伴加速等），
+ * 体现"越需要帮助的人越应该获得更多资源"的产品理念。
+ *
+ * 核心功能：
+ *   - 情绪驱动升级：基于 emotionScore 阈值自动触发 VIP 赠送
+ *   - 权益管理：按 privilegeKey 粒度控制各项特权的使用与配额
+ *   - 批量扫描：定时任务批量检测用户情绪状态，触发自动升级
+ *   - 咨询预约：VIP 用户可使用免费额度预约心理咨询
+ *
+ * @note 全部方法为 static，无状态设计，数据持久化依赖 Drogon ORM。
  */
 
 #pragma once
@@ -12,12 +24,11 @@ namespace heartlake {
 namespace services {
 
 /**
- * VIP服务类
+ * @brief VIP 会员服务（静态工具类）
  *
- * 处理VIP相关的业务逻辑，包括：
- * - 情绪检测自动升级VIP
- * - VIP特权管理
- * - VIP状态检查
+ * @details 提供情绪驱动的 VIP 自动升级、权益查询与使用记录、
+ *          心理咨询预约等功能。所有方法均为 static，
+ *          通过 Drogon ORM 直接操作数据库。
  */
 class VIPService {
 public:

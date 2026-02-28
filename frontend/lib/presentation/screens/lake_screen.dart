@@ -1,4 +1,6 @@
-// 观湖主页面
+/// 观湖主页面
+///
+/// 心湖核心页面，展示石头列表和湖面气象数据。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,8 @@ import '../../utils/app_theme.dart';
 ///
 /// 以瀑布流形式展示湖中的石头，支持下拉刷新和上拉加载更多。
 /// 背景使用水波纹动画营造湖面氛围，通过 WebSocket 实时接收新石头推送。
+/// 状态管理采用 setState，通过 [StoneService] 获取数据，
+/// [WebSocketManager] 监听石头/纸船/涟漪的增删事件并实时更新列表。
 class LakeScreen extends StatefulWidget {
   const LakeScreen({super.key});
 
@@ -30,6 +34,10 @@ class LakeScreen extends StatefulWidget {
   State<LakeScreen> createState() => LakeScreenState();
 }
 
+/// 观湖页面的状态管理
+///
+/// 维护石头列表、分页状态和多个 WebSocket 监听器。
+/// State 声明为 public（LakeScreenState）以便 HomeScreen 通过 GlobalKey 调用 [refreshStones]。
 class LakeScreenState extends State<LakeScreen> {
   final StoneService _stoneService = sl<StoneService>();
   List<Stone> _stones = [];
@@ -41,7 +49,7 @@ class LakeScreenState extends State<LakeScreen> {
   final ScrollController _scrollController = ScrollController();
   final WebSocketManager _wsManager = WebSocketManager();
 
-  // 监听器引用
+  // 监听器引用，dispose 时逐一移除防止内存泄漏
   late void Function(Map<String, dynamic>) _newStoneListener;
   late void Function(Map<String, dynamic>) _boatUpdateListener;
   late void Function(Map<String, dynamic>) _boatDeletedListener;
@@ -65,7 +73,7 @@ class LakeScreenState extends State<LakeScreen> {
     super.didChangeDependencies();
   }
 
-  // 加载通知未读数
+  /// 延迟到下一帧加载通知未读数，避免在 initState 中直接访问 InheritedWidget
   void _loadNotificationCount() {
     Future.delayed(Duration.zero, () {
       if (!mounted) return;
@@ -75,7 +83,10 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 初始化 WebSocket 监听新石头
+  /// 初始化 WebSocket 连接并注册所有实时事件监听器
+  ///
+  /// 加入 lake 房间后监听：new_stone、boat_update、ripple_update、
+  /// stone_deleted、boat_deleted、ripple_deleted、disconnected、reconnected
   Future<void> _initWebSocket() async {
     // 只使用 WebSocketManager（统一的WebSocket服务）
     await _wsManager.connect();
@@ -158,7 +169,7 @@ class LakeScreenState extends State<LakeScreen> {
     _wsManager.on('reconnected', _reconnectedListener);
   }
 
-  // 处理纸船更新
+  /// 处理纸船新增事件，更新对应石头的 boat_count
   void _handleBoatUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
@@ -177,7 +188,7 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理涟漪更新
+  /// 处理涟漪新增事件，更新对应石头的 ripple_count
   void _handleRippleUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
@@ -196,7 +207,7 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理石头删除
+  /// 处理石头删除事件，从本地列表中移除对应石头
   void _handleStoneDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
     final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
@@ -207,7 +218,7 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理纸船删除
+  /// 处理纸船删除事件，递减对应石头的 boat_count
   void _handleBoatDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
     final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
@@ -229,7 +240,7 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理涟漪删除
+  /// 处理涟漪删除事件，递减对应石头的 ripple_count
   void _handleRippleDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
     final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
@@ -251,7 +262,7 @@ class LakeScreenState extends State<LakeScreen> {
     });
   }
 
-  // 处理新石头广播（后端发送格式: {type: 'new_stone', stone: {...}}）
+  /// 处理新石头广播，解析数据并插入列表顶部，去重后显示 SnackBar 提示
   void _handleNewStone(Map<String, dynamic> data) {
     if (!mounted) return;
 
@@ -293,7 +304,7 @@ class LakeScreenState extends State<LakeScreen> {
     );
   }
 
-  // 公共方法，供外部调用刷新
+  /// 公共方法，供 HomeScreen 通过 GlobalKey 调用以刷新石头列表
   Future<void> refreshStones() async {
     await _loadStones(refresh: true);
   }
@@ -317,6 +328,7 @@ class LakeScreenState extends State<LakeScreen> {
     super.dispose();
   }
 
+  /// 滚动监听回调，距离底部 200px 时触发加载更多
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
@@ -326,6 +338,7 @@ class LakeScreenState extends State<LakeScreen> {
     }
   }
 
+  /// 加载下一页石头数据，追加到列表末尾
   Future<void> _loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
 
@@ -360,6 +373,7 @@ class LakeScreenState extends State<LakeScreen> {
     }
   }
 
+  /// 加载石头列表，[refresh] 为 true 时重置分页从第一页开始
   Future<void> _loadStones({bool refresh = false}) async {
     if (_isLoading) return;
 
@@ -409,6 +423,7 @@ class LakeScreenState extends State<LakeScreen> {
     }
   }
 
+  /// 下拉刷新回调，刷新成功后触发轻触觉反馈
   Future<void> _onRefresh() async {
     await _loadStones(refresh: true);
     // 刷新成功且没有错误时，触发震动
@@ -536,6 +551,7 @@ class LakeScreenState extends State<LakeScreen> {
     );
   }
 
+  /// 根据数据状态构建内容区域：loading / error / empty / 石头列表
   Widget _buildContent() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 1. 只有在没有生据且正在加载时，显示全屏Loading

@@ -1,4 +1,6 @@
-// 石头详情页
+/// 石头详情页
+///
+/// 展示单颗石头的完整内容、互动数据和纸船列表。
 
 library;
 
@@ -32,6 +34,13 @@ class StoneDetailScreen extends StatefulWidget {
   State<StoneDetailScreen> createState() => _StoneDetailScreenState();
 }
 
+/// 石头详情页面状态管理
+///
+/// 核心交互：
+/// - 涟漪（点赞）：乐观更新计数 + 心形缩放动画 + 触觉反馈
+/// - 纸船（评论）：乐观插入临时评论，失败时回滚并恢复输入内容
+/// - WebSocket 实时同步：加入 stone:{id} 房间，监听计数变化和删除事件
+/// - 返回时携带更新后的计数数据，供上级页面局部刷新
 class _StoneDetailScreenState extends State<StoneDetailScreen>
     with TickerProviderStateMixin {
   final List<Map<String, dynamic>> _boats = [];
@@ -58,7 +67,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   late AnimationController _heartAnimationController;
   late Animation<double> _heartScaleAnimation;
 
-  // 根据石头内容推断情绪
+  /// 从石头的 moodType 或 sentimentScore 推断情绪类型
   MoodType get _stoneMood {
     if (widget.stone.moodType != null) {
       return MoodColors.fromString(widget.stone.moodType);
@@ -92,6 +101,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     );
   }
 
+  /// 注册 WebSocket 监听器，加入石头专属房间接收实时事件
   void _setupWebSocketListener() {
     // 详情页可能从非湖面入口进入，确保实时连接被主动拉起
     unawaited(_wsManager.connect());
@@ -188,6 +198,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _wsManager.on('reconnected', _reconnectedListener);
   }
 
+  /// 离开石头房间并移除所有 WebSocket 监听器
   void _removeWebSocketListener() {
     // 离开该石头的 WS 房间
     _wsManager.leaveRoom('stone:${widget.stone.stoneId}');
@@ -209,6 +220,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     super.dispose();
   }
 
+  /// 加载纸船列表，同步本地纸船计数（优先使用 pagination.total）
   Future<void> _loadBoats() async {
     setState(() => _isLoading = true);
 
@@ -299,6 +311,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     }
   }
 
+  /// 发送纸船（评论），采用乐观更新策略
+  ///
+  /// 先插入临时评论到列表顶部提供即时反馈，后端确认后替换为正式数据。
+  /// 失败时回滚临时评论并恢复输入框内容。
   Future<void> _sendComment() async {
     final content = _commentController.text.trim();
     if (content.isEmpty) return;
@@ -748,6 +764,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     ); // 添加闭合WillPopScope
   }
 
+  /// 构建涟漪/纸船交互按钮，支持加载态和缩放动画
   Widget _buildInteractionButton({
     required IconData icon,
     required int count,
@@ -809,6 +826,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     return button;
   }
 
+  /// 构建单条纸船评论卡片，临时评论显示"发送中"标记
   Widget _buildBoatCard(Map<String, dynamic> boat) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moodConfig = MoodColors.getConfig(_stoneMood);
@@ -953,6 +971,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     );
   }
 
+  /// 底部纸船输入框，带情绪主题色边框
   Widget _buildCommentInput(MoodColorConfig moodConfig) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -1037,6 +1056,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     );
   }
 
+  /// 将时间格式化为相对时间（刚刚、N分钟前、N小时前等）
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
@@ -1054,6 +1074,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     }
   }
 
+  /// 弹出举报对话框
   void _showReportDialog() async {
     final result = await showDialog<bool>(
       context: context,

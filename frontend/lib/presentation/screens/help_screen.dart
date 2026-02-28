@@ -1,12 +1,15 @@
-// 帮助页面
+/// 帮助页面
+///
+/// 展示常见问题和使用指南。
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
 /// 帮助与反馈页面
 ///
-/// 提供常见问题解答（FAQ）和用户反馈入口，
+/// 提供常见问题解答（FAQ）、安全须知和联系方式，
 /// 帮助用户了解心湖的核心功能和使用方式。
+/// 纯展示型 StatelessWidget，无状态管理。
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 
@@ -76,6 +79,7 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
+  /// 构建内容分区标题和子项列表
   Widget _buildSection(String title, bool isDark, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,6 +91,7 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
+  /// 构建可展开的 FAQ 条目，点击展开显示答案
   Widget _buildFAQ(String question, String answer, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -105,6 +110,7 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
+  /// 构建安全须知条目，左侧图标 + 右侧提示文案
   Widget _buildSafetyTip(IconData icon, String text, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -120,6 +126,7 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
+  /// 以 SnackBar 形式展示联系方式
   void _showContactInfo(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.skyBlue));
   }
