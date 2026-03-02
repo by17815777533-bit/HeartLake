@@ -771,6 +771,9 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
 
   /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0xFF16213E).withValues(alpha: 0.95)

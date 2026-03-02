@@ -334,11 +334,19 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
 
   /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF16213E).withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.95),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, -2))
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: Row(
@@ -362,7 +370,8 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.send, color: AppTheme.primaryColor),
             onPressed: _isSending ? null : _sendMessage,
           ),

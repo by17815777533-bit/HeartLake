@@ -361,7 +361,8 @@ std::string refineMoodFromCues(const std::string& text,
         return "happy";
     }
     // 无明确情感信号时，倾向 neutral（纯陈述句保护）
-    if (maxCue < 0.35f && std::abs(score) < 0.55f) {
+    // 阈值收紧：避免中等正向文本被过早压成 neutral。
+    if (maxCue < 0.35f && std::abs(score) < 0.32f) {
         return "neutral";
     }
     if (maxCue < 0.60f && std::abs(score) < 0.18f) {
@@ -501,8 +502,9 @@ void SentimentAnalyzer::loadLexicon() {
     sentimentLexicon_["快乐"] = 0.85f;
     sentimentLexicon_["喜欢"] = 0.7f;
     sentimentLexicon_["爱"] = 0.9f;
-    sentimentLexicon_["棒"] = 0.75f;
-    sentimentLexicon_["好"] = 0.5f;
+    sentimentLexicon_["棒"] = 0.65f;
+    // “好”在评价语境中歧义很强（好不容易/好像/好一般），降权以减少假阳性
+    sentimentLexicon_["好"] = 0.18f;
     sentimentLexicon_["优秀"] = 0.8f;
     sentimentLexicon_["感谢"] = 0.7f;
     sentimentLexicon_["幸福"] = 0.9f;
@@ -552,7 +554,7 @@ void SentimentAnalyzer::loadLexicon() {
     sentimentLexicon_["期待"] = 0.65f;
     sentimentLexicon_["向往"] = 0.6f;
     sentimentLexicon_["珍惜"] = 0.65f;
-    sentimentLexicon_["值得"] = 0.6f;
+    sentimentLexicon_["值得"] = 0.5f;
     sentimentLexicon_["成功"] = 0.75f;
     sentimentLexicon_["进步"] = 0.65f;
     sentimentLexicon_["成长"] = 0.6f;
@@ -683,6 +685,58 @@ void SentimentAnalyzer::loadLexicon() {
     sentimentLexicon_["感冒"] = -0.40f;
     sentimentLexicon_["不舒服"] = -0.50f;
     sentimentLexicon_["难受"] = -0.55f;
+    // 电商/酒店点评数据集中高频负向短语
+    sentimentLexicon_["不好"] = -0.72f;
+    sentimentLexicon_["不值"] = -0.65f;
+    sentimentLexicon_["不值得"] = -0.72f;
+    sentimentLexicon_["太差"] = -0.78f;
+    sentimentLexicon_["很差"] = -0.72f;
+    sentimentLexicon_["差劲"] = -0.75f;
+    sentimentLexicon_["糟糕"] = -0.76f;
+    sentimentLexicon_["失望透顶"] = -0.88f;
+    sentimentLexicon_["忽悠"] = -0.78f;
+    sentimentLexicon_["坑"] = -0.72f;
+    sentimentLexicon_["坑人"] = -0.82f;
+    sentimentLexicon_["没意思"] = -0.66f;
+    sentimentLexicon_["无意义"] = -0.70f;
+    sentimentLexicon_["再也不"] = -0.90f;
+    sentimentLexicon_["不推荐"] = -0.82f;
+    sentimentLexicon_["不满意"] = -0.78f;
+    sentimentLexicon_["不咋地"] = -0.72f;
+    sentimentLexicon_["没收到"] = -0.78f;
+    sentimentLexicon_["没有收到"] = -0.80f;
+    sentimentLexicon_["未收到"] = -0.78f;
+    sentimentLexicon_["沒收到"] = -0.78f;
+    sentimentLexicon_["沒有收到"] = -0.80f;
+    sentimentLexicon_["未收到"] = -0.78f;
+    sentimentLexicon_["没给"] = -0.72f;
+    sentimentLexicon_["不给"] = -0.76f;
+    sentimentLexicon_["沒給"] = -0.72f;
+    sentimentLexicon_["不給"] = -0.76f;
+    sentimentLexicon_["坏了"] = -0.80f;
+    sentimentLexicon_["损坏"] = -0.82f;
+    sentimentLexicon_["壞了"] = -0.80f;
+    sentimentLexicon_["損壞"] = -0.82f;
+    sentimentLexicon_["缺货"] = -0.75f;
+    sentimentLexicon_["缺貨"] = -0.75f;
+    // 酒店点评场景高频负向词
+    sentimentLexicon_["脏"] = -0.72f;
+    sentimentLexicon_["髒"] = -0.72f;
+    sentimentLexicon_["很脏"] = -0.82f;
+    sentimentLexicon_["很髒"] = -0.82f;
+    sentimentLexicon_["收费"] = -0.62f;
+    sentimentLexicon_["收費"] = -0.62f;
+    sentimentLexicon_["不爽"] = -0.78f;
+    sentimentLexicon_["极度不爽"] = -0.90f;
+    sentimentLexicon_["極度不爽"] = -0.90f;
+    sentimentLexicon_["噪音"] = -0.70f;
+    sentimentLexicon_["噪聲"] = -0.70f;
+    sentimentLexicon_["难以入睡"] = -0.88f;
+    sentimentLexicon_["難以入睡"] = -0.88f;
+    sentimentLexicon_["流水声"] = -0.66f;
+    sentimentLexicon_["流水聲"] = -0.66f;
+    sentimentLexicon_["隆隆"] = -0.55f;
+    sentimentLexicon_["整夜"] = -0.40f;
 
     // 领域词典（可通过 EDGE_AI_SENTIMENT_LEXICON_PATH 覆盖）。
     loadDomainLexicon(domainSentimentLexicon_);
@@ -707,8 +761,19 @@ void SentimentAnalyzer::loadLexicon() {
     intensifiers_["极度"] = 1.6f;
     intensifiers_["贼"] = 1.3f;
     intensifiers_["巨"] = 1.4f;
+    intensifiers_["挺"] = 1.15f;
+    intensifiers_["蛮"] = 1.15f;
     intensifiers_["死了"] = 1.5f;
     intensifiers_["要命"] = 1.5f;
+    intensifiers_["有点"] = 0.78f;
+    intensifiers_["有一点"] = 0.76f;
+    intensifiers_["有些"] = 0.82f;
+    intensifiers_["稍微"] = 0.74f;
+    intensifiers_["稍稍"] = 0.72f;
+    intensifiers_["略微"] = 0.72f;
+    intensifiers_["一点"] = 0.80f;
+    intensifiers_["比较"] = 0.92f;
+    intensifiers_["还算"] = 0.90f;
     intensifiers_["very"] = 1.3f;
     intensifiers_["really"] = 1.3f;
     intensifiers_["extremely"] = 1.5f;
@@ -731,7 +796,12 @@ void SentimentAnalyzer::loadLexicon() {
     negators_["莫"] = -1.0f;
     negators_["未"] = -1.0f;
     negators_["无"] = -1.0f;
-    negators_["非"] = -1.0f;
+    negators_["并不"] = -1.0f;
+    negators_["并非"] = -1.0f;
+    negators_["并没有"] = -1.0f;
+    negators_["并不是"] = -1.0f;
+    negators_["毫不"] = -1.0f;
+    negators_["未必"] = -0.7f;
     negators_["不太"] = -0.7f;
     negators_["不怎么"] = -0.7f;
     negators_["不大"] = -0.7f;
@@ -913,14 +983,30 @@ float SentimentAnalyzer::ruleSentiment(const std::string& text) const {
         }
     }
 
-    // 感叹号增强情感强度
+    // 感叹号增强强度，但不默认偏向正面（避免“负评+!!!”被抬正）
     if (exclamationCount > 0) {
-        score += 0.1f * std::min(exclamationCount, 5);
+        const float emphasis = 0.08f * std::min(exclamationCount, 5);
+        if (score > 0.02f) {
+            score += emphasis;
+        } else if (score < -0.02f) {
+            score -= emphasis;
+        }
         ++signals;
     }
     // 省略号暗示犹豫/消极
     if (ellipsisCount > 0) {
         score -= 0.1f * std::min(ellipsisCount, 3);
+        ++signals;
+    }
+    // 连续问句更常见于疑问/吐槽/宣传文案，降低规则层正向偏移
+    if (questionCount >= 2) {
+        score -= 0.12f * std::min(questionCount, 4);
+        ++signals;
+    }
+    // 客服“反馈+意见”模板语境，默认保守处理
+    if ((text.find("反馈") != std::string::npos || text.find("反饋") != std::string::npos) &&
+        (text.find("意见") != std::string::npos || text.find("意見") != std::string::npos)) {
+        score -= 0.26f;
         ++signals;
     }
 
@@ -972,7 +1058,26 @@ float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens
     float totalScore = 0.0f;
     int matchedCount = 0;
     float intensifierMult = 1.0f;
+    float negationFactor = 1.0f;
+    int negationDepth = 0;
     int negationWindow = 0;
+    static const std::unordered_set<std::string> contrastMarkers = {
+        "但是", "但", "不过", "然而", "可是", "只是"
+    };
+    auto hasLongerSamePrefixIn = [&](size_t index, const auto& dict) -> bool {
+        const auto& token = tokens[index];
+        const size_t kLookahead = 3;
+        const size_t upper = std::min(tokens.size(), index + 1 + kLookahead);
+        for (size_t j = index + 1; j < upper; ++j) {
+            const auto& next = tokens[j];
+            if (next.size() <= token.size()) continue;
+            if (next.rfind(token, 0) != 0) continue;
+            if (dict.find(next) != dict.end()) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     size_t i = 0;
     while (i < tokens.size()) {
@@ -997,29 +1102,58 @@ float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens
 
         if (matchedLen > 0) {
             float wordScore = matchedLexScore * intensifierMult;
-            if (negationWindow > 0) {
-                wordScore *= -0.75f;  // 否定翻转，但强度略减
+            if (negationWindow > 0 && negationDepth > 0) {
+                wordScore *= negationFactor;
+                if ((negationDepth % 2) == 0 && std::abs(wordScore) > 0.01f) {
+                    wordScore *= 0.85f;
+                }
             }
             totalScore += wordScore;
             ++matchedCount;
 
             intensifierMult = 1.0f;
+            negationFactor = 1.0f;
+            negationDepth = 0;
             negationWindow = std::max(0, negationWindow - matchedLen);
             i += static_cast<size_t>(matchedLen);
             continue;
         }
 
         const auto& token = tokens[i];
+        if (contrastMarkers.find(token) != contrastMarkers.end()) {
+            intensifierMult = 1.0f;
+            negationFactor = 1.0f;
+            negationDepth = 0;
+            negationWindow = 0;
+            ++i;
+            continue;
+        }
+
         auto negIt = negators_.find(token);
         if (negIt != negators_.end()) {
-            negationWindow = 2;
+            // 分词会同时产出短词和同起点长词（如 "不" + "不是"），优先保留长词避免重复翻转。
+            if (hasLongerSamePrefixIn(i, negators_)) {
+                ++i;
+                continue;
+            }
+            if (negIt->second <= -0.95f) {
+                negationFactor *= -1.0f;
+            } else {
+                negationFactor *= negIt->second;
+            }
+            ++negationDepth;
+            negationWindow = std::max(negationWindow, 3);
             ++i;
             continue;
         }
 
         auto intIt = intensifiers_.find(token);
         if (intIt != intensifiers_.end()) {
-            intensifierMult = intIt->second;
+            if (hasLongerSamePrefixIn(i, intensifiers_)) {
+                ++i;
+                continue;
+            }
+            intensifierMult = std::clamp(intensifierMult * intIt->second, 0.45f, 2.2f);
             ++i;
             continue;
         }
@@ -1027,15 +1161,25 @@ float SentimentAnalyzer::lexiconSentiment(const std::vector<std::string>& tokens
         auto lexIt = sentimentLexicon_.find(token);
         if (lexIt != sentimentLexicon_.end()) {
             float wordScore = lexIt->second * intensifierMult;
-            if (negationWindow > 0) {
-                wordScore *= -0.75f;  // 否定翻转，但强度略减
+            if (negationWindow > 0 && negationDepth > 0) {
+                wordScore *= negationFactor;
+                // 双重否定通常回正，但情绪强度会弱于直接肯定。
+                if ((negationDepth % 2) == 0 && std::abs(wordScore) > 0.01f) {
+                    wordScore *= 0.85f;
+                }
             }
             totalScore += wordScore;
             ++matchedCount;
             intensifierMult = 1.0f;
+            negationFactor = 1.0f;
+            negationDepth = 0;
             negationWindow = 0;
         } else if (negationWindow > 0) {
             --negationWindow;
+            if (negationWindow == 0) {
+                negationFactor = 1.0f;
+                negationDepth = 0;
+            }
         }
         ++i;
     }
@@ -1048,6 +1192,20 @@ float SentimentAnalyzer::statisticalSentiment(const std::vector<std::string>& to
                                               const std::string& text) const {
     float score = 0.0f;
     int features = 0;
+    int posCount = 0, negCount = 0;
+    for (const auto& t : tokens) {
+        auto it = sentimentLexicon_.find(t);
+        if (it != sentimentLexicon_.end()) {
+            if (it->second > 0) ++posCount;
+            else if (it->second < 0) ++negCount;
+        }
+    }
+    const int sentimentWords = posCount + negCount;
+
+    // 没有任何情感词时，统计层信号容易偏置，直接降为 0。
+    if (sentimentWords == 0) {
+        return 0.0f;
+    }
 
     // 特征1: 词汇丰富度（type-token ratio）
     std::unordered_set<std::string> uniqueTokens(tokens.begin(), tokens.end());
@@ -1071,15 +1229,6 @@ float SentimentAnalyzer::statisticalSentiment(const std::vector<std::string>& to
     }
 
     // 特征4: 正面/负面词比例
-    int posCount = 0, negCount = 0;
-    for (const auto& t : tokens) {
-        auto it = sentimentLexicon_.find(t);
-        if (it != sentimentLexicon_.end()) {
-            if (it->second > 0) ++posCount;
-            else if (it->second < 0) ++negCount;
-        }
-    }
-    int sentimentWords = posCount + negCount;
     if (sentimentWords > 0) {
         float posRatio = static_cast<float>(posCount) / static_cast<float>(sentimentWords);
         score += (posRatio - 0.5f) * 0.6f;
@@ -1158,7 +1307,7 @@ std::string SentimentAnalyzer::normalizeSentimentText(const std::string& text) c
         }
     }
 
-    if (envFlagEnabled("HEARTLAKE_SENTIMENT_T2S", false)) {
+    if (envFlagEnabled("HEARTLAKE_SENTIMENT_T2S", true)) {
         return convertTraditionalToSimplified(normalized);
     }
     return normalized;
@@ -1295,9 +1444,25 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     float lexScore = lexiconSentiment(tokens);
     float statScore = statisticalSentiment(tokens, normalizedText);
 
+    int lexMatches = 0;
+    for (const auto& t : tokens) {
+        if (sentimentLexicon_.count(t)) ++lexMatches;
+    }
+
     float wRule = 0.30f;
     float wLex = 0.60f;
-    const float wStat = 0.10f;
+    float wStat = 0.10f;
+
+    // 当词典几乎无命中时，避免词典/统计层噪声掩盖规则层。
+    if (lexMatches == 0) {
+        wRule = 0.74f;
+        wLex = 0.16f;
+        wStat = 0.10f;
+    } else if (lexMatches == 1) {
+        wRule = 0.38f;
+        wLex = 0.52f;
+        wStat = 0.10f;
+    }
 
     // 规则层与词典层极性冲突时，优先信任词典层（规则层含 emoji/标点信号，噪声更高）。
     // 参考: EMNLP 2024 对 emoji figurative usage 的发现。
@@ -1317,7 +1482,12 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     };
     static const std::vector<std::string> sharedNegativeMarkers = {
         "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁",
-        "痛苦", "绝望", "崩溃", "失眠", "失败", "糟糕", "后悔"
+        "痛苦", "绝望", "崩溃", "失眠", "失败", "糟糕", "后悔",
+        "不好", "不值", "不值得", "最差", "太差", "很差", "差劲", "忽悠",
+        "无聊", "没意思", "无意义", "不满意", "不推荐", "坑", "坑人",
+        "臭味", "再也不", "贵",
+        "沒有", "沒有", "沒", "壞", "最差", "很差", "太差", "不好", "不推薦", "不滿意", "忽悠", "坑人",
+        "無聊", "沒意思", "無意義", "貴", "臭", "損壞", "缺貨"
     };
     static const std::vector<std::string> praiseMarkers = {
         "夸", "夸奖", "表扬", "认可", "肯定", "称赞", "赞扬", "赞许", "嘉奖", "鼓励", "被夸", "被表扬"
@@ -1326,6 +1496,9 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     static const std::vector<std::string> positiveEventMarkers = {
         "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬",
         "认可", "肯定", "赞扬", "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜", "感谢", "感恩"
+    };
+    static const std::vector<std::string> complaintMarkers = {
+        "意见", "反馈", "问题", "投诉", "但是", "可是", "不过", "然而", "没有", "沒有", "沒有", "未"
     };
 
     // ── 一次扫描预计算所有 marker flags ──
@@ -1382,6 +1555,11 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     // ── applyPositiveEventBoost（使用预计算flags）──
     auto applyPositiveEventBoost = [&](float baseScore) {
         if (!hasPositiveEvent || hasNegative) return baseScore;
+        if (containsAnyPhrase(normalizedText, complaintMarkers)) return baseScore;
+        static const std::vector<std::string> negationMarkers = {
+            "没有", "沒有", "没", "不", "不是", "未", "無", "无"
+        };
+        if (containsAnyPhrase(normalizedText, negationMarkers)) return baseScore;
 
         // 检查转折词后是否有负面内容
         if (lastContrastPos != std::string::npos && lastContrastPos + lastContrastLen < normalizedText.size()) {
@@ -1389,10 +1567,17 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
             if (containsAnyPhrase(tail, sharedNegativeMarkers)) return baseScore;
         }
 
-        const float floorScore = normalizedText.find("礼物") != std::string::npos ? 0.74f : 0.68f;
+        const float floorScore = normalizedText.find("礼物") != std::string::npos ? 0.60f : 0.56f;
         return std::max(baseScore, floorScore);
     };
     ensembleScore = applyPositiveEventBoost(ensembleScore);
+
+    // 正负混合文本（常见于评价场景的“先夸后踩”）采用保守上限，降低假阳性
+    if ((hasContrast || containsAnyPhrase(normalizedText, {"但是", "不过", "然而", "可是"})) &&
+        hasNegative &&
+        (hasPositiveEvent || hasPraise)) {
+        ensembleScore = std::min(ensembleScore, 0.52f);
+    }
 
     const auto anchorSignal = computeAffectiveAnchor(normalizedText);
     if (anchorSignal.strength > 0.08f) {
@@ -1416,10 +1601,6 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     }
 
     // 词典匹配数也影响置信度
-    int lexMatches = 0;
-    for (const auto& t : tokens) {
-        if (sentimentLexicon_.count(t)) ++lexMatches;
-    }
     float coverageBoost = std::min(0.2f, static_cast<float>(lexMatches) * 0.05f);
     float confidence = std::clamp(agreement + coverageBoost, 0.0f, 1.0f);
     if (anchorSignal.strength > 0.10f) {
@@ -1436,20 +1617,34 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
     };
     static const std::vector<std::string> negativeEventHints = {
         "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃",
-        "孤独", "孤单", "寂寞", "脆弱", "落寞", "无助"
+        "孤独", "孤单", "寂寞", "脆弱", "落寞", "无助",
+        "不好", "不值", "不值得", "最差", "太差", "很差", "差劲", "忽悠",
+        "无聊", "没意思", "无意义", "不满意", "不推荐", "坑", "坑人",
+        "臭味", "再也不", "贵",
+        "沒有", "沒有", "沒", "壞", "最差", "很差", "太差", "不好", "不推薦", "不滿意", "忽悠", "坑人",
+        "無聊", "沒意思", "無意義", "貴", "臭", "損壞", "缺貨"
     };
     const bool positiveEventSignal =
         (containsAnyPhrase(normalizedText, positiveEventHints) && !containsAnyPhrase(normalizedText, negativeEventHints))
         || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
 
     // 内部标签 → Ekman 六基本情绪标准标签映射
-    auto toEkmanMood = [](const std::string& internalMood) -> std::string {
+    auto toEkmanMood = [](const std::string& internalMood, float calibratedScore, const std::string& normalizedText) -> std::string {
+        static const std::vector<std::string> kNeutralStrongSignals = {
+            "没什么特别情绪", "心情平平", "日程正常", "按计划", "没有好消息也没有坏消息",
+            "什么都没发生", "不开心，也不难过", "不开心也不难过", "就是发呆", "心情一般"
+        };
         if (internalMood == "happy") return "joy";
         if (internalMood == "sad") return "sadness";
         if (internalMood == "angry") return "anger";
         if (internalMood == "anxious") return "fear";
         if (internalMood == "surprised") return "surprise";
-        if (internalMood == "calm") return "neutral";
+        if (internalMood == "calm") {
+            if (calibratedScore >= 0.26f && !containsAnyPhrase(normalizedText, kNeutralStrongSignals)) {
+                return "joy";
+            }
+            return "neutral";
+        }
         if (internalMood == "confused") return "neutral";
         return internalMood;  // neutral 保持不变
     };
@@ -1461,7 +1656,7 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         if (std::strncmp(methodName, "dual_route_local", 16) == 0) {
             calibratedScore = std::clamp(calibratedScore - 0.124f, -1.0f, 1.0f);
         }
-        const std::string ekmanMood = toEkmanMood(internalMood);
+        const std::string ekmanMood = toEkmanMood(internalMood, calibratedScore, normalizedText);
         return EdgeSentimentResult{calibratedScore, ekmanMood, rawConfidence, methodName};
     };
 

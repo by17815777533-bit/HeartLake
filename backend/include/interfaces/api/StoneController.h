@@ -67,7 +67,7 @@ public:
      * @code
      * {
      *   "content": "心事内容",
-     *   "mood": "calm|happy|sad|anxious|angry|hopeful",
+     *   "mood": "calm|happy|sad|anxious|angry|surprised|confused|neutral",
      *   "tags": ["标签1", "标签2"],
      *   "anonymous": true
      * }

@@ -571,16 +571,7 @@ class _PublishScreenState extends State<PublishScreen> {
   /// 构建心情 Chip 列表，AI 建议的心情带发光效果，手动选择后锁定联动
   Widget _buildMoodSelector() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final moods = [
-      MoodType.happy,
-      MoodType.calm,
-      MoodType.sad,
-      MoodType.anxious,
-      MoodType.angry,
-      MoodType.surprised,
-      MoodType.confused,
-      MoodType.neutral,
-    ];
+    final moods = MoodColors.allMoods;
 
     return Wrap(
       spacing: 8,

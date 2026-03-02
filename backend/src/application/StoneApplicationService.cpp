@@ -26,6 +26,9 @@
 #include "infrastructure/services/EmotionTrackingService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include <drogon/drogon.h>
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 
 #ifdef _WIN32
 #undef ERROR
@@ -35,6 +38,41 @@ using namespace heartlake::utils;
 
 namespace heartlake {
 namespace application {
+
+namespace {
+
+std::string normalizeMoodType(std::string mood) {
+    std::transform(mood.begin(), mood.end(), mood.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    static const std::unordered_map<std::string, std::string> aliases = {
+        {"peaceful", "calm"},
+        {"hopeful", "calm"},
+        {"grateful", "happy"},
+        {"lonely", "sad"},
+        {"joy", "happy"},
+        {"happiness", "happy"},
+        {"sadness", "sad"},
+        {"fear", "anxious"},
+        {"anger", "angry"},
+        {"surprise", "surprised"},
+        {"uncertain", "confused"},
+    };
+    auto it = aliases.find(mood);
+    if (it != aliases.end()) {
+        mood = it->second;
+    }
+
+    static const std::unordered_set<std::string> validMoods = {
+        "calm", "happy", "sad", "angry", "anxious", "confused", "surprised", "neutral"
+    };
+    if (validMoods.find(mood) == validMoods.end()) {
+        return "neutral";
+    }
+    return mood;
+}
+
+} // namespace
 
 /**
  * 发布石头：
@@ -53,6 +91,7 @@ Json::Value StoneApplicationService::publishStone(
 ) {
     auto dbClient = drogon::app().getDbClient("default");
     std::string stoneId = "stone_" + drogon::utils::getUuid();
+    const std::string normalizedMood = normalizeMoodType(moodType);
 
     try {
         // 创建石头
@@ -60,7 +99,7 @@ Json::Value StoneApplicationService::publishStone(
             "INSERT INTO stones (stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, created_at) "
             "VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) "
             "RETURNING stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, created_at",
-            stoneId, userId, content, stoneType, stoneColor, moodType, isAnonymous
+            stoneId, userId, content, stoneType, stoneColor, normalizedMood, isAnonymous
         );
 
         if (result.empty()) {
@@ -82,7 +121,7 @@ Json::Value StoneApplicationService::publishStone(
             event.stoneId = stone["stone_id"].asString();
             event.userId = userId;
             event.content = content;
-            event.moodType = moodType;
+            event.moodType = normalizedMood;
             eventBus_->publish(event);
         }
 
@@ -441,6 +480,7 @@ void StoneApplicationService::processStoneAsync(
             LOG_WARN << "AI sentiment analysis failed for stone " << stoneId << ": " << error;
             return;
         }
+        const std::string normalizedMood = normalizeMoodType(mood);
         auto db = drogon::app().getDbClient("default");
         db->execSqlAsync(
             "UPDATE stones SET emotion_score = $1, mood_type = $2, updated_at = NOW() WHERE stone_id = $3",
@@ -448,14 +488,14 @@ void StoneApplicationService::processStoneAsync(
             [stoneId](const drogon::orm::DrogonDbException& e) {
                 LOG_ERROR << "Failed to update emotion for stone " << stoneId << ": " << e.base().what();
             },
-            score, mood, stoneId
+            score, normalizedMood, stoneId
         );
 
         // 提交情绪样本到社区脉搏
         try {
             auto& edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
             if (edgeEngine.isEnabled()) {
-                edgeEngine.submitEmotionSample(score, mood);
+                edgeEngine.submitEmotionSample(score, normalizedMood);
             }
         } catch (const std::exception& e) {
             LOG_WARN << "submitEmotionSample failed: " << e.what();
@@ -463,7 +503,7 @@ void StoneApplicationService::processStoneAsync(
 
         // 心理风险评估
         auto& riskAssessment = heartlake::utils::PsychologicalRiskAssessment::getInstance();
-        auto riskResult = riskAssessment.assessRisk(content, userId, score, mood);
+        auto riskResult = riskAssessment.assessRisk(content, userId, score, normalizedMood);
 
         if (riskResult.needsImmediateAttention) {
             auto& pushService = heartlake::services::NotificationPushService::getInstance();
@@ -563,7 +603,7 @@ void StoneApplicationService::processStoneAsync(
     drogon::async_run([stoneId, userId, content, moodType, cacheManagerCopy]() -> drogon::Task<void> {
         try {
             auto& dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
-            std::string comment = dualMemory.generateResponse(userId, content, moodType, 0.0f);
+            std::string comment = dualMemory.generateResponse(userId, content, normalizeMoodType(moodType), 0.0f);
 
             if (comment.empty()) {
                 LOG_WARN << "DualMemoryRAG returned empty for stone " << stoneId;

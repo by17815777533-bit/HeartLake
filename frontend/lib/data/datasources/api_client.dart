@@ -10,6 +10,7 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -261,6 +262,11 @@ class ApiClient {
     _onUnauthorized = onUnauthorized;
   }
 
+  /// 兼容旧调用：仅设置未授权回调
+  void setOnUnauthorized(Function() onUnauthorized) {
+    _onUnauthorized = onUnauthorized;
+  }
+
   /// 更新认证令牌并持久化到本地存储
   ///
   /// 登录成功后由 AuthService 调用，同时重置未授权标记。
@@ -276,6 +282,12 @@ class ApiClient {
       _userId = userId;
       await StorageUtil.saveUserId(userId);
     }
+  }
+
+  /// 兼容旧调用：单独设置 userId
+  Future<void> setUserId(String userId) async {
+    _userId = userId;
+    await StorageUtil.saveUserId(userId);
   }
 
   /// 清除认证状态并清空本地存储（退出登录时调用）
@@ -342,6 +354,51 @@ class ApiClient {
     return _dio.post(path, data: data, onSendProgress: onSendProgress);
   }
 
+  /// 兼容旧调用：动态文件上传
+  Future<Response> uploadFile(
+    String path, {
+    required dynamic file,
+    String? filename,
+    void Function(int, int)? onSendProgress,
+  }) async {
+    MultipartFile multipart;
+    if (file is MultipartFile) {
+      multipart = file;
+    } else if (file is File) {
+      multipart = await MultipartFile.fromFile(
+        file.path,
+        filename: filename ?? file.path.split('/').last,
+      );
+    } else if (file is List<int>) {
+      multipart = MultipartFile.fromBytes(
+        file,
+        filename: filename ?? 'upload.bin',
+      );
+    } else if (file is Uint8List) {
+      multipart = MultipartFile.fromBytes(
+        file,
+        filename: filename ?? 'upload.bin',
+      );
+    } else {
+      throw ArgumentError('Unsupported upload file type: ${file.runtimeType}');
+    }
+
+    return upload(
+      path,
+      data: FormData.fromMap({'file': multipart}),
+      onSendProgress: onSendProgress,
+    );
+  }
+
   /// 获取底层 Dio 实例（仅用于需要自定义配置的特殊场景）
   Dio get dio => _dio;
+
+  /// 当前访问令牌（内存态）
+  String? get token => _token;
+
+  /// 当前刷新令牌（内存态）
+  String? get refreshToken => _refreshToken;
+
+  /// 当前用户 ID（内存态）
+  String? get userId => _userId;
 }

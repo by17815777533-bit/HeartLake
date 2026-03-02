@@ -1,5 +1,6 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/mood_colors.dart';
 
 /// 湖神对话服务，对接 EdgeAI 的湖神聊天端点
 ///
@@ -9,11 +10,7 @@ class LakeGodService extends BaseService {
   String get serviceName => 'LakeGodService';
 
   /// 允许传入的情绪类型
-  static const _allowedEmotions = [
-    'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
-    'hopeful', 'lonely', 'grateful', 'neutral', 'fearful',
-    'surprised', 'disgusted', 'depressed', 'excited',
-  ];
+  static const _allowedEmotions = MoodColors.supportedMoodKeys;
 
   /// 发送消息给湖神，可附带当前情绪类型和情绪分数作为上下文
   Future<Map<String, dynamic>> sendMessage(String content, {String? emotion, double? emotionScore}) async {

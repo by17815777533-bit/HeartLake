@@ -6,6 +6,7 @@ import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/mood_colors.dart';
 import '../widgets/atmospheric_background.dart';
 
 /// 湖神聊天页面
@@ -231,25 +232,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 情绪中文映射
   String _moodLabel(String? mood) {
-    const map = {
-      'happy': '开心',
-      'sad': '难过',
-      'angry': '生气',
-      'anxious': '焦虑',
-      'calm': '平静',
-      'excited': '兴奋',
-      'neutral': '平和',
-      'fear': '恐惧',
-      'surprise': '惊讶',
-      'disgust': '厌恶',
-      'love': '喜爱',
-      'hopeful': '期待',
-      'lonely': '孤独',
-      'confused': '困惑',
-      'grateful': '感恩',
-    };
     if (mood == null) return '';
-    return map[mood.toLowerCase()] ?? mood;
+    final normalized = MoodColors.fromString(mood);
+    return MoodColors.getConfig(normalized).name;
   }
 
   /// 情绪趋势中文映射
@@ -274,23 +259,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 情绪对应颜色
   Color _moodColor(String? mood) {
-    const map = {
-      'happy': Color(0xFF66BB6A),
-      'sad': Color(0xFF42A5F5),
-      'angry': Color(0xFFEF5350),
-      'anxious': Color(0xFFFFA726),
-      'calm': Color(0xFF26C6DA),
-      'excited': Color(0xFFFF7043),
-      'neutral': Color(0xFF78909C),
-      'fear': Color(0xFF8D6E63),
-      'love': Color(0xFFEC407A),
-      'hopeful': Color(0xFFAB47BC),
-      'lonely': Color(0xFF5C6BC0),
-      'confused': Color(0xFFFFCA28),
-      'grateful': Color(0xFF26A69A),
-    };
     if (mood == null) return AppTheme.textTertiary;
-    return map[mood.toLowerCase()] ?? AppTheme.textTertiary;
+    final normalized = MoodColors.fromString(mood);
+    return MoodColors.getConfig(normalized).primary;
   }
 
   @override

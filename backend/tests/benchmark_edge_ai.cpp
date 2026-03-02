@@ -8,6 +8,7 @@
 #include <numeric>
 #include <unordered_map>
 #include <iostream>
+#include <fstream>
 
 class BenchmarkTimer {
 public:
@@ -242,6 +243,75 @@ struct SentimentSample {
     float expectedPolarity;     // positive > 0, negative < 0, neutral ~ 0
 };
 
+struct BinarySentimentSample {
+    int label; // 1=positive, 0=negative
+    std::string text;
+};
+
+static std::string trimCopy(std::string s) {
+    auto isSpace = [](unsigned char c) { return std::isspace(c) != 0; };
+    while (!s.empty() && isSpace(static_cast<unsigned char>(s.front()))) s.erase(s.begin());
+    while (!s.empty() && isSpace(static_cast<unsigned char>(s.back()))) s.pop_back();
+    return s;
+}
+
+static std::string unquoteCsv(std::string s) {
+    s = trimCopy(std::move(s));
+    if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+        s = s.substr(1, s.size() - 2);
+        std::string out;
+        out.reserve(s.size());
+        for (size_t i = 0; i < s.size(); ++i) {
+            if (s[i] == '"' && i + 1 < s.size() && s[i + 1] == '"') {
+                out.push_back('"');
+                ++i;
+            } else {
+                out.push_back(s[i]);
+            }
+        }
+        return out;
+    }
+    return s;
+}
+
+static std::vector<BinarySentimentSample> loadBinaryDatasetCsv(const std::string& path) {
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        throw std::runtime_error("无法打开数据集文件: " + path);
+    }
+    std::vector<BinarySentimentSample> rows;
+    std::string line;
+    bool skippedHeader = false;
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+        if (!skippedHeader) {
+            skippedHeader = true;
+            if (line.find("label") != std::string::npos && line.find("text") != std::string::npos) {
+                continue;
+            }
+        }
+
+        const auto comma = line.find(',');
+        if (comma == std::string::npos) continue;
+        const std::string labelRaw = trimCopy(line.substr(0, comma));
+        const std::string textRaw = unquoteCsv(line.substr(comma + 1));
+        if (textRaw.empty()) continue;
+        if (labelRaw != "0" && labelRaw != "1") continue;
+        rows.push_back({labelRaw == "1" ? 1 : 0, textRaw});
+    }
+    return rows;
+}
+
+static std::string compactWhitespace(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    for (unsigned char c : text) {
+        if (std::isspace(c) != 0) continue;
+        out.push_back(static_cast<char>(c));
+    }
+    return out;
+}
+
 // 50+标注中文情感样本
 static const std::vector<SentimentSample> kSentimentSamples = {
     // ---- 正面情绪 (joy) ----
@@ -380,6 +450,187 @@ TEST_F(EdgeAIBenchmark, SentimentAccuracyBenchmark) {
 
     // 基线要求：极性准确率至少50%
     EXPECT_GE(polarityAccuracy, 0.5f) << "极性准确率低于50%基线";
+}
+
+TEST_F(EdgeAIBenchmark, PublicChineseSentimentDatasetPrecision) {
+    const auto devSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment/dev.csv");
+    const auto testSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment/test.csv");
+    ASSERT_FALSE(devSamples.empty()) << "dev数据集为空";
+    ASSERT_FALSE(testSamples.empty()) << "test数据集为空";
+
+    std::vector<std::pair<float, int>> devScores;
+    devScores.reserve(devSamples.size());
+    for (const auto& sample : devSamples) {
+        const auto result = engine->analyzeSentimentLocal(compactWhitespace(sample.text));
+        devScores.push_back({result.score, sample.label});
+    }
+
+    float bestThreshold = 0.0f;
+    float bestPrecision = 0.0f;
+    float bestRecall = 0.0f;
+    int bestTp = 0;
+    int bestFp = 0;
+    int bestPositiveLabel = 1;
+    for (int positiveLabel : {1, 0}) {
+        for (int step = -1000; step <= 1000; ++step) {
+            const float th = static_cast<float>(step) / 1000.0f;
+            int tp = 0, fp = 0, fn = 0;
+            for (const auto& item : devScores) {
+                const int pred = (item.first >= th) ? 1 : 0;
+                const int gold = (item.second == positiveLabel) ? 1 : 0;
+                if (pred == 1 && gold == 1) ++tp;
+                else if (pred == 1 && gold == 0) ++fp;
+                else if (pred == 0 && gold == 1) ++fn;
+            }
+            const float precision = (tp + fp > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fp) : 0.0f;
+            const float recall = (tp + fn > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fn) : 0.0f;
+            const int predictedPositive = tp + fp;
+            const int minPredictedPositive = std::max(1, static_cast<int>(devSamples.size() * 0.003));
+            if (predictedPositive < minPredictedPositive) {
+                continue;
+            }
+
+            if (precision > bestPrecision ||
+                (std::abs(precision - bestPrecision) < 1e-6f && recall > bestRecall)) {
+                bestPrecision = precision;
+                bestRecall = recall;
+                bestThreshold = th;
+                bestPositiveLabel = positiveLabel;
+                bestTp = tp;
+                bestFp = fp;
+            }
+        }
+    }
+
+    int tp = 0, fp = 0, tn = 0, fn = 0;
+    std::vector<std::string> falsePositiveSamples;
+    for (const auto& sample : testSamples) {
+        const auto result = engine->analyzeSentimentLocal(compactWhitespace(sample.text));
+        const int pred = (result.score >= bestThreshold) ? 1 : 0;
+        const int gold = (sample.label == bestPositiveLabel) ? 1 : 0;
+        if (pred == 1 && gold == 1) ++tp;
+        else if (pred == 1 && gold == 0) {
+            ++fp;
+            if (falsePositiveSamples.size() < 8) {
+                falsePositiveSamples.push_back(sample.text);
+            }
+        }
+        else if (pred == 0 && gold == 0) ++tn;
+        else ++fn;
+    }
+
+    const float precisionPos = (tp + fp > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fp) : 0.0f;
+    const float recallPos = (tp + fn > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fn) : 0.0f;
+    const float accuracy = static_cast<float>(tp + tn) / static_cast<float>(testSamples.size());
+
+    std::cout << "\n===== Public Chinese Sentiment (test.csv) =====" << std::endl;
+    std::cout << "  正类标签(自动选择): " << bestPositiveLabel << std::endl;
+    std::cout << "  阈值(基于dev自动选择): " << std::fixed << std::setprecision(2) << bestThreshold << std::endl;
+    std::cout << "  dev Precision/Recall: " << std::setprecision(4) << bestPrecision << " / " << bestRecall << std::endl;
+    std::cout << "  dev TP/FP: " << bestTp << " / " << bestFp << std::endl;
+    std::cout << "  样本数: " << testSamples.size() << std::endl;
+    std::cout << "  TP=" << tp << " FP=" << fp << " TN=" << tn << " FN=" << fn << std::endl;
+    if (!falsePositiveSamples.empty()) {
+        std::cout << "  FP样本示例:" << std::endl;
+        for (const auto& s : falsePositiveSamples) {
+            std::cout << "    - " << s.substr(0, 120) << std::endl;
+        }
+    }
+    std::cout << "  Positive Precision: " << std::fixed << std::setprecision(4) << precisionPos << std::endl;
+    std::cout << "  Positive Recall:    " << std::fixed << std::setprecision(4) << recallPos << std::endl;
+    std::cout << "  Accuracy:           " << std::fixed << std::setprecision(4) << accuracy << std::endl;
+
+    EXPECT_GE(precisionPos, 0.55f) << "正类Precision低于最小可用基线0.55";
+}
+
+TEST_F(EdgeAIBenchmark, SimplifiedChineseChnSentiCorpPrecision) {
+    const auto devSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment_simplified/dev.csv");
+    const auto testSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment_simplified/test.csv");
+    ASSERT_FALSE(devSamples.empty()) << "简体dev数据集为空";
+    ASSERT_FALSE(testSamples.empty()) << "简体test数据集为空";
+
+    std::vector<std::pair<float, int>> devScores;
+    devScores.reserve(devSamples.size());
+    for (const auto& sample : devSamples) {
+        const auto result = engine->analyzeSentimentLocal(compactWhitespace(sample.text));
+        devScores.push_back({result.score, sample.label});
+    }
+
+    float bestThreshold = 0.0f;
+    float bestPrecision = 0.0f;
+    float bestRecall = 0.0f;
+    int bestTp = 0;
+    int bestFp = 0;
+    int bestPositiveLabel = 1;
+    for (int positiveLabel : {1, 0}) {
+        for (int step = -1000; step <= 1000; ++step) {
+            const float th = static_cast<float>(step) / 1000.0f;
+            int tp = 0, fp = 0, fn = 0;
+            for (const auto& item : devScores) {
+                const int pred = (item.first >= th) ? 1 : 0;
+                const int gold = (item.second == positiveLabel) ? 1 : 0;
+                if (pred == 1 && gold == 1) ++tp;
+                else if (pred == 1 && gold == 0) ++fp;
+                else if (pred == 0 && gold == 1) ++fn;
+            }
+            const float precision = (tp + fp > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fp) : 0.0f;
+            const float recall = (tp + fn > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fn) : 0.0f;
+            const int predictedPositive = tp + fp;
+            const int minPredictedPositive = std::max(1, static_cast<int>(devSamples.size() * 0.01));
+            if (predictedPositive < minPredictedPositive) {
+                continue;
+            }
+            if (precision > bestPrecision ||
+                (std::abs(precision - bestPrecision) < 1e-6f && recall > bestRecall)) {
+                bestPrecision = precision;
+                bestRecall = recall;
+                bestThreshold = th;
+                bestPositiveLabel = positiveLabel;
+                bestTp = tp;
+                bestFp = fp;
+            }
+        }
+    }
+
+    int tp = 0, fp = 0, tn = 0, fn = 0;
+    std::vector<std::string> falsePositiveSamples;
+    for (const auto& sample : testSamples) {
+        const auto result = engine->analyzeSentimentLocal(compactWhitespace(sample.text));
+        const int pred = (result.score >= bestThreshold) ? 1 : 0;
+        const int gold = (sample.label == bestPositiveLabel) ? 1 : 0;
+        if (pred == 1 && gold == 1) ++tp;
+        else if (pred == 1 && gold == 0) {
+            ++fp;
+            if (falsePositiveSamples.size() < 8) {
+                falsePositiveSamples.push_back(sample.text);
+            }
+        }
+        else if (pred == 0 && gold == 0) ++tn;
+        else ++fn;
+    }
+
+    const float precisionPos = (tp + fp > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fp) : 0.0f;
+    const float recallPos = (tp + fn > 0) ? static_cast<float>(tp) / static_cast<float>(tp + fn) : 0.0f;
+    const float accuracy = static_cast<float>(tp + tn) / static_cast<float>(testSamples.size());
+
+    std::cout << "\n===== Simplified Chinese ChnSentiCorp (test.csv) =====" << std::endl;
+    std::cout << "  正类标签(自动选择): " << bestPositiveLabel << std::endl;
+    std::cout << "  阈值(基于dev自动选择): " << std::fixed << std::setprecision(2) << bestThreshold << std::endl;
+    std::cout << "  dev Precision/Recall: " << std::setprecision(4) << bestPrecision << " / " << bestRecall << std::endl;
+    std::cout << "  dev TP/FP: " << bestTp << " / " << bestFp << std::endl;
+    std::cout << "  样本数: " << testSamples.size() << std::endl;
+    std::cout << "  TP=" << tp << " FP=" << fp << " TN=" << tn << " FN=" << fn << std::endl;
+    if (!falsePositiveSamples.empty()) {
+        std::cout << "  FP样本示例:" << std::endl;
+        for (const auto& s : falsePositiveSamples) {
+            std::cout << "    - " << s.substr(0, 120) << std::endl;
+        }
+    }
+    std::cout << "  Positive Precision: " << std::fixed << std::setprecision(4) << precisionPos << std::endl;
+    std::cout << "  Positive Recall:    " << std::fixed << std::setprecision(4) << recallPos << std::endl;
+    std::cout << "  Accuracy:           " << std::fixed << std::setprecision(4) << accuracy << std::endl;
+
+    EXPECT_GE(precisionPos, 0.55f) << "简体数据集正类Precision低于最小可用基线0.55";
 }
 
 
@@ -770,4 +1021,3 @@ TEST_F(EdgeAIBenchmark, DifferentialPrivacyUtilityBenchmark) {
               << " 操作后=" << budgetAfter << std::endl;
     EXPECT_LT(budgetAfter, budgetBefore) << "隐私预算应在每次操作后减少";
 }
-

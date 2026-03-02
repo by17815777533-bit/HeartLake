@@ -100,7 +100,7 @@ public:
      *
      * @param req HTTP 请求
      * @param callback 响应回调
-     * @param mood 情绪类型（calm/happy/sad/anxious/angry/hopeful）
+     * @param mood 情绪类型（happy/calm/sad/anxious/angry/surprised/confused/neutral）
      */
     void discoverByMood(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback,

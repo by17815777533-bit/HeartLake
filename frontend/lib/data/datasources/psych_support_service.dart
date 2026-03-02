@@ -1,5 +1,6 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/mood_colors.dart';
 
 /// 心理支持服务，对接安全港湾模块，提供热线、工具、推荐资源等接口
 class PsychSupportService extends BaseService {
@@ -7,11 +8,7 @@ class PsychSupportService extends BaseService {
   String get serviceName => 'PsychSupport';
 
   /// 允许传入的情绪类型
-  static const _allowedMoods = [
-    'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
-    'hopeful', 'lonely', 'grateful', 'neutral', 'fearful',
-    'surprised', 'disgusted', 'depressed', 'excited',
-  ];
+  static const _allowedMoods = MoodColors.supportedMoodKeys;
 
   /// 允许传入的资源类型
   static const _allowedResourceTypes = [

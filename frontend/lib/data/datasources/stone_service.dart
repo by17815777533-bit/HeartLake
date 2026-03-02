@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/circuit_breaker.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/mood_colors.dart';
 import 'base_service.dart';
 import 'cache_service.dart';
 
@@ -37,10 +38,11 @@ class StoneService extends BaseService {
       'small', 'medium', 'large', 'light', 'heavy',
     ], '石头类型');
     InputValidator.requireNonEmpty(stoneColor, '石头颜色');
-    InputValidator.optionalInList(moodType, const [
-      'happy', 'sad', 'angry', 'anxious', 'calm', 'confused',
-      'hopeful', 'lonely', 'grateful', 'neutral',
-    ], '情绪类型');
+    InputValidator.optionalInList(
+      moodType,
+      MoodColors.supportedMoodKeys,
+      '情绪类型',
+    );
     if (tags != null) {
       InputValidator.requireListLength(tags, '标签', max: 10);
       tags = tags.map((t) => InputValidator.sanitizeText(t)).toList();

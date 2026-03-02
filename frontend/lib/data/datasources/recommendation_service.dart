@@ -1,5 +1,6 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/mood_colors.dart';
 
 export '../../domain/entities/recommended_stone.dart';
 export '../../domain/entities/emotion_trend_point.dart';
@@ -10,23 +11,7 @@ class RecommendationService extends BaseService {
   String get serviceName => '共鸣服务';
 
   /// 允许传入的情绪类型
-  static const _allowedMoods = [
-    'happy',
-    'sad',
-    'angry',
-    'anxious',
-    'calm',
-    'confused',
-    'hopeful',
-    'lonely',
-    'grateful',
-    'neutral',
-    'fearful',
-    'surprised',
-    'disgusted',
-    'depressed',
-    'excited',
-  ];
+  static const _allowedMoods = MoodColors.supportedMoodKeys;
 
   /// 获取热门推荐
   Future<List<Map<String, dynamic>>> getTrending({int limit = 20}) async {

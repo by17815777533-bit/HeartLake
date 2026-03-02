@@ -14,6 +14,8 @@
 #include <memory>
 #include <regex>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -59,10 +61,37 @@ static bool isValidColor(const std::string& color) {
 // 白名单常量
 static const std::set<std::string> VALID_STONE_TYPES = {"small", "medium", "large", "light", "heavy"};
 static const std::set<std::string> VALID_MOOD_TYPES = {
-    "calm", "happy", "sad", "angry", "anxious", "hopeful", "lonely", "grateful", "confused", "peaceful",
-    "surprised", "neutral"
+    "calm", "happy", "sad", "angry", "anxious", "confused", "surprised", "neutral"
 };
 static const std::set<std::string> VALID_SORT_VALUES = {"latest", "hot", "created_at"};
+
+static std::string normalizeMoodType(std::string mood) {
+    std::transform(mood.begin(), mood.end(), mood.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    static const std::unordered_map<std::string, std::string> aliases = {
+        {"peaceful", "calm"},
+        {"hopeful", "calm"},
+        {"grateful", "happy"},
+        {"lonely", "sad"},
+        {"joy", "happy"},
+        {"happiness", "happy"},
+        {"sadness", "sad"},
+        {"fear", "anxious"},
+        {"anger", "angry"},
+        {"surprise", "surprised"},
+        {"uncertain", "confused"},
+    };
+    auto it = aliases.find(mood);
+    if (it != aliases.end()) {
+        mood = it->second;
+    }
+
+    if (VALID_MOOD_TYPES.find(mood) == VALID_MOOD_TYPES.end()) {
+        return "";
+    }
+    return mood;
+}
 
 // ==================== 石头发布 ====================
 
@@ -118,8 +147,8 @@ void StoneController::createStone(
         }
 
         // SEC-MOOD: mood_type 白名单校验
-        std::string moodType = (*json).get("mood_type", "calm").asString();
-        if (VALID_MOOD_TYPES.find(moodType) == VALID_MOOD_TYPES.end()) {
+        std::string moodType = normalizeMoodType((*json).get("mood_type", "calm").asString());
+        if (moodType.empty()) {
             callback(ResponseUtil::badRequest("无效的 mood_type"));
             return;
         }
@@ -189,7 +218,10 @@ void StoneController::getStones(
         }
 
         // SEC-WHITELIST: mood 参数白名单校验，防止 SQL 注入
-        if (!filterMood.empty() && VALID_MOOD_TYPES.find(filterMood) == VALID_MOOD_TYPES.end()) {
+        if (!filterMood.empty()) {
+            filterMood = normalizeMoodType(filterMood);
+        }
+        if (!req->getParameter("mood").empty() && filterMood.empty()) {
             callback(ResponseUtil::badRequest("无效的 mood 筛选值"));
             return;
         }

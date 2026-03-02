@@ -102,6 +102,21 @@ TEST_F(EdgeAIEngineTest, SentimentIntensifierBoost) {
     EXPECT_GE(std::abs(intensifiedResult.score), std::abs(baseResult.score) - 0.1f);
 }
 
+TEST_F(EdgeAIEngineTest, SentimentDoubleNegationShouldRecoverPolarity) {
+    auto baseResult = engine->analyzeSentimentLocal("我开心");
+    auto singleNegation = engine->analyzeSentimentLocal("我不开心");
+    auto doubleNegation = engine->analyzeSentimentLocal("我不是不开心");
+
+    // 单重否定应比原句更负；双重否定应比单重否定更正向
+    EXPECT_LT(singleNegation.score, baseResult.score);
+    EXPECT_GT(doubleNegation.score, singleNegation.score);
+}
+
+TEST_F(EdgeAIEngineTest, SentimentContrastTailShouldDominate) {
+    auto result = engine->analyzeSentimentLocal("今天收到礼物很开心，但是后来还是很焦虑。");
+    EXPECT_LT(result.score, 0.0f);
+}
+
 TEST_F(EdgeAIEngineTest, SentimentEmptyText) {
     auto result = engine->analyzeSentimentLocal("");
 

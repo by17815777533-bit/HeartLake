@@ -4,7 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// 情绪类型枚举，涵盖心湖支持的 12 种情绪
+/// 情绪类型枚举（产品统一 8 种）
 enum MoodType {
   happy, // 开心
   calm, // 平静
@@ -14,10 +14,6 @@ enum MoodType {
   surprised, // 惊喜
   confused, // 迷茫
   neutral, // 中性（默认）
-  hopeful, // 希望
-  grateful, // 感恩
-  lonely, // 孤独
-  peaceful, // 平和
 }
 
 /// 情绪色彩配置
@@ -185,66 +181,6 @@ class MoodColors {
       icon: Icons.help_outline,
     ),
 
-    // 希望 - 绿色系，生机与希望
-    MoodType.hopeful: MoodColorConfig(
-      primary: Color(0xFF66BB6A),
-      gradientStart: Color(0xFFE8F5E9),
-      gradientEnd: Color(0xFFC8E6C9),
-      lakeColor: Color(0xFF81C784),
-      rippleColor: Color(0xFF4CAF50),
-      textColor: Color(0xFF1B5E20),
-      iconColor: Color(0xFF2E7D32),
-      cardColor: Color(0xFFF1F8E9),
-      name: '希望',
-      description: '充满期待的心情',
-      icon: Icons.eco,
-    ),
-
-    // 感恩 - 暖橙色系，温暖感恩
-    MoodType.grateful: MoodColorConfig(
-      primary: Color(0xFFFFB74D),
-      gradientStart: Color(0xFFFFF3E0),
-      gradientEnd: Color(0xFFFFE0B2),
-      lakeColor: Color(0xFFFFCC80),
-      rippleColor: Color(0xFFFFA726),
-      textColor: Color(0xFFE65100),
-      iconColor: Color(0xFFF57C00),
-      cardColor: Color(0xFFFFF8E1),
-      name: '感恩',
-      description: '心怀感激',
-      icon: Icons.favorite,
-    ),
-
-    // 孤独 - 紫蓝色系，静谧孤寂
-    MoodType.lonely: MoodColorConfig(
-      primary: Color(0xFF7E57C2),
-      gradientStart: Color(0xFFEDE7F6),
-      gradientEnd: Color(0xFFD1C4E9),
-      lakeColor: Color(0xFF9575CD),
-      rippleColor: Color(0xFF673AB7),
-      textColor: Color(0xFF311B92),
-      iconColor: Color(0xFF512DA8),
-      cardColor: Color(0xFFF3EEFB),
-      name: '孤独',
-      description: '独自一人的时光',
-      icon: Icons.nights_stay,
-    ),
-
-    // 平和 - 浅蓝绿色系，安详宁静
-    MoodType.peaceful: MoodColorConfig(
-      primary: Color(0xFF4DD0E1),
-      gradientStart: Color(0xFFE0F7FA),
-      gradientEnd: Color(0xFFB2EBF2),
-      lakeColor: Color(0xFF80DEEA),
-      rippleColor: Color(0xFF26C6DA),
-      textColor: Color(0xFF006064),
-      iconColor: Color(0xFF00838F),
-      cardColor: Color(0xFFE0F7FA),
-      name: '平和',
-      description: '内心祥和安宁',
-      icon: Icons.self_improvement,
-    ),
-
     // 中性 - 标准蓝色系
     MoodType.neutral: MoodColorConfig(
       primary: Color(0xFF64B5F6),
@@ -310,19 +246,18 @@ class MoodColors {
       case 'hopeful':
       case '希望':
       case '期待':
-        return MoodType.hopeful;
-      case 'grateful':
-      case '感恩':
-      case '感激':
-        return MoodType.grateful;
-      case 'lonely':
-      case '孤独':
-      case '寂寞':
-        return MoodType.lonely;
       case 'peaceful':
       case '平和':
       case '祥和':
-        return MoodType.peaceful;
+        return MoodType.calm;
+      case 'grateful':
+      case '感恩':
+      case '感激':
+        return MoodType.happy;
+      case 'lonely':
+      case '孤独':
+      case '寂寞':
+        return MoodType.sad;
       default:
         return MoodType.neutral;
     }
@@ -341,8 +276,32 @@ class MoodColors {
     return MoodType.angry;
   }
 
+  /// 获取产品当前支持的情绪类型（单一来源）
+  static const List<MoodType> supportedMoods = [
+    MoodType.happy,
+    MoodType.calm,
+    MoodType.sad,
+    MoodType.anxious,
+    MoodType.angry,
+    MoodType.surprised,
+    MoodType.confused,
+    MoodType.neutral,
+  ];
+
+  /// 后端接口统一使用的情绪字符串（与 supportedMoods 一一对应）
+  static const List<String> supportedMoodKeys = [
+    'happy',
+    'calm',
+    'sad',
+    'anxious',
+    'angry',
+    'surprised',
+    'confused',
+    'neutral',
+  ];
+
   /// 获取所有可用的情绪类型
-  static List<MoodType> get allMoods => MoodType.values;
+  static List<MoodType> get allMoods => List.unmodifiable(supportedMoods);
 
   /// 创建情绪背景渐变
   static LinearGradient createGradient(

@@ -18,14 +18,7 @@ class EmotionTags {
   static List<MoodType> parseFromBackend(List<dynamic>? tags) {
     if (tags == null || tags.isEmpty) return [MoodType.neutral];
 
-    return tags.map((tag) {
-      final value = tag.toString();
-      try {
-        return MoodType.values.firstWhere((m) => m.name == value);
-      } catch (_) {
-        return MoodType.neutral;
-      }
-    }).toList();
+    return tags.map((tag) => MoodColors.fromString(tag.toString())).toList();
   }
 
   /// 转换为后端格式
