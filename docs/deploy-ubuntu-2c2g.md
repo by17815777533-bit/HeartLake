@@ -1,0 +1,85 @@
+# HeartLake Ubuntu 2C2G Lite 部署
+
+适用场景：
+
+- Ubuntu 单机云服务器
+- 2 vCPU / 2 GiB / 40 GiB 左右
+- 不部署 Ollama
+- 统一入口使用 Nginx gateway
+
+## 1. 云控制台需要确认的内容
+
+- 安全组放行 `22`
+- 安全组放行 `80`
+- 如果后面要上 HTTPS，再放行 `443`
+- 如果已有域名，将 A 记录解析到服务器公网 IP
+
+## 2. 服务器初始化
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2 git openssl curl
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+重新登录一次 shell，让 `docker` 组生效。
+
+低配机器建议加 2G swap，避免后端 Docker 构建阶段 OOM：
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+## 3. 拉代码并生成服务器环境文件
+
+```bash
+git clone <你的仓库地址>
+cd HeartLake
+./scripts/generate-server-env.sh --host 121.41.195.165 --admin-password '替换成强密码'
+cp .env.server-lite .env
+```
+
+如果已经有域名并且准备用 HTTPS，可以这样生成：
+
+```bash
+./scripts/generate-server-env.sh --host your.domain.com --https --admin-password '替换成强密码'
+cp .env.server-lite .env
+```
+
+## 4. 启动精简部署
+
+```bash
+docker compose pull postgres redis gateway || true
+./scripts/docker-up.sh server-lite
+```
+
+## 5. 冒烟验证
+
+```bash
+curl -fsS http://127.0.0.1/healthz
+curl -fsS http://127.0.0.1/api/health
+curl -I http://127.0.0.1/admin/
+```
+
+如果只做轻量烟测，避免跑整套历史测试：
+
+```bash
+GATEWAY_PORT=80 RUN_EXISTING_TESTS=0 ./scripts/docker-test.sh
+```
+
+## 6. 访问入口
+
+- 管理后台：`http://服务器IP/admin/`
+- API：`http://服务器IP/api/`
+- WebSocket：`ws://服务器IP/ws/broadcast`
+
+## 7. 后续升级到 HTTPS
+
+当前仓库里的 gateway 已补齐 `/ws/` 代理，可以直接在宿主机前面再接一层证书终止，或把证书配置加进 gateway。
+
+在未配域名和证书之前，建议先用 IP + HTTP 跑通。

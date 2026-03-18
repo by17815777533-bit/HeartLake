@@ -1,6 +1,7 @@
 # Environment files
 **/.env
 !**/.env.example
+.env.server-lite
 
 # Build artifacts
 build/

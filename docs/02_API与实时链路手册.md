@@ -71,7 +71,7 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 ```bash
 curl -X POST http://localhost:8080/api/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"HeartLake"}'
+  -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}'
 ```
 
 ## 3. 统一响应格式

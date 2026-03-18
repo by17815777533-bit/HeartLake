@@ -2,6 +2,8 @@
 # 阶段1: 编译环境
 FROM ubuntu:24.04 AS builder
 
+ARG BUILD_JOBS=1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake make g++ ca-certificates \
         libdrogon-dev \
@@ -21,7 +23,7 @@ RUN mkdir -p build && cd build \
         -DHEARTLAKE_BUILD_TESTS=OFF \
         -DMYSQL_INCLUDE_DIRS=/usr/include/mysql \
         -DMYSQL_LIBRARIES=/usr/lib/x86_64-linux-gnu/libmysqlclient.so \
-    && make -j"$(nproc)"
+    && make -j"${BUILD_JOBS}"
 
 # 阶段2: 最小运行时镜像
 FROM ubuntu:24.04 AS runtime

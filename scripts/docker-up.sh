@@ -14,27 +14,32 @@ case "${MODE}" in
     docker compose up -d --build
     ;;
   full)
-    echo "[docker-up] 启动全功能栈（等价于 all）..."
+    echo "[docker-up] 启动全功能栈兼容别名（等价于 all）..."
     docker compose up -d --build
     ;;
   dev)
-    echo "[docker-up] 启动开发栈（与 all/full 等价，保留兼容参数）..."
+    echo "[docker-up] 启动开发栈兼容别名（等价于 all）..."
     docker compose up -d --build
     ;;
   prod)
-    echo "[docker-up] 启动交付栈（与 all/full 等价）..."
+    echo "[docker-up] 启动交付栈兼容别名（等价于 all）..."
     docker compose up -d --build
     ;;
   lite)
     echo "[docker-up] 启动精简栈（不含 ollama）..."
     docker compose up -d --build postgres redis backend admin gateway
     ;;
+  server-lite)
+    echo "[docker-up] 启动 2C2G Ubuntu 服务器精简栈（低内存构建 + 本机绑定内部端口）..."
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml up -d --build postgres redis backend admin gateway
+    ;;
   db)
     echo "[docker-up] 仅启动数据库与缓存..."
     docker compose up -d postgres redis
     ;;
   *)
-    echo "用法: $0 [all|full|dev|prod|lite|db]"
+    echo "用法: $0 [all|lite|server-lite|db]"
+    echo "兼容别名: full/dev/prod -> all"
     exit 1
     ;;
 esac

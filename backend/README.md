@@ -16,7 +16,7 @@ HeartLake 匿名情感社交平台的后端服务，基于 C++20 + Drogon 异步
 | 认证 | PASETO v4 |
 | 加密 | X25519 / AES-256-GCM 端到端加密 |
 | 构建 | CMake 3.16+ |
-| 容器 | Docker (Arch Linux base) |
+| 容器 | Docker（Ubuntu 24.04 多阶段镜像） |
 
 ---
 
@@ -119,9 +119,9 @@ EDGE_AI_SENTIMENT_LEXICON_PATH=./models/sentiment_domain_lexicon.tsv
 # 双路策略已内置固定路由与背压，不再暴露路由/过载阈值开关
 # Ollama 自动拉起（默认关闭；仅 AI_PROVIDER=ollama 且设为 true 时触发）
 AI_OLLAMA_AUTOSTART=false
-# 强制 GPU（默认开启，可按需关闭）
-AI_OLLAMA_FORCE_GPU=true
-AI_OLLAMA_NUM_GPU=999
+# GPU 相关参数按需开启；低配 CPU 机器建议保持关闭
+AI_OLLAMA_FORCE_GPU=false
+AI_OLLAMA_NUM_GPU=0
 AI_OLLAMA_MAIN_GPU=0
 # 情绪分析服务化（缓存 + 并发合并 + 自适应调度）
 AI_SENTIMENT_LOCAL_CONF_THRESHOLD=0.72
@@ -163,15 +163,15 @@ cd backend/build
 
 ```bash
 cd backend
-docker build -t heartlake-backend .
+docker build --build-arg BUILD_JOBS=1 -t heartlake-backend .
 docker run -p 8080:8080 --env-file .env heartlake-backend
 ```
 
-推荐使用项目根目录的 `docker-compose.yml` 一键启动完整环境（PostgreSQL、Redis、Backend、Admin）：
+推荐使用项目根目录的 Compose 启动完整环境；低配服务器优先使用 `server-lite`：
 
 ```bash
 cd /path/to/heartlake
-./scripts/start-services.sh all
+./scripts/start-services.sh lite
 ```
 
 ---
@@ -268,7 +268,7 @@ cp .env.example .env
 | Redis | `REDIS_POOL_SIZE` / `REDIS_MAX_POOL_SIZE` | 初始/最大连接池大小，默认 `12/24` |
 | 安全 | `PASETO_KEY` | 用户 PASETO v4 签名密钥（生产环境必须更换） |
 | 安全 | `ADMIN_PASETO_KEY` | 管理员 PASETO v4 签名密钥 |
-| 管理 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 管理员初始账号 |
+| 管理 | `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` | 管理员登录配置（推荐使用哈希，不再依赖明文默认密码） |
 | AI | `AI_PROVIDER` | AI 服务商 (`deepseek` 等) |
 | AI | `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | AI API 配置 |
 | 限流 | `RATE_AI_PER_HOUR` | AI 接口每小时调用上限，默认 `30` |

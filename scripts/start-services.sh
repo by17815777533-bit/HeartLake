@@ -16,6 +16,9 @@ case "${MODE}" in
   db)
     ./scripts/docker-up.sh db
     ;;
+  server-lite)
+    ./scripts/docker-up.sh server-lite
+    ;;
   dev)
     ./scripts/docker-up.sh dev
     ;;
@@ -23,11 +26,12 @@ case "${MODE}" in
     ./scripts/docker-down.sh
     ;;
   *)
-    echo "用法: $0 [all|full|db|dev|stop]"
-    echo "  all/full - 启动全部功能环境（默认启动全部服务）"
+    echo "用法: $0 [all|db|server-lite|stop]"
+    echo "  all - 启动全部功能环境（默认启动全部服务）"
     echo "  db   - 仅启动 postgres + redis"
-    echo "  dev  - 启动开发环境（与 full 等价）"
+    echo "  server-lite - 2C2G Ubuntu 服务器精简环境（不含 Ollama）"
     echo "  stop - 停止服务"
+    echo "  兼容别名: full/dev -> all"
     exit 1
     ;;
 esac
