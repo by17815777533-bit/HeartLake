@@ -19,8 +19,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 #app {
   width: 100%;
   height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
-  background: var(--m3-surface);
+  font-family: var(--hl-font-body);
+  background: transparent;
   color: var(--m3-on-surface);
 }
 </style>

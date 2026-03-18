@@ -209,16 +209,16 @@ const touchRateRows = computed(() => {
   height: 100%;
   padding: 18px;
   border-radius: 14px;
-  background: linear-gradient(150deg, #fff6df 0%, #fffdf7 62%, #edf7ff 100%);
-  border: 1px solid #f2ddba;
+  background: linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(247, 241, 232, 0.98));
+  border: 1px solid rgba(24, 36, 47, 0.08);
 }
 
 .slide-chip {
   display: inline-flex;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #ffe8b8;
-  color: #7a5622;
+  background: rgba(35, 73, 99, 0.08);
+  color: #264863;
   font-size: 12px;
   font-weight: 600;
 }
@@ -227,20 +227,20 @@ const touchRateRows = computed(() => {
   margin-top: 14px;
   font-size: 20px;
   font-weight: 700;
-  color: #4f381a;
+  color: #18242f;
 }
 
 .slide-desc {
   margin-top: 12px;
   line-height: 1.7;
-  color: #6a5637;
+  color: #52606c;
   font-size: 14px;
 }
 
 .slide-metric {
   margin-top: 18px;
   font-size: 14px;
-  color: #5e4523;
+  color: #18242f;
   font-weight: 600;
 }
 

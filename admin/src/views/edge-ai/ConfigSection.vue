@@ -19,7 +19,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>Edge AI 配置管理</span>
+            <span>推理参数配置</span>
             <el-tag
               type="info"
               size="small"

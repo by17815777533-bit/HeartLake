@@ -10,12 +10,15 @@
 -->
 
 <template>
-  <!-- 页面标题 -->
   <div class="page-header">
     <div class="welcome-section">
-      <h1>边缘AI管理</h1>
+      <span class="header-kicker">Inference Watch</span>
+      <div class="title-row">
+        <h1>边缘推理值守</h1>
+        <span class="update-pill">更新于 {{ lastUpdateTime }}</span>
+      </div>
       <p class="welcome-sub">
-        Edge AI 引擎状态监控与管理 · {{ currentTime }}
+        {{ currentTime }} · 端侧推理、隐私预算与节点运行状态统一巡检
       </p>
     </div>
     <div class="header-actions">
@@ -27,11 +30,9 @@
       >
         刷新数据
       </el-button>
-      <span class="update-time">最后更新: {{ lastUpdateTime }}</span>
     </div>
   </div>
 
-  <!-- 技术标签 -->
   <div class="tech-badges">
     <span
       v-for="badge in techBadges"
@@ -43,7 +44,6 @@
     </span>
   </div>
 
-  <!-- 状态卡片 -->
   <el-row
     :gutter="20"
     class="stats-cards"
@@ -58,10 +58,11 @@
       <el-card
         shadow="hover"
         class="stat-card"
-        :style="{ borderTop: `4px solid ${card.color}` }"
       >
+        <div class="stat-accent" :style="{ background: card.color }" />
         <div class="stat-content">
           <div class="stat-info">
+            <span class="stat-kicker">运行状态</span>
             <div class="stat-value">
               {{ card.value }}
             </div>
@@ -69,13 +70,18 @@
               {{ card.title }}
             </div>
           </div>
-          <div
-            class="stat-icon"
-            :style="{ background: `${card.color}15`, color: card.color }"
-          >
-            <el-icon :size="32">
-              <component :is="card.icon" />
-            </el-icon>
+          <div class="stat-side">
+            <div
+              class="stat-icon"
+              :style="{ background: `${card.color}14`, color: card.color }"
+            >
+              <el-icon :size="28">
+                <component :is="card.icon" />
+              </el-icon>
+            </div>
+            <span class="stat-note">
+              {{ card.title === '引擎状态' ? '实时采样' : '后台同步' }}
+            </span>
           </div>
         </div>
       </el-card>
@@ -111,3 +117,257 @@ defineEmits<{
   (e: 'refresh'): void
 }>()
 </script>
+
+<style scoped lang="scss">
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 30px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(24, 36, 47, 0.08);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 250, 242, 0.94), rgba(246, 239, 229, 0.98));
+  box-shadow: var(--hl-shadow-soft);
+}
+
+.welcome-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header-kicker {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(154, 106, 53, 0.08);
+  color: var(--m3-secondary);
+  font-family: var(--hl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+
+  h1 {
+    margin: 0;
+    font-family: var(--hl-font-display);
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.05;
+    color: var(--hl-ink);
+  }
+}
+
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 36, 47, 0.09);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--hl-ink-soft);
+  font-family: var(--hl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.welcome-sub {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--hl-ink-soft);
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+
+  :deep(.el-button) {
+    min-height: 42px;
+    padding: 0 18px;
+    border-radius: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+}
+
+.tech-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 36, 47, 0.08);
+  background: rgba(255, 250, 242, 0.82);
+  color: var(--hl-ink-soft);
+  transition: var(--m3-transition);
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(35, 73, 99, 0.18);
+    background: rgba(255, 255, 255, 0.94);
+  }
+}
+
+.badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(35, 73, 99, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.badge-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stats-cards {
+  margin-bottom: 24px;
+}
+
+.stats-cards :deep(.el-col) {
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(24, 36, 47, 0.08);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 250, 242, 0.94), rgba(247, 241, 232, 0.98));
+  box-shadow: var(--hl-shadow-soft);
+}
+
+.stat-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+}
+
+.stat-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 148px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-kicker {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(24, 36, 47, 0.05);
+  color: var(--hl-ink-soft);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-family: var(--hl-font-display);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1;
+  color: var(--hl-ink);
+}
+
+.stat-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hl-ink-soft);
+}
+
+.stat-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  border: 1px solid rgba(24, 36, 47, 0.06);
+}
+
+.stat-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--hl-ink-soft);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 24px;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-header {
+    border-radius: 22px;
+  }
+
+  .stat-content {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stat-side {
+    align-items: flex-start;
+  }
+}
+</style>

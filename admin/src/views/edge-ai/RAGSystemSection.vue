@@ -24,7 +24,7 @@
               type="success"
               size="small"
             >
-              SoulSpeak架构
+              守护链路
             </el-tag>
           </div>
         </template>

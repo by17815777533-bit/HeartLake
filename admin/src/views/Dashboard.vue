@@ -178,22 +178,35 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .dashboard {
   min-height: 100%;
-  padding: 4px;
+  padding: 8px 0 18px;
 }
 
-:deep(.el-card) {
-  border-radius: 18px;
-  border: 1px solid #efd8ad;
-  background: rgba(255, 252, 245, 0.92);
+.dashboard :deep(.el-card) {
+  border-radius: 24px;
+  border: 1px solid rgba(24, 36, 47, 0.08);
+  background: linear-gradient(180deg, rgba(255, 250, 242, 0.94), rgba(247, 241, 232, 0.98));
+  box-shadow: var(--hl-shadow-soft);
 }
 
-:deep(.el-card__header) {
-  border-bottom: 1px solid #f2dfbf;
-  color: #5f4727;
+.dashboard :deep(.el-card__header) {
+  border-bottom: 1px solid rgba(24, 36, 47, 0.08);
+  color: var(--hl-ink);
   font-weight: 600;
+  background: rgba(255, 255, 255, 0.38);
 }
 
-:deep(.el-empty__description p) {
-  color: #876f4e;
+.dashboard :deep(.el-empty__description p) {
+  color: var(--hl-ink-soft);
+}
+
+.dashboard :deep(.el-carousel__indicator-button) {
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(24, 36, 47, 0.18);
+}
+
+.dashboard :deep(.el-progress-bar__outer) {
+  background: rgba(24, 36, 47, 0.08);
 }
 </style>
