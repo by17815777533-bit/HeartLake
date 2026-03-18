@@ -28,12 +28,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>联邦学习控制</span>
+            <span>处理进度</span>
             <el-tag
               :type="federated.status === 'aggregating' ? 'warning' : 'info'"
               size="small"
             >
-              {{ federated.status === 'aggregating' ? '聚合中' : '就绪' }}
+              {{ federated.status === 'aggregating' ? '进行中' : '就绪' }}
             </el-tag>
           </div>
         </template>
@@ -41,23 +41,23 @@
           <div class="fed-stats">
             <div class="fed-stat-item">
               <span class="fed-stat-value">{{ federated.currentRound }}</span>
-              <span class="fed-stat-label">当前轮次</span>
+              <span class="fed-stat-label">当前批次</span>
             </div>
             <div class="fed-stat-item">
               <span class="fed-stat-value">{{ federated.participatingNodes }}</span>
-              <span class="fed-stat-label">参与节点</span>
+              <span class="fed-stat-label">参与服务</span>
             </div>
             <div class="fed-stat-item">
               <span class="fed-stat-value">{{ federated.modelAccuracy }}</span>
-              <span class="fed-stat-label">模型精度</span>
+              <span class="fed-stat-label">处理准确度</span>
             </div>
             <div class="fed-stat-item">
               <span class="fed-stat-value">{{ federated.convergenceRate }}</span>
-              <span class="fed-stat-label">收敛速率</span>
+              <span class="fed-stat-label">完成速度</span>
             </div>
           </div>
           <div class="fed-progress">
-            <span class="fed-progress-label">聚合进度</span>
+            <span class="fed-progress-label">当前进度</span>
             <el-progress
               :percentage="federated.aggregationProgress"
               :stroke-width="12"
@@ -73,10 +73,10 @@
               :disabled="federated.status === 'aggregating'"
               @click="$emit('triggerAggregation')"
             >
-              触发聚合
+              开始处理
             </el-button>
             <el-button @click="$emit('refreshFederated')">
-              刷新状态
+              重新获取
             </el-button>
           </div>
         </div>
@@ -94,9 +94,9 @@
       >
         <template #header>
           <div class="card-header">
-            <span>差分隐私预算</span>
+            <span>使用额度</span>
             <el-tag size="small">
-              ε 监控
+              用量
             </el-tag>
           </div>
         </template>
@@ -104,14 +104,14 @@
           <div class="budget-overview">
             <div class="budget-main">
               <div class="epsilon">
-                ε = {{ privacy.epsilonUsed }} / {{ privacy.epsilonTotal }}
+                {{ privacy.epsilonUsed }} / {{ privacy.epsilonTotal }}
               </div>
               <el-progress
                 :percentage="privacy.epsilonPercent"
                 :stroke-width="16"
                 :color="privacyBudgetColor"
               />
-              <span class="budget-hint">剩余预算: {{ privacy.epsilonRemaining }}</span>
+              <span class="budget-hint">剩余额度: {{ privacy.epsilonRemaining }}</span>
             </div>
           </div>
           <div class="budget-chart">

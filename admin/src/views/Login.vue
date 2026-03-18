@@ -12,7 +12,7 @@
   <div class="login-page">
     <div class="login-shell">
       <section class="login-intro">
-        <span class="intro-kicker">heartlake / operations</span>
+        <span class="intro-kicker">心湖 / 后台入口</span>
         <h1 class="intro-title">
           面向值守与处置的后台入口
         </h1>

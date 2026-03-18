@@ -12,13 +12,13 @@
 <template>
   <div class="page-header">
     <div class="welcome-section">
-      <span class="header-kicker">Inference Watch</span>
+      <span class="header-kicker">服务辅助</span>
       <div class="title-row">
-        <h1>边缘推理值守</h1>
+        <h1>智能辅助概览</h1>
         <span class="update-pill">更新于 {{ lastUpdateTime }}</span>
       </div>
       <p class="welcome-sub">
-        {{ currentTime }} · 端侧推理、隐私预算与节点运行状态统一巡检
+        {{ currentTime }} · 内容建议、情绪观察与处理支持概况
       </p>
     </div>
     <div class="header-actions">
@@ -62,7 +62,7 @@
         <div class="stat-accent" :style="{ background: card.color }" />
         <div class="stat-content">
           <div class="stat-info">
-            <span class="stat-kicker">运行状态</span>
+            <span class="stat-kicker">当前情况</span>
             <div class="stat-value">
               {{ card.value }}
             </div>
@@ -80,7 +80,7 @@
               </el-icon>
             </div>
             <span class="stat-note">
-              {{ card.title === '引擎状态' ? '实时采样' : '后台同步' }}
+              {{ card.title === '服务状态' ? '实时更新' : '后台同步' }}
             </span>
           </div>
         </div>

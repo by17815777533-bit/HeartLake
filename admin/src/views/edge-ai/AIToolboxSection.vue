@@ -26,7 +26,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span><el-icon><DataAnalysis /></el-icon> 情感分析测试</span>
+            <span><el-icon><DataAnalysis /></el-icon> 情绪判断</span>
           </div>
         </template>
         <div class="ai-tool-panel">
@@ -34,7 +34,7 @@
             v-model="sentimentTool.text"
             type="textarea"
             :rows="3"
-            placeholder="输入文本，测试情感分析..."
+            placeholder="输入内容，看看整体情绪..."
             maxlength="500"
             show-word-limit
           />
@@ -45,14 +45,14 @@
             style="margin-top: 12px"
             @click="$emit('analyzeSentiment')"
           >
-            分析
+            开始判断
           </el-button>
           <div
             v-if="sentimentTool.result"
             class="tool-result"
           >
             <div class="result-item">
-              <span class="result-label">情感倾向</span>
+              <span class="result-label">判断结果</span>
               <el-tag
                 :type="sentimentTool.result.sentiment === 'positive' ? 'success' : sentimentTool.result.sentiment === 'negative' ? 'danger' : 'info'"
                 size="large"
@@ -61,7 +61,7 @@
               </el-tag>
             </div>
             <div class="result-item">
-              <span class="result-label">置信度</span>
+              <span class="result-label">把握度</span>
               <el-progress
                 :percentage="Math.round((sentimentTool.result.confidence || 0) * 100)"
                 :stroke-width="10"
@@ -100,7 +100,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span><el-icon><CircleCheck /></el-icon> 内容审核测试</span>
+            <span><el-icon><CircleCheck /></el-icon> 内容检查</span>
           </div>
         </template>
         <div class="ai-tool-panel">
@@ -108,7 +108,7 @@
             v-model="moderationTool.text"
             type="textarea"
             :rows="3"
-            placeholder="输入文本，测试内容审核..."
+            placeholder="输入内容，检查是否需要关注..."
             maxlength="500"
             show-word-limit
           />
@@ -119,14 +119,14 @@
             style="margin-top: 12px"
             @click="$emit('moderateContent')"
           >
-            审核
+            开始检查
           </el-button>
           <div
             v-if="moderationTool.result"
             class="tool-result"
           >
             <div class="result-item">
-              <span class="result-label">审核结果</span>
+              <span class="result-label">检查结果</span>
               <el-tag
                 :type="moderationTool.result.pass ? 'success' : 'danger'"
                 size="large"
@@ -135,7 +135,7 @@
               </el-tag>
             </div>
             <div class="result-item">
-              <span class="result-label">风险等级</span>
+              <span class="result-label">风险程度</span>
               <el-tag :type="moderationTool.result.risk === 'low' ? 'success' : moderationTool.result.risk === 'medium' ? 'warning' : 'danger'">
                 {{ { low: '低风险', medium: '中风险', high: '高风险' }[moderationTool.result.risk] || moderationTool.result.risk || '-' }}
               </el-tag>
@@ -144,7 +144,7 @@
               v-if="moderationTool.result.reason"
               class="result-item"
             >
-              <span class="result-label">原因</span>
+              <span class="result-label">说明</span>
               <span class="result-value reason-text">{{ moderationTool.result.reason }}</span>
             </div>
           </div>

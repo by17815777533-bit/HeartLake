@@ -25,7 +25,7 @@
           class="logo-copy"
         >
           <span class="logo-text">心湖管理</span>
-          <span class="logo-sub">Operations Desk</span>
+          <span class="logo-sub">服务后台</span>
         </div>
       </div>
 
@@ -33,7 +33,7 @@
         v-if="!isCollapsed"
         class="sidebar-caption"
       >
-        运营入口
+        常用入口
       </div>
 
       <nav aria-label="主导航">
@@ -73,7 +73,7 @@
       <!-- 顶部栏 -->
       <el-header class="header">
         <div class="header-left">
-          <span class="header-badge">LIVE</span>
+          <span class="header-badge">在线</span>
           <div class="breadcrumb-stack">
             <el-breadcrumb separator="/">
               <el-breadcrumb-item :to="{ path: '/' }">
@@ -81,7 +81,7 @@
               </el-breadcrumb-item>
               <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
             </el-breadcrumb>
-            <span class="header-caption">值守台账与实时巡检</span>
+            <span class="header-caption">今日概况与处理进度</span>
           </div>
         </div>
 
@@ -93,13 +93,13 @@
               effect="plain"
             >
               <el-icon><User /></el-icon>
-              在线: {{ realtimeStats.onlineCount }}
+              在线用户: {{ realtimeStats.onlineCount }}
             </el-tag>
             <el-tag
               type="info"
               effect="plain"
             >
-              今日投石: {{ realtimeStats.todayStones }}
+              今日发布: {{ realtimeStats.todayStones }}
             </el-tag>
           </div>
 
@@ -128,7 +128,7 @@
                 {{ adminInfo.nickname?.charAt(0) || 'A' }}
               </el-avatar>
               <div class="user-copy">
-                <span class="user-label">当班管理员</span>
+                <span class="user-label">当前账号</span>
                 <span class="username">{{ adminInfo.nickname || '管理员' }}</span>
               </div>
             </div>
@@ -189,7 +189,7 @@ const menuItems = [
   { path: '/sensitive-words', title: '风险词典', icon: 'Warning' },
   { path: '/logs', title: '服务记录', icon: 'Tickets' },
   { path: '/settings', title: '系统偏好', icon: 'Setting' },
-  { path: '/edge-ai', title: '心湖智能', icon: 'Monitor' },
+  { path: '/edge-ai', title: '智能辅助', icon: 'Monitor' },
 ]
 
 /** 管理员展示信息。 */

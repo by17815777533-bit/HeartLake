@@ -21,7 +21,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>📈 AI 情绪趋势</span>
+            <span>近期情绪变化</span>
             <el-tag
               size="small"
               type="info"
@@ -35,7 +35,7 @@
           autoresize
           style="height: 280px"
           role="img"
-          aria-label="AI情绪趋势图表"
+          aria-label="近期情绪变化图表"
         />
       </el-card>
     </el-col>
@@ -50,12 +50,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>🔥 AI 热门内容</span>
+            <span>近期热门内容</span>
             <el-tag
               size="small"
               type="warning"
             >
-              推荐引擎
+              自动整理
             </el-tag>
           </div>
         </template>
@@ -88,7 +88,7 @@
           </div>
           <el-empty
             v-if="!aiTrendingContent.length"
-            description="暂无推荐数据"
+            description="暂无内容"
             :image-size="60"
           />
         </div>

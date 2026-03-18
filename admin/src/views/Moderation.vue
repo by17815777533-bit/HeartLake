@@ -63,7 +63,7 @@
                 type="warning"
                 size="small"
               >
-                {{ row.ai_reason || 'AI检测' }}
+                {{ row.ai_reason || '系统识别' }}
               </el-tag>
             </template>
           </el-table-column>

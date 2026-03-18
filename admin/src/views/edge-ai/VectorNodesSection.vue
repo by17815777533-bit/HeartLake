@@ -25,7 +25,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>向量搜索测试</span>
+            <span>内容检索</span>
             <el-tag
               type="primary"
               size="small"
@@ -38,7 +38,7 @@
           <div class="search-input-row">
             <el-input
               :model-value="vectorQuery"
-              placeholder="输入文本，搜索语义相似内容..."
+              placeholder="输入一句话，查找相关内容..."
               :prefix-icon="Search"
               clearable
               maxlength="200"
@@ -51,7 +51,7 @@
               :loading="vectorSearching"
               @click="$emit('search')"
             >
-              搜索
+              查找
             </el-button>
           </div>
           <div
@@ -78,7 +78,7 @@
           </div>
           <el-empty
             v-else-if="vectorSearched"
-            description="未找到相似内容"
+            description="没有找到相关内容"
             :image-size="80"
           />
         </div>
@@ -96,7 +96,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>边缘节点列表</span>
+            <span>服务节点</span>
             <el-tag size="small">
               {{ edgeNodes.length }} 个节点
             </el-tag>
@@ -111,7 +111,7 @@
         >
           <el-table-column
             prop="nodeId"
-            label="节点ID"
+            label="编号"
             width="100"
           />
           <el-table-column
@@ -133,7 +133,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            label="负载"
+            label="忙碌度"
             width="100"
           >
             <template #default="{ row }">
@@ -146,7 +146,7 @@
             </template>
           </el-table-column>
           <el-table-column
-            label="延迟"
+            label="响应"
             width="80"
           >
             <template #default="{ row }">

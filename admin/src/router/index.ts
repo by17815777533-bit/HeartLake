@@ -37,7 +37,7 @@ const router = createRouter({
         { path: 'sensitive-words', component: () => import('@/views/SensitiveWords.vue'), meta: { title: '风险词典', requiresAuth: true, requiredRole: 'admin' } },
         { path: 'logs', component: () => import('@/views/Logs.vue'), meta: { title: '服务记录', requiresAuth: true, requiredRole: 'admin' } },
         { path: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '系统偏好', requiresAuth: true, requiredRole: 'super_admin' } },
-        { path: 'edge-ai', component: () => import('@/views/EdgeAI.vue'), meta: { title: '心湖智能', requiresAuth: true, requiredRole: 'admin' } },
+        { path: 'edge-ai', component: () => import('@/views/EdgeAI.vue'), meta: { title: '智能辅助', requiresAuth: true, requiredRole: 'admin' } },
       ]
     },
     // 403 权限不足页面

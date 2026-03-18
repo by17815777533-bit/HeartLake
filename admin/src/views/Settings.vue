@@ -63,9 +63,9 @@
         </el-card>
       </el-tab-pane>
 
-      <!-- AI配置 -->
+      <!-- 智能回复 -->
       <el-tab-pane
-        label="AI配置"
+        label="智能回复"
         name="ai"
       >
         <el-card shadow="never">
@@ -75,10 +75,10 @@
             :model="aiConfig"
             :rules="aiRules"
             label-width="150px"
-            aria-label="AI服务配置"
+            aria-label="智能回复设置"
           >
             <el-form-item
-              label="AI服务提供商"
+              label="回复服务提供商"
               prop="provider"
             >
               <el-select v-model="aiConfig.provider">
@@ -93,7 +93,7 @@
               </el-select>
             </el-form-item>
             <el-form-item
-              label="API Key"
+              label="访问密钥"
               prop="apiKey"
             >
               <el-input
@@ -115,7 +115,7 @@
               </el-input>
             </el-form-item>
             <el-form-item
-              label="Base URL"
+              label="服务地址"
               prop="baseUrl"
             >
               <el-input
@@ -124,7 +124,7 @@
               />
             </el-form-item>
             <el-form-item
-              label="模型名称"
+              label="使用模型"
               prop="model"
             >
               <el-input
@@ -135,7 +135,7 @@
             <el-form-item label="开启情感分析">
               <el-switch v-model="aiConfig.enableSentiment" />
             </el-form-item>
-            <el-form-item label="开启AI回复">
+            <el-form-item label="开启智能回复">
               <el-switch v-model="aiConfig.enableAutoReply" />
             </el-form-item>
             <el-form-item>
@@ -328,7 +328,7 @@ const systemConfig = reactive({
   allowAnonymous: true,
 })
 
-// AI配置
+// 智能回复
 const aiConfig = reactive({
   provider: 'deepseek',
   apiKey: '',
@@ -355,9 +355,9 @@ const onApiKeyInput = (val: string) => {
   }
 }
 
-// AI 配置验证规则
+// 智能回复配置验证规则
 const aiRules = {
-  provider: [{ required: true, message: '请选择 AI 服务提供商', trigger: 'change' }],
+  provider: [{ required: true, message: '请选择回复服务提供商', trigger: 'change' }],
   apiKey: [
     {
       validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -484,15 +484,15 @@ const saveConfig = async (type: 'system' | 'ai' | 'rate') => {
   }
 }
 
-// 测试AI连接
+// 测试智能回复连接
 const testAI = async () => {
   testing.value = true
   try {
     await api.getEdgeAIStatus()
-    ElMessage.success('AI服务连接正常')
+    ElMessage.success('回复服务连接正常')
   } catch (e) {
-    console.error('AI服务连接失败:', e)
-    ElMessage.error(getErrorMessage(e, 'AI服务连接失败'))
+    console.error('回复服务连接失败:', e)
+    ElMessage.error(getErrorMessage(e, '回复服务连接失败'))
   } finally {
     testing.value = false
   }

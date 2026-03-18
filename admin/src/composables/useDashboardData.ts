@@ -30,10 +30,10 @@ export function useDashboardData() {
   const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 
   const techBadges = [
-    { icon: 'AI', label: 'DTW 情绪共鸣' },
-    { icon: 'DP', label: 'ε-差分隐私' },
-    { icon: 'RAG', label: '双记忆守护链路' },
-    { icon: 'EDGE', label: '端侧推理' },
+    { icon: '动态', label: '社区动态' },
+    { icon: '关怀', label: '关怀反馈' },
+    { icon: '提醒', label: '风险提醒' },
+    { icon: '进度', label: '处理进度' },
   ]
 
   const greeting = computed(() => {

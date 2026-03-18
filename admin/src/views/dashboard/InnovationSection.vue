@@ -25,7 +25,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>🔒 隐私保护统计</span>
+            <span>安全保护概览</span>
           </div>
         </template>
         <div
@@ -33,11 +33,11 @@
           class="innovation-stats"
         >
           <div class="inno-stat-item">
-            <span class="inno-label">差分隐私查询次数</span>
+            <span class="inno-label">今日查询次数</span>
             <span class="inno-value">{{ formatNumber(privacyStats.queryCount) }}</span>
           </div>
           <div class="inno-stat-item">
-            <span class="inno-label">隐私预算消耗 (ε)</span>
+            <span class="inno-label">保护额度使用</span>
             <span class="inno-value epsilon">{{ (privacyStats.epsilonUsed ?? 0).toFixed(2) }} / {{ (privacyStats.epsilonTotal ?? 0).toFixed(1) }}</span>
           </div>
           <div class="budget-bar">
@@ -50,7 +50,7 @@
             />
           </div>
           <div class="inno-stat-item">
-            <span class="inno-label">保护的用户数</span>
+            <span class="inno-label">受保护用户</span>
             <span class="inno-value">{{ formatNumber(privacyStats.protectedUsers) }}</span>
           </div>
         </div>
@@ -69,7 +69,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>💫 情绪共鸣统计</span>
+            <span>关怀回应概览</span>
           </div>
         </template>
         <div
@@ -77,15 +77,15 @@
           class="innovation-stats"
         >
           <div class="inno-stat-item">
-            <span class="inno-label">今日共鸣匹配数</span>
+            <span class="inno-label">今日有效回应</span>
             <span class="inno-value">{{ formatNumber(resonanceStats.todayMatches) }}</span>
           </div>
           <div class="inno-stat-item">
-            <span class="inno-label">平均共鸣分数</span>
+            <span class="inno-label">平均回应评分</span>
             <span class="inno-value highlight">{{ (resonanceStats.avgScore ?? 0).toFixed(1) }}</span>
           </div>
           <div class="inno-stat-item">
-            <span class="inno-label">最活跃的情绪类型</span>
+            <span class="inno-label">最常见情绪</span>
             <el-tag
               size="small"
               type="primary"
@@ -94,7 +94,7 @@
             </el-tag>
           </div>
           <div class="inno-stat-item">
-            <span class="inno-label">共鸣成功率</span>
+            <span class="inno-label">回应完成率</span>
             <span class="inno-value">{{ (resonanceStats.successRate ?? 0).toFixed(1) }}%</span>
           </div>
         </div>
@@ -113,7 +113,7 @@
       >
         <template #header>
           <div class="card-header">
-            <span>🌊 湖面情绪温度</span>
+            <span>社区氛围</span>
             <span class="pulse-hint">每30秒更新</span>
           </div>
         </template>

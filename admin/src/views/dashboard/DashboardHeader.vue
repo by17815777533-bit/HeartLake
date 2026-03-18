@@ -12,13 +12,13 @@
 <template>
   <div class="page-header">
     <div class="welcome-section">
-      <span class="header-kicker">Operations Snapshot</span>
+      <span class="header-kicker">今日总览</span>
       <div class="title-row">
         <h1>{{ greeting }}，管理员</h1>
         <span class="update-pill">更新于 {{ lastUpdateTime }}</span>
       </div>
       <p class="welcome-sub">
-        {{ currentDateTime }} · 社区值守、反馈巡检与处置总览
+        {{ currentDateTime }} · 社区动态、关怀反馈与处理进度
       </p>
     </div>
     <div class="header-actions">

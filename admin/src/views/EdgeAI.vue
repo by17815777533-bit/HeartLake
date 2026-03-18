@@ -100,12 +100,12 @@ const currentTime = computed(() => dayjs().format('YYYY-MM-DD HH:mm'))
 
 /** 技术能力标签，展示在页面头部 */
 const techBadges = [
-  { icon: 'INF', label: '端侧推理' },
-  { icon: 'FED', label: '联邦训练' },
-  { icon: 'DP', label: '隐私预算' },
-  { icon: 'MON', label: '性能巡检' },
-  { icon: 'VEC', label: '向量检索' },
-  { icon: 'RT', label: '实时采样' },
+  { icon: '建议', label: '内容建议' },
+  { icon: '检查', label: '内容检查' },
+  { icon: '情绪', label: '情绪观察' },
+  { icon: '参考', label: '历史参考' },
+  { icon: '整理', label: '自动整理' },
+  { icon: '支持', label: '处理支持' },
 ]
 
 /** 引擎运行状态，由 loadStatus() 填充 */
@@ -124,25 +124,25 @@ const engineStatus = reactive({
 /** 四项性能指标，驱动 PerformanceSection 的进度条渲染 */
 const performanceMetrics = computed(() => [
   {
-    label: '推理延迟',
+    label: '响应速度',
     value: `${engineStatus.avgLatency}ms`,
     percent: Math.min(100, (engineStatus.avgLatency / 200) * 100),
     color: engineStatus.avgLatency < 50 ? '#2E7D32' : engineStatus.avgLatency < 100 ? '#E65100' : '#C62828',
   },
   {
-    label: '缓存命中率',
+    label: '命中效率',
     value: `${engineStatus.cacheHitRate}%`,
     percent: engineStatus.cacheHitRate,
     color: engineStatus.cacheHitRate > 80 ? '#2E7D32' : engineStatus.cacheHitRate > 50 ? '#E65100' : '#C62828',
   },
   {
-    label: '吞吐量',
+    label: '处理速度',
     value: `${engineStatus.throughput} req/s`,
     percent: Math.min(100, (engineStatus.throughput / 500) * 100),
     color: '#1565C0',
   },
   {
-    label: '推理次数',
+    label: '累计调用',
     value: engineStatus.inferenceCount.toLocaleString(),
     percent: Math.min(100, (engineStatus.inferenceCount / 10000) * 100),
     color: '#545F71',
@@ -152,25 +152,25 @@ const performanceMetrics = computed(() => [
 /** 头部四张状态卡片 */
 const statusCards = computed(() => [
   {
-    title: '引擎状态',
+    title: '服务状态',
     value: engineStatus.enabled ? '运行中' : '已停止',
     color: engineStatus.enabled ? '#2E7D32' : '#C62828',
     icon: Cpu,
   },
   {
-    title: '模块加载',
+    title: '可用功能',
     value: `${engineStatus.modulesLoaded}/${engineStatus.totalModules}`,
     color: '#1565C0',
     icon: Monitor,
   },
   {
-    title: '运行时间',
+    title: '累计运行',
     value: engineStatus.uptime,
     color: '#E65100',
     icon: Stopwatch,
   },
   {
-    title: '活跃节点',
+    title: '当前节点',
     value: engineStatus.activeNodes,
     color: '#545F71',
     icon: Connection,
@@ -309,13 +309,13 @@ const privacyPieOption = computed(() => ({
     itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
     label: { show: false },
     emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
-    data: privacy.allocation.length > 0
+        data: privacy.allocation.length > 0
       ? privacy.allocation
       : [
-          { value: 3, name: '情绪分析', itemStyle: { color: '#1565C0' } },
-          { value: 2, name: '内容审核', itemStyle: { color: '#2E7D32' } },
-          { value: 2.5, name: '推荐系统', itemStyle: { color: '#E65100' } },
-          { value: 1.5, name: '向量搜索', itemStyle: { color: '#C62828' } },
+          { value: 3, name: '情绪判断', itemStyle: { color: '#1565C0' } },
+          { value: 2, name: '内容检查', itemStyle: { color: '#2E7D32' } },
+          { value: 2.5, name: '智能回复', itemStyle: { color: '#E65100' } },
+          { value: 1.5, name: '内容检索', itemStyle: { color: '#C62828' } },
           { value: 1, name: '预留', itemStyle: { color: '#545F71' } },
         ],
   }],

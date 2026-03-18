@@ -20,12 +20,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>性能指标</span>
+            <span>表现概览</span>
             <el-tag
               type="success"
               size="small"
             >
-              30s 刷新
+              30s 更新
             </el-tag>
           </div>
         </template>
@@ -64,12 +64,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>情绪分析</span>
+            <span>近期情绪</span>
             <el-tag
               type="warning"
               size="small"
             >
-              30s 刷新
+              30s 更新
             </el-tag>
           </div>
         </template>

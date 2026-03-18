@@ -19,12 +19,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>推理参数配置</span>
+            <span>辅助功能设置</span>
             <el-tag
               type="info"
               size="small"
             >
-              运行时参数
+              当前设置
             </el-tag>
           </div>
         </template>
@@ -39,7 +39,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="推理引擎">
+              <el-form-item label="回复方式">
                 <el-select
                   v-model="edgeConfig.inferenceEngine"
                   style="width: 100%"
@@ -63,7 +63,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="缓存策略">
+              <el-form-item label="记录方式">
                 <el-select
                   v-model="edgeConfig.cacheStrategy"
                   style="width: 100%"
@@ -87,7 +87,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="最大推理批次">
+              <el-form-item label="每次处理上限">
                 <el-input-number
                   v-model="edgeConfig.maxBatchSize"
                   :min="1"
@@ -100,7 +100,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="缓存大小 (MB)">
+              <el-form-item label="临时缓存大小 (MB)">
                 <el-input-number
                   v-model="edgeConfig.cacheSizeMB"
                   :min="16"
@@ -114,7 +114,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="隐私预算上限 (ε)">
+              <el-form-item label="保护额度上限">
                 <el-input-number
                   v-model="edgeConfig.maxEpsilon"
                   :min="0.1"
@@ -129,7 +129,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="联邦学习轮次间隔 (s)">
+              <el-form-item label="自动更新间隔 (s)">
                 <el-input-number
                   v-model="edgeConfig.federatedInterval"
                   :min="60"
@@ -143,7 +143,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="情绪分析模型">
+              <el-form-item label="判断精细度">
                 <el-select
                   v-model="edgeConfig.emotionModel"
                   style="width: 100%"
@@ -167,7 +167,7 @@
               :xs="24"
               :md="12"
             >
-              <el-form-item label="启用向量搜索">
+              <el-form-item label="开启内容检索">
                 <el-switch v-model="edgeConfig.vectorSearchEnabled" />
               </el-form-item>
             </el-col>

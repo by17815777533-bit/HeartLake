@@ -19,12 +19,12 @@
       >
         <template #header>
           <div class="card-header">
-            <span>双记忆RAG系统</span>
+            <span>历史记录概览</span>
             <el-tag
               type="success"
               size="small"
             >
-              守护链路
+              服务参考
             </el-tag>
           </div>
         </template>
@@ -38,7 +38,7 @@
                 {{ ragStats.active_users || 0 }}
               </div>
               <div class="rag-stat-label">
-                活跃用户记忆
+                有记录的用户
               </div>
             </div>
           </el-col>
@@ -51,10 +51,10 @@
                 {{ ragStats.total_short_term_entries || 0 }}
               </div>
               <div class="rag-stat-label">
-                短期记忆条目
+                近期对话条目
               </div>
               <div class="rag-stat-desc">
-                最近交互 (max {{ ragStats.max_short_term_entries || 5 }}/用户)
+                最近互动（每人最多 {{ ragStats.max_short_term_entries || 5 }} 条）
               </div>
             </div>
           </el-col>
@@ -67,10 +67,10 @@
                 {{ ragStats.users_with_long_term_profile || 0 }}
               </div>
               <div class="rag-stat-label">
-                长期画像用户
+                长期关怀档案
               </div>
               <div class="rag-stat-desc">
-                {{ ragStats.long_term_retention_days || 30 }}天情绪聚合
+                近 {{ ragStats.long_term_retention_days || 30 }} 天长期记录
               </div>
             </div>
           </el-col>
@@ -83,7 +83,7 @@
                 {{ (ragStats.avg_emotion_score || 0).toFixed(2) }}
               </div>
               <div class="rag-stat-label">
-                平均情绪分数
+                平均情绪指数
               </div>
               <el-progress
                 :percentage="Math.min(100, Math.round((ragStats.avg_emotion_score || 0) * 100))"
