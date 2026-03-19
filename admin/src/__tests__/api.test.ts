@@ -122,7 +122,7 @@ describe('API Module', () => {
 
   describe('Business API Endpoints', () => {
     it('should call dashboard stats endpoint', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       const res = await api.getDashboardStats()
       expect(res.status).toBe(200)
     })
@@ -134,9 +134,9 @@ describe('API Module', () => {
     })
 
     it('should call contents endpoint', async () => {
-      mock.onGet('/admin/contents').reply(200, { data: { list: [] } })
+      mock.onGet('/admin/stones').reply(200, { data: { list: [] } })
       await api.getContents({ page: 1 })
-      expect(mock.history.get[0].url).toBe('/admin/contents')
+      expect(mock.history.get[0].url).toBe('/admin/stones')
     })
 
     it('should call reports handle endpoint', async () => {
@@ -155,7 +155,7 @@ describe('API Module', () => {
   describe('Loading State Management', () => {
     it('should handle concurrent requests correctly', async () => {
       mock.onGet('/admin/info').reply(200, { data: {} })
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       const promise1 = api.getAdminInfo()
       const promise2 = api.getDashboardStats()
       await Promise.all([promise1, promise2])
@@ -207,19 +207,19 @@ describe('API Module', () => {
 
   describe('Content API', () => {
     it('deleteContent 成功', async () => {
-      mock.onDelete('/admin/contents/c1').reply(200, { code: 0 })
+      mock.onDelete('/admin/stones/c1').reply(200, { code: 0 })
       await api.deleteContent('c1', '违规内容')
-      expect(mock.history.delete[0].url).toBe('/admin/contents/c1')
+      expect(mock.history.delete[0].url).toBe('/admin/stones/c1')
     })
 
     it('getContents 带 keyword', async () => {
-      mock.onGet('/admin/contents').reply(200, { data: { list: [] } })
+      mock.onGet('/admin/stones').reply(200, { data: { list: [] } })
       await api.getContents({ page: 1, keyword: '心湖' })
       expect(mock.history.get[0].params.keyword).toBe('心湖')
     })
 
     it('getContents 500', async () => {
-      mock.onGet('/admin/contents').reply(500)
+      mock.onGet('/admin/stones').reply(500)
       try { await api.getContents({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
     }, 15000)
   })

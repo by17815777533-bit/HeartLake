@@ -51,6 +51,8 @@ public:
 
     ADD_METHOD_TO(AdminController::getMoodDistribution, "/api/admin/stats/mood-distribution", Get, Options, "heartlake::filters::AdminAuthFilter");
 
+    ADD_METHOD_TO(AdminController::getMoodTrend, "/api/admin/stats/mood-trend", Get, Options, "heartlake::filters::AdminAuthFilter");
+
     ADD_METHOD_TO(AdminController::getActiveTimeStats, "/api/admin/stats/active-time", Get, Options, "heartlake::filters::AdminAuthFilter");
 
     ADD_METHOD_TO(AdminController::getHighRiskUsers, "/api/admin/risk/high-risk-users", Get, Options, "heartlake::filters::AdminAuthFilter");
@@ -109,6 +111,10 @@ public:
     /// GET /api/admin/stats/mood-distribution — 全站情绪分布饼图数据
     void getMoodDistribution(const HttpRequestPtr &req,
                             std::function<void(const HttpResponsePtr &)> &&callback);
+
+    /// GET /api/admin/stats/mood-trend?days=7 — 按日期聚合的情绪趋势
+    void getMoodTrend(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
 
     /// GET /api/admin/stats/active-time — 24小时活跃时段分布
     void getActiveTimeStats(const HttpRequestPtr &req,

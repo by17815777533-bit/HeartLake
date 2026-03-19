@@ -223,8 +223,9 @@ async function fetchLogs() {
     }
     const params = buildParams(extra)
     const res = await api.getOperationLogs(params)
-    logList.value = res.data?.list || []
-    pagination.total = res.data?.total || 0
+    const data = res.data?.data || res.data || {}
+    logList.value = data.list || []
+    pagination.total = data.total || 0
   } catch (e) {
     console.error('获取操作日志失败:', e)
     ElMessage.error(getErrorMessage(e, '获取操作日志失败'))

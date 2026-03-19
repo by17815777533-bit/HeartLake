@@ -252,6 +252,11 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
         );
         data["today_interactions"] = todayInteractions[0]["count"].as<int>();
 
+        auto pendingReports = dbClient->execSqlSync(
+            "SELECT COUNT(*) as count FROM reports WHERE status = 'pending'"
+        );
+        data["pending_reports"] = pendingReports.empty() ? 0 : pendingReports[0]["count"].as<int>();
+
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getDashboardStats: " << e.what();
@@ -323,6 +328,47 @@ void AdminController::getMoodDistribution([[maybe_unused]] const HttpRequestPtr 
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getMoodDistribution: " << e.what();
+        Json::Value data(Json::arrayValue);
+        callback(ResponseUtil::success(data));
+    }
+}
+
+void AdminController::getMoodTrend(const HttpRequestPtr &req,
+                                   std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        int days = 7;
+        {
+            std::string daysParam = req->getParameter("days");
+            if (!daysParam.empty()) {
+                days = safeInt(daysParam, 7);
+            }
+        }
+        if (days < 1 || days > 365) days = 7;
+
+        auto dbClient = drogon::app().getDbClient("default");
+        auto result = dbClient->execSqlSync(
+            "SELECT DATE(created_at) as date, mood_type, COUNT(*) as count "
+            "FROM stones "
+            "WHERE status = 'published' AND deleted_at IS NULL "
+            "AND mood_type IS NOT NULL "
+            "AND created_at >= CURRENT_DATE - $1::integer * INTERVAL '1 day' "
+            "GROUP BY DATE(created_at), mood_type "
+            "ORDER BY date ASC, mood_type ASC",
+            days
+        );
+
+        Json::Value data(Json::arrayValue);
+        for (const auto& row : result) {
+            Json::Value item;
+            item["date"] = row["date"].as<std::string>();
+            item["mood_type"] = row["mood_type"].as<std::string>();
+            item["count"] = row["count"].as<int>();
+            data.append(item);
+        }
+
+        callback(ResponseUtil::success(data));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "Error in getMoodTrend: " << e.what();
         Json::Value data(Json::arrayValue);
         callback(ResponseUtil::success(data));
     }

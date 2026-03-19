@@ -43,6 +43,12 @@ bool isValidUserStatus(const std::string &s) {
 bool isValidReportStatus(const std::string &s) {
     return s == "pending" || s == "handled" || s == "ignored";
 }
+
+int toSensitiveLevel(const std::string &level) {
+    if (level == "high" || level == "critical") return 3;
+    if (level == "medium") return 2;
+    return 1;
+}
 }
 
 void AdminManagementController::getUsers(const HttpRequestPtr &req,
@@ -649,16 +655,57 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
     try {
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
+        const auto keyword = req->getParameter("keyword");
+        const auto level = req->getParameter("level");
 
         auto dbClient = app().getDbClient("default");
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM sensitive_words");
-        int total = safeCount(countResult);
+        std::string whereClause = " WHERE 1=1";
+        std::vector<std::string> params;
 
-        auto result = dbClient->execSqlSync(
-            "SELECT id, word, level, category, action, created_at FROM sensitive_words "
-            "ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            std::to_string(pageSize), std::to_string(offset)
-        );
+        if (!keyword.empty()) {
+            whereClause += " AND word ILIKE $1 ESCAPE '\\'";
+            params.push_back("%" + escapeLike(keyword) + "%");
+        }
+
+        if (!level.empty()) {
+            const auto index = std::to_string(params.size() + 1);
+            if (level == "low") {
+                whereClause += " AND level <= $" + index;
+                params.push_back("1");
+            } else if (level == "medium") {
+                whereClause += " AND level = $" + index;
+                params.push_back("2");
+            } else if (level == "high" || level == "critical") {
+                whereClause += " AND level >= $" + index;
+                params.push_back("3");
+            }
+        }
+
+        const std::string countSql = "SELECT COUNT(*) as total FROM sensitive_words" + whereClause;
+        const std::string querySql =
+            "SELECT id, word, category, "
+            "CASE "
+            "  WHEN level >= 3 THEN 'high' "
+            "  WHEN level = 2 THEN 'medium' "
+            "  ELSE 'low' "
+            "END as level, "
+            "CASE WHEN is_active THEN 'block' ELSE 'allow' END as action, "
+            "created_at "
+            "FROM sensitive_words" + whereClause +
+            " ORDER BY created_at DESC LIMIT " + std::to_string(pageSize) +
+            " OFFSET " + std::to_string(offset);
+
+        auto execWithParams = [&](const std::string &sql) {
+            switch (params.size()) {
+                case 0: return dbClient->execSqlSync(sql);
+                case 1: return dbClient->execSqlSync(sql, params[0]);
+                default: return dbClient->execSqlSync(sql, params[0], params[1]);
+            }
+        };
+
+        auto countResult = execWithParams(countSql);
+        auto result = execWithParams(querySql);
+        int total = safeCount(countResult);
 
         Json::Value words(Json::arrayValue);
         for (const auto &row : result) {
@@ -694,11 +741,11 @@ void AdminManagementController::addSensitiveWord(const HttpRequestPtr &req,
     try {
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync(
-            "INSERT INTO sensitive_words (word, level, action, category, created_at) VALUES ($1, $2, $3, $4, NOW())",
+            "INSERT INTO sensitive_words (word, level, category, is_active, created_at) VALUES ($1, $2, $3, $4, NOW())",
             (*json)["word"].asString(),
-            (*json).get("level", "medium").asString(),
-            (*json).get("action", "block").asString(),
-            (*json).get("category", "other").asString()
+            toSensitiveLevel((*json).get("level", "medium").asString()),
+            (*json).get("category", "general").asString(),
+            (*json).get("action", "block").asString() != "allow"
         );
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -720,11 +767,11 @@ void AdminManagementController::updateSensitiveWord(const HttpRequestPtr &req,
         int wordId = std::stoi(id);
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync(
-            "UPDATE sensitive_words SET word = $1, level = $2, action = $3, category = $4 WHERE id = $5",
+            "UPDATE sensitive_words SET word = $1, level = $2, category = $3, is_active = $4 WHERE id = $5",
             (*json)["word"].asString(),
-            (*json).get("level", "medium").asString(),
-            (*json).get("action", "block").asString(),
-            (*json).get("category", "other").asString(),
+            toSensitiveLevel((*json).get("level", "medium").asString()),
+            (*json).get("category", "general").asString(),
+            (*json).get("action", "block").asString() != "allow",
             wordId
         );
         callback(ResponseUtil::success());
@@ -849,14 +896,64 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
     try {
         auto dbClient = app().getDbClient("default");
         auto [page, pageSize] = safePagination(req);
+        int offset = (page - 1) * pageSize;
 
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM admin_operation_logs");
+        std::string countSql = "SELECT COUNT(*) as total FROM operation_logs WHERE 1=1";
+        std::string querySql =
+            "SELECT id, admin_id, action, target_type, target_id, detail as details, created_at "
+            "FROM operation_logs WHERE 1=1";
+        std::vector<std::string> params;
+        int paramIdx = 1;
+
+        const auto adminId = req->getParameter("operator");
+        const auto action = req->getParameter("action");
+        const auto startDate = req->getParameter("start_date");
+        const auto endDate = req->getParameter("end_date");
+
+        if (!adminId.empty()) {
+            countSql += " AND admin_id = $" + std::to_string(paramIdx);
+            querySql += " AND admin_id = $" + std::to_string(paramIdx);
+            params.push_back(adminId);
+            paramIdx++;
+        }
+
+        if (!action.empty()) {
+            countSql += " AND action = $" + std::to_string(paramIdx);
+            querySql += " AND action = $" + std::to_string(paramIdx);
+            params.push_back(action);
+            paramIdx++;
+        }
+
+        if (!startDate.empty()) {
+            countSql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
+            querySql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
+            params.push_back(startDate);
+            paramIdx++;
+        }
+
+        if (!endDate.empty()) {
+            countSql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
+            querySql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
+            params.push_back(endDate);
+            paramIdx++;
+        }
+
+        querySql += " ORDER BY created_at DESC LIMIT " + std::to_string(pageSize) +
+                    " OFFSET " + std::to_string(offset);
+
+        auto execWithParams = [&](const std::string &sql) {
+            switch (params.size()) {
+                case 0: return dbClient->execSqlSync(sql);
+                case 1: return dbClient->execSqlSync(sql, params[0]);
+                case 2: return dbClient->execSqlSync(sql, params[0], params[1]);
+                case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
+                default: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3]);
+            }
+        };
+
+        auto countResult = execWithParams(countSql);
+        auto result = execWithParams(querySql);
         int total = safeCount(countResult);
-
-        auto result = dbClient->execSqlSync(
-            "SELECT * FROM admin_operation_logs ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            pageSize, (page - 1) * pageSize
-        );
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {

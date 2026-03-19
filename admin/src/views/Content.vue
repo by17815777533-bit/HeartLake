@@ -292,19 +292,72 @@ async function fetchContent() {
   loading.value = true
   try {
     const params = buildParams(filters)
-    const res = await api.getContents(params)
+    const currentPage = Number(params.page || 1)
+    const pageSize = Number(params.page_size || 20)
 
-    const resData = res.data?.data || res.data || {}
-    const list = resData.stones || resData.boats || resData.list || []
-    contentList.value = list.map(item => ({
-      id: item.stone_id || item.boat_id || item.id,
-      type: filters.type || item.type || 'stone',
-      content: item.content,
-      user: { nickname: item.author_nickname || item.nickname },
-      status: item.status,
-      created_at: item.created_at,
-    }))
-    pagination.total = resData.total || 0
+    if (filters.type === 'boat') {
+      const res = await api.getBoats(params)
+      const resData = res.data?.data || res.data || {}
+      const list = resData.list || []
+      contentList.value = list.map(item => ({
+        id: item.boat_id || item.id,
+        type: 'boat',
+        content: item.content,
+        user: { nickname: item.author_nickname || item.nickname },
+        status: item.status,
+        created_at: item.created_at,
+      }))
+      pagination.total = resData.total || 0
+      return
+    }
+
+    if (filters.type === 'stone') {
+      const res = await api.getStones(params)
+      const resData = res.data?.data || res.data || {}
+      const list = resData.list || []
+      contentList.value = list.map(item => ({
+        id: item.stone_id || item.id,
+        type: 'stone',
+        content: item.content,
+        user: { nickname: item.author_nickname || item.nickname },
+        status: item.status,
+        created_at: item.created_at,
+      }))
+      pagination.total = resData.total || 0
+      return
+    }
+
+    // 后端当前未提供统一 contents 路由，默认页在前端合并石头和纸船。
+    const mergedPageSize = currentPage * pageSize
+    const [stonesRes, boatsRes] = await Promise.all([
+      api.getStones({ page: 1, page_size: mergedPageSize }),
+      api.getBoats({ page: 1, page_size: mergedPageSize }),
+    ])
+    const stonesData = stonesRes.data?.data || stonesRes.data || {}
+    const boatsData = boatsRes.data?.data || boatsRes.data || {}
+    const mergedList = [
+      ...(stonesData.list || []).map(item => ({
+        id: item.stone_id || item.id,
+        type: 'stone',
+        content: item.content,
+        user: { nickname: item.author_nickname || item.nickname },
+        status: item.status,
+        created_at: item.created_at,
+      })),
+      ...(boatsData.list || []).map(item => ({
+        id: item.boat_id || item.id,
+        type: 'boat',
+        content: item.content,
+        user: { nickname: item.author_nickname || item.nickname },
+        status: item.status,
+        created_at: item.created_at,
+      })),
+    ]
+
+    mergedList.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    const start = (currentPage - 1) * pageSize
+    contentList.value = mergedList.slice(start, start + pageSize)
+    pagination.total = Number(stonesData.total || 0) + Number(boatsData.total || 0)
   } catch (e) {
     console.error('获取内容列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取内容列表失败'))

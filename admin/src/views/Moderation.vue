@@ -284,8 +284,9 @@ async function fetchPending() {
   loading.value = true
   try {
     const res = await api.getPendingModeration(buildPendingParams())
-    pendingList.value = res.data?.list || []
-    pagination.total = res.data?.total || 0
+    const data = res.data?.data || res.data || {}
+    pendingList.value = data.list || []
+    pagination.total = data.total || 0
   } catch (e) {
     console.error('获取待审核列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取待审核列表失败'))
@@ -299,8 +300,9 @@ async function fetchHistory() {
   historyLoading.value = true
   try {
     const res = await api.getModerationHistory(buildHistoryParams(historyFilters))
-    historyList.value = res.data?.list || []
-    historyPagination.total = res.data?.total || 0
+    const data = res.data?.data || res.data || {}
+    historyList.value = data.list || []
+    historyPagination.total = data.total || 0
   } catch (e) {
     console.error('获取审核历史失败:', e)
     ElMessage.error(getErrorMessage(e, '获取审核历史失败'))

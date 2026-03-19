@@ -209,8 +209,9 @@ let statsInterval: ReturnType<typeof setInterval> | null = null
 const fetchAdminInfo = async () => {
   try {
     const res = await api.getAdminInfo()
-    if (res.data) {
-      adminInfo.nickname = res.data.nickname || res.data.username || '管理员'
+    const data = res.data?.data || res.data
+    if (data) {
+      adminInfo.nickname = data.nickname || data.username || '管理员'
     }
   } catch (e: unknown) {
     console.warn('获取管理员信息失败:', (e as Error).message)
@@ -221,9 +222,10 @@ const fetchAdminInfo = async () => {
 const fetchRealtimeStats = async () => {
   try {
     const res = await api.getRealtimeStats()
-    if (res.data) {
-      realtimeStats.onlineCount = res.data.online_count || res.data.online_users || 0
-      realtimeStats.todayStones = res.data.today_stones || 0
+    const data = res.data?.data || res.data
+    if (data) {
+      realtimeStats.onlineCount = data.online_count || data.online_users || 0
+      realtimeStats.todayStones = data.today_stones || 0
     }
   } catch (e: unknown) {
     // 静默失败，不影响页面展示

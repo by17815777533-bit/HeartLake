@@ -353,8 +353,9 @@ async function fetchWords() {
   loading.value = true
   try {
     const res = await api.getSensitiveWords(buildParams(filters))
-    wordList.value = res.data?.words || res.data?.list || []
-    pagination.total = res.data?.total || 0
+    const data = res.data?.data || res.data || {}
+    wordList.value = data.words || data.list || []
+    pagination.total = data.total || 0
   } catch (e) {
     console.error('获取敏感词列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取敏感词列表失败'))

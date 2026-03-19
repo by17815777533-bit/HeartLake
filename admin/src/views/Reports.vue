@@ -241,8 +241,9 @@ async function fetchReports() {
   loading.value = true
   try {
     const res = await api.getReports(buildParams(filters))
-    reportList.value = res.data?.list || []
-    pagination.total = res.data?.total || 0
+    const data = res.data?.data || res.data || {}
+    reportList.value = data.list || []
+    pagination.total = data.total || 0
   } catch (e) {
     console.error('获取举报列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取举报列表失败'))

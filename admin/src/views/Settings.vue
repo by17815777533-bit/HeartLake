@@ -402,14 +402,15 @@ const broadcastForm = reactive({
 const loadConfig = async () => {
   try {
     const res = await api.getSystemConfig()
-    if (res.data) {
-      const sys = res.data.system || {}
+    const data = res.data?.data || res.data
+    if (data) {
+      const sys = data.system || {}
       systemConfig.name = sys.name ?? sys.site_name ?? '心湖'
       systemConfig.description = sys.description ?? '一个温暖治愈的情感交流社区'
       systemConfig.allowRegister = sys.allow_register ?? sys.allowRegister ?? true
       systemConfig.allowAnonymous = sys.allow_anonymous ?? sys.allowAnonymous ?? true
 
-      const ai = res.data.ai || {}
+      const ai = data.ai || {}
       aiConfig.provider = ai.provider ?? 'deepseek'
       aiConfig.apiKey = maskApiKey(ai.api_key ?? ai.apiKey ?? '')
       rawApiKey = '' // 加载时不保留原始 key，仅展示掩码
@@ -420,7 +421,7 @@ const loadConfig = async () => {
       aiConfig.enableSentiment = ai.enable_sentiment ?? ai.enableSentiment ?? true
       aiConfig.enableAutoReply = ai.enable_auto_reply ?? ai.enableAutoReply ?? true
 
-      const rate = res.data.rate || {}
+      const rate = data.rate || {}
       rateConfig.stonePerHour = rate.stone_per_hour ?? rate.stonePerHour ?? 15
       rateConfig.boatPerHour = rate.boat_per_hour ?? rate.boatPerHour ?? 50
       rateConfig.messagePerMinute = rate.message_per_minute ?? rate.messagePerMinute ?? 60

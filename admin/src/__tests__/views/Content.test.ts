@@ -52,17 +52,19 @@ describe('Content.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
-    vi.mocked(api.getContents).mockResolvedValue({ data: { data: { list: [], total: 0 } } } as any)
+    vi.mocked(api.getStones).mockResolvedValue({ data: { data: { list: [], total: 0 } } } as any)
+    vi.mocked(api.getBoats).mockResolvedValue({ data: { data: { list: [], total: 0 } } } as any)
   })
   it('渲染内容页面', () => {
     const wrapper = mount(Content, mountOpts)
     expect(wrapper.find('.content-page').exists()).toBe(true)
   })
 
-  it('挂载时调用 getContents', async () => {
+  it('挂载时调用 getStones 和 getBoats', async () => {
     mount(Content, mountOpts)
     await vi.dynamicImportSettled()
-    expect(api.getContents).toHaveBeenCalled()
+    expect(api.getStones).toHaveBeenCalled()
+    expect(api.getBoats).toHaveBeenCalled()
   })
 
   it('包含筛选表单', () => {
@@ -91,7 +93,7 @@ describe('Content.vue', () => {
   })
 
   it('接口失败时列表为空', async () => {
-    vi.mocked(api.getContents).mockRejectedValue(new Error('fail'))
+    vi.mocked(api.getStones).mockRejectedValue(new Error('fail'))
     const wrapper = mount(Content, mountOpts)
     await vi.dynamicImportSettled()
     await new Promise(r => setTimeout(r, 10))
@@ -100,7 +102,7 @@ describe('Content.vue', () => {
   })
 
   it('返回数据正确渲染', async () => {
-    vi.mocked(api.getContents).mockResolvedValue({
+    vi.mocked(api.getStones).mockResolvedValue({
       data: { data: { list: [{ stone_id: 's1', content: '测试', status: 'published', created_at: '2025-01-01' }], total: 1 } },
     } as any)
     const wrapper = mount(Content, mountOpts)

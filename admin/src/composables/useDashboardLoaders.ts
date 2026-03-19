@@ -18,6 +18,9 @@ import type {
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 
+const POSITIVE_MOODS = new Set(['开心', 'positive', 'joy', 'happy'])
+const NEGATIVE_MOODS = new Set(['难过', '焦虑', 'negative', 'sad', 'anxious'])
+
 /** Dashboard 核心统计数据（前端 camelCase 版本） */
 interface DashboardStats {
   totalUsers: number
@@ -235,15 +238,34 @@ export function useDashboardLoaders({
   /** 读取情绪趋势折线。 */
   const loadEmotionTrends = async () => {
     try {
-      const res = await api.getEmotionTrends()
-      const d = res.data?.data || res.data
-      const list = Array.isArray(d) ? d : (d?.list || [])
+      const res = await api.getMoodTrend(String(moodTrendRange.value))
+      const raw = res.data?.data || res.data
+      const list = Array.isArray(raw) ? raw : (raw?.list || [])
       if (list.length) {
-        const dates = list.map((item: EmotionTrendItem) => item.date || item.day)
+        const dates = [...new Set(list.map((item: EmotionTrendItem) => item.date || item.day))].sort()
+        const bucket = new Map<string, { positive: number; neutral: number; negative: number }>()
+        dates.forEach((date) => bucket.set(date, { positive: 0, neutral: 0, negative: 0 }))
+
+        list.forEach((item: EmotionTrendItem & { mood_type?: string; mood?: string; count?: number }) => {
+          const date = item.date || item.day
+          if (!date) return
+          const mood = item.mood_type || item.mood || ''
+          const target = bucket.get(date)
+          if (!target) return
+          const count = Number(item.count ?? 0)
+          if (POSITIVE_MOODS.has(mood)) {
+            target.positive += count
+          } else if (NEGATIVE_MOODS.has(mood)) {
+            target.negative += count
+          } else {
+            target.neutral += count
+          }
+        })
+
         emotionTrendsOption.value.xAxis.data = dates
-        emotionTrendsOption.value.series[0].data = list.map((item: EmotionTrendItem) => item.positive ?? item.pos ?? 0)
-        emotionTrendsOption.value.series[1].data = list.map((item: EmotionTrendItem) => item.neutral ?? item.neu ?? 0)
-        emotionTrendsOption.value.series[2].data = list.map((item: EmotionTrendItem) => item.negative ?? item.neg ?? 0)
+        emotionTrendsOption.value.series[0].data = dates.map((date) => bucket.get(date)?.positive ?? 0)
+        emotionTrendsOption.value.series[1].data = dates.map((date) => bucket.get(date)?.neutral ?? 0)
+        emotionTrendsOption.value.series[2].data = dates.map((date) => bucket.get(date)?.negative ?? 0)
       }
     } catch (e: unknown) {
       console.warn('加载情绪趋势失败:', (e as Error).message)
@@ -253,9 +275,28 @@ export function useDashboardLoaders({
   /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
-      const res = await api.getTrendingContent()
-      const d = res.data?.data || res.data
-      aiTrendingContent.value = Array.isArray(d) ? d.slice(0, 10) : (d?.list || []).slice(0, 10)
+      const res = await api.getStones({ page: 1, page_size: 10 })
+      const d = res.data?.data || res.data || {}
+      const list = Array.isArray(d) ? d : (d?.list || [])
+      const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number; boat_count?: number }) =>
+        Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
+      ))
+
+      aiTrendingContent.value = list.slice(0, 10).map((item: {
+        stone_id?: string
+        content?: string
+        mood_type?: string
+        ripple_count?: number
+        boat_count?: number
+      }) => {
+        const score = Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
+        return {
+          id: item.stone_id,
+          content: item.content,
+          mood: item.mood_type,
+          score: maxScore > 0 ? score / maxScore : 0,
+        }
+      })
     } catch (e: unknown) {
       console.warn('加载AI热门内容失败:', (e as Error).message)
     }

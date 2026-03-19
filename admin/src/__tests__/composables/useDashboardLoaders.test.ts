@@ -20,6 +20,7 @@ const mockApi = vi.hoisted(() => ({
   getEmotionPulse: vi.fn(),
   getEmotionTrends: vi.fn(),
   getTrendingContent: vi.fn(),
+  getStones: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({ default: mockApi }))
@@ -292,27 +293,39 @@ describe('useDashboardLoaders', () => {
 
   describe('loadEmotionTrends', () => {
     it('成功加载情绪趋势', async () => {
-      const list = [{ date: '01-01', positive: 10, neutral: 20, negative: 5 }]
-      mockApi.getEmotionTrends.mockResolvedValue({ data: { data: list } })
+      const list = [
+        { date: '01-01', mood_type: '开心', count: 10 },
+        { date: '01-01', mood_type: '平静', count: 20 },
+        { date: '01-01', mood_type: '难过', count: 5 },
+      ]
+      mockApi.getMoodTrend.mockResolvedValue({ data: { data: list } })
       const deps = createDeps()
       const { loadEmotionTrends } = useDashboardLoaders(deps)
       await loadEmotionTrends()
       expect(deps.emotionTrendsOption.value.xAxis.data).toEqual(['01-01'])
       expect(deps.emotionTrendsOption.value.series[0].data).toEqual([10])
+      expect(deps.emotionTrendsOption.value.series[1].data).toEqual([20])
+      expect(deps.emotionTrendsOption.value.series[2].data).toEqual([5])
     })
 
-    it('支持 pos/neu/neg 字段别名', async () => {
-      const list = [{ day: '01-02', pos: 15, neu: 25, neg: 8 }]
-      mockApi.getEmotionTrends.mockResolvedValue({ data: { data: list } })
+    it('按情绪名称归并到积极/中性/消极', async () => {
+      const list = [
+        { date: '01-02', mood_type: '开心', count: 15 },
+        { date: '01-02', mood_type: '其他', count: 25 },
+        { date: '01-02', mood_type: '焦虑', count: 8 },
+      ]
+      mockApi.getMoodTrend.mockResolvedValue({ data: { data: list } })
       const deps = createDeps()
       const { loadEmotionTrends } = useDashboardLoaders(deps)
       await loadEmotionTrends()
       expect(deps.emotionTrendsOption.value.xAxis.data).toEqual(['01-02'])
       expect(deps.emotionTrendsOption.value.series[0].data).toEqual([15])
+      expect(deps.emotionTrendsOption.value.series[1].data).toEqual([25])
+      expect(deps.emotionTrendsOption.value.series[2].data).toEqual([8])
     })
 
     it('接口失败时不崩溃', async () => {
-      mockApi.getEmotionTrends.mockRejectedValue(new Error('fail'))
+      mockApi.getMoodTrend.mockRejectedValue(new Error('fail'))
       const deps = createDeps()
       const { loadEmotionTrends } = useDashboardLoaders(deps)
       await expect(loadEmotionTrends()).resolves.toBeUndefined()
@@ -321,8 +334,14 @@ describe('useDashboardLoaders', () => {
 
   describe('loadAITrendingContent', () => {
     it('成功加载热门内容', async () => {
-      const data = Array.from({ length: 15 }, (_, i) => ({ id: i, content: `内容${i}` }))
-      mockApi.getTrendingContent.mockResolvedValue({ data: { data } })
+      const data = Array.from({ length: 15 }, (_, i) => ({
+        stone_id: `s${i}`,
+        content: `内容${i}`,
+        mood_type: i % 2 === 0 ? '开心' : '平静',
+        ripple_count: i,
+        boat_count: i,
+      }))
+      mockApi.getStones.mockResolvedValue({ data: { data: { list: data } } })
       const deps = createDeps()
       const { loadAITrendingContent } = useDashboardLoaders(deps)
       await loadAITrendingContent()
@@ -330,8 +349,8 @@ describe('useDashboardLoaders', () => {
     })
 
     it('少于 10 条时全部显示', async () => {
-      const data = [{ id: 1, content: '内容1' }]
-      mockApi.getTrendingContent.mockResolvedValue({ data: { data } })
+      const data = [{ stone_id: 's1', content: '内容1', mood_type: '开心', ripple_count: 2, boat_count: 1 }]
+      mockApi.getStones.mockResolvedValue({ data: { data: { list: data } } })
       const deps = createDeps()
       const { loadAITrendingContent } = useDashboardLoaders(deps)
       await loadAITrendingContent()
@@ -339,7 +358,7 @@ describe('useDashboardLoaders', () => {
     })
 
     it('接口失败时不崩溃', async () => {
-      mockApi.getTrendingContent.mockRejectedValue(new Error('fail'))
+      mockApi.getStones.mockRejectedValue(new Error('fail'))
       const deps = createDeps()
       const { loadAITrendingContent } = useDashboardLoaders(deps)
       await expect(loadAITrendingContent()).resolves.toBeUndefined()
