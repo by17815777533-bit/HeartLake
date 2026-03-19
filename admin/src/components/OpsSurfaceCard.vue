@@ -81,8 +81,8 @@ withDefaults(defineProps<{
   position: relative;
   overflow: hidden;
   min-height: 100%;
-  padding: 20px 20px 18px;
-  border-radius: 24px;
+  padding: 18px 18px 16px;
+  border-radius: 22px;
   border: 1px solid rgba(166, 184, 220, 0.18);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 247, 255, 0.98));
@@ -110,8 +110,8 @@ withDefaults(defineProps<{
 }
 
 .ops-surface-card.is-compact {
-  padding: 18px;
-  border-radius: 22px;
+  padding: 16px;
+  border-radius: 20px;
 }
 
 .ops-surface-card.is-mint {
@@ -197,7 +197,7 @@ withDefaults(defineProps<{
 .ops-surface-card__title {
   margin: 8px 0 0;
   color: var(--hl-ink);
-  font-size: clamp(18px, 2.2vw, 26px);
+  font-size: clamp(17px, 2.1vw, 24px);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.04;
@@ -228,8 +228,8 @@ withDefaults(defineProps<{
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .ops-surface-card.has-media .ops-surface-card__content {
@@ -250,8 +250,8 @@ withDefaults(defineProps<{
 
 @media (max-width: 720px) {
   .ops-surface-card {
-    padding: 18px;
-    border-radius: 24px;
+    padding: 16px;
+    border-radius: 22px;
   }
 
   .ops-surface-card.has-media .ops-surface-card__content {
