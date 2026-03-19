@@ -20,7 +20,7 @@
       >
         <template #header>
           <div class="card-title">
-            旅人反馈速览
+            旅人回声
           </div>
         </template>
         <el-carousel
@@ -64,7 +64,7 @@
       >
         <template #header>
           <div class="card-title">
-            情绪反馈趋势
+            情绪水位
           </div>
         </template>
         <v-chart
@@ -89,7 +89,7 @@
       >
         <template #header>
           <div class="card-title">
-            关怀触达率
+            关怀触达
           </div>
         </template>
         <div class="touch-list">
@@ -194,31 +194,35 @@ const touchRateRows = computed(() => {
 }
 
 .care-card {
-  border: 1px solid #efd8ad;
-  border-radius: 18px;
-  background: rgba(255, 252, 245, 0.92);
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(254, 253, 251, 0.94), rgba(242, 247, 248, 0.96)),
+    radial-gradient(circle at right top, rgba(123, 160, 173, 0.12), transparent 28%);
 }
 
 .card-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  color: #5f4727;
+  color: var(--hl-ink);
 }
 
 .feedback-slide {
   height: 100%;
-  padding: 18px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(247, 241, 232, 0.98));
-  border: 1px solid rgba(24, 36, 47, 0.08);
+  padding: 22px 20px;
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(239, 245, 247, 0.96)),
+    radial-gradient(circle at right top, rgba(182, 122, 66, 0.12), transparent 30%);
+  border: 1px solid rgba(123, 149, 160, 0.14);
 }
 
 .slide-chip {
   display: inline-flex;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(35, 73, 99, 0.08);
-  color: #264863;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -227,20 +231,20 @@ const touchRateRows = computed(() => {
   margin-top: 14px;
   font-size: 20px;
   font-weight: 700;
-  color: #18242f;
+  color: var(--hl-ink);
 }
 
 .slide-desc {
   margin-top: 12px;
   line-height: 1.7;
-  color: #52606c;
+  color: var(--hl-ink-soft);
   font-size: 14px;
 }
 
 .slide-metric {
   margin-top: 18px;
   font-size: 14px;
-  color: #18242f;
+  color: var(--hl-ink);
   font-weight: 600;
 }
 
@@ -251,10 +255,10 @@ const touchRateRows = computed(() => {
 }
 
 .touch-item {
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #f1dfbe;
-  background: #fffef9;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .touch-head {
@@ -264,12 +268,12 @@ const touchRateRows = computed(() => {
 }
 
 .touch-title {
-  color: #6b5230;
+  color: var(--hl-ink-soft);
   font-size: 13px;
 }
 
 .touch-value {
-  color: #4f381a;
+  color: var(--hl-ink);
   font-size: 13px;
   font-weight: 600;
 }

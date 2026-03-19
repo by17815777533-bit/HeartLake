@@ -1,39 +1,53 @@
 <!--
-  心湖智能（Edge AI 管理）页面 -- 状态监控 + 性能指标 + 联邦学习 + 隐私预算
+  智能辅助页面
 
-  组件结构（7 个子组件位于 views/edge-ai/ 目录下）：
-  - EdgeAIHeader: 页面头部、技术标签、状态卡片
-  - PerformanceSection: 性能指标仪表盘、情绪脉搏图表
-  - FederatedPrivacySection: 联邦学习控制面板、隐私预算可视化
-  - VectorNodesSection: HNSW 向量搜索工具、边缘节点列表
-  - RAGSystemSection: 双记忆 RAG 系统指标展示
-  - ConfigSection: 引擎配置管理表单
-  - AIToolboxSection: 情感分析/内容审核在线调试工具
-
-  本文件作为子组件的协调层，保留所有响应式状态和数据加载逻辑。
-  定时器统一由 timerIds 数组管理，onUnmounted 时批量清理。
+  统一到新的管理台语言：
+  - 叙事型页首 + 指标带，弱化旧的技术大屏感
+  - 为性能、联动、检索、设置提供一致的雾面容器
+  - 让“智能辅助”更像值守与陪伴工具，而不是开发演示页
 -->
 
 <template>
   <div class="edge-ai ops-page">
-    <!-- 页面头部 + 技术标签 + 状态卡片 -->
-    <EdgeAIHeader
-      :current-time="currentTime"
-      :last-update-time="lastUpdateTime"
-      :loading="loading"
-      :tech-badges="techBadges"
-      :status-cards="statusCards"
-      @refresh="refreshAll"
-    />
+    <OpsPageHero
+      eyebrow="陪伴引擎"
+      title="智能辅助"
+      :description="heroDescription"
+      :status="engineStatus.enabled ? '陪伴中' : '需检查'"
+      :chips="heroChips"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          :icon="RefreshRight"
+          :loading="loading"
+          @click="refreshAll"
+        >
+          刷新状态
+        </el-button>
+      </template>
+    </OpsPageHero>
 
-    <!-- 性能指标 + 情绪分析 -->
+    <OpsMetricStrip :items="summaryItems" />
+
+    <section class="edge-ai-ribbon">
+      <article
+        v-for="item in edgeSignals"
+        :key="item.label"
+        class="edge-ai-ribbon__panel"
+      >
+        <span class="edge-ai-ribbon__label">{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <p>{{ item.note }}</p>
+      </article>
+    </section>
+
     <PerformanceSection
       :performance-metrics="performanceMetrics"
       :emotion-gauge-option="emotionGaugeOption"
       :emotion-pulse-line-option="emotionPulseLineOption"
     />
 
-    <!-- 联邦学习 + 隐私预算 -->
     <FederatedPrivacySection
       :federated="federated"
       :privacy="privacy"
@@ -43,7 +57,6 @@
       @refresh-federated="loadFederatedStatus"
     />
 
-    <!-- 向量搜索 + 边缘节点 -->
     <VectorNodesSection
       v-model:vector-query="vectorQuery"
       :vector-searching="vectorSearching"
@@ -53,10 +66,8 @@
       @search="doVectorSearch"
     />
 
-    <!-- 双记忆RAG系统 -->
     <RAGSystemSection :rag-stats="ragStats" />
 
-    <!-- 配置管理 -->
     <ConfigSection
       :edge-config="edgeConfig"
       :config-loading="configLoading"
@@ -65,7 +76,6 @@
       @reset="loadConfig"
     />
 
-    <!-- AI 工具箱 -->
     <AIToolboxSection
       :sentiment-tool="sentimentTool"
       :moderation-tool="moderationTool"
@@ -78,11 +88,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { RefreshRight } from '@element-plus/icons-vue'
 import api from '@/api'
 import dayjs from 'dayjs'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { Cpu, Monitor, Connection, Stopwatch } from '@element-plus/icons-vue'
-import EdgeAIHeader from './edge-ai/EdgeAIHeader.vue'
 import PerformanceSection from './edge-ai/PerformanceSection.vue'
 import FederatedPrivacySection from './edge-ai/FederatedPrivacySection.vue'
 import VectorNodesSection from './edge-ai/VectorNodesSection.vue'
@@ -90,15 +101,10 @@ import RAGSystemSection from './edge-ai/RAGSystemSection.vue'
 import ConfigSection from './edge-ai/ConfigSection.vue'
 import AIToolboxSection from './edge-ai/AIToolboxSection.vue'
 
-
-// ========== 响应式状态 ==========
-
-/** 全局加载标志，刷新全部数据时为 true */
 const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
-const currentTime = computed(() => dayjs().format('YYYY-MM-DD HH:mm'))
+const currentTime = ref(dayjs().format('YYYY-MM-DD HH:mm'))
 
-/** 技术能力标签，展示在页面头部 */
 const techBadges = [
   { icon: '建议', label: '内容建议' },
   { icon: '检查', label: '内容检查' },
@@ -108,7 +114,6 @@ const techBadges = [
   { icon: '支持', label: '处理支持' },
 ]
 
-/** 引擎运行状态，由 loadStatus() 填充 */
 const engineStatus = reactive({
   enabled: false,
   modulesLoaded: 0,
@@ -121,71 +126,50 @@ const engineStatus = reactive({
   activeNodes: 0,
 })
 
-/** 四项性能指标，驱动 PerformanceSection 的进度条渲染 */
 const performanceMetrics = computed(() => [
   {
     label: '响应速度',
     value: `${engineStatus.avgLatency}ms`,
     percent: Math.min(100, (engineStatus.avgLatency / 200) * 100),
-    color: engineStatus.avgLatency < 50 ? '#2E7D32' : engineStatus.avgLatency < 100 ? '#E65100' : '#C62828',
+    color: engineStatus.avgLatency < 50 ? '#4d8f6b' : engineStatus.avgLatency < 100 ? '#b67a42' : '#a35f5f',
   },
   {
     label: '命中效率',
     value: `${engineStatus.cacheHitRate}%`,
     percent: engineStatus.cacheHitRate,
-    color: engineStatus.cacheHitRate > 80 ? '#2E7D32' : engineStatus.cacheHitRate > 50 ? '#E65100' : '#C62828',
+    color: engineStatus.cacheHitRate > 80 ? '#4d8f6b' : engineStatus.cacheHitRate > 50 ? '#b67a42' : '#a35f5f',
   },
   {
     label: '处理速度',
     value: `${engineStatus.throughput} req/s`,
     percent: Math.min(100, (engineStatus.throughput / 500) * 100),
-    color: '#1565C0',
+    color: '#315b6f',
   },
   {
     label: '累计调用',
     value: engineStatus.inferenceCount.toLocaleString(),
     percent: Math.min(100, (engineStatus.inferenceCount / 10000) * 100),
-    color: '#545F71',
+    color: '#5d6d77',
   },
 ])
 
-/** 头部四张状态卡片 */
-const statusCards = computed(() => [
-  {
-    title: '服务状态',
-    value: engineStatus.enabled ? '运行中' : '已停止',
-    color: engineStatus.enabled ? '#2E7D32' : '#C62828',
-    icon: Cpu,
-  },
-  {
-    title: '可用功能',
-    value: `${engineStatus.modulesLoaded}/${engineStatus.totalModules}`,
-    color: '#1565C0',
-    icon: Monitor,
-  },
-  {
-    title: '累计运行',
-    value: engineStatus.uptime,
-    color: '#E65100',
-    icon: Stopwatch,
-  },
-  {
-    title: '当前节点',
-    value: engineStatus.activeNodes,
-    color: '#545F71',
-    icon: Connection,
-  },
-])
-
-/** 情绪脉搏数据，驱动仪表盘和历史折线图 */
 const emotionPulse = reactive({
   temperature: 50,
   trend: 'stable',
-  history: [],
-  timestamps: [],
+  history: [] as number[],
+  timestamps: [] as string[],
 })
 
-/** 情绪温度仪表盘 ECharts option */
+const emotionTrendLabel = computed(() => {
+  const map: Record<string, string> = {
+    positive: '回暖',
+    neutral: '平稳',
+    negative: '偏低',
+    stable: '平稳',
+  }
+  return map[emotionPulse.trend] || emotionPulse.trend || '平稳'
+})
+
 const emotionGaugeOption = computed(() => ({
   series: [{
     type: 'gauge',
@@ -200,10 +184,10 @@ const emotionGaugeOption = computed(() => ({
       lineStyle: {
         width: 16,
         color: [
-          [0.3, '#1565C0'],
-          [0.5, '#2E7D32'],
-          [0.7, '#E65100'],
-          [1, '#C62828'],
+          [0.3, '#315b6f'],
+          [0.5, '#4d8f6b'],
+          [0.7, '#b67a42'],
+          [1, '#a35f5f'],
         ],
       },
     },
@@ -216,8 +200,8 @@ const emotionGaugeOption = computed(() => ({
     },
     axisTick: { length: 8, lineStyle: { color: 'auto', width: 1.5 } },
     splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.5 } },
-    axisLabel: { color: '#44474E', fontSize: 10, distance: -40 },
-    title: { offsetCenter: [0, '75%'], fontSize: 13, color: '#44474E' },
+    axisLabel: { color: '#52606c', fontSize: 10, distance: -40 },
+    title: { offsetCenter: [0, '75%'], fontSize: 13, color: '#52606c' },
     detail: {
       fontSize: 28,
       offsetCenter: [0, '45%'],
@@ -229,22 +213,21 @@ const emotionGaugeOption = computed(() => ({
   }],
 }))
 
-/** 情绪脉搏历史折线图 ECharts option */
 const emotionPulseLineOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   grid: { top: 20, right: 20, bottom: 30, left: 45 },
   xAxis: {
     type: 'category',
     data: emotionPulse.timestamps,
-    axisLabel: { color: '#44474E', fontSize: 10 },
-    axisLine: { lineStyle: { color: '#C4C6CF' } },
+    axisLabel: { color: '#52606c', fontSize: 10 },
+    axisLine: { lineStyle: { color: '#c4d0d5' } },
   },
   yAxis: {
     type: 'value',
     min: 0,
     max: 100,
-    axisLabel: { color: '#44474E', fontSize: 10 },
-    splitLine: { lineStyle: { color: '#C4C6CF' } },
+    axisLabel: { color: '#52606c', fontSize: 10 },
+    splitLine: { lineStyle: { color: '#d8e0e3' } },
   },
   series: [{
     type: 'line',
@@ -252,22 +235,24 @@ const emotionPulseLineOption = computed(() => ({
     smooth: true,
     symbol: 'circle',
     symbolSize: 6,
-    lineStyle: { color: '#1565C0', width: 2 },
-    itemStyle: { color: '#1565C0' },
+    lineStyle: { color: '#315b6f', width: 2 },
+    itemStyle: { color: '#315b6f' },
     areaStyle: {
       color: {
         type: 'linear',
-        x: 0, y: 0, x2: 0, y2: 1,
+        x: 0,
+        y: 0,
+        x2: 0,
+        y2: 1,
         colorStops: [
-          { offset: 0, color: 'rgba(21,101,192,0.25)' },
-          { offset: 1, color: 'rgba(21,101,192,0.02)' },
+          { offset: 0, color: 'rgba(49,91,111,0.24)' },
+          { offset: 1, color: 'rgba(49,91,111,0.02)' },
         ],
       },
     },
   }],
 }))
 
-/** 联邦学习状态 */
 const federated = reactive({
   status: 'idle',
   currentRound: 0,
@@ -278,7 +263,6 @@ const federated = reactive({
   aggregating: false,
 })
 
-/** 差分隐私预算状态 */
 const privacy = reactive({
   epsilonUsed: 0,
   epsilonTotal: 10,
@@ -287,82 +271,135 @@ const privacy = reactive({
   deltaValue: '1e-5',
   noiseLevel: 'medium',
   queriesRemaining: 0,
-  allocation: [],
+  allocation: [] as Array<{ value: number; name: string; itemStyle: { color: string } }>,
 })
 
-/** 隐私预算进度条颜色，随消耗比例从绿→橙→红变化 */
 const privacyBudgetColor = computed(() => {
-  if (privacy.epsilonPercent < 50) return '#2E7D32'
-  if (privacy.epsilonPercent < 80) return '#E65100'
-  return '#C62828'
+  if (privacy.epsilonPercent < 50) return '#4d8f6b'
+  if (privacy.epsilonPercent < 80) return '#b67a42'
+  return '#a35f5f'
 })
 
-/** 隐私预算各子系统分配饼图 ECharts option */
 const privacyPieOption = computed(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: ε={c} ({d}%)' },
-  legend: { bottom: 0, textStyle: { color: '#44474E', fontSize: 11 } },
+  legend: { bottom: 0, textStyle: { color: '#52606c', fontSize: 11 } },
   series: [{
     type: 'pie',
     radius: ['40%', '65%'],
     center: ['50%', '45%'],
     avoidLabelOverlap: true,
-    itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+    itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
     label: { show: false },
     emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
-        data: privacy.allocation.length > 0
+    data: privacy.allocation.length > 0
       ? privacy.allocation
       : [
-          { value: 3, name: '情绪判断', itemStyle: { color: '#1565C0' } },
-          { value: 2, name: '内容检查', itemStyle: { color: '#2E7D32' } },
-          { value: 2.5, name: '智能回复', itemStyle: { color: '#E65100' } },
-          { value: 1.5, name: '内容检索', itemStyle: { color: '#C62828' } },
-          { value: 1, name: '预留', itemStyle: { color: '#545F71' } },
+          { value: 3, name: '情绪判断', itemStyle: { color: '#315b6f' } },
+          { value: 2, name: '内容检查', itemStyle: { color: '#4d8f6b' } },
+          { value: 2.5, name: '智能回复', itemStyle: { color: '#b67a42' } },
+          { value: 1.5, name: '内容检索', itemStyle: { color: '#a35f5f' } },
+          { value: 1, name: '预留', itemStyle: { color: '#5d6d77' } },
         ],
   }],
 }))
 
-/** 向量搜索状态 */
 const vectorSearch = reactive({
   query: '',
   searching: false,
-  results: [],
+  results: [] as Array<Record<string, unknown>>,
 })
 const vectorSearched = ref(false)
 const vectorQuery = computed({
   get: () => vectorSearch.query,
-  set: (value) => { vectorSearch.query = value },
+  set: (value: string) => { vectorSearch.query = value },
 })
 const vectorSearching = computed(() => vectorSearch.searching)
 const vectorResults = computed(() => vectorSearch.results)
 
-/** 边缘推理节点列表 */
-const edgeNodes = ref([])
+const edgeNodes = ref<Array<Record<string, any>>>([])
+const ragStats = ref<Record<string, any>>({})
 
-/** 双记忆 RAG 系统指标 */
-const ragStats = ref({})
-
-/** 引擎配置表单数据 */
 const edgeConfig = reactive({
-  inferenceTimeout: 5000,
+  inferenceEngine: 'onnx',
+  cacheStrategy: 'lru',
   maxBatchSize: 32,
+  cacheSizeMB: 256,
+  maxEpsilon: 1.0,
+  federatedInterval: 300,
+  emotionModel: 'standard',
+  vectorSearchEnabled: true,
+  inferenceTimeout: 5000,
   cacheEnabled: true,
   cacheTTL: 3600,
   federatedEnabled: true,
   privacyEpsilon: 1.0,
-  emotionModel: 'standard',
-  vectorSearchEnabled: true,
 })
 const configLoading = ref(false)
 const configSaving = ref(false)
 
-/** 情感分析在线调试工具状态 */
-const sentimentTool = reactive({ text: '', loading: false, result: null })
-/** 内容审核在线调试工具状态 */
-const moderationTool = reactive({ text: '', loading: false, result: null })
+const sentimentTool = reactive({ text: '', loading: false, result: null as null | Record<string, any> })
+const moderationTool = reactive({ text: '', loading: false, result: null as null | Record<string, any> })
 
-// ========== 数据加载函数 ==========
+const formatCount = (value: number) => value.toLocaleString()
 
-/** 加载引擎整体状态（运行/停止、模块数、运行时间等） */
+const heroDescription = computed(() => {
+  const statusText = engineStatus.enabled
+    ? `当前有 ${engineStatus.activeNodes} 个服务节点在线`
+    : '当前辅助引擎未处于运行状态'
+
+  return `${currentTime.value} 的陪伴链路以${emotionTrendLabel.value}为主，${statusText}，平均响应 ${engineStatus.avgLatency}ms，保护额度剩余 ${privacy.epsilonRemaining}。`
+})
+
+const heroChips = computed(() => [
+  ...techBadges.map(({ label }) => label),
+  `情绪水温 ${emotionPulse.temperature}°`,
+].slice(0, 5))
+
+const summaryItems = computed(() => [
+  {
+    label: '服务状态',
+    value: engineStatus.enabled ? '运行中' : '已停止',
+    note: `已加载 ${engineStatus.modulesLoaded}/${engineStatus.totalModules} 个功能`,
+    tone: 'lake' as const,
+  },
+  {
+    label: '平均响应',
+    value: `${engineStatus.avgLatency}ms`,
+    note: `当前吞吐 ${engineStatus.throughput} req/s`,
+    tone: 'amber' as const,
+  },
+  {
+    label: '协同节点',
+    value: formatCount(federated.participatingNodes),
+    note: `第 ${federated.currentRound} 轮 · 准确度 ${federated.modelAccuracy}`,
+    tone: 'sage' as const,
+  },
+  {
+    label: '保护余量',
+    value: `${privacy.epsilonRemaining}`,
+    note: `已使用 ${privacy.epsilonPercent}% · ${privacy.noiseLevel} 噪声级别`,
+    tone: 'rose' as const,
+  },
+])
+
+const edgeSignals = computed(() => [
+  {
+    label: '最后巡看',
+    value: lastUpdateTime.value,
+    note: `${currentTime.value} 已同步关键面板`,
+  },
+  {
+    label: '情绪水温',
+    value: `${emotionPulse.temperature}°`,
+    note: `${emotionTrendLabel.value} · 最近波动持续观察中`,
+  },
+  {
+    label: '在线节点',
+    value: formatCount(engineStatus.activeNodes),
+    note: `累计调用 ${formatCount(engineStatus.inferenceCount)} 次`,
+  },
+])
+
 async function loadStatus() {
   try {
     const { data } = await api.getEdgeAIStatus()
@@ -378,33 +415,30 @@ async function loadStatus() {
       throughput: s.throughput ?? 0,
       activeNodes: s.activeNodes ?? s.active_nodes ?? 0,
     })
-  } catch { /* 静默 */ }
+  } catch {
+    // 静默降级
+  }
 }
 
-/** 加载性能指标、节点列表和 RAG 统计 */
 async function loadMetrics() {
   try {
     const { data } = await api.getEdgeAIMetrics()
     const m = data.data || data
-    if (m.avgLatency != null) engineStatus.avgLatency = m.avgLatency ?? m.avg_latency
-    if (m.cacheHitRate != null) engineStatus.cacheHitRate = m.cacheHitRate ?? m.cache_hit_rate
-    if (m.throughput != null) engineStatus.throughput = m.throughput
-    if (m.inferenceCount != null) engineStatus.inferenceCount = m.inferenceCount ?? m.inference_count
-    // 节点列表
+    if (m.avgLatency != null || m.avg_latency != null) engineStatus.avgLatency = Number(m.avgLatency ?? m.avg_latency) || 0
+    if (m.cacheHitRate != null || m.cache_hit_rate != null) engineStatus.cacheHitRate = Number(m.cacheHitRate ?? m.cache_hit_rate) || 0
+    if (m.throughput != null) engineStatus.throughput = Number(m.throughput) || 0
+    if (m.inferenceCount != null || m.inference_count != null) engineStatus.inferenceCount = Number(m.inferenceCount ?? m.inference_count) || 0
     if (Array.isArray(m.nodes)) {
       edgeNodes.value = m.nodes
     }
-    // 双记忆RAG指标
     if (m.dual_memory_rag) {
       ragStats.value = m.dual_memory_rag
     }
-  } catch { /* 静默 */ }
+  } catch {
+    // 静默降级
+  }
 }
 
-/**
- * 加载情绪脉搏数据。
- * 支持多种后端响应格式：avg_score / temperature / history / mood_distribution
- */
 async function loadEmotionPulse() {
   try {
     const { data } = await api.getEmotionPulse()
@@ -415,21 +449,21 @@ async function loadEmotionPulse() {
       : Math.round(avgScore)
     emotionPulse.temperature = Math.max(0, Math.min(100, normalizedTemp))
     emotionPulse.trend = ep.dominant_mood ?? ep.dominantMood ?? ep.trend ?? 'stable'
+
     if (Array.isArray(ep.history)) {
-      emotionPulse.history = ep.history.map(h => h.value ?? h)
-      emotionPulse.timestamps = ep.history.map(h => h.time ?? h.timestamp ?? '')
+      emotionPulse.history = ep.history.map((item: any) => Number(item.value ?? item) || 0)
+      emotionPulse.timestamps = ep.history.map((item: any) => item.time ?? item.timestamp ?? '')
     } else if (ep.mood_distribution && typeof ep.mood_distribution === 'object') {
-      const values = Object.values(ep.mood_distribution).map(v => Number(v) || 0)
+      const values = Object.values(ep.mood_distribution).map((value) => Number(value) || 0)
       const sum = values.reduce((acc, curr) => acc + curr, 0)
-      if (sum > 0) {
-        emotionPulse.history = values.map(v => Math.round((v / sum) * 100))
-      }
+      emotionPulse.history = sum > 0 ? values.map((value) => Math.round((value / sum) * 100)) : []
       emotionPulse.timestamps = Object.keys(ep.mood_distribution)
     }
-  } catch { /* 静默 */ }
+  } catch {
+    // 静默降级
+  }
 }
 
-/** 加载联邦学习状态（轮次、节点数、准确率、收敛率） */
 async function loadFederatedStatus() {
   try {
     const { data } = await api.getEdgeAIMetrics()
@@ -444,10 +478,11 @@ async function loadFederatedStatus() {
         aggregationProgress: m.federated.aggregationProgress ?? m.federated.aggregation_progress ?? 0,
       })
     }
-  } catch { /* 静默 */ }
+  } catch {
+    // 静默降级
+  }
 }
 
-/** 加载差分隐私预算（epsilon 消耗/总量/分配） */
 async function loadPrivacyBudget() {
   try {
     const { data } = await api.getPrivacyBudget()
@@ -458,6 +493,7 @@ async function loadPrivacyBudget() {
     const epsilonPercent = epsilonPercentRaw != null
       ? Number(epsilonPercentRaw) || 0
       : Math.min(100, Math.max(0, (epsilonUsed / epsilonTotal) * 100))
+
     Object.assign(privacy, {
       epsilonUsed,
       epsilonTotal,
@@ -467,64 +503,72 @@ async function loadPrivacyBudget() {
       noiseLevel: p.noiseLevel ?? p.noise_level ?? 'medium',
       queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? p.query_count ?? 0,
     })
+
     if (Array.isArray(p.allocation)) {
-      const colors = ['#1565C0', '#2E7D32', '#E65100', '#C62828', '#545F71', '#6E5676']
-      privacy.allocation = p.allocation.map((a, i) => ({
-        value: a.value ?? a.epsilon,
-        name: a.name ?? a.label,
-        itemStyle: { color: colors[i % colors.length] },
+      const colors = ['#315b6f', '#4d8f6b', '#b67a42', '#a35f5f', '#5d6d77', '#7c6975']
+      privacy.allocation = p.allocation.map((item: any, index: number) => ({
+        value: Number(item.value ?? item.epsilon) || 0,
+        name: item.name ?? item.label ?? `模块 ${index + 1}`,
+        itemStyle: { color: colors[index % colors.length] },
       }))
     }
-  } catch { /* 静默 */ }
+  } catch {
+    // 静默降级
+  }
 }
 
-/** 加载引擎配置表单数据 */
 async function loadConfig() {
   configLoading.value = true
   try {
     const { data } = await api.getEdgeAIConfig()
     const c = data.data || data
     Object.assign(edgeConfig, {
-      inferenceTimeout: c.inferenceTimeout ?? c.inference_timeout ?? 5000,
+      inferenceEngine: c.inferenceEngine ?? c.inference_engine ?? edgeConfig.inferenceEngine,
+      cacheStrategy: c.cacheStrategy ?? c.cache_strategy ?? edgeConfig.cacheStrategy,
       maxBatchSize: c.maxBatchSize ?? c.max_batch_size ?? 32,
+      cacheSizeMB: c.cacheSizeMB ?? c.cache_size_mb ?? edgeConfig.cacheSizeMB,
+      maxEpsilon: c.maxEpsilon ?? c.max_epsilon ?? c.privacyEpsilon ?? c.privacy_epsilon ?? edgeConfig.maxEpsilon,
+      federatedInterval: c.federatedInterval ?? c.federated_interval ?? edgeConfig.federatedInterval,
+      emotionModel: c.emotionModel ?? c.emotion_model ?? 'standard',
+      vectorSearchEnabled: c.vectorSearchEnabled ?? c.vector_search_enabled ?? true,
+      inferenceTimeout: c.inferenceTimeout ?? c.inference_timeout ?? 5000,
       cacheEnabled: c.cacheEnabled ?? c.cache_enabled ?? true,
       cacheTTL: c.cacheTTL ?? c.cache_ttl ?? 3600,
       federatedEnabled: c.federatedEnabled ?? c.federated_enabled ?? true,
-      privacyEpsilon: c.privacyEpsilon ?? c.privacy_epsilon ?? 1.0,
-      emotionModel: c.emotionModel ?? c.emotion_model ?? 'standard',
-      vectorSearchEnabled: c.vectorSearchEnabled ?? c.vector_search_enabled ?? true,
+      privacyEpsilon: c.privacyEpsilon ?? c.privacy_epsilon ?? c.maxEpsilon ?? c.max_epsilon ?? 1.0,
     })
-  } catch { /* 静默 */ } finally {
+  } catch {
+    // 静默降级
+  } finally {
     configLoading.value = false
   }
 }
 
-// ========== 操作函数 ==========
-
-/** 手动触发联邦学习聚合（下一轮） */
 async function triggerAggregation() {
   federated.aggregating = true
   try {
     await api.triggerFederatedAggregation({ round: federated.currentRound + 1 })
     federated.status = 'aggregating'
     await loadFederatedStatus()
-  } catch { /* 静默 */ } finally {
+  } catch {
+    // 静默降级
+  } finally {
     federated.aggregating = false
   }
 }
 
-/** 调用情感分析接口，展示分数/类别/置信度 */
 async function doSentimentAnalysis() {
   if (!sentimentTool.text.trim()) return
   sentimentTool.loading = true
   sentimentTool.result = null
   try {
     const { data } = await api.analyzeText(sentimentTool.text)
-    const r = data.data || data
+    const result = data.data || data
     sentimentTool.result = {
-      score: r.score ?? r.sentiment_score ?? 0,
-      sentiment: r.emotion ?? r.sentiment ?? 'neutral',
-      confidence: r.confidence ?? r.conf ?? 0,
+      score: result.score ?? result.sentiment_score ?? 0,
+      sentiment: result.emotion ?? result.sentiment ?? 'neutral',
+      confidence: result.confidence ?? result.conf ?? 0,
+      emotions: result.emotions ?? [],
     }
   } catch {
     sentimentTool.result = null
@@ -533,18 +577,17 @@ async function doSentimentAnalysis() {
   }
 }
 
-/** 调用内容审核接口，展示通过/拒绝/风险等级/原因 */
 async function doContentModeration() {
   if (!moderationTool.text.trim()) return
   moderationTool.loading = true
   moderationTool.result = null
   try {
     const { data } = await api.moderateText(moderationTool.text)
-    const r = data.data || data
+    const result = data.data || data
     moderationTool.result = {
-      pass: r.pass ?? r.passed ?? r.approved ?? true,
-      risk: r.risk ?? r.risk_level ?? 'low',
-      reason: r.reason ?? r.reject_reason ?? '',
+      pass: result.pass ?? result.passed ?? result.approved ?? true,
+      risk: result.risk ?? result.risk_level ?? 'low',
+      reason: result.reason ?? result.reject_reason ?? '',
     }
   } catch {
     moderationTool.result = null
@@ -553,7 +596,6 @@ async function doContentModeration() {
   }
 }
 
-/** 执行 HNSW 向量搜索，结果按相似度排序 */
 async function doVectorSearch() {
   if (!vectorSearch.query.trim()) return
   vectorSearched.value = false
@@ -563,9 +605,9 @@ async function doVectorSearch() {
       query: vectorSearch.query,
       topK: 10,
     })
-    const r = data.data || data
-    const raw = Array.isArray(r) ? r : (r.results ?? [])
-    vectorSearch.results = raw.map((item) => ({
+    const result = data.data || data
+    const raw = Array.isArray(result) ? result : (result.results ?? [])
+    vectorSearch.results = raw.map((item: any) => ({
       ...item,
       score: Number(item.score ?? item.similarity ?? 0),
       content: item.content ?? item.text ?? item.id ?? '未知内容',
@@ -578,22 +620,21 @@ async function doVectorSearch() {
   }
 }
 
-/** 保存引擎配置到后端 */
 async function saveConfig() {
   configSaving.value = true
   try {
     await api.updateEdgeAIConfig(edgeConfig)
     ElMessage.success('配置保存成功')
-  } catch (e) {
-    ElMessage.error(getErrorMessage(e, '保存配置失败'))
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '保存配置失败'))
   } finally {
     configSaving.value = false
   }
 }
 
-/** 并行刷新所有数据面板 */
 async function refreshAll() {
   loading.value = true
+  currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
   try {
     await Promise.allSettled([
       loadStatus(),
@@ -609,13 +650,8 @@ async function refreshAll() {
   }
 }
 
-
-// ========== 生命周期 ==========
-
-/** 统一管理所有定时器 ID，onUnmounted 中批量清理 */
 const timerIds: ReturnType<typeof setInterval>[] = []
 
-/** 注册定时器并记录 ID，确保卸载时能全部清理 */
 function addTimer(fn: () => void, interval: number): void {
   const id = setInterval(fn, interval)
   timerIds.push(id)
@@ -623,695 +659,278 @@ function addTimer(fn: () => void, interval: number): void {
 
 onMounted(() => {
   refreshAll()
-  // 每30秒刷新情绪脉搏和性能指标
   addTimer(() => {
+    currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
+  }, 60000)
+  addTimer(() => {
+    currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
     loadEmotionPulse()
     loadMetrics()
   }, 30000)
 })
 
 onUnmounted(() => {
-  timerIds.forEach(id => clearInterval(id))
+  timerIds.forEach((id) => clearInterval(id))
   timerIds.length = 0
 })
 </script>
 
-<style lang="scss">
-/* ============================================
-   Material Design 3 主题
-   ============================================ */
-
-// ==========================================
-// 根容器
-// ==========================================
+<style lang="scss" scoped>
 .edge-ai {
   min-height: 100%;
-  padding: 8px 0 18px;
-  color: var(--hl-ink);
-  font-family: var(--hl-font-body);
+  padding: 8px 0 22px;
 }
 
-// ==========================================
-// 图表行
-// ==========================================
-.edge-ai .charts-row {
+.edge-ai-ribbon {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
-
-  .chart-card {
-    background: linear-gradient(180deg, rgba(255, 250, 242, 0.94), rgba(247, 241, 232, 0.98));
-    border: 1px solid rgba(24, 36, 47, 0.08);
-    border-radius: 24px;
-    padding: 20px;
-    transition: all var(--m3-motion-duration-medium2) var(--m3-motion-easing-standard);
-
-    &:hover {
-      border-color: rgba(35, 73, 99, 0.16);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--hl-ink);
-
-      span {
-        color: var(--hl-ink);
-      }
-    }
-  }
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
-// ==========================================
-// 性能指标网格
-// ==========================================
-.edge-ai .metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-
-  .metric-item {
-    background: rgba(255, 255, 255, 0.56);
-    border: 1px solid rgba(24, 36, 47, 0.08);
-    border-radius: 18px;
-    padding: 14px 12px;
-    text-align: center;
-    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
-
-    &:hover {
-      border-color: var(--m3-primary);
-      background: var(--m3-surface-container-highest);
-    }
-
-    .metric-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--m3-primary);
-    }
-
-    .metric-label {
-      font-size: 11px;
-      color: var(--m3-on-surface-variant);
-      margin-top: 4px;
-    }
-  }
-}
-
-// ==========================================
-// 情感脉搏
-// ==========================================
-.edge-ai .emotion-pulse-container {
-  display: flex;
-  gap: 16px;
-  height: 300px;
-
-  .gauge-wrapper {
-    flex: 0 0 45%;
-    min-height: 280px;
-  }
-
-  .pulse-line-wrapper {
-    flex: 1;
-    min-height: 280px;
-  }
-}
-
-// ==========================================
-// 联邦学习面板
-// ==========================================
-.edge-ai .federated-panel {
-  .fed-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .fed-stat-item {
-      background: rgba(255, 255, 255, 0.56);
-      border: 1px solid rgba(24, 36, 47, 0.08);
-      border-radius: 18px;
-      padding: 14px;
-      text-align: center;
-
-      .fed-stat-value {
-        font-size: 22px;
-        font-weight: 700;
-        color: var(--m3-primary);
-      }
-
-      .fed-stat-label {
-        font-size: 11px;
-        color: var(--m3-on-surface-variant);
-        margin-top: 4px;
-      }
-    }
-  }
-
-  .fed-progress {
-    margin: 16px 0;
-
-    .fed-progress-label {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--m3-on-surface-variant);
-      margin-bottom: 8px;
-    }
-  }
-
-  .fed-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 16px;
-  }
-}
-
-// ==========================================
-// 隐私预算面板
-// ==========================================
-.edge-ai .privacy-panel {
-  .budget-overview {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    margin-bottom: 16px;
-
-    .budget-main {
-      text-align: center;
-
-      .epsilon {
-        font-size: 36px;
-        font-weight: 700;
-        color: var(--m3-primary);
-      }
-
-      .budget-hint {
-        font-size: 11px;
-        color: var(--m3-on-surface-variant);
-        margin-top: 2px;
-      }
-    }
-
-    .budget-chart {
-      flex: 1;
-      min-height: 200px;
-    }
-  }
-}
-
-// ==========================================
-// 向量搜索面板
-// ==========================================
-.edge-ai .vector-search-panel {
-  .search-input-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .search-results {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    .search-result-item {
-      background: rgba(255, 255, 255, 0.56);
-      border: 1px solid rgba(24, 36, 47, 0.08);
-      border-radius: 18px;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
-
-      &:hover {
-        border-color: var(--m3-primary);
-        background: var(--m3-surface-container-highest);
-      }
-
-      .result-score {
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--m3-primary);
-        min-width: 50px;
-        text-align: center;
-      }
-
-      .result-content {
-        flex: 1;
-        font-size: 13px;
-        color: var(--hl-ink-soft);
-        line-height: 1.5;
-      }
-    }
-  }
-}
-
-// ==========================================
-// 配置管理
-// ==========================================
-.edge-ai .module-card {
-  background: linear-gradient(180deg, rgba(255, 250, 242, 0.94), rgba(247, 241, 232, 0.98));
-  border: 1px solid rgba(24, 36, 47, 0.08);
+.edge-ai-ribbon__panel {
+  padding: 18px 18px 16px;
   border-radius: 24px;
-  padding: 20px;
-  margin-bottom: 16px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 249, 0.92)),
+    radial-gradient(circle at right top, rgba(182, 122, 66, 0.12), transparent 30%);
+  box-shadow: 0 18px 32px rgba(10, 23, 31, 0.05);
 
-  .config-form {
-    margin-top: 12px;
-  }
-
-  .config-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+  strong {
+    display: block;
     margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(24, 36, 47, 0.08);
-  }
-}
-
-// ==========================================
-// AI 工具面板
-// ==========================================
-.edge-ai .ai-tool-panel {
-  .tool-result {
-    margin-top: 16px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.56);
-    border: 1px solid rgba(24, 36, 47, 0.08);
-    border-radius: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    .result-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .result-label {
-        font-size: 13px;
-        color: var(--m3-on-surface-variant);
-        min-width: 80px;
-      }
-
-      .result-value {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--m3-primary);
-
-        &.reason-text {
-          font-size: 13px;
-          font-weight: 400;
-          color: var(--m3-error);
-          text-align: right;
-          max-width: 200px;
-          word-break: break-all;
-        }
-      }
-
-      .el-progress {
-        flex: 1;
-        margin-left: 12px;
-      }
-    }
-  }
-}
-
-// ==========================================
-// Element Plus 组件覆盖 — Material Design 3
-// ==========================================
-
-// el-card
-.edge-ai :deep(.el-card) {
-  background: var(--m3-surface-container);
-  border: 1px solid rgba(24, 36, 47, 0.08);
-  border-radius: 24px;
-  color: var(--hl-ink);
-  --el-card-bg-color: transparent;
-
-  .el-card__header {
-    border-bottom: 1px solid rgba(24, 36, 47, 0.08);
-    color: var(--hl-ink);
-    padding: 18px 22px;
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.38);
-  }
-
-  .el-card__body {
-    color: var(--hl-ink);
-  }
-}
-
-// el-button
-.edge-ai :deep(.el-button) {
-  --el-button-bg-color: transparent;
-  --el-button-border-color: rgba(24, 36, 47, 0.12);
-  --el-button-text-color: var(--hl-ink);
-  --el-button-hover-bg-color: rgba(255, 255, 255, 0.72);
-  --el-button-hover-border-color: var(--m3-primary);
-  --el-button-hover-text-color: var(--m3-primary);
-  border-radius: 14px;
-  transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
-}
-
-.edge-ai :deep(.el-button--primary) {
-  --el-button-bg-color: var(--m3-primary);
-  background: var(--m3-primary) !important;
-  border: none !important;
-  color: var(--m3-on-primary) !important;
-  font-weight: 600;
-
-  &:hover {
-    background: var(--m3-primary-container) !important;
-    color: var(--m3-on-primary-container) !important;
-  }
-}
-
-.edge-ai :deep(.el-button--success) {
-  --el-button-bg-color: var(--m3-success-container);
-  border-color: var(--m3-success) !important;
-  color: var(--m3-success) !important;
-
-  &:hover {
-    background: var(--m3-success-container) !important;
-  }
-}
-
-.edge-ai :deep(.el-button--warning) {
-  --el-button-bg-color: var(--m3-tertiary-container);
-  border-color: var(--m3-tertiary) !important;
-  color: var(--m3-tertiary) !important;
-
-  &:hover {
-    background: var(--m3-tertiary-container) !important;
-  }
-}
-
-.edge-ai :deep(.el-button--danger) {
-  --el-button-bg-color: var(--m3-error-container);
-  border-color: var(--m3-error) !important;
-  color: var(--m3-error) !important;
-
-  &:hover {
-    background: var(--m3-error-container) !important;
-  }
-}
-
-// el-input
-.edge-ai :deep(.el-input) {
-  .el-input__wrapper {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(24, 36, 47, 0.12);
-    border-radius: 14px;
-    box-shadow: none !important;
-    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
-
-    &:hover {
-      border-color: rgba(24, 36, 47, 0.2);
-    }
-
-    &.is-focus {
-      border-color: var(--m3-primary);
-      box-shadow: 0 0 0 3px rgba(35, 73, 99, 0.1) !important;
-    }
-  }
-
-  .el-input__inner {
-    color: var(--hl-ink);
-
-    &::placeholder {
-      color: var(--m3-on-surface-variant);
-      opacity: 0.6;
-    }
-  }
-}
-
-// el-textarea
-.edge-ai :deep(.el-textarea) {
-  .el-textarea__inner {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(24, 36, 47, 0.12);
-    border-radius: 14px;
-    color: var(--hl-ink);
-    box-shadow: none !important;
-    transition: all var(--m3-motion-duration-short2) var(--m3-motion-easing-standard);
-
-    &:hover {
-      border-color: rgba(24, 36, 47, 0.2);
-    }
-
-    &:focus {
-      border-color: var(--m3-primary);
-      box-shadow: 0 0 0 3px rgba(35, 73, 99, 0.1) !important;
-    }
-
-    &::placeholder {
-      color: var(--m3-on-surface-variant);
-      opacity: 0.6;
-    }
-  }
-}
-
-// el-select
-.edge-ai :deep(.el-select) {
-  .el-select__wrapper {
-    background: rgba(255, 255, 255, 0.8) !important;
-    border: 1px solid rgba(24, 36, 47, 0.12);
-    border-radius: 14px;
-    box-shadow: none !important;
-
-    &:hover {
-      border-color: rgba(24, 36, 47, 0.2);
-    }
-  }
-
-  .el-select__selected-item {
+    font-family: var(--hl-font-display);
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1;
     color: var(--hl-ink);
   }
 
-  .el-select__placeholder {
-    color: var(--m3-on-surface-variant);
-    opacity: 0.6;
-  }
-}
-
-// el-input-number
-.edge-ai :deep(.el-input-number) {
-  .el-input__wrapper {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(24, 36, 47, 0.12);
-    border-radius: 14px;
-  }
-
-  .el-input-number__decrease,
-  .el-input-number__increase {
-    background: transparent;
-    border-color: var(--m3-outline-variant);
-    color: var(--m3-on-surface-variant);
-
-    &:hover {
-      color: var(--m3-primary);
-    }
-  }
-}
-
-// el-switch
-.edge-ai :deep(.el-switch) {
-  --el-switch-on-color: var(--m3-primary);
-  --el-switch-off-color: rgba(24, 36, 47, 0.12);
-}
-
-// el-progress
-.edge-ai :deep(.el-progress) {
-  .el-progress-bar__outer {
-    background: rgba(24, 36, 47, 0.08);
-    border-radius: 999px;
-  }
-
-  .el-progress-bar__inner {
-    background: var(--m3-primary);
-    border-radius: 999px;
-  }
-
-  .el-progress__text {
-    color: var(--hl-ink-soft);
-    font-size: 12px !important;
-  }
-}
-
-// el-table
-.edge-ai :deep(.el-table) {
-  --el-table-bg-color: transparent;
-  --el-table-tr-bg-color: transparent;
-  --el-table-header-bg-color: rgba(255, 255, 255, 0.56);
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.72);
-  --el-table-border-color: rgba(24, 36, 47, 0.08);
-  --el-table-text-color: var(--hl-ink);
-  --el-table-header-text-color: var(--hl-ink-soft);
-  background: transparent;
-  color: var(--hl-ink);
-
-  &::before {
-    display: none;
-  }
-
-  th.el-table__cell {
-    background: rgba(255, 255, 255, 0.56) !important;
-    border-bottom: 1px solid rgba(24, 36, 47, 0.08) !important;
-    font-weight: 600;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--hl-ink-soft);
-  }
-
-  td.el-table__cell {
-    border-bottom: 1px solid rgba(24, 36, 47, 0.08) !important;
-  }
-
-  .el-table__body tr:hover > td {
-    background: rgba(255, 255, 255, 0.72) !important;
-  }
-}
-
-// el-tag
-.edge-ai :deep(.el-tag) {
-  border-radius: 999px;
-  border: none;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.edge-ai :deep(.el-tag--success) {
-  background: var(--m3-success-container);
-  color: var(--m3-success);
-}
-
-.edge-ai :deep(.el-tag--warning) {
-  background: var(--m3-tertiary-container);
-  color: var(--m3-tertiary);
-}
-
-.edge-ai :deep(.el-tag--danger) {
-  background: var(--m3-error-container);
-  color: var(--m3-error);
-}
-
-.edge-ai :deep(.el-tag--info) {
-  background: var(--m3-secondary-container);
-  color: var(--m3-secondary);
-}
-
-// el-form
-.edge-ai :deep(.el-form) {
-  .el-form-item__label {
+  p {
+    margin: 10px 0 0;
     color: var(--hl-ink-soft);
     font-size: 13px;
+    line-height: 1.7;
   }
 }
 
-// v-loading
-.edge-ai :deep(.el-loading-mask) {
-  background: rgba(0, 0, 0, 0.5);
+.edge-ai-ribbon__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.edge-ai :deep(.el-loading-spinner) {
-  .circular .path {
-    stroke: var(--m3-primary);
-  }
-
-  .el-loading-text {
-    color: var(--hl-paper);
-  }
+.edge-ai :deep(.charts-row),
+.edge-ai :deep(.section-row) {
+  margin-bottom: 22px;
 }
 
-// el-empty
-.edge-ai :deep(.el-empty) {
-  .el-empty__description p {
-    color: var(--hl-ink-soft);
-  }
+.edge-ai :deep(.chart-card),
+.edge-ai :deep(.module-card) {
+  border-radius: 28px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background:
+    linear-gradient(180deg, rgba(254, 253, 251, 0.94), rgba(242, 247, 248, 0.96)),
+    radial-gradient(circle at right top, rgba(123, 160, 173, 0.12), transparent 28%);
+  box-shadow: 0 22px 46px rgba(10, 23, 31, 0.06);
+  overflow: hidden;
 }
 
-// ==========================================
-// 响应式
-// ==========================================
-@media (max-width: 768px) {
-  .edge-ai {
-    padding: 8px 0 18px;
-  }
+.edge-ai :deep(.chart-card .el-card__header),
+.edge-ai :deep(.module-card .el-card__header) {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(24, 36, 47, 0.07);
+  background: rgba(255, 255, 255, 0.36);
+}
 
-  .edge-ai .charts-row {
+.edge-ai :deep(.chart-card .el-card__body),
+.edge-ai :deep(.module-card .el-card__body) {
+  padding: 22px;
+}
+
+.edge-ai :deep(.card-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--hl-ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.edge-ai :deep(.chart-card:hover),
+.edge-ai :deep(.module-card:hover) {
+  border-color: rgba(17, 62, 74, 0.16);
+}
+
+.edge-ai :deep(.metrics-grid) {
+  gap: 14px;
+}
+
+.edge-ai :deep(.metric-item),
+.edge-ai :deep(.fed-stat-item),
+.edge-ai :deep(.rag-stat-item),
+.edge-ai :deep(.search-result-item) {
+  border-radius: 20px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.edge-ai :deep(.metric-item) {
+  padding: 16px 14px;
+}
+
+.edge-ai :deep(.metric-value),
+.edge-ai :deep(.fed-stat-value),
+.edge-ai :deep(.rag-stat-value) {
+  color: var(--hl-ink);
+  font-family: var(--hl-font-display);
+}
+
+.edge-ai :deep(.metric-label),
+.edge-ai :deep(.fed-stat-label),
+.edge-ai :deep(.rag-stat-label),
+.edge-ai :deep(.rag-stat-desc),
+.edge-ai :deep(.budget-hint),
+.edge-ai :deep(.result-label) {
+  color: var(--hl-ink-soft);
+}
+
+.edge-ai :deep(.emotion-pulse-container) {
+  gap: 18px;
+  min-height: 260px;
+}
+
+.edge-ai :deep(.fed-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.edge-ai :deep(.fed-progress-label) {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--hl-ink-soft);
+}
+
+.edge-ai :deep(.budget-main .epsilon) {
+  margin-bottom: 14px;
+  font-family: var(--hl-font-display);
+  font-size: clamp(28px, 3vw, 34px);
+  color: var(--hl-ink);
+}
+
+.edge-ai :deep(.search-results) {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.edge-ai :deep(.search-result-item) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+}
+
+.edge-ai :deep(.result-content),
+.edge-ai :deep(.reason-text) {
+  color: var(--hl-ink);
+  line-height: 1.7;
+}
+
+.edge-ai :deep(.config-form) {
+  padding-top: 4px;
+}
+
+.edge-ai :deep(.config-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 10px;
+}
+
+.edge-ai :deep(.ai-tool-panel) {
+  display: grid;
+  gap: 14px;
+}
+
+.edge-ai :deep(.tool-result) {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.edge-ai :deep(.result-item) {
+  display: grid;
+  gap: 8px;
+}
+
+.edge-ai :deep(.emotion-tags) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edge-ai :deep(.el-input__wrapper),
+.edge-ai :deep(.el-textarea__inner),
+.edge-ai :deep(.el-select__wrapper),
+.edge-ai :deep(.el-input-number),
+.edge-ai :deep(.el-input-number .el-input__wrapper) {
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(123, 149, 160, 0.16) inset;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.edge-ai :deep(.el-form-item__label) {
+  color: var(--hl-ink-soft);
+  font-weight: 600;
+}
+
+.edge-ai :deep(.el-table) {
+  --el-table-header-bg-color: rgba(245, 248, 249, 0.92);
+  --el-table-row-hover-bg-color: rgba(241, 246, 247, 0.92);
+  --el-table-border-color: rgba(123, 149, 160, 0.12);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.edge-ai :deep(.el-tag) {
+  border-radius: 999px;
+}
+
+.edge-ai :deep(.el-progress-bar__outer) {
+  background: rgba(24, 36, 47, 0.08);
+}
+
+@media (max-width: 900px) {
+  .edge-ai-ribbon {
     grid-template-columns: 1fr;
   }
 
-  .edge-ai .emotion-pulse-container {
+  .edge-ai :deep(.emotion-pulse-container) {
     flex-direction: column;
     height: auto;
-
-    .gauge-wrapper,
-    .pulse-line-wrapper {
-      flex: none;
-      min-height: 220px;
-    }
   }
 
-  .edge-ai .vector-search-panel .search-input-row {
-    flex-direction: column;
-  }
-}
-
-// ==========================================
-// 滚动条美化
-// ==========================================
-.edge-ai {
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--m3-outline-variant);
-    border-radius: 3px;
-
-    &:hover {
-      background: var(--m3-outline);
-    }
-  }
-}
-
-.rag-stat-item {
-  text-align: center;
-  padding: 16px 8px;
-
-  .rag-stat-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--m3-primary);
-    line-height: 1.2;
-  }
-
-  .rag-stat-label {
-    font-size: 13px;
-    color: var(--m3-on-surface);
-    margin-top: 6px;
-    font-weight: 500;
-  }
-
-  .rag-stat-desc {
-    font-size: 11px;
-    color: var(--m3-outline);
-    margin-top: 4px;
+  .edge-ai :deep(.gauge-wrapper),
+  .edge-ai :deep(.pulse-line-wrapper) {
+    min-height: 220px;
   }
 }
 </style>
