@@ -1,13 +1,16 @@
 <template>
   <div class="ops-gauge-meter">
-    <div
-      class="ops-gauge-meter__dial"
-      :style="{ '--meter-angle': `${angle}deg` }"
-    >
+    <div class="ops-gauge-meter__dial">
+      <div class="ops-gauge-meter__track" />
+      <div class="ops-gauge-meter__arc" />
+      <span
+        class="ops-gauge-meter__marker"
+        :style="markerStyle"
+      />
       <div class="ops-gauge-meter__mask" />
       <div class="ops-gauge-meter__content">
         <strong>{{ displayValue }}</strong>
-        <span>{{ label }}</span>
+        <span :style="{ color: labelColor }">{{ label }}</span>
       </div>
     </div>
   </div>
@@ -31,8 +34,25 @@ const ratio = computed(() => {
   return Math.max(0, Math.min(1, props.value / props.max))
 })
 
-const angle = computed(() => 180 * ratio.value)
 const displayValue = computed(() => props.formatter ? props.formatter(props.value) : String(props.value))
+const labelColor = computed(() => {
+  if (ratio.value < 0.34) return '#f08283'
+  if (ratio.value < 0.67) return '#e0a74f'
+  return '#61baaa'
+})
+
+const markerStyle = computed(() => {
+  const angle = Math.PI * (1 - ratio.value)
+  const radius = 92
+  const centerX = 120
+  const centerY = 122
+
+  return {
+    left: `${centerX + radius * Math.cos(angle)}px`,
+    top: `${centerY - radius * Math.sin(angle)}px`,
+    '--marker-color': labelColor.value,
+  }
+})
 </script>
 
 <style scoped lang="scss">
@@ -43,59 +63,91 @@ const displayValue = computed(() => props.formatter ? props.formatter(props.valu
 
 .ops-gauge-meter__dial {
   position: relative;
-  width: min(240px, 100%);
-  aspect-ratio: 1 / 0.68;
+  width: min(248px, 100%);
+  aspect-ratio: 1 / 0.72;
   overflow: hidden;
 }
 
-.ops-gauge-meter__dial::before {
-  content: '';
+.ops-gauge-meter__track,
+.ops-gauge-meter__arc {
   position: absolute;
-  inset: 0;
-  border-radius: 320px 320px 0 0;
+  left: 50%;
+  bottom: 0;
+  width: 228px;
+  height: 228px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 70%, transparent 71% 100%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 70%, transparent 71% 100%);
+}
+
+.ops-gauge-meter__track {
   background:
     conic-gradient(
-      from 180deg at 50% 100%,
-      #ef6b6b 0 50deg,
-      #f0b84d 50deg 110deg,
-      #74cbb9 110deg var(--meter-angle),
-      rgba(214, 226, 248, 0.9) var(--meter-angle) 180deg
+      from 180deg at 50% 50%,
+      rgba(220, 228, 243, 0.96) 0 180deg,
+      transparent 180deg 360deg
+    );
+}
+
+.ops-gauge-meter__arc {
+  background:
+    conic-gradient(
+      from 180deg at 50% 50%,
+      #f07b7d 0 38deg,
+      #efad59 38deg 90deg,
+      #f1ce67 90deg 118deg,
+      #8fd7a5 118deg 148deg,
+      #79d2c3 148deg 180deg,
+      transparent 180deg 360deg
     );
 }
 
 .ops-gauge-meter__mask {
   position: absolute;
   left: 50%;
-  bottom: -6%;
-  width: 72%;
-  aspect-ratio: 1 / 1;
+  bottom: 16px;
+  width: 164px;
+  height: 164px;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: rgba(239, 246, 255, 0.98);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 255, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 18px 28px rgba(139, 160, 206, 0.1);
+}
+
+.ops-gauge-meter__marker {
+  position: absolute;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 4px solid var(--marker-color);
+  box-shadow: 0 10px 20px rgba(119, 142, 191, 0.2);
+  transform: translate(-50%, -50%);
 }
 
 .ops-gauge-meter__content {
   position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
+  inset: auto 0 12px;
+  z-index: 2;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
 
   strong {
     color: var(--hl-ink);
-    font-size: clamp(34px, 4vw, 48px);
-    font-weight: 700;
+    font-size: clamp(40px, 4.2vw, 56px);
+    font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
   }
 
   span {
-    color: var(--hl-ink-soft);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
   }
 }
 </style>

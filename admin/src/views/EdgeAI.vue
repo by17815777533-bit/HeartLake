@@ -76,19 +76,7 @@
           </div>
         </div>
 
-        <div class="perf-bars">
-          <article
-            v-for="item in performanceMetrics"
-            :key="item.label"
-            class="perf-bar"
-          >
-            <div class="perf-bar__track">
-              <span :style="{ height: `${Math.max(16, item.percent)}%`, background: item.color }" />
-            </div>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.label }}</small>
-          </article>
-        </div>
+        <OpsMiniBars :items="performanceMetrics" />
       </article>
 
       <article class="edge-card edge-card--queue">
@@ -176,14 +164,11 @@
           </div>
         </div>
 
-        <div class="edge-score">
-          <div class="edge-score__arc" />
-          <div class="edge-score__mask" />
-          <div class="edge-score__content">
-            <strong>{{ edgeHealthScore }}</strong>
-            <span>{{ edgeHealthLabel }}</span>
-          </div>
-        </div>
+        <OpsGaugeMeter
+          :value="edgeHealthScore"
+          :max="100"
+          :label="edgeHealthLabel"
+        />
 
         <div class="score-meta">
           <span>缓存命中 {{ engineStatus.cacheHitRate }}%</span>
@@ -203,6 +188,9 @@ import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
 import { getErrorMessage } from '@/utils/errorHelper'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
+import { createSoftBaseline } from '@/utils/chartSignals'
 
 const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
@@ -233,27 +221,23 @@ const engineStatus = reactive({
 const performanceMetrics = computed(() => [
   {
     label: '响应速度',
-    value: `${engineStatus.avgLatency}ms`,
-    percent: Math.min(100, (engineStatus.avgLatency / 200) * 100),
-    color: engineStatus.avgLatency < 50 ? '#4d8f6b' : engineStatus.avgLatency < 100 ? '#b67a42' : '#a35f5f',
+    value: Math.max(18, 100 - Math.round((engineStatus.avgLatency / 220) * 100)),
+    display: `${engineStatus.avgLatency}ms`,
   },
   {
     label: '命中效率',
-    value: `${engineStatus.cacheHitRate}%`,
-    percent: engineStatus.cacheHitRate,
-    color: engineStatus.cacheHitRate > 80 ? '#4d8f6b' : engineStatus.cacheHitRate > 50 ? '#b67a42' : '#a35f5f',
+    value: Math.max(18, engineStatus.cacheHitRate),
+    display: `${engineStatus.cacheHitRate}%`,
   },
   {
     label: '处理速度',
-    value: `${engineStatus.throughput} req/s`,
-    percent: Math.min(100, (engineStatus.throughput / 500) * 100),
-    color: '#315b6f',
+    value: Math.max(18, Math.min(100, Math.round((engineStatus.throughput / 500) * 100))),
+    display: `${engineStatus.throughput} req/s`,
   },
   {
     label: '累计调用',
-    value: engineStatus.inferenceCount.toLocaleString(),
-    percent: Math.min(100, (engineStatus.inferenceCount / 10000) * 100),
-    color: '#5d6d77',
+    value: Math.max(18, Math.min(100, Math.round((engineStatus.inferenceCount / 10000) * 100))),
+    display: engineStatus.inferenceCount.toLocaleString(),
   },
 ])
 
@@ -325,51 +309,66 @@ const emotionGaugeOption = computed(() => ({
 const emotionPulseLineOption = computed(() => ({
   tooltip: {
     trigger: 'axis',
-    backgroundColor: 'rgba(15, 28, 34, 0.92)',
-    borderColor: 'rgba(208, 221, 226, 0.16)',
+    backgroundColor: 'rgba(36, 49, 75, 0.92)',
+    borderColor: 'rgba(232, 239, 255, 0.14)',
     borderWidth: 1,
-    textStyle: { color: '#edf5f7', fontSize: 12 },
+    textStyle: { color: '#f4f7ff', fontSize: 12 },
     padding: [10, 12],
-    extraCssText: 'box-shadow: 0 16px 34px rgba(2, 10, 14, 0.22); border-radius: 14px;',
+    extraCssText: 'box-shadow: 0 16px 34px rgba(43, 58, 94, 0.24); border-radius: 14px;',
   },
-  grid: { top: 24, right: 20, bottom: 28, left: 42 },
+  grid: { top: 24, right: 18, bottom: 26, left: 40 },
   xAxis: {
     type: 'category',
     data: emotionPulse.timestamps,
     boundaryGap: false,
-    axisLabel: { color: '#5f7882', fontSize: 10 },
-    axisLine: { lineStyle: { color: '#b8c7cd' } },
+    axisLabel: { color: '#7c8baa', fontSize: 10 },
+    axisLine: { show: false, lineStyle: { color: '#d4deef' } },
+    axisTick: { show: false },
   },
   yAxis: {
     type: 'value',
     min: 0,
     max: 100,
-    axisLabel: { color: '#5f7882', fontSize: 10 },
-    splitLine: { lineStyle: { color: 'rgba(89, 118, 129, 0.12)' } },
+    axisLabel: { color: '#7c8baa', fontSize: 10 },
+    axisLine: { show: false },
+    axisTick: { show: false },
+    splitLine: { lineStyle: { color: 'rgba(141, 161, 206, 0.16)', type: 'dashed' } },
   },
-  series: [{
-    type: 'line',
-    data: emotionPulse.history,
-    smooth: true,
-    symbol: 'circle',
-    showSymbol: false,
-    symbolSize: 7,
-    lineStyle: { color: '#315b6f', width: 2.6 },
-    itemStyle: { color: '#315b6f' },
-    areaStyle: {
-      color: {
-        type: 'linear',
-        x: 0,
-        y: 0,
-        x2: 0,
-        y2: 1,
-        colorStops: [
-          { offset: 0, color: 'rgba(49,91,111,0.26)' },
-          { offset: 1, color: 'rgba(49,91,111,0.02)' },
-        ],
+  series: [
+    {
+      name: '情绪波峰',
+      type: 'line',
+      data: emotionPulse.history,
+      smooth: 0.45,
+      symbol: 'circle',
+      showSymbol: false,
+      symbolSize: 7,
+      lineStyle: { color: '#8eaefd', width: 3.2 },
+      itemStyle: { color: '#8eaefd' },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(142,174,253,0.38)' },
+            { offset: 1, color: 'rgba(142,174,253,0.08)' },
+          ],
+        },
       },
     },
-  }],
+    {
+      name: '情绪基线',
+      type: 'line',
+      data: createSoftBaseline(emotionPulse.history),
+      smooth: 0.5,
+      symbol: 'none',
+      lineStyle: { color: '#283245', width: 2.5 },
+      itemStyle: { color: '#283245' },
+    }
+  ],
 }))
 
 const federated = reactive({
@@ -1086,48 +1085,6 @@ onUnmounted(() => {
   }
 }
 
-.perf-bars {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  align-items: end;
-  height: 128px;
-  margin-top: 24px;
-}
-
-.perf-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-
-  strong {
-    color: var(--hl-ink);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  small {
-    color: var(--hl-ink-soft);
-    font-size: 11px;
-    text-align: center;
-  }
-}
-
-.perf-bar__track {
-  width: 100%;
-  height: 86px;
-  display: flex;
-  align-items: end;
-  padding: 0 6px;
-
-  span {
-    width: 100%;
-    border-radius: 999px;
-    box-shadow: 0 8px 18px rgba(125, 157, 255, 0.14);
-  }
-}
-
 .queue-list {
   display: grid;
   gap: 10px;
@@ -1245,64 +1202,6 @@ onUnmounted(() => {
   margin-top: 18px;
 }
 
-.edge-score {
-  position: relative;
-  width: 220px;
-  height: 120px;
-  margin: 34px auto 0;
-  overflow: hidden;
-}
-
-.edge-score__arc,
-.edge-score__mask {
-  position: absolute;
-  left: 50%;
-  width: 220px;
-  border-radius: 220px 220px 0 0;
-  transform: translateX(-50%);
-}
-
-.edge-score__arc {
-  bottom: 0;
-  height: 220px;
-  background: conic-gradient(
-    from 180deg,
-    #f07272 0 18%,
-    #f1c25e 18% 52%,
-    #80dacb 52% 82%,
-    #7ca6ff 82% 100%
-  );
-}
-
-.edge-score__mask {
-  bottom: 16px;
-  height: 188px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.edge-score__content {
-  position: absolute;
-  inset: auto 0 6px;
-  z-index: 1;
-  text-align: center;
-
-  strong {
-    display: block;
-    color: var(--hl-ink);
-    font-size: 50px;
-    font-weight: 800;
-    letter-spacing: -0.05em;
-  }
-
-  span {
-    display: block;
-    margin-top: 2px;
-    color: #62b9ac;
-    font-size: 18px;
-    font-weight: 700;
-  }
-}
-
 .score-meta {
   display: grid;
   gap: 8px;
@@ -1345,11 +1244,6 @@ onUnmounted(() => {
 
   .engine-mini-card--more {
     min-height: 76px;
-  }
-
-  .perf-bars {
-    grid-template-columns: repeat(2, 1fr);
-    height: auto;
   }
 }
 </style>

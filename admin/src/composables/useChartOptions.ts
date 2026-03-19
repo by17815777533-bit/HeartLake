@@ -1,10 +1,10 @@
 /**
  * Dashboard 图表配置工厂，提供各类 ECharts option 的响应式引用。
  *
- * 这一版把图表语言统一成“值守台”风格：
- * - 更克制的坐标轴与网格
- * - 更有层次的面积渐变
- * - 更柔和但不发灰的湖面色板
+ * 这一版把图表语言统一成“软质金融面板”风格：
+ * - 更浅的坐标轴和网格，避免运维大屏感
+ * - 主波形 + 陪伴基线的双层曲线
+ * - 更柔和的蓝、薄荷、蜜桃色板
  * - tooltip / legend / 数据点的细节统一
  */
 import { ref } from 'vue'
@@ -14,33 +14,34 @@ const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c =>
   '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
 }[c] ?? c))
 
-export const moodColors = ['#2f6b78', '#4d8f6b', '#b67a42', '#a35f5f', '#7a8793']
+export const moodColors = ['#8eaefd', '#84d0bb', '#efc37b', '#ef9a95', '#b7c3df']
 export const moodNames = ['开心', '平静', '难过', '焦虑', '其他']
 export const moodGradients = [
-  { start: '#77b6c4', end: '#2f6b78' },
-  { start: '#87ba95', end: '#4d8f6b' },
-  { start: '#e6bb7f', end: '#b67a42' },
-  { start: '#d48c8c', end: '#a35f5f' },
-  { start: '#b7c2ca', end: '#7a8793' },
+  { start: '#b9ccff', end: '#8eaefd' },
+  { start: '#b7eadf', end: '#84d0bb' },
+  { start: '#f6d8a2', end: '#efc37b' },
+  { start: '#f4bcb8', end: '#ef9a95' },
+  { start: '#d2dbef', end: '#b7c3df' },
 ]
 
-const axisLineColor = '#b8c7cd'
-const splitLineColor = 'rgba(89, 118, 129, 0.12)'
-const axisLabelColor = '#5f7882'
+const axisLineColor = '#d4deef'
+const splitLineColor = 'rgba(141, 161, 206, 0.16)'
+const axisLabelColor = '#7c8baa'
 const tooltipBase = {
   trigger: 'axis',
-  backgroundColor: 'rgba(15, 28, 34, 0.92)',
-  borderColor: 'rgba(208, 221, 226, 0.16)',
+  backgroundColor: 'rgba(36, 49, 75, 0.92)',
+  borderColor: 'rgba(232, 239, 255, 0.14)',
   borderWidth: 1,
-  textStyle: { color: '#edf5f7', fontSize: 12 },
+  textStyle: { color: '#f4f7ff', fontSize: 12 },
   padding: [10, 12],
-  extraCssText: 'box-shadow: 0 16px 34px rgba(2, 10, 14, 0.22); border-radius: 14px;',
+  extraCssText: 'box-shadow: 0 16px 34px rgba(43, 58, 94, 0.24); border-radius: 14px;',
 } as const
 
-const softGrid = { left: 48, right: 18, top: 26, bottom: 34 }
+const softGrid = { left: 44, right: 20, top: 28, bottom: 30 }
 const softAxis = {
-  axisLine: { lineStyle: { color: axisLineColor } },
-  axisLabel: { color: axisLabelColor, fontSize: 11 },
+  axisLine: { show: false, lineStyle: { color: axisLineColor } },
+  axisTick: { show: false },
+  axisLabel: { color: axisLabelColor, fontSize: 11, margin: 14 },
 }
 
 const lineArea = (from: string, to: string) => ({
@@ -62,9 +63,11 @@ export function useChartOptions() {
     tooltip: {
       ...tooltipBase,
       formatter: (params: EChartsTooltipParam[]) => {
-        const point = params[0]
-        const name = escapeHtml(point?.name ?? '')
-        return `<div style="font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">${name}</div><div style="color:#9ed0db;">新增 ${Number(point?.value ?? 0)} 位旅人</div>`
+        const rows = Array.isArray(params) ? params : [params]
+        const mainPoint = rows.find(item => item.seriesName === '旅人波峰') ?? rows[0]
+        const basePoint = rows.find(item => item.seriesName === '陪伴基线')
+        const name = escapeHtml(mainPoint?.name ?? '')
+        return `<div style="font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">${name}</div><div style="color:#d9e4ff;">主波形 ${Number(mainPoint?.value ?? 0)} 位</div>${basePoint ? `<div style="color:#b9c6ea; margin-top:2px;">基线 ${Number(basePoint.value ?? 0)} 位</div>` : ''}`
       },
     },
     grid: softGrid,
@@ -77,25 +80,40 @@ export function useChartOptions() {
     yAxis: {
       type: 'value',
       splitNumber: 4,
-      splitLine: { lineStyle: { color: splitLineColor } },
+      splitLine: { lineStyle: { color: splitLineColor, type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: { color: axisLabelColor, fontSize: 11 },
     },
-    series: [{
-      name: '新增用户',
-      type: 'line',
-      smooth: 0.35,
-      symbol: 'circle',
-      symbolSize: 8,
-      showSymbol: false,
-      data: [],
-      itemStyle: {
-        color: '#2f6b78',
-        borderColor: '#f8fcfd',
-        borderWidth: 2,
+    series: [
+      {
+        name: '旅人波峰',
+        type: 'line',
+        smooth: 0.42,
+        symbol: 'circle',
+        symbolSize: 7,
+        showSymbol: false,
+        data: [],
+        z: 2,
+        itemStyle: {
+          color: '#8eaefd',
+          borderColor: '#f8fbff',
+          borderWidth: 2,
+        },
+        lineStyle: { color: '#8eaefd', width: 3.4 },
+        areaStyle: lineArea('rgba(142, 174, 253, 0.38)', 'rgba(142, 174, 253, 0.08)'),
       },
-      lineStyle: { color: '#2f6b78', width: 3 },
-      areaStyle: lineArea('rgba(47, 107, 120, 0.22)', 'rgba(47, 107, 120, 0.02)'),
-    }],
+      {
+        name: '陪伴基线',
+        type: 'line',
+        smooth: 0.5,
+        symbol: 'none',
+        data: [],
+        z: 3,
+        lineStyle: { color: '#283245', width: 2.6 },
+        itemStyle: { color: '#283245' },
+      }
+    ],
   })
 
   const moodTrendOption = ref({
@@ -116,7 +134,9 @@ export function useChartOptions() {
     yAxis: {
       type: 'value',
       splitNumber: 4,
-      splitLine: { lineStyle: { color: splitLineColor } },
+      splitLine: { lineStyle: { color: splitLineColor, type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: { color: axisLabelColor, fontSize: 11 },
     },
     series: moodNames.map((name, i) => ({
@@ -127,9 +147,9 @@ export function useChartOptions() {
       symbolSize: 6,
       showSymbol: false,
       data: [],
-      itemStyle: { color: moodColors[i], borderColor: '#f7fbfc', borderWidth: 2 },
-      lineStyle: { color: moodColors[i], width: 2.4 },
-      areaStyle: lineArea(`${moodColors[i]}22`, `${moodColors[i]}02`),
+      itemStyle: { color: moodColors[i], borderColor: '#f7fbff', borderWidth: 2 },
+      lineStyle: { color: moodColors[i], width: 2.6 },
+      areaStyle: lineArea(`${moodColors[i]}35`, `${moodColors[i]}06`),
     })),
   })
 
@@ -193,26 +213,40 @@ export function useChartOptions() {
     yAxis: {
       type: 'value',
       splitNumber: 4,
-      splitLine: { lineStyle: { color: splitLineColor } },
+      splitLine: { lineStyle: { color: splitLineColor, type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: { color: axisLabelColor, fontSize: 11 },
     },
     series: [{
       type: 'bar',
-      barWidth: '52%',
+      barWidth: '48%',
       data: [],
       itemStyle: {
-        borderRadius: [10, 10, 2, 2],
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [
-            { offset: 0, color: '#7bb0bb' },
-            { offset: 1, color: '#2f6b78' },
-          ],
-        },
+        borderRadius: [18, 18, 6, 6],
+        color: (params: { dataIndex: number }) => params.dataIndex % 2 === 0
+          ? {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: '#9cb8ff' },
+                { offset: 1, color: '#7d9ff4' },
+              ],
+            }
+          : {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(255, 255, 255, 0.98)' },
+                { offset: 1, color: 'rgba(233, 240, 255, 0.96)' },
+              ],
+            },
       },
     }],
   })
@@ -231,34 +265,34 @@ export function useChartOptions() {
         lineStyle: {
           width: 18,
           color: [
-            [0.25, '#6f9dab'],
-            [0.5, '#4d8f6b'],
-            [0.75, '#d09a54'],
-            [1, '#a35f5f'],
+            [0.22, '#f08686'],
+            [0.5, '#f0b761'],
+            [0.76, '#9cd99c'],
+            [1, '#78d4c4'],
           ],
         },
       },
       pointer: {
         icon: 'path://M10 0 L20 42 L0 42 Z',
-        length: '54%',
-        width: 10,
+        length: '52%',
+        width: 8,
         offsetCenter: [0, '-10%'],
-        itemStyle: { color: '#1f3942' },
+        itemStyle: { color: '#2e3445' },
       },
       anchor: {
         show: true,
-        size: 14,
-        itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
+        size: 12,
+        itemStyle: { color: '#ffffff', borderColor: '#2e3445', borderWidth: 3 },
       },
-      axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
-      splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
+      axisTick: { length: 6, lineStyle: { color: 'auto', width: 1.2 } },
+      splitLine: { length: 12, lineStyle: { color: 'auto', width: 2.1 } },
       axisLabel: { color: axisLabelColor, fontSize: 10, distance: -42 },
       title: { offsetCenter: [0, '22%'], fontSize: 13, color: axisLabelColor },
       detail: {
         fontSize: 30,
         offsetCenter: [0, '48%'],
         valueAnimation: true,
-        color: '#213840',
+        color: '#2d364a',
         formatter: '{value}°',
       },
       data: [{ value: 50, name: '情绪温度' }],
@@ -284,7 +318,9 @@ export function useChartOptions() {
     yAxis: {
       type: 'value',
       splitNumber: 4,
-      splitLine: { lineStyle: { color: splitLineColor } },
+      splitLine: { lineStyle: { color: splitLineColor, type: 'dashed' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: { color: axisLabelColor, fontSize: 11 },
     },
     series: [
@@ -294,9 +330,9 @@ export function useChartOptions() {
         smooth: true,
         showSymbol: false,
         data: [],
-        lineStyle: { color: '#4d8f6b', width: 2.4 },
-        itemStyle: { color: '#4d8f6b' },
-        areaStyle: lineArea('rgba(77, 143, 107, 0.22)', 'rgba(77, 143, 107, 0.02)'),
+        lineStyle: { color: '#84d0bb', width: 2.8 },
+        itemStyle: { color: '#84d0bb' },
+        areaStyle: lineArea('rgba(132, 208, 187, 0.26)', 'rgba(132, 208, 187, 0.04)'),
       },
       {
         name: '中性',
@@ -304,9 +340,9 @@ export function useChartOptions() {
         smooth: true,
         showSymbol: false,
         data: [],
-        lineStyle: { color: '#b67a42', width: 2.4 },
-        itemStyle: { color: '#b67a42' },
-        areaStyle: lineArea('rgba(182, 122, 66, 0.2)', 'rgba(182, 122, 66, 0.02)'),
+        lineStyle: { color: '#efc37b', width: 2.8 },
+        itemStyle: { color: '#efc37b' },
+        areaStyle: lineArea('rgba(239, 195, 123, 0.24)', 'rgba(239, 195, 123, 0.04)'),
       },
       {
         name: '消极',
@@ -314,9 +350,9 @@ export function useChartOptions() {
         smooth: true,
         showSymbol: false,
         data: [],
-        lineStyle: { color: '#a35f5f', width: 2.4 },
-        itemStyle: { color: '#a35f5f' },
-        areaStyle: lineArea('rgba(163, 95, 95, 0.2)', 'rgba(163, 95, 95, 0.02)'),
+        lineStyle: { color: '#ef9a95', width: 2.8 },
+        itemStyle: { color: '#ef9a95' },
+        areaStyle: lineArea('rgba(239, 154, 149, 0.24)', 'rgba(239, 154, 149, 0.04)'),
       },
     ],
   })

@@ -88,16 +88,7 @@
           </el-select>
         </div>
 
-        <div class="pulse-bars">
-          <div
-            v-for="bar in pulseBars"
-            :key="bar.label"
-            class="pulse-bar"
-          >
-            <span :style="{ height: `${bar.height}%` }" />
-            <small>{{ bar.label }}</small>
-          </div>
-        </div>
+        <OpsMiniBars :items="pulseBars" />
       </article>
 
       <article class="dashboard-card dashboard-card--activity">
@@ -192,14 +183,11 @@
           </button>
         </div>
 
-        <div class="score-meter">
-          <div class="score-meter__arc" />
-          <div class="score-meter__mask" />
-          <div class="score-meter__content">
-            <strong>{{ communityScore }}</strong>
-            <span>{{ communityScoreLabel }}</span>
-          </div>
-        </div>
+        <OpsGaugeMeter
+          :value="communityScore"
+          :max="100"
+          :label="communityScoreLabel"
+        />
 
         <button
           type="button"
@@ -220,6 +208,8 @@ import dayjs from 'dayjs'
 import VChart from 'vue-echarts'
 import { Download, RefreshRight } from '@element-plus/icons-vue'
 import { useDashboardData } from '@/composables/useDashboardData'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 
 const router = useRouter()
 
@@ -267,12 +257,12 @@ const highlightCards = computed(() => [
 const pulseBars = computed(() => {
   const source = trendingTopics.value.slice(0, 6).map((item) => Number(item.count || 0))
   const values = source.length ? source : [42, 58, 76, 64, 84, 50]
-  const max = Math.max(...values, 1)
   const labels = ['周一', '周二', '周三', '周四', '周五', '周六']
 
   return values.map((value, index) => ({
     label: labels[index] || `序列${index + 1}`,
-    height: Math.max(24, Math.round((value / max) * 100)),
+    value,
+    display: `${value}`,
   }))
 })
 
@@ -591,36 +581,6 @@ onUnmounted(() => {
   width: 96px;
 }
 
-.pulse-bars {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 10px;
-  height: 124px;
-  margin-top: 26px;
-}
-
-.pulse-bar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-
-  span {
-    width: 100%;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(144, 175, 255, 0.96), rgba(125, 157, 255, 0.96));
-    box-shadow: 0 8px 18px rgba(125, 157, 255, 0.18);
-  }
-
-  small {
-    color: var(--hl-ink-soft);
-    font-size: 11px;
-  }
-}
-
 .activity-list {
   display: grid;
   gap: 10px;
@@ -728,64 +688,6 @@ onUnmounted(() => {
 .dashboard-chart {
   height: 250px;
   margin-top: 18px;
-}
-
-.score-meter {
-  position: relative;
-  width: 220px;
-  height: 120px;
-  margin: 34px auto 0;
-  overflow: hidden;
-}
-
-.score-meter__arc,
-.score-meter__mask {
-  position: absolute;
-  left: 50%;
-  width: 220px;
-  border-radius: 220px 220px 0 0;
-  transform: translateX(-50%);
-}
-
-.score-meter__arc {
-  bottom: 0;
-  height: 220px;
-  background: conic-gradient(
-    from 180deg,
-    #f07272 0 18%,
-    #f1c25e 18% 52%,
-    #80dacb 52% 82%,
-    #7ca6ff 82% 100%
-  );
-}
-
-.score-meter__mask {
-  bottom: 16px;
-  height: 188px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.98));
-}
-
-.score-meter__content {
-  position: absolute;
-  inset: auto 0 6px;
-  z-index: 1;
-  text-align: center;
-
-  strong {
-    display: block;
-    color: var(--hl-ink);
-    font-size: 50px;
-    font-weight: 800;
-    letter-spacing: -0.05em;
-  }
-
-  span {
-    display: block;
-    margin-top: 2px;
-    color: #62b9ac;
-    font-size: 18px;
-    font-weight: 700;
-  }
 }
 
 @media (max-width: 1180px) {

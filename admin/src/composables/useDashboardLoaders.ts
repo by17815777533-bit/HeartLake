@@ -17,6 +17,7 @@ import type {
   PrivacyStats, ResonanceStats,
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
+import { createSoftBaseline } from '@/utils/chartSignals'
 
 const POSITIVE_MOODS = new Set(['开心', 'positive', 'joy', 'happy'])
 const NEGATIVE_MOODS = new Set(['难过', '焦虑', 'negative', 'sad', 'anxious'])
@@ -105,8 +106,12 @@ export function useDashboardLoaders({
       const raw = res.data?.data || res.data
       const list = Array.isArray(raw) ? raw : (raw?.list || [])
       if (list.length) {
+        const counts = list.map((item: GrowthDataItem) => item.count)
         userGrowthOption.value.xAxis.data = list.map((item: GrowthDataItem) => item.date)
-        userGrowthOption.value.series[0].data = list.map((item: GrowthDataItem) => item.count)
+        userGrowthOption.value.series[0].data = counts
+        if (userGrowthOption.value.series[1]) {
+          userGrowthOption.value.series[1].data = createSoftBaseline(counts)
+        }
       }
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
