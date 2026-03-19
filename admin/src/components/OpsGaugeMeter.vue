@@ -43,9 +43,9 @@ const labelColor = computed(() => {
 
 const markerStyle = computed(() => {
   const angle = Math.PI * (1 - ratio.value)
-  const radius = 92
-  const centerX = 120
-  const centerY = 122
+  const radius = 80
+  const centerX = 104
+  const centerY = 106
 
   return {
     left: `${centerX + radius * Math.cos(angle)}px`,
@@ -63,7 +63,7 @@ const markerStyle = computed(() => {
 
 .ops-gauge-meter__dial {
   position: relative;
-  width: min(248px, 100%);
+  width: min(214px, 100%);
   aspect-ratio: 1 / 0.72;
   overflow: hidden;
   animation: gauge-settle 460ms ease-out both;
@@ -74,12 +74,12 @@ const markerStyle = computed(() => {
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: 228px;
-  height: 228px;
+  width: 198px;
+  height: 198px;
   transform: translateX(-50%);
   border-radius: 50%;
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 70%, transparent 71% 100%);
-  mask: radial-gradient(circle at 50% 50%, transparent 0 58%, #000 59% 70%, transparent 71% 100%);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 56%, #000 57% 69%, transparent 70% 100%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0 56%, #000 57% 69%, transparent 70% 100%);
 }
 
 .ops-gauge-meter__track {
@@ -107,9 +107,9 @@ const markerStyle = computed(() => {
 .ops-gauge-meter__mask {
   position: absolute;
   left: 50%;
-  bottom: 16px;
-  width: 164px;
-  height: 164px;
+  bottom: 12px;
+  width: 142px;
+  height: 142px;
   transform: translateX(-50%);
   border-radius: 50%;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 255, 0.98));
@@ -121,8 +121,8 @@ const markerStyle = computed(() => {
 .ops-gauge-meter__marker {
   position: absolute;
   z-index: 2;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ffffff;
   border: 4px solid var(--marker-color);
@@ -133,22 +133,22 @@ const markerStyle = computed(() => {
 
 .ops-gauge-meter__content {
   position: absolute;
-  inset: auto 0 12px;
+  inset: auto 0 10px;
   z-index: 2;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   justify-items: center;
 
   strong {
     color: var(--hl-ink);
-    font-size: clamp(40px, 4.2vw, 56px);
+    font-size: clamp(34px, 4vw, 46px);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
   }
 
   span {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
   }
 }

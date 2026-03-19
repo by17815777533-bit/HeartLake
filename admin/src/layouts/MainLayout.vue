@@ -344,16 +344,16 @@ onUnmounted(() => {
 
 .main-layout {
   min-height: 100vh;
-  padding: 24px;
+  padding: 18px;
 }
 
 .workspace-shell {
-  width: min(1480px, 100%);
+  width: min(1420px, 100%);
   margin: 0 auto;
-  min-height: calc(100vh - 40px);
-  padding: 22px 26px 30px;
-  border-radius: 34px;
-  border: 9px solid rgba(255, 255, 255, 0.98);
+  min-height: calc(100vh - 36px);
+  padding: 18px 20px 24px;
+  border-radius: 32px;
+  border: 8px solid rgba(255, 255, 255, 0.98);
   background:
     radial-gradient(circle at 84% 84%, rgba(196, 240, 231, 0.4), transparent 18%),
     radial-gradient(circle at 14% 10%, rgba(194, 211, 255, 0.34), transparent 20%),
@@ -367,9 +367,9 @@ onUnmounted(() => {
 .workspace-shell__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 22px;
+  gap: 16px;
   align-items: center;
-  padding-bottom: 20px;
+  padding-bottom: 16px;
 }
 
 .brand-mark {
@@ -383,8 +383,8 @@ onUnmounted(() => {
 }
 
 .brand-mark__icon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -403,13 +403,13 @@ onUnmounted(() => {
 
   strong {
     color: var(--hl-ink);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
   }
 
   span {
     color: var(--hl-ink-soft);
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.08em;
   }
 }
@@ -418,53 +418,52 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
   overflow-x: auto;
-  padding: 4px 6px;
-  border-radius: 999px;
-  background: rgba(233, 241, 255, 0.56);
+  padding: 0 2px;
+  background: transparent;
 }
 
 .top-nav__item {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 28px;
+  padding: 0 8px;
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   background: transparent;
   color: #273149;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--m3-transition);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.48);
+    color: var(--hl-ink);
   }
 
   &.is-active {
     color: var(--hl-ink);
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 8px 16px rgba(111, 139, 187, 0.08);
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 6px 12px rgba(111, 139, 187, 0.08);
   }
 }
 
 .workspace-shell__tools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   position: relative;
 }
 
 .shell-search {
   position: relative;
-  width: min(278px, 22vw);
+  width: min(266px, 20vw);
 
   :deep(.el-input__wrapper) {
-    min-height: 42px;
+    min-height: 40px;
     border-radius: 999px !important;
-    background: rgba(231, 240, 253, 0.78) !important;
+    background: rgba(236, 243, 255, 0.88) !important;
     border: 1px solid rgba(164, 183, 224, 0.28);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   }
@@ -528,8 +527,8 @@ onUnmounted(() => {
 .header-icon-btn,
 .header-account {
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: none;
@@ -561,7 +560,7 @@ onUnmounted(() => {
 
 .main-content {
   min-height: 0;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .main-content :deep(.ops-page),

@@ -39,6 +39,11 @@
           </button>
         </div>
 
+        <div class="balance-section-title">
+          <span>湖卡速览</span>
+          <small>把表达、陪伴和快捷入口收进同一张卡面</small>
+        </div>
+
         <div class="balance-stack">
           <article
             v-for="item in highlightCards"
@@ -268,7 +273,7 @@ const pulseBars = computed(() => {
 
 const activityRows = computed(() => {
   if (aiTrendingContent.value.length) {
-    return aiTrendingContent.value.slice(0, 5).map((item, index) => ({
+    return aiTrendingContent.value.slice(0, 4).map((item, index) => ({
       id: item.id,
       badge: String(index + 1),
       title: item.content.length > 16 ? `${item.content.slice(0, 16)}...` : item.content,
@@ -278,23 +283,60 @@ const activityRows = computed(() => {
     }))
   }
 
-  return trendingTopics.value.slice(0, 5).map((item, index) => ({
-    id: `${item.keyword}-${index}`,
-    badge: String(index + 1),
-    title: item.keyword,
-    meta: '热度话题',
-    value: `${item.count}条`,
-    tone: 'is-neutral',
-  }))
+  if (trendingTopics.value.length) {
+    return trendingTopics.value.slice(0, 4).map((item, index) => ({
+      id: `${item.keyword}-${index}`,
+      badge: String(index + 1),
+      title: item.keyword,
+      meta: '热度话题',
+      value: `${item.count}条`,
+      tone: 'is-neutral',
+    }))
+  }
+
+  return [
+    {
+      id: 'traveler-count',
+      badge: '旅',
+      title: '累计旅人',
+      meta: '当前账户池',
+      value: `${formattedTravelerCount.value} 人`,
+      tone: 'is-neutral',
+    },
+    {
+      id: 'online-count',
+      badge: '活',
+      title: '在线陪伴',
+      meta: '湖面实时活跃',
+      value: `${formatNumber(Number(stats.onlineCount || 0))} 人`,
+      tone: 'is-up',
+    },
+    {
+      id: 'stone-count',
+      badge: '石',
+      title: '今日投石',
+      meta: '公开表达条数',
+      value: `${formatNumber(Number(stats.todayStones || 0))} 条`,
+      tone: 'is-up',
+    },
+    {
+      id: 'report-count',
+      badge: '报',
+      title: '待处理提醒',
+      meta: '守护队列待办',
+      value: `${formatNumber(Number(stats.pendingReports || 0))} 条`,
+      tone: 'is-neutral',
+    },
+  ]
 })
 
 const guideCopy = computed(() => {
   const topTopic = trendingTopics.value[0]?.keyword
   if (topTopic) {
-    return `今天最明显的话题是“${topTopic}”。建议把温和引导文案提前放到高峰期入口，避免在情绪抬头后再被动处理。`
+    return `今天的话题重心是“${topTopic}”。建议把引导文案提前放到高峰入口，别等情绪抬头后再被动处理。`
   }
 
-  return '当前没有明显突刺话题，适合继续观察旅人增长曲线和求助提醒的变化。'
+  return '当前没有明显突刺话题，适合继续观察增长曲线和求助提醒的变化。'
 })
 
 const communityScore = computed(() => {
@@ -370,19 +412,20 @@ onUnmounted(() => {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.72fr) minmax(220px, 0.92fr) minmax(280px, 1.08fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(180px, 0.82fr) minmax(250px, 1.02fr);
   grid-template-areas:
     "balance pulse activity"
     "balance guide activity"
     "chart chart score";
-  gap: 18px;
+  gap: 16px;
+  align-items: start;
 }
 
 .dashboard-card {
   position: relative;
   overflow: hidden;
-  padding: 20px 22px;
-  border-radius: 26px;
+  padding: 18px 18px 16px;
+  border-radius: 24px;
   border: 1px solid rgba(160, 179, 215, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 255, 0.98));
   box-shadow:
@@ -406,30 +449,30 @@ onUnmounted(() => {
 .dashboard-card:nth-child(5) { animation-delay: 200ms; }
 .dashboard-card:nth-child(6) { animation-delay: 250ms; }
 
-.dashboard-card--balance { grid-area: balance; min-height: 386px; }
-.dashboard-card--pulse { grid-area: pulse; min-height: 182px; }
-.dashboard-card--activity { grid-area: activity; min-height: 386px; background: linear-gradient(180deg, rgba(224, 246, 240, 0.94), rgba(214, 239, 232, 0.98)); }
-.dashboard-card--guide { grid-area: guide; min-height: 186px; background: linear-gradient(180deg, rgba(228, 245, 239, 0.94), rgba(219, 240, 234, 0.98)); }
-.dashboard-card--chart { grid-area: chart; min-height: 304px; }
-.dashboard-card--score { grid-area: score; min-height: 304px; }
+.dashboard-card--balance { grid-area: balance; min-height: clamp(280px, 39vh, 312px); }
+.dashboard-card--pulse { grid-area: pulse; min-height: clamp(126px, 16vh, 144px); }
+.dashboard-card--activity { grid-area: activity; min-height: clamp(280px, 39vh, 312px); background: linear-gradient(180deg, rgba(224, 246, 240, 0.94), rgba(214, 239, 232, 0.98)); }
+.dashboard-card--guide { grid-area: guide; min-height: clamp(138px, 18vh, 156px); background: linear-gradient(180deg, rgba(228, 245, 239, 0.94), rgba(219, 240, 234, 0.98)); }
+.dashboard-card--chart { grid-area: chart; min-height: clamp(228px, 31vh, 254px); }
+.dashboard-card--score { grid-area: score; min-height: clamp(228px, 31vh, 254px); }
 
 .card-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 
   h2,
   h3 {
     margin: 8px 0 0;
     color: var(--hl-ink);
-    font-size: 26px;
+    font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.03em;
   }
 
   h3 {
-    font-size: 22px;
+    font-size: 17px;
   }
 }
 
@@ -437,10 +480,10 @@ onUnmounted(() => {
 .card-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -466,57 +509,77 @@ onUnmounted(() => {
 }
 
 .balance-total {
-  margin-top: 18px;
+  margin-top: 14px;
 
   > span {
     display: block;
     color: var(--hl-ink-soft);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   p {
-    max-width: 34rem;
-    margin-top: 10px;
+    max-width: 32rem;
+    margin-top: 8px;
     color: var(--hl-ink-soft);
-    font-size: 13px;
-    line-height: 1.7;
+    font-size: 12px;
+    line-height: 1.62;
   }
 }
 
 .balance-total__value {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--hl-ink);
-  font-size: clamp(42px, 5vw, 56px);
+  font-size: clamp(38px, 4.8vw, 52px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
 
   small {
-    margin-left: 6px;
+    margin-left: 4px;
     color: #8da5db;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 700;
   }
 }
 
 .balance-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.balance-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 18px;
+
+  span {
+    color: var(--hl-ink);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  small {
+    color: var(--hl-ink-soft);
+    font-size: 11px;
+    text-align: right;
+  }
 }
 
 .balance-action {
-  min-width: 124px;
-  height: 40px;
+  min-width: 110px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   border: none;
   border-radius: 999px;
   background: rgba(244, 249, 255, 0.9);
   color: var(--hl-ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
@@ -530,18 +593,18 @@ onUnmounted(() => {
 
 .balance-stack {
   display: grid;
-  grid-template-columns: 1fr 1fr 56px;
+  grid-template-columns: 1fr 1fr 48px;
   gap: 12px;
   align-items: end;
-  margin-top: 28px;
+  margin-top: 14px;
 }
 
 .balance-mini-card {
   position: relative;
-  min-height: 132px;
-  padding: 16px;
+  min-height: 104px;
+  padding: 14px 14px 12px;
   border: none;
-  border-radius: 22px;
+  border-radius: 20px;
   text-align: left;
   box-shadow: 0 16px 28px rgba(120, 146, 194, 0.12);
   overflow: hidden;
@@ -557,15 +620,15 @@ onUnmounted(() => {
   }
 
   &::before {
-    top: 18px;
-    width: 52px;
-    height: 52px;
+    top: 14px;
+    width: 42px;
+    height: 42px;
   }
 
   &::after {
-    top: 30px;
-    width: 72px;
-    height: 72px;
+    top: 24px;
+    width: 58px;
+    height: 58px;
   }
 
   span,
@@ -575,21 +638,21 @@ onUnmounted(() => {
 
   span {
     color: rgba(35, 45, 67, 0.74);
-    font-size: 12px;
+    font-size: 11px;
   }
 
   strong {
     display: block;
-    margin-top: 28px;
+    margin-top: 18px;
     color: #1d2740;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
   }
 
   small {
-    margin-top: 8px;
+    margin-top: 6px;
     color: rgba(35, 45, 67, 0.62);
-    font-size: 12px;
+    font-size: 11px;
   }
 }
 
@@ -602,7 +665,7 @@ onUnmounted(() => {
 }
 
 .balance-mini-card--more {
-  min-height: 136px;
+  min-height: 104px;
   display: grid;
   place-items: center;
   background: #212121;
@@ -615,42 +678,49 @@ onUnmounted(() => {
 
   span {
     color: #ffffff;
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 300;
   }
 }
 
 .range-select {
-  width: 92px;
+  width: 84px;
 }
 
 .activity-list {
   display: grid;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .activity-item {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid rgba(122, 163, 157, 0.16);
+  animation: list-item-in 360ms ease both;
 }
+
+.activity-item:nth-child(1) { animation-delay: 90ms; }
+.activity-item:nth-child(2) { animation-delay: 130ms; }
+.activity-item:nth-child(3) { animation-delay: 170ms; }
+.activity-item:nth-child(4) { animation-delay: 210ms; }
 
 .activity-item:last-child {
   border-bottom: none;
 }
 
 .activity-item__avatar {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--hl-ink);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -660,7 +730,7 @@ onUnmounted(() => {
   strong {
     display: block;
     color: var(--hl-ink);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -669,14 +739,14 @@ onUnmounted(() => {
 
   span {
     display: block;
-    margin-top: 4px;
+    margin-top: 3px;
     color: var(--hl-ink-soft);
-    font-size: 12px;
+    font-size: 11px;
   }
 }
 
 .activity-item__value {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -692,37 +762,39 @@ onUnmounted(() => {
 }
 
 .dashboard-card--guide::before {
-  width: 112px;
-  height: 112px;
-  right: 22px;
-  bottom: 18px;
+  width: 92px;
+  height: 92px;
+  right: 18px;
+  bottom: 14px;
+  animation: guide-orbit 7s ease-in-out infinite;
 }
 
 .dashboard-card--guide::after {
-  width: 74px;
-  height: 74px;
-  right: 88px;
-  bottom: 44px;
+  width: 62px;
+  height: 62px;
+  right: 74px;
+  bottom: 34px;
+  animation: guide-orbit 7s ease-in-out infinite reverse;
 }
 
 .guide-copy {
-  max-width: 28ch;
-  margin: 14px 0 0;
+  max-width: 26ch;
+  margin: 10px 0 0;
   color: var(--hl-ink);
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 12px;
+  line-height: 1.62;
 }
 
 .guide-button,
 .score-button {
-  margin-top: 18px;
-  height: 40px;
-  padding: 0 18px;
+  margin-top: 14px;
+  height: 36px;
+  padding: 0 16px;
   border: none;
   border-radius: 999px;
   background: linear-gradient(180deg, #8cb2ff, #789cf2);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(120, 156, 242, 0.22);
@@ -735,16 +807,16 @@ onUnmounted(() => {
 }
 
 .dashboard-chart {
-  height: 220px;
-  margin-top: 16px;
+  height: 168px;
+  margin-top: 10px;
 }
 
 .dashboard-card--pulse :deep(.ops-mini-bars) {
-  min-height: 138px;
+  min-height: 108px;
 }
 
 .dashboard-card--score :deep(.ops-gauge-meter__dial) {
-  width: min(220px, 100%);
+  width: min(198px, 100%);
 }
 
 @keyframes dashboard-card-in {
@@ -755,6 +827,27 @@ onUnmounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes list-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes guide-orbit {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
   }
 }
 

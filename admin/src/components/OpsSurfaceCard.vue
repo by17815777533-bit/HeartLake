@@ -81,8 +81,8 @@ withDefaults(defineProps<{
   position: relative;
   overflow: hidden;
   min-height: 100%;
-  padding: 24px 24px 22px;
-  border-radius: 28px;
+  padding: 20px 20px 18px;
+  border-radius: 24px;
   border: 1px solid rgba(166, 184, 220, 0.18);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 247, 255, 0.98));
@@ -90,6 +90,16 @@ withDefaults(defineProps<{
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
     0 18px 34px rgba(107, 130, 173, 0.1);
   transition: transform 180ms ease, box-shadow 180ms ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 42%;
+    height: 54%;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.52), transparent 72%);
+    pointer-events: none;
+  }
 
   &:hover {
     transform: translateY(-3px);
@@ -100,8 +110,8 @@ withDefaults(defineProps<{
 }
 
 .ops-surface-card.is-compact {
-  padding: 20px;
-  border-radius: 24px;
+  padding: 18px;
+  border-radius: 22px;
 }
 
 .ops-surface-card.is-mint {
@@ -158,7 +168,7 @@ withDefaults(defineProps<{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 }
 
 .ops-surface-card__titles {
@@ -169,8 +179,8 @@ withDefaults(defineProps<{
 .ops-surface-card__chip {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 12px;
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
@@ -185,9 +195,9 @@ withDefaults(defineProps<{
 }
 
 .ops-surface-card__title {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--hl-ink);
-  font-size: clamp(20px, 2.5vw, 30px);
+  font-size: clamp(18px, 2.2vw, 26px);
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.04;
@@ -218,8 +228,8 @@ withDefaults(defineProps<{
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 18px;
-  margin-top: 18px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .ops-surface-card.has-media .ops-surface-card__content {
@@ -240,8 +250,8 @@ withDefaults(defineProps<{
 
 @media (max-width: 720px) {
   .ops-surface-card {
-    padding: 20px;
-    border-radius: 28px;
+    padding: 18px;
+    border-radius: 24px;
   }
 
   .ops-surface-card.has-media .ops-surface-card__content {

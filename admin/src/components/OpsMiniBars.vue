@@ -44,55 +44,38 @@ const normalizedItems = computed(() => {
 <style scoped lang="scss">
 .ops-mini-bars {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
-  gap: 10px;
-  align-items: stretch;
-  min-height: 160px;
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+  gap: 12px;
+  align-items: end;
+  min-height: 118px;
 }
 
 .ops-mini-bars__item {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 6px;
+  gap: 8px;
   justify-items: center;
   min-width: 0;
-  padding: 10px 8px 12px;
-  border-radius: 22px;
-  border: 1px solid rgba(151, 171, 219, 0.16);
-  background: linear-gradient(180deg, rgba(239, 245, 255, 0.96), rgba(229, 239, 255, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.88),
-    0 12px 20px rgba(134, 160, 220, 0.08);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.88),
-      0 16px 26px rgba(134, 160, 220, 0.12);
   }
 }
 
 .ops-mini-bars__track {
   position: relative;
-  width: 100%;
-  height: 92px;
+  width: 30px;
+  height: 74px;
   display: flex;
   align-items: end;
   justify-content: center;
-  padding: 8px 0 4px;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    width: 30px;
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(236, 242, 255, 0.44));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  }
+  padding: 4px 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(236, 242, 255, 0.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    inset 0 -1px 0 rgba(152, 174, 224, 0.08);
 
   span {
     position: relative;
@@ -107,12 +90,12 @@ const normalizedItems = computed(() => {
 }
 
 .ops-mini-bars__item strong {
-  min-width: 100%;
-  padding: 6px 8px;
+  min-width: 34px;
+  padding: 5px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: #1f2d44;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -133,7 +116,7 @@ const normalizedItems = computed(() => {
 }
 
 .ops-mini-bars__item.is-peak {
-  background: linear-gradient(180deg, rgba(228, 238, 255, 0.98), rgba(214, 229, 255, 0.98));
+  transform: translateY(-2px);
 }
 
 .ops-mini-bars__item.is-peak .ops-mini-bars__track span {
