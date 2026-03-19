@@ -110,6 +110,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Guide"
+          title="复核建议"
+          :chip="`${dominantReason.count} 条同类触发`"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>主要触发</span>
+              <strong>{{ dominantReason.reason }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>高危数量</span>
+              <strong>{{ pendingList.filter((item) => getRiskPercent(item.ai_score) >= 85).length }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>通过率</span>
+              <strong>{{ moderationSignals[2]?.value || '0%' }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

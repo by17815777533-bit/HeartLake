@@ -154,6 +154,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Mix"
+          title="内容构成"
+          :chip="`${summaryItems[3]?.value || 0} 待确认`"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>石头</span>
+              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>纸船</span>
+              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>最新入湖</span>
+              <strong>{{ latestContentMeta.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

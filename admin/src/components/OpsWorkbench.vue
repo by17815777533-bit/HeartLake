@@ -55,32 +55,15 @@ const hasFooter = computed(() => Boolean(slots.footer))
 <style scoped lang="scss">
 .ops-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.95fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.82fr) minmax(280px, 1fr);
   gap: 20px;
   grid-template-areas:
-    "stage rail"
-    "main rail"
-    "footer footer";
+    "stage support rail"
+    "main main footer";
 }
 
 .ops-workbench.has-support {
-  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.78fr) minmax(280px, 1fr);
-  grid-template-areas:
-    "stage support rail"
-    "main main rail"
-    "footer footer footer";
-}
-
-.ops-workbench:not(.has-footer) {
-  grid-template-areas:
-    "stage rail"
-    "main rail";
-}
-
-.ops-workbench.has-support:not(.has-footer) {
-  grid-template-areas:
-    "stage support rail"
-    "main main rail";
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.82fr) minmax(280px, 1fr);
 }
 
 .ops-workbench:not(.has-rail) {
@@ -90,6 +73,25 @@ const hasFooter = computed(() => Boolean(slots.footer))
     "support"
     "main"
     "footer";
+}
+
+.ops-workbench:not(.has-support) {
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  grid-template-areas:
+    "stage rail"
+    "main footer";
+}
+
+.ops-workbench:not(.has-footer) {
+  grid-template-areas:
+    "stage support rail"
+    "main main rail";
+}
+
+.ops-workbench:not(.has-support):not(.has-footer) {
+  grid-template-areas:
+    "stage rail"
+    "main rail";
 }
 
 .ops-workbench__stage { grid-area: stage; }
@@ -110,7 +112,7 @@ const hasFooter = computed(() => Boolean(slots.footer))
   .ops-workbench,
   .ops-workbench.has-support,
   .ops-workbench:not(.has-rail),
-  .ops-workbench.has-support:not(.has-footer),
+  .ops-workbench:not(.has-support),
   .ops-workbench:not(.has-footer) {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:

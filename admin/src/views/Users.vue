@@ -143,6 +143,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Profile"
+          title="旅人结构"
+          :chip="`${summaryItems[3]?.value || 0} 条互动`"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>正常状态</span>
+              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>封禁处置</span>
+              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>最近回湖</span>
+              <strong>{{ latestActiveMeta.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

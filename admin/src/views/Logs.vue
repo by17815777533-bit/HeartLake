@@ -166,6 +166,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Window"
+          title="回看窗口"
+          :chip="filters.operator || '全部管理员'"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>操作类型</span>
+              <strong>{{ filters.action ? getActionLabel(filters.action) : '全部' }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>时间范围</span>
+              <strong>{{ filters.dateRange?.length === 2 ? `${filters.dateRange[0]} 至 ${filters.dateRange[1]}` : '未限定' }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>配置改动</span>
+              <strong>{{ summaryItems[3]?.value || 0 }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

@@ -131,6 +131,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Rules"
+          title="策略提示"
+          :chip="filters.level ? `${getLevelLabel(filters.level)}级筛查` : '全量词典'"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>高风险词条</span>
+              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>替换策略</span>
+              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>批量上限</span>
+              <strong>{{ MAX_BATCH_SIZE }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

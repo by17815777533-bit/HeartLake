@@ -146,6 +146,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Priority"
+          title="处置提示"
+          :chip="filters.status ? getStatusLabel(filters.status) : '全部状态'"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>待处理</span>
+              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>已完成</span>
+              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>已忽略</span>
+              <strong>{{ summaryItems[3]?.value || 0 }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"

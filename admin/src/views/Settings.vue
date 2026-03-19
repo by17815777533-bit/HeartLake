@@ -93,6 +93,31 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Preview"
+          title="广播预览"
+          :chip="`${broadcastForm.message.length}/500`"
+          tone="plain"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>当前级别</span>
+              <strong>{{ levelLabelMap[broadcastForm.level] || broadcastForm.level }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>回复方案</span>
+              <strong>{{ providerLabelMap[aiConfig.provider] || aiConfig.provider }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>消息节流</span>
+              <strong>{{ rateConfig.messagePerMinute }}/分</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <el-card
         shadow="never"
         class="table-card ops-table-card"
