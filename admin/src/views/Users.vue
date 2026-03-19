@@ -287,7 +287,7 @@ const fetchUsers = async () => {
   try {
     // 构建搜索参数，将 nickname 作为 search 传递给后端
     const extra: Record<string, unknown> = {}
-    if (filters.userId) extra.user_id = filters.userId
+    if (filters.userId) extra.userId = filters.userId
     if (filters.nickname) extra.search = filters.nickname
     if (filters.status) extra.status = filters.status
     const params = buildParams(extra)

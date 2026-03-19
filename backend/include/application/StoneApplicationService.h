@@ -17,6 +17,7 @@
 #include "infrastructure/events/EventBus.h"
 #include <memory>
 #include <string>
+#include <vector>
 #include <json/json.h>
 
 namespace heartlake {
@@ -60,7 +61,8 @@ public:
         const std::string& stoneType,
         const std::string& stoneColor,
         const std::string& moodType,
-        bool isAnonymous
+        bool isAnonymous,
+        const std::vector<std::string>& tags = {}
     );
 
     /**

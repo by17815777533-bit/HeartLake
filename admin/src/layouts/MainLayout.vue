@@ -57,6 +57,19 @@
         </el-menu>
       </nav>
 
+      <section
+        v-if="!isCollapsed"
+        class="sidebar-insight"
+      >
+        <span class="sidebar-insight__eyebrow">值守提示</span>
+        <strong>{{ currentRouteMeta.kicker }}</strong>
+        <p>{{ currentRouteMeta.summary }}</p>
+        <div class="sidebar-insight__meta">
+          <span>在线 {{ realtimeStats.onlineCount }}</span>
+          <span>今日投石 {{ realtimeStats.todayStones }}</span>
+        </div>
+      </section>
+
       <div
         class="collapse-btn"
         @click="isCollapsed = !isCollapsed"
@@ -81,26 +94,24 @@
               </el-breadcrumb-item>
               <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
             </el-breadcrumb>
-            <span class="header-caption">今日概况与处理进度</span>
+            <span class="header-caption">{{ currentRouteMeta.summary }}</span>
           </div>
         </div>
 
         <div class="header-right">
-          <!-- 实时数据 -->
-          <div class="realtime-stats">
-            <el-tag
-              type="success"
-              effect="plain"
-            >
-              <el-icon><User /></el-icon>
-              在线用户: {{ realtimeStats.onlineCount }}
-            </el-tag>
-            <el-tag
-              type="info"
-              effect="plain"
-            >
-              今日发布: {{ realtimeStats.todayStones }}
-            </el-tag>
+          <div class="signal-board">
+            <article class="signal-chip is-sage">
+              <span>在线旅人</span>
+              <strong>{{ realtimeStats.onlineCount }}</strong>
+            </article>
+            <article class="signal-chip is-lake">
+              <span>今日投石</span>
+              <strong>{{ realtimeStats.todayStones }}</strong>
+            </article>
+            <article class="signal-chip is-amber">
+              <span>值守时刻</span>
+              <strong>{{ currentTime }}</strong>
+            </article>
           </div>
 
           <!-- 暗色模式切换 -->
@@ -165,16 +176,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
 
 const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
 const isCollapsed = ref(false)
+const currentTime = ref(new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
 
 /**
  * 主导航菜单。
@@ -192,6 +205,18 @@ const menuItems = [
   { path: '/edge-ai', title: '智能辅助', icon: 'Monitor' },
 ]
 
+const routeNarrativeMap: Record<string, { kicker: string; summary: string }> = {
+  '/dashboard': { kicker: '湖面总览', summary: '先看整体态势，再决定今天的优先处理顺序。' },
+  '/users': { kicker: '旅人关怀', summary: '关注账号状态、活跃痕迹与互动规模，判断是否需要介入。' },
+  '/content': { kicker: '内容台账', summary: '统一查阅石头和纸船，快速确认需要保留或下线的内容。' },
+  '/moderation': { kicker: '人工复核', summary: '把系统判定和人工判断合并，避免误伤也避免漏放。' },
+  '/reports': { kicker: '求助处理', summary: '优先梳理待处理举报，让用户反馈有回执、有结果。' },
+  '/sensitive-words': { kicker: '风险策略', summary: '用明确规则维护社区边界，让拦截策略足够稳定。' },
+  '/logs': { kicker: '服务留痕', summary: '后台动作需要可回放、可交接、可核查。' },
+  '/settings': { kicker: '系统偏好', summary: '高权限配置只放在一个入口，减少误改和分散维护。' },
+  '/edge-ai': { kicker: '智能辅助', summary: '查看模型状态、脉搏变化和端侧能力的实时表现。' },
+}
+
 /** 管理员展示信息。 */
 const adminInfo = reactive({
   nickname: appStore.userInfo?.nickname || appStore.userInfo?.username || '管理员',
@@ -204,6 +229,12 @@ const realtimeStats = reactive({
 })
 
 let statsInterval: ReturnType<typeof setInterval> | null = null
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
+const currentRouteMeta = computed(() => routeNarrativeMap[route.path] || {
+  kicker: route.meta.title?.toString() || '管理台',
+  summary: '查看当前模块的处理进度与数据变化。',
+})
 
 /** 拉取管理员资料。 */
 const fetchAdminInfo = async () => {
@@ -289,6 +320,10 @@ onMounted(() => {
   websocket.on('stats_update', handleStatsUpdate)
 
   document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  clockInterval = setInterval(() => {
+    currentTime.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }, 60000)
 })
 
 onUnmounted(() => {
@@ -298,6 +333,10 @@ onUnmounted(() => {
   }
   websocket.off('stats_update', handleStatsUpdate)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (clockInterval) {
+    clearInterval(clockInterval)
+    clockInterval = null
+  }
 })
 </script>
 
@@ -467,6 +506,65 @@ onUnmounted(() => {
     }
   }
 
+  .sidebar-insight {
+    margin: 0 14px 14px;
+    padding: 16px 16px 14px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+      radial-gradient(circle at top right, rgba(208, 161, 98, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    &__eyebrow {
+      display: inline-flex;
+      min-height: 26px;
+      align-items: center;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.6);
+      font-family: var(--hl-font-mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    strong {
+      display: block;
+      margin-top: 14px;
+      color: #f8f2ea;
+      font-family: var(--hl-font-display);
+      font-size: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    p {
+      margin-top: 10px;
+      color: rgba(255, 255, 255, 0.66);
+      line-height: 1.75;
+      font-size: 13px;
+    }
+
+    &__meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+
+      span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 12px;
+      }
+    }
+  }
+
   .collapse-btn {
     height: 54px;
     display: flex;
@@ -572,21 +670,46 @@ onUnmounted(() => {
     align-items: center;
     gap: 16px;
 
-    .realtime-stats {
+    .signal-board {
       display: flex;
       gap: 12px;
+    }
 
-      :deep(.el-tag) {
-        height: 32px;
-        padding: 0 12px;
-        background: rgba(255, 255, 255, 0.6);
-        border-color: rgba(24, 36, 47, 0.08);
+    .signal-chip {
+      min-width: 108px;
+      padding: 10px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(24, 36, 47, 0.08);
+      background: rgba(255, 255, 255, 0.64);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+
+      span {
+        display: block;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--hl-ink-soft);
+      }
+
+      strong {
+        display: block;
+        margin-top: 6px;
+        font-family: var(--hl-font-display);
+        font-size: 24px;
+        line-height: 1;
         color: var(--hl-ink);
-        font-weight: 600;
+      }
 
-        .el-icon {
-          margin-right: 6px;
-        }
+      &.is-sage strong {
+        color: #3f7257;
+      }
+
+      &.is-lake strong {
+        color: #123f4b;
+      }
+
+      &.is-amber strong {
+        color: #a56d37;
       }
     }
 
@@ -690,7 +813,7 @@ onUnmounted(() => {
     padding: 0 16px;
 
     .header-left .header-caption,
-    .header-right .realtime-stats {
+    .header-right .signal-board {
       display: none;
     }
 

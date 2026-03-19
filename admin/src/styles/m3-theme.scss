@@ -614,8 +614,27 @@ html.dark {
 .settings-page > .el-card {
   border-radius: 26px !important;
   border: 1px solid rgba(115, 141, 151, 0.14) !important;
-  background: linear-gradient(180deg, rgba(250, 252, 252, 0.92), rgba(239, 244, 246, 0.96)) !important;
+  background:
+    radial-gradient(circle at top right, rgba(182, 122, 66, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(250, 252, 252, 0.92), rgba(239, 244, 246, 0.97)) !important;
   box-shadow: 0 24px 54px rgba(10, 23, 31, 0.07) !important;
+  overflow: hidden;
+}
+
+.filter-card .el-card__body,
+.toolbar-card .el-card__body,
+.table-card .el-card__body {
+  position: relative;
+}
+
+.filter-card .el-card__body::before,
+.toolbar-card .el-card__body::before,
+.table-card .el-card__body::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(17, 62, 74, 0.1), transparent);
 }
 
 .filter-card,
@@ -656,6 +675,10 @@ html.dark {
   }
 }
 
+.table-card .el-table::before {
+  display: none;
+}
+
 .el-input__wrapper,
 .el-select .el-input__wrapper,
 .el-textarea__inner,
@@ -691,6 +714,8 @@ html.dark {
 .el-tabs__item {
   font-weight: 700;
   letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 0 16px;
 }
 
 .el-tabs__header {
@@ -700,6 +725,20 @@ html.dark {
 .el-tabs__active-bar {
   height: 3px !important;
   border-radius: 999px;
+}
+
+.el-tabs__nav-wrap::after {
+  background: linear-gradient(90deg, transparent, rgba(115, 141, 151, 0.18), transparent) !important;
+}
+
+.el-empty {
+  padding: 24px 0;
+
+  .el-empty__description p {
+    color: var(--hl-ink-soft);
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
 }
 
 .pagination-wrapper {
@@ -733,6 +772,15 @@ html.dark {
   min-height: 40px;
 }
 
+.ops-page .el-form-item__label {
+  color: var(--hl-ink-soft);
+  font-weight: 600;
+}
+
+.ops-page .el-card__body {
+  padding: 22px 24px;
+}
+
 html.dark {
   .filter-card,
   .toolbar-card,
@@ -744,7 +792,9 @@ html.dark {
   .sensitive-words-page > .el-card,
   .logs-page > .el-card,
   .settings-page > .el-card {
-    background: linear-gradient(180deg, rgba(23, 38, 45, 0.92), rgba(15, 26, 31, 0.98)) !important;
+    background:
+      radial-gradient(circle at top right, rgba(208, 161, 98, 0.12), transparent 34%),
+      linear-gradient(180deg, rgba(23, 38, 45, 0.92), rgba(15, 26, 31, 0.98)) !important;
     border-color: rgba(96, 119, 129, 0.28) !important;
   }
 

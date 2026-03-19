@@ -19,6 +19,21 @@
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
+static void writeAdminOperationLog(const std::string& adminId,
+                                   const std::string& action,
+                                   const std::string& detail = "") {
+    try {
+        auto dbClient = drogon::app().getDbClient("default");
+        dbClient->execSqlSync(
+            "INSERT INTO operation_logs (admin_id, action, detail, created_at) "
+            "VALUES ($1, $2, $3, NOW())",
+            adminId, action, detail
+        );
+    } catch (const std::exception& e) {
+        LOG_WARN << "writeAdminOperationLog failed: " << e.what();
+    }
+}
+
 /**
  * 时间恒定字符串比较，防止时序攻击
  * 无论字符串是否匹配，比较时间恒定
@@ -95,6 +110,10 @@ void AdminController::login(const HttpRequestPtr &req,
             return;
         }
 
+        const char* env_admin_role = std::getenv("ADMIN_ROLE");
+        const std::string adminRole =
+            (env_admin_role && strlen(env_admin_role) > 0) ? env_admin_role : "super_admin";
+
         if (usernameMatch && passwordMatch) {
             // VUL-22: 记录管理员登录成功
             SecurityLogger::logEventFromRequest(req, "admin_001",
@@ -102,13 +121,14 @@ void AdminController::login(const HttpRequestPtr &req,
                 "管理员登录成功");
 
             auto adminKey = PasetoUtil::getAdminKey();
-            auto token = PasetoUtil::generateAdminToken("admin_001", "admin", adminKey);
+            auto token = PasetoUtil::generateAdminToken("admin_001", adminRole, adminKey);
+            writeAdminOperationLog("admin_001", "login", "管理员登录成功");
 
             Json::Value data;
             data["token"] = token;
             data["user"]["user_id"] = "admin_001";
             data["user"]["username"] = username;
-            data["user"]["role"] = "admin";
+            data["user"]["role"] = adminRole;
 
             callback(ResponseUtil::success(data, "登录成功"));
         } else {
@@ -153,6 +173,7 @@ void AdminController::getTrendingTopics([[maybe_unused]] const HttpRequestPtr &r
         for (const auto& row : result) {
             Json::Value item;
             item["topic"] = row["topic"].as<std::string>();
+            item["keyword"] = row["topic"].as<std::string>();
             item["count"] = row["count"].as<int>();
             data.append(item);
         }
@@ -196,7 +217,10 @@ void AdminController::getRealtimeStats([[maybe_unused]] const HttpRequestPtr &re
             "SELECT COUNT(*) as count FROM stones WHERE DATE(created_at) = CURRENT_DATE"
         );
         auto onlineUsers = dbClient->execSqlSync(
-            "SELECT COUNT(DISTINCT user_id) as count FROM user_sessions WHERE created_at > NOW() - INTERVAL '5 minutes'"
+            "SELECT GREATEST("
+            "  COALESCE((SELECT COUNT(DISTINCT user_id) FROM user_sessions WHERE created_at > NOW() - INTERVAL '5 minutes'), 0), "
+            "  COALESCE((SELECT COUNT(*) FROM users WHERE last_active_at > NOW() - INTERVAL '5 minutes' AND status = 'active'), 0)"
+            ") as count"
         );
 
         // 验证数据库查询结果

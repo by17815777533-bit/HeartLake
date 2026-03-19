@@ -334,7 +334,7 @@ async function fetchContent() {
         type: 'boat',
         content: item.content,
         user: { nickname: item.author_nickname || item.nickname },
-        status: item.status,
+        status: item.status === 'active' ? 'published' : item.status,
         created_at: item.created_at,
       }))
       pagination.total = resData.total || 0
@@ -359,9 +359,13 @@ async function fetchContent() {
 
     // 后端当前未提供统一 contents 路由，默认页在前端合并石头和纸船。
     const mergedPageSize = currentPage * pageSize
+    const sharedFilters = {
+      status: filters.status,
+      keyword: filters.keyword,
+    }
     const [stonesRes, boatsRes] = await Promise.all([
-      api.getStones({ page: 1, page_size: mergedPageSize }),
-      api.getBoats({ page: 1, page_size: mergedPageSize }),
+      api.getStones({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
+      api.getBoats({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
     ])
     const stonesData = stonesRes.data?.data || stonesRes.data || {}
     const boatsData = boatsRes.data?.data || boatsRes.data || {}
@@ -379,7 +383,7 @@ async function fetchContent() {
         type: 'boat',
         content: item.content,
         user: { nickname: item.author_nickname || item.nickname },
-        status: item.status,
+        status: item.status === 'active' ? 'published' : item.status,
         created_at: item.created_at,
       })),
     ]

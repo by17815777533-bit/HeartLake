@@ -172,7 +172,11 @@ export function useDashboardLoaders({
     try {
       const res = await api.getTrendingTopics?.() || { data: null }
       const raw = res.data?.data || res.data
-      trendingTopics.value = Array.isArray(raw) ? raw.slice(0, 10) : (raw?.list || []).slice(0, 10)
+      const sourceList = Array.isArray(raw) ? raw : (raw?.list || [])
+      trendingTopics.value = sourceList.slice(0, 10).map((item: TrendingTopic & { topic?: string; keyword?: string }) => ({
+        ...item,
+        keyword: item.keyword || item.topic || '',
+      }))
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       console.warn('加载热门话题失败:', (e as Error).message)

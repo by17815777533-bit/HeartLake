@@ -71,6 +71,26 @@
               label="修改配置"
               value="config"
             />
+            <el-option
+              label="处理举报"
+              value="handle_report"
+            />
+            <el-option
+              label="发送广播"
+              value="broadcast"
+            />
+            <el-option
+              label="新增敏感词"
+              value="sensitive_add"
+            />
+            <el-option
+              label="更新敏感词"
+              value="sensitive_update"
+            />
+            <el-option
+              label="删除敏感词"
+              value="sensitive_delete"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
@@ -222,6 +242,12 @@ const actionMap: Record<string, { label: string; type: string; icon: string }> =
   approve: { label: '审核通过', type: 'success', icon: '✓' },
   reject: { label: '审核拒绝', type: 'warning', icon: '✗' },
   config: { label: '修改配置', type: 'primary', icon: '⚙' },
+  handle_report: { label: '处理举报', type: 'warning', icon: '📮' },
+  broadcast: { label: '发送广播', type: 'primary', icon: '📡' },
+  sensitive_add: { label: '新增敏感词', type: 'warning', icon: '＋' },
+  sensitive_update: { label: '更新敏感词', type: 'info', icon: '✎' },
+  sensitive_delete: { label: '删除敏感词', type: 'danger', icon: '－' },
+  user_status: { label: '更新状态', type: 'info', icon: '◉' },
 }
 
 const getActionLabel = (action: string) => `${actionMap[action]?.icon || ''} ${actionMap[action]?.label || action}`

@@ -72,6 +72,26 @@ std::string normalizeMoodType(std::string mood) {
     return mood;
 }
 
+std::string buildPgTextArrayLiteral(const std::vector<std::string>& values) {
+    std::string result = "{";
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            result += ",";
+        }
+
+        result += "\"";
+        for (char c : values[i]) {
+            if (c == '\\' || c == '"') {
+                result += '\\';
+            }
+            result += c;
+        }
+        result += "\"";
+    }
+    result += "}";
+    return result;
+}
+
 } // namespace
 
 /**
@@ -87,19 +107,21 @@ Json::Value StoneApplicationService::publishStone(
     const std::string& stoneType,
     const std::string& stoneColor,
     const std::string& moodType,
-    bool isAnonymous
+    bool isAnonymous,
+    const std::vector<std::string>& tags
 ) {
     auto dbClient = drogon::app().getDbClient("default");
     std::string stoneId = "stone_" + drogon::utils::getUuid();
     const std::string normalizedMood = normalizeMoodType(moodType);
+    const std::string tagsLiteral = buildPgTextArrayLiteral(tags);
 
     try {
         // 创建石头
         auto result = dbClient->execSqlSync(
-            "INSERT INTO stones (stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, created_at) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) "
-            "RETURNING stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, created_at",
-            stoneId, userId, content, stoneType, stoneColor, normalizedMood, isAnonymous
+            "INSERT INTO stones (stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, tags, created_at) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '{}')::text[], NOW()) "
+            "RETURNING stone_id, user_id, content, stone_type, stone_color, mood_type, is_anonymous, tags, created_at",
+            stoneId, userId, content, stoneType, stoneColor, normalizedMood, isAnonymous, tagsLiteral
         );
 
         if (result.empty()) {
@@ -114,6 +136,11 @@ Json::Value StoneApplicationService::publishStone(
         stone["mood_type"] = row["mood_type"].as<std::string>();
         stone["is_anonymous"] = row["is_anonymous"].as<bool>();
         stone["created_at"] = row["created_at"].as<std::string>();
+        Json::Value stoneTags(Json::arrayValue);
+        for (const auto& tag : tags) {
+            stoneTags.append(tag);
+        }
+        stone["tags"] = stoneTags;
 
         // 发布事件 (异步处理情感分析等)
         if (eventBus_) {

@@ -44,6 +44,47 @@ bool isValidReportStatus(const std::string &s) {
     return s == "pending" || s == "handled" || s == "ignored";
 }
 
+bool isValidStoneStatus(const std::string& status) {
+    return status == "published" || status == "pending" || status == "deleted";
+}
+
+bool isValidBoatStatus(const std::string& status) {
+    return status == "active" || status == "pending" || status == "deleted" || status == "published";
+}
+
+double moderationRiskScoreForReason(const std::string& reason) {
+    if (reason == "violence") return 0.92;
+    if (reason == "harassment") return 0.84;
+    if (reason == "inappropriate") return 0.76;
+    if (reason == "spam") return 0.63;
+    return 0.56;
+}
+
+std::string moderationRiskLevel(double score) {
+    if (score >= 0.85) return "high";
+    if (score >= 0.7) return "medium";
+    return "low";
+}
+
+void writeOperationLog(const HttpRequestPtr& req,
+                       const std::string& adminId,
+                       const std::string& action,
+                       const std::string& targetType = "",
+                       const std::string& targetId = "",
+                       const std::string& detail = "") {
+    try {
+        auto dbClient = app().getDbClient("default");
+        const auto ipAddress = req ? req->peerAddr().toIp() : "";
+        dbClient->execSqlSync(
+            "INSERT INTO operation_logs (admin_id, action, target_type, target_id, detail, ip_address, created_at) "
+            "VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), $5, NULLIF($6, ''), NOW())",
+            adminId, action, targetType, targetId, detail, ipAddress
+        );
+    } catch (const std::exception& e) {
+        LOG_WARN << "writeOperationLog failed: " << e.what();
+    }
+}
+
 int toSensitiveLevel(const std::string &level) {
     if (level == "high" || level == "critical") return 3;
     if (level == "medium") return 2;
@@ -57,7 +98,9 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
-        const auto userId = req->getParameter("userId");
+        const auto userId = !req->getParameter("userId").empty()
+            ? req->getParameter("userId")
+            : req->getParameter("user_id");
         const auto nickname = req->getParameter("nickname");
         const auto status = req->getParameter("status");
         const auto search = req->getParameter("search");
@@ -68,9 +111,22 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         std::string countSql = "SELECT COUNT(*) as total FROM users u WHERE 1=1";
         std::string querySql =
             "SELECT u.user_id, u.username, u.nickname, u.status, u.created_at, u.last_active_at, "
-            "0 as stones_count, "
-            "0 as boat_count "
-            "FROM users u WHERE 1=1";
+            "COALESCE(st.stones_count, 0) as stones_count, "
+            "COALESCE(pb.boat_count, 0) as boat_count "
+            "FROM users u "
+            "LEFT JOIN ("
+            "  SELECT user_id, COUNT(*) as stones_count "
+            "  FROM stones "
+            "  WHERE deleted_at IS NULL AND COALESCE(status, 'published') <> 'deleted' "
+            "  GROUP BY user_id"
+            ") st ON st.user_id = u.user_id "
+            "LEFT JOIN ("
+            "  SELECT sender_id as user_id, COUNT(*) as boat_count "
+            "  FROM paper_boats "
+            "  WHERE COALESCE(status, 'active') <> 'deleted' "
+            "  GROUP BY sender_id"
+            ") pb ON pb.user_id = u.user_id "
+            "WHERE 1=1";
 
         std::vector<std::string> params;
         int paramIdx = 1;
@@ -154,9 +210,22 @@ void AdminManagementController::getUserDetail(const HttpRequestPtr &,
         auto dbClient = app().getDbClient("default");
         auto result = dbClient->execSqlSync(
             "SELECT u.user_id, u.username, u.nickname, u.status, u.created_at, u.last_active_at, "
-            "0 as stones_count, "
-            "0 as boat_count "
-            "FROM users u WHERE u.user_id = $1",
+            "COALESCE(st.stones_count, 0) as stones_count, "
+            "COALESCE(pb.boat_count, 0) as boat_count "
+            "FROM users u "
+            "LEFT JOIN ("
+            "  SELECT user_id, COUNT(*) as stones_count "
+            "  FROM stones "
+            "  WHERE deleted_at IS NULL AND COALESCE(status, 'published') <> 'deleted' "
+            "  GROUP BY user_id"
+            ") st ON st.user_id = u.user_id "
+            "LEFT JOIN ("
+            "  SELECT sender_id as user_id, COUNT(*) as boat_count "
+            "  FROM paper_boats "
+            "  WHERE COALESCE(status, 'active') <> 'deleted' "
+            "  GROUP BY sender_id"
+            ") pb ON pb.user_id = u.user_id "
+            "WHERE u.user_id = $1",
             userId
         );
         if (result.empty()) {
@@ -197,8 +266,10 @@ void AdminManagementController::updateUserStatus(const HttpRequestPtr &req,
             callback(ResponseUtil::badRequest("无效的状态值，允许: active, banned, deleted"));
             return;
         }
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("UPDATE users SET status = $1, updated_at = NOW() WHERE user_id = $2", status, userId);
+        writeOperationLog(req, adminId, "user_status", "user", userId, "更新状态为 " + status);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin updateUserStatus error: " << e.what();
@@ -206,12 +277,16 @@ void AdminManagementController::updateUserStatus(const HttpRequestPtr &req,
     }
 }
 
-void AdminManagementController::banUser(const HttpRequestPtr &,
+void AdminManagementController::banUser(const HttpRequestPtr &req,
                                         std::function<void(const HttpResponsePtr &)> &&callback,
                                         const std::string &userId) {
     try {
+        auto json = req->getJsonObject();
+        const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "";
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("UPDATE users SET status = 'banned', updated_at = NOW() WHERE user_id = $1", userId);
+        writeOperationLog(req, adminId, "ban_user", "user", userId, reason.empty() ? "封禁用户" : reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin banUser error: " << e.what();
@@ -219,12 +294,14 @@ void AdminManagementController::banUser(const HttpRequestPtr &,
     }
 }
 
-void AdminManagementController::unbanUser(const HttpRequestPtr &,
+void AdminManagementController::unbanUser(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback,
                                           const std::string &userId) {
     try {
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("UPDATE users SET status = 'active', updated_at = NOW() WHERE user_id = $1", userId);
+        writeOperationLog(req, adminId, "unban_user", "user", userId, "解除封禁");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin unbanUser error: " << e.what();
@@ -237,18 +314,52 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
     try {
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
+        const auto status = req->getParameter("status");
+        const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM stones");
-        int total = safeCount(countResult);
-
-        auto result = dbClient->execSqlSync(
+        std::string countSql = "SELECT COUNT(*) as total FROM stones s LEFT JOIN users u ON s.user_id = u.user_id WHERE 1=1";
+        std::string querySql =
             "SELECT s.stone_id, s.content, s.mood_type, s.is_anonymous, "
             "s.ripple_count, s.boat_count, s.status, s.created_at, u.nickname "
-            "FROM stones s LEFT JOIN users u ON s.user_id = u.user_id "
-            "ORDER BY s.created_at DESC LIMIT " + std::to_string(pageSize) +
-            " OFFSET " + std::to_string(offset)
-        );
+            "FROM stones s LEFT JOIN users u ON s.user_id = u.user_id WHERE 1=1";
+        std::vector<std::string> params;
+        int paramIdx = 1;
+
+        if (!status.empty() && isValidStoneStatus(status)) {
+            if (status == "deleted") {
+                countSql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
+                querySql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
+            } else {
+                countSql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
+                querySql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
+                params.push_back(status);
+                paramIdx++;
+            }
+        }
+
+        if (!keyword.empty()) {
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            countSql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            querySql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            params.push_back("%" + escapeLike(keyword) + "%");
+            paramIdx++;
+        }
+
+        querySql += " ORDER BY s.created_at DESC LIMIT " + std::to_string(pageSize) +
+            " OFFSET " + std::to_string(offset);
+
+        auto execWithParams = [&](const std::string& sql) {
+            switch (params.size()) {
+                case 0: return dbClient->execSqlSync(sql);
+                case 1: return dbClient->execSqlSync(sql, params[0]);
+                default: return dbClient->execSqlSync(sql, params[0], params[1]);
+            }
+        };
+
+        auto countResult = execWithParams(countSql);
+        auto result = execWithParams(querySql);
+        int total = safeCount(countResult);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -309,12 +420,16 @@ void AdminManagementController::getStoneDetail(const HttpRequestPtr &,
     }
 }
 
-void AdminManagementController::deleteStone(const HttpRequestPtr &,
+void AdminManagementController::deleteStone(const HttpRequestPtr &req,
                                             std::function<void(const HttpResponsePtr &)> &&callback,
                                             const std::string &stoneId) {
     try {
+        auto json = req->getJsonObject();
+        const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "后台删除石头";
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("UPDATE stones SET status = 'deleted', deleted_at = NOW(), updated_at = NOW() WHERE stone_id = $1", stoneId);
+        writeOperationLog(req, adminId, "delete_content", "stone", stoneId, reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin deleteStone error: " << e.what();
@@ -327,17 +442,51 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
     try {
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
+        const auto status = req->getParameter("status");
+        const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM paper_boats");
-        int total = safeCount(countResult);
-
-        auto result = dbClient->execSqlSync(
+        std::string countSql = "SELECT COUNT(*) as total FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id WHERE 1=1";
+        std::string querySql =
             "SELECT b.boat_id, b.content, b.is_anonymous, b.status, b.created_at, u.nickname "
-            "FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id "
-            "ORDER BY b.created_at DESC LIMIT $1 OFFSET $2",
-            std::to_string(pageSize), std::to_string(offset)
-        );
+            "FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id WHERE 1=1";
+        std::vector<std::string> params;
+        int paramIdx = 1;
+
+        if (!status.empty() && isValidBoatStatus(status)) {
+            if (status == "published") {
+                countSql += " AND COALESCE(b.status, 'active') = 'active'";
+                querySql += " AND COALESCE(b.status, 'active') = 'active'";
+            } else {
+                countSql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
+                querySql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
+                params.push_back(status);
+                paramIdx++;
+            }
+        }
+
+        if (!keyword.empty()) {
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            countSql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            querySql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            params.push_back("%" + escapeLike(keyword) + "%");
+            paramIdx++;
+        }
+
+        querySql += " ORDER BY b.created_at DESC LIMIT " + std::to_string(pageSize) +
+            " OFFSET " + std::to_string(offset);
+
+        auto execWithParams = [&](const std::string& sql) {
+            switch (params.size()) {
+                case 0: return dbClient->execSqlSync(sql);
+                case 1: return dbClient->execSqlSync(sql, params[0]);
+                default: return dbClient->execSqlSync(sql, params[0], params[1]);
+            }
+        };
+
+        auto countResult = execWithParams(countSql);
+        auto result = execWithParams(querySql);
+        int total = safeCount(countResult);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -345,7 +494,8 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
             item["boat_id"] = row["boat_id"].as<std::string>();
             item["content"] = row["content"].isNull() ? "" : row["content"].as<std::string>();
             item["is_anonymous"] = row["is_anonymous"].isNull() ? false : row["is_anonymous"].as<bool>();
-            item["status"] = row["status"].isNull() ? "active" : row["status"].as<std::string>();
+            const auto rawStatus = row["status"].isNull() ? "active" : row["status"].as<std::string>();
+            item["status"] = rawStatus == "active" ? "published" : rawStatus;
             item["created_at"] = row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
             item["author_nickname"] = row["nickname"].isNull() ? "匿名" : row["nickname"].as<std::string>();
             list.append(item);
@@ -362,12 +512,16 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
     }
 }
 
-void AdminManagementController::deleteBoat(const HttpRequestPtr &,
+void AdminManagementController::deleteBoat(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback,
                                            const std::string &boatId) {
     try {
+        auto json = req->getJsonObject();
+        const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "后台删除纸船";
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("UPDATE paper_boats SET status = 'deleted', deleted_at = NOW() WHERE boat_id = $1", boatId);
+        writeOperationLog(req, adminId, "delete_content", "boat", boatId, reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin deleteBoat error: " << e.what();
@@ -406,8 +560,10 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             const auto boatContent = row["boat_content"].isNull() ? "" : row["boat_content"].as<std::string>();
             item["content"] = !stoneContent.empty() ? stoneContent : boatContent;
             item["ai_reason"] = row["reason"].as<std::string>();
-            item["risk_level"] = "medium";
-            item["confidence"] = 0.8;
+            const auto score = moderationRiskScoreForReason(row["reason"].as<std::string>());
+            item["ai_score"] = score;
+            item["risk_level"] = moderationRiskLevel(score);
+            item["confidence"] = score;
             item["created_at"] = row["created_at"].as<std::string>();
             list.append(item);
         }
@@ -434,10 +590,11 @@ void AdminManagementController::approveContent(const HttpRequestPtr &req,
         const std::string logId = "mod_" + IdGenerator::generateMessageId();
         dbClient->execSqlSync(
             "INSERT INTO moderation_logs (log_id, target_type, target_id, action, reason, operator_id, created_at) "
-            "SELECT $1, target_type, target_id, 'handled', reason, $2, NOW() FROM reports WHERE report_id = $3",
+            "SELECT $1, target_type, target_id, 'approved', reason, $2, NOW() FROM reports WHERE report_id = $3",
             logId, adminId, moderationId
         );
 
+        writeOperationLog(req, adminId, "approve", "report", moderationId, "审核通过");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin approveContent error: " << e.what();
@@ -459,10 +616,11 @@ void AdminManagementController::rejectContent(const HttpRequestPtr &req,
         const std::string logId = "mod_" + IdGenerator::generateMessageId();
         dbClient->execSqlSync(
             "INSERT INTO moderation_logs (log_id, target_type, target_id, action, reason, operator_id, created_at) "
-            "SELECT $1, target_type, target_id, 'ignored', $2, $3, NOW() FROM reports WHERE report_id = $4",
+            "SELECT $1, target_type, target_id, 'rejected', $2, $3, NOW() FROM reports WHERE report_id = $4",
             logId, reason, adminId, moderationId
         );
 
+        writeOperationLog(req, adminId, "reject", "report", moderationId, reason.empty() ? "审核拒绝" : reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin rejectContent error: " << e.what();
@@ -475,24 +633,48 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
     try {
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
+        const auto resultFilter = req->getParameter("result");
 
         auto dbClient = app().getDbClient("default");
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM moderation_logs");
-        int total = safeCount(countResult);
+        std::string countSql = "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1";
+        std::string querySql =
+            "SELECT ml.log_id, ml.action, ml.reason, ml.operator_id, ml.created_at, ml.target_type, ml.target_id, "
+            "COALESCE(s.content, b.content, u.nickname, ml.target_id) as target_preview "
+            "FROM moderation_logs ml "
+            "LEFT JOIN stones s ON ml.target_type = 'stone' AND ml.target_id = s.stone_id "
+            "LEFT JOIN paper_boats b ON ml.target_type = 'boat' AND ml.target_id = b.boat_id "
+            "LEFT JOIN users u ON ml.target_type = 'user' AND ml.target_id = u.user_id "
+            "WHERE 1=1";
+        std::vector<std::string> params;
 
-        auto result = dbClient->execSqlSync(
-            "SELECT action, reason, operator_id, created_at, target_type, target_id FROM moderation_logs "
-            "ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            std::to_string(pageSize), std::to_string(offset)
-        );
+        if ((resultFilter == "approved" || resultFilter == "rejected")) {
+            countSql += " AND ml.action = $1";
+            querySql += " AND ml.action = $1";
+            params.push_back(resultFilter);
+        }
+
+        querySql += " ORDER BY ml.created_at DESC LIMIT " + std::to_string(pageSize) +
+            " OFFSET " + std::to_string(offset);
+
+        auto execWithParams = [&](const std::string& sql) {
+            if (params.empty()) {
+                return dbClient->execSqlSync(sql);
+            }
+            return dbClient->execSqlSync(sql, params[0]);
+        };
+
+        auto countResult = execWithParams(countSql);
+        auto result = execWithParams(querySql);
+        int total = safeCount(countResult);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
             Json::Value item;
+            item["moderation_id"] = row["log_id"].as<std::string>();
             item["content_type"] = row["target_type"].as<std::string>();
-            item["content"] = row["target_id"].as<std::string>();
+            item["content"] = row["target_preview"].isNull() ? row["target_id"].as<std::string>() : row["target_preview"].as<std::string>();
             item["result"] = row["action"].as<std::string>();
-            item["reason"] = row["reason"].as<std::string>();
+            item["reason"] = row["reason"].isNull() ? "" : row["reason"].as<std::string>();
             item["moderator"] = row["operator_id"].as<std::string>();
             item["moderated_at"] = row["created_at"].as<std::string>();
             list.append(item);
@@ -527,43 +709,47 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1 AND r.reason = $2",
                 status, reason);
             result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content "
+                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
+                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
                 "FROM reports r "
                 "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
+                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.status = $1 AND r.reason = $2 ORDER BY r.created_at DESC LIMIT $3 OFFSET $4",
                 status, reason, std::to_string(pageSize), std::to_string(offset));
         } else if (!status.empty() && isValidReportStatus(status)) {
             countResult = dbClient->execSqlSync(
                 "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1", status);
             result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content "
+                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
+                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
                 "FROM reports r "
                 "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
+                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.status = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
                 status, std::to_string(pageSize), std::to_string(offset));
         } else if (!reason.empty()) {
             countResult = dbClient->execSqlSync(
                 "SELECT COUNT(*) as total FROM reports r WHERE r.reason = $1", reason);
             result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content "
+                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
+                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
                 "FROM reports r "
                 "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
+                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.reason = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
                 reason, std::to_string(pageSize), std::to_string(offset));
         } else {
             countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports r");
             result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content "
+                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
+                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
                 "FROM reports r "
                 "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
+                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
                 std::to_string(pageSize), std::to_string(offset));
         }
@@ -573,11 +759,15 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
         for (const auto &row : *result) {
             Json::Value item;
             item["id"] = row["report_id"].as<std::string>();
+            item["reporter_id"] = row["reporter_id"].isNull() ? "" : row["reporter_id"].as<std::string>();
+            item["target_type"] = row["target_type"].as<std::string>();
+            item["target_id"] = row["target_id"].as<std::string>();
             item["type"] = row["reason"].as<std::string>();
-            item["reason"] = row["description"].as<std::string>();
+            item["reason"] = row["description"].isNull() ? row["reason"].as<std::string>() : row["description"].as<std::string>();
             const auto stoneContent = row["stone_content"].isNull() ? "" : row["stone_content"].as<std::string>();
             const auto boatContent = row["boat_content"].isNull() ? "" : row["boat_content"].as<std::string>();
-            item["target_content"] = !stoneContent.empty() ? stoneContent : boatContent;
+            const auto userTargetNickname = row["user_target_nickname"].isNull() ? "" : row["user_target_nickname"].as<std::string>();
+            item["target_content"] = !stoneContent.empty() ? stoneContent : (!boatContent.empty() ? boatContent : userTargetNickname);
             item["status"] = row["status"].as<std::string>();
             item["created_at"] = row["created_at"].as<std::string>();
             list.append(item);
@@ -643,6 +833,8 @@ void AdminManagementController::handleReport(const HttpRequestPtr &req,
             "UPDATE reports SET status = $1, handled_by = $2, handled_at = NOW() WHERE report_id = $3",
             action, adminId, reportId
         );
+        const auto note = json && json->isMember("note") ? (*json)["note"].asString() : "";
+        writeOperationLog(req, adminId, "handle_report", "report", reportId, note.empty() ? action : note);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin handleReport error: " << e.what();
@@ -739,6 +931,7 @@ void AdminManagementController::addSensitiveWord(const HttpRequestPtr &req,
     }
 
     try {
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync(
             "INSERT INTO sensitive_words (word, level, category, is_active, created_at) VALUES ($1, $2, $3, $4, NOW())",
@@ -747,6 +940,7 @@ void AdminManagementController::addSensitiveWord(const HttpRequestPtr &req,
             (*json).get("category", "general").asString(),
             (*json).get("action", "block").asString() != "allow"
         );
+        writeOperationLog(req, adminId, "sensitive_add", "sensitive_word", "", (*json)["word"].asString());
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin addSensitiveWord error: " << e.what();
@@ -765,6 +959,7 @@ void AdminManagementController::updateSensitiveWord(const HttpRequestPtr &req,
 
     try {
         int wordId = std::stoi(id);
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync(
             "UPDATE sensitive_words SET word = $1, level = $2, category = $3, is_active = $4 WHERE id = $5",
@@ -774,6 +969,7 @@ void AdminManagementController::updateSensitiveWord(const HttpRequestPtr &req,
             (*json).get("action", "block").asString() != "allow",
             wordId
         );
+        writeOperationLog(req, adminId, "sensitive_update", "sensitive_word", id, (*json)["word"].asString());
         callback(ResponseUtil::success());
     } catch (const std::invalid_argument &) {
         callback(ResponseUtil::badRequest("无效的ID格式"));
@@ -785,13 +981,15 @@ void AdminManagementController::updateSensitiveWord(const HttpRequestPtr &req,
     }
 }
 
-void AdminManagementController::deleteSensitiveWord(const HttpRequestPtr &,
+void AdminManagementController::deleteSensitiveWord(const HttpRequestPtr &req,
                                                     std::function<void(const HttpResponsePtr &)> &&callback,
                                                     const std::string &id) {
     try {
         int wordId = std::stoi(id);
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         dbClient->execSqlSync("DELETE FROM sensitive_words WHERE id = $1", wordId);
+        writeOperationLog(req, adminId, "sensitive_delete", "sensitive_word", id, "删除敏感词");
         callback(ResponseUtil::success());
     } catch (const std::invalid_argument &) {
         callback(ResponseUtil::badRequest("无效的ID格式"));
@@ -832,6 +1030,8 @@ void AdminManagementController::updateSystemConfig(const HttpRequestPtr &req,
         ai::AIService::getInstance().initialize(config["ai"]);
     }
 
+    auto adminId = req->getAttributes()->get<std::string>("admin_id");
+    writeOperationLog(req, adminId, "config", "config", "", "更新系统配置");
     callback(ResponseUtil::success());
 }
 
@@ -848,6 +1048,18 @@ void AdminManagementController::broadcastMessage(const HttpRequestPtr &req,
     payload["message"] = (*json)["message"].asString();
     payload["level"] = (*json).get("level", "info").asString();
     payload["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+
+    try {
+        auto adminId = req->getAttributes()->get<std::string>("admin_id");
+        auto dbClient = app().getDbClient("default");
+        dbClient->execSqlSync(
+            "INSERT INTO broadcast_messages (title, content, level, created_at) VALUES ($1, $2, $3, NOW())",
+            "", (*json)["message"].asString(), (*json).get("level", "info").asString()
+        );
+        writeOperationLog(req, adminId, "broadcast", "broadcast", "", (*json)["message"].asString());
+    } catch (const std::exception& e) {
+        LOG_WARN << "persist broadcast message failed: " << e.what();
+    }
 
     BroadcastWebSocketController::broadcast(payload);
     callback(ResponseUtil::success());

@@ -14,6 +14,7 @@
 #include <memory>
 #include <regex>
 #include <set>
+#include <vector>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -154,6 +155,28 @@ void StoneController::createStone(
         }
 
         bool isAnonymous = (*json).get("is_anonymous", true).asBool();
+        std::vector<std::string> tags;
+        if (json->isMember("tags")) {
+            auto validation = ValidationRules::tags((*json)["tags"]);
+            if (!validation.valid) {
+                callback(ResponseUtil::badRequest(validation.message));
+                return;
+            }
+
+            for (const auto& tagValue : (*json)["tags"]) {
+                if (!tagValue.isString()) {
+                    callback(ResponseUtil::badRequest("tags 只能包含字符串"));
+                    return;
+                }
+
+                const auto tag = tagValue.asString();
+                if (tag.empty() || tag.size() > 32) {
+                    callback(ResponseUtil::badRequest("单个标签长度需为 1-32 个字符"));
+                    return;
+                }
+                tags.push_back(tag);
+            }
+        }
 
         // 内容安全检查
         std::string safetyLevel = ContentFilter::checkContentSafety(content);
@@ -166,7 +189,7 @@ void StoneController::createStone(
 
         // 使用ApplicationService发布石头
         auto service = getStoneService();
-        auto result = service->publishStone(userId, content, stoneType, stoneColor, moodType, isAnonymous);
+        auto result = service->publishStone(userId, content, stoneType, stoneColor, moodType, isAnonymous, tags);
 
         std::string stoneId = result["stone_id"].asString();
 
