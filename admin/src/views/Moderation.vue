@@ -59,26 +59,13 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Focus"
-          title="复核焦点"
-          :chip="dominantReason.reason"
+          eyebrow="Risk"
+          title="风险分布"
+          :chip="`${highRiskPendingCount} 高危`"
           tone="ice"
           compact
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>主要触发</span>
-              <strong>{{ dominantReason.reason }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>高危条目</span>
-              <strong>{{ pendingList.filter((item) => getRiskPercent(item.ai_score) >= 85).length }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>人审通过率</span>
-              <strong>{{ moderationSignals[2]?.value || '0%' }}</strong>
-            </article>
-          </div>
+          <OpsMiniBars :items="moderationVizBars" />
         </OpsSurfaceCard>
       </template>
 
@@ -112,26 +99,17 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Guide"
-          title="复核建议"
-          :chip="`${dominantReason.count} 条同类触发`"
+          eyebrow="Score"
+          title="人审核准"
+          :chip="`${moderationScore} / 100`"
           tone="plain"
           compact
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>主要触发</span>
-              <strong>{{ dominantReason.reason }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>高危数量</span>
-              <strong>{{ pendingList.filter((item) => getRiskPercent(item.ai_score) >= 85).length }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>通过率</span>
-              <strong>{{ moderationSignals[2]?.value || '0%' }}</strong>
-            </article>
-          </div>
+          <OpsGaugeMeter
+            :value="moderationScore"
+            :max="100"
+            :label="moderationLabel"
+          />
         </OpsSurfaceCard>
       </template>
 
@@ -414,6 +392,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
@@ -472,6 +452,33 @@ const getRiskColor = (score?: number) => {
   if (percent >= 30) return '#8c8f52'
   return '#49735a'
 }
+
+const highRiskPendingCount = computed(() => pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length)
+const mediumRiskPendingCount = computed(() => pendingList.value.filter((item) => {
+  const percent = getRiskPercent(item.ai_score)
+  return percent >= 60 && percent < 85
+}).length)
+const lowRiskPendingCount = computed(() => pendingList.value.filter((item) => getRiskPercent(item.ai_score) < 60).length)
+
+const moderationVizBars = computed(() => [
+  { label: '高危', value: highRiskPendingCount.value, display: formatCount(highRiskPendingCount.value) },
+  { label: '中危', value: mediumRiskPendingCount.value, display: formatCount(mediumRiskPendingCount.value) },
+  { label: '低危', value: lowRiskPendingCount.value, display: formatCount(lowRiskPendingCount.value) },
+  { label: '历史', value: historyList.value.length, display: formatCount(historyList.value.length) },
+])
+
+const moderationScore = computed(() => {
+  const reviewedCount = historyList.value.length
+  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
+  const approvalRate = reviewedCount ? approvedCount / reviewedCount : 0
+  return Math.max(28, Math.min(96, Math.round(68 + approvalRate * 22 - highRiskPendingCount.value * 4)))
+})
+
+const moderationLabel = computed(() => {
+  if (moderationScore.value >= 80) return '稳健'
+  if (moderationScore.value >= 58) return '复核中'
+  return '紧张'
+})
 
 const dominantReason = computed(() => {
   const counter = new Map<string, number>()

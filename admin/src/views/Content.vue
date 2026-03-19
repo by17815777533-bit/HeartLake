@@ -58,16 +58,74 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Filter"
-          title="巡检条件"
-          :chip="filters.keyword ? '关键词追踪' : '最新内容'"
+          eyebrow="Flow"
+          title="内容流向"
+          :chip="`${contentFlowScore}% 待确认占比`"
           tone="ice"
           compact
         >
+          <OpsMiniBars :items="contentVizBars" />
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Watch"
+          title="内容动态"
+          :chip="latestContentMeta.value"
+          tone="mint"
+        >
+          <div class="ops-list-stack">
+            <article
+              v-for="item in contentSignals"
+              :key="item.label"
+              class="ops-list-row"
+            >
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Score"
+          title="巡检评分"
+          :chip="`${contentHealthScore} / 100`"
+          tone="plain"
+          compact
+        >
+          <OpsGaugeMeter
+            :value="contentHealthScore"
+            :max="100"
+            :label="contentHealthLabel"
+          />
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar content-table-toolbar">
+          <div class="content-table-copy">
+            <h3>内容列表</h3>
+            <p>石头和纸船在同一张工作台上巡检，删除会强制要求理由并保留处置痕迹。</p>
+          </div>
           <el-form
             :model="filters"
+            inline
             aria-label="内容筛选"
-            class="ops-form-grid content-filter-form"
+            class="content-inline-filter"
           >
             <el-form-item label="类型">
               <el-select
@@ -113,89 +171,18 @@
                 @input="onKeywordInput"
               />
             </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                @click="handleSearch"
+              >
+                搜索
+              </el-button>
+              <el-button @click="handleReset">
+                重置
+              </el-button>
+            </el-form-item>
           </el-form>
-
-          <div class="ops-chip-row">
-            <span class="ops-chip">
-              {{ filters.type ? `类型 ${filters.type}` : '全部类型' }}
-            </span>
-            <span class="ops-chip">
-              {{ filters.status ? `状态 ${getStatusLabel(filters.status)}` : '全部状态' }}
-            </span>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="Watch"
-          title="内容动态"
-          :chip="latestContentMeta.value"
-          tone="mint"
-        >
-          <div class="ops-list-stack">
-            <article
-              v-for="item in contentSignals"
-              :key="item.label"
-              class="ops-list-row"
-            >
-              <div class="ops-list-row__badge">
-                {{ item.label.slice(0, 2) }}
-              </div>
-              <div class="ops-list-row__copy">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.note }}</span>
-              </div>
-              <div class="ops-list-row__value">
-                {{ item.badge }}
-              </div>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="Mix"
-          title="内容构成"
-          :chip="`${summaryItems[3]?.value || 0} 待确认`"
-          tone="plain"
-          compact
-        >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>石头</span>
-              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>纸船</span>
-              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>最新入湖</span>
-              <strong>{{ latestContentMeta.value }}</strong>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
-        <div class="ops-soft-toolbar">
-          <div class="content-table-copy">
-            <h3>内容列表</h3>
-            <p>石头和纸船在同一张工作台上巡检，删除会强制要求理由并保留处置痕迹。</p>
-          </div>
-          <div class="ops-chip-row">
-            <span class="ops-chip">
-              {{ filters.keyword ? `关键词 ${filters.keyword}` : '最新切片' }}
-            </span>
-            <span class="ops-chip">
-              {{ summaryItems[3]?.label }} {{ summaryItems[3]?.value }}
-            </span>
-          </div>
         </div>
 
         <el-table
@@ -367,6 +354,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
@@ -408,6 +397,29 @@ const summaryItems = computed(() => {
     { label: '当前页纸船', value: formatCount(boatCount), note: '一对一漂流内容', tone: 'sage' as const },
     { label: '待确认内容', value: formatCount(pendingCount), note: '当前页需要继续观察的条目', tone: 'rose' as const },
   ]
+})
+
+const contentStoneCount = computed(() => contentList.value.filter((item) => item.type === 'stone').length)
+const contentBoatCount = computed(() => contentList.value.filter((item) => item.type === 'boat').length)
+const contentPendingCount = computed(() => contentList.value.filter((item) => item.status === 'pending').length)
+
+const contentVizBars = computed(() => [
+  { label: '石头', value: contentStoneCount.value, display: formatCount(contentStoneCount.value) },
+  { label: '纸船', value: contentBoatCount.value, display: formatCount(contentBoatCount.value) },
+  { label: '待审', value: contentPendingCount.value, display: formatCount(contentPendingCount.value) },
+  { label: '总量', value: contentList.value.length, display: formatCount(contentList.value.length) },
+])
+
+const contentFlowScore = computed(() => {
+  const total = Math.max(contentList.value.length, 1)
+  return Math.round((contentPendingCount.value / total) * 100)
+})
+
+const contentHealthScore = computed(() => Math.max(30, Math.min(95, 92 - contentFlowScore.value)))
+const contentHealthLabel = computed(() => {
+  if (contentHealthScore.value >= 82) return '平稳'
+  if (contentHealthScore.value >= 60) return '可控'
+  return '积压'
 })
 
 const getTimelineNote = (value?: string) => {
@@ -633,6 +645,14 @@ onMounted(() => {
     :deep(.el-form-item) {
       margin-bottom: 0;
     }
+  }
+
+  .content-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .content-inline-filter {
+    justify-content: flex-end;
   }
 
   .content-table-copy {

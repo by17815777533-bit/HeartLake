@@ -57,16 +57,66 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Filter"
-          title="检索条件"
-          :chip="filters.action ? getActionLabel(filters.action) : '全部动作'"
+          eyebrow="Audit"
+          title="动作频次"
+          :chip="`${loginCount} 次登录`"
           tone="ice"
           compact
         >
+          <OpsMiniBars :items="logVizBars" />
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Actions"
+          title="动作分布"
+          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 次登录` : '审计中'"
+          tone="mint"
+        >
+          <div class="ops-kv-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-kv-item"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Score"
+          title="审计完整度"
+          :chip="`${auditScore} / 100`"
+          tone="plain"
+          compact
+        >
+          <OpsGaugeMeter
+            :value="auditScore"
+            :max="100"
+            :label="auditLabel"
+          />
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar logs-table-toolbar">
+          <div class="logs-table-copy">
+            <h3>审计列表</h3>
+            <p>登录、处置、配置和广播都在这里串联起来，便于交接和回放整个后台动作。</p>
+          </div>
           <el-form
             :model="filters"
+            inline
             aria-label="日志筛选"
-            class="ops-form-grid logs-filter-form"
+            class="logs-inline-filter"
           >
             <el-form-item label="操作人">
               <el-input
@@ -142,64 +192,18 @@
                 :disabled-date="disabledDate"
               />
             </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                @click="handleSearch"
+              >
+                搜索
+              </el-button>
+              <el-button @click="handleReset">
+                重置
+              </el-button>
+            </el-form-item>
           </el-form>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="Actions"
-          title="动作分布"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 次登录` : '审计中'"
-          tone="mint"
-        >
-          <div class="ops-kv-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-kv-item"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="Window"
-          title="回看窗口"
-          :chip="filters.operator || '全部管理员'"
-          tone="plain"
-          compact
-        >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>操作类型</span>
-              <strong>{{ filters.action ? getActionLabel(filters.action) : '全部' }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>时间范围</span>
-              <strong>{{ filters.dateRange?.length === 2 ? `${filters.dateRange[0]} 至 ${filters.dateRange[1]}` : '未限定' }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>配置改动</span>
-              <strong>{{ summaryItems[3]?.value || 0 }}</strong>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
-        <div class="ops-soft-toolbar">
-          <div class="logs-table-copy">
-            <h3>审计列表</h3>
-            <p>登录、处置、配置和广播都在这里串联起来，便于交接和回放整个后台动作。</p>
-          </div>
         </div>
 
         <el-table
@@ -280,6 +284,8 @@ import api, { isRequestCanceled } from '@/api'
 import { ElMessage } from 'element-plus'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
@@ -335,17 +341,39 @@ const getActionLabel = (action: string) => `${actionMap[action]?.icon || ''} ${a
 const getActionType = (action: string) => actionMap[action]?.type || 'info'
 const formatCount = (value: number) => value.toLocaleString()
 
+const loginCount = computed(() => logList.value.filter((item) => item.action === 'login').length)
+const contentActionCount = computed(() => logList.value.filter((item) => ['delete_content', 'approve', 'reject'].includes(item.action)).length)
+const configActionCount = computed(() => logList.value.filter((item) => item.action === 'config').length)
+
 const summaryItems = computed(() => {
-  const loginCount = logList.value.filter((item) => item.action === 'login').length
-  const contentActions = logList.value.filter((item) => ['delete_content', 'approve', 'reject'].includes(item.action)).length
-  const configCount = logList.value.filter((item) => item.action === 'config').length
+  const contentActions = contentActionCount.value
+  const configCount = configActionCount.value
 
   return [
     { label: '记录总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的审计记录总数', tone: 'lake' as const },
-    { label: '登录动作', value: formatCount(loginCount), note: '当前页账号进入后台的记录', tone: 'sage' as const },
+    { label: '登录动作', value: formatCount(loginCount.value), note: '当前页账号进入后台的记录', tone: 'sage' as const },
     { label: '内容处置', value: formatCount(contentActions), note: '当前页涉及审核或删除的动作', tone: 'amber' as const },
     { label: '配置改动', value: formatCount(configCount), note: '当前页涉及系统偏好调整的动作', tone: 'rose' as const },
   ]
+})
+
+const logVizBars = computed(() => [
+  { label: '登录', value: loginCount.value, display: formatCount(loginCount.value) },
+  { label: '内容', value: contentActionCount.value, display: formatCount(contentActionCount.value) },
+  { label: '配置', value: configActionCount.value, display: formatCount(configActionCount.value) },
+  { label: '总量', value: logList.value.length, display: formatCount(logList.value.length) },
+])
+
+const auditScore = computed(() => {
+  const total = Math.max(logList.value.length, 1)
+  const structured = loginCount.value + contentActionCount.value + configActionCount.value
+  return Math.max(32, Math.min(96, Math.round((structured / total) * 100)))
+})
+
+const auditLabel = computed(() => {
+  if (auditScore.value >= 80) return '完整'
+  if (auditScore.value >= 58) return '可追'
+  return '稀疏'
 })
 
 async function fetchLogs() {
@@ -385,6 +413,14 @@ onMounted(() => fetchLogs())
     :deep(.el-form-item) {
       margin-bottom: 0;
     }
+  }
+
+  .logs-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .logs-inline-filter {
+    justify-content: flex-end;
   }
 
   .logs-table-copy {

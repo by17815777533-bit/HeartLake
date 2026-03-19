@@ -60,58 +60,13 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Filter"
-          title="快速筛查"
-          :chip="filters.status ? '定向状态' : '全量视图'"
+          eyebrow="Overview"
+          title="活跃分布"
+          :chip="`${activeTravelerCount} 活跃`"
           tone="ice"
           compact
         >
-          <el-form
-            :model="filters"
-            aria-label="用户筛选"
-            class="ops-form-grid users-filter-form"
-          >
-            <el-form-item label="用户ID">
-              <el-input
-                v-model="filters.userId"
-                placeholder="请输入用户ID"
-                clearable
-              />
-            </el-form-item>
-            <el-form-item label="昵称">
-              <el-input
-                v-model="filters.nickname"
-                placeholder="请输入昵称"
-                clearable
-                @input="onSearchInput"
-              />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select
-                v-model="filters.status"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="正常"
-                  value="active"
-                />
-                <el-option
-                  label="已封禁"
-                  value="banned"
-                />
-              </el-select>
-            </el-form-item>
-          </el-form>
-
-          <div class="ops-chip-row">
-            <span class="ops-chip">
-              {{ filters.nickname ? `昵称 ${filters.nickname}` : '未限制昵称' }}
-            </span>
-            <span class="ops-chip">
-              {{ filters.userId ? `用户 ${filters.userId}` : '未指定用户' }}
-            </span>
-          </div>
+          <OpsMiniBars :items="usersVizBars" />
         </OpsSurfaceCard>
       </template>
 
@@ -145,26 +100,17 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Profile"
-          title="旅人结构"
-          :chip="`${summaryItems[3]?.value || 0} 条互动`"
+          eyebrow="Score"
+          title="陪伴指数"
+          :chip="`${engagementScore} / 100`"
           tone="plain"
           compact
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>正常状态</span>
-              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>封禁处置</span>
-              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>最近回湖</span>
-              <strong>{{ latestActiveMeta.value }}</strong>
-            </article>
-          </div>
+          <OpsGaugeMeter
+            :value="engagementScore"
+            :max="100"
+            :label="engagementLabel"
+          />
         </OpsSurfaceCard>
       </template>
 
@@ -172,19 +118,62 @@
         shadow="never"
         class="table-card ops-table-card"
       >
-        <div class="ops-soft-toolbar">
+        <div class="ops-soft-toolbar users-table-toolbar">
           <div class="users-table-copy">
             <h3>旅人列表</h3>
             <p>列表保留真实石头和纸船聚合，封禁与解封操作直接写入后台。</p>
           </div>
-          <div class="ops-chip-row">
-            <span class="ops-chip">
-              {{ summaryItems[2]?.label }} {{ summaryItems[2]?.value }}
-            </span>
-            <span class="ops-chip">
-              {{ summaryItems[3]?.note }}
-            </span>
-          </div>
+          <el-form
+            :model="filters"
+            inline
+            aria-label="用户筛选"
+            class="users-inline-filter"
+          >
+            <el-form-item label="用户ID">
+              <el-input
+                v-model="filters.userId"
+                placeholder="请输入用户ID"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="昵称">
+              <el-input
+                v-model="filters.nickname"
+                placeholder="请输入昵称"
+                clearable
+                @input="onSearchInput"
+              />
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部"
+                clearable
+              >
+                <el-option
+                  label="正常"
+                  value="active"
+                />
+                <el-option
+                  label="已封禁"
+                  value="banned"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                @click="handleSearch"
+              >
+                <el-icon><Search /></el-icon>
+                搜索
+              </el-button>
+              <el-button @click="handleReset">
+                <el-icon><Refresh /></el-icon>
+                重置
+              </el-button>
+            </el-form-item>
+          </el-form>
         </div>
 
         <el-table
@@ -344,6 +333,8 @@ import { Search, Refresh } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
@@ -388,6 +379,30 @@ const summaryItems = computed(() => {
     { label: '封禁处置', value: formatCount(bannedCount), note: '当前页仍处于限制中的账号', tone: 'rose' as const },
     { label: '互动产出', value: formatCount(stonesCount + boatsCount), note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`, tone: 'amber' as const },
   ]
+})
+
+const activeTravelerCount = computed(() => users.value.filter((item) => item.status === 'active').length)
+const bannedTravelerCount = computed(() => users.value.filter((item) => item.status === 'banned').length)
+const totalStones = computed(() => users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0))
+const totalBoats = computed(() => users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0))
+
+const usersVizBars = computed(() => [
+  { label: '活跃', value: activeTravelerCount.value, display: formatCount(activeTravelerCount.value) },
+  { label: '封禁', value: bannedTravelerCount.value, display: formatCount(bannedTravelerCount.value) },
+  { label: '投石', value: totalStones.value, display: formatCount(totalStones.value) },
+  { label: '纸船', value: totalBoats.value, display: formatCount(totalBoats.value) },
+])
+
+const engagementScore = computed(() => {
+  const activeRatio = users.value.length ? activeTravelerCount.value / users.value.length : 0
+  const outputBonus = Math.min(30, (totalStones.value + totalBoats.value) / 5)
+  return Math.max(28, Math.min(98, Math.round(activeRatio * 70 + outputBonus)))
+})
+
+const engagementLabel = computed(() => {
+  if (engagementScore.value >= 82) return '良好'
+  if (engagementScore.value >= 60) return '稳定'
+  return '需关注'
 })
 
 const formatRecentTime = (value?: string) => {
@@ -575,6 +590,14 @@ onMounted(() => {
     :deep(.el-form-item) {
       margin-bottom: 0;
     }
+  }
+
+  .users-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .users-inline-filter {
+    justify-content: flex-end;
   }
 
   .users-table-copy {

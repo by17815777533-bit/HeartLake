@@ -52,20 +52,7 @@
           tone="ice"
           compact
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>开放注册</span>
-              <strong>{{ systemConfig.allowRegister ? '开启' : '关闭' }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>匿名进入</span>
-              <strong>{{ systemConfig.allowAnonymous ? '允许' : '关闭' }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>智能回复</span>
-              <strong>{{ aiConfig.enableAutoReply ? '启用' : '关闭' }}</strong>
-            </article>
-          </div>
+          <OpsMiniBars :items="settingsVizBars" />
         </OpsSurfaceCard>
       </template>
 
@@ -95,26 +82,17 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Preview"
-          title="广播预览"
-          :chip="`${broadcastForm.message.length}/500`"
+          eyebrow="Score"
+          title="配置完整度"
+          :chip="`${settingsScore} / 100`"
           tone="plain"
           compact
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>当前级别</span>
-              <strong>{{ levelLabelMap[broadcastForm.level] || broadcastForm.level }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>回复方案</span>
-              <strong>{{ providerLabelMap[aiConfig.provider] || aiConfig.provider }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>消息节流</span>
-              <strong>{{ rateConfig.messagePerMinute }}/分</strong>
-            </article>
-          </div>
+          <OpsGaugeMeter
+            :value="settingsScore"
+            :max="100"
+            :label="settingsLabel"
+          />
         </OpsSurfaceCard>
       </template>
 
@@ -396,6 +374,8 @@ import { View, Hide } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 
@@ -545,6 +525,29 @@ const summaryItems = computed(() => [
     tone: 'lake' as const,
   },
 ])
+
+const settingsVizBars = computed(() => [
+  { label: '投石', value: rateConfig.stonePerHour, display: String(rateConfig.stonePerHour) },
+  { label: '纸船', value: rateConfig.boatPerHour, display: String(rateConfig.boatPerHour) },
+  { label: '消息', value: rateConfig.messagePerMinute, display: String(rateConfig.messagePerMinute) },
+  { label: '长度', value: rateConfig.maxContentLength, display: String(rateConfig.maxContentLength) },
+])
+
+const settingsScore = computed(() => {
+  let score = 54
+  if (systemConfig.allowRegister) score += 10
+  if (systemConfig.allowAnonymous) score += 8
+  if (aiConfig.enableAutoReply) score += 10
+  if (aiConfig.enableSentiment) score += 8
+  if (broadcastForm.message.length > 0) score += 5
+  return Math.max(30, Math.min(95, score))
+})
+
+const settingsLabel = computed(() => {
+  if (settingsScore.value >= 82) return '完整'
+  if (settingsScore.value >= 60) return '已配置'
+  return '待完善'
+})
 
 // 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {

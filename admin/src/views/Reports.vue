@@ -58,16 +58,66 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Filter"
-          title="筛查条件"
-          :chip="filters.status ? getStatusLabel(filters.status) : '全部状态'"
+          eyebrow="Queue"
+          title="处置分布"
+          :chip="`${reportPendingCount} 待处理`"
           tone="ice"
           compact
         >
+          <OpsMiniBars :items="reportVizBars" />
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Status"
+          title="处置状态"
+          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 等待` : '空闲'"
+          tone="mint"
+        >
+          <div class="ops-kv-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-kv-item"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #footer>
+        <OpsSurfaceCard
+          eyebrow="Score"
+          title="回执效率"
+          :chip="`${reportResolutionScore} / 100`"
+          tone="plain"
+          compact
+        >
+          <OpsGaugeMeter
+            :value="reportResolutionScore"
+            :max="100"
+            :label="reportResolutionLabel"
+          />
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar reports-table-toolbar">
+          <div class="reports-table-copy">
+            <h3>求助列表</h3>
+            <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
+          </div>
           <el-form
             :model="filters"
+            inline
             aria-label="举报筛选"
-            class="ops-form-grid reports-filter-form"
+            class="reports-inline-filter"
           >
             <el-form-item label="状态">
               <el-select
@@ -117,69 +167,18 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                @click="handleSearch"
+              >
+                搜索
+              </el-button>
+              <el-button @click="handleReset">
+                重置
+              </el-button>
+            </el-form-item>
           </el-form>
-          <div class="ops-chip-row">
-            <span class="ops-chip">
-              {{ filters.type ? getTypeLabel(filters.type) : '全部举报类型' }}
-            </span>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="Status"
-          title="处置状态"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 等待` : '空闲'"
-          tone="mint"
-        >
-          <div class="ops-kv-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-kv-item"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="Priority"
-          title="处置提示"
-          :chip="filters.status ? getStatusLabel(filters.status) : '全部状态'"
-          tone="plain"
-          compact
-        >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>待处理</span>
-              <strong>{{ summaryItems[1]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>已完成</span>
-              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>已忽略</span>
-              <strong>{{ summaryItems[3]?.value || 0 }}</strong>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
-        <div class="ops-soft-toolbar">
-          <div class="reports-table-copy">
-            <h3>求助列表</h3>
-            <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
-          </div>
         </div>
 
         <el-table
@@ -299,6 +298,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
+import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
@@ -350,6 +351,28 @@ const summaryItems = computed(() => {
     { label: '已完成处理', value: formatCount(handledCount), note: '当前页已给出处置结果', tone: 'sage' as const },
     { label: '已忽略', value: formatCount(ignoredCount), note: '当前页不进入进一步处理的记录', tone: 'amber' as const },
   ]
+})
+
+const reportPendingCount = computed(() => reportList.value.filter((item) => item.status === 'pending').length)
+const reportHandledCount = computed(() => reportList.value.filter((item) => item.status === 'handled').length)
+const reportIgnoredCount = computed(() => reportList.value.filter((item) => item.status === 'ignored').length)
+
+const reportVizBars = computed(() => [
+  { label: '待处理', value: reportPendingCount.value, display: formatCount(reportPendingCount.value) },
+  { label: '已处理', value: reportHandledCount.value, display: formatCount(reportHandledCount.value) },
+  { label: '已忽略', value: reportIgnoredCount.value, display: formatCount(reportIgnoredCount.value) },
+  { label: '总量', value: reportList.value.length, display: formatCount(reportList.value.length) },
+])
+
+const reportResolutionScore = computed(() => {
+  const total = Math.max(reportList.value.length, 1)
+  return Math.max(24, Math.min(96, Math.round(((reportHandledCount.value + reportIgnoredCount.value) / total) * 100)))
+})
+
+const reportResolutionLabel = computed(() => {
+  if (reportResolutionScore.value >= 80) return '高效'
+  if (reportResolutionScore.value >= 55) return '处理中'
+  return '积压'
 })
 
 async function fetchReports() {
@@ -408,6 +431,14 @@ onMounted(() => {
     :deep(.el-form-item) {
       margin-bottom: 0;
     }
+  }
+
+  .reports-table-toolbar {
+    align-items: flex-start;
+  }
+
+  .reports-inline-filter {
+    justify-content: flex-end;
   }
 
   .reports-table-copy {
