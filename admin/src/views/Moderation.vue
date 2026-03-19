@@ -20,6 +20,7 @@
     />
 
     <OpsMetricStrip :items="summaryItems" />
+    <OpsSignalDeck :items="moderationSignals" />
 
     <el-tabs
       v-model="activeTab"
@@ -79,6 +80,25 @@
               >
                 {{ row.ai_reason || '系统识别' }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="风险分"
+            width="180"
+          >
+            <template #default="{ row }">
+              <div class="risk-meter">
+                <div class="risk-meter__meta">
+                  <strong>{{ getRiskLabel(row.ai_score) }}</strong>
+                  <span>{{ getRiskPercent(row.ai_score) }}%</span>
+                </div>
+                <el-progress
+                  :percentage="getRiskPercent(row.ai_score)"
+                  :show-text="false"
+                  :stroke-width="8"
+                  :color="getRiskColor(row.ai_score)"
+                />
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -191,7 +211,7 @@
             min-width="200"
           >
             <template #default="{ row }">
-              {{ row.content?.substring(0, 50) }}...
+              {{ row.content?.substring(0, 50) }}{{ row.content?.length > 50 ? '...' : '' }}
             </template>
           </el-table-column>
           <el-table-column
@@ -257,6 +277,12 @@
           >
             {{ currentItem.ai_reason || '自动检测' }}
           </el-descriptions-item>
+          <el-descriptions-item label="风险评级">
+            {{ getRiskLabel(currentItem.ai_score) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="风险分">
+            {{ getRiskPercent(currentItem.ai_score) }}%
+          </el-descriptions-item>
           <el-descriptions-item
             label="内容"
             :span="2"
@@ -277,6 +303,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { ModerationItem } from '@/types'
@@ -314,6 +341,72 @@ const summaryItems = computed(() => {
     { label: '高风险提示', value: formatCount(highRiskCount), note: '当前页风险分较高的条目', tone: 'amber' as const },
     { label: '历史通过', value: formatCount(approvedCount), note: '当前页审核历史中的通过条目', tone: 'sage' as const },
     { label: '历史拒绝', value: formatCount(rejectedCount), note: '当前页审核历史中的拦截条目', tone: 'lake' as const },
+  ]
+})
+
+const getRiskPercent = (score?: number) => Math.min(100, Math.max(0, Math.round(Number(score || 0) * 100)))
+
+const getRiskLabel = (score?: number) => {
+  const percent = getRiskPercent(score)
+  if (percent >= 85) return '高危'
+  if (percent >= 60) return '重点复核'
+  if (percent >= 30) return '需要留意'
+  return '低危'
+}
+
+const getRiskColor = (score?: number) => {
+  const percent = getRiskPercent(score)
+  if (percent >= 85) return '#a5483e'
+  if (percent >= 60) return '#b07622'
+  if (percent >= 30) return '#8c8f52'
+  return '#49735a'
+}
+
+const dominantReason = computed(() => {
+  const counter = new Map<string, number>()
+  pendingList.value.forEach((item) => {
+    const reason = item.ai_reason || '系统识别'
+    counter.set(reason, (counter.get(reason) || 0) + 1)
+  })
+
+  const [reason, count] = [...counter.entries()].sort((a, b) => b[1] - a[1])[0] || ['系统识别', 0]
+  return { reason, count }
+})
+
+const moderationSignals = computed(() => {
+  const highRiskCount = pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length
+  const reviewedCount = historyList.value.length
+  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
+  const approvalRate = reviewedCount ? `${Math.round((approvedCount / reviewedCount) * 100)}%` : '0%'
+
+  return [
+    {
+      label: '队列温度',
+      value: highRiskCount > 0 ? '需要优先干预' : '秩序平稳',
+      note: highRiskCount > 0
+        ? `当前仍有 ${formatCount(highRiskCount)} 条高危内容等待人工复核。`
+        : '当前页暂未出现高危条目，可以更关注边界判断与误伤风险。',
+      badge: `待复核 ${formatCount(Number(pagination.total || 0))}`,
+      tone: 'rose' as const,
+    },
+    {
+      label: '主要触发',
+      value: dominantReason.value.reason,
+      note: dominantReason.value.count > 0
+        ? `${formatCount(dominantReason.value.count)} 条内容触发了同类原因。`
+        : '当前没有待审核内容，触发原因将随新队列更新。',
+      badge: activeTab.value === 'pending' ? '待审核视角' : '历史视角',
+      tone: 'amber' as const,
+    },
+    {
+      label: '人工倾向',
+      value: approvalRate,
+      note: reviewedCount
+        ? `当前历史页共回看 ${formatCount(reviewedCount)} 条记录。`
+        : '切到审核历史后会显示这一页的人审通过占比。',
+      badge: `通过 ${formatCount(approvedCount)}`,
+      tone: 'sage' as const,
+    },
   ]
 })
 
@@ -421,8 +514,31 @@ onMounted(() => fetchPending())
 
   .content-preview {
     margin: 0;
-    color: var(--m3-on-surface-variant);
-    line-height: 1.5;
+    color: var(--hl-ink);
+    line-height: 1.7;
+  }
+
+  .risk-meter {
+    display: grid;
+    gap: 8px;
+  }
+
+  .risk-meter__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 12px;
+    }
   }
 
   .pagination-wrapper {

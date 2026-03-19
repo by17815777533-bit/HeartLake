@@ -45,6 +45,9 @@ export interface ContentItem {
   id: string | number
   user_id: string
   nickname?: string
+  user?: {
+    nickname?: string
+  }
   /** 内容类型：stone / boat */
   type: string
   content: string
@@ -93,6 +96,7 @@ export interface ModerationItem {
   /** AI 预审风险分（0-1），越高越可能违规 */
   ai_score?: number
   ai_reason?: string
+  result?: string
   created_at: string
   reviewed_at?: string
   reviewer?: string

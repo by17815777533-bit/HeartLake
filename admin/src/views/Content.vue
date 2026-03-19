@@ -19,6 +19,7 @@
     />
 
     <OpsMetricStrip :items="summaryItems" />
+    <OpsSignalDeck :items="contentSignals" />
 
     <!-- 筛选 -->
     <el-card
@@ -124,9 +125,14 @@
           min-width="300"
         >
           <template #default="{ row }">
-            <p class="content-text">
-              {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
-            </p>
+            <div class="content-copy">
+              <p class="content-text">
+                {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
+              </p>
+              <span class="content-note">
+                {{ filters.keyword ? `当前关键词：${filters.keyword}` : '未指定关键词，展示最新内容切片。' }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -134,7 +140,10 @@
           width="120"
         >
           <template #default="{ row }">
-            {{ row.user?.nickname || '匿名' }}
+            <div class="content-author">
+              <strong>{{ row.user?.nickname || '匿名' }}</strong>
+              <span>{{ row.type === 'stone' ? '公开投石' : '纸船漂流' }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -154,7 +163,14 @@
           prop="created_at"
           label="发布时间"
           width="180"
-        />
+        >
+          <template #default="{ row }">
+            <div class="content-time">
+              <strong>{{ row.created_at || '暂无时间' }}</strong>
+              <span>{{ getTimelineNote(row.created_at) }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column
           label="操作"
           width="150"
@@ -248,6 +264,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { ContentItem } from '@/types'
@@ -287,6 +304,67 @@ const summaryItems = computed(() => {
     { label: '当前页石头', value: formatCount(stoneCount), note: '公开心声内容', tone: 'amber' as const },
     { label: '当前页纸船', value: formatCount(boatCount), note: '一对一漂流内容', tone: 'sage' as const },
     { label: '待确认内容', value: formatCount(pendingCount), note: '当前页需要继续观察的条目', tone: 'rose' as const },
+  ]
+})
+
+const getTimelineNote = (value?: string) => {
+  if (!value) return '等待时间写入'
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (Number.isNaN(diffMinutes)) return '时间格式待确认'
+  if (diffMinutes <= 60) return `${diffMinutes} 分钟前入湖`
+  if (diffMinutes <= 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时前发布`
+  return `${Math.floor(diffMinutes / (24 * 60))} 天前发布`
+}
+
+const latestContentMeta = computed(() => {
+  const latestItem = contentList.value.reduce<ContentItem | null>((latest, item) => {
+    if (!latest) return item
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+  }, null)
+
+  if (!latestItem) {
+    return {
+      value: '暂无内容更新',
+      note: '当前筛选条件下还没有最新条目。',
+    }
+  }
+
+  return {
+    value: latestItem.type === 'stone' ? '最新石头' : '最新纸船',
+    note: `${latestItem.created_at || '暂无时间'} · ${getTimelineNote(latestItem.created_at)}`,
+  }
+})
+
+const contentSignals = computed(() => {
+  const totalCount = contentList.value.length
+  const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
+  const boatCount = contentList.value.filter((item) => item.type === 'boat').length
+  const watchMode = filters.type === 'stone'
+    ? '石头巡检'
+    : (filters.type === 'boat' ? '纸船巡检' : '混合巡检')
+
+  return [
+    {
+      label: '巡检模式',
+      value: watchMode,
+      note: filters.status ? `当前只查看“${getStatusLabel(filters.status)}”状态内容。` : '默认同时查看石头与纸船的最新流入。',
+      badge: filters.keyword ? '关键词筛查' : '全量浏览',
+      tone: 'lake' as const,
+    },
+    {
+      label: '最新入湖',
+      value: latestContentMeta.value.value,
+      note: latestContentMeta.value.note,
+      badge: `当前页 ${formatCount(totalCount)} 条`,
+      tone: 'sage' as const,
+    },
+    {
+      label: '待确认占比',
+      value: totalCount ? `${Math.round((pendingCount / totalCount) * 100)}%` : '0%',
+      note: `当前页待确认 ${formatCount(pendingCount)} 条，纸船 ${formatCount(boatCount)} 条。`,
+      badge: `纸船 ${formatCount(boatCount)}`,
+      tone: 'amber' as const,
+    },
   ]
 })
 
@@ -448,10 +526,32 @@ onMounted(() => {
     margin-bottom: 16px;
   }
 
+  .content-copy,
+  .content-author,
+  .content-time {
+    display: grid;
+    gap: 6px;
+  }
+
   .content-text {
     margin: 0;
-    color: var(--m3-on-surface-variant);
+    color: var(--hl-ink);
+    line-height: 1.7;
+  }
+
+  .content-note,
+  .content-author span,
+  .content-time span {
+    color: var(--hl-ink-soft);
+    font-size: 12px;
     line-height: 1.5;
+  }
+
+  .content-author strong,
+  .content-time strong {
+    color: var(--hl-ink);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .pagination-wrapper {

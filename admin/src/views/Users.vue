@@ -19,6 +19,7 @@
     />
 
     <OpsMetricStrip :items="summaryItems" />
+    <OpsSignalDeck :items="travelerSignals" />
 
     <!-- 搜索筛选 -->
     <el-card
@@ -95,15 +96,27 @@
           width="180"
         />
         <el-table-column
-          prop="nickname"
-          label="昵称"
-          width="150"
-        />
+          label="旅人"
+          min-width="190"
+        >
+          <template #default="{ row }">
+            <div class="traveler-identity">
+              <strong>{{ row.nickname || '未命名旅人' }}</strong>
+              <span>@{{ row.username || row.user_id }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column
-          prop="username"
-          label="账号"
-          width="120"
-        />
+          label="活跃轨迹"
+          width="190"
+        >
+          <template #default="{ row }">
+            <div class="activity-meta">
+              <strong>{{ row.last_active_at || '暂无记录' }}</strong>
+              <span>{{ getActivityNote(row.last_active_at) }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column
           label="统计"
           width="220"
@@ -128,11 +141,6 @@
         <el-table-column
           prop="created_at"
           label="注册时间"
-          width="180"
-        />
-        <el-table-column
-          prop="last_active_at"
-          label="最后活跃"
           width="180"
         />
         <el-table-column
@@ -232,6 +240,7 @@ import { Search, Refresh } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { User } from '@/types'
@@ -274,6 +283,79 @@ const summaryItems = computed(() => {
     { label: '正常状态', value: formatCount(activeCount), note: '当前页可直接服务的账号', tone: 'sage' as const },
     { label: '封禁处置', value: formatCount(bannedCount), note: '当前页仍处于限制中的账号', tone: 'rose' as const },
     { label: '互动产出', value: formatCount(stonesCount + boatsCount), note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`, tone: 'amber' as const },
+  ]
+})
+
+const formatRecentTime = (value?: string) => {
+  if (!value) return { timestamp: 0, label: '暂无活跃记录' }
+  const timestamp = new Date(value).getTime()
+  return {
+    timestamp: Number.isNaN(timestamp) ? 0 : timestamp,
+    label: value,
+  }
+}
+
+const getActivityNote = (value?: string) => {
+  if (!value) return '尚未留下活跃轨迹'
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (Number.isNaN(diffMinutes)) return '时间格式待确认'
+  if (diffMinutes <= 10) return '刚刚回到湖面'
+  if (diffMinutes <= 60) return `${diffMinutes} 分钟内活跃`
+  if (diffMinutes <= 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时内活跃`
+  return `${Math.floor(diffMinutes / (24 * 60))} 天前活跃`
+}
+
+const latestActiveMeta = computed(() => {
+  const latestUser = users.value.reduce<User | null>((latest, item) => {
+    if (!latest) return item
+    return formatRecentTime(item.last_active_at).timestamp > formatRecentTime(latest.last_active_at).timestamp ? item : latest
+  }, null)
+
+  if (!latestUser) {
+    return {
+      value: '暂无旅人回湖',
+      note: '当前页还没有活跃记录可供判断。',
+    }
+  }
+
+  return {
+    value: latestUser.nickname || latestUser.username || latestUser.user_id,
+    note: `${latestUser.last_active_at || '暂无时间'} · ${getActivityNote(latestUser.last_active_at)}`,
+  }
+})
+
+const travelerSignals = computed(() => {
+  const activeCount = users.value.filter((item) => item.status === 'active').length
+  const outputCount = users.value.reduce((sum, item) => sum + Number(item.stones_count || 0) + Number(item.boat_count || 0), 0)
+  const averageOutput = users.value.length ? (outputCount / users.value.length).toFixed(1) : '0.0'
+  const filterFocus = filters.status === 'banned'
+    ? '封禁回看'
+    : (filters.userId || filters.nickname ? '定向检索' : '旅人总览')
+
+  return [
+    {
+      label: '当前视角',
+      value: filterFocus,
+      note: filters.nickname
+        ? `正在按昵称“${filters.nickname}”缩小范围。`
+        : (filters.userId ? `正在定向查看用户 ${filters.userId}。` : '默认浏览全量旅人，优先留意异常状态与高活跃账号。'),
+      badge: filters.status ? `状态 ${filters.status}` : '全部状态',
+      tone: 'lake' as const,
+    },
+    {
+      label: '最近回湖',
+      value: latestActiveMeta.value.value,
+      note: latestActiveMeta.value.note,
+      badge: `${formatCount(activeCount)} 人正常`,
+      tone: 'sage' as const,
+    },
+    {
+      label: '互动密度',
+      value: `${averageOutput} / 人`,
+      note: `当前页平均每位旅人留下 ${averageOutput} 条公开或漂流表达。`,
+      badge: `总产出 ${formatCount(outputCount)}`,
+      tone: 'amber' as const,
+    },
   ]
 })
 
@@ -385,6 +467,24 @@ onMounted(() => {
     margin-bottom: 16px;
   }
 
+  .traveler-identity,
+  .activity-meta {
+    display: grid;
+    gap: 6px;
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  }
+
   .user-stats {
     display: flex;
     gap: 16px;
@@ -392,7 +492,12 @@ onMounted(() => {
     .stat-item {
       display: flex;
       align-items: center;
-      font-size: 13px;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px solid rgba(115, 141, 151, 0.12);
+      font-size: 12px;
       color: var(--m3-on-surface-variant);
 
       .stat-dot {
