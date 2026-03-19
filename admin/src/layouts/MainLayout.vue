@@ -344,16 +344,16 @@ onUnmounted(() => {
 
 .main-layout {
   min-height: 100vh;
-  padding: 14px;
+  padding: 18px;
 }
 
 .workspace-shell {
   width: min(1420px, 100%);
   margin: 0 auto;
-  min-height: calc(100vh - 28px);
-  padding: 14px 16px 18px;
-  border-radius: 28px;
-  border: 7px solid rgba(255, 255, 255, 0.98);
+  min-height: calc(100vh - 36px);
+  padding: 18px 20px 24px;
+  border-radius: 32px;
+  border: 8px solid rgba(255, 255, 255, 0.98);
   background:
     radial-gradient(circle at 84% 84%, rgba(196, 240, 231, 0.4), transparent 18%),
     radial-gradient(circle at 14% 10%, rgba(194, 211, 255, 0.34), transparent 20%),
@@ -367,9 +367,9 @@ onUnmounted(() => {
 .workspace-shell__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
-  padding-bottom: 12px;
+  padding-bottom: 16px;
 }
 
 .brand-mark {
@@ -458,10 +458,10 @@ onUnmounted(() => {
 
 .shell-search {
   position: relative;
-  width: min(248px, 19vw);
+  width: min(266px, 20vw);
 
   :deep(.el-input__wrapper) {
-    min-height: 38px;
+    min-height: 40px;
     border-radius: 999px !important;
     background: rgba(236, 243, 255, 0.88) !important;
     border: 1px solid rgba(164, 183, 224, 0.28);
@@ -527,8 +527,8 @@ onUnmounted(() => {
 .header-icon-btn,
 .header-account {
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: none;
@@ -560,7 +560,7 @@ onUnmounted(() => {
 
 .main-content {
   min-height: 0;
-  margin-top: 0;
+  margin-top: 2px;
 }
 
 .main-content :deep(.ops-page),

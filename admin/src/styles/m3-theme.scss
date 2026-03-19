@@ -780,11 +780,11 @@ html.dark {
 }
 
 .ops-page .el-card__body {
-  padding: 18px 20px;
+  padding: 20px 22px;
 }
 
 .ops-table-card {
-  border-radius: 22px !important;
+  border-radius: 24px !important;
 }
 
 .ops-table-card .el-card__body {
@@ -818,7 +818,7 @@ html.dark {
 .ops-big-metric__value {
   color: var(--hl-ink);
   font-family: var(--hl-font-display);
-  font-size: clamp(34px, 4.8vw, 46px);
+  font-size: clamp(38px, 5.2vw, 52px);
   font-weight: 700;
   line-height: 0.94;
   letter-spacing: -0.05em;
@@ -826,7 +826,7 @@ html.dark {
   small {
     margin-left: 6px;
     color: #8ea4e4;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
   }
 }
@@ -834,7 +834,7 @@ html.dark {
 .ops-big-metric__note {
   max-width: 38rem;
   color: var(--hl-ink-soft);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.62;
 }
 
@@ -855,12 +855,12 @@ html.dark {
 .ops-mini-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .ops-mini-tile {
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 14px 16px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.68);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -878,15 +878,15 @@ html.dark {
   }
 
   strong {
-    margin-top: 12px;
+    margin-top: 14px;
     color: var(--hl-ink);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.04em;
   }
 
   small {
-    margin-top: 4px;
+    margin-top: 6px;
     color: var(--hl-ink-soft);
     font-size: 11px;
     line-height: 1.5;

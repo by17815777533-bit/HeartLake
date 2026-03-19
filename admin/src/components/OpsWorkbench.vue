@@ -56,7 +56,7 @@ const hasFooter = computed(() => Boolean(slots.footer))
 .ops-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1.72fr) minmax(180px, 0.82fr) minmax(248px, 1.02fr);
-  gap: 14px;
+  gap: 16px;
   grid-template-areas:
     "stage support rail"
     "main main footer";
