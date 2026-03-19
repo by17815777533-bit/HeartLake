@@ -8,93 +8,189 @@
 -->
 
 <template>
-  <div class="edge-ai ops-page">
-    <OpsPageHero
-      eyebrow="陪伴引擎"
-      title="智能辅助"
-      :description="heroDescription"
-      :status="engineStatus.enabled ? '陪伴中' : '需检查'"
-      :chips="heroChips"
-    >
-      <template #actions>
-        <el-button
-          type="primary"
-          :icon="RefreshRight"
-          :loading="loading"
-          @click="refreshAll"
+  <div class="edge-workbench ops-page">
+    <section class="edge-grid">
+      <article class="edge-card edge-card--engine">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">{{ engineStatus.enabled ? 'Running' : 'Paused' }}</span>
+            <h2>智能辅助引擎</h2>
+          </div>
+          <span class="edge-chip">{{ currentTime }}</span>
+        </div>
+
+        <div class="engine-total">
+          <span>在线节点</span>
+          <div class="engine-total__value">
+            {{ engineStatus.activeNodes }}
+            <small>个</small>
+          </div>
+          <p>{{ heroDescription }}</p>
+        </div>
+
+        <div class="engine-actions">
+          <button
+            type="button"
+            class="engine-action"
+            :disabled="loading"
+            @click="refreshAll"
+          >
+            <el-icon><RefreshRight /></el-icon>
+            <span>刷新状态</span>
+          </button>
+          <button
+            type="button"
+            class="engine-action"
+            @click="triggerAggregation"
+          >
+            <span>触发聚合</span>
+          </button>
+        </div>
+
+        <div class="engine-stack">
+          <article class="engine-mini-card is-blue">
+            <span>平均响应</span>
+            <strong>{{ engineStatus.avgLatency }}ms</strong>
+            <small>当前吞吐 {{ engineStatus.throughput }} req/s</small>
+          </article>
+          <article class="engine-mini-card is-mint">
+            <span>保护余量</span>
+            <strong>{{ privacy.epsilonRemaining }}</strong>
+            <small>剩余查询 {{ privacy.queriesRemaining }}</small>
+          </article>
+          <button
+            type="button"
+            class="engine-mini-card engine-mini-card--more"
+            @click="loadConfig"
+          >
+            <span>+</span>
+          </button>
+        </div>
+      </article>
+
+      <article class="edge-card edge-card--perf">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">Performance</span>
+            <h3>性能概览</h3>
+          </div>
+        </div>
+
+        <div class="perf-bars">
+          <article
+            v-for="item in performanceMetrics"
+            :key="item.label"
+            class="perf-bar"
+          >
+            <div class="perf-bar__track">
+              <span :style="{ height: `${Math.max(16, item.percent)}%`, background: item.color }" />
+            </div>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.label }}</small>
+          </article>
+        </div>
+      </article>
+
+      <article class="edge-card edge-card--queue">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">Systems</span>
+            <h3>节点与链路</h3>
+          </div>
+          <button
+            type="button"
+            class="text-action"
+            @click="loadConfig"
+          >
+            查看配置
+          </button>
+        </div>
+
+        <div class="queue-list">
+          <article
+            v-for="row in engineRows"
+            :key="row.id"
+            class="queue-item"
+          >
+            <div class="queue-item__avatar">
+              {{ row.badge }}
+            </div>
+            <div class="queue-item__copy">
+              <strong>{{ row.title }}</strong>
+              <span>{{ row.meta }}</span>
+            </div>
+            <div
+              class="queue-item__value"
+              :class="row.tone"
+            >
+              {{ row.value }}
+            </div>
+          </article>
+        </div>
+      </article>
+
+      <article class="edge-card edge-card--guide">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">Privacy</span>
+            <h3>预算建议</h3>
+          </div>
+        </div>
+
+        <p class="guide-copy">
+          {{ edgeGuideCopy }}
+        </p>
+
+        <button
+          type="button"
+          class="guide-button"
+          @click="triggerAggregation"
         >
-          刷新状态
-        </el-button>
-      </template>
-    </OpsPageHero>
+          立即处理
+        </button>
+      </article>
 
-    <OpsMetricStrip :items="summaryItems" />
-
-    <OpsSignalDeck :items="edgeSignals" />
-
-    <section class="edge-stage edge-stage--core">
-      <div class="edge-stage__main">
-        <div class="edge-stage__label">
-          中央脉搏舞台
+      <article class="edge-card edge-card--chart">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">Emotion</span>
+            <h3>情绪脉搏曲线</h3>
+          </div>
+          <span class="edge-chip">最近刷新 {{ lastUpdateTime }}</span>
         </div>
 
-        <PerformanceSection
-          :performance-metrics="performanceMetrics"
-          :emotion-gauge-option="emotionGaugeOption"
-          :emotion-pulse-line-option="emotionPulseLineOption"
+        <v-chart
+          :option="emotionPulseLineOption"
+          autoresize
+          class="edge-chart"
+          role="img"
+          aria-label="情绪脉搏曲线"
         />
+      </article>
 
-        <VectorNodesSection
-          v-model:vector-query="vectorQuery"
-          :vector-searching="vectorSearching"
-          :vector-searched="vectorSearched"
-          :vector-results="vectorResults"
-          :edge-nodes="edgeNodes"
-          @search="doVectorSearch"
-        />
-      </div>
-
-      <aside class="edge-stage__rail">
-        <div class="edge-stage__label">
-          操作与预算列
+      <article class="edge-card edge-card--score">
+        <div class="edge-head">
+          <div>
+            <span class="edge-eyebrow">Health</span>
+            <h3>引擎评分</h3>
+          </div>
         </div>
 
-        <FederatedPrivacySection
-          :federated="federated"
-          :privacy="privacy"
-          :privacy-budget-color="privacyBudgetColor"
-          :privacy-pie-option="privacyPieOption"
-          @trigger-aggregation="triggerAggregation"
-          @refresh-federated="loadFederatedStatus"
-        />
-
-        <RAGSystemSection :rag-stats="ragStats" />
-      </aside>
-    </section>
-
-    <section class="edge-stage edge-stage--lab">
-      <div class="edge-stage__main">
-        <div class="edge-stage__label">
-          实验室与调参台
+        <div class="edge-score">
+          <div class="edge-score__arc" />
+          <div class="edge-score__mask" />
+          <div class="edge-score__content">
+            <strong>{{ edgeHealthScore }}</strong>
+            <span>{{ edgeHealthLabel }}</span>
+          </div>
         </div>
 
-        <AIToolboxSection
-          :sentiment-tool="sentimentTool"
-          :moderation-tool="moderationTool"
-          @analyze-sentiment="doSentimentAnalysis"
-          @moderate-content="doContentModeration"
-        />
-      </div>
-
-      <aside class="edge-stage__side">
-        <ConfigSection
-          :edge-config="edgeConfig"
-          :config-loading="configLoading"
-          :config-saving="configSaving"
-          @save="saveConfig"
-          @reset="loadConfig"
-        />
-      </aside>
+        <div class="score-meta">
+          <span>缓存命中 {{ engineStatus.cacheHitRate }}%</span>
+          <span>本轮协同 {{ federated.currentRound }}</span>
+          <span>噪声级别 {{ privacyNoiseLabel }}</span>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -103,18 +199,10 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RefreshRight } from '@element-plus/icons-vue'
+import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
-import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
-import PerformanceSection from './edge-ai/PerformanceSection.vue'
-import FederatedPrivacySection from './edge-ai/FederatedPrivacySection.vue'
-import VectorNodesSection from './edge-ai/VectorNodesSection.vue'
-import RAGSystemSection from './edge-ai/RAGSystemSection.vue'
-import ConfigSection from './edge-ai/ConfigSection.vue'
-import AIToolboxSection from './edge-ai/AIToolboxSection.vue'
 
 const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
@@ -458,6 +546,72 @@ const edgeSignals = computed(() => [
   },
 ])
 
+const engineRows = computed(() => {
+  if (edgeNodes.value.length) {
+    return edgeNodes.value.slice(0, 5).map((node, index) => ({
+      id: node.id ?? index,
+      badge: String(node.name ?? node.node_id ?? `N${index + 1}`).slice(0, 1).toUpperCase(),
+      title: node.name ?? node.node_id ?? `边缘节点 ${index + 1}`,
+      meta: node.status ?? '在线',
+      value: node.latency ? `${node.latency}ms` : `${node.load ?? node.qps ?? '--'}`,
+      tone: node.status === 'running' || node.status === 'online' ? 'is-up' : 'is-neutral',
+    }))
+  }
+
+  return [
+    {
+      id: 'federated',
+      badge: 'F',
+      title: '联邦训练',
+      meta: `第 ${federated.currentRound} 轮`,
+      value: federated.modelAccuracy || '0%',
+      tone: 'is-up',
+    },
+    {
+      id: 'rag',
+      badge: 'R',
+      title: 'RAG 检索',
+      meta: '上下文召回',
+      value: `${ragStats.value.hit_rate ?? ragStats.value.hitRate ?? 0}%`,
+      tone: 'is-neutral',
+    },
+    {
+      id: 'privacy',
+      badge: 'P',
+      title: '隐私预算',
+      meta: privacyNoiseLabel.value,
+      value: `${privacy.epsilonRemaining}`,
+      tone: 'is-up',
+    },
+  ]
+})
+
+const edgeGuideCopy = computed(() => {
+  if (privacy.epsilonPercent >= 80) {
+    return '当前预算接近上限，建议先压低高频调用，再安排下一轮聚合，避免保护额度被快速吃空。'
+  }
+  if (!engineStatus.enabled) {
+    return '当前辅助引擎未完全启动，先恢复节点可用性，再放大自动化处理能力。'
+  }
+  return '当前链路总体可控，优先盯住高延迟节点和缓存命中率，把自动辅助维持在稳定区间。'
+})
+
+const edgeHealthScore = computed(() => {
+  let score = 92
+  if (!engineStatus.enabled) score -= 24
+  score -= Math.min(20, Math.round(engineStatus.avgLatency / 18))
+  score -= Math.min(14, Math.max(0, 80 - engineStatus.cacheHitRate) / 4)
+  score -= Math.min(18, Math.max(0, privacy.epsilonPercent - 60) / 2)
+  return Math.max(36, Math.min(98, Math.round(score)))
+})
+
+const edgeHealthLabel = computed(() => {
+  if (edgeHealthScore.value >= 82) return '平稳'
+  if (edgeHealthScore.value >= 66) return '可控'
+  return '需检修'
+})
+
+
 async function loadStatus() {
   try {
     const { data } = await api.getEdgeAIStatus()
@@ -734,279 +888,468 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.edge-ai {
-  min-height: 100%;
-  padding: 8px 0 22px;
+.edge-workbench {
+  padding-bottom: 6px;
 }
 
-.edge-stage {
-  position: relative;
+.edge-grid {
   display: grid;
-  gap: 22px;
-  margin-bottom: 24px;
-  padding: 22px;
-  border-radius: 32px;
-  border: 1px solid rgba(117, 144, 154, 0.12);
+  grid-template-columns: 1.55fr 0.92fr 1.18fr;
+  grid-template-areas:
+    "engine perf queue"
+    "engine guide queue"
+    "chart chart score";
+  gap: 20px;
+}
+
+.edge-card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(133, 156, 201, 0.12);
   background:
-    linear-gradient(180deg, rgba(250, 252, 252, 0.52), rgba(241, 246, 248, 0.7)),
-    radial-gradient(circle at top right, rgba(123, 160, 173, 0.1), transparent 22%);
-  box-shadow: 0 24px 58px rgba(10, 23, 31, 0.05);
+    radial-gradient(circle at 100% 0%, rgba(151, 221, 209, 0.2), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(236, 245, 255, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 22px 46px rgba(104, 128, 173, 0.12);
 }
 
-.edge-stage--core {
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
-  align-items: start;
+.edge-card--engine { grid-area: engine; min-height: 420px; }
+.edge-card--perf { grid-area: perf; min-height: 198px; }
+.edge-card--queue { grid-area: queue; min-height: 420px; background: linear-gradient(180deg, rgba(218, 244, 239, 0.86), rgba(212, 239, 233, 0.94)); }
+.edge-card--guide { grid-area: guide; min-height: 198px; }
+.edge-card--chart { grid-area: chart; min-height: 340px; }
+.edge-card--score { grid-area: score; min-height: 340px; }
+
+.edge-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+
+  h2,
+  h3 {
+    margin: 8px 0 0;
+    color: var(--hl-ink);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  h3 {
+    font-size: 24px;
+  }
 }
 
-.edge-stage--lab {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  align-items: start;
-}
-
-.edge-stage__main,
-.edge-stage__rail,
-.edge-stage__side {
-  min-width: 0;
-}
-
-.edge-stage__rail,
-.edge-stage__side {
-  position: sticky;
-  top: 18px;
-}
-
-.edge-stage__label {
+.edge-eyebrow,
+.edge-chip {
   display: inline-flex;
-  width: fit-content;
-  min-height: 32px;
   align-items: center;
-  margin-bottom: 14px;
+  min-height: 30px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(17, 62, 74, 0.08);
-  color: var(--m3-primary);
-  font-family: var(--hl-font-mono);
   font-size: 11px;
-  letter-spacing: 0.16em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.edge-eyebrow {
+  background: rgba(239, 246, 255, 0.96);
+  color: var(--hl-ink-soft);
   text-transform: uppercase;
 }
 
-.edge-ai :deep(.charts-row),
-.edge-ai :deep(.section-row) {
-  margin-bottom: 22px;
+.edge-chip {
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--hl-ink);
 }
 
-.edge-ai :deep(.chart-card),
-.edge-ai :deep(.module-card) {
-  border-radius: 28px;
-  border: 1px solid rgba(123, 149, 160, 0.14);
-  background:
-    linear-gradient(180deg, rgba(254, 253, 251, 0.94), rgba(242, 247, 248, 0.96)),
-    radial-gradient(circle at right top, rgba(123, 160, 173, 0.12), transparent 28%);
-  box-shadow: 0 22px 46px rgba(10, 23, 31, 0.06);
-  overflow: hidden;
+.engine-total {
+  margin-top: 22px;
+
+  > span {
+    display: block;
+    color: var(--hl-ink-soft);
+    font-size: 13px;
+  }
+
+  p {
+    margin-top: 12px;
+    color: var(--hl-ink-soft);
+    font-size: 14px;
+    line-height: 1.8;
+  }
 }
 
-.edge-ai :deep(.chart-card .el-card__header),
-.edge-ai :deep(.module-card .el-card__header) {
-  padding: 18px 22px 14px;
-  border-bottom: 1px solid rgba(24, 36, 47, 0.07);
-  background: rgba(255, 255, 255, 0.36);
+.engine-total__value {
+  margin-top: 10px;
+  color: var(--hl-ink);
+  font-size: clamp(48px, 6vw, 62px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+
+  small {
+    margin-left: 8px;
+    color: #8da5db;
+    font-size: 26px;
+    font-weight: 700;
+  }
 }
 
-.edge-ai :deep(.chart-card .el-card__body),
-.edge-ai :deep(.module-card .el-card__body) {
-  padding: 22px;
-}
-
-.edge-ai :deep(.card-header) {
+.engine-actions {
   display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.engine-action {
+  min-width: 132px;
+  height: 44px;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(244, 249, 255, 0.9);
   color: var(--hl-ink);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  transition: var(--m3-transition);
 }
 
-.edge-ai :deep(.chart-card:hover),
-.edge-ai :deep(.module-card:hover) {
-  border-color: rgba(17, 62, 74, 0.16);
-}
-
-.edge-ai :deep(.metrics-grid) {
+.engine-stack {
+  display: grid;
+  grid-template-columns: 1fr 1fr 64px;
   gap: 14px;
+  align-items: end;
+  margin-top: 34px;
 }
 
-.edge-ai :deep(.metric-item),
-.edge-ai :deep(.fed-stat-item),
-.edge-ai :deep(.rag-stat-item),
-.edge-ai :deep(.search-result-item) {
-  border-radius: 20px;
-  border: 1px solid rgba(123, 149, 160, 0.14);
-  background: rgba(255, 255, 255, 0.66);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+.engine-mini-card {
+  min-height: 148px;
+  padding: 18px;
+  border: none;
+  border-radius: 24px;
+  text-align: left;
+  box-shadow: 0 18px 32px rgba(120, 146, 194, 0.16);
+
+  span,
+  small {
+    display: block;
+  }
+
+  span {
+    color: rgba(35, 45, 67, 0.74);
+    font-size: 12px;
+  }
+
+  strong {
+    display: block;
+    margin-top: 34px;
+    color: #1d2740;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  small {
+    margin-top: 8px;
+    color: rgba(35, 45, 67, 0.62);
+    font-size: 12px;
+  }
 }
 
-.edge-ai :deep(.metric-item) {
-  padding: 16px 14px;
+.engine-mini-card.is-blue {
+  background: linear-gradient(180deg, rgba(177, 204, 255, 0.92), rgba(166, 194, 255, 0.96));
 }
 
-.edge-ai :deep(.metric-value),
-.edge-ai :deep(.fed-stat-value),
-.edge-ai :deep(.rag-stat-value) {
-  color: var(--hl-ink);
-  font-family: var(--hl-font-display);
+.engine-mini-card.is-mint {
+  background: linear-gradient(180deg, rgba(209, 241, 236, 0.92), rgba(196, 236, 229, 0.96));
 }
 
-.edge-ai :deep(.metric-label),
-.edge-ai :deep(.fed-stat-label),
-.edge-ai :deep(.rag-stat-label),
-.edge-ai :deep(.rag-stat-desc),
-.edge-ai :deep(.budget-hint),
-.edge-ai :deep(.result-label) {
-  color: var(--hl-ink-soft);
+.engine-mini-card--more {
+  min-height: 152px;
+  display: grid;
+  place-items: center;
+  background: #212121;
+  box-shadow: 0 20px 34px rgba(33, 33, 33, 0.22);
+
+  span {
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: 300;
+  }
 }
 
-.edge-ai :deep(.emotion-pulse-container) {
-  gap: 18px;
-  min-height: 260px;
+.perf-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  align-items: end;
+  height: 128px;
+  margin-top: 24px;
 }
 
-.edge-ai :deep(.fed-actions) {
+.perf-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  strong {
+    color: var(--hl-ink);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  small {
+    color: var(--hl-ink-soft);
+    font-size: 11px;
+    text-align: center;
+  }
 }
 
-.edge-ai :deep(.fed-progress-label) {
-  display: inline-block;
-  margin-bottom: 10px;
+.perf-bar__track {
+  width: 100%;
+  height: 86px;
+  display: flex;
+  align-items: end;
+  padding: 0 6px;
+
+  span {
+    width: 100%;
+    border-radius: 999px;
+    box-shadow: 0 8px 18px rgba(125, 157, 255, 0.14);
+  }
+}
+
+.queue-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.queue-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(122, 163, 157, 0.16);
+}
+
+.queue-item:last-child {
+  border-bottom: none;
+}
+
+.queue-item__avatar {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--hl-ink);
+  font-weight: 700;
+}
+
+.queue-item__copy {
+  min-width: 0;
+
+  strong {
+    display: block;
+    color: var(--hl-ink);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    display: block;
+    margin-top: 4px;
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+  }
+}
+
+.queue-item__value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.queue-item__value.is-up { color: #5aaf9d; }
+.queue-item__value.is-neutral { color: #6f7c96; }
+
+.text-action {
+  border: none;
+  background: transparent;
   color: var(--hl-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.edge-ai :deep(.budget-main .epsilon) {
-  margin-bottom: 14px;
-  font-family: var(--hl-font-display);
-  font-size: clamp(28px, 3vw, 34px);
+.edge-card--guide::before,
+.edge-card--guide::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 157, 230, 0.26);
+}
+
+.edge-card--guide::before {
+  width: 112px;
+  height: 112px;
+  right: 22px;
+  bottom: 18px;
+}
+
+.edge-card--guide::after {
+  width: 74px;
+  height: 74px;
+  right: 88px;
+  bottom: 44px;
+}
+
+.guide-copy {
+  max-width: 28ch;
+  margin: 18px 0 0;
   color: var(--hl-ink);
-}
-
-.edge-ai :deep(.search-results) {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.edge-ai :deep(.search-result-item) {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 14px;
-  align-items: start;
-  padding: 14px;
-}
-
-.edge-ai :deep(.result-content),
-.edge-ai :deep(.reason-text) {
-  color: var(--hl-ink);
+  font-size: 15px;
   line-height: 1.7;
 }
 
-.edge-ai :deep(.config-form) {
-  padding-top: 4px;
+.guide-button {
+  margin-top: 22px;
+  height: 42px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #8cb2ff, #789cf2);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(120, 156, 242, 0.22);
 }
 
-.edge-ai :deep(.config-actions) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding-top: 10px;
+.edge-chart {
+  height: 250px;
+  margin-top: 18px;
 }
 
-.edge-ai :deep(.ai-tool-panel) {
-  display: grid;
-  gap: 14px;
-}
-
-.edge-ai :deep(.tool-result) {
-  display: grid;
-  gap: 12px;
-  margin-top: 6px;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(123, 149, 160, 0.14);
-  background: rgba(255, 255, 255, 0.62);
-}
-
-.edge-ai :deep(.result-item) {
-  display: grid;
-  gap: 8px;
-}
-
-.edge-ai :deep(.emotion-tags) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.edge-ai :deep(.el-input__wrapper),
-.edge-ai :deep(.el-textarea__inner),
-.edge-ai :deep(.el-select__wrapper),
-.edge-ai :deep(.el-input-number),
-.edge-ai :deep(.el-input-number .el-input__wrapper) {
-  border-radius: 16px;
-  box-shadow: 0 0 0 1px rgba(123, 149, 160, 0.16) inset;
-  background: rgba(255, 255, 255, 0.82);
-}
-
-.edge-ai :deep(.el-form-item__label) {
-  color: var(--hl-ink-soft);
-  font-weight: 600;
-}
-
-.edge-ai :deep(.el-table) {
-  --el-table-header-bg-color: rgba(245, 248, 249, 0.92);
-  --el-table-row-hover-bg-color: rgba(241, 246, 247, 0.92);
-  --el-table-border-color: rgba(123, 149, 160, 0.12);
-  border-radius: 18px;
+.edge-score {
+  position: relative;
+  width: 220px;
+  height: 120px;
+  margin: 34px auto 0;
   overflow: hidden;
 }
 
-.edge-ai :deep(.el-tag) {
-  border-radius: 999px;
+.edge-score__arc,
+.edge-score__mask {
+  position: absolute;
+  left: 50%;
+  width: 220px;
+  border-radius: 220px 220px 0 0;
+  transform: translateX(-50%);
 }
 
-.edge-ai :deep(.el-progress-bar__outer) {
-  background: rgba(24, 36, 47, 0.08);
+.edge-score__arc {
+  bottom: 0;
+  height: 220px;
+  background: conic-gradient(
+    from 180deg,
+    #f07272 0 18%,
+    #f1c25e 18% 52%,
+    #80dacb 52% 82%,
+    #7ca6ff 82% 100%
+  );
 }
 
-@media (max-width: 900px) {
-  .edge-stage--core,
-  .edge-stage--lab {
+.edge-score__mask {
+  bottom: 16px;
+  height: 188px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.98));
+}
+
+.edge-score__content {
+  position: absolute;
+  inset: auto 0 6px;
+  z-index: 1;
+  text-align: center;
+
+  strong {
+    display: block;
+    color: var(--hl-ink);
+    font-size: 50px;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+  }
+
+  span {
+    display: block;
+    margin-top: 2px;
+    color: #62b9ac;
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+.score-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+  text-align: center;
+
+  span {
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .edge-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "engine engine"
+      "perf queue"
+      "guide queue"
+      "chart chart"
+      "score score";
+  }
+}
+
+@media (max-width: 760px) {
+  .edge-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "engine"
+      "perf"
+      "guide"
+      "queue"
+      "chart"
+      "score";
+  }
+
+  .engine-stack {
     grid-template-columns: 1fr;
   }
 
-  .edge-stage__rail,
-  .edge-stage__side {
-    position: static;
+  .engine-mini-card--more {
+    min-height: 76px;
   }
 
-  .edge-ai :deep(.emotion-pulse-container) {
-    flex-direction: column;
+  .perf-bars {
+    grid-template-columns: repeat(2, 1fr);
     height: auto;
-  }
-
-  .edge-ai :deep(.gauge-wrapper),
-  .edge-ai :deep(.pulse-line-wrapper) {
-    min-height: 220px;
-  }
-}
-
-@media (max-width: 640px) {
-  .edge-stage {
-    padding: 18px;
-    border-radius: 26px;
   }
 }
 </style>
