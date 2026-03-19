@@ -43,18 +43,20 @@ const router = useRouter()
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at top left, rgba(182, 122, 66, 0.12), transparent 22%),
-    radial-gradient(circle at bottom right, rgba(17, 62, 74, 0.12), transparent 24%),
-    linear-gradient(180deg, var(--hl-paper-strong), var(--hl-paper));
+    radial-gradient(circle at top left, rgba(162, 190, 255, 0.26), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(157, 228, 217, 0.2), transparent 24%),
+    linear-gradient(180deg, #d9e8ff, #cfe0ff);
 }
 
 .forbidden-card {
   text-align: center;
   padding: 54px 44px;
-  background: linear-gradient(180deg, rgba(249, 252, 252, 0.9), rgba(235, 242, 245, 0.96));
-  border: 1px solid rgba(115, 141, 151, 0.14);
-  border-radius: 30px;
-  box-shadow: 0 28px 56px rgba(10, 23, 31, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(197, 238, 229, 0.26), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(240, 247, 255, 0.98));
+  border: 1px solid rgba(137, 165, 207, 0.14);
+  border-radius: 34px;
+  box-shadow: 0 28px 56px rgba(91, 121, 178, 0.12);
   max-width: 460px;
 }
 

@@ -39,6 +39,8 @@ declare module 'vue' {
     OpsMetricStrip: typeof import('./src/components/OpsMetricStrip.vue')['default']
     OpsPageHero: typeof import('./src/components/OpsPageHero.vue')['default']
     OpsSignalDeck: typeof import('./src/components/OpsSignalDeck.vue')['default']
+    OpsSurfaceCard: typeof import('./src/components/OpsSurfaceCard.vue')['default']
+    OpsWorkbench: typeof import('./src/components/OpsWorkbench.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

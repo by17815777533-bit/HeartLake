@@ -219,9 +219,9 @@ onMounted(() => {
   padding: 32px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(206, 194, 176, 0.22), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(171, 189, 176, 0.18), transparent 24%),
-    linear-gradient(180deg, #f7f2ea 0%, #e8e0d4 100%);
+    radial-gradient(circle at top left, rgba(162, 190, 255, 0.34), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(157, 228, 217, 0.22), transparent 24%),
+    linear-gradient(180deg, #d9e8ff 0%, #cddfff 100%);
 
   &::before,
   &::after {
@@ -237,7 +237,7 @@ onMounted(() => {
     height: 320px;
     top: -120px;
     right: -60px;
-    background: rgba(168, 186, 174, 0.22);
+    background: rgba(148, 176, 255, 0.26);
   }
 
   &::after {
@@ -245,7 +245,7 @@ onMounted(() => {
     height: 280px;
     bottom: -120px;
     left: -80px;
-    background: rgba(204, 189, 167, 0.24);
+    background: rgba(160, 226, 214, 0.24);
   }
 }
 
@@ -260,11 +260,11 @@ onMounted(() => {
   padding: 24px;
   border-radius: 36px;
   background:
-    linear-gradient(180deg, rgba(235, 229, 220, 0.9), rgba(227, 220, 209, 0.96));
-  border: 1px solid rgba(121, 110, 95, 0.08);
+    linear-gradient(180deg, rgba(234, 242, 255, 0.94), rgba(221, 234, 255, 0.98));
+  border: 1px solid rgba(137, 165, 207, 0.14);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 32px 72px rgba(83, 71, 56, 0.12);
+    0 32px 72px rgba(91, 121, 178, 0.16);
 }
 
 .login-intro {
@@ -274,10 +274,10 @@ onMounted(() => {
   min-height: 620px;
   padding: 38px;
   border-radius: 32px;
-  border: 1px solid rgba(121, 110, 95, 0.08);
+  border: 1px solid rgba(137, 165, 207, 0.12);
   background:
-    radial-gradient(circle at top right, rgba(221, 230, 221, 0.28), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96));
+    radial-gradient(circle at top right, rgba(197, 238, 229, 0.34), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 247, 255, 0.98));
   box-shadow: var(--hl-shadow-medium);
 }
 
@@ -286,8 +286,8 @@ onMounted(() => {
   width: fit-content;
   padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(247, 243, 236, 0.94);
-  color: var(--hl-ink-soft);
+  background: rgba(255, 255, 255, 0.72);
+  color: #7f96cb;
   font-family: var(--hl-font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
@@ -322,7 +322,7 @@ onMounted(() => {
   min-height: 156px;
   padding: 18px;
   border-radius: 22px;
-  border: 1px solid rgba(121, 110, 95, 0.08);
+  border: 1px solid rgba(137, 165, 207, 0.12);
   background: rgba(255, 255, 255, 0.68);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
 
@@ -348,8 +348,8 @@ onMounted(() => {
   min-width: 40px;
   height: 24px;
   border-radius: 999px;
-  background: rgba(177, 144, 110, 0.12);
-  color: #96795b;
+  background: rgba(143, 170, 255, 0.12);
+  color: #7994e6;
   font-family: var(--hl-font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
@@ -367,7 +367,7 @@ onMounted(() => {
     height: 32px;
     padding: 0 14px;
     border-radius: 999px;
-    border: 1px solid rgba(121, 110, 95, 0.08);
+    border: 1px solid rgba(137, 165, 207, 0.12);
     background: rgba(255, 255, 255, 0.72);
     font-size: 12px;
     color: var(--hl-ink-soft);
@@ -379,10 +379,10 @@ onMounted(() => {
   width: 100%;
   padding: 42px 36px;
   border-radius: 32px;
-  border: 1px solid rgba(121, 110, 95, 0.08);
+  border: 1px solid rgba(137, 165, 207, 0.12);
   background:
-    radial-gradient(circle at top right, rgba(221, 230, 221, 0.22), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96));
+    radial-gradient(circle at top right, rgba(197, 238, 229, 0.26), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 247, 255, 0.98));
   box-shadow: var(--hl-shadow-medium);
 }
 
@@ -396,7 +396,7 @@ onMounted(() => {
     margin-bottom: 18px;
     padding: 14px;
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(109, 136, 118, 0.12), rgba(177, 144, 110, 0.16));
+    background: linear-gradient(135deg, rgba(142, 174, 252, 0.18), rgba(127, 207, 192, 0.18));
   }
 
   .title {
@@ -430,7 +430,7 @@ onMounted(() => {
     height: 30px;
     padding: 0 12px;
     border-radius: 999px;
-    background: rgba(247, 243, 236, 0.94);
+    background: rgba(255, 255, 255, 0.78);
     color: var(--hl-ink);
     font-size: 12px;
     font-weight: 600;
@@ -443,21 +443,21 @@ onMounted(() => {
 
     .el-input__wrapper {
       min-height: 52px;
-      background: rgba(247, 243, 236, 0.96);
-      border: 1px solid rgba(121, 110, 95, 0.1);
+      background: rgba(241, 247, 255, 0.96);
+      border: 1px solid rgba(137, 165, 207, 0.12);
       box-shadow: none !important;
       border-radius: 16px;
       transition: var(--m3-transition);
 
       &:hover {
-        border-color: rgba(121, 110, 95, 0.18);
+        border-color: rgba(137, 165, 207, 0.18);
         background: rgba(255, 255, 255, 0.98);
       }
 
       &.is-focus {
         border-color: var(--m3-primary);
         background: rgba(255, 255, 255, 0.98);
-        box-shadow: 0 0 0 3px rgba(109, 136, 118, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(140, 171, 255, 0.12) !important;
       }
     }
 
@@ -490,13 +490,13 @@ onMounted(() => {
     letter-spacing: 0.12em;
     border: none;
     border-radius: var(--m3-shape-large);
-    background: linear-gradient(180deg, #738b7b, #607466);
+    background: linear-gradient(180deg, #8cb2ff, #789cf2);
     color: var(--m3-on-primary);
     transition: var(--m3-transition);
 
     &:hover,
     &:focus {
-      background: linear-gradient(180deg, #6b8372, #596c5f);
+      background: linear-gradient(180deg, #82a9ff, #6f95eb);
       box-shadow: var(--hl-shadow-soft);
       transform: translateY(-1px);
     }
@@ -522,7 +522,7 @@ onMounted(() => {
 .footer {
   margin-top: 18px;
   font-size: 12px;
-  color: rgba(24, 36, 47, 0.42);
+  color: rgba(33, 42, 58, 0.42);
   letter-spacing: 0.08em;
 }
 

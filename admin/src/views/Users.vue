@@ -10,185 +10,264 @@
 
 <template>
   <div class="users-page ops-page">
-    <OpsPageHero
-      eyebrow="旅人档案"
-      title="旅人关怀"
-      description="查看账号状态、活跃轨迹与基础产出，统一处理封禁、解封与个体关注。"
-      status="用户侧"
-      :chips="['活跃状态', '封禁处置', '账户概览']"
-    />
-
-    <OpsMetricStrip :items="summaryItems" />
-    <OpsSignalDeck :items="travelerSignals" />
-
-    <!-- 搜索筛选 -->
-    <el-card
-      shadow="never"
-      class="filter-card"
-    >
-      <el-form
-        :model="filters"
-        inline
-        aria-label="用户筛选"
-      >
-        <el-form-item label="用户ID">
-          <el-input
-            v-model="filters.userId"
-            placeholder="请输入用户ID"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item label="昵称">
-          <el-input
-            v-model="filters.nickname"
-            placeholder="请输入昵称"
-            clearable
-            @input="onSearchInput"
-          />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部"
-            clearable
-          >
-            <el-option
-              label="正常"
-              value="active"
-            />
-            <el-option
-              label="已封禁"
-              value="banned"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            @click="handleSearch"
-          >
-            <el-icon><Search /></el-icon>
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 用户列表 -->
-    <el-card
-      shadow="never"
-      class="table-card"
-    >
-      <el-table
-        v-loading="loading"
-        :data="users"
-        stripe
-        style="width: 100%"
-        aria-label="用户列表"
-      >
-        <el-table-column
-          prop="user_id"
-          label="用户ID"
-          width="180"
-        />
-        <el-table-column
-          label="旅人"
-          min-width="190"
+    <OpsWorkbench>
+      <template #stage>
+        <OpsSurfaceCard
+          eyebrow="Travelers"
+          title="旅人关怀"
+          :chip="`${summaryItems[1]?.value || 0} 正常`"
+          tone="sky"
         >
-          <template #default="{ row }">
-            <div class="traveler-identity">
-              <strong>{{ row.nickname || '未命名旅人' }}</strong>
-              <span>@{{ row.username || row.user_id }}</span>
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">旅人总数</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>人</small>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="活跃轨迹"
-          width="190"
-        >
-          <template #default="{ row }">
-            <div class="activity-meta">
-              <strong>{{ row.last_active_at || '暂无记录' }}</strong>
-              <span>{{ getActivityNote(row.last_active_at) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="统计"
-          width="220"
-        >
-          <template #default="{ row }">
-            <div class="user-stats">
-              <span class="stat-item"><i class="stat-dot stone" />投石 {{ row.stones_count || 0 }}</span>
-              <span class="stat-item"><i class="stat-dot boat" />纸船 {{ row.boat_count || 0 }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="状态"
-          width="100"
-        >
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-              {{ row.status === 'active' ? '正常' : '已封禁' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="created_at"
-          label="注册时间"
-          width="180"
-        />
-        <el-table-column
-          label="操作"
-          fixed="right"
-          width="180"
-        >
-          <template #default="{ row }">
+            <p class="ops-big-metric__note">
+              查看账号状态、活跃轨迹与基础产出，统一处理封禁、解封与个体关注。
+            </p>
+          </div>
+
+          <div class="ops-soft-actions users-stage-actions">
             <el-button
               type="primary"
-              link
-              @click="handleViewDetail(row)"
+              @click="handleSearch"
             >
-              详情
+              <el-icon><Search /></el-icon>
+              搜索旅人
             </el-button>
-            <el-button
-              v-if="row.status === 'active'"
-              type="danger"
-              link
-              @click="handleBan(row)"
-            >
-              封禁
+            <el-button @click="handleReset">
+              <el-icon><Refresh /></el-icon>
+              重置视角
             </el-button>
-            <el-button
-              v-else
-              type="success"
-              link
-              @click="handleUnban(row)"
-            >
-              解封
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </div>
 
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
+          <div class="ops-mini-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-mini-tile"
+              :class="getWorkbenchTileTone(item.tone)"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #support>
+        <OpsSurfaceCard
+          eyebrow="Filter"
+          title="快速筛查"
+          :chip="filters.status ? '定向状态' : '全量视图'"
+          tone="ice"
+          compact
+        >
+          <el-form
+            :model="filters"
+            aria-label="用户筛选"
+            class="ops-form-grid users-filter-form"
+          >
+            <el-form-item label="用户ID">
+              <el-input
+                v-model="filters.userId"
+                placeholder="请输入用户ID"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="昵称">
+              <el-input
+                v-model="filters.nickname"
+                placeholder="请输入昵称"
+                clearable
+                @input="onSearchInput"
+              />
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部"
+                clearable
+              >
+                <el-option
+                  label="正常"
+                  value="active"
+                />
+                <el-option
+                  label="已封禁"
+                  value="banned"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+
+          <div class="ops-chip-row">
+            <span class="ops-chip">
+              {{ filters.nickname ? `昵称 ${filters.nickname}` : '未限制昵称' }}
+            </span>
+            <span class="ops-chip">
+              {{ filters.userId ? `用户 ${filters.userId}` : '未指定用户' }}
+            </span>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Pulse"
+          title="旅人动态"
+          :chip="latestActiveMeta.value"
+          tone="mint"
+        >
+          <div class="ops-list-stack">
+            <article
+              v-for="item in travelerSignals"
+              :key="item.label"
+              class="ops-list-row"
+            >
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar">
+          <div class="users-table-copy">
+            <h3>旅人列表</h3>
+            <p>列表保留真实石头和纸船聚合，封禁与解封操作直接写入后台。</p>
+          </div>
+          <div class="ops-chip-row">
+            <span class="ops-chip">
+              {{ summaryItems[2]?.label }} {{ summaryItems[2]?.value }}
+            </span>
+            <span class="ops-chip">
+              {{ summaryItems[3]?.note }}
+            </span>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="loading"
+          :data="users"
+          stripe
+          style="width: 100%"
+          aria-label="用户列表"
+        >
+          <el-table-column
+            prop="user_id"
+            label="用户ID"
+            width="180"
+          />
+          <el-table-column
+            label="旅人"
+            min-width="190"
+          >
+            <template #default="{ row }">
+              <div class="traveler-identity">
+                <strong>{{ row.nickname || '未命名旅人' }}</strong>
+                <span>@{{ row.username || row.user_id }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="活跃轨迹"
+            width="190"
+          >
+            <template #default="{ row }">
+              <div class="activity-meta">
+                <strong>{{ row.last_active_at || '暂无记录' }}</strong>
+                <span>{{ getActivityNote(row.last_active_at) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="统计"
+            width="220"
+          >
+            <template #default="{ row }">
+              <div class="user-stats">
+                <span class="stat-item"><i class="stat-dot stone" />投石 {{ row.stones_count || 0 }}</span>
+                <span class="stat-item"><i class="stat-dot boat" />纸船 {{ row.boat_count || 0 }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="状态"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
+                {{ row.status === 'active' ? '正常' : '已封禁' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="created_at"
+            label="注册时间"
+            width="180"
+          />
+          <el-table-column
+            label="操作"
+            fixed="right"
+            width="180"
+          >
+            <template #default="{ row }">
+              <el-button
+                type="primary"
+                link
+                @click="handleViewDetail(row)"
+              >
+                详情
+              </el-button>
+              <el-button
+                v-if="row.status === 'active'"
+                type="danger"
+                link
+                @click="handleBan(row)"
+              >
+                封禁
+              </el-button>
+              <el-button
+                v-else
+                type="success"
+                link
+                @click="handleUnban(row)"
+              >
+                解封
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="pagination.total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
+    </OpsWorkbench>
 
     <!-- 用户详情弹窗 -->
     <el-dialog
@@ -238,11 +317,11 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
-import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
+import OpsWorkbench from '@/components/OpsWorkbench.vue'
+import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 import type { User } from '@/types'
 
 const loading = ref(false)
@@ -463,8 +542,30 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .users-page {
-  .filter-card {
-    margin-bottom: 16px;
+  .users-stage-actions {
+    margin: 22px 0 18px;
+  }
+
+  .users-filter-form {
+    :deep(.el-form-item) {
+      margin-bottom: 0;
+    }
+  }
+
+  .users-table-copy {
+    h3 {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin-top: 8px;
+      color: var(--hl-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
   }
 
   .traveler-identity,

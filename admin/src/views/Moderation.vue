@@ -11,247 +11,333 @@
 
 <template>
   <div class="moderation-page ops-page">
-    <OpsPageHero
-      eyebrow="审核中台"
-      title="温暖守护"
-      description="查看待审核队列与审核历史，结合触发原因完成人工复核，保证社区秩序与表达边界。"
-      status="人工复核"
-      :chips="['待审核队列', '审核历史', '风险触发']"
-    />
-
-    <OpsMetricStrip :items="summaryItems" />
-    <OpsSignalDeck :items="moderationSignals" />
-
-    <el-tabs
-      v-model="activeTab"
-      @tab-change="handleTabChange"
-    >
-      <!-- 待审核 -->
-      <el-tab-pane
-        label="待审核"
-        name="pending"
-      >
-        <el-card
-          shadow="never"
-          class="table-card"
+    <OpsWorkbench>
+      <template #stage>
+        <OpsSurfaceCard
+          eyebrow="Moderation"
+          title="温暖守护"
+          :chip="activeTab === 'pending' ? '待审核视角' : '历史视角'"
+          tone="sky"
         >
-          <el-table
-            v-loading="loading"
-            :data="pendingList"
-            stripe
-            aria-label="待审核内容列表"
-          >
-          <el-table-column
-            prop="moderation_id"
-            label="ID"
-            width="80"
-          />
-          <el-table-column
-            label="类型"
-            width="80"
-          >
-            <template #default="{ row }">
-              <el-tag
-                :type="row.content_type === 'stone' ? 'primary' : 'success'"
-                size="small"
-              >
-                {{ row.content_type === 'stone' ? '石头' : '纸船' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="内容"
-            min-width="250"
-          >
-            <template #default="{ row }">
-              <p class="content-preview">
-                {{ row.content?.substring(0, 80) }}{{ row.content?.length > 80 ? '...' : '' }}
-              </p>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="触发原因"
-            width="150"
-          >
-            <template #default="{ row }">
-              <el-tag
-                type="warning"
-                size="small"
-              >
-                {{ row.ai_reason || '系统识别' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="风险分"
-            width="180"
-          >
-            <template #default="{ row }">
-              <div class="risk-meter">
-                <div class="risk-meter__meta">
-                  <strong>{{ getRiskLabel(row.ai_score) }}</strong>
-                  <span>{{ getRiskPercent(row.ai_score) }}%</span>
-                </div>
-                <el-progress
-                  :percentage="getRiskPercent(row.ai_score)"
-                  :show-text="false"
-                  :stroke-width="8"
-                  :color="getRiskColor(row.ai_score)"
-                />
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">待复核队列</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>条</small>
+            </div>
+            <p class="ops-big-metric__note">
+              查看待审核队列与审核历史，结合触发原因完成人工复核，保证社区秩序与表达边界。
+            </p>
+          </div>
+
+          <div class="ops-soft-actions moderation-stage-actions">
+            <el-button
+              type="primary"
+              @click="fetchPending"
+            >
+              刷新队列
+            </el-button>
+            <el-button @click="fetchHistory">
+              回看历史
+            </el-button>
+          </div>
+
+          <div class="ops-mini-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-mini-tile"
+              :class="getWorkbenchTileTone(item.tone)"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #support>
+        <OpsSurfaceCard
+          eyebrow="Focus"
+          title="复核焦点"
+          :chip="dominantReason.reason"
+          tone="ice"
+          compact
+        >
+          <div class="ops-kv-grid">
+            <article class="ops-kv-item">
+              <span>主要触发</span>
+              <strong>{{ dominantReason.reason }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>高危条目</span>
+              <strong>{{ pendingList.filter((item) => getRiskPercent(item.ai_score) >= 85).length }}</strong>
+            </article>
+            <article class="ops-kv-item">
+              <span>人审通过率</span>
+              <strong>{{ moderationSignals[2]?.value || '0%' }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Signals"
+          title="风险情报"
+          :chip="moderationSignals[0]?.value || '秩序平稳'"
+          tone="mint"
+        >
+          <div class="ops-list-stack">
+            <article
+              v-for="item in moderationSignals"
+              :key="item.label"
+              class="ops-list-row"
+            >
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
               </div>
-            </template>
-          </el-table-column>
-          <el-table-column
-            prop="created_at"
-            label="提交时间"
-            width="170"
-          />
-          <el-table-column
-            label="操作"
-            width="180"
-            fixed="right"
-          >
-            <template #default="{ row }">
-              <el-button
-                type="success"
-                link
-                @click="handleApprove(row)"
-              >
-                通过
-              </el-button>
-              <el-button
-                type="danger"
-                link
-                @click="handleReject(row)"
-              >
-                拒绝
-              </el-button>
-              <el-button
-                type="primary"
-                link
-                @click="viewDetail(row)"
-              >
-                详情
-              </el-button>
-            </template>
-          </el-table-column>
-          </el-table>
-          <div class="pagination-wrapper">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :total="pagination.total"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next"
-              @size-change="handlePendingSizeChange"
-              @current-change="handlePendingCurrentChange"
-            />
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
+            </article>
           </div>
-        </el-card>
-      </el-tab-pane>
+        </OpsSurfaceCard>
+      </template>
 
-      <!-- 审核历史 -->
-      <el-tab-pane
-        label="审核历史"
-        name="history"
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
       >
-        <el-card
-          shadow="never"
-          class="filter-card"
-        >
-          <el-form
-            :model="historyFilters"
-            inline
-            aria-label="审核历史筛选"
-          >
-            <el-form-item label="结果">
-              <el-select
-                v-model="historyFilters.result"
-                placeholder="全部"
-                clearable
-                style="width: 120px"
-              >
-                <el-option
-                  label="通过"
-                  value="approved"
-                />
-                <el-option
-                  label="拒绝"
-                  value="rejected"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                @click="fetchHistory"
-              >
-                搜索
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
-        <el-card
-          shadow="never"
-          class="table-card"
-        >
-          <el-table
-            v-loading="historyLoading"
-            :data="historyList"
-            stripe
-            aria-label="审核历史列表"
-          >
-          <el-table-column
-            prop="moderation_id"
-            label="ID"
-            width="80"
-          />
-          <el-table-column
-            label="内容摘要"
-            min-width="200"
-          >
-            <template #default="{ row }">
-              {{ row.content?.substring(0, 50) }}{{ row.content?.length > 50 ? '...' : '' }}
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="审核结果"
-            width="100"
-          >
-            <template #default="{ row }">
-              <el-tag
-                :type="row.result === 'approved' ? 'success' : 'danger'"
-                size="small"
-              >
-                {{ row.result === 'approved' ? '通过' : '拒绝' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            prop="moderator"
-            label="操作人"
-            width="100"
-          />
-          <el-table-column
-            prop="moderated_at"
-            label="处理时间"
-            width="170"
-          />
-          </el-table>
-          <div class="pagination-wrapper">
-            <el-pagination
-              v-model:current-page="historyPagination.page"
-              v-model:page-size="historyPagination.pageSize"
-              :total="historyPagination.total"
-              :page-sizes="[20, 50]"
-              layout="total, sizes, prev, pager, next"
-              @size-change="handleHistorySizeChange"
-              @current-change="handleHistoryCurrentChange"
-            />
+        <div class="ops-soft-toolbar">
+          <div class="moderation-table-copy">
+            <h3>审核工作区</h3>
+            <p>待审核和审核历史共用同一张工作台，便于切换标准和回看人审决策。</p>
           </div>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+        </div>
+
+        <el-tabs
+          v-model="activeTab"
+          @tab-change="handleTabChange"
+        >
+          <el-tab-pane
+            label="待审核"
+            name="pending"
+          >
+            <el-table
+              v-loading="loading"
+              :data="pendingList"
+              stripe
+              aria-label="待审核内容列表"
+            >
+              <el-table-column
+                prop="moderation_id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                label="类型"
+                width="80"
+              >
+                <template #default="{ row }">
+                  <el-tag
+                    :type="row.content_type === 'stone' ? 'primary' : 'success'"
+                    size="small"
+                  >
+                    {{ row.content_type === 'stone' ? '石头' : '纸船' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="内容"
+                min-width="250"
+              >
+                <template #default="{ row }">
+                  <p class="content-preview">
+                    {{ row.content?.substring(0, 80) }}{{ row.content?.length > 80 ? '...' : '' }}
+                  </p>
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="触发原因"
+                width="150"
+              >
+                <template #default="{ row }">
+                  <el-tag
+                    type="warning"
+                    size="small"
+                  >
+                    {{ row.ai_reason || '系统识别' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="风险分"
+                width="180"
+              >
+                <template #default="{ row }">
+                  <div class="risk-meter">
+                    <div class="risk-meter__meta">
+                      <strong>{{ getRiskLabel(row.ai_score) }}</strong>
+                      <span>{{ getRiskPercent(row.ai_score) }}%</span>
+                    </div>
+                    <el-progress
+                      :percentage="getRiskPercent(row.ai_score)"
+                      :show-text="false"
+                      :stroke-width="8"
+                      :color="getRiskColor(row.ai_score)"
+                    />
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="created_at"
+                label="提交时间"
+                width="170"
+              />
+              <el-table-column
+                label="操作"
+                width="180"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    type="success"
+                    link
+                    @click="handleApprove(row)"
+                  >
+                    通过
+                  </el-button>
+                  <el-button
+                    type="danger"
+                    link
+                    @click="handleReject(row)"
+                  >
+                    拒绝
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    link
+                    @click="viewDetail(row)"
+                  >
+                    详情
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="pagination.page"
+                v-model:page-size="pagination.pageSize"
+                :total="pagination.total"
+                :page-sizes="[10, 20, 50]"
+                layout="total, sizes, prev, pager, next"
+                @size-change="handlePendingSizeChange"
+                @current-change="handlePendingCurrentChange"
+              />
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane
+            label="审核历史"
+            name="history"
+          >
+            <div class="moderation-history-filter">
+              <el-form
+                :model="historyFilters"
+                inline
+                aria-label="审核历史筛选"
+              >
+                <el-form-item label="结果">
+                  <el-select
+                    v-model="historyFilters.result"
+                    placeholder="全部"
+                    clearable
+                  >
+                    <el-option
+                      label="通过"
+                      value="approved"
+                    />
+                    <el-option
+                      label="拒绝"
+                      value="rejected"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button
+                    type="primary"
+                    @click="fetchHistory"
+                  >
+                    搜索
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <el-table
+              v-loading="historyLoading"
+              :data="historyList"
+              stripe
+              aria-label="审核历史列表"
+            >
+              <el-table-column
+                prop="moderation_id"
+                label="ID"
+                width="80"
+              />
+              <el-table-column
+                label="内容摘要"
+                min-width="200"
+              >
+                <template #default="{ row }">
+                  {{ row.content?.substring(0, 50) }}{{ row.content?.length > 50 ? '...' : '' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                label="审核结果"
+                width="100"
+              >
+                <template #default="{ row }">
+                  <el-tag
+                    :type="row.result === 'approved' ? 'success' : 'danger'"
+                    size="small"
+                  >
+                    {{ row.result === 'approved' ? '通过' : '拒绝' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="moderator"
+                label="操作人"
+                width="100"
+              />
+              <el-table-column
+                prop="moderated_at"
+                label="处理时间"
+                width="170"
+              />
+            </el-table>
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="historyPagination.page"
+                v-model:page-size="historyPagination.pageSize"
+                :total="historyPagination.total"
+                :page-sizes="[20, 50]"
+                layout="total, sizes, prev, pager, next"
+                @size-change="handleHistorySizeChange"
+                @current-change="handleHistoryCurrentChange"
+              />
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
+    </OpsWorkbench>
 
     <!-- 详情弹窗 -->
     <el-dialog
@@ -301,11 +387,11 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
-import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
+import OpsWorkbench from '@/components/OpsWorkbench.vue'
+import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 import type { ModerationItem } from '@/types'
 
 const activeTab = ref('pending')
@@ -508,7 +594,27 @@ onMounted(() => fetchPending())
 
 <style lang="scss" scoped>
 .moderation-page {
-  .filter-card {
+  .moderation-stage-actions {
+    margin: 22px 0 18px;
+  }
+
+  .moderation-table-copy {
+    h3 {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin-top: 8px;
+      color: var(--hl-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+  }
+
+  .moderation-history-filter {
     margin-bottom: 16px;
   }
 

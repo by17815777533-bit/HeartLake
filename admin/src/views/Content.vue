@@ -10,209 +10,287 @@
 
 <template>
   <div class="content-page ops-page">
-    <OpsPageHero
-      eyebrow="内容台账"
-      title="石头与纸船"
-      description="统一查看石头与纸船的状态、文案与作者信息，必要时直接处置并保留操作原因。"
-      status="巡检中"
-      :chips="['内容筛选', '状态处置', '删除留痕']"
-    />
-
-    <OpsMetricStrip :items="summaryItems" />
-    <OpsSignalDeck :items="contentSignals" />
-
-    <!-- 筛选 -->
-    <el-card
-      shadow="never"
-      class="filter-card"
-    >
-      <el-form
-        :model="filters"
-        inline
-        aria-label="内容筛选"
-      >
-        <el-form-item label="类型">
-          <el-select
-            v-model="filters.type"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option
-              label="石头"
-              value="stone"
-            />
-            <el-option
-              label="纸船"
-              value="boat"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option
-              label="已发布"
-              value="published"
-            />
-            <el-option
-              label="待审核"
-              value="pending"
-            />
-            <el-option
-              label="已删除"
-              value="deleted"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="关键词">
-          <el-input
-            v-model="filters.keyword"
-            placeholder="搜索内容"
-            clearable
-            @input="onKeywordInput"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            @click="handleSearch"
-          >
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 内容列表 -->
-    <el-card
-      shadow="never"
-      class="table-card"
-    >
-      <el-table
-        v-loading="loading"
-        :data="contentList"
-        stripe
-        aria-label="内容列表"
-      >
-        <el-table-column
-          prop="id"
-          label="ID"
-          width="100"
-        />
-        <el-table-column
-          label="类型"
-          width="80"
+    <OpsWorkbench>
+      <template #stage>
+        <OpsSurfaceCard
+          eyebrow="Content"
+          title="石头与纸船"
+          :chip="contentSignals[0]?.value || '混合巡检'"
+          tone="sky"
         >
-          <template #default="{ row }">
-            <el-tag
-              :type="row.type === 'stone' ? 'primary' : 'success'"
-              size="small"
-            >
-              {{ row.type === 'stone' ? '石头' : '纸船' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="内容"
-          min-width="300"
-        >
-          <template #default="{ row }">
-            <div class="content-copy">
-              <p class="content-text">
-                {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
-              </p>
-              <span class="content-note">
-                {{ filters.keyword ? `当前关键词：${filters.keyword}` : '未指定关键词，展示最新内容切片。' }}
-              </span>
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">内容总量</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>条</small>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="作者"
-          width="120"
-        >
-          <template #default="{ row }">
-            <div class="content-author">
-              <strong>{{ row.user?.nickname || '匿名' }}</strong>
-              <span>{{ row.type === 'stone' ? '公开投石' : '纸船漂流' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="状态"
-          width="100"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="getStatusType(row.status)"
-              size="small"
-            >
-              {{ getStatusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="created_at"
-          label="发布时间"
-          width="180"
-        >
-          <template #default="{ row }">
-            <div class="content-time">
-              <strong>{{ row.created_at || '暂无时间' }}</strong>
-              <span>{{ getTimelineNote(row.created_at) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="操作"
-          width="150"
-          fixed="right"
-        >
-          <template #default="{ row }">
+            <p class="ops-big-metric__note">
+              统一查看石头与纸船的状态、文案与作者信息，必要时直接处置并保留操作原因。
+            </p>
+          </div>
+
+          <div class="ops-soft-actions content-stage-actions">
             <el-button
               type="primary"
-              link
-              @click="viewContent(row)"
+              @click="handleSearch"
             >
-              查看
+              搜索内容
             </el-button>
-            <el-button
-              type="danger"
-              link
-              @click="deleteContent(row)"
-            >
-              删除
+            <el-button @click="handleReset">
+              重置视图
             </el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty
-            description="暂无内容数据"
-            :image-size="120"
-          />
-        </template>
-      </el-table>
+          </div>
 
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
+          <div class="ops-mini-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-mini-tile"
+              :class="getWorkbenchTileTone(item.tone)"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #support>
+        <OpsSurfaceCard
+          eyebrow="Filter"
+          title="巡检条件"
+          :chip="filters.keyword ? '关键词追踪' : '最新内容'"
+          tone="ice"
+          compact
+        >
+          <el-form
+            :model="filters"
+            aria-label="内容筛选"
+            class="ops-form-grid content-filter-form"
+          >
+            <el-form-item label="类型">
+              <el-select
+                v-model="filters.type"
+                placeholder="全部"
+                clearable
+              >
+                <el-option
+                  label="石头"
+                  value="stone"
+                />
+                <el-option
+                  label="纸船"
+                  value="boat"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部"
+                clearable
+              >
+                <el-option
+                  label="已发布"
+                  value="published"
+                />
+                <el-option
+                  label="待审核"
+                  value="pending"
+                />
+                <el-option
+                  label="已删除"
+                  value="deleted"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="关键词">
+              <el-input
+                v-model="filters.keyword"
+                placeholder="搜索内容"
+                clearable
+                @input="onKeywordInput"
+              />
+            </el-form-item>
+          </el-form>
+
+          <div class="ops-chip-row">
+            <span class="ops-chip">
+              {{ filters.type ? `类型 ${filters.type}` : '全部类型' }}
+            </span>
+            <span class="ops-chip">
+              {{ filters.status ? `状态 ${getStatusLabel(filters.status)}` : '全部状态' }}
+            </span>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Watch"
+          title="内容动态"
+          :chip="latestContentMeta.value"
+          tone="mint"
+        >
+          <div class="ops-list-stack">
+            <article
+              v-for="item in contentSignals"
+              :key="item.label"
+              class="ops-list-row"
+            >
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar">
+          <div class="content-table-copy">
+            <h3>内容列表</h3>
+            <p>石头和纸船在同一张工作台上巡检，删除会强制要求理由并保留处置痕迹。</p>
+          </div>
+          <div class="ops-chip-row">
+            <span class="ops-chip">
+              {{ filters.keyword ? `关键词 ${filters.keyword}` : '最新切片' }}
+            </span>
+            <span class="ops-chip">
+              {{ summaryItems[3]?.label }} {{ summaryItems[3]?.value }}
+            </span>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="loading"
+          :data="contentList"
+          stripe
+          aria-label="内容列表"
+        >
+          <el-table-column
+            prop="id"
+            label="ID"
+            width="100"
+          />
+          <el-table-column
+            label="类型"
+            width="80"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="row.type === 'stone' ? 'primary' : 'success'"
+                size="small"
+              >
+                {{ row.type === 'stone' ? '石头' : '纸船' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="内容"
+            min-width="300"
+          >
+            <template #default="{ row }">
+              <div class="content-copy">
+                <p class="content-text">
+                  {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
+                </p>
+                <span class="content-note">
+                  {{ filters.keyword ? `当前关键词：${filters.keyword}` : '未指定关键词，展示最新内容切片。' }}
+                </span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="作者"
+            width="120"
+          >
+            <template #default="{ row }">
+              <div class="content-author">
+                <strong>{{ row.user?.nickname || '匿名' }}</strong>
+                <span>{{ row.type === 'stone' ? '公开投石' : '纸船漂流' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="状态"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="getStatusType(row.status)"
+                size="small"
+              >
+                {{ getStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="created_at"
+            label="发布时间"
+            width="180"
+          >
+            <template #default="{ row }">
+              <div class="content-time">
+                <strong>{{ row.created_at || '暂无时间' }}</strong>
+                <span>{{ getTimelineNote(row.created_at) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作"
+            width="150"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <el-button
+                type="primary"
+                link
+                @click="viewContent(row)"
+              >
+                查看
+              </el-button>
+              <el-button
+                type="danger"
+                link
+                @click="deleteContent(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty
+              description="暂无内容数据"
+              :image-size="120"
+            />
+          </template>
+        </el-table>
+
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
+    </OpsWorkbench>
 
     <!-- 内容详情弹窗 -->
     <el-dialog
@@ -262,11 +340,11 @@
 import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
-import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
+import OpsWorkbench from '@/components/OpsWorkbench.vue'
+import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 import type { ContentItem } from '@/types'
 
 const loading = ref(false)
@@ -522,8 +600,30 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .content-page {
-  .filter-card {
-    margin-bottom: 16px;
+  .content-stage-actions {
+    margin: 22px 0 18px;
+  }
+
+  .content-filter-form {
+    :deep(.el-form-item) {
+      margin-bottom: 0;
+    }
+  }
+
+  .content-table-copy {
+    h3 {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin-top: 8px;
+      color: var(--hl-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
   }
 
   .content-copy,

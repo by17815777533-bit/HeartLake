@@ -81,6 +81,17 @@
             </div>
           </div>
 
+          <div class="header-stat-pills">
+            <article class="header-stat-pill">
+              <span>在线</span>
+              <strong>{{ realtimeStats.onlineCount }}</strong>
+            </article>
+            <article class="header-stat-pill is-mint">
+              <span>今日投石</span>
+              <strong>{{ realtimeStats.todayStones }}</strong>
+            </article>
+          </div>
+
           <button
             class="header-icon-btn"
             type="button"
@@ -141,28 +152,6 @@
         </div>
       </header>
 
-      <section class="workspace-shell__subhead">
-        <div class="workspace-shell__summary">
-          <span class="workspace-shell__kicker">{{ currentRouteMeta.kicker }}</span>
-          <p>{{ currentRouteMeta.summary }}</p>
-        </div>
-
-        <div class="workspace-shell__signals">
-          <article class="signal-pill is-lake">
-            <span>在线</span>
-            <strong>{{ realtimeStats.onlineCount }}</strong>
-          </article>
-          <article class="signal-pill is-mint">
-            <span>今日投石</span>
-            <strong>{{ realtimeStats.todayStones }}</strong>
-          </article>
-          <article class="signal-pill is-ice">
-            <span>当前时刻</span>
-            <strong>{{ currentTime }}</strong>
-          </article>
-        </div>
-      </section>
-
       <main class="main-content">
         <router-view v-slot="{ Component }">
           <transition
@@ -190,7 +179,6 @@ const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const navSearch = ref('')
-const currentTime = ref(new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
 
 const menuItems = [
   { path: '/dashboard', title: '总览' },
@@ -226,12 +214,6 @@ const realtimeStats = reactive({
 })
 
 let statsInterval: ReturnType<typeof setInterval> | null = null
-let clockInterval: ReturnType<typeof setInterval> | null = null
-
-const currentRouteMeta = computed(() => routeNarrativeMap[route.path] || {
-  kicker: route.meta.title?.toString() || '管理台',
-  summary: '查看当前模块的数据与操作状态。',
-})
 
 const filteredMenuItems = computed(() => {
   const keyword = navSearch.value.trim().toLowerCase()
@@ -332,10 +314,6 @@ onMounted(() => {
   websocket.connect()
   websocket.on('stats_update', handleStatsUpdate)
   document.addEventListener('visibilitychange', handleVisibilityChange)
-
-  clockInterval = setInterval(() => {
-    currentTime.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-  }, 60000)
 })
 
 onUnmounted(() => {
@@ -345,10 +323,6 @@ onUnmounted(() => {
   }
   websocket.off('stats_update', handleStatsUpdate)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-  if (clockInterval) {
-    clearInterval(clockInterval)
-    clockInterval = null
-  }
 })
 </script>
 
@@ -388,7 +362,7 @@ onUnmounted(() => {
 
 .workspace-shell {
   min-height: calc(100vh - 40px);
-  padding: 26px 30px 28px;
+  padding: 26px 30px 32px;
   border-radius: 42px;
   border: 8px solid rgba(255, 255, 255, 0.92);
   background:
@@ -405,6 +379,7 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
   align-items: center;
+  padding-bottom: 16px;
 }
 
 .workspace-shell__brand-row {
@@ -495,6 +470,43 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   position: relative;
+}
+
+.header-stat-pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-stat-pill {
+  min-width: 86px;
+  min-height: 44px;
+  display: grid;
+  align-content: center;
+  padding: 0 14px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 22px rgba(112, 137, 183, 0.1);
+
+  span {
+    color: var(--hl-ink-soft);
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  strong {
+    margin-top: 5px;
+    color: #7b99ea;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+
+.header-stat-pill.is-mint strong {
+  color: #5cae9f;
 }
 
 .shell-search {
@@ -594,73 +606,6 @@ onUnmounted(() => {
   }
 }
 
-.workspace-shell__subhead {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-  margin-top: 22px;
-  padding-bottom: 18px;
-}
-
-.workspace-shell__summary {
-  min-width: 0;
-
-  p {
-    margin: 8px 0 0;
-    color: var(--hl-ink-soft);
-    font-size: 14px;
-    line-height: 1.7;
-  }
-}
-
-.workspace-shell__kicker {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--hl-ink-soft);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.workspace-shell__signals {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.signal-pill {
-  min-width: 112px;
-  padding: 10px 14px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 12px 24px rgba(112, 137, 183, 0.08);
-
-  span {
-    display: block;
-    color: var(--hl-ink-soft);
-    font-size: 11px;
-  }
-
-  strong {
-    display: block;
-    margin-top: 4px;
-    color: var(--hl-ink);
-    font-size: 20px;
-    font-weight: 700;
-  }
-}
-
-.signal-pill.is-lake strong { color: #7d9dff; }
-.signal-pill.is-mint strong { color: #63b6aa; }
-.signal-pill.is-ice strong { color: #7d8fbe; }
-
 .main-content {
   min-height: 0;
 }
@@ -677,14 +622,13 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1120px) {
-  .workspace-shell__header,
-  .workspace-shell__subhead {
+  .workspace-shell__header {
     grid-template-columns: 1fr;
   }
 
-  .workspace-shell__tools,
-  .workspace-shell__signals {
+  .workspace-shell__tools {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .shell-search {

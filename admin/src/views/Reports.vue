@@ -10,202 +10,261 @@
 
 <template>
   <div class="reports-page ops-page">
-    <OpsPageHero
-      eyebrow="求助台账"
-      title="求助处理"
-      description="汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。"
-      status="优先处置"
-      :chips="['举报筛查', '结果回执', '分级处理']"
-    />
-
-    <OpsMetricStrip :items="summaryItems" />
-
-    <!-- 筛选 -->
-    <el-card
-      shadow="never"
-      class="filter-card"
-    >
-      <el-form
-        :model="filters"
-        inline
-        aria-label="举报筛选"
-      >
-        <el-form-item label="状态">
-          <el-select
-            v-model="filters.status"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option
-              label="待处理"
-              value="pending"
-            />
-            <el-option
-              label="已处理"
-              value="handled"
-            />
-            <el-option
-              label="已忽略"
-              value="ignored"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-select
-            v-model="filters.type"
-            placeholder="全部"
-            clearable
-            style="width: 120px"
-          >
-            <el-option
-              label="垃圾信息"
-              value="spam"
-            />
-            <el-option
-              label="骚扰辱骂"
-              value="harassment"
-            />
-            <el-option
-              label="不当内容"
-              value="inappropriate"
-            />
-            <el-option
-              label="暴力内容"
-              value="violence"
-            />
-            <el-option
-              label="其他"
-              value="other"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            @click="handleSearch"
-          >
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 举报列表 -->
-    <el-card
-      shadow="never"
-      class="table-card"
-    >
-      <el-table
-        v-loading="loading"
-        :data="reportList"
-        stripe
-        aria-label="举报列表"
-      >
-        <el-table-column
-          prop="id"
-          label="ID"
-          width="100"
-        />
-        <el-table-column
-          label="举报类型"
-          width="100"
+    <OpsWorkbench>
+      <template #stage>
+        <OpsSurfaceCard
+          eyebrow="Reports"
+          title="求助处理"
+          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 待处理` : '优先处置'"
+          tone="sky"
         >
-          <template #default="{ row }">
-            <el-tag
-              size="small"
-              :color="getTypeColor(row.type)"
-              style="border:none;color:#fff"
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">求助总数</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>条</small>
+            </div>
+            <p class="ops-big-metric__note">
+              汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。
+            </p>
+          </div>
+
+          <div class="ops-soft-actions reports-stage-actions">
+            <el-button
+              type="primary"
+              @click="handleSearch"
             >
-              {{ getTypeLabel(row.type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="举报原因"
-          min-width="200"
-        >
-          <template #default="{ row }">
-            {{ row.reason }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="被举报内容"
-          min-width="200"
-        >
-          <template #default="{ row }">
-            {{ row.target_content?.substring(0, 50) }}{{ row.target_content?.length > 50 ? '...' : '' }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="状态"
-          width="100"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="getStatusType(row.status)"
-              size="small"
+              刷新工单
+            </el-button>
+            <el-button @click="handleReset">
+              重置筛查
+            </el-button>
+          </div>
+
+          <div class="ops-mini-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-mini-tile"
+              :class="getWorkbenchTileTone(item.tone)"
             >
-              {{ getStatusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="created_at"
-          label="举报时间"
-          width="180"
-        />
-        <el-table-column
-          label="操作"
-          width="200"
-          fixed="right"
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #support>
+        <OpsSurfaceCard
+          eyebrow="Filter"
+          title="筛查条件"
+          :chip="filters.status ? getStatusLabel(filters.status) : '全部状态'"
+          tone="ice"
+          compact
         >
-          <template #default="{ row }">
-            <template v-if="row.status === 'pending'">
-              <el-button
-                type="success"
-                link
-                @click="handleReport(row, 'handled')"
+          <el-form
+            :model="filters"
+            aria-label="举报筛选"
+            class="ops-form-grid reports-filter-form"
+          >
+            <el-form-item label="状态">
+              <el-select
+                v-model="filters.status"
+                placeholder="全部"
+                clearable
               >
-                处理
-              </el-button>
-              <el-button
-                type="info"
-                link
-                @click="handleReport(row, 'ignored')"
+                <el-option
+                  label="待处理"
+                  value="pending"
+                />
+                <el-option
+                  label="已处理"
+                  value="handled"
+                />
+                <el-option
+                  label="已忽略"
+                  value="ignored"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="类型">
+              <el-select
+                v-model="filters.type"
+                placeholder="全部"
+                clearable
               >
-                忽略
-              </el-button>
-            </template>
-            <span
-              v-else
-              class="handled-text"
-            >已{{ getStatusLabel(row.status) }}</span>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty
-            description="暂无举报数据"
-            :image-size="120"
+                <el-option
+                  label="垃圾信息"
+                  value="spam"
+                />
+                <el-option
+                  label="骚扰辱骂"
+                  value="harassment"
+                />
+                <el-option
+                  label="不当内容"
+                  value="inappropriate"
+                />
+                <el-option
+                  label="暴力内容"
+                  value="violence"
+                />
+                <el-option
+                  label="其他"
+                  value="other"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <div class="ops-chip-row">
+            <span class="ops-chip">
+              {{ filters.type ? getTypeLabel(filters.type) : '全部举报类型' }}
+            </span>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Status"
+          title="处置状态"
+          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 等待` : '空闲'"
+          tone="mint"
+        >
+          <div class="ops-kv-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-kv-item"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar">
+          <div class="reports-table-copy">
+            <h3>求助列表</h3>
+            <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="loading"
+          :data="reportList"
+          stripe
+          aria-label="举报列表"
+        >
+          <el-table-column
+            prop="id"
+            label="ID"
+            width="100"
           />
-        </template>
-      </el-table>
+          <el-table-column
+            label="举报类型"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                size="small"
+                :color="getTypeColor(row.type)"
+                style="border:none;color:#fff"
+              >
+                {{ getTypeLabel(row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="举报原因"
+            min-width="200"
+          >
+            <template #default="{ row }">
+              {{ row.reason }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="被举报内容"
+            min-width="200"
+          >
+            <template #default="{ row }">
+              {{ row.target_content?.substring(0, 50) }}{{ row.target_content?.length > 50 ? '...' : '' }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="状态"
+            width="100"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="getStatusType(row.status)"
+                size="small"
+              >
+                {{ getStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="created_at"
+            label="举报时间"
+            width="180"
+          />
+          <el-table-column
+            label="操作"
+            width="200"
+            fixed="right"
+          >
+            <template #default="{ row }">
+              <template v-if="row.status === 'pending'">
+                <el-button
+                  type="success"
+                  link
+                  @click="handleReport(row, 'handled')"
+                >
+                  处理
+                </el-button>
+                <el-button
+                  type="info"
+                  link
+                  @click="handleReport(row, 'ignored')"
+                >
+                  忽略
+                </el-button>
+              </template>
+              <span
+                v-else
+                class="handled-text"
+              >已{{ getStatusLabel(row.status) }}</span>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty
+              description="暂无举报数据"
+              :image-size="120"
+            />
+          </template>
+        </el-table>
 
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
+    </OpsWorkbench>
   </div>
 </template>
 
@@ -213,10 +272,11 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsWorkbench from '@/components/OpsWorkbench.vue'
+import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 import type { Report } from '@/types'
 
 const loading = ref(false)
@@ -315,10 +375,30 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .reports-page {
-  padding: 20px;
+  .reports-stage-actions {
+    margin: 22px 0 18px;
+  }
 
-  .filter-card {
-    margin-bottom: 16px;
+  .reports-filter-form {
+    :deep(.el-form-item) {
+      margin-bottom: 0;
+    }
+  }
+
+  .reports-table-copy {
+    h3 {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin-top: 8px;
+      color: var(--hl-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
   }
 
   .pagination-wrapper {

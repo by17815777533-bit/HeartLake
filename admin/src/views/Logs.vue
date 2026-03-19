@@ -9,188 +9,243 @@
 
 <template>
   <div class="logs-page ops-page">
-    <OpsPageHero
-      eyebrow="服务审计"
-      title="服务记录"
-      description="按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。"
-      status="全量留痕"
-      :chips="['审计追踪', '操作对象', '时间回查']"
-    />
-
-    <OpsMetricStrip :items="summaryItems" />
-
-    <el-card
-      shadow="never"
-      class="filter-card"
-    >
-      <el-form
-        :model="filters"
-        inline
-        aria-label="日志筛选"
-      >
-        <el-form-item label="操作人">
-          <el-input
-            v-model="filters.operator"
-            placeholder="管理员账号"
-            clearable
-            style="width: 140px"
-          />
-        </el-form-item>
-        <el-form-item label="操作类型">
-          <el-select
-            v-model="filters.action"
-            placeholder="全部"
-            clearable
-            style="width: 140px"
-          >
-            <el-option
-              label="登录"
-              value="login"
-            />
-            <el-option
-              label="封禁用户"
-              value="ban_user"
-            />
-            <el-option
-              label="解封用户"
-              value="unban_user"
-            />
-            <el-option
-              label="删除内容"
-              value="delete_content"
-            />
-            <el-option
-              label="审核通过"
-              value="approve"
-            />
-            <el-option
-              label="审核拒绝"
-              value="reject"
-            />
-            <el-option
-              label="修改配置"
-              value="config"
-            />
-            <el-option
-              label="处理举报"
-              value="handle_report"
-            />
-            <el-option
-              label="发送广播"
-              value="broadcast"
-            />
-            <el-option
-              label="新增敏感词"
-              value="sensitive_add"
-            />
-            <el-option
-              label="更新敏感词"
-              value="sensitive_update"
-            />
-            <el-option
-              label="删除敏感词"
-              value="sensitive_delete"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时间范围">
-          <el-date-picker
-            v-model="filters.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledDate"
-            style="width: 240px"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            @click="handleSearch"
-          >
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card
-      shadow="never"
-      class="table-card"
-    >
-      <el-table
-        v-loading="loading"
-        :data="logList"
-        stripe
-        aria-label="操作日志列表"
-      >
-        <el-table-column
-          prop="id"
-          label="ID"
-          width="80"
-        />
-        <el-table-column
-          prop="admin_id"
-          label="操作人"
-          width="120"
-        />
-        <el-table-column
-          label="操作类型"
-          width="120"
+    <OpsWorkbench>
+      <template #stage>
+        <OpsSurfaceCard
+          eyebrow="Audit"
+          title="服务记录"
+          :chip="summaryItems[0]?.value ? `${summaryItems[0].value} 条留痕` : '全量留痕'"
+          tone="sky"
         >
-          <template #default="{ row }">
-            <el-tag
-              :type="getActionType(row.action)"
-              size="small"
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">记录总量</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>条</small>
+            </div>
+            <p class="ops-big-metric__note">
+              按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。
+            </p>
+          </div>
+
+          <div class="ops-soft-actions logs-stage-actions">
+            <el-button
+              type="primary"
+              @click="handleSearch"
             >
-              {{ getActionLabel(row.action) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="操作对象"
-          width="150"
-        >
-          <template #default="{ row }">
-            {{ row.target_type ? `${row.target_type}:${row.target_id}` : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="details"
-          label="详情"
-          min-width="200"
-          show-overflow-tooltip
-        />
-        <el-table-column
-          prop="created_at"
-          label="操作时间"
-          width="180"
-        />
-        <template #empty>
-          <el-empty
-            description="暂无操作日志"
-            :image-size="120"
-          />
-        </template>
-      </el-table>
+              刷新审计
+            </el-button>
+            <el-button @click="handleReset">
+              清空筛选
+            </el-button>
+          </div>
 
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-card>
+          <div class="ops-mini-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-mini-tile"
+              :class="getWorkbenchTileTone(item.tone)"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #support>
+        <OpsSurfaceCard
+          eyebrow="Filter"
+          title="检索条件"
+          :chip="filters.action ? getActionLabel(filters.action) : '全部动作'"
+          tone="ice"
+          compact
+        >
+          <el-form
+            :model="filters"
+            aria-label="日志筛选"
+            class="ops-form-grid logs-filter-form"
+          >
+            <el-form-item label="操作人">
+              <el-input
+                v-model="filters.operator"
+                placeholder="管理员账号"
+                clearable
+              />
+            </el-form-item>
+            <el-form-item label="操作类型">
+              <el-select
+                v-model="filters.action"
+                placeholder="全部"
+                clearable
+              >
+                <el-option
+                  label="登录"
+                  value="login"
+                />
+                <el-option
+                  label="封禁用户"
+                  value="ban_user"
+                />
+                <el-option
+                  label="解封用户"
+                  value="unban_user"
+                />
+                <el-option
+                  label="删除内容"
+                  value="delete_content"
+                />
+                <el-option
+                  label="审核通过"
+                  value="approve"
+                />
+                <el-option
+                  label="审核拒绝"
+                  value="reject"
+                />
+                <el-option
+                  label="修改配置"
+                  value="config"
+                />
+                <el-option
+                  label="处理举报"
+                  value="handle_report"
+                />
+                <el-option
+                  label="发送广播"
+                  value="broadcast"
+                />
+                <el-option
+                  label="新增敏感词"
+                  value="sensitive_add"
+                />
+                <el-option
+                  label="更新敏感词"
+                  value="sensitive_update"
+                />
+                <el-option
+                  label="删除敏感词"
+                  value="sensitive_delete"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="时间范围">
+              <el-date-picker
+                v-model="filters.dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                value-format="YYYY-MM-DD"
+                :disabled-date="disabledDate"
+              />
+            </el-form-item>
+          </el-form>
+        </OpsSurfaceCard>
+      </template>
+
+      <template #rail>
+        <OpsSurfaceCard
+          eyebrow="Actions"
+          title="动作分布"
+          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 次登录` : '审计中'"
+          tone="mint"
+        >
+          <div class="ops-kv-grid">
+            <article
+              v-for="item in summaryItems.slice(1)"
+              :key="item.label"
+              class="ops-kv-item"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
+      <el-card
+        shadow="never"
+        class="table-card ops-table-card"
+      >
+        <div class="ops-soft-toolbar">
+          <div class="logs-table-copy">
+            <h3>审计列表</h3>
+            <p>登录、处置、配置和广播都在这里串联起来，便于交接和回放整个后台动作。</p>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="loading"
+          :data="logList"
+          stripe
+          aria-label="操作日志列表"
+        >
+          <el-table-column
+            prop="id"
+            label="ID"
+            width="80"
+          />
+          <el-table-column
+            prop="admin_id"
+            label="操作人"
+            width="120"
+          />
+          <el-table-column
+            label="操作类型"
+            width="120"
+          >
+            <template #default="{ row }">
+              <el-tag
+                :type="getActionType(row.action)"
+                size="small"
+              >
+                {{ getActionLabel(row.action) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            label="操作对象"
+            width="150"
+          >
+            <template #default="{ row }">
+              {{ row.target_type ? `${row.target_type}:${row.target_id}` : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="details"
+            label="详情"
+            min-width="200"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="created_at"
+            label="操作时间"
+            width="180"
+          />
+          <template #empty>
+            <el-empty
+              description="暂无操作日志"
+              :image-size="120"
+            />
+          </template>
+        </el-table>
+
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :total="pagination.total"
+            :page-sizes="[20, 50, 100]"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </el-card>
+    </OpsWorkbench>
   </div>
 </template>
 
@@ -198,10 +253,11 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import api, { isRequestCanceled } from '@/api'
 import { ElMessage } from 'element-plus'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsWorkbench from '@/components/OpsWorkbench.vue'
+import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 import type { OperationLog } from '@/types'
 
 const loading = ref(false)
@@ -296,8 +352,30 @@ onMounted(() => fetchLogs())
 
 <style lang="scss" scoped>
 .logs-page {
-  .filter-card {
-    margin-bottom: 16px;
+  .logs-stage-actions {
+    margin: 22px 0 18px;
+  }
+
+  .logs-filter-form {
+    :deep(.el-form-item) {
+      margin-bottom: 0;
+    }
+  }
+
+  .logs-table-copy {
+    h3 {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin-top: 8px;
+      color: var(--hl-ink-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
   }
 
   .pagination-wrapper {
