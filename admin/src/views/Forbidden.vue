@@ -42,17 +42,20 @@ const router = useRouter()
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--m3-surface);
+  background:
+    radial-gradient(circle at top left, rgba(182, 122, 66, 0.12), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(17, 62, 74, 0.12), transparent 24%),
+    linear-gradient(180deg, var(--hl-paper-strong), var(--hl-paper));
 }
 
 .forbidden-card {
   text-align: center;
-  padding: 48px 40px;
-  background: var(--m3-surface-container);
-  border: 1px solid var(--m3-outline-variant);
-  border-radius: var(--m3-shape-xl);
-  box-shadow: var(--m3-elevation-2);
-  max-width: 420px;
+  padding: 54px 44px;
+  background: linear-gradient(180deg, rgba(249, 252, 252, 0.9), rgba(235, 242, 245, 0.96));
+  border: 1px solid rgba(115, 141, 151, 0.14);
+  border-radius: 30px;
+  box-shadow: 0 28px 56px rgba(10, 23, 31, 0.08);
+  max-width: 460px;
 }
 
 .forbidden-icon {
@@ -61,7 +64,8 @@ const router = useRouter()
 }
 
 .forbidden-title {
-  font-size: 28px;
+  font-family: var(--hl-font-display);
+  font-size: 34px;
   font-weight: 600;
   color: var(--m3-on-surface);
   margin: 0 0 12px 0;

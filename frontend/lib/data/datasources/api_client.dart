@@ -10,7 +10,6 @@
 library;
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -18,7 +17,6 @@ import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_config.dart';
 import '../../utils/app_logger.dart';
-import '../../utils/error_handler.dart' show ErrorHandler, Result;
 import 'cache_service.dart';
 
 /// Token 刷新回调函数类型

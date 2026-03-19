@@ -9,7 +9,17 @@
 -->
 
 <template>
-  <div class="users-page">
+  <div class="users-page ops-page">
+    <OpsPageHero
+      eyebrow="旅人档案"
+      title="旅人关怀"
+      description="查看账号状态、活跃轨迹与基础产出，统一处理封禁、解封与个体关注。"
+      status="用户侧"
+      :chips="['活跃状态', '封禁处置', '账户概览']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <!-- 搜索筛选 -->
     <el-card
       shadow="never"
@@ -68,7 +78,10 @@
     </el-card>
 
     <!-- 用户列表 -->
-    <el-card shadow="never">
+    <el-card
+      shadow="never"
+      class="table-card"
+    >
       <el-table
         v-loading="loading"
         :data="users"
@@ -213,10 +226,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { User } from '@/types'
@@ -246,6 +261,22 @@ const defaultFilters = {
 
 const filters = reactive({ ...defaultFilters })
 
+const formatCount = (value: number) => value.toLocaleString()
+
+const summaryItems = computed(() => {
+  const activeCount = users.value.filter((item) => item.status === 'active').length
+  const bannedCount = users.value.filter((item) => item.status === 'banned').length
+  const stonesCount = users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0)
+  const boatsCount = users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0)
+
+  return [
+    { label: '旅人总数', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的总账号数', tone: 'lake' as const },
+    { label: '正常状态', value: formatCount(activeCount), note: '当前页可直接服务的账号', tone: 'sage' as const },
+    { label: '封禁处置', value: formatCount(bannedCount), note: '当前页仍处于限制中的账号', tone: 'rose' as const },
+    { label: '互动产出', value: formatCount(stonesCount + boatsCount), note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`, tone: 'amber' as const },
+  ]
+})
+
 /**
  * 拉取用户列表，兼容后端两种响应格式：
  * - { data: { users, total } }
@@ -267,6 +298,7 @@ const fetchUsers = async () => {
     users.value = resData.users || []
     pagination.total = resData.total || 0
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取用户列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取用户列表失败'))
     users.value = []

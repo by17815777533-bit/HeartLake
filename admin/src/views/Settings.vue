@@ -10,14 +10,27 @@
 -->
 
 <template>
-  <div class="settings-page">
+  <div class="settings-page ops-page">
+    <OpsPageHero
+      eyebrow="站点控制"
+      title="系统偏好"
+      description="集中管理站点开关、智能回复、速率限制与全站广播，高权限操作在这里完成统一配置。"
+      status="高权限"
+      :chips="['站点开关', '智能回复', '广播通知']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <el-tabs v-model="activeTab">
       <!-- 系统配置 -->
       <el-tab-pane
         label="系统配置"
         name="system"
       >
-        <el-card shadow="never">
+        <el-card
+          shadow="never"
+          class="table-card"
+        >
           <el-form
             ref="systemFormRef"
             :model="systemConfig"
@@ -68,7 +81,10 @@
         label="智能回复"
         name="ai"
       >
-        <el-card shadow="never">
+        <el-card
+          shadow="never"
+          class="table-card"
+        >
           <!-- AI 配置表单验证 -->
           <el-form
             ref="aiFormRef"
@@ -162,7 +178,10 @@
         label="限流配置"
         name="rate"
       >
-        <el-card shadow="never">
+        <el-card
+          shadow="never"
+          class="table-card"
+        >
           <!-- 限流配置表单验证 -->
           <el-form
             ref="rateFormRef"
@@ -230,7 +249,10 @@
         label="广播"
         name="broadcast"
       >
-        <el-card shadow="never">
+        <el-card
+          shadow="never"
+          class="table-card"
+        >
           <el-form
             :model="broadcastForm"
             label-width="120px"
@@ -283,11 +305,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 
 const activeTab = ref('system')
@@ -398,6 +422,45 @@ const broadcastForm = reactive({
   level: 'info',
 })
 
+const providerLabelMap: Record<string, string> = {
+  deepseek: 'DeepSeek',
+  openai: 'OpenAI',
+}
+
+const levelLabelMap: Record<string, string> = {
+  info: '信息',
+  success: '成功',
+  warning: '警告',
+  error: '错误',
+}
+
+const summaryItems = computed(() => [
+  {
+    label: '开放注册',
+    value: systemConfig.allowRegister ? '开启' : '关闭',
+    note: systemConfig.allowRegister ? '新旅人可以自行加入' : '当前仅允许内部导入或邀请',
+    tone: systemConfig.allowRegister ? 'sage' as const : 'rose' as const,
+  },
+  {
+    label: '匿名进入',
+    value: systemConfig.allowAnonymous ? '允许' : '关闭',
+    note: systemConfig.allowAnonymous ? '保持低门槛表达入口' : '当前要求更明确的身份绑定',
+    tone: systemConfig.allowAnonymous ? 'lake' as const : 'amber' as const,
+  },
+  {
+    label: '回复方案',
+    value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
+    note: `模型 ${aiConfig.model || '未设置'} · 当前页签 ${activeTab.value}`,
+    tone: 'amber' as const,
+  },
+  {
+    label: '内容上限',
+    value: `${rateConfig.maxContentLength}`,
+    note: `广播级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
+    tone: 'lake' as const,
+  },
+])
+
 // 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {
   try {
@@ -428,6 +491,7 @@ const loadConfig = async () => {
       rateConfig.maxContentLength = rate.max_content_length ?? rate.maxContentLength ?? 2000
     }
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('加载配置失败:', e)
     ElMessage.error(getErrorMessage(e, '加载配置失败'))
   }

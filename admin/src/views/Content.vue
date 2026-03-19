@@ -9,7 +9,17 @@
 -->
 
 <template>
-  <div class="content-page">
+  <div class="content-page ops-page">
+    <OpsPageHero
+      eyebrow="内容台账"
+      title="石头与纸船"
+      description="统一查看石头与纸船的状态、文案与作者信息，必要时直接处置并保留操作原因。"
+      status="巡检中"
+      :chips="['内容筛选', '状态处置', '删除留痕']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <!-- 筛选 -->
     <el-card
       shadow="never"
@@ -81,7 +91,10 @@
     </el-card>
 
     <!-- 内容列表 -->
-    <el-card shadow="never">
+    <el-card
+      shadow="never"
+      class="table-card"
+    >
       <el-table
         v-loading="loading"
         :data="contentList"
@@ -230,9 +243,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { ContentItem } from '@/types'
@@ -258,6 +273,21 @@ const filters = reactive({
   type: '',
   status: '',
   keyword: '',
+})
+
+const formatCount = (value: number) => value.toLocaleString()
+
+const summaryItems = computed(() => {
+  const stoneCount = contentList.value.filter((item) => item.type === 'stone').length
+  const boatCount = contentList.value.filter((item) => item.type === 'boat').length
+  const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
+
+  return [
+    { label: '内容总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的内容总数', tone: 'lake' as const },
+    { label: '当前页石头', value: formatCount(stoneCount), note: '公开心声内容', tone: 'amber' as const },
+    { label: '当前页纸船', value: formatCount(boatCount), note: '一对一漂流内容', tone: 'sage' as const },
+    { label: '待确认内容', value: formatCount(pendingCount), note: '当前页需要继续观察的条目', tone: 'rose' as const },
+  ]
 })
 
 const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchContent, {
@@ -359,6 +389,7 @@ async function fetchContent() {
     contentList.value = mergedList.slice(start, start + pageSize)
     pagination.total = Number(stonesData.total || 0) + Number(boatsData.total || 0)
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取内容列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取内容列表失败'))
     contentList.value = []

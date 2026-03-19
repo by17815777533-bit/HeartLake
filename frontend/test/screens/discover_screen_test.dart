@@ -11,6 +11,7 @@ import 'package:heart_lake/utils/mood_colors.dart';
 void main() {
   group('MoodColors.fromString (DiscoverScreen mood list)', () {
     // DiscoverScreen 中定义的 8 种情绪
+    // 其中“感恩”“期待”会映射到当前 8 种标准情绪中的 happy / calm。
     // final List<String> _moods = ['开心', '平静', '忧伤', '焦虑', '愤怒', '迷茫', '感恩', '期待'];
 
     test('should map 开心 to MoodType.happy', () {
@@ -41,12 +42,12 @@ void main() {
       expect(MoodColors.fromString('迷茫'), MoodType.confused);
     });
 
-    test('should map 感恩 to MoodType.grateful', () {
-      expect(MoodColors.fromString('感恩'), MoodType.grateful);
+    test('should map 感恩 to MoodType.happy', () {
+      expect(MoodColors.fromString('感恩'), MoodType.happy);
     });
 
-    test('should map 期待 to MoodType.hopeful', () {
-      expect(MoodColors.fromString('期待'), MoodType.hopeful);
+    test('should map 期待 to MoodType.calm', () {
+      expect(MoodColors.fromString('期待'), MoodType.calm);
     });
 
     test('should map unknown string to MoodType.neutral', () {
@@ -126,9 +127,9 @@ void main() {
   });
 
   group('MoodColors.allMoods', () {
-    test('should return all 12 mood types', () {
+    test('should return all 8 supported mood types', () {
       final allMoods = MoodColors.allMoods;
-      expect(allMoods.length, 12);
+      expect(allMoods.length, 8);
       expect(allMoods, containsAll(MoodType.values));
     });
   });

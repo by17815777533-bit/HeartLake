@@ -117,6 +117,20 @@ export function cancelAllRequests(): void {
   clearPendingRequests()
 }
 
+/**
+ * 判断错误是否由主动取消请求引起。
+ * 兼容 axios 的 CanceledError 与 AbortController 取消场景。
+ */
+export function isRequestCanceled(error: unknown): boolean {
+  if (axios.isCancel(error)) return true
+  if (!error || typeof error !== 'object') return false
+
+  const maybeError = error as { code?: string; name?: string; message?: string }
+  return maybeError.code === 'ERR_CANCELED'
+    || maybeError.name === 'CanceledError'
+    || maybeError.message === 'canceled'
+}
+
 /** 
  * @brief Axios 全局请求门神拦截装置
  * @details 第一时间推入验证字典，排遣未完结相同冲突体，挂载事务标识信号标。同时触犯阻塞性遮罩。

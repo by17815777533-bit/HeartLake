@@ -13,6 +13,7 @@ vi.mock('element-plus', () => ({
 
 vi.mock('@/api', () => ({
   default: { getSystemConfig: vi.fn(), updateSystemConfig: vi.fn(), getEdgeAIStatus: vi.fn(), broadcastMessage: vi.fn() },
+  isRequestCanceled: vi.fn(() => false),
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 
@@ -30,12 +31,13 @@ const ElSelect = defineComponent({ name: 'ElSelect', props: ['modelValue'], emit
 const ElOption = defineComponent({ name: 'ElOption', props: ['label', 'value'], setup(p) { return () => h('option', { value: p.value }, p.label) } })
 const ElSwitch = defineComponent({ name: 'ElSwitch', props: ['modelValue'], emits: ['update:modelValue'], setup(p) { return () => h('input', { type: 'checkbox', checked: p.modelValue }) } })
 const ElButton = defineComponent({ name: 'ElButton', props: ['loading', 'type'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } })
+const ElIcon = defineComponent({ name: 'ElIcon', setup(_, { slots }) { return () => h('i', slots.default?.()) } })
 const ElDivider = defineComponent({ name: 'ElDivider', setup() { return () => h('hr') } })
 const ElAlert = defineComponent({ name: 'ElAlert', props: ['title', 'type'], setup(p) { return () => h('div', p.title) } })
 
 const mountOpts = {
   global: {
-    components: { ElTabs, ElTabPane, ElCard, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElButton, ElDivider, ElAlert },
+    components: { ElTabs, ElTabPane, ElCard, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElButton, ElIcon, ElDivider, ElAlert },
   },
 }
 

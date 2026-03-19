@@ -9,7 +9,17 @@
 -->
 
 <template>
-  <div class="reports-page">
+  <div class="reports-page ops-page">
+    <OpsPageHero
+      eyebrow="求助台账"
+      title="求助处理"
+      description="汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。"
+      status="优先处置"
+      :chips="['举报筛查', '结果回执', '分级处理']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <!-- 筛选 -->
     <el-card
       shadow="never"
@@ -85,7 +95,10 @@
     </el-card>
 
     <!-- 举报列表 -->
-    <el-card shadow="never">
+    <el-card
+      shadow="never"
+      class="table-card"
+    >
       <el-table
         v-loading="loading"
         :data="reportList"
@@ -197,9 +210,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { Report } from '@/types'
@@ -237,6 +252,21 @@ const getStatusLabel = (status: string) => {
   return map[status] || status
 }
 
+const formatCount = (value: number) => value.toLocaleString()
+
+const summaryItems = computed(() => {
+  const pendingCount = reportList.value.filter((item) => item.status === 'pending').length
+  const handledCount = reportList.value.filter((item) => item.status === 'handled').length
+  const ignoredCount = reportList.value.filter((item) => item.status === 'ignored').length
+
+  return [
+    { label: '求助总数', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的记录总量', tone: 'lake' as const },
+    { label: '待优先处理', value: formatCount(pendingCount), note: '当前页仍需人工判断的记录', tone: 'rose' as const },
+    { label: '已完成处理', value: formatCount(handledCount), note: '当前页已给出处置结果', tone: 'sage' as const },
+    { label: '已忽略', value: formatCount(ignoredCount), note: '当前页不进入进一步处理的记录', tone: 'amber' as const },
+  ]
+})
+
 async function fetchReports() {
   loading.value = true
   try {
@@ -245,6 +275,7 @@ async function fetchReports() {
     reportList.value = data.list || []
     pagination.total = data.total || 0
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取举报列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取举报列表失败'))
     reportList.value = []

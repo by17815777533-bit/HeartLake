@@ -219,8 +219,9 @@ onMounted(() => {
   padding: 32px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(154, 106, 53, 0.16), transparent 26%),
-    linear-gradient(180deg, #f7f1e7 0%, #efe5d7 100%);
+    radial-gradient(circle at top left, rgba(182, 122, 66, 0.16), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(17, 62, 74, 0.16), transparent 24%),
+    linear-gradient(180deg, #f2f7f8 0%, #dbe7ea 100%);
 
   &::before,
   &::after {
@@ -267,7 +268,7 @@ onMounted(() => {
   border-radius: 32px;
   border: 1px solid rgba(24, 36, 47, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 250, 242, 0.9), rgba(244, 236, 223, 0.95));
+    linear-gradient(180deg, rgba(250, 252, 252, 0.9), rgba(234, 241, 244, 0.96));
   box-shadow: var(--hl-shadow-medium);
 }
 
@@ -369,7 +370,7 @@ onMounted(() => {
   padding: 42px 36px;
   border-radius: 32px;
   border: 1px solid rgba(24, 36, 47, 0.08);
-  background: rgba(255, 250, 242, 0.92);
+  background: rgba(249, 252, 252, 0.92);
   box-shadow: var(--hl-shadow-medium);
 }
 
@@ -383,7 +384,7 @@ onMounted(() => {
     margin-bottom: 18px;
     padding: 14px;
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(35, 73, 99, 0.08), rgba(154, 106, 53, 0.12));
+    background: linear-gradient(135deg, rgba(17, 62, 74, 0.08), rgba(182, 122, 66, 0.12));
   }
 
   .title {

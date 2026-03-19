@@ -10,7 +10,17 @@
 -->
 
 <template>
-  <div class="sensitive-words-page">
+  <div class="sensitive-words-page ops-page">
+    <OpsPageHero
+      eyebrow="风险策略"
+      title="风险词典"
+      description="维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。"
+      status="实时生效"
+      :chips="['词条管理', '级别区分', '批量处置']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <!-- 操作栏 -->
     <el-card
       shadow="never"
@@ -73,7 +83,10 @@
     </el-card>
 
     <!-- 敏感词列表 -->
-    <el-card shadow="never">
+    <el-card
+      shadow="never"
+      class="table-card"
+    >
       <!-- 批量操作栏 -->
       <div
         v-if="selectedWords.length > 0"
@@ -264,7 +277,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, TableInstance } from 'element-plus'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
@@ -348,6 +363,19 @@ const rules = {
 
 const getLevelType = (level: string) => ({ low: 'info', medium: 'warning', high: 'danger' }[level] || 'info')
 const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' }[level] || level)
+const formatCount = (value: number) => value.toLocaleString()
+
+const summaryItems = computed(() => {
+  const highRiskCount = wordList.value.filter((item) => item.level === 'high' || item.level === 'critical').length
+  const replacementCount = wordList.value.filter((item) => Boolean(item.replacement)).length
+
+  return [
+    { label: '词条总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选条件下的规则总数', tone: 'lake' as const },
+    { label: '高风险词条', value: formatCount(highRiskCount), note: '当前页高强度拦截或重点观察词条', tone: 'rose' as const },
+    { label: '替换策略', value: formatCount(replacementCount), note: '当前页设置了替换文案的词条', tone: 'amber' as const },
+    { label: '批量选中', value: formatCount(selectedWords.value.length), note: `单次最多处理 ${MAX_BATCH_SIZE} 条`, tone: 'sage' as const },
+  ]
+})
 
 async function fetchWords() {
   loading.value = true
@@ -357,6 +385,7 @@ async function fetchWords() {
     wordList.value = data.words || data.list || []
     pagination.total = data.total || 0
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取敏感词列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取敏感词列表失败'))
     wordList.value = []
@@ -421,335 +450,30 @@ onMounted(() => fetchWords())
 
 <style lang="scss" scoped>
 .sensitive-words-page {
-  padding: 20px;
-
-  .filter-card {
-    margin-bottom: 16px;
-  }
-
   .batch-bar {
     display: flex;
     align-items: center;
     gap: 12px;
     margin-bottom: 12px;
-    padding: 8px 12px;
-    background: rgba(242, 204, 143, 0.06);
-    border-radius: 6px;
+    padding: 10px 14px;
+    border: 1px solid rgba(182, 122, 66, 0.14);
+    background: rgba(182, 122, 66, 0.08);
+    border-radius: 16px;
     font-size: 13px;
-    color: var(--m3-on-surface-variant, #b8a99a);
+    color: var(--hl-ink-soft);
   }
 
   .flex-between {
     display: flex;
+    gap: 16px;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
   }
 
   .pagination-wrapper {
-    margin-top: 20px;
     display: flex;
     justify-content: flex-end;
-  }
-
-  // ── 光遇主题：毛玻璃卡片 ──
-  :deep(.el-card) {
-    background: rgba(26, 26, 62, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.12);
-    border-radius: 16px;
-    color: #F0E6D3;
-
-    .el-card__body {
-      color: #F0E6D3;
-    }
-  }
-
-  // ── 表单标签 ──
-  :deep(.el-form-item__label) {
-    color: #B8A99A;
-  }
-
-  // ── 输入框 ──
-  :deep(.el-input) {
-    .el-input__wrapper {
-      background: rgba(20, 20, 50, 0.6);
-      border: 1px solid rgba(242, 204, 143, 0.15);
-      border-radius: 8px;
-      box-shadow: none;
-
-      .el-input__inner {
-        color: #F0E6D3;
-
-        &::placeholder {
-          color: #7A6F63;
-        }
-      }
-
-      &:hover {
-        border-color: rgba(242, 204, 143, 0.3);
-      }
-
-      &.is-focus {
-        border-color: #F2CC8F;
-        box-shadow: 0 0 8px rgba(242, 204, 143, 0.15);
-      }
-    }
-  }
-
-  // ── 下拉选择器 ──
-  :deep(.el-select) {
-    .el-select__wrapper {
-      background: rgba(20, 20, 50, 0.6);
-      border: 1px solid rgba(242, 204, 143, 0.15);
-      border-radius: 8px;
-      box-shadow: none;
-      color: #F0E6D3;
-
-      &:hover {
-        border-color: rgba(242, 204, 143, 0.3);
-      }
-
-      &.is-focused {
-        border-color: #F2CC8F;
-        box-shadow: 0 0 8px rgba(242, 204, 143, 0.15);
-      }
-
-      .el-select__selected-item {
-        color: #F0E6D3;
-      }
-
-      .el-select__placeholder {
-        color: #7A6F63;
-      }
-
-      .el-select__suffix {
-        color: #B8A99A;
-      }
-    }
-  }
-
-  :deep(.el-select__popper) {
-    background: rgba(26, 26, 62, 0.95);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(242, 204, 143, 0.12);
-    border-radius: 12px;
-
-    .el-select-dropdown__item {
-      color: #B8A99A;
-
-      &.is-hovering {
-        background: rgba(242, 204, 143, 0.08);
-        color: #F2CC8F;
-      }
-
-      &.is-selected {
-        color: #F2CC8F;
-        font-weight: 600;
-      }
-    }
-  }
-
-  // ── 按钮 ──
-  :deep(.el-button--primary:not(.is-link)) {
-    background: linear-gradient(135deg, #F2CC8F, #E8A87C);
-    border: none;
-    color: #141432;
-    font-weight: 600;
-    border-radius: 8px;
-
-    &:hover {
-      background: linear-gradient(135deg, #E8A87C, #E07A5F);
-      box-shadow: 0 4px 12px rgba(242, 204, 143, 0.3);
-    }
-  }
-
-  :deep(.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--danger):not(.el-button--warning):not(.el-button--info):not(.is-link)) {
-    background: rgba(20, 20, 50, 0.6);
-    border: 1px solid rgba(242, 204, 143, 0.2);
-    color: #F0E6D3;
-    border-radius: 8px;
-
-    &:hover {
-      border-color: #F2CC8F;
-      color: #F2CC8F;
-    }
-  }
-
-  // ── 链接按钮 ──
-  :deep(.el-button.is-link) {
-    &.el-button--primary {
-      color: #F2CC8F;
-
-      &:hover {
-        color: #E8A87C;
-      }
-    }
-
-    &.el-button--danger {
-      color: #E07A5F;
-
-      &:hover {
-        color: #d4654a;
-      }
-    }
-  }
-
-  // ── 表格 ──
-  :deep(.el-table) {
-    background: transparent;
-    color: #F0E6D3;
-    --el-table-border-color: rgba(242, 204, 143, 0.08);
-    --el-table-header-bg-color: rgba(20, 20, 50, 0.5);
-    --el-table-header-text-color: #B8A99A;
-    --el-table-row-hover-bg-color: rgba(242, 204, 143, 0.06);
-    --el-table-bg-color: transparent;
-    --el-table-tr-bg-color: transparent;
-    --el-table-text-color: #F0E6D3;
-
-    .el-table__header-wrapper th {
-      background: rgba(20, 20, 50, 0.5);
-      color: #B8A99A;
-      font-weight: 600;
-      border-bottom: 1px solid rgba(242, 204, 143, 0.1);
-    }
-
-    .el-table__body-wrapper {
-      tr {
-        background: transparent;
-
-        td {
-          border-bottom: 1px solid rgba(242, 204, 143, 0.05);
-        }
-      }
-
-      .el-table__row--striped td {
-        background: rgba(20, 20, 50, 0.3);
-      }
-    }
-
-    .el-table__empty-block {
-      background: transparent;
-      color: #7A6F63;
-    }
-  }
-
-  // ── 标签 ──
-  :deep(.el-tag) {
-    border: none;
-    border-radius: 6px;
-
-    &.el-tag--info {
-      background: rgba(184, 169, 154, 0.15);
-      color: #B8A99A;
-    }
-
-    &.el-tag--danger {
-      background: rgba(224, 122, 95, 0.15);
-      color: #E07A5F;
-    }
-
-    &.el-tag--success {
-      background: rgba(129, 178, 154, 0.15);
-      color: #81B29A;
-    }
-
-    &.el-tag--warning {
-      background: rgba(232, 168, 124, 0.15);
-      color: #E8A87C;
-    }
-
-    &.el-tag--primary {
-      background: rgba(123, 104, 174, 0.15);
-      color: #7B68AE;
-    }
-  }
-
-  // ── 分页 ──
-  :deep(.el-pagination) {
-    --el-pagination-bg-color: transparent;
-    --el-pagination-text-color: #B8A99A;
-    --el-pagination-button-disabled-bg-color: transparent;
-
-    .el-pager li {
-      background: transparent;
-      color: #B8A99A;
-      border-radius: 6px;
-
-      &.is-active {
-        background: linear-gradient(135deg, #F2CC8F, #E8A87C);
-        color: #141432;
-        font-weight: 600;
-      }
-
-      &:hover:not(.is-active) {
-        color: #F2CC8F;
-      }
-    }
-
-    .btn-prev,
-    .btn-next {
-      background: transparent;
-      color: #B8A99A;
-
-      &:hover {
-        color: #F2CC8F;
-      }
-    }
-
-    .el-pagination__total {
-      color: #7A6F63;
-    }
-
-    .el-pagination__sizes .el-select {
-      .el-select__wrapper {
-        background: rgba(20, 20, 50, 0.6);
-        border: 1px solid rgba(242, 204, 143, 0.15);
-      }
-    }
-  }
-
-  // ── 弹窗（添加/编辑敏感词） ──
-  :deep(.el-dialog) {
-    background: rgba(26, 26, 62, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(242, 204, 143, 0.12);
-    border-radius: 16px;
-
-    .el-dialog__header {
-      color: #F0E6D3;
-
-      .el-dialog__title {
-        color: #F0E6D3;
-      }
-
-      .el-dialog__headerbtn .el-dialog__close {
-        color: #B8A99A;
-
-        &:hover {
-          color: #F2CC8F;
-        }
-      }
-    }
-
-    .el-dialog__body {
-      color: #F0E6D3;
-    }
-
-    .el-dialog__footer {
-      border-top: 1px solid rgba(242, 204, 143, 0.08);
-    }
-  }
-
-  // ── 气泡确认框 ──
-  :deep(.el-popconfirm) {
-    background: rgba(26, 26, 62, 0.95);
-    border: 1px solid rgba(242, 204, 143, 0.12);
-  }
-
-  // ── Loading 遮罩 ──
-  :deep(.el-loading-mask) {
-    background: rgba(20, 20, 50, 0.7);
-    backdrop-filter: blur(4px);
   }
 }
 </style>

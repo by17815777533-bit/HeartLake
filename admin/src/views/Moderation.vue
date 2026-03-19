@@ -10,7 +10,17 @@
 -->
 
 <template>
-  <div class="moderation-page">
+  <div class="moderation-page ops-page">
+    <OpsPageHero
+      eyebrow="审核中台"
+      title="温暖守护"
+      description="查看待审核队列与审核历史，结合触发原因完成人工复核，保证社区秩序与表达边界。"
+      status="人工复核"
+      :chips="['待审核队列', '审核历史', '风险触发']"
+    />
+
+    <OpsMetricStrip :items="summaryItems" />
+
     <el-tabs
       v-model="activeTab"
       @tab-change="handleTabChange"
@@ -20,12 +30,16 @@
         label="待审核"
         name="pending"
       >
-        <el-table
-          v-loading="loading"
-          :data="pendingList"
-          stripe
-          aria-label="待审核内容列表"
+        <el-card
+          shadow="never"
+          class="table-card"
         >
+          <el-table
+            v-loading="loading"
+            :data="pendingList"
+            stripe
+            aria-label="待审核内容列表"
+          >
           <el-table-column
             prop="moderation_id"
             label="ID"
@@ -101,18 +115,19 @@
               </el-button>
             </template>
           </el-table-column>
-        </el-table>
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="handlePendingSizeChange"
-            @current-change="handlePendingCurrentChange"
-          />
-        </div>
+          </el-table>
+          <div class="pagination-wrapper">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @size-change="handlePendingSizeChange"
+              @current-change="handlePendingCurrentChange"
+            />
+          </div>
+        </el-card>
       </el-tab-pane>
 
       <!-- 审核历史 -->
@@ -156,12 +171,16 @@
             </el-form-item>
           </el-form>
         </el-card>
-        <el-table
-          v-loading="historyLoading"
-          :data="historyList"
-          stripe
-          aria-label="审核历史列表"
+        <el-card
+          shadow="never"
+          class="table-card"
         >
+          <el-table
+            v-loading="historyLoading"
+            :data="historyList"
+            stripe
+            aria-label="审核历史列表"
+          >
           <el-table-column
             prop="moderation_id"
             label="ID"
@@ -198,18 +217,19 @@
             label="处理时间"
             width="170"
           />
-        </el-table>
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="historyPagination.page"
-            v-model:page-size="historyPagination.pageSize"
-            :total="historyPagination.total"
-            :page-sizes="[20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="handleHistorySizeChange"
-            @current-change="handleHistoryCurrentChange"
-          />
-        </div>
+          </el-table>
+          <div class="pagination-wrapper">
+            <el-pagination
+              v-model:current-page="historyPagination.page"
+              v-model:page-size="historyPagination.pageSize"
+              :total="historyPagination.total"
+              :page-sizes="[20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @size-change="handleHistorySizeChange"
+              @current-change="handleHistoryCurrentChange"
+            />
+          </div>
+        </el-card>
       </el-tab-pane>
     </el-tabs>
 
@@ -252,9 +272,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import type { ModerationItem } from '@/types'
@@ -269,6 +291,8 @@ const currentItem = ref<ModerationItem | null>(null)
 
 const historyFilters = reactive({ result: '' })
 
+const formatCount = (value: number) => value.toLocaleString()
+
 const { pagination, buildParams: buildPendingParams, handleSizeChange: handlePendingSizeChange, handleCurrentChange: handlePendingCurrentChange } = useTablePagination(fetchPending)
 const {
   pagination: historyPagination,
@@ -280,6 +304,19 @@ const {
   defaultFilters: { result: '' },
 })
 
+const summaryItems = computed(() => {
+  const highRiskCount = pendingList.value.filter((item) => Number(item.ai_score || 0) >= 0.7).length
+  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
+  const rejectedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'rejected').length
+
+  return [
+    { label: '待复核队列', value: formatCount(Number(pagination.total || 0)), note: '当前仍等待人工复核的内容', tone: 'rose' as const },
+    { label: '高风险提示', value: formatCount(highRiskCount), note: '当前页风险分较高的条目', tone: 'amber' as const },
+    { label: '历史通过', value: formatCount(approvedCount), note: '当前页审核历史中的通过条目', tone: 'sage' as const },
+    { label: '历史拒绝', value: formatCount(rejectedCount), note: '当前页审核历史中的拦截条目', tone: 'lake' as const },
+  ]
+})
+
 async function fetchPending() {
   loading.value = true
   try {
@@ -288,6 +325,7 @@ async function fetchPending() {
     pendingList.value = data.list || []
     pagination.total = data.total || 0
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取待审核列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取待审核列表失败'))
     pendingList.value = []
@@ -304,6 +342,7 @@ async function fetchHistory() {
     historyList.value = data.list || []
     historyPagination.total = data.total || 0
   } catch (e) {
+    if (isRequestCanceled(e)) return
     console.error('获取审核历史失败:', e)
     ElMessage.error(getErrorMessage(e, '获取审核历史失败'))
     historyList.value = []

@@ -15,7 +15,7 @@
 -->
 
 <template>
-  <div class="edge-ai">
+  <div class="edge-ai ops-page">
     <!-- 页面头部 + 技术标签 + 状态卡片 -->
     <EdgeAIHeader
       :current-time="currentTime"

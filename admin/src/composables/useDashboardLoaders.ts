@@ -10,7 +10,7 @@
  */
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
 import type {
   GrowthDataItem, MoodDistributionItem, MoodTrendItem,
   ActiveTimeItem, TrendingTopic, TrendingContentItem, EmotionTrendItem,
@@ -92,6 +92,7 @@ export function useDashboardLoaders({
       stats.onlineCount = r.online_users ?? 0
       stats.pendingReports = d.pending_reports ?? r.pending_reports ?? 0
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载统计数据失败:', (e as Error).message)
       ElMessage.error('加载统计数据失败，请稍后重试')
     }
@@ -108,6 +109,7 @@ export function useDashboardLoaders({
         userGrowthOption.value.series[0].data = list.map((item: GrowthDataItem) => item.count)
       }
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载增长数据失败:', (e as Error).message)
       ElMessage.error('加载增长数据失败，请稍后重试')
     }
@@ -135,6 +137,7 @@ export function useDashboardLoaders({
         }))
       }
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载情绪分布失败:', (e as Error).message)
       ElMessage.error('加载情绪分布失败，请稍后重试')
     }
@@ -159,6 +162,7 @@ export function useDashboardLoaders({
         })
       }
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载情绪趋势失败:', (e as Error).message)
     }
   }
@@ -170,6 +174,7 @@ export function useDashboardLoaders({
       const raw = res.data?.data || res.data
       trendingTopics.value = Array.isArray(raw) ? raw.slice(0, 10) : (raw?.list || []).slice(0, 10)
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载热门话题失败:', (e as Error).message)
     }
   }
@@ -184,6 +189,7 @@ export function useDashboardLoaders({
           ? timeData : timeData.list || []).map((item: ActiveTimeItem) => item.count)
       }
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载活跃时段失败:', (e as Error).message)
       ElMessage.error('加载活跃时段失败，请稍后重试')
     }
@@ -200,6 +206,7 @@ export function useDashboardLoaders({
       privacyStats.epsilonTotal = d.epsilon_total ?? 1.0
       privacyStats.protectedUsers = d.protected_users ?? 0
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载隐私统计失败:', (e as Error).message)
     } finally {
       privacyLoading.value = false
@@ -217,6 +224,7 @@ export function useDashboardLoaders({
       resonanceStats.topMood = d.top_mood ?? ''
       resonanceStats.successRate = d.success_rate ?? 0
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载共鸣统计失败:', (e as Error).message)
     } finally {
       resonanceLoading.value = false
@@ -231,6 +239,7 @@ export function useDashboardLoaders({
       const temp = d.temperature ?? 50
       emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载情绪温度失败:', (e as Error).message)
     }
   }
@@ -268,6 +277,7 @@ export function useDashboardLoaders({
         emotionTrendsOption.value.series[2].data = dates.map((date) => bucket.get(date)?.negative ?? 0)
       }
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载情绪趋势失败:', (e as Error).message)
     }
   }
@@ -298,6 +308,7 @@ export function useDashboardLoaders({
         }
       })
     } catch (e: unknown) {
+      if (isRequestCanceled(e)) return
       console.warn('加载AI热门内容失败:', (e as Error).message)
     }
   }

@@ -7,15 +7,14 @@ import 'package:heart_lake/utils/mood_colors.dart';
 void main() {
   // ==================== MoodType 枚举 ====================
   group('MoodType enum', () {
-    test('should have 12 values', () {
-      expect(MoodType.values.length, 12);
+    test('should have 8 values', () {
+      expect(MoodType.values.length, 8);
     });
 
     test('should contain all expected types', () {
       expect(MoodType.values, containsAll([
         MoodType.happy, MoodType.calm, MoodType.sad, MoodType.anxious,
         MoodType.angry, MoodType.surprised, MoodType.confused, MoodType.neutral,
-        MoodType.hopeful, MoodType.grateful, MoodType.lonely, MoodType.peaceful,
       ]));
     });
 
@@ -108,22 +107,6 @@ void main() {
     test('neutral should be 中性', () {
       expect(MoodColors.getConfig(MoodType.neutral).name, '中性');
     });
-
-    test('hopeful should be 希望', () {
-      expect(MoodColors.getConfig(MoodType.hopeful).name, '希望');
-    });
-
-    test('grateful should be 感恩', () {
-      expect(MoodColors.getConfig(MoodType.grateful).name, '感恩');
-    });
-
-    test('lonely should be 孤独', () {
-      expect(MoodColors.getConfig(MoodType.lonely).name, '孤独');
-    });
-
-    test('peaceful should be 平和', () {
-      expect(MoodColors.getConfig(MoodType.peaceful).name, '平和');
-    });
   });
 
   // ==================== fromString ====================
@@ -151,8 +134,10 @@ void main() {
 
     test('should map aliases', () {
       expect(MoodColors.fromString('忧伤'), MoodType.sad);
-      expect(MoodColors.fromString('期待'), MoodType.hopeful);
-      expect(MoodColors.fromString('感恩'), MoodType.grateful);
+      expect(MoodColors.fromString('期待'), MoodType.calm);
+      expect(MoodColors.fromString('感恩'), MoodType.happy);
+      expect(MoodColors.fromString('孤独'), MoodType.sad);
+      expect(MoodColors.fromString('平和'), MoodType.calm);
     });
 
     test('should return neutral for unknown strings', () {
@@ -221,7 +206,7 @@ void main() {
     });
 
     test('should have correct length', () {
-      expect(MoodColors.allMoods.length, 12);
+      expect(MoodColors.allMoods.length, 8);
     });
   });
 

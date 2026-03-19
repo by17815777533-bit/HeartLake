@@ -30,10 +30,10 @@ export function useDashboardData() {
   const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
 
   const techBadges = [
-    { icon: '动态', label: '社区动态' },
-    { icon: '关怀', label: '关怀反馈' },
-    { icon: '提醒', label: '风险提醒' },
-    { icon: '进度', label: '处理进度' },
+    { icon: '巡看', label: '今日湖面' },
+    { icon: '反馈', label: '旅人反馈' },
+    { icon: '提醒', label: '异常提醒' },
+    { icon: '待办', label: '处置进度' },
   ]
 
   const greeting = computed(() => {
@@ -54,10 +54,10 @@ export function useDashboardData() {
     totalUsers: 0, todayStones: 0, onlineCount: 0, pendingReports: 0,
   })
   const statsCards = computed(() => [
-    { title: '总用户数', value: stats.totalUsers, color: '#1565C0', icon: 'User' },
-    { title: '今日投石', value: stats.todayStones, color: '#2E7D32', icon: 'Edit' },
-    { title: '在线人数', value: stats.onlineCount, color: '#6E5676', icon: 'Connection' },
-    { title: '待处理举报', value: stats.pendingReports, color: '#E65100', icon: 'Warning' },
+    { title: '总用户数', value: stats.totalUsers, color: '#144552', icon: 'User' },
+    { title: '今日投石', value: stats.todayStones, color: '#2f6b78', icon: 'Edit' },
+    { title: '在线人数', value: stats.onlineCount, color: '#7b97a3', icon: 'Connection' },
+    { title: '待处理举报', value: stats.pendingReports, color: '#b67a42', icon: 'Warning' },
   ])
 
   /** 隐私预算与查询统计。 */
@@ -85,10 +85,10 @@ export function useDashboardData() {
   /** 情绪温度对应的湖面天气模型。 */
   const lakeWeather = computed(() => {
     const temp = charts.emotionPulseOption.value.series[0].data[0]?.value ?? 50
-    if (temp > 60) return { icon: '☀️', label: '晴朗', desc: '社区积极', color: '#E65100', bg: 'linear-gradient(135deg, #FFF3E0 0%, #FFB74D 100%)' }
-    if (temp > 30) return { icon: '⛅', label: '多云', desc: '社区平稳', color: '#44474E', bg: 'linear-gradient(135deg, #ECEFF1 0%, #B0BEC5 100%)' }
-    if (temp > 10) return { icon: '🌧️', label: '小雨', desc: '社区低落', color: '#1565C0', bg: 'linear-gradient(135deg, #E3F2FD 0%, #64B5F6 100%)' }
-    return { icon: '⛈️', label: '暴风雨', desc: '社区消极', color: '#BA1A1A', bg: 'linear-gradient(135deg, #FFEBEE 0%, #E57373 100%)' }
+    if (temp > 60) return { icon: '☀️', label: '晴朗', desc: '社区积极', color: '#b67a42', bg: 'linear-gradient(135deg, #f8efe1 0%, #e9b97a 100%)' }
+    if (temp > 30) return { icon: '⛅', label: '多云', desc: '社区平稳', color: '#56717d', bg: 'linear-gradient(135deg, #eef3f5 0%, #acc3cb 100%)' }
+    if (temp > 10) return { icon: '🌧️', label: '小雨', desc: '社区低落', color: '#2f6b78', bg: 'linear-gradient(135deg, #dfecef 0%, #7ba4b0 100%)' }
+    return { icon: '⛈️', label: '暴风雨', desc: '社区消极', color: '#8a4f46', bg: 'linear-gradient(135deg, #efe2df 0%, #bb7d75 100%)' }
   })
   const lakeWeatherTemp = computed(() =>
     charts.emotionPulseOption.value.series[0].data[0]?.value ?? 50

@@ -168,7 +168,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import api from '@/api'
+import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
 
@@ -214,6 +214,7 @@ const fetchAdminInfo = async () => {
       adminInfo.nickname = data.nickname || data.username || '管理员'
     }
   } catch (e: unknown) {
+    if (isRequestCanceled(e)) return
     console.warn('获取管理员信息失败:', (e as Error).message)
   }
 }
@@ -228,6 +229,7 @@ const fetchRealtimeStats = async () => {
       realtimeStats.todayStones = data.today_stones || 0
     }
   } catch (e: unknown) {
+    if (isRequestCanceled(e)) return
     // 静默失败，不影响页面展示
     console.warn('获取实时统计失败:', (e as Error).message)
   }
@@ -344,14 +346,14 @@ onUnmounted(() => {
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(460px 260px at 0% 0%, rgba(154, 106, 53, 0.14), transparent 72%),
-      radial-gradient(520px 320px at 100% 100%, rgba(35, 73, 99, 0.12), transparent 74%);
+      radial-gradient(520px 280px at 0% 0%, rgba(182, 122, 66, 0.12), transparent 72%),
+      radial-gradient(620px 360px at 100% 100%, rgba(17, 62, 74, 0.12), transparent 74%);
   }
 }
 
 .sidebar {
   background:
-    linear-gradient(180deg, rgba(28, 36, 44, 0.96), rgba(16, 24, 31, 0.98)),
+    linear-gradient(180deg, rgba(11, 20, 26, 0.97), rgba(8, 16, 21, 0.99)),
     var(--hl-paper-deep);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
@@ -375,7 +377,7 @@ onUnmounted(() => {
       display: grid;
       place-items: center;
       border-radius: 14px;
-      background: linear-gradient(135deg, rgba(208, 161, 98, 0.18), rgba(140, 194, 223, 0.18));
+      background: linear-gradient(135deg, rgba(182, 122, 66, 0.18), rgba(132, 184, 199, 0.18));
       border: 1px solid rgba(255, 255, 255, 0.12);
 
       img {
@@ -451,10 +453,10 @@ onUnmounted(() => {
       }
 
       &.is-active {
-        background: linear-gradient(135deg, rgba(208, 161, 98, 0.18), rgba(140, 194, 223, 0.2));
+        background: linear-gradient(135deg, rgba(132, 184, 199, 0.18), rgba(182, 122, 66, 0.16));
         color: #fdf8f0;
         font-weight: 600;
-        border-color: rgba(208, 161, 98, 0.18);
+        border-color: rgba(132, 184, 199, 0.18);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
       }
 
@@ -494,7 +496,7 @@ onUnmounted(() => {
 
 .header {
   height: 72px;
-  background: rgba(255, 250, 241, 0.82);
+  background: rgba(247, 250, 251, 0.82);
   border-bottom: 1px solid var(--hl-line);
   backdrop-filter: blur(14px);
   display: flex;
@@ -518,9 +520,9 @@ onUnmounted(() => {
       height: 28px;
       padding: 0 10px;
       border-radius: 999px;
-      border: 1px solid rgba(154, 106, 53, 0.18);
-      background: rgba(154, 106, 53, 0.08);
-      color: var(--m3-secondary);
+      border: 1px solid rgba(17, 62, 74, 0.16);
+      background: rgba(17, 62, 74, 0.08);
+      color: var(--m3-primary);
       font-family: var(--hl-font-mono);
       font-size: 11px;
       letter-spacing: 0.14em;
@@ -594,8 +596,8 @@ onUnmounted(() => {
       color: var(--hl-ink);
 
       &:hover {
-        background: rgba(154, 106, 53, 0.08);
-        border-color: rgba(154, 106, 53, 0.18);
+        background: rgba(17, 62, 74, 0.08);
+        border-color: rgba(17, 62, 74, 0.18);
       }
     }
 
@@ -650,7 +652,7 @@ onUnmounted(() => {
   overflow-y: auto;
   position: relative;
   background:
-    linear-gradient(180deg, rgba(255, 249, 240, 0.78) 0%, rgba(248, 241, 231, 0.86) 100%);
+    linear-gradient(180deg, rgba(248, 251, 252, 0.78) 0%, rgba(234, 242, 245, 0.86) 100%);
 
   &::-webkit-scrollbar {
     width: 8px;
@@ -662,12 +664,12 @@ onUnmounted(() => {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(154, 106, 53, 0.34);
+    background: rgba(17, 62, 74, 0.28);
     border-radius: var(--m3-shape-sm);
     transition: var(--m3-transition);
 
     &:hover {
-      background: rgba(154, 106, 53, 0.56);
+      background: rgba(17, 62, 74, 0.48);
     }
   }
 }

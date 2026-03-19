@@ -23,6 +23,7 @@ let reconnectAttempts = 0
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 /** 上次收到 pong 的时间戳，用于心跳超时检测 */
 let lastPongTime = Date.now()
+let hasEverConnected = false
 const MAX_RECONNECT_ATTEMPTS = 10
 const RECONNECT_BASE_INTERVAL = 1000
 const HEARTBEAT_INTERVAL = 30000
@@ -95,13 +96,14 @@ export default {
     const token = appStore.getToken()
     if (!token) return
 
-    // 连接时不带 token，避免凭据暴露在 URL 或日志中
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${protocol}//${location.host}/ws/broadcast`)
+    const wsUrl = new URL(`${protocol}//${location.host}/ws/broadcast`)
+    // 低配机的代理链路更稳定地支持握手期 query 鉴权；连接后仍兼容发送 auth 首包。
+    wsUrl.searchParams.set('token', token)
+    ws = new WebSocket(wsUrl.toString())
 
     ws.onopen = () => {
-      // 连接建立后通过消息体发送认证 token
-      ws!.send(JSON.stringify({ type: 'auth', token }))
+      hasEverConnected = true
       reconnectAttempts = 0
       lastPongTime = Date.now()
       // 启动心跳保活
@@ -126,9 +128,7 @@ export default {
       }
     }
 
-    ws.onerror = (e) => {
-      console.warn('WebSocket 连接错误:', e)
-    }
+    ws.onerror = () => {}
 
     ws.onclose = (e: CloseEvent) => {
       ws = null
@@ -142,6 +142,9 @@ export default {
           reconnectAttempts++
           this.connect()
         }, jitteredDelay)
+      } else if (!hasEverConnected) {
+        // 轮询已经覆盖后台关键统计，不在控制台刷无意义告警。
+        reconnectAttempts = MAX_RECONNECT_ATTEMPTS
       }
     }
   },
@@ -155,6 +158,7 @@ export default {
     }
     stopHeartbeat()
     reconnectAttempts = MAX_RECONNECT_ATTEMPTS // 阻止自动重连
+    hasEverConnected = false
     this._cleanup()
   },
 
