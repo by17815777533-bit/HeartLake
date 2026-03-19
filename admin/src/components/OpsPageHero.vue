@@ -64,13 +64,13 @@ defineProps<{
   padding: 28px;
   margin-bottom: 20px;
   border-radius: 30px;
-  border: 1px solid rgba(121, 110, 95, 0.08);
+  border: 1px solid rgba(133, 156, 201, 0.12);
   background:
-    radial-gradient(circle at 92% 16%, rgba(171, 192, 177, 0.16), transparent 18%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96));
+    radial-gradient(circle at 92% 16%, rgba(147, 221, 209, 0.16), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(237, 245, 255, 0.96));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 20px 46px rgba(83, 71, 56, 0.08);
+    0 20px 46px rgba(94, 118, 166, 0.1);
 }
 
 .ops-page-hero__main {
@@ -84,7 +84,7 @@ defineProps<{
   align-items: center;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(244, 240, 234, 0.96);
+  background: rgba(237, 245, 255, 0.94);
   color: var(--hl-ink-soft);
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -115,8 +115,8 @@ defineProps<{
   min-height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(108, 131, 116, 0.12);
-  color: #5b7665;
+  background: rgba(147, 221, 209, 0.16);
+  color: #4d8f86;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -126,8 +126,8 @@ defineProps<{
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #6d8876;
-    box-shadow: 0 0 0 6px rgba(109, 136, 118, 0.12);
+    background: #62b9ac;
+    box-shadow: 0 0 0 6px rgba(98, 185, 172, 0.12);
   }
 }
 
@@ -159,7 +159,7 @@ defineProps<{
   min-height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(244, 240, 234, 0.94);
+  background: rgba(237, 245, 255, 0.94);
   color: var(--hl-ink);
   font-size: 12px;
   font-weight: 600;

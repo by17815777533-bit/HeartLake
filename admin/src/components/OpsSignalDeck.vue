@@ -48,13 +48,13 @@ defineProps<{
   min-height: 156px;
   padding: 18px 20px;
   border-radius: 28px;
-  border: 1px solid rgba(121, 110, 95, 0.08);
+  border: 1px solid rgba(133, 156, 201, 0.12);
   background:
     radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 30%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(237, 245, 255, 0.96));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 20px 40px rgba(83, 71, 56, 0.06);
+    0 20px 40px rgba(94, 118, 166, 0.1);
   overflow: hidden;
 
   &::before {
@@ -141,27 +141,27 @@ defineProps<{
 }
 
 .is-lake {
-  --signal-accent: #6d8876;
-  --signal-chip: rgba(109, 136, 118, 0.12);
-  --signal-outline: rgba(109, 136, 118, 0.14);
+  --signal-accent: #87abff;
+  --signal-chip: rgba(135, 171, 255, 0.14);
+  --signal-outline: rgba(135, 171, 255, 0.14);
 }
 
 .is-amber {
-  --signal-accent: #b1906e;
-  --signal-chip: rgba(177, 144, 110, 0.14);
-  --signal-outline: rgba(177, 144, 110, 0.14);
+  --signal-accent: #8ec6ff;
+  --signal-chip: rgba(142, 198, 255, 0.14);
+  --signal-outline: rgba(142, 198, 255, 0.14);
 }
 
 .is-sage {
-  --signal-accent: #5b7665;
-  --signal-chip: rgba(91, 118, 101, 0.14);
-  --signal-outline: rgba(91, 118, 101, 0.14);
+  --signal-accent: #62b9ac;
+  --signal-chip: rgba(98, 185, 172, 0.14);
+  --signal-outline: rgba(98, 185, 172, 0.14);
 }
 
 .is-rose {
-  --signal-accent: #a37a72;
-  --signal-chip: rgba(163, 122, 114, 0.14);
-  --signal-outline: rgba(163, 122, 114, 0.14);
+  --signal-accent: #ea8c93;
+  --signal-chip: rgba(234, 140, 147, 0.14);
+  --signal-outline: rgba(234, 140, 147, 0.14);
 }
 
 @media (max-width: 640px) {

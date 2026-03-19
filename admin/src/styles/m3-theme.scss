@@ -1,6 +1,6 @@
 /**
  * HeartLake Admin 主题系统
- * 目标视觉：米白底、软圆角、低对比阴影、温润鼠尾草绿色点缀
+ * 目标视觉：浅蓝渐变、白色面板、圆角胶囊、薄荷色点缀
  * 支持 light / dark 两套色彩方案
  */
 
@@ -13,74 +13,74 @@
   --hl-font-display: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --hl-font-mono: 'IBM Plex Mono', 'SFMono-Regular', 'Cascadia Code', 'Consolas', monospace;
 
-  // Warm soft dashboard palette
-  --hl-ink: #2e2924;
-  --hl-ink-soft: #7d746a;
-  --hl-paper: #ece5db;
-  --hl-paper-strong: #f7f2ea;
-  --hl-paper-deep: #ddd4c7;
-  --hl-panel: rgba(255, 255, 255, 0.82);
-  --hl-panel-muted: rgba(247, 243, 236, 0.94);
-  --hl-line: rgba(121, 110, 95, 0.14);
-  --hl-line-strong: rgba(121, 110, 95, 0.22);
-  --hl-accent: #6d8876;
-  --hl-accent-soft: #d8e2d8;
-  --hl-accent-wash: rgba(109, 136, 118, 0.12);
-  --hl-accent-strong: #2b342d;
-  --hl-shadow-soft: 0 18px 42px rgba(83, 71, 56, 0.08);
-  --hl-shadow-medium: 0 28px 64px rgba(83, 71, 56, 0.12);
+  // Sky dashboard palette
+  --hl-ink: #212a3a;
+  --hl-ink-soft: #6f7c96;
+  --hl-paper: #dce8ff;
+  --hl-paper-strong: #f3f8ff;
+  --hl-paper-deep: #c8d8f7;
+  --hl-panel: rgba(255, 255, 255, 0.84);
+  --hl-panel-muted: rgba(238, 246, 255, 0.94);
+  --hl-line: rgba(133, 156, 201, 0.16);
+  --hl-line-strong: rgba(133, 156, 201, 0.24);
+  --hl-accent: #93ddd1;
+  --hl-accent-soft: #dff8f4;
+  --hl-accent-wash: rgba(147, 221, 209, 0.12);
+  --hl-accent-strong: #7fa8ff;
+  --hl-shadow-soft: 0 18px 42px rgba(94, 118, 166, 0.08);
+  --hl-shadow-medium: 0 28px 64px rgba(94, 118, 166, 0.14);
 
   // Primary
-  --m3-primary: #6d8876;
-  --m3-primary-container: #dfe7de;
-  --m3-on-primary: #fcfaf5;
-  --m3-on-primary-container: #233027;
+  --m3-primary: #87abff;
+  --m3-primary-container: #dfe9ff;
+  --m3-on-primary: #fdfefe;
+  --m3-on-primary-container: #25395d;
 
   // Secondary
-  --m3-secondary: #b1906e;
-  --m3-secondary-container: #eadbc9;
-  --m3-on-secondary: #fff9f2;
-  --m3-on-secondary-container: #4a3623;
+  --m3-secondary: #93ddd1;
+  --m3-secondary-container: #dff8f4;
+  --m3-on-secondary: #fdfefe;
+  --m3-on-secondary-container: #28544d;
 
   // Tertiary
-  --m3-tertiary: #9faaa0;
-  --m3-tertiary-container: #e7ebe5;
-  --m3-on-tertiary: #fffdf7;
-  --m3-on-tertiary-container: #324038;
+  --m3-tertiary: #b2c5ff;
+  --m3-tertiary-container: #e5ecff;
+  --m3-on-tertiary: #ffffff;
+  --m3-on-tertiary-container: #33456f;
 
   // Error
-  --m3-error: #a97569;
-  --m3-error-container: #f1dfd9;
-  --m3-on-error: #fffaf7;
-  --m3-on-error-container: #4c281f;
+  --m3-error: #eb8f95;
+  --m3-error-container: #ffe4e5;
+  --m3-on-error: #ffffff;
+  --m3-on-error-container: #632f34;
 
   // Success (extended)
-  --m3-success: #6b8570;
-  --m3-success-container: #e0e8de;
+  --m3-success: #6ec7b8;
+  --m3-success-container: #def8f3;
   --m3-on-success: #fcfdf8;
 
   // Warning (extended)
-  --m3-warning: #b4935d;
-  --m3-warning-container: #f0e4cf;
+  --m3-warning: #f5c06b;
+  --m3-warning-container: #fff0ce;
 
   // Surface
-  --m3-surface: #ece5db;
-  --m3-surface-dim: #ddd4c7;
-  --m3-surface-bright: #faf6f0;
-  --m3-surface-container-lowest: #fffdf9;
-  --m3-surface-container-low: #f7f2ea;
-  --m3-surface-container: #f2ece3;
-  --m3-surface-container-high: #ece4d8;
-  --m3-surface-container-highest: #e3d9cb;
-  --m3-surface-variant: #d8cfc2;
-  --m3-on-surface: #2e2924;
-  --m3-on-surface-variant: #7d746a;
-  --m3-inverse-surface: #2f2a25;
-  --m3-inverse-on-surface: #f8f2ea;
+  --m3-surface: #dce8ff;
+  --m3-surface-dim: #ccdaf7;
+  --m3-surface-bright: #f6faff;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #f3f8ff;
+  --m3-surface-container: #ebf3ff;
+  --m3-surface-container-high: #deebff;
+  --m3-surface-container-highest: #d1e1ff;
+  --m3-surface-variant: #c5d6f5;
+  --m3-on-surface: #212a3a;
+  --m3-on-surface-variant: #6f7c96;
+  --m3-inverse-surface: #24314a;
+  --m3-inverse-on-surface: #f4f8ff;
 
   // Outline
-  --m3-outline: #948878;
-  --m3-outline-variant: #dbd1c4;
+  --m3-outline: #8ea1c9;
+  --m3-outline-variant: #d2def7;
 
   // Shape
   --m3-shape-xs: 4px;
@@ -262,9 +262,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   background:
-    radial-gradient(circle at top left, rgba(200, 188, 169, 0.3), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(173, 190, 176, 0.24), transparent 20%),
-    linear-gradient(180deg, #f8f3ec 0%, var(--hl-paper) 56%, #e2d9cc 100%);
+    radial-gradient(circle at top left, rgba(162, 190, 255, 0.32), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(157, 228, 217, 0.24), transparent 18%),
+    linear-gradient(180deg, #d7e6ff 0%, var(--hl-paper) 56%, #c7d9fb 100%);
   color: var(--m3-on-surface);
 }
 
@@ -275,9 +275,9 @@ body::before {
   pointer-events: none;
   opacity: 0.2;
   background-image:
-    radial-gradient(circle at center, rgba(109, 136, 118, 0.06) 1px, transparent 1px),
-    linear-gradient(rgba(121, 110, 95, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(121, 110, 95, 0.03) 1px, transparent 1px);
+    radial-gradient(circle at center, rgba(135, 171, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(133, 156, 201, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(133, 156, 201, 0.03) 1px, transparent 1px);
   background-size: 28px 28px, 40px 40px, 40px 40px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
 }
@@ -613,13 +613,13 @@ html.dark {
 .logs-page > .el-card,
 .settings-page > .el-card {
   border-radius: 30px !important;
-  border: 1px solid rgba(121, 110, 95, 0.08) !important;
+  border: 1px solid rgba(133, 156, 201, 0.12) !important;
   background:
-    radial-gradient(circle at top right, rgba(221, 230, 221, 0.3), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96)) !important;
+    radial-gradient(circle at top right, rgba(147, 221, 209, 0.2), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(237, 245, 255, 0.96)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 22px 48px rgba(83, 71, 56, 0.07) !important;
+    0 22px 48px rgba(94, 118, 166, 0.1) !important;
   overflow: hidden;
 }
 
@@ -659,17 +659,17 @@ html.dark {
   background: transparent !important;
 
   th.el-table__cell {
-    background: rgba(244, 240, 234, 0.94) !important;
+    background: rgba(239, 246, 255, 0.92) !important;
     color: var(--hl-ink) !important;
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border-bottom-color: rgba(121, 110, 95, 0.1) !important;
+    border-bottom-color: rgba(133, 156, 201, 0.12) !important;
   }
 
   td.el-table__cell {
     background: transparent !important;
-    border-bottom-color: rgba(121, 110, 95, 0.1) !important;
+    border-bottom-color: rgba(133, 156, 201, 0.1) !important;
   }
 
   .cell {
@@ -685,9 +685,9 @@ html.dark {
 .el-select .el-input__wrapper,
 .el-textarea__inner,
 .el-date-editor.el-input__wrapper {
-  background: rgba(247, 243, 236, 0.96) !important;
+  background: rgba(241, 247, 255, 0.96) !important;
   border-radius: 18px !important;
-  border: 1px solid rgba(121, 110, 95, 0.1);
+  border: 1px solid rgba(133, 156, 201, 0.12);
   box-shadow: none !important;
 }
 
@@ -702,14 +702,14 @@ html.dark {
 }
 
 .el-button--primary {
-  background: linear-gradient(180deg, #738b7b, #607466) !important;
+  background: linear-gradient(180deg, #8cb2ff, #789cf2) !important;
   border-color: transparent !important;
-  box-shadow: 0 14px 28px rgba(96, 116, 102, 0.2);
+  box-shadow: 0 14px 28px rgba(111, 139, 187, 0.22);
 }
 
 .el-button--default {
   background: rgba(255, 255, 255, 0.88) !important;
-  border-color: rgba(121, 110, 95, 0.1) !important;
+  border-color: rgba(133, 156, 201, 0.12) !important;
   color: var(--hl-ink) !important;
 }
 
@@ -724,12 +724,12 @@ html.dark {
 .el-tabs__nav {
   padding: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(236, 244, 255, 0.8);
 }
 
 .el-tabs__item.is-active {
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 10px 18px rgba(83, 71, 56, 0.06);
+  box-shadow: 0 10px 18px rgba(112, 137, 183, 0.1);
 }
 
 .el-tabs__header {
