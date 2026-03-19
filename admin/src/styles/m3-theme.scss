@@ -1,6 +1,6 @@
 /**
- * Material Design 3 主题系统
- * Seed color: #1565C0 (蓝色 — 心湖)
+ * HeartLake Admin 主题系统
+ * 目标视觉：米白底、软圆角、低对比阴影、温润鼠尾草绿色点缀
  * 支持 light / dark 两套色彩方案
  */
 
@@ -10,77 +10,77 @@
 :root {
   // Typography
   --hl-font-body: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  --hl-font-display: 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif;
+  --hl-font-display: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --hl-font-mono: 'IBM Plex Mono', 'SFMono-Regular', 'Cascadia Code', 'Consolas', monospace;
 
-  // Lake observatory palette
-  --hl-ink: #12242c;
-  --hl-ink-soft: #617882;
-  --hl-paper: #e8eff2;
-  --hl-paper-strong: #f7fafb;
-  --hl-paper-deep: #d7e3e7;
-  --hl-panel: rgba(249, 251, 252, 0.88);
-  --hl-panel-muted: rgba(235, 242, 245, 0.94);
-  --hl-line: rgba(70, 99, 110, 0.16);
-  --hl-line-strong: rgba(70, 99, 110, 0.26);
-  --hl-accent: #b67a42;
-  --hl-accent-soft: #d9bf9d;
-  --hl-accent-wash: rgba(182, 122, 66, 0.12);
-  --hl-accent-strong: #113e4a;
-  --hl-shadow-soft: 0 18px 42px rgba(10, 23, 31, 0.08);
-  --hl-shadow-medium: 0 26px 58px rgba(10, 23, 31, 0.12);
+  // Warm soft dashboard palette
+  --hl-ink: #2e2924;
+  --hl-ink-soft: #7d746a;
+  --hl-paper: #ece5db;
+  --hl-paper-strong: #f7f2ea;
+  --hl-paper-deep: #ddd4c7;
+  --hl-panel: rgba(255, 255, 255, 0.82);
+  --hl-panel-muted: rgba(247, 243, 236, 0.94);
+  --hl-line: rgba(121, 110, 95, 0.14);
+  --hl-line-strong: rgba(121, 110, 95, 0.22);
+  --hl-accent: #6d8876;
+  --hl-accent-soft: #d8e2d8;
+  --hl-accent-wash: rgba(109, 136, 118, 0.12);
+  --hl-accent-strong: #2b342d;
+  --hl-shadow-soft: 0 18px 42px rgba(83, 71, 56, 0.08);
+  --hl-shadow-medium: 0 28px 64px rgba(83, 71, 56, 0.12);
 
   // Primary
-  --m3-primary: #113e4a;
-  --m3-primary-container: #d6e6ea;
-  --m3-on-primary: #f7fbfb;
-  --m3-on-primary-container: #0a232a;
+  --m3-primary: #6d8876;
+  --m3-primary-container: #dfe7de;
+  --m3-on-primary: #fcfaf5;
+  --m3-on-primary-container: #233027;
 
   // Secondary
-  --m3-secondary: #b67a42;
-  --m3-secondary-container: #f2e1ce;
-  --m3-on-secondary: #fffaf5;
-  --m3-on-secondary-container: #53341a;
+  --m3-secondary: #b1906e;
+  --m3-secondary-container: #eadbc9;
+  --m3-on-secondary: #fff9f2;
+  --m3-on-secondary-container: #4a3623;
 
   // Tertiary
-  --m3-tertiary: #6f8f9b;
-  --m3-tertiary-container: #dfeaf0;
-  --m3-on-tertiary: #f7fafb;
-  --m3-on-tertiary-container: #21353d;
+  --m3-tertiary: #9faaa0;
+  --m3-tertiary-container: #e7ebe5;
+  --m3-on-tertiary: #fffdf7;
+  --m3-on-tertiary-container: #324038;
 
   // Error
-  --m3-error: #a5483e;
-  --m3-error-container: #f4d4cf;
-  --m3-on-error: #fff9f7;
-  --m3-on-error-container: #4f1812;
+  --m3-error: #a97569;
+  --m3-error-container: #f1dfd9;
+  --m3-on-error: #fffaf7;
+  --m3-on-error-container: #4c281f;
 
   // Success (extended)
-  --m3-success: #3d6c51;
-  --m3-success-container: #d7e6d9;
-  --m3-on-success: #f7fcf8;
+  --m3-success: #6b8570;
+  --m3-success-container: #e0e8de;
+  --m3-on-success: #fcfdf8;
 
   // Warning (extended)
-  --m3-warning: #b07622;
-  --m3-warning-container: #f5dfbc;
+  --m3-warning: #b4935d;
+  --m3-warning-container: #f0e4cf;
 
   // Surface
-  --m3-surface: #e8eff2;
-  --m3-surface-dim: #d7e3e7;
-  --m3-surface-bright: #f7fafb;
-  --m3-surface-container-lowest: #fdfefe;
-  --m3-surface-container-low: #f2f7f8;
-  --m3-surface-container: #ebf2f4;
-  --m3-surface-container-high: #e1ecef;
-  --m3-surface-container-highest: #d6e4e8;
-  --m3-surface-variant: #cad9df;
-  --m3-on-surface: #12242c;
-  --m3-on-surface-variant: #617882;
-  --m3-inverse-surface: #122027;
-  --m3-inverse-on-surface: #edf4f6;
+  --m3-surface: #ece5db;
+  --m3-surface-dim: #ddd4c7;
+  --m3-surface-bright: #faf6f0;
+  --m3-surface-container-lowest: #fffdf9;
+  --m3-surface-container-low: #f7f2ea;
+  --m3-surface-container: #f2ece3;
+  --m3-surface-container-high: #ece4d8;
+  --m3-surface-container-highest: #e3d9cb;
+  --m3-surface-variant: #d8cfc2;
+  --m3-on-surface: #2e2924;
+  --m3-on-surface-variant: #7d746a;
+  --m3-inverse-surface: #2f2a25;
+  --m3-inverse-on-surface: #f8f2ea;
 
   // Outline
-  --m3-outline: #738d97;
-  --m3-outline-variant: #c6d5da;
+  --m3-outline: #948878;
+  --m3-outline-variant: #dbd1c4;
 
   // Shape
   --m3-shape-xs: 4px;
@@ -262,9 +262,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   background:
-    radial-gradient(circle at top left, rgba(182, 122, 66, 0.12), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(17, 62, 74, 0.14), transparent 26%),
-    linear-gradient(180deg, var(--hl-paper-strong) 0%, var(--hl-paper) 52%, #d8e6ea 100%);
+    radial-gradient(circle at top left, rgba(200, 188, 169, 0.3), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(173, 190, 176, 0.24), transparent 20%),
+    linear-gradient(180deg, #f8f3ec 0%, var(--hl-paper) 56%, #e2d9cc 100%);
   color: var(--m3-on-surface);
 }
 
@@ -273,12 +273,12 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.24;
+  opacity: 0.2;
   background-image:
-    radial-gradient(circle at center, rgba(17, 62, 74, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(91, 120, 130, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(91, 120, 130, 0.05) 1px, transparent 1px);
-  background-size: 26px 26px, 34px 34px, 34px 34px;
+    radial-gradient(circle at center, rgba(109, 136, 118, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(121, 110, 95, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 110, 95, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px, 40px 40px, 40px 40px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
 }
 
@@ -612,12 +612,14 @@ html.dark {
 .sensitive-words-page > .el-card,
 .logs-page > .el-card,
 .settings-page > .el-card {
-  border-radius: 26px !important;
-  border: 1px solid rgba(115, 141, 151, 0.14) !important;
+  border-radius: 30px !important;
+  border: 1px solid rgba(121, 110, 95, 0.08) !important;
   background:
-    radial-gradient(circle at top right, rgba(182, 122, 66, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(250, 252, 252, 0.92), rgba(239, 244, 246, 0.97)) !important;
-  box-shadow: 0 24px 54px rgba(10, 23, 31, 0.07) !important;
+    radial-gradient(circle at top right, rgba(221, 230, 221, 0.3), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 22px 48px rgba(83, 71, 56, 0.07) !important;
   overflow: hidden;
 }
 
@@ -653,21 +655,21 @@ html.dark {
 
 .el-table {
   --el-table-header-bg-color: transparent;
-  --el-table-row-hover-bg-color: rgba(17, 62, 74, 0.05);
+  --el-table-row-hover-bg-color: rgba(109, 136, 118, 0.06);
   background: transparent !important;
 
   th.el-table__cell {
-    background: rgba(17, 62, 74, 0.04) !important;
+    background: rgba(244, 240, 234, 0.94) !important;
     color: var(--hl-ink) !important;
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border-bottom-color: rgba(115, 141, 151, 0.14) !important;
+    border-bottom-color: rgba(121, 110, 95, 0.1) !important;
   }
 
   td.el-table__cell {
     background: transparent !important;
-    border-bottom-color: rgba(115, 141, 151, 0.12) !important;
+    border-bottom-color: rgba(121, 110, 95, 0.1) !important;
   }
 
   .cell {
@@ -683,9 +685,9 @@ html.dark {
 .el-select .el-input__wrapper,
 .el-textarea__inner,
 .el-date-editor.el-input__wrapper {
-  background: rgba(255, 255, 255, 0.72) !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(115, 141, 151, 0.12);
+  background: rgba(247, 243, 236, 0.96) !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(121, 110, 95, 0.1);
   box-shadow: none !important;
 }
 
@@ -694,20 +696,20 @@ html.dark {
 }
 
 .el-button {
-  border-radius: 15px !important;
+  border-radius: 18px !important;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .el-button--primary {
-  background: linear-gradient(135deg, #123f4b, #2d6473) !important;
+  background: linear-gradient(180deg, #738b7b, #607466) !important;
   border-color: transparent !important;
-  box-shadow: 0 14px 28px rgba(17, 62, 74, 0.18);
+  box-shadow: 0 14px 28px rgba(96, 116, 102, 0.2);
 }
 
 .el-button--default {
-  background: rgba(255, 255, 255, 0.66) !important;
-  border-color: rgba(115, 141, 151, 0.14) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(121, 110, 95, 0.1) !important;
   color: var(--hl-ink) !important;
 }
 
@@ -716,6 +718,18 @@ html.dark {
   letter-spacing: 0.02em;
   border-radius: 999px;
   padding: 0 16px;
+  transition: var(--m3-transition);
+}
+
+.el-tabs__nav {
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.el-tabs__item.is-active {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 18px rgba(83, 71, 56, 0.06);
 }
 
 .el-tabs__header {
@@ -723,8 +737,7 @@ html.dark {
 }
 
 .el-tabs__active-bar {
-  height: 3px !important;
-  border-radius: 999px;
+  display: none;
 }
 
 .el-tabs__nav-wrap::after {
@@ -778,7 +791,7 @@ html.dark {
 }
 
 .ops-page .el-card__body {
-  padding: 22px 24px;
+  padding: 24px 26px;
 }
 
 html.dark {

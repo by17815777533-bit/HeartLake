@@ -36,30 +36,50 @@ defineProps<{
 <style scoped lang="scss">
 .ops-metric-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
 
 .ops-metric-strip__card {
   position: relative;
-  min-height: 142px;
-  padding: 20px 18px 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(115, 141, 151, 0.14);
+  min-height: 126px;
+  padding: 18px 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(121, 110, 95, 0.08);
   background:
-    radial-gradient(circle at right top, rgba(255, 255, 255, 0.32), transparent 34%),
-    linear-gradient(160deg, rgba(250, 252, 252, 0.96), rgba(239, 244, 246, 0.96));
-  box-shadow: 0 20px 42px rgba(10, 23, 31, 0.06);
+    radial-gradient(circle at 88% 22%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 243, 236, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 18px 36px rgba(83, 71, 56, 0.06);
   overflow: hidden;
 
   &::before {
     content: '';
     position: absolute;
-    inset: 0 auto auto 0;
-    width: 100%;
-    height: 4px;
-    background: var(--metric-accent, #113e4a);
+    inset: 16px 16px auto auto;
+    width: 70px;
+    height: 36px;
+    border-radius: 999px;
+    background:
+      linear-gradient(90deg, transparent 0 12%, rgba(255, 255, 255, 0.06) 12% 100%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+    box-shadow: inset 0 0 0 1px var(--metric-outline, rgba(109, 136, 118, 0.12));
+    opacity: 0.9;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 22px;
+    top: 25px;
+    width: 52px;
+    height: 18px;
+    background:
+      linear-gradient(180deg, transparent 0 50%, var(--metric-accent, #6d8876) 50% 100%);
+    mask: linear-gradient(90deg, #000 0 8px, transparent 8px 13px, #000 13px 21px, transparent 21px 26px, #000 26px 34px, transparent 34px 39px, #000 39px 47px, transparent 47px 52px);
+    opacity: 0.65;
   }
 }
 
@@ -69,51 +89,58 @@ defineProps<{
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--metric-chip, rgba(17, 62, 74, 0.08));
-  color: var(--metric-accent, #113e4a);
-  font-family: var(--hl-font-mono);
+  background: var(--metric-chip, rgba(111, 136, 118, 0.12));
+  color: var(--metric-accent, #6d8876);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .ops-metric-strip__value-row {
-  margin-top: 18px;
+  margin-top: 14px;
 
   strong {
     display: block;
-    font-family: var(--hl-font-display);
-    font-size: clamp(28px, 3vw, 36px);
-    line-height: 1;
     color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(30px, 3vw, 38px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
 }
 
 .ops-metric-strip__note {
-  margin: 12px 0 0;
+  max-width: 20ch;
+  margin: 10px 0 0;
   color: var(--hl-ink-soft);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .is-lake {
-  --metric-accent: #113e4a;
-  --metric-chip: rgba(17, 62, 74, 0.08);
+  --metric-accent: #6d8876;
+  --metric-chip: rgba(109, 136, 118, 0.12);
+  --metric-outline: rgba(109, 136, 118, 0.12);
 }
 
 .is-amber {
-  --metric-accent: #b67a42;
-  --metric-chip: rgba(182, 122, 66, 0.12);
+  --metric-accent: #b1906e;
+  --metric-chip: rgba(177, 144, 110, 0.14);
+  --metric-outline: rgba(177, 144, 110, 0.12);
 }
 
 .is-sage {
-  --metric-accent: #49735a;
-  --metric-chip: rgba(73, 115, 90, 0.12);
+  --metric-accent: #5b7665;
+  --metric-chip: rgba(91, 118, 101, 0.14);
+  --metric-outline: rgba(91, 118, 101, 0.12);
 }
 
 .is-rose {
-  --metric-accent: #9e5b5b;
-  --metric-chip: rgba(158, 91, 91, 0.12);
+  --metric-accent: #a37a72;
+  --metric-chip: rgba(163, 122, 114, 0.14);
+  --metric-outline: rgba(163, 122, 114, 0.12);
 }
 
 @media (max-width: 720px) {
@@ -125,10 +152,6 @@ defineProps<{
 @media (max-width: 520px) {
   .ops-metric-strip {
     grid-template-columns: 1fr;
-  }
-
-  .ops-metric-strip__card {
-    min-height: 128px;
   }
 }
 </style>

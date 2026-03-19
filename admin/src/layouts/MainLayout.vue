@@ -1,6 +1,5 @@
 <template>
   <div class="main-layout">
-    <!-- 全局加载进度条 -->
     <div
       v-if="appStore.isGlobalLoading"
       class="global-loading-bar"
@@ -8,170 +7,165 @@
       <div class="loading-progress" />
     </div>
 
-    <!-- 侧边栏 -->
-    <el-aside
-      :width="isCollapsed ? '64px' : '220px'"
-      class="sidebar"
-    >
-      <div class="logo">
-        <div class="logo-badge">
-          <img
-            src="@/assets/logo.svg"
-            alt="HeartLake"
-          >
-        </div>
-        <div
-          v-if="!isCollapsed"
-          class="logo-copy"
+    <div class="main-shell">
+      <aside class="shell-rail">
+        <button
+          class="shell-rail__brand"
+          type="button"
+          @click="navigateTo('/dashboard')"
         >
-          <span class="logo-text">心湖管理</span>
-          <span class="logo-sub">服务后台</span>
-        </div>
-      </div>
+          <div class="brand-orb">
+            <img
+              src="@/assets/logo.svg"
+              alt="HeartLake"
+            >
+          </div>
+          <div class="brand-copy">
+            <strong>心湖</strong>
+            <span>Admin</span>
+          </div>
+        </button>
 
-      <div
-        v-if="!isCollapsed"
-        class="sidebar-caption"
-      >
-        常用入口
-      </div>
-
-      <nav aria-label="主导航">
-        <el-menu
-          :default-active="$route.path"
-          :collapse="isCollapsed"
-          :collapse-transition="false"
-          router
-          class="sidebar-menu"
+        <nav
+          class="rail-nav"
+          aria-label="主导航"
         >
-          <el-menu-item
+          <el-tooltip
             v-for="item in menuItems"
             :key="item.path"
-            :index="item.path"
+            :content="item.title"
+            placement="right"
           >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <template #title>
-              {{ item.title }}
-            </template>
-          </el-menu-item>
-        </el-menu>
-      </nav>
-
-      <section
-        v-if="!isCollapsed"
-        class="sidebar-insight"
-      >
-        <span class="sidebar-insight__eyebrow">值守提示</span>
-        <strong>{{ currentRouteMeta.kicker }}</strong>
-        <p>{{ currentRouteMeta.summary }}</p>
-        <div class="sidebar-insight__meta">
-          <span>在线 {{ realtimeStats.onlineCount }}</span>
-          <span>今日投石 {{ realtimeStats.todayStones }}</span>
-        </div>
-      </section>
-
-      <div
-        class="collapse-btn"
-        @click="isCollapsed = !isCollapsed"
-      >
-        <el-icon>
-          <Fold v-if="!isCollapsed" />
-          <Expand v-else />
-        </el-icon>
-      </div>
-    </el-aside>
-
-    <!-- 主内容区 -->
-    <el-container class="main-container">
-      <!-- 顶部栏 -->
-      <el-header class="header">
-        <div class="header-left">
-          <span class="header-badge">在线</span>
-          <div class="breadcrumb-stack">
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item :to="{ path: '/' }">
-                心湖
-              </el-breadcrumb-item>
-              <el-breadcrumb-item>{{ $route.meta.title }}</el-breadcrumb-item>
-            </el-breadcrumb>
-            <span class="header-caption">{{ currentRouteMeta.summary }}</span>
-          </div>
-        </div>
-
-        <div class="header-right">
-          <div class="signal-board">
-            <article class="signal-chip is-sage">
-              <span>在线旅人</span>
-              <strong>{{ realtimeStats.onlineCount }}</strong>
-            </article>
-            <article class="signal-chip is-lake">
-              <span>今日投石</span>
-              <strong>{{ realtimeStats.todayStones }}</strong>
-            </article>
-            <article class="signal-chip is-amber">
-              <span>值守时刻</span>
-              <strong>{{ currentTime }}</strong>
-            </article>
-          </div>
-
-          <!-- 暗色模式切换 -->
-          <el-tooltip
-            :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'"
-            placement="bottom"
-          >
-            <el-button
-              circle
-              size="small"
-              class="dark-toggle"
-              @click="appStore.toggleDark()"
+            <button
+              class="rail-nav__button"
+              :class="{ 'is-active': route.path === item.path }"
+              type="button"
+              @click="navigateTo(item.path)"
             >
-              <el-icon :size="16">
-                <Sunny v-if="appStore.isDark" />
-                <Moon v-else />
-              </el-icon>
-            </el-button>
+              <el-icon><component :is="item.icon" /></el-icon>
+            </button>
           </el-tooltip>
+        </nav>
 
-          <!-- 用户信息 -->
-          <el-dropdown @command="handleCommand">
-            <div class="user-info">
-              <el-avatar :size="32">
-                {{ adminInfo.nickname?.charAt(0) || 'A' }}
-              </el-avatar>
-              <div class="user-copy">
-                <span class="user-label">当前账号</span>
-                <span class="username">{{ adminInfo.nickname || '管理员' }}</span>
+        <div class="shell-rail__footer">
+          <span>{{ currentTime }}</span>
+          <strong>{{ realtimeStats.onlineCount }} 在线</strong>
+          <small>今日投石 {{ realtimeStats.todayStones }}</small>
+        </div>
+      </aside>
+
+      <section class="shell-workspace">
+        <header class="shell-header">
+          <div class="shell-header__intro">
+            <span class="shell-header__eyebrow">{{ currentRouteMeta.kicker }}</span>
+            <h1>{{ shellGreeting }}，{{ adminInfo.nickname || '管理员' }}</h1>
+            <p>{{ currentDateLabel }} · {{ currentRouteMeta.summary }}</p>
+          </div>
+
+          <div class="shell-header__tools">
+            <div class="shell-search">
+              <el-input
+                v-model="navSearch"
+                clearable
+                :prefix-icon="Search"
+                placeholder="搜索页面..."
+                @keyup.enter="openFirstSearchResult"
+              />
+
+              <div
+                v-if="navSearch.trim()"
+                class="shell-search__results"
+              >
+                <button
+                  v-for="item in filteredMenuItems"
+                  :key="item.path"
+                  type="button"
+                  class="shell-search__result"
+                  @click="navigateTo(item.path)"
+                >
+                  <div>
+                    <strong>{{ item.title }}</strong>
+                    <span>{{ routeNarrativeMap[item.path]?.summary }}</span>
+                  </div>
+                  <small>{{ item.path.replace('/', '') || 'dashboard' }}</small>
+                </button>
+
+                <div
+                  v-if="!filteredMenuItems.length"
+                  class="shell-search__empty"
+                >
+                  没有匹配的入口
+                </div>
               </div>
             </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="profile">
-                  个人设置
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="logout"
-                  divided
-                >
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-header>
 
-      <!-- 内容区 -->
-      <el-main class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition
-            name="fade"
-            mode="out-in"
-          >
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </el-main>
-    </el-container>
+            <button
+              class="header-icon-btn"
+              type="button"
+              aria-label="打开求助处理"
+              @click="navigateTo('/reports')"
+            >
+              <el-icon><Bell /></el-icon>
+            </button>
+
+            <el-tooltip
+              :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'"
+              placement="bottom"
+            >
+              <button
+                class="header-icon-btn"
+                type="button"
+                @click="appStore.toggleDark()"
+              >
+                <el-icon>
+                  <Sunny v-if="appStore.isDark" />
+                  <Moon v-else />
+                </el-icon>
+              </button>
+            </el-tooltip>
+
+            <el-dropdown @command="handleCommand">
+              <button
+                class="header-account"
+                type="button"
+              >
+                <el-avatar :size="44">
+                  {{ adminInfo.nickname?.charAt(0) || 'A' }}
+                </el-avatar>
+                <div class="header-account__copy">
+                  <span>当前账号</span>
+                  <strong>{{ adminInfo.nickname || '管理员' }}</strong>
+                </div>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="profile">
+                    个人设置
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="logout"
+                    divided
+                  >
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </header>
+
+        <main class="main-content">
+          <router-view v-slot="{ Component }">
+            <transition
+              name="fade"
+              mode="out-in"
+            >
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </main>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -179,6 +173,7 @@
 import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Bell, Moon, Search, Sunny } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
@@ -186,7 +181,7 @@ import { useAppStore } from '@/stores'
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
-const isCollapsed = ref(false)
+const navSearch = ref('')
 const currentTime = ref(new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }))
 
 /**
@@ -236,6 +231,50 @@ const currentRouteMeta = computed(() => routeNarrativeMap[route.path] || {
   summary: '查看当前模块的处理进度与数据变化。',
 })
 
+const shellGreeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return '夜班值守'
+  if (hour < 11) return '早安'
+  if (hour < 14) return '中午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
+
+const currentDateLabel = computed(() => new Date().toLocaleDateString('zh-CN', {
+  month: 'long',
+  day: 'numeric',
+  weekday: 'long',
+}))
+
+const filteredMenuItems = computed(() => {
+  const keyword = navSearch.value.trim().toLowerCase()
+  if (!keyword) return []
+
+  return menuItems.filter((item) => {
+    const routeMeta = routeNarrativeMap[item.path]
+    return [
+      item.title,
+      item.path,
+      routeMeta?.kicker,
+      routeMeta?.summary,
+    ].join(' ').toLowerCase().includes(keyword)
+  }).slice(0, 5)
+})
+
+const navigateTo = (path: string) => {
+  navSearch.value = ''
+  if (route.path !== path) {
+    router.push(path)
+  }
+}
+
+const openFirstSearchResult = () => {
+  const first = filteredMenuItems.value[0]
+  if (first) {
+    navigateTo(first.path)
+  }
+}
+
 /** 拉取管理员资料。 */
 const fetchAdminInfo = async () => {
   try {
@@ -261,7 +300,6 @@ const fetchRealtimeStats = async () => {
     }
   } catch (e: unknown) {
     if (isRequestCanceled(e)) return
-    // 静默失败，不影响页面展示
     console.warn('获取实时统计失败:', (e as Error).message)
   }
 }
@@ -355,446 +393,369 @@ onUnmounted(() => {
 
 .global-loading-bar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: rgba(24, 36, 47, 0.08);
+  top: 18px;
+  left: 50%;
+  width: min(420px, calc(100vw - 48px));
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: 0 12px 28px rgba(83, 71, 56, 0.08);
   z-index: 9999;
   overflow: hidden;
 
   .loading-progress {
     height: 100%;
-    width: 40%;
-    background: linear-gradient(90deg, var(--m3-secondary), var(--m3-primary));
+    width: 42%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(207, 191, 167, 0.8), rgba(102, 127, 112, 0.92));
     animation: loading-progress 1.4s ease-in-out infinite;
   }
 }
 
 .main-layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  position: relative;
-  background: transparent;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(520px 280px at 0% 0%, rgba(182, 122, 66, 0.12), transparent 72%),
-      radial-gradient(620px 360px at 100% 100%, rgba(17, 62, 74, 0.12), transparent 74%);
-  }
+  min-height: 100vh;
+  padding: 22px;
 }
 
-.sidebar {
+.main-shell {
+  min-height: calc(100vh - 44px);
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 22px;
+  padding: 20px;
+  border-radius: 36px;
   background:
-    linear-gradient(180deg, rgba(11, 20, 26, 0.97), rgba(8, 16, 21, 0.99)),
-    var(--hl-paper-deep);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+    linear-gradient(180deg, rgba(235, 229, 220, 0.9), rgba(227, 220, 209, 0.96));
+  border: 1px solid rgba(121, 110, 95, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 34px 72px rgba(83, 71, 56, 0.1);
+}
+
+.shell-rail {
   display: flex;
   flex-direction: column;
-  transition: var(--m3-transition);
-  position: relative;
-  z-index: 10;
-  box-shadow: 20px 0 36px rgba(0, 0, 0, 0.18);
+  gap: 18px;
+  padding: 14px 10px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid rgba(121, 110, 95, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 20px 42px rgba(83, 71, 56, 0.08);
+}
 
-  .logo {
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 18px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.shell-rail__brand {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
 
-    .logo-badge {
-      width: 40px;
-      height: 40px;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(182, 122, 66, 0.18), rgba(132, 184, 199, 0.18));
-      border: 1px solid rgba(255, 255, 255, 0.12);
+.brand-orb {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(164, 189, 172, 0.32), transparent 54%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 223, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 16px 26px rgba(83, 71, 56, 0.08);
 
-      img {
-        width: 24px;
-        height: 24px;
-      }
-    }
+  img {
+    width: 28px;
+    height: 28px;
+  }
+}
 
-    .logo-copy {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
+.brand-copy {
+  display: grid;
+  gap: 2px;
+  text-align: center;
 
-    .logo-text {
-      font-family: var(--hl-font-display);
-      font-size: 18px;
-      font-weight: 600;
-      color: #f6eee2;
-      letter-spacing: 0.06em;
-    }
-
-    .logo-sub {
-      font-family: var(--hl-font-mono);
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.52);
-    }
+  strong {
+    color: var(--hl-ink);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
   }
 
-  .sidebar-caption {
-    padding: 14px 20px 4px;
-    font-family: var(--hl-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.14em;
+  span {
+    color: var(--hl-ink-soft);
+    font-size: 10px;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.36);
-  }
-
-  nav[aria-label="主导航"] {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .sidebar-menu {
-    border: none;
-    background: transparent;
-    padding: 10px 10px 14px;
-
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: var(--m3-shape-sm);
-    }
-
-    :deep(.el-menu-item) {
-      height: 46px;
-      margin: 6px 0;
-      border-radius: 14px;
-      color: rgba(255, 255, 255, 0.72);
-      border: 1px solid transparent;
-      transition: var(--m3-transition);
-      font-weight: 500;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: #fff8f1;
-        border-color: rgba(255, 255, 255, 0.08);
-      }
-
-      &.is-active {
-        background: linear-gradient(135deg, rgba(132, 184, 199, 0.18), rgba(182, 122, 66, 0.16));
-        color: #fdf8f0;
-        font-weight: 600;
-        border-color: rgba(132, 184, 199, 0.18);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      }
-
-      .el-icon {
-        color: inherit;
-        font-size: 16px;
-      }
-    }
-  }
-
-  .sidebar-insight {
-    margin: 0 14px 14px;
-    padding: 16px 16px 14px;
-    border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background:
-      radial-gradient(circle at top right, rgba(208, 161, 98, 0.18), transparent 42%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-
-    &__eyebrow {
-      display: inline-flex;
-      min-height: 26px;
-      align-items: center;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.6);
-      font-family: var(--hl-font-mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-
-    strong {
-      display: block;
-      margin-top: 14px;
-      color: #f8f2ea;
-      font-family: var(--hl-font-display);
-      font-size: 24px;
-      letter-spacing: 0.04em;
-    }
-
-    p {
-      margin-top: 10px;
-      color: rgba(255, 255, 255, 0.66);
-      line-height: 1.75;
-      font-size: 13px;
-    }
-
-    &__meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 14px;
-
-      span {
-        display: inline-flex;
-        align-items: center;
-        min-height: 28px;
-        padding: 0 10px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.78);
-        font-size: 12px;
-      }
-    }
-  }
-
-  .collapse-btn {
-    height: 54px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.7);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.02);
-    transition: var(--m3-transition);
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #fff8f1;
-    }
   }
 }
 
-.main-container {
+.rail-nav {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.rail-nav__button {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 20px;
+  background: rgba(247, 243, 237, 0.96);
+  color: var(--hl-ink-soft);
+  cursor: pointer;
+  transition: var(--m3-transition);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 10px 20px rgba(83, 71, 56, 0.05);
+
+  .el-icon {
+    font-size: 19px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    color: var(--hl-ink);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 16px 28px rgba(83, 71, 56, 0.08);
+  }
+
+  &.is-active {
+    background: linear-gradient(180deg, #252322, #151413);
+    color: #fff8f0;
+    box-shadow: 0 20px 34px rgba(37, 35, 34, 0.22);
+  }
+}
+
+.shell-rail__footer {
+  display: grid;
+  gap: 4px;
+  padding: 14px 10px 6px;
+  border-top: 1px solid rgba(121, 110, 95, 0.08);
+  text-align: center;
+
+  span,
+  small {
+    color: var(--hl-ink-soft);
+    font-size: 11px;
+  }
+
+  strong {
+    color: var(--hl-ink);
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+.shell-workspace {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
 }
 
-.header {
-  height: 72px;
-  background: rgba(247, 250, 251, 0.82);
-  border-bottom: 1px solid var(--hl-line);
-  backdrop-filter: blur(14px);
+.shell-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+  padding: 10px 10px 24px;
+}
+
+.shell-header__intro {
+  min-width: 0;
+
+  h1 {
+    margin: 12px 0 8px;
+    color: var(--hl-ink);
+    font-size: clamp(30px, 4vw, 42px);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    color: var(--hl-ink-soft);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+}
+
+.shell-header__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--hl-ink-soft);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shell-header__tools {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 26px;
-  box-shadow: 0 18px 36px rgba(24, 36, 47, 0.06);
+  gap: 12px;
+}
+
+.shell-search {
   position: relative;
-  z-index: 5;
+  width: min(360px, 34vw);
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  :deep(.el-input__wrapper) {
+    min-height: 54px;
+    padding-inline: 16px;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 14px 28px rgba(83, 71, 56, 0.05) !important;
+  }
+}
 
-    .header-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 56px;
-      height: 28px;
-      padding: 0 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(17, 62, 74, 0.16);
-      background: rgba(17, 62, 74, 0.08);
-      color: var(--m3-primary);
-      font-family: var(--hl-font-mono);
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
+.shell-search__results {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  padding: 10px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(121, 110, 95, 0.08);
+  box-shadow: 0 24px 42px rgba(83, 71, 56, 0.12);
+  backdrop-filter: blur(14px);
+  z-index: 20;
+}
 
-    .breadcrumb-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+.shell-search__result {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--m3-transition);
 
-    .header-caption {
-      font-size: 12px;
-      color: var(--hl-ink-soft);
-      letter-spacing: 0.04em;
-    }
-
-    :deep(.el-breadcrumb) {
-      .el-breadcrumb__item {
-        .el-breadcrumb__inner {
-          color: var(--hl-ink-soft);
-          transition: var(--m3-transition);
-
-          &:hover {
-            color: var(--m3-secondary);
-          }
-
-          &.is-link {
-            font-weight: 600;
-          }
-        }
-
-        &:last-child .el-breadcrumb__inner {
-          color: var(--hl-ink);
-        }
-      }
-
-      .el-breadcrumb__separator {
-        color: rgba(24, 36, 47, 0.28);
-      }
-    }
+  strong {
+    display: block;
+    color: var(--hl-ink);
+    font-size: 14px;
+    font-weight: 700;
   }
 
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+  span,
+  small {
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+    line-height: 1.6;
+  }
 
-    .signal-board {
-      display: flex;
-      gap: 12px;
-    }
+  &:hover {
+    background: rgba(242, 237, 231, 0.96);
+  }
+}
 
-    .signal-chip {
-      min-width: 108px;
-      padding: 10px 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(24, 36, 47, 0.08);
-      background: rgba(255, 255, 255, 0.64);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+.shell-search__empty {
+  padding: 16px 14px;
+  color: var(--hl-ink-soft);
+  font-size: 13px;
+}
 
-      span {
-        display: block;
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--hl-ink-soft);
-      }
+.header-icon-btn,
+.header-account {
+  flex: 0 0 auto;
+  border: none;
+  cursor: pointer;
+  transition: var(--m3-transition);
+}
 
-      strong {
-        display: block;
-        margin-top: 6px;
-        font-family: var(--hl-font-display);
-        font-size: 24px;
-        line-height: 1;
-        color: var(--hl-ink);
-      }
+.header-icon-btn {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--hl-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 14px 28px rgba(83, 71, 56, 0.06);
 
-      &.is-sage strong {
-        color: #3f7257;
-      }
+  .el-icon {
+    font-size: 18px;
+  }
 
-      &.is-lake strong {
-        color: #123f4b;
-      }
+  &:hover {
+    transform: translateY(-1px);
+    background: rgba(248, 244, 238, 0.98);
+  }
+}
 
-      &.is-amber strong {
-        color: #a56d37;
-      }
-    }
+.header-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px 6px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 14px 28px rgba(83, 71, 56, 0.06);
 
-    .dark-toggle {
-      background: rgba(255, 255, 255, 0.64);
-      border-color: rgba(24, 36, 47, 0.1);
-      color: var(--hl-ink);
+  &:hover {
+    transform: translateY(-1px);
+    background: rgba(248, 244, 238, 0.98);
+  }
 
-      &:hover {
-        background: rgba(17, 62, 74, 0.08);
-        border-color: rgba(17, 62, 74, 0.18);
-      }
-    }
+  :deep(.el-avatar) {
+    background: linear-gradient(180deg, #70877a, #52655b);
+    color: #fff8f0;
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+}
 
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 14px;
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.6);
-      border: 1px solid rgba(24, 36, 47, 0.08);
-      cursor: pointer;
-      transition: var(--m3-transition);
+.header-account__copy {
+  display: grid;
+  gap: 3px;
+  text-align: left;
 
-      &:hover {
-        background: rgba(255, 255, 255, 0.86);
-      }
+  span {
+    color: var(--hl-ink-soft);
+    font-size: 11px;
+    line-height: 1;
+  }
 
-      :deep(.el-avatar) {
-        background: linear-gradient(135deg, var(--m3-primary), var(--m3-secondary));
-        border: none;
-        color: #fffaf3;
-        font-weight: 700;
-      }
-
-      .user-copy {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-      }
-
-      .user-label {
-        font-size: 11px;
-        line-height: 1;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: rgba(24, 36, 47, 0.48);
-      }
-
-      .username {
-        color: var(--hl-ink);
-        font-weight: 600;
-        font-size: 14px;
-      }
-    }
+  strong {
+    color: var(--hl-ink);
+    font-size: 14px;
+    line-height: 1.1;
   }
 }
 
 .main-content {
   flex: 1;
-  padding: 28px;
   overflow-y: auto;
-  position: relative;
-  background:
-    linear-gradient(180deg, rgba(248, 251, 252, 0.78) 0%, rgba(234, 242, 245, 0.86) 100%);
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: rgba(24, 36, 47, 0.05);
-    border-radius: var(--m3-shape-sm);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: rgba(17, 62, 74, 0.28);
-    border-radius: var(--m3-shape-sm);
-    transition: var(--m3-transition);
-
-    &:hover {
-      background: rgba(17, 62, 74, 0.48);
-    }
-  }
+  padding: 0 10px 10px;
 }
 
 .fade-enter-active,
@@ -808,30 +769,68 @@ onUnmounted(() => {
   transform: translateY(8px);
 }
 
-@media (max-width: 960px) {
-  .header {
-    padding: 0 16px;
+@media (max-width: 1120px) {
+  .shell-header {
+    grid-template-columns: 1fr;
+  }
 
-    .header-left .header-caption,
-    .header-right .signal-board {
-      display: none;
-    }
+  .shell-header__tools {
+    flex-wrap: wrap;
+  }
 
-    .header-right {
-      gap: 10px;
-    }
+  .shell-search {
+    width: min(100%, 420px);
+  }
+}
 
-    .user-info {
-      padding: 6px 10px;
+@media (max-width: 900px) {
+  .main-layout {
+    padding: 12px;
+  }
 
-      .user-copy {
-        display: none;
-      }
-    }
+  .main-shell {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .shell-rail {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+  }
+
+  .shell-rail__brand {
+    grid-auto-flow: column;
+    padding: 0;
+  }
+
+  .rail-nav {
+    flex-direction: row;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-top: 0;
+  }
+
+  .shell-rail__footer {
+    display: none;
   }
 
   .main-content {
-    padding: 18px;
+    padding: 0 2px 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell-header__intro h1 {
+    font-size: 28px;
+  }
+
+  .header-account__copy {
+    display: none;
+  }
+
+  .shell-header__tools {
+    gap: 10px;
   }
 }
 </style>

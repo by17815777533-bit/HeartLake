@@ -38,42 +38,48 @@ defineProps<{
 <style scoped lang="scss">
 .ops-signal-deck {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
 
 .ops-signal-deck__card {
   position: relative;
-  min-height: 148px;
-  padding: 20px 18px 18px;
-  border-radius: 26px;
-  border: 1px solid rgba(120, 146, 157, 0.16);
+  min-height: 156px;
+  padding: 18px 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(121, 110, 95, 0.08);
   background:
-    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.42), transparent 28%),
-    linear-gradient(165deg, rgba(251, 252, 252, 0.96), rgba(237, 244, 246, 0.94));
-  box-shadow: 0 18px 38px rgba(10, 23, 31, 0.06);
+    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 243, 236, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 20px 40px rgba(83, 71, 56, 0.06);
   overflow: hidden;
 
   &::before {
     content: '';
     position: absolute;
-    inset: auto 18px 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(17, 62, 74, 0.16), transparent);
+    right: 18px;
+    top: 16px;
+    width: 84px;
+    height: 46px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+    box-shadow: inset 0 0 0 1px var(--signal-outline, rgba(109, 136, 118, 0.12));
   }
 
   &::after {
     content: '';
     position: absolute;
-    right: -16px;
-    top: -12px;
-    width: 96px;
-    height: 96px;
-    border-radius: 999px;
-    background: var(--signal-glow, rgba(17, 62, 74, 0.08));
-    filter: blur(1px);
-    opacity: 0.9;
+    right: 26px;
+    top: 30px;
+    width: 58px;
+    height: 18px;
+    border-bottom: 3px solid var(--signal-accent, #6d8876);
+    border-radius: 0 0 30px 30px;
+    transform: skewX(-20deg);
+    opacity: 0.56;
   }
 
   strong {
@@ -81,17 +87,19 @@ defineProps<{
     z-index: 1;
     display: block;
     margin-top: 18px;
+    color: var(--hl-ink);
     font-family: var(--hl-font-display);
     font-size: clamp(24px, 3vw, 34px);
-    line-height: 1.05;
-    color: var(--hl-ink);
-    letter-spacing: 0.01em;
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
   }
 
   p {
     position: relative;
     z-index: 1;
-    margin: 12px 0 0;
+    max-width: 22ch;
+    margin: 10px 0 0;
     color: var(--hl-ink-soft);
     font-size: 13px;
     line-height: 1.7;
@@ -113,51 +121,47 @@ defineProps<{
   align-items: center;
   min-height: 28px;
   border-radius: 999px;
-  font-family: var(--hl-font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .ops-signal-deck__label {
   padding: 0 10px;
-  background: var(--signal-chip, rgba(17, 62, 74, 0.08));
-  color: var(--signal-accent, #113e4a);
+  background: var(--signal-chip, rgba(109, 136, 118, 0.12));
+  color: var(--signal-accent, #6d8876);
 }
 
 .ops-signal-deck__badge {
   padding: 0 10px;
-  border: 1px solid var(--signal-outline, rgba(17, 62, 74, 0.12));
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--signal-outline, rgba(109, 136, 118, 0.12));
   color: var(--hl-ink-soft);
-  background: rgba(255, 255, 255, 0.58);
 }
 
 .is-lake {
-  --signal-accent: #113e4a;
-  --signal-chip: rgba(17, 62, 74, 0.08);
-  --signal-outline: rgba(17, 62, 74, 0.12);
-  --signal-glow: rgba(17, 62, 74, 0.08);
+  --signal-accent: #6d8876;
+  --signal-chip: rgba(109, 136, 118, 0.12);
+  --signal-outline: rgba(109, 136, 118, 0.14);
 }
 
 .is-amber {
-  --signal-accent: #b67a42;
-  --signal-chip: rgba(182, 122, 66, 0.12);
-  --signal-outline: rgba(182, 122, 66, 0.14);
-  --signal-glow: rgba(182, 122, 66, 0.1);
+  --signal-accent: #b1906e;
+  --signal-chip: rgba(177, 144, 110, 0.14);
+  --signal-outline: rgba(177, 144, 110, 0.14);
 }
 
 .is-sage {
-  --signal-accent: #49735a;
-  --signal-chip: rgba(73, 115, 90, 0.12);
-  --signal-outline: rgba(73, 115, 90, 0.16);
-  --signal-glow: rgba(73, 115, 90, 0.1);
+  --signal-accent: #5b7665;
+  --signal-chip: rgba(91, 118, 101, 0.14);
+  --signal-outline: rgba(91, 118, 101, 0.14);
 }
 
 .is-rose {
-  --signal-accent: #9e5b5b;
-  --signal-chip: rgba(158, 91, 91, 0.12);
-  --signal-outline: rgba(158, 91, 91, 0.14);
-  --signal-glow: rgba(158, 91, 91, 0.1);
+  --signal-accent: #a37a72;
+  --signal-chip: rgba(163, 122, 114, 0.14);
+  --signal-outline: rgba(163, 122, 114, 0.14);
 }
 
 @media (max-width: 640px) {
