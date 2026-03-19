@@ -252,33 +252,31 @@ onMounted(() => {
 .login-shell {
   position: relative;
   z-index: 2;
-  width: min(1120px, 100%);
+  width: min(1180px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 420px);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 410px);
+  gap: 20px;
   align-items: stretch;
-  padding: 24px;
-  border-radius: 36px;
-  background:
-    linear-gradient(180deg, rgba(234, 242, 255, 0.94), rgba(221, 234, 255, 0.98));
-  border: 1px solid rgba(137, 165, 207, 0.14);
+  padding: 18px;
+  border-radius: 38px;
+  border: 9px solid rgba(255, 255, 255, 0.96);
+  background: linear-gradient(180deg, rgba(234, 242, 255, 0.96), rgba(223, 235, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 32px 72px rgba(91, 121, 178, 0.16);
+    0 26px 54px rgba(91, 121, 178, 0.14);
 }
 
 .login-intro {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 620px;
-  padding: 38px;
-  border-radius: 32px;
-  border: 1px solid rgba(137, 165, 207, 0.12);
-  background:
-    radial-gradient(circle at top right, rgba(197, 238, 229, 0.34), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 247, 255, 0.98));
-  box-shadow: var(--hl-shadow-medium);
+  min-height: 640px;
+  padding: 34px;
+  border-radius: 28px;
+  border: 1px solid rgba(160, 179, 215, 0.16);
+  background: linear-gradient(180deg, rgba(239, 245, 255, 0.98), rgba(229, 238, 255, 0.98));
+  box-shadow: var(--hl-shadow-soft);
 }
 
 .intro-kicker {
@@ -286,7 +284,7 @@ onMounted(() => {
   width: fit-content;
   padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.82);
   color: #7f96cb;
   font-family: var(--hl-font-mono);
   font-size: 11px;
@@ -295,10 +293,10 @@ onMounted(() => {
 }
 
 .intro-title {
-  margin: 24px 0 14px;
+  margin: 20px 0 12px;
   font-family: var(--hl-font-display);
   max-width: 10ch;
-  font-size: clamp(30px, 4.3vw, 48px);
+  font-size: clamp(30px, 4vw, 44px);
   line-height: 1.08;
   color: var(--hl-ink);
   text-wrap: balance;
@@ -314,17 +312,33 @@ onMounted(() => {
 
 .intro-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
 .intro-panel {
   min-height: 156px;
   padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(137, 165, 207, 0.12);
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  border-radius: 24px;
+  border: 1px solid rgba(160, 179, 215, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 22px rgba(110, 136, 186, 0.08);
+
+  &:nth-child(1) {
+    grid-row: 1 / 3;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(235, 242, 255, 0.98));
+  }
+
+  &:nth-child(2) {
+    background: linear-gradient(180deg, rgba(221, 246, 240, 0.92), rgba(212, 240, 233, 0.96));
+  }
+
+  &:nth-child(3) {
+    background: linear-gradient(180deg, rgba(223, 235, 255, 0.96), rgba(214, 228, 255, 0.98));
+  }
 
   strong {
     display: block;
@@ -359,7 +373,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 26px;
+  margin-top: 22px;
 
   span {
     display: inline-flex;
@@ -367,8 +381,8 @@ onMounted(() => {
     height: 32px;
     padding: 0 14px;
     border-radius: 999px;
-    border: 1px solid rgba(137, 165, 207, 0.12);
-    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(160, 179, 215, 0.14);
+    background: rgba(255, 255, 255, 0.82);
     font-size: 12px;
     color: var(--hl-ink-soft);
   }
@@ -377,13 +391,11 @@ onMounted(() => {
 .login-card {
   position: relative;
   width: 100%;
-  padding: 42px 36px;
-  border-radius: 32px;
-  border: 1px solid rgba(137, 165, 207, 0.12);
-  background:
-    radial-gradient(circle at top right, rgba(197, 238, 229, 0.26), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 247, 255, 0.98));
-  box-shadow: var(--hl-shadow-medium);
+  padding: 38px 34px;
+  border-radius: 28px;
+  border: 1px solid rgba(160, 179, 215, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 247, 255, 0.98));
+  box-shadow: var(--hl-shadow-soft);
 }
 
 .logo-area {
@@ -391,18 +403,18 @@ onMounted(() => {
   margin-bottom: 26px;
 
   .logo-icon {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
     margin-bottom: 18px;
     padding: 14px;
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(142, 174, 252, 0.18), rgba(127, 207, 192, 0.18));
+    background: linear-gradient(135deg, rgba(142, 174, 252, 0.16), rgba(127, 207, 192, 0.16));
   }
 
   .title {
     margin: 0 0 8px;
     font-family: var(--hl-font-display);
-    font-size: 34px;
+    font-size: 30px;
     font-weight: 600;
     color: var(--hl-ink);
     letter-spacing: 0.04em;
@@ -430,7 +442,7 @@ onMounted(() => {
     height: 30px;
     padding: 0 12px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.78);
+    background: rgba(238, 244, 255, 0.92);
     color: var(--hl-ink);
     font-size: 12px;
     font-weight: 600;
@@ -443,10 +455,10 @@ onMounted(() => {
 
     .el-input__wrapper {
       min-height: 52px;
-      background: rgba(241, 247, 255, 0.96);
-      border: 1px solid rgba(137, 165, 207, 0.12);
+      background: rgba(240, 246, 255, 0.96);
+      border: 1px solid rgba(160, 179, 215, 0.14);
       box-shadow: none !important;
-      border-radius: 16px;
+      border-radius: 15px;
       transition: var(--m3-transition);
 
       &:hover {
@@ -487,9 +499,9 @@ onMounted(() => {
     margin-top: 8px;
     font-size: 16px;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     border: none;
-    border-radius: var(--m3-shape-large);
+    border-radius: 15px;
     background: linear-gradient(180deg, #8cb2ff, #789cf2);
     color: var(--m3-on-primary);
     transition: var(--m3-transition);
@@ -537,6 +549,11 @@ onMounted(() => {
 
   .intro-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
+  .intro-panel:nth-child(1) {
+    grid-row: auto;
   }
 }
 

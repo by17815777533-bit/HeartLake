@@ -1,6 +1,6 @@
 /**
  * HeartLake Admin 主题系统
- * 目标视觉：浅蓝渐变、白色面板、圆角胶囊、薄荷色点缀
+ * 目标视觉：浅蓝渐变、白色画布、软质卡片、薄荷色点缀
  * 支持 light / dark 两套色彩方案
  */
 
@@ -16,19 +16,19 @@
   // Sky dashboard palette
   --hl-ink: #212a3a;
   --hl-ink-soft: #6f7c96;
-  --hl-paper: #dce8ff;
-  --hl-paper-strong: #f3f8ff;
-  --hl-paper-deep: #c8d8f7;
-  --hl-panel: rgba(255, 255, 255, 0.84);
-  --hl-panel-muted: rgba(238, 246, 255, 0.94);
-  --hl-line: rgba(133, 156, 201, 0.16);
-  --hl-line-strong: rgba(133, 156, 201, 0.24);
+  --hl-paper: #dbe8ff;
+  --hl-paper-strong: #f6f9ff;
+  --hl-paper-deep: #cfdcf5;
+  --hl-panel: rgba(255, 255, 255, 0.88);
+  --hl-panel-muted: rgba(241, 246, 255, 0.96);
+  --hl-line: rgba(160, 179, 215, 0.16);
+  --hl-line-strong: rgba(160, 179, 215, 0.24);
   --hl-accent: #93ddd1;
   --hl-accent-soft: #dff8f4;
   --hl-accent-wash: rgba(147, 221, 209, 0.12);
   --hl-accent-strong: #7fa8ff;
-  --hl-shadow-soft: 0 18px 42px rgba(94, 118, 166, 0.08);
-  --hl-shadow-medium: 0 28px 64px rgba(94, 118, 166, 0.14);
+  --hl-shadow-soft: 0 16px 30px rgba(112, 136, 183, 0.08);
+  --hl-shadow-medium: 0 24px 48px rgba(112, 136, 183, 0.12);
 
   // Primary
   --m3-primary: #87abff;
@@ -262,24 +262,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   background:
-    radial-gradient(circle at top left, rgba(162, 190, 255, 0.32), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(157, 228, 217, 0.24), transparent 18%),
-    linear-gradient(180deg, #d7e6ff 0%, var(--hl-paper) 56%, #c7d9fb 100%);
+    radial-gradient(circle at top left, rgba(163, 192, 255, 0.28), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(168, 233, 220, 0.22), transparent 20%),
+    linear-gradient(180deg, #dce9ff 0%, var(--hl-paper) 58%, #d2e0fb 100%);
   color: var(--m3-on-surface);
 }
 
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.2;
-  background-image:
-    radial-gradient(circle at center, rgba(135, 171, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(133, 156, 201, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(133, 156, 201, 0.03) 1px, transparent 1px);
-  background-size: 28px 28px, 40px 40px, 40px 40px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
+  content: none;
 }
 
 html.dark body {
@@ -612,14 +602,13 @@ html.dark {
 .sensitive-words-page > .el-card,
 .logs-page > .el-card,
 .settings-page > .el-card {
-  border-radius: 30px !important;
-  border: 1px solid rgba(133, 156, 201, 0.12) !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(160, 179, 215, 0.16) !important;
   background:
-    radial-gradient(circle at top right, rgba(147, 221, 209, 0.2), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(237, 245, 255, 0.96)) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 255, 0.98)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 22px 48px rgba(94, 118, 166, 0.1) !important;
+    0 18px 34px rgba(112, 136, 183, 0.1) !important;
   overflow: hidden;
 }
 
@@ -655,21 +644,21 @@ html.dark {
 
 .el-table {
   --el-table-header-bg-color: transparent;
-  --el-table-row-hover-bg-color: rgba(109, 136, 118, 0.06);
+  --el-table-row-hover-bg-color: rgba(139, 166, 214, 0.08);
   background: transparent !important;
 
   th.el-table__cell {
-    background: rgba(239, 246, 255, 0.92) !important;
+    background: rgba(241, 246, 255, 0.94) !important;
     color: var(--hl-ink) !important;
-    font-size: 12px;
-    letter-spacing: 0.08em;
+    font-size: 11px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    border-bottom-color: rgba(133, 156, 201, 0.12) !important;
+    border-bottom-color: rgba(160, 179, 215, 0.12) !important;
   }
 
   td.el-table__cell {
     background: transparent !important;
-    border-bottom-color: rgba(133, 156, 201, 0.1) !important;
+    border-bottom-color: rgba(160, 179, 215, 0.1) !important;
   }
 
   .cell {
@@ -685,9 +674,9 @@ html.dark {
 .el-select .el-input__wrapper,
 .el-textarea__inner,
 .el-date-editor.el-input__wrapper {
-  background: rgba(241, 247, 255, 0.96) !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(133, 156, 201, 0.12);
+  background: rgba(241, 246, 255, 0.96) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(160, 179, 215, 0.14);
   box-shadow: none !important;
 }
 
@@ -696,7 +685,7 @@ html.dark {
 }
 
 .el-button {
-  border-radius: 18px !important;
+  border-radius: 16px !important;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -709,7 +698,7 @@ html.dark {
 
 .el-button--default {
   background: rgba(255, 255, 255, 0.88) !important;
-  border-color: rgba(133, 156, 201, 0.12) !important;
+  border-color: rgba(160, 179, 215, 0.12) !important;
   color: var(--hl-ink) !important;
 }
 
@@ -795,7 +784,7 @@ html.dark {
 }
 
 .ops-table-card {
-  border-radius: 32px !important;
+  border-radius: 28px !important;
 }
 
 .ops-table-card .el-card__body {

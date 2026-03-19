@@ -81,17 +81,6 @@
             </div>
           </div>
 
-          <div class="header-stat-pills">
-            <article class="header-stat-pill">
-              <span>在线</span>
-              <strong>{{ realtimeStats.onlineCount }}</strong>
-            </article>
-            <article class="header-stat-pill is-mint">
-              <span>今日投石</span>
-              <strong>{{ realtimeStats.todayStones }}</strong>
-            </article>
-          </div>
-
           <button
             class="header-icon-btn"
             type="button"
@@ -362,30 +351,29 @@ onUnmounted(() => {
 
 .workspace-shell {
   min-height: calc(100vh - 40px);
-  padding: 26px 30px 32px;
-  border-radius: 42px;
-  border: 8px solid rgba(255, 255, 255, 0.92);
+  padding: 24px 28px 30px;
+  border-radius: 38px;
+  border: 9px solid rgba(255, 255, 255, 0.98);
   background:
-    radial-gradient(circle at 88% 76%, rgba(164, 229, 219, 0.24), transparent 18%),
-    radial-gradient(circle at 0% 0%, rgba(160, 188, 255, 0.22), transparent 20%),
-    linear-gradient(180deg, rgba(229, 240, 255, 0.96), rgba(217, 233, 255, 0.96));
+    radial-gradient(circle at 84% 84%, rgba(196, 240, 231, 0.4), transparent 18%),
+    linear-gradient(180deg, rgba(232, 241, 255, 0.98), rgba(223, 235, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 30px 80px rgba(97, 127, 179, 0.2);
+    0 30px 70px rgba(97, 127, 179, 0.16);
 }
 
 .workspace-shell__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 24px;
   align-items: center;
-  padding-bottom: 16px;
+  padding-bottom: 18px;
 }
 
 .workspace-shell__brand-row {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   min-width: 0;
 }
 
@@ -400,17 +388,16 @@ onUnmounted(() => {
 }
 
 .brand-mark__icon {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(137, 219, 208, 0.9), rgba(104, 192, 180, 0.96));
-  box-shadow: 0 10px 18px rgba(88, 171, 160, 0.22);
+  border-radius: 999px;
+  background: rgba(117, 205, 187, 0.14);
 
   img {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -420,7 +407,7 @@ onUnmounted(() => {
 
   strong {
     color: var(--hl-ink);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
   }
 
@@ -434,7 +421,7 @@ onUnmounted(() => {
 .top-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   min-width: 0;
   overflow-x: auto;
   padding-bottom: 2px;
@@ -442,83 +429,45 @@ onUnmounted(() => {
 
 .top-nav__item {
   flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: 34px;
+  padding: 0 14px;
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: var(--hl-ink-soft);
+  color: #273149;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: var(--m3-transition);
 
   &:hover {
-    color: var(--hl-ink);
-    background: rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, 0.44);
   }
 
   &.is-active {
     color: var(--hl-ink);
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 12px 24px rgba(111, 139, 187, 0.1);
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 }
 
 .workspace-shell__tools {
   display: flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
-}
-
-.header-stat-pills {
-  display: flex;
-  align-items: center;
   gap: 10px;
-}
-
-.header-stat-pill {
-  min-width: 86px;
-  min-height: 44px;
-  display: grid;
-  align-content: center;
-  padding: 0 14px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 10px 22px rgba(112, 137, 183, 0.1);
-
-  span {
-    color: var(--hl-ink-soft);
-    font-size: 10px;
-    line-height: 1;
-  }
-
-  strong {
-    margin-top: 5px;
-    color: #7b99ea;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
-  }
-}
-
-.header-stat-pill.is-mint strong {
-  color: #5cae9f;
+  position: relative;
 }
 
 .shell-search {
   position: relative;
-  width: min(260px, 28vw);
+  width: min(248px, 24vw);
 
   :deep(.el-input__wrapper) {
-    min-height: 44px;
+    min-height: 42px;
     border-radius: 999px !important;
-    background: rgba(236, 244, 255, 0.72) !important;
-    border: 1px solid rgba(137, 165, 207, 0.18);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+    background: rgba(231, 240, 253, 0.72) !important;
+    border: 1px solid rgba(164, 183, 224, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   }
 }
 
@@ -576,18 +525,18 @@ onUnmounted(() => {
 .header-icon-btn,
 .header-account {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
   border: none;
   border-radius: 999px;
-  background: rgba(244, 249, 255, 0.8);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--hl-ink);
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 10px 20px rgba(112, 137, 183, 0.1);
+    0 10px 18px rgba(112, 137, 183, 0.08);
   transition: var(--m3-transition);
 
   &:hover {
@@ -603,11 +552,13 @@ onUnmounted(() => {
     background: linear-gradient(180deg, #8db2ff, #7ea0ef);
     color: #ffffff;
     font-weight: 700;
+    text-transform: uppercase;
   }
 }
 
 .main-content {
   min-height: 0;
+  margin-top: 8px;
 }
 
 .fade-enter-active,

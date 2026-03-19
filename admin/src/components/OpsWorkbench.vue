@@ -55,15 +55,15 @@ const hasFooter = computed(() => Boolean(slots.footer))
 <style scoped lang="scss">
 .ops-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.82fr) minmax(280px, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.88fr) minmax(280px, 1.08fr);
+  gap: 18px;
   grid-template-areas:
     "stage support rail"
     "main main footer";
 }
 
 .ops-workbench.has-support {
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.82fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.88fr) minmax(280px, 1.08fr);
 }
 
 .ops-workbench:not(.has-rail) {
@@ -76,7 +76,7 @@ const hasFooter = computed(() => Boolean(slots.footer))
 }
 
 .ops-workbench:not(.has-support) {
-  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1.72fr) minmax(280px, 1fr);
   grid-template-areas:
     "stage rail"
     "main footer";

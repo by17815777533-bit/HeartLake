@@ -383,19 +383,17 @@ onUnmounted(() => {
   overflow: hidden;
   padding: 22px 24px;
   border-radius: 28px;
-  border: 1px solid rgba(133, 156, 201, 0.12);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(151, 221, 209, 0.2), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(236, 245, 255, 0.96));
+  border: 1px solid rgba(160, 179, 215, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 22px 46px rgba(104, 128, 173, 0.12);
+    0 18px 34px rgba(107, 130, 173, 0.1);
 }
 
 .dashboard-card--balance { grid-area: balance; min-height: 420px; }
 .dashboard-card--pulse { grid-area: pulse; min-height: 198px; }
-.dashboard-card--activity { grid-area: activity; min-height: 420px; background: linear-gradient(180deg, rgba(218, 244, 239, 0.86), rgba(212, 239, 233, 0.94)); }
-.dashboard-card--guide { grid-area: guide; min-height: 198px; }
+.dashboard-card--activity { grid-area: activity; min-height: 420px; background: linear-gradient(180deg, rgba(224, 246, 240, 0.94), rgba(214, 239, 232, 0.98)); }
+.dashboard-card--guide { grid-area: guide; min-height: 198px; background: linear-gradient(180deg, rgba(228, 245, 239, 0.94), rgba(219, 240, 234, 0.98)); }
 .dashboard-card--chart { grid-area: chart; min-height: 340px; }
 .dashboard-card--score { grid-area: score; min-height: 340px; }
 
@@ -523,12 +521,36 @@ onUnmounted(() => {
 }
 
 .balance-mini-card {
+  position: relative;
   min-height: 148px;
   padding: 18px;
   border: none;
   border-radius: 24px;
   text-align: left;
-  box-shadow: 0 18px 32px rgba(120, 146, 194, 0.16);
+  box-shadow: 0 16px 28px rgba(120, 146, 194, 0.12);
+  overflow: hidden;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    right: 14px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(41, 53, 76, 0.28);
+    opacity: 0.4;
+  }
+
+  &::before {
+    top: 18px;
+    width: 52px;
+    height: 52px;
+  }
+
+  &::after {
+    top: 30px;
+    width: 72px;
+    height: 72px;
+  }
 
   span,
   small {
@@ -569,6 +591,11 @@ onUnmounted(() => {
   place-items: center;
   background: #212121;
   box-shadow: 0 20px 34px rgba(33, 33, 33, 0.22);
+
+  &::before,
+  &::after {
+    display: none;
+  }
 
   span {
     color: #ffffff;
