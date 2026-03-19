@@ -103,7 +103,8 @@ import AIToolboxSection from './edge-ai/AIToolboxSection.vue'
 
 const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
-const currentTime = ref(dayjs().format('YYYY-MM-DD HH:mm'))
+const edgeTimeFormat = 'MM月DD日 HH:mm'
+const currentTime = ref(dayjs().format(edgeTimeFormat))
 
 const techBadges = [
   { icon: '建议', label: '内容建议' },
@@ -341,6 +342,14 @@ const sentimentTool = reactive({ text: '', loading: false, result: null as null 
 const moderationTool = reactive({ text: '', loading: false, result: null as null | Record<string, any> })
 
 const formatCount = (value: number) => value.toLocaleString()
+const privacyNoiseLabel = computed(() => {
+  const map: Record<string, string> = {
+    low: '轻度扰动',
+    medium: '中等扰动',
+    high: '高强度扰动',
+  }
+  return map[privacy.noiseLevel] || privacy.noiseLevel || '中等扰动'
+})
 
 const heroDescription = computed(() => {
   const statusText = engineStatus.enabled
@@ -377,7 +386,7 @@ const summaryItems = computed(() => [
   {
     label: '保护余量',
     value: `${privacy.epsilonRemaining}`,
-    note: `已使用 ${privacy.epsilonPercent}% · ${privacy.noiseLevel} 噪声级别`,
+    note: `已使用 ${privacy.epsilonPercent}% · ${privacyNoiseLabel.value}`,
     tone: 'rose' as const,
   },
 ])
@@ -634,7 +643,7 @@ async function saveConfig() {
 
 async function refreshAll() {
   loading.value = true
-  currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
+  currentTime.value = dayjs().format(edgeTimeFormat)
   try {
     await Promise.allSettled([
       loadStatus(),
@@ -660,10 +669,10 @@ function addTimer(fn: () => void, interval: number): void {
 onMounted(() => {
   refreshAll()
   addTimer(() => {
-    currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
+    currentTime.value = dayjs().format(edgeTimeFormat)
   }, 60000)
   addTimer(() => {
-    currentTime.value = dayjs().format('YYYY-MM-DD HH:mm')
+    currentTime.value = dayjs().format(edgeTimeFormat)
     loadEmotionPulse()
     loadMetrics()
   }, 30000)

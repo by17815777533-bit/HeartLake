@@ -27,7 +27,7 @@ export function useDashboardData() {
   const moodTrendRange = ref(7)
   const trendingTopics = ref<TrendingTopic[]>([])
   const aiTrendingContent = ref<TrendingContentItem[]>([])
-  const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 dddd HH:mm'))
+  const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 HH:mm'))
 
   const techBadges = [
     { icon: '巡看', label: '今日湖面' },

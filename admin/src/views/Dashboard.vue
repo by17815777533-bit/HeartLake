@@ -138,6 +138,8 @@ const {
   refreshData,
 } = useDashboardData()
 
+const dashboardTimeFormat = 'YYYY年MM月DD日 HH:mm'
+
 const heroDescription = computed(() => {
   const pendingCount = Number(statsCards.value.find((item) => item.title.includes('待处理'))?.value || 0)
   const watchMessage = pendingCount > 0
@@ -210,7 +212,7 @@ let pulseTimer: ReturnType<typeof setInterval> | null = null
 const startPolling = () => {
   if (!clockTimer) {
     clockTimer = setInterval(() => {
-      currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
+      currentDateTime.value = dayjs().format(dashboardTimeFormat)
     }, 60000)
   }
   if (!pulseTimer) {
@@ -234,7 +236,7 @@ const handleVisibilityChange = () => {
     stopPolling()
   } else {
     loadEmotionPulse()
-    currentDateTime.value = dayjs().format('YYYY年MM月DD日 dddd HH:mm')
+    currentDateTime.value = dayjs().format(dashboardTimeFormat)
     startPolling()
   }
 }
