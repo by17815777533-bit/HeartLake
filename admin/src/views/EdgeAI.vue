@@ -32,46 +32,70 @@
 
     <OpsSignalDeck :items="edgeSignals" />
 
-    <PerformanceSection
-      :performance-metrics="performanceMetrics"
-      :emotion-gauge-option="emotionGaugeOption"
-      :emotion-pulse-line-option="emotionPulseLineOption"
-    />
+    <section class="edge-stage edge-stage--core">
+      <div class="edge-stage__main">
+        <div class="edge-stage__label">
+          中央脉搏舞台
+        </div>
 
-    <FederatedPrivacySection
-      :federated="federated"
-      :privacy="privacy"
-      :privacy-budget-color="privacyBudgetColor"
-      :privacy-pie-option="privacyPieOption"
-      @trigger-aggregation="triggerAggregation"
-      @refresh-federated="loadFederatedStatus"
-    />
+        <PerformanceSection
+          :performance-metrics="performanceMetrics"
+          :emotion-gauge-option="emotionGaugeOption"
+          :emotion-pulse-line-option="emotionPulseLineOption"
+        />
 
-    <VectorNodesSection
-      v-model:vector-query="vectorQuery"
-      :vector-searching="vectorSearching"
-      :vector-searched="vectorSearched"
-      :vector-results="vectorResults"
-      :edge-nodes="edgeNodes"
-      @search="doVectorSearch"
-    />
+        <VectorNodesSection
+          v-model:vector-query="vectorQuery"
+          :vector-searching="vectorSearching"
+          :vector-searched="vectorSearched"
+          :vector-results="vectorResults"
+          :edge-nodes="edgeNodes"
+          @search="doVectorSearch"
+        />
+      </div>
 
-    <RAGSystemSection :rag-stats="ragStats" />
+      <aside class="edge-stage__rail">
+        <div class="edge-stage__label">
+          操作与预算列
+        </div>
 
-    <ConfigSection
-      :edge-config="edgeConfig"
-      :config-loading="configLoading"
-      :config-saving="configSaving"
-      @save="saveConfig"
-      @reset="loadConfig"
-    />
+        <FederatedPrivacySection
+          :federated="federated"
+          :privacy="privacy"
+          :privacy-budget-color="privacyBudgetColor"
+          :privacy-pie-option="privacyPieOption"
+          @trigger-aggregation="triggerAggregation"
+          @refresh-federated="loadFederatedStatus"
+        />
 
-    <AIToolboxSection
-      :sentiment-tool="sentimentTool"
-      :moderation-tool="moderationTool"
-      @analyze-sentiment="doSentimentAnalysis"
-      @moderate-content="doContentModeration"
-    />
+        <RAGSystemSection :rag-stats="ragStats" />
+      </aside>
+    </section>
+
+    <section class="edge-stage edge-stage--lab">
+      <div class="edge-stage__main">
+        <div class="edge-stage__label">
+          实验室与调参台
+        </div>
+
+        <AIToolboxSection
+          :sentiment-tool="sentimentTool"
+          :moderation-tool="moderationTool"
+          @analyze-sentiment="doSentimentAnalysis"
+          @moderate-content="doContentModeration"
+        />
+      </div>
+
+      <aside class="edge-stage__side">
+        <ConfigSection
+          :edge-config="edgeConfig"
+          :config-loading="configLoading"
+          :config-saving="configSaving"
+          @save="saveConfig"
+          @reset="loadConfig"
+        />
+      </aside>
+    </section>
   </div>
 </template>
 
@@ -715,6 +739,58 @@ onUnmounted(() => {
   padding: 8px 0 22px;
 }
 
+.edge-stage {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  margin-bottom: 24px;
+  padding: 22px;
+  border-radius: 32px;
+  border: 1px solid rgba(117, 144, 154, 0.12);
+  background:
+    linear-gradient(180deg, rgba(250, 252, 252, 0.52), rgba(241, 246, 248, 0.7)),
+    radial-gradient(circle at top right, rgba(123, 160, 173, 0.1), transparent 22%);
+  box-shadow: 0 24px 58px rgba(10, 23, 31, 0.05);
+}
+
+.edge-stage--core {
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  align-items: start;
+}
+
+.edge-stage--lab {
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  align-items: start;
+}
+
+.edge-stage__main,
+.edge-stage__rail,
+.edge-stage__side {
+  min-width: 0;
+}
+
+.edge-stage__rail,
+.edge-stage__side {
+  position: sticky;
+  top: 18px;
+}
+
+.edge-stage__label {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 32px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .edge-ai :deep(.charts-row),
 .edge-ai :deep(.section-row) {
   margin-bottom: 22px;
@@ -906,8 +982,14 @@ onUnmounted(() => {
 }
 
 @media (max-width: 900px) {
-  .edge-ai-ribbon {
+  .edge-stage--core,
+  .edge-stage--lab {
     grid-template-columns: 1fr;
+  }
+
+  .edge-stage__rail,
+  .edge-stage__side {
+    position: static;
   }
 
   .edge-ai :deep(.emotion-pulse-container) {
@@ -918,6 +1000,13 @@ onUnmounted(() => {
   .edge-ai :deep(.gauge-wrapper),
   .edge-ai :deep(.pulse-line-wrapper) {
     min-height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .edge-stage {
+    padding: 18px;
+    border-radius: 26px;
   }
 }
 </style>

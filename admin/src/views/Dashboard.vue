@@ -39,45 +39,67 @@
 
     <OpsSignalDeck :items="lakeSignals" />
 
-    <CareFeedbackSection
-      :stats-cards="statsCards"
-      :trending-topics="trendingTopics"
-      :emotion-trends-option="emotionTrendsOption"
-    />
+    <section class="dashboard-stage dashboard-stage--observatory">
+      <div class="dashboard-stage__main">
+        <div class="dashboard-stage__label">
+          主观测台
+        </div>
 
-    <ChartsSection
-      v-model:chart-range="chartRange"
-      v-model:mood-trend-range="moodTrendRange"
-      :trending-topics="trendingTopics"
-      :user-growth-option="userGrowthOption"
-      :mood-distribution-option="moodDistributionOption"
-      :mood-trend-option="moodTrendOption"
-      :active-time-option="activeTimeOption"
-      @load-growth="loadGrowthData"
-      @load-mood-trend="loadMoodTrend"
-    />
+        <ChartsSection
+          v-model:chart-range="chartRange"
+          v-model:mood-trend-range="moodTrendRange"
+          :trending-topics="trendingTopics"
+          :user-growth-option="userGrowthOption"
+          :mood-distribution-option="moodDistributionOption"
+          :mood-trend-option="moodTrendOption"
+          :active-time-option="activeTimeOption"
+          @load-growth="loadGrowthData"
+          @load-mood-trend="loadMoodTrend"
+        />
 
-    <InnovationSection
-      :privacy-loading="privacyLoading"
-      :resonance-loading="resonanceLoading"
-      :privacy-stats="privacyStats"
-      :privacy-budget-percent="privacyBudgetPercent"
-      :privacy-budget-color="privacyBudgetColor"
-      :resonance-stats="resonanceStats"
-      :emotion-pulse-option="emotionPulseOption"
-      :format-number="formatNumber"
-    />
+        <InnovationSection
+          :privacy-loading="privacyLoading"
+          :resonance-loading="resonanceLoading"
+          :privacy-stats="privacyStats"
+          :privacy-budget-percent="privacyBudgetPercent"
+          :privacy-budget-color="privacyBudgetColor"
+          :resonance-stats="resonanceStats"
+          :emotion-pulse-option="emotionPulseOption"
+          :format-number="formatNumber"
+        />
+      </div>
 
-    <LakeWeatherSection
-      :lake-weather="lakeWeather"
-      :lake-weather-temp="lakeWeatherTemp"
-      :weather-mood-pie-option="weatherMoodPieOption"
-    />
+      <aside class="dashboard-stage__rail">
+        <div class="dashboard-stage__label">
+          右侧情报塔
+        </div>
 
-    <AITrendsSection
-      :emotion-trends-option="emotionTrendsOption"
-      :ai-trending-content="aiTrendingContent"
-    />
+        <CareFeedbackSection
+          :stats-cards="statsCards"
+          :trending-topics="trendingTopics"
+          :emotion-trends-option="emotionTrendsOption"
+        />
+
+        <LakeWeatherSection
+          :lake-weather="lakeWeather"
+          :lake-weather-temp="lakeWeatherTemp"
+          :weather-mood-pie-option="weatherMoodPieOption"
+        />
+      </aside>
+    </section>
+
+    <section class="dashboard-stage dashboard-stage--afterglow">
+      <div class="dashboard-stage__full">
+        <div class="dashboard-stage__label">
+          余波与内容温度
+        </div>
+
+        <AITrendsSection
+          :emotion-trends-option="emotionTrendsOption"
+          :ai-trending-content="aiTrendingContent"
+        />
+      </div>
+    </section>
   </div>
 </template>
 
@@ -256,6 +278,52 @@ onUnmounted(() => {
   padding: 8px 0 22px;
 }
 
+.dashboard-stage {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  margin-bottom: 24px;
+  padding: 22px;
+  border-radius: 32px;
+  border: 1px solid rgba(117, 144, 154, 0.12);
+  background:
+    linear-gradient(180deg, rgba(250, 252, 252, 0.52), rgba(241, 246, 248, 0.7)),
+    radial-gradient(circle at top right, rgba(182, 122, 66, 0.08), transparent 22%);
+  box-shadow: 0 24px 58px rgba(10, 23, 31, 0.05);
+}
+
+.dashboard-stage--observatory {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+  align-items: start;
+}
+
+.dashboard-stage__main,
+.dashboard-stage__rail,
+.dashboard-stage__full {
+  min-width: 0;
+}
+
+.dashboard-stage__rail {
+  position: sticky;
+  top: 18px;
+}
+
+.dashboard-stage__label {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 32px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .dashboard :deep(.care-feedback-row),
 .dashboard :deep(.charts-row) {
   margin-bottom: 22px;
@@ -420,8 +488,19 @@ onUnmounted(() => {
 }
 
 @media (max-width: 900px) {
-  .dashboard-ribbon {
+  .dashboard-stage--observatory {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-stage__rail {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-stage {
+    padding: 18px;
+    border-radius: 26px;
   }
 }
 </style>
