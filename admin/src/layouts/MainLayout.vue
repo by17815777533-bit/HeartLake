@@ -9,40 +9,38 @@
 
     <div class="workspace-shell">
       <header class="workspace-shell__header">
-        <div class="workspace-shell__brand-row">
-          <button
-            class="brand-mark"
-            type="button"
-            @click="navigateTo('/dashboard')"
-          >
-            <div class="brand-mark__icon">
-              <img
-                src="@/assets/logo.svg"
-                alt="HeartLake"
-              >
-            </div>
-            <div class="brand-mark__copy">
-              <strong>心湖后台</strong>
-              <span>HeartLake Admin</span>
-            </div>
-          </button>
-
-          <nav
-            class="top-nav"
-            aria-label="主导航"
-          >
-            <button
-              v-for="item in menuItems"
-              :key="item.path"
-              type="button"
-              class="top-nav__item"
-              :class="{ 'is-active': route.path === item.path }"
-              @click="navigateTo(item.path)"
+        <button
+          class="brand-mark"
+          type="button"
+          @click="navigateTo('/dashboard')"
+        >
+          <div class="brand-mark__icon">
+            <img
+              src="@/assets/logo.svg"
+              alt="HeartLake"
             >
-              {{ item.title }}
-            </button>
-          </nav>
-        </div>
+          </div>
+          <div class="brand-mark__copy">
+            <strong>心湖后台</strong>
+            <span>HeartLake Admin</span>
+          </div>
+        </button>
+
+        <nav
+          class="top-nav"
+          aria-label="主导航"
+        >
+          <button
+            v-for="item in menuItems"
+            :key="item.path"
+            type="button"
+            class="top-nav__item"
+            :class="{ 'is-active': route.path === item.path }"
+            @click="navigateTo(item.path)"
+          >
+            {{ item.title }}
+          </button>
+        </nav>
 
         <div class="workspace-shell__tools">
           <div class="shell-search">
@@ -346,41 +344,38 @@ onUnmounted(() => {
 
 .main-layout {
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
 }
 
 .workspace-shell {
+  width: min(1480px, 100%);
+  margin: 0 auto;
   min-height: calc(100vh - 40px);
-  padding: 24px 28px 30px;
-  border-radius: 38px;
+  padding: 22px 26px 30px;
+  border-radius: 34px;
   border: 9px solid rgba(255, 255, 255, 0.98);
   background:
     radial-gradient(circle at 84% 84%, rgba(196, 240, 231, 0.4), transparent 18%),
+    radial-gradient(circle at 14% 10%, rgba(194, 211, 255, 0.34), transparent 20%),
     linear-gradient(180deg, rgba(232, 241, 255, 0.98), rgba(223, 235, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     0 30px 70px rgba(97, 127, 179, 0.16);
+  animation: shell-entrance 420ms ease-out;
 }
 
 .workspace-shell__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 22px;
   align-items: center;
-  padding-bottom: 18px;
-}
-
-.workspace-shell__brand-row {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  min-width: 0;
+  padding-bottom: 20px;
 }
 
 .brand-mark {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: none;
   background: transparent;
   padding: 0;
@@ -404,6 +399,7 @@ onUnmounted(() => {
 .brand-mark__copy {
   display: grid;
   gap: 2px;
+  text-align: left;
 
   strong {
     color: var(--hl-ink);
@@ -421,10 +417,13 @@ onUnmounted(() => {
 .top-nav {
   display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(233, 241, 255, 0.56);
 }
 
 .top-nav__item {
@@ -441,13 +440,13 @@ onUnmounted(() => {
   transition: var(--m3-transition);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.44);
+    background: rgba(255, 255, 255, 0.48);
   }
 
   &.is-active {
     color: var(--hl-ink);
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 16px rgba(111, 139, 187, 0.08);
   }
 }
 
@@ -460,14 +459,18 @@ onUnmounted(() => {
 
 .shell-search {
   position: relative;
-  width: min(248px, 24vw);
+  width: min(278px, 22vw);
 
   :deep(.el-input__wrapper) {
     min-height: 42px;
     border-radius: 999px !important;
-    background: rgba(231, 240, 253, 0.72) !important;
+    background: rgba(231, 240, 253, 0.78) !important;
     border: 1px solid rgba(164, 183, 224, 0.28);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
+  }
+
+  :deep(.el-input__inner) {
+    font-size: 13px;
   }
 }
 
@@ -558,7 +561,13 @@ onUnmounted(() => {
 
 .main-content {
   min-height: 0;
-  margin-top: 8px;
+  margin-top: 6px;
+}
+
+.main-content :deep(.ops-page),
+.main-content :deep(.dashboard-bank),
+.main-content :deep(.edge-workbench) {
+  animation: page-rise 460ms ease-out both;
 }
 
 .fade-enter-active,
@@ -582,6 +591,10 @@ onUnmounted(() => {
     flex-wrap: wrap;
   }
 
+  .top-nav {
+    justify-content: flex-start;
+  }
+
   .shell-search {
     width: min(100%, 320px);
   }
@@ -594,14 +607,31 @@ onUnmounted(() => {
 
   .workspace-shell {
     min-height: calc(100vh - 20px);
-    padding: 18px;
+    padding: 16px;
     border-width: 6px;
-    border-radius: 30px;
+    border-radius: 28px;
   }
+}
 
-  .workspace-shell__brand-row {
-    flex-direction: column;
-    align-items: flex-start;
+@keyframes shell-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

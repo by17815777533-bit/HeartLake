@@ -45,34 +45,42 @@ const normalizedItems = computed(() => {
 .ops-mini-bars {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
-  min-height: 182px;
+  min-height: 160px;
 }
 
 .ops-mini-bars__item {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
   min-width: 0;
-  padding: 12px 8px 14px;
-  border-radius: 24px;
+  padding: 10px 8px 12px;
+  border-radius: 22px;
   border: 1px solid rgba(151, 171, 219, 0.16);
   background: linear-gradient(180deg, rgba(239, 245, 255, 0.96), rgba(229, 239, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.88),
-    0 14px 24px rgba(134, 160, 220, 0.1);
+    0 12px 20px rgba(134, 160, 220, 0.08);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.88),
+      0 16px 26px rgba(134, 160, 220, 0.12);
+  }
 }
 
 .ops-mini-bars__track {
   position: relative;
   width: 100%;
-  height: 108px;
+  height: 92px;
   display: flex;
   align-items: end;
   justify-content: center;
-  padding: 10px 0 4px;
+  padding: 8px 0 4px;
 
   &::before {
     content: '';
@@ -93,16 +101,18 @@ const normalizedItems = computed(() => {
     border-radius: 999px;
     background: linear-gradient(180deg, #8fb1ff, #7d9ff4);
     box-shadow: 0 14px 22px rgba(126, 156, 241, 0.24);
+    transform-origin: bottom center;
+    animation: bar-rise 420ms ease-out both;
   }
 }
 
 .ops-mini-bars__item strong {
   min-width: 100%;
-  padding: 7px 8px;
+  padding: 6px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: #1f2d44;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -111,7 +121,7 @@ const normalizedItems = computed(() => {
 
 .ops-mini-bars__item small {
   color: var(--hl-ink-soft);
-  font-size: 11px;
+  font-size: 10px;
   text-align: center;
 }
 
@@ -129,5 +139,16 @@ const normalizedItems = computed(() => {
 .ops-mini-bars__item.is-peak .ops-mini-bars__track span {
   width: 24px;
   background: linear-gradient(180deg, #86adff, #7097f2);
+}
+
+@keyframes bar-rise {
+  from {
+    opacity: 0;
+    transform: scaleY(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 </style>

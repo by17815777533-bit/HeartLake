@@ -66,6 +66,7 @@ const markerStyle = computed(() => {
   width: min(248px, 100%);
   aspect-ratio: 1 / 0.72;
   overflow: hidden;
+  animation: gauge-settle 460ms ease-out both;
 }
 
 .ops-gauge-meter__track,
@@ -127,6 +128,7 @@ const markerStyle = computed(() => {
   border: 4px solid var(--marker-color);
   box-shadow: 0 10px 20px rgba(119, 142, 191, 0.2);
   transform: translate(-50%, -50%);
+  transition: left 260ms ease, top 260ms ease, border-color 220ms ease;
 }
 
 .ops-gauge-meter__content {
@@ -148,6 +150,17 @@ const markerStyle = computed(() => {
   span {
     font-size: 16px;
     font-weight: 700;
+  }
+}
+
+@keyframes gauge-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

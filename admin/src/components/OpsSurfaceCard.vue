@@ -89,6 +89,14 @@ withDefaults(defineProps<{
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
     0 18px 34px rgba(107, 130, 173, 0.1);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      0 22px 38px rgba(107, 130, 173, 0.14);
+  }
 }
 
 .ops-surface-card.is-compact {

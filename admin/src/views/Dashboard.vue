@@ -370,32 +370,48 @@ onUnmounted(() => {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1.55fr 0.92fr 1.18fr;
+  grid-template-columns: minmax(0, 1.72fr) minmax(220px, 0.92fr) minmax(280px, 1.08fr);
   grid-template-areas:
     "balance pulse activity"
     "balance guide activity"
     "chart chart score";
-  gap: 20px;
+  gap: 18px;
 }
 
 .dashboard-card {
   position: relative;
   overflow: hidden;
-  padding: 22px 24px;
-  border-radius: 28px;
+  padding: 20px 22px;
+  border-radius: 26px;
   border: 1px solid rgba(160, 179, 215, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     0 18px 34px rgba(107, 130, 173, 0.1);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  animation: dashboard-card-in 420ms ease-out both;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 22px 38px rgba(107, 130, 173, 0.14);
+  }
 }
 
-.dashboard-card--balance { grid-area: balance; min-height: 420px; }
-.dashboard-card--pulse { grid-area: pulse; min-height: 198px; }
-.dashboard-card--activity { grid-area: activity; min-height: 420px; background: linear-gradient(180deg, rgba(224, 246, 240, 0.94), rgba(214, 239, 232, 0.98)); }
-.dashboard-card--guide { grid-area: guide; min-height: 198px; background: linear-gradient(180deg, rgba(228, 245, 239, 0.94), rgba(219, 240, 234, 0.98)); }
-.dashboard-card--chart { grid-area: chart; min-height: 340px; }
-.dashboard-card--score { grid-area: score; min-height: 340px; }
+.dashboard-card:nth-child(1) { animation-delay: 0ms; }
+.dashboard-card:nth-child(2) { animation-delay: 50ms; }
+.dashboard-card:nth-child(3) { animation-delay: 100ms; }
+.dashboard-card:nth-child(4) { animation-delay: 150ms; }
+.dashboard-card:nth-child(5) { animation-delay: 200ms; }
+.dashboard-card:nth-child(6) { animation-delay: 250ms; }
+
+.dashboard-card--balance { grid-area: balance; min-height: 386px; }
+.dashboard-card--pulse { grid-area: pulse; min-height: 182px; }
+.dashboard-card--activity { grid-area: activity; min-height: 386px; background: linear-gradient(180deg, rgba(224, 246, 240, 0.94), rgba(214, 239, 232, 0.98)); }
+.dashboard-card--guide { grid-area: guide; min-height: 186px; background: linear-gradient(180deg, rgba(228, 245, 239, 0.94), rgba(219, 240, 234, 0.98)); }
+.dashboard-card--chart { grid-area: chart; min-height: 304px; }
+.dashboard-card--score { grid-area: score; min-height: 304px; }
 
 .card-heading {
   display: flex;
@@ -407,13 +423,13 @@ onUnmounted(() => {
   h3 {
     margin: 8px 0 0;
     color: var(--hl-ink);
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     letter-spacing: -0.03em;
   }
 
   h3 {
-    font-size: 24px;
+    font-size: 22px;
   }
 }
 
@@ -450,7 +466,7 @@ onUnmounted(() => {
 }
 
 .balance-total {
-  margin-top: 22px;
+  margin-top: 18px;
 
   > span {
     display: block;
@@ -460,25 +476,25 @@ onUnmounted(() => {
 
   p {
     max-width: 34rem;
-    margin-top: 12px;
+    margin-top: 10px;
     color: var(--hl-ink-soft);
-    font-size: 14px;
-    line-height: 1.8;
+    font-size: 13px;
+    line-height: 1.7;
   }
 }
 
 .balance-total__value {
-  margin-top: 10px;
+  margin-top: 8px;
   color: var(--hl-ink);
-  font-size: clamp(48px, 6vw, 62px);
+  font-size: clamp(42px, 5vw, 56px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
 
   small {
-    margin-left: 8px;
+    margin-left: 6px;
     color: #8da5db;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
   }
 }
@@ -486,12 +502,12 @@ onUnmounted(() => {
 .balance-actions {
   display: flex;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .balance-action {
-  min-width: 132px;
-  height: 44px;
+  min-width: 124px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -500,7 +516,7 @@ onUnmounted(() => {
   border-radius: 999px;
   background: rgba(244, 249, 255, 0.9);
   color: var(--hl-ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
@@ -514,18 +530,18 @@ onUnmounted(() => {
 
 .balance-stack {
   display: grid;
-  grid-template-columns: 1fr 1fr 64px;
-  gap: 14px;
+  grid-template-columns: 1fr 1fr 56px;
+  gap: 12px;
   align-items: end;
-  margin-top: 34px;
+  margin-top: 28px;
 }
 
 .balance-mini-card {
   position: relative;
-  min-height: 148px;
-  padding: 18px;
+  min-height: 132px;
+  padding: 16px;
   border: none;
-  border-radius: 24px;
+  border-radius: 22px;
   text-align: left;
   box-shadow: 0 16px 28px rgba(120, 146, 194, 0.12);
   overflow: hidden;
@@ -564,9 +580,9 @@ onUnmounted(() => {
 
   strong {
     display: block;
-    margin-top: 34px;
+    margin-top: 28px;
     color: #1d2740;
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
   }
 
@@ -586,7 +602,7 @@ onUnmounted(() => {
 }
 
 .balance-mini-card--more {
-  min-height: 152px;
+  min-height: 136px;
   display: grid;
   place-items: center;
   background: #212121;
@@ -605,13 +621,13 @@ onUnmounted(() => {
 }
 
 .range-select {
-  width: 96px;
+  width: 92px;
 }
 
 .activity-list {
   display: grid;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .activity-item {
@@ -619,7 +635,7 @@ onUnmounted(() => {
   grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(122, 163, 157, 0.16);
 }
 
@@ -691,16 +707,16 @@ onUnmounted(() => {
 
 .guide-copy {
   max-width: 28ch;
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: var(--hl-ink);
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .guide-button,
 .score-button {
-  margin-top: 22px;
-  height: 42px;
+  margin-top: 18px;
+  height: 40px;
   padding: 0 18px;
   border: none;
   border-radius: 999px;
@@ -710,11 +726,36 @@ onUnmounted(() => {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(120, 156, 242, 0.22);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 28px rgba(120, 156, 242, 0.24);
+  }
 }
 
 .dashboard-chart {
-  height: 250px;
-  margin-top: 18px;
+  height: 220px;
+  margin-top: 16px;
+}
+
+.dashboard-card--pulse :deep(.ops-mini-bars) {
+  min-height: 138px;
+}
+
+.dashboard-card--score :deep(.ops-gauge-meter__dial) {
+  width: min(220px, 100%);
+}
+
+@keyframes dashboard-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 1180px) {
