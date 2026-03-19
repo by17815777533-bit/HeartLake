@@ -37,17 +37,7 @@
 
     <OpsMetricStrip :items="summaryItems" />
 
-    <section class="dashboard-ribbon">
-      <article
-        v-for="item in lakeSignals"
-        :key="item.label"
-        class="dashboard-ribbon__panel"
-      >
-        <span class="dashboard-ribbon__label">{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <p>{{ item.note }}</p>
-      </article>
-    </section>
+    <OpsSignalDeck :items="lakeSignals" />
 
     <CareFeedbackSection
       :stats-cards="statsCards"
@@ -98,6 +88,7 @@ import { Download, RefreshRight } from '@element-plus/icons-vue'
 import { useDashboardData } from '@/composables/useDashboardData'
 import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import ChartsSection from './dashboard/ChartsSection.vue'
 import InnovationSection from './dashboard/InnovationSection.vue'
 import LakeWeatherSection from './dashboard/LakeWeatherSection.vue'
@@ -193,16 +184,22 @@ const lakeSignals = computed(() => [
     label: '此刻湖面',
     value: `${lakeWeather.value.icon} ${lakeWeather.value.label}`,
     note: `情绪温度 ${lakeWeatherTemp.value}° · ${weatherTone.value}`,
+    badge: '实时观测',
+    tone: 'lake' as const,
   },
   {
     label: '值守时间',
     value: currentDateTime.value.split(' ').pop() || currentDateTime.value,
     note: currentDateTime.value,
+    badge: '当前时刻',
+    tone: 'sage' as const,
   },
   {
     label: '最近刷新',
     value: lastUpdateTime.value,
     note: '趋势、触达与热门内容已同步',
+    badge: `窗口 ${chartRange.value} 天`,
+    tone: 'amber' as const,
   },
 ])
 
@@ -257,54 +254,6 @@ onUnmounted(() => {
 .dashboard {
   min-height: 100%;
   padding: 8px 0 22px;
-}
-
-.dashboard-ribbon {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.dashboard-ribbon__panel {
-  position: relative;
-  padding: 18px 18px 16px;
-  border-radius: 24px;
-  border: 1px solid rgba(123, 149, 160, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 249, 0.92)),
-    radial-gradient(circle at right top, rgba(123, 160, 173, 0.12), transparent 32%);
-  box-shadow: 0 18px 32px rgba(10, 23, 31, 0.05);
-
-  strong {
-    display: block;
-    margin-top: 16px;
-    font-family: var(--hl-font-display);
-    font-size: clamp(24px, 3vw, 32px);
-    line-height: 1;
-    color: var(--hl-ink);
-  }
-
-  p {
-    margin: 10px 0 0;
-    color: var(--hl-ink-soft);
-    font-size: 13px;
-    line-height: 1.7;
-  }
-}
-
-.dashboard-ribbon__label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(17, 62, 74, 0.08);
-  color: var(--m3-primary);
-  font-family: var(--hl-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .dashboard :deep(.care-feedback-row),

@@ -1,12 +1,7 @@
 <!--
-  向量搜索 + 边缘节点面板
-
-  左列：HNSW 向量搜索工具
-  - 输入查询文本，调用后端 /admin/edge-ai/vector-search 接口
-  - 结果列表展示相似度分数和匹配内容
-
-  右列：边缘推理节点列表
-  - 展示各节点 ID、状态、负载等信息
+  检索 + 节点区重构：
+  - 左侧做成语义检索工作台
+  - 右侧把原表格换成节点卡列，更接近运营态势板
 -->
 
 <template>
@@ -14,18 +9,20 @@
     :gutter="20"
     class="charts-row"
   >
-    <!-- 向量搜索测试 -->
     <el-col
       :xs="24"
-      :md="12"
+      :lg="12"
     >
       <el-card
         shadow="hover"
         class="chart-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>内容检索</span>
+          <div class="vector-head">
+            <div>
+              <span class="vector-eyebrow">Semantic Search</span>
+              <h3>内容检索</h3>
+            </div>
             <el-tag
               type="primary"
               size="small"
@@ -54,11 +51,12 @@
               查找
             </el-button>
           </div>
+
           <div
             v-if="vectorResults.length"
             class="search-results"
           >
-            <div
+            <article
               v-for="(item, idx) in vectorResults"
               :key="idx"
               class="search-result-item"
@@ -72,10 +70,12 @@
                 </el-tag>
               </div>
               <div class="result-content">
-                {{ item.content }}
+                <strong>相似片段 {{ idx + 1 }}</strong>
+                <p>{{ item.content }}</p>
               </div>
-            </div>
+            </article>
           </div>
+
           <el-empty
             v-else-if="vectorSearched"
             description="没有找到相关内容"
@@ -85,77 +85,70 @@
       </el-card>
     </el-col>
 
-    <!-- 边缘节点列表 -->
     <el-col
       :xs="24"
-      :md="12"
+      :lg="12"
     >
       <el-card
         shadow="hover"
         class="chart-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>服务节点</span>
+          <div class="vector-head">
+            <div>
+              <span class="vector-eyebrow">Node Mesh</span>
+              <h3>服务节点</h3>
+            </div>
             <el-tag size="small">
               {{ edgeNodes.length }} 个节点
             </el-tag>
           </div>
         </template>
-        <el-table
-          :data="edgeNodes"
-          stripe
-          style="width: 100%"
-          max-height="320"
-          size="small"
-        >
-          <el-table-column
-            prop="nodeId"
-            label="编号"
-            width="100"
-          />
-          <el-table-column
-            prop="name"
-            label="名称"
-            min-width="100"
-          />
-          <el-table-column
-            label="状态"
-            width="80"
+
+        <div class="node-list">
+          <article
+            v-for="node in edgeNodes"
+            :key="node.nodeId"
+            class="node-card"
           >
-            <template #default="{ row }">
+            <div class="node-card__top">
+              <div>
+                <strong>{{ node.name }}</strong>
+                <span>{{ node.nodeId }}</span>
+              </div>
               <el-tag
-                :type="row.status === 'online' ? 'success' : row.status === 'busy' ? 'warning' : 'danger'"
+                :type="node.status === 'online' ? 'success' : node.status === 'busy' ? 'warning' : 'danger'"
                 size="small"
               >
-                {{ row.status === 'online' ? '在线' : row.status === 'busy' ? '繁忙' : '离线' }}
+                {{ node.status === 'online' ? '在线' : node.status === 'busy' ? '繁忙' : '离线' }}
               </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="忙碌度"
-            width="100"
-          >
-            <template #default="{ row }">
-              <el-progress
-                :percentage="row.load"
-                :stroke-width="6"
-                :show-text="true"
-                :color="row.load > 80 ? '#C62828' : row.load > 50 ? '#E65100' : '#2E7D32'"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column
-            label="响应"
-            width="80"
-          >
-            <template #default="{ row }">
-              <span :style="{ color: row.latency > 100 ? '#C62828' : row.latency > 50 ? '#E65100' : '#2E7D32' }">
-                {{ row.latency }}ms
-              </span>
-            </template>
-          </el-table-column>
-        </el-table>
+            </div>
+
+            <div class="node-card__metrics">
+              <div class="node-chip">
+                <span>忙碌度</span>
+                <strong>{{ node.load }}%</strong>
+              </div>
+              <div class="node-chip">
+                <span>响应</span>
+                <strong>{{ node.latency }}ms</strong>
+              </div>
+            </div>
+
+            <el-progress
+              :percentage="node.load"
+              :stroke-width="8"
+              :show-text="false"
+              :color="node.load > 80 ? '#a5483e' : node.load > 50 ? '#b67a42' : '#4d8f6b'"
+            />
+          </article>
+
+          <el-empty
+            v-if="!edgeNodes.length"
+            description="暂无节点数据"
+            :image-size="72"
+          />
+        </div>
       </el-card>
     </el-col>
   </el-row>
@@ -190,3 +183,140 @@ defineEmits<{
   (e: 'search'): void
 }>()
 </script>
+
+<style scoped lang="scss">
+.vector-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  h3 {
+    margin: 8px 0 0;
+    color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.08;
+  }
+}
+
+.vector-eyebrow {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.vector-search-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.search-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.search-results,
+.node-list {
+  display: grid;
+  gap: 14px;
+}
+
+.search-result-item,
+.node-card {
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.search-result-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.result-content {
+  strong {
+    display: block;
+    color: var(--hl-ink);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: var(--hl-ink-soft);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+}
+
+.node-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  strong {
+    display: block;
+    color: var(--hl-ink);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  span {
+    display: block;
+    margin-top: 6px;
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+  }
+}
+
+.node-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.node-chip {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(17, 62, 74, 0.05);
+
+  span {
+    display: block;
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+  }
+
+  strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--hl-ink);
+    font-size: 15px;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 900px) {
+  .vector-head {
+    flex-direction: column;
+  }
+
+  .search-input-row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

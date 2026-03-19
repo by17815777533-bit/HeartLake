@@ -30,17 +30,7 @@
 
     <OpsMetricStrip :items="summaryItems" />
 
-    <section class="edge-ai-ribbon">
-      <article
-        v-for="item in edgeSignals"
-        :key="item.label"
-        class="edge-ai-ribbon__panel"
-      >
-        <span class="edge-ai-ribbon__label">{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <p>{{ item.note }}</p>
-      </article>
-    </section>
+    <OpsSignalDeck :items="edgeSignals" />
 
     <PerformanceSection
       :performance-metrics="performanceMetrics"
@@ -93,6 +83,7 @@ import api from '@/api'
 import dayjs from 'dayjs'
 import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import PerformanceSection from './edge-ai/PerformanceSection.vue'
 import FederatedPrivacySection from './edge-ai/FederatedPrivacySection.vue'
@@ -174,40 +165,45 @@ const emotionTrendLabel = computed(() => {
 const emotionGaugeOption = computed(() => ({
   series: [{
     type: 'gauge',
-    center: ['50%', '60%'],
-    radius: '90%',
-    startAngle: 200,
-    endAngle: -20,
+    center: ['50%', '58%'],
+    radius: '92%',
+    startAngle: 210,
+    endAngle: -30,
     min: 0,
     max: 100,
-    splitNumber: 10,
+    splitNumber: 8,
     axisLine: {
       lineStyle: {
-        width: 16,
+        width: 18,
         color: [
-          [0.3, '#315b6f'],
+          [0.25, '#6f9dab'],
           [0.5, '#4d8f6b'],
-          [0.7, '#b67a42'],
+          [0.75, '#d09a54'],
           [1, '#a35f5f'],
         ],
       },
     },
     pointer: {
-      icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-      length: '55%',
-      width: 8,
+      icon: 'path://M10 0 L20 42 L0 42 Z',
+      length: '54%',
+      width: 10,
       offsetCenter: [0, '-10%'],
-      itemStyle: { color: 'auto' },
+      itemStyle: { color: '#1f3942' },
     },
-    axisTick: { length: 8, lineStyle: { color: 'auto', width: 1.5 } },
-    splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.5 } },
-    axisLabel: { color: '#52606c', fontSize: 10, distance: -40 },
-    title: { offsetCenter: [0, '75%'], fontSize: 13, color: '#52606c' },
+    anchor: {
+      show: true,
+      size: 14,
+      itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
+    },
+    axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
+    splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
+    axisLabel: { color: '#5f7882', fontSize: 10, distance: -42 },
+    title: { offsetCenter: [0, '22%'], fontSize: 13, color: '#5f7882' },
     detail: {
-      fontSize: 28,
-      offsetCenter: [0, '45%'],
+      fontSize: 30,
+      offsetCenter: [0, '48%'],
       valueAnimation: true,
-      color: 'auto',
+      color: '#213840',
       formatter: '{value}°',
     },
     data: [{ value: emotionPulse.temperature, name: '情绪温度' }],
@@ -215,28 +211,38 @@ const emotionGaugeOption = computed(() => ({
 }))
 
 const emotionPulseLineOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { top: 20, right: 20, bottom: 30, left: 45 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: 'rgba(15, 28, 34, 0.92)',
+    borderColor: 'rgba(208, 221, 226, 0.16)',
+    borderWidth: 1,
+    textStyle: { color: '#edf5f7', fontSize: 12 },
+    padding: [10, 12],
+    extraCssText: 'box-shadow: 0 16px 34px rgba(2, 10, 14, 0.22); border-radius: 14px;',
+  },
+  grid: { top: 24, right: 20, bottom: 28, left: 42 },
   xAxis: {
     type: 'category',
     data: emotionPulse.timestamps,
-    axisLabel: { color: '#52606c', fontSize: 10 },
-    axisLine: { lineStyle: { color: '#c4d0d5' } },
+    boundaryGap: false,
+    axisLabel: { color: '#5f7882', fontSize: 10 },
+    axisLine: { lineStyle: { color: '#b8c7cd' } },
   },
   yAxis: {
     type: 'value',
     min: 0,
     max: 100,
-    axisLabel: { color: '#52606c', fontSize: 10 },
-    splitLine: { lineStyle: { color: '#d8e0e3' } },
+    axisLabel: { color: '#5f7882', fontSize: 10 },
+    splitLine: { lineStyle: { color: 'rgba(89, 118, 129, 0.12)' } },
   },
   series: [{
     type: 'line',
     data: emotionPulse.history,
     smooth: true,
     symbol: 'circle',
-    symbolSize: 6,
-    lineStyle: { color: '#315b6f', width: 2 },
+    showSymbol: false,
+    symbolSize: 7,
+    lineStyle: { color: '#315b6f', width: 2.6 },
     itemStyle: { color: '#315b6f' },
     areaStyle: {
       color: {
@@ -246,7 +252,7 @@ const emotionPulseLineOption = computed(() => ({
         x2: 0,
         y2: 1,
         colorStops: [
-          { offset: 0, color: 'rgba(49,91,111,0.24)' },
+          { offset: 0, color: 'rgba(49,91,111,0.26)' },
           { offset: 1, color: 'rgba(49,91,111,0.02)' },
         ],
       },
@@ -282,14 +288,27 @@ const privacyBudgetColor = computed(() => {
 })
 
 const privacyPieOption = computed(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: ε={c} ({d}%)' },
-  legend: { bottom: 0, textStyle: { color: '#52606c', fontSize: 11 } },
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: 'rgba(15, 28, 34, 0.92)',
+    borderColor: 'rgba(208, 221, 226, 0.16)',
+    borderWidth: 1,
+    textStyle: { color: '#edf5f7', fontSize: 12 },
+    padding: [10, 12],
+    formatter: '{b}: ε={c} ({d}%)',
+  },
+  legend: {
+    bottom: 0,
+    icon: 'circle',
+    itemGap: 16,
+    textStyle: { color: '#5f7882', fontSize: 11 },
+  },
   series: [{
     type: 'pie',
-    radius: ['40%', '65%'],
-    center: ['50%', '45%'],
+    radius: ['50%', '74%'],
+    center: ['50%', '42%'],
     avoidLabelOverlap: true,
-    itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+    itemStyle: { borderRadius: 12, borderColor: '#f8fbfc', borderWidth: 3 },
     label: { show: false },
     emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
     data: privacy.allocation.length > 0
@@ -396,16 +415,22 @@ const edgeSignals = computed(() => [
     label: '最后巡看',
     value: lastUpdateTime.value,
     note: `${currentTime.value} 已同步关键面板`,
+    badge: '巡看完成',
+    tone: 'lake' as const,
   },
   {
     label: '情绪水温',
     value: `${emotionPulse.temperature}°`,
     note: `${emotionTrendLabel.value} · 最近波动持续观察中`,
+    badge: '每 30 秒更新',
+    tone: 'amber' as const,
   },
   {
     label: '在线节点',
     value: formatCount(engineStatus.activeNodes),
     note: `累计调用 ${formatCount(engineStatus.inferenceCount)} 次`,
+    badge: engineStatus.enabled ? '引擎运行中' : '需要检查',
+    tone: 'sage' as const,
   },
 ])
 
@@ -688,53 +713,6 @@ onUnmounted(() => {
 .edge-ai {
   min-height: 100%;
   padding: 8px 0 22px;
-}
-
-.edge-ai-ribbon {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.edge-ai-ribbon__panel {
-  padding: 18px 18px 16px;
-  border-radius: 24px;
-  border: 1px solid rgba(123, 149, 160, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 248, 249, 0.92)),
-    radial-gradient(circle at right top, rgba(182, 122, 66, 0.12), transparent 30%);
-  box-shadow: 0 18px 32px rgba(10, 23, 31, 0.05);
-
-  strong {
-    display: block;
-    margin-top: 16px;
-    font-family: var(--hl-font-display);
-    font-size: clamp(24px, 3vw, 32px);
-    line-height: 1;
-    color: var(--hl-ink);
-  }
-
-  p {
-    margin: 10px 0 0;
-    color: var(--hl-ink-soft);
-    font-size: 13px;
-    line-height: 1.7;
-  }
-}
-
-.edge-ai-ribbon__label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(17, 62, 74, 0.08);
-  color: var(--m3-primary);
-  font-family: var(--hl-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .edge-ai :deep(.charts-row),

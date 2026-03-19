@@ -1,22 +1,15 @@
 <!--
-  创新功能区 -- 三列布局展示心湖核心技术指标
-
-  左列：差分隐私预算（epsilon 消耗进度条 + 查询次数 + 受保护用户数）
-  中列：DTW 情绪共鸣统计（今日匹配数 + 平均分 + 主导情绪 + 成功率）
-  右列：情绪温度仪表盘（0-100 度 gauge 图表）
-
-  隐私预算进度条颜色随消耗比例变化：<50% 绿色 / 50-80% 橙色 / >80% 红色
+  创新功能区重构：
+  - 三张卡统一成“安全 / 回应 / 氛围”三段式值守面板
+  - 既保留原数据，又强化说明和层次
 -->
-
 <template>
   <el-row
     :gutter="20"
-    class="charts-row"
+    class="charts-row innovation-row"
   >
-    <!-- 隐私保护统计 -->
     <el-col
       :xs="24"
-      :sm="12"
       :md="8"
     >
       <el-card
@@ -24,43 +17,45 @@
         class="chart-card innovation-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>安全保护概览</span>
+          <div class="innovation-head">
+            <div>
+              <span class="innovation-eyebrow">Safety Budget</span>
+              <h3>安全保护概览</h3>
+            </div>
+            <span class="innovation-note">今日额度</span>
           </div>
         </template>
         <div
           v-loading="privacyLoading"
-          class="innovation-stats"
+          class="innovation-body"
         >
-          <div class="inno-stat-item">
-            <span class="inno-label">今日查询次数</span>
-            <span class="inno-value">{{ formatNumber(privacyStats.queryCount) }}</span>
+          <div class="innovation-stat">
+            <span>今日查询次数</span>
+            <strong>{{ formatNumber(privacyStats.queryCount) }}</strong>
           </div>
-          <div class="inno-stat-item">
-            <span class="inno-label">保护额度使用</span>
-            <span class="inno-value epsilon">{{ (privacyStats.epsilonUsed ?? 0).toFixed(2) }} / {{ (privacyStats.epsilonTotal ?? 0).toFixed(1) }}</span>
+          <div class="innovation-stat innovation-stat--stack">
+            <span>保护额度使用</span>
+            <strong>{{ (privacyStats.epsilonUsed ?? 0).toFixed(2) }} / {{ (privacyStats.epsilonTotal ?? 0).toFixed(1) }}</strong>
           </div>
           <div class="budget-bar">
             <el-progress
               :percentage="privacyBudgetPercent"
               :color="privacyBudgetColor"
-              :stroke-width="10"
+              :stroke-width="12"
               :show-text="true"
               :format="() => privacyBudgetPercent.toFixed(1) + '%'"
             />
           </div>
-          <div class="inno-stat-item">
-            <span class="inno-label">受保护用户</span>
-            <span class="inno-value">{{ formatNumber(privacyStats.protectedUsers) }}</span>
+          <div class="innovation-stat">
+            <span>受保护用户</span>
+            <strong>{{ formatNumber(privacyStats.protectedUsers) }}</strong>
           </div>
         </div>
       </el-card>
     </el-col>
 
-    <!-- 情绪共鸣统计 -->
     <el-col
       :xs="24"
-      :sm="12"
       :md="8"
     >
       <el-card
@@ -68,59 +63,61 @@
         class="chart-card innovation-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>关怀回应概览</span>
+          <div class="innovation-head">
+            <div>
+              <span class="innovation-eyebrow">Resonance Match</span>
+              <h3>关怀回应概览</h3>
+            </div>
+            <span class="innovation-note">今日匹配</span>
           </div>
         </template>
         <div
           v-loading="resonanceLoading"
-          class="innovation-stats"
+          class="innovation-body"
         >
-          <div class="inno-stat-item">
-            <span class="inno-label">今日有效回应</span>
-            <span class="inno-value">{{ formatNumber(resonanceStats.todayMatches) }}</span>
+          <div class="innovation-stat">
+            <span>今日有效回应</span>
+            <strong>{{ formatNumber(resonanceStats.todayMatches) }}</strong>
           </div>
-          <div class="inno-stat-item">
-            <span class="inno-label">平均回应评分</span>
-            <span class="inno-value highlight">{{ (resonanceStats.avgScore ?? 0).toFixed(1) }}</span>
+          <div class="innovation-grid">
+            <article class="innovation-mini">
+              <span>平均评分</span>
+              <strong>{{ (resonanceStats.avgScore ?? 0).toFixed(1) }}</strong>
+            </article>
+            <article class="innovation-mini">
+              <span>主导情绪</span>
+              <strong>{{ resonanceStats.topMood || '暂无' }}</strong>
+            </article>
           </div>
-          <div class="inno-stat-item">
-            <span class="inno-label">最常见情绪</span>
-            <el-tag
-              size="small"
-              type="primary"
-            >
-              {{ resonanceStats.topMood || '暂无' }}
-            </el-tag>
-          </div>
-          <div class="inno-stat-item">
-            <span class="inno-label">回应完成率</span>
-            <span class="inno-value">{{ (resonanceStats.successRate ?? 0).toFixed(1) }}%</span>
+          <div class="innovation-stat">
+            <span>回应完成率</span>
+            <strong>{{ (resonanceStats.successRate ?? 0).toFixed(1) }}%</strong>
           </div>
         </div>
       </el-card>
     </el-col>
 
-    <!-- 情绪脉搏 -->
     <el-col
       :xs="24"
-      :sm="24"
       :md="8"
     >
       <el-card
         shadow="hover"
-        class="chart-card innovation-card"
+        class="chart-card innovation-card innovation-card--pulse"
       >
         <template #header>
-          <div class="card-header">
-            <span>社区氛围</span>
-            <span class="pulse-hint">每30秒更新</span>
+          <div class="innovation-head">
+            <div>
+              <span class="innovation-eyebrow">Pulse Gauge</span>
+              <h3>社区氛围</h3>
+            </div>
+            <span class="innovation-note">30 秒更新</span>
           </div>
         </template>
         <v-chart
           :option="emotionPulseOption"
           autoresize
-          style="height: 260px"
+          class="pulse-chart"
           role="img"
           aria-label="湖面情绪温度仪表盘"
         />
@@ -157,3 +154,113 @@ defineProps<{
   formatNumber: (num: number) => string
 }>()
 </script>
+
+<style scoped lang="scss">
+.innovation-row {
+  margin-bottom: 20px;
+}
+
+.innovation-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.innovation-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at right top, rgba(182, 122, 66, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 48%);
+}
+
+.innovation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+
+  h3 {
+    margin: 8px 0 0;
+    color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.08;
+  }
+}
+
+.innovation-eyebrow {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.innovation-note {
+  color: var(--hl-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.innovation-body {
+  display: grid;
+  gap: 16px;
+}
+
+.innovation-stat,
+.innovation-mini {
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.64);
+
+  span {
+    display: block;
+    color: var(--hl-ink-soft);
+    font-size: 12px;
+  }
+
+  strong {
+    display: block;
+    margin-top: 8px;
+    color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(24px, 3vw, 30px);
+    line-height: 1.04;
+  }
+}
+
+.innovation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.budget-bar {
+  padding: 4px 2px 0;
+}
+
+.pulse-chart {
+  height: 290px;
+}
+
+@media (max-width: 900px) {
+  .innovation-head {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .innovation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

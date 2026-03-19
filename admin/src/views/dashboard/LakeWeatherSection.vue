@@ -1,9 +1,7 @@
 <!--
-  湖面天气面板 -- 将情绪温度映射为天气隐喻
-
-  左侧：天气卡片（图标 + 标签 + 描述 + 温度值），背景渐变色随天气变化
-    - >60° 晴朗（社区积极）/ >30° 多云（社区平稳）/ >10° 小雨（社区低落）/ <=10° 暴风雨（社区消极）
-  右侧：心情分布缩略饼图，复用 moodDistribution 数据
+  湖面天气区重构：
+  - 左侧做成更有氛围感的天气观测卡
+  - 右侧饼图容器和标题说明统一提升
 -->
 
 <template>
@@ -13,16 +11,18 @@
   >
     <el-col
       :xs="24"
-      :sm="24"
-      :md="10"
+      :lg="10"
     >
       <el-card
         shadow="hover"
         class="chart-card lake-weather-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>🌤️ 湖面天气</span>
+          <div class="weather-head">
+            <div>
+              <span class="weather-eyebrow">Lake Forecast</span>
+              <h3>湖面天气</h3>
+            </div>
             <el-tag
               size="small"
               :color="lakeWeather.color"
@@ -33,6 +33,7 @@
             </el-tag>
           </div>
         </template>
+
         <div class="lake-weather-content">
           <div
             class="weather-display"
@@ -53,6 +54,7 @@
               </div>
             </div>
           </div>
+
           <div class="weather-scale">
             <div class="scale-bar">
               <div
@@ -73,7 +75,7 @@
               />
               <div
                 class="scale-pointer"
-                :style="{ left: lakeWeatherTemp + '%' }"
+                :style="{ left: `${lakeWeatherTemp}%` }"
               />
             </div>
             <div class="scale-labels">
@@ -86,25 +88,28 @@
         </div>
       </el-card>
     </el-col>
+
     <el-col
       :xs="24"
-      :sm="24"
-      :md="14"
+      :lg="14"
     >
       <el-card
         shadow="hover"
         class="chart-card lake-weather-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>🎭 心情分布</span>
-            <span class="pulse-hint">基于情绪脉搏数据</span>
+          <div class="weather-head">
+            <div>
+              <span class="weather-eyebrow">Mood Atmosphere</span>
+              <h3>心情分布</h3>
+            </div>
+            <span class="weather-note">基于情绪脉搏数据</span>
           </div>
         </template>
         <v-chart
           :option="weatherMoodPieOption"
           autoresize
-          style="height: 280px"
+          class="weather-chart"
         />
       </el-card>
     </el-col>
@@ -128,3 +133,148 @@ defineProps<{
   weatherMoodPieOption: Record<string, unknown>
 }>()
 </script>
+
+<style scoped lang="scss">
+.lake-weather-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.weather-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  h3 {
+    margin: 8px 0 0;
+    color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.08;
+  }
+}
+
+.weather-eyebrow {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.weather-note {
+  color: var(--hl-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lake-weather-content {
+  display: grid;
+  gap: 18px;
+}
+
+.weather-display {
+  position: relative;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 18px;
+  align-items: center;
+  min-height: 220px;
+  padding: 26px;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.weather-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.28);
+  font-size: 52px;
+  backdrop-filter: blur(10px);
+}
+
+.weather-temp {
+  color: #fff;
+  font-family: var(--hl-font-display);
+  font-size: clamp(44px, 5vw, 62px);
+  line-height: 0.95;
+}
+
+.weather-label {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.weather-desc {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.weather-scale {
+  padding: 8px 2px 0;
+}
+
+.scale-bar {
+  position: relative;
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(126, 149, 158, 0.12);
+}
+
+.scale-segment.storm { background: #8a4f46; }
+.scale-segment.rain { background: #5b8f9d; }
+.scale-segment.cloudy { background: #8fb0ba; }
+.scale-segment.sunny { background: #d9a75f; }
+
+.scale-pointer {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid #173740;
+  transform: translate(-50%, -50%);
+}
+
+.scale-labels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--hl-ink-soft);
+  font-size: 11px;
+}
+
+.weather-chart {
+  height: 300px;
+}
+
+@media (max-width: 900px) {
+  .weather-head {
+    flex-direction: column;
+  }
+
+  .weather-display {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -1,13 +1,6 @@
 <!--
-  AI 工具箱 -- 在线调试情感分析和内容审核引擎
-
-  左列：情感分析测试
-  - 输入文本 → 调用 POST /admin/edge-ai/analyze → 展示情感分数/类别/置信度
-
-  右列：内容审核测试
-  - 输入文本 → 调用 POST /admin/edge-ai/moderate → 展示通过/拒绝/风险等级/原因
-
-  两个工具独立运行，方便管理员快速验证引擎效果
+  工具箱区重构：
+  - 情感分析和内容审核统一为两张实验卡
 -->
 
 <template>
@@ -15,25 +8,25 @@
     :gutter="20"
     class="section-row"
   >
-    <!-- 情感分析测试 -->
     <el-col
       :xs="24"
-      :md="12"
+      :lg="12"
     >
       <el-card
         shadow="hover"
-        class="module-card"
+        class="module-card toolbox-card"
       >
         <template #header>
-          <div class="card-header">
+          <div class="tool-head">
             <span><el-icon><DataAnalysis /></el-icon> 情绪判断</span>
+            <span class="tool-note">实验台</span>
           </div>
         </template>
         <div class="ai-tool-panel">
           <el-input
             v-model="sentimentTool.text"
             type="textarea"
-            :rows="3"
+            :rows="4"
             placeholder="输入内容，看看整体情绪..."
             maxlength="500"
             show-word-limit
@@ -42,7 +35,7 @@
             type="primary"
             :loading="sentimentTool.loading"
             :disabled="!sentimentTool.text.trim()"
-            style="margin-top: 12px"
+            class="tool-action"
             @click="$emit('analyzeSentiment')"
           >
             开始判断
@@ -65,7 +58,7 @@
               <el-progress
                 :percentage="Math.round((sentimentTool.result.confidence || 0) * 100)"
                 :stroke-width="10"
-                :color="(sentimentTool.result.confidence || 0) > 0.8 ? '#2E7D32' : '#E65100'"
+                :color="(sentimentTool.result.confidence || 0) > 0.8 ? '#4d8f6b' : '#b67a42'"
               />
             </div>
             <div
@@ -89,25 +82,25 @@
       </el-card>
     </el-col>
 
-    <!-- 内容审核测试 -->
     <el-col
       :xs="24"
-      :md="12"
+      :lg="12"
     >
       <el-card
         shadow="hover"
-        class="module-card"
+        class="module-card toolbox-card"
       >
         <template #header>
-          <div class="card-header">
+          <div class="tool-head">
             <span><el-icon><CircleCheck /></el-icon> 内容检查</span>
+            <span class="tool-note">实验台</span>
           </div>
         </template>
         <div class="ai-tool-panel">
           <el-input
             v-model="moderationTool.text"
             type="textarea"
-            :rows="3"
+            :rows="4"
             placeholder="输入内容，检查是否需要关注..."
             maxlength="500"
             show-word-limit
@@ -116,7 +109,7 @@
             type="primary"
             :loading="moderationTool.loading"
             :disabled="!moderationTool.text.trim()"
-            style="margin-top: 12px"
+            class="tool-action"
             @click="$emit('moderateContent')"
           >
             开始检查
@@ -191,3 +184,67 @@ defineEmits<{
   (e: 'moderateContent'): void
 }>()
 </script>
+
+<style scoped lang="scss">
+.toolbox-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--hl-ink);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tool-note {
+  color: var(--hl-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-tool-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.tool-action {
+  width: fit-content;
+}
+
+.tool-result {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(123, 149, 160, 0.14);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.result-item {
+  display: grid;
+  gap: 10px;
+}
+
+.result-label {
+  color: var(--hl-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.emotion-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reason-text {
+  color: var(--hl-ink);
+  font-size: 13px;
+  line-height: 1.7;
+}
+</style>

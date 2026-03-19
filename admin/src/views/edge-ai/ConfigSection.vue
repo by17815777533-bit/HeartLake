@@ -1,10 +1,6 @@
 <!--
-  EdgeAI 引擎配置管理面板
-
-  表单字段：
-  - 推理超时(ms)、最大批处理大小、缓存开关及 TTL
-  - 联邦学习开关、隐私 epsilon 值、情绪模型选择、向量搜索开关
-  保存调用 PUT /admin/edge-ai/config，重置从 GET /admin/edge-ai/config 重新加载
+  配置区重构：
+  - 表单分组更像一张策略面板，而不是默认设置页
 -->
 
 <template>
@@ -15,11 +11,14 @@
     <el-col :span="24">
       <el-card
         shadow="hover"
-        class="chart-card"
+        class="chart-card config-card"
       >
         <template #header>
-          <div class="card-header">
-            <span>辅助功能设置</span>
+          <div class="config-head">
+            <div>
+              <span class="config-eyebrow">Engine Policy</span>
+              <h3>辅助功能设置</h3>
+            </div>
             <el-tag
               type="info"
               size="small"
@@ -44,18 +43,9 @@
                   v-model="edgeConfig.inferenceEngine"
                   style="width: 100%"
                 >
-                  <el-option
-                    label="ONNX Runtime"
-                    value="onnx"
-                  />
-                  <el-option
-                    label="TensorFlow Lite"
-                    value="tflite"
-                  />
-                  <el-option
-                    label="WASM"
-                    value="wasm"
-                  />
+                  <el-option label="ONNX Runtime" value="onnx" />
+                  <el-option label="TensorFlow Lite" value="tflite" />
+                  <el-option label="WASM" value="wasm" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -68,18 +58,9 @@
                   v-model="edgeConfig.cacheStrategy"
                   style="width: 100%"
                 >
-                  <el-option
-                    label="LRU"
-                    value="lru"
-                  />
-                  <el-option
-                    label="LFU"
-                    value="lfu"
-                  />
-                  <el-option
-                    label="TTL"
-                    value="ttl"
-                  />
+                  <el-option label="LRU" value="lru" />
+                  <el-option label="LFU" value="lfu" />
+                  <el-option label="TTL" value="ttl" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -148,18 +129,9 @@
                   v-model="edgeConfig.emotionModel"
                   style="width: 100%"
                 >
-                  <el-option
-                    label="轻量级 (Fast)"
-                    value="fast"
-                  />
-                  <el-option
-                    label="标准 (Standard)"
-                    value="standard"
-                  />
-                  <el-option
-                    label="高精度 (Accurate)"
-                    value="accurate"
-                  />
+                  <el-option label="轻量级 (Fast)" value="fast" />
+                  <el-option label="标准 (Standard)" value="standard" />
+                  <el-option label="高精度 (Accurate)" value="accurate" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -213,3 +185,56 @@ defineEmits<{
   (e: 'reset'): void
 }>()
 </script>
+
+<style scoped lang="scss">
+.config-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.config-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  h3 {
+    margin: 8px 0 0;
+    color: var(--hl-ink);
+    font-family: var(--hl-font-display);
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.08;
+  }
+}
+
+.config-eyebrow {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(17, 62, 74, 0.08);
+  color: var(--m3-primary);
+  font-family: var(--hl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.config-form {
+  padding-top: 2px;
+}
+
+.config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .config-head {
+    flex-direction: column;
+  }
+}
+</style>

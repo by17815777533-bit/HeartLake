@@ -103,20 +103,31 @@ export function useDashboardData() {
     const moodData = charts.moodDistributionOption.value.series[0].data
     return {
       tooltip: {
-        trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
-        borderRadius: 4, padding: [6, 10], textStyle: { color: '#E3E2E6', fontSize: 12 },
+        trigger: 'item',
+        backgroundColor: 'rgba(15, 28, 34, 0.92)',
+        borderColor: 'rgba(208, 221, 226, 0.16)',
+        borderRadius: 14,
+        padding: [8, 12],
+        textStyle: { color: '#edf5f7', fontSize: 12 },
         formatter: (p: { marker: string; name: string; percent: number }) => {
           const name = escapeHtml(p.name)
           return `${p.marker} ${name}: ${Number(p.percent).toFixed(1)}%`
         }
       },
+      legend: {
+        bottom: 0,
+        icon: 'circle',
+        itemGap: 18,
+        textStyle: { color: '#5f7882', fontSize: 12 },
+      },
       series: [{
-        type: 'pie', radius: ['50%', '75%'], center: ['50%', '50%'],
-        itemStyle: { borderRadius: 3, borderColor: '#fff', borderWidth: 1 },
+        type: 'pie', radius: ['58%', '80%'], center: ['50%', '42%'],
+        padAngle: 2,
+        itemStyle: { borderRadius: 10, borderColor: '#f8fbfc', borderWidth: 3 },
         label: { show: false },
         emphasis: {
-          label: { show: true, fontSize: 11, fontWeight: '500', color: '#1C1B1F' },
-          itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' }
+          label: { show: true, fontSize: 12, fontWeight: '600', color: '#1C1B1F' },
+          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.16)' }
         },
         data: moodData.length ? moodData : moodNames.map((name, i) => ({
           value: [30, 25, 20, 15, 10][i], name,

@@ -1,151 +1,332 @@
 /**
  * Dashboard 图表配置工厂，提供各类 ECharts option 的响应式引用。
  *
- * 所有 option 均为 ref 包装，loader 直接修改 .value 内部字段即可触发 ECharts 重绘。
- * 配色方案遵循 Material Design 3 色板，暗色模式下由 CSS 变量自动适配。
- *
- * 导出的常量（moodColors / moodNames / moodGradients）供 loader 和子组件共享，
- * 避免在多处硬编码情绪类型与色值的映射关系。
+ * 这一版把图表语言统一成“值守台”风格：
+ * - 更克制的坐标轴与网格
+ * - 更有层次的面积渐变
+ * - 更柔和但不发灰的湖面色板
+ * - tooltip / legend / 数据点的细节统一
  */
 import { ref } from 'vue'
 import type { EChartsTooltipParam } from '@/types'
 
-/**
- * 转义 HTML 特殊字符，防止 tooltip formatter 中的 XSS。
- * ECharts tooltip 默认使用 innerHTML 渲染，外部数据必须转义。
- */
 const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c => ({
   '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
 }[c] ?? c))
 
-/** 五种情绪类型对应的主色 */
-export const moodColors = ['#1565C0', '#2E7D32', '#BA1A1A', '#E65100', '#44474E']
-/** 情绪类型中文名，顺序与 moodColors 一一对应 */
+export const moodColors = ['#2f6b78', '#4d8f6b', '#b67a42', '#a35f5f', '#7a8793']
 export const moodNames = ['开心', '平静', '难过', '焦虑', '其他']
-/** 饼图渐变色对，start → end 方向为左上到右下 */
 export const moodGradients = [
-  { start: '#1565C0', end: '#0D47A1' },
-  { start: '#2E7D32', end: '#1B5E20' },
-  { start: '#BA1A1A', end: '#8B0000' },
-  { start: '#E65100', end: '#BF360C' },
-  { start: '#44474E', end: '#2B2B2F' },
+  { start: '#77b6c4', end: '#2f6b78' },
+  { start: '#87ba95', end: '#4d8f6b' },
+  { start: '#e6bb7f', end: '#b67a42' },
+  { start: '#d48c8c', end: '#a35f5f' },
+  { start: '#b7c2ca', end: '#7a8793' },
 ]
 
-/**
- * 创建 Dashboard 所有图表的 ECharts option 响应式引用。
- *
- * @returns 六个 ref 对象，分别对应用户增长折线、情绪趋势多线、
- *          情绪分布饼图、活跃时段柱状、情绪温度仪表盘、情绪三维趋势折线
- */
+const axisLineColor = '#b8c7cd'
+const splitLineColor = 'rgba(89, 118, 129, 0.12)'
+const axisLabelColor = '#5f7882'
+const tooltipBase = {
+  trigger: 'axis',
+  backgroundColor: 'rgba(15, 28, 34, 0.92)',
+  borderColor: 'rgba(208, 221, 226, 0.16)',
+  borderWidth: 1,
+  textStyle: { color: '#edf5f7', fontSize: 12 },
+  padding: [10, 12],
+  extraCssText: 'box-shadow: 0 16px 34px rgba(2, 10, 14, 0.22); border-radius: 14px;',
+} as const
+
+const softGrid = { left: 48, right: 18, top: 26, bottom: 34 }
+const softAxis = {
+  axisLine: { lineStyle: { color: axisLineColor } },
+  axisLabel: { color: axisLabelColor, fontSize: 11 },
+}
+
+const lineArea = (from: string, to: string) => ({
+  color: {
+    type: 'linear',
+    x: 0,
+    y: 0,
+    x2: 0,
+    y2: 1,
+    colorStops: [
+      { offset: 0, color: from },
+      { offset: 1, color: to },
+    ],
+  },
+})
+
 export function useChartOptions() {
-  /** 用户增长折线图 -- 单线 + 面积渐变 */
   const userGrowthOption = ref({
     tooltip: {
-      trigger: 'axis',
-      backgroundColor: '#2B2B2F',
-      borderColor: '#44474E',
-      textStyle: { color: '#E3E2E6' },
+      ...tooltipBase,
       formatter: (params: EChartsTooltipParam[]) => {
-        const p = params[0]
-        const name = escapeHtml(p.name)
-        return `<div style="font-weight:500">${name}</div><div style="color:#A8C8FF">新增 ${Number(p.value)} 人</div>`
-      }
+        const point = params[0]
+        const name = escapeHtml(point?.name ?? '')
+        return `<div style="font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">${name}</div><div style="color:#9ed0db;">新增 ${Number(point?.value ?? 0)} 位旅人</div>`
+      },
     },
-    grid: { left: 50, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
+    grid: softGrid,
+    xAxis: {
+      type: 'category',
+      data: [],
+      boundaryGap: false,
+      ...softAxis,
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 4,
+      splitLine: { lineStyle: { color: splitLineColor } },
+      axisLabel: { color: axisLabelColor, fontSize: 11 },
+    },
     series: [{
-      name: '新增用户', type: 'line', smooth: true, symbol: 'circle', symbolSize: 6, data: [],
-      areaStyle: { opacity: 0.2, color: '#1565C0' },
-      itemStyle: { color: '#1565C0', borderWidth: 2, borderColor: '#fff' },
-      lineStyle: { color: '#1565C0', width: 2 },
+      name: '新增用户',
+      type: 'line',
+      smooth: 0.35,
+      symbol: 'circle',
+      symbolSize: 8,
+      showSymbol: false,
+      data: [],
+      itemStyle: {
+        color: '#2f6b78',
+        borderColor: '#f8fcfd',
+        borderWidth: 2,
+      },
+      lineStyle: { color: '#2f6b78', width: 3 },
+      areaStyle: lineArea('rgba(47, 107, 120, 0.22)', 'rgba(47, 107, 120, 0.02)'),
     }],
   })
 
-  /** 情绪趋势多线图 -- 五种情绪各一条线，按 moodNames 顺序 */
   const moodTrendOption = ref({
-    tooltip: {
-      trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E',
-      borderRadius: 4, padding: [8, 12], textStyle: { color: '#E3E2E6' }
+    tooltip: { ...tooltipBase },
+    legend: {
+      top: 0,
+      itemGap: 18,
+      icon: 'circle',
+      textStyle: { color: axisLabelColor, fontSize: 12 },
     },
-    legend: { bottom: 0, itemGap: 16, textStyle: { color: '#44474E', fontSize: 12 } },
-    grid: { left: 50, right: 20, top: 20, bottom: 50 },
-    xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
+    grid: { left: 48, right: 18, top: 46, bottom: 36 },
+    xAxis: {
+      type: 'category',
+      data: [],
+      boundaryGap: false,
+      ...softAxis,
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 4,
+      splitLine: { lineStyle: { color: splitLineColor } },
+      axisLabel: { color: axisLabelColor, fontSize: 11 },
+    },
     series: moodNames.map((name, i) => ({
-      name, type: 'line', smooth: 0.3, symbol: 'circle', symbolSize: 5, data: [],
-      itemStyle: { color: moodColors[i], borderWidth: 2, borderColor: '#fff' },
-      lineStyle: { width: 2 }, areaStyle: { opacity: 0.1, color: moodColors[i] }
-    }))
+      name,
+      type: 'line',
+      smooth: 0.3,
+      symbol: 'circle',
+      symbolSize: 6,
+      showSymbol: false,
+      data: [],
+      itemStyle: { color: moodColors[i], borderColor: '#f7fbfc', borderWidth: 2 },
+      lineStyle: { color: moodColors[i], width: 2.4 },
+      areaStyle: lineArea(`${moodColors[i]}22`, `${moodColors[i]}02`),
+    })),
   })
 
-  /** 情绪分布环形饼图 -- 初始数据为占位，loader 加载后覆盖 */
   const moodDistributionOption = ref({
     tooltip: {
-      trigger: 'item', backgroundColor: '#2B2B2F', borderColor: '#44474E',
-      borderRadius: 4, padding: [8, 12], textStyle: { color: '#E3E2E6' },
+      trigger: 'item',
+      backgroundColor: 'rgba(15, 28, 34, 0.92)',
+      borderColor: 'rgba(208, 221, 226, 0.16)',
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: [10, 12],
+      textStyle: { color: '#edf5f7', fontSize: 12 },
       formatter: (p: EChartsTooltipParam) => {
         const name = escapeHtml(p.name)
-        return `<div style="font-weight:500">${p.marker} ${name}</div><div style="color:#BCC7DC">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
-      }
+        return `<div style="font-weight:600; margin-bottom:4px;">${p.marker} ${name}</div><div style="color:#c7d8de;">${Number(p.value)} 条 · ${Number(p.percent)}%</div>`
+      },
     },
-    legend: { bottom: 0, itemGap: 16, textStyle: { color: '#44474E', fontSize: 12 } },
+    legend: {
+      bottom: 2,
+      itemGap: 18,
+      icon: 'circle',
+      textStyle: { color: axisLabelColor, fontSize: 12 },
+    },
     series: [{
-      type: 'pie', radius: ['45%', '70%'], center: ['50%', '42%'],
-      itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+      type: 'pie',
+      radius: ['55%', '78%'],
+      center: ['50%', '42%'],
+      padAngle: 2,
+      itemStyle: {
+        borderRadius: 10,
+        borderColor: '#f8fbfc',
+        borderWidth: 3,
+      },
       label: { show: false },
       emphasis: {
-        label: { show: true, fontSize: 14, fontWeight: '500', color: '#1C1B1F' },
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' }
+        scale: true,
+        scaleSize: 6,
+        label: {
+          show: true,
+          fontSize: 13,
+          fontWeight: '600',
+          color: '#1b2c33',
+        },
       },
       data: moodNames.map((name, i) => ({
-        value: [30, 25, 20, 15, 10][i], name,
-        itemStyle: { color: moodColors[i] }
-      }))
+        value: [30, 25, 20, 15, 10][i],
+        name,
+        itemStyle: { color: moodColors[i] },
+      })),
     }],
   })
 
-  /** 24 小时活跃时段柱状图 -- x 轴固定 0:00-23:00 */
   const activeTimeOption = ref({
-    tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
-    grid: { left: 50, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: Array.from({ length: 24 }, (_, i) => `${i}:00`), axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
-    series: [{ type: 'bar', data: [], itemStyle: { color: '#2E7D32', borderRadius: [2, 2, 0, 0] } }]
+    tooltip: { ...tooltipBase },
+    grid: softGrid,
+    xAxis: {
+      type: 'category',
+      data: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+      ...softAxis,
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 4,
+      splitLine: { lineStyle: { color: splitLineColor } },
+      axisLabel: { color: axisLabelColor, fontSize: 11 },
+    },
+    series: [{
+      type: 'bar',
+      barWidth: '52%',
+      data: [],
+      itemStyle: {
+        borderRadius: [10, 10, 2, 2],
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: '#7bb0bb' },
+            { offset: 1, color: '#2f6b78' },
+          ],
+        },
+      },
+    }],
   })
 
-  /** 情绪温度仪表盘 -- 0-100 度，四段色带对应冷静→焦虑 */
   const emotionPulseOption = ref({
     series: [{
-      type: 'gauge', center: ['50%', '60%'], radius: '90%',
-      startAngle: 200, endAngle: -20, min: 0, max: 100, splitNumber: 10,
-      axisLine: { lineStyle: { width: 16, color: [[0.3, '#1565C0'], [0.5, '#2E7D32'], [0.7, '#E65100'], [1, '#BA1A1A']] } },
-      pointer: { icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z', length: '55%', width: 8, offsetCenter: [0, '-10%'], itemStyle: { color: 'auto' } },
-      axisTick: { length: 6, lineStyle: { color: 'auto', width: 1 } },
-      splitLine: { length: 12, lineStyle: { color: 'auto', width: 2 } },
-      axisLabel: { color: '#44474E', fontSize: 10, distance: -40 },
-      title: { offsetCenter: [0, '20%'], fontSize: 14, color: '#44474E' },
-      detail: { fontSize: 28, offsetCenter: [0, '45%'], valueAnimation: true, color: 'auto', formatter: '{value}°' },
-      data: [{ value: 50, name: '情绪温度' }]
-    }]
+      type: 'gauge',
+      center: ['50%', '58%'],
+      radius: '92%',
+      startAngle: 210,
+      endAngle: -30,
+      min: 0,
+      max: 100,
+      splitNumber: 8,
+      axisLine: {
+        lineStyle: {
+          width: 18,
+          color: [
+            [0.25, '#6f9dab'],
+            [0.5, '#4d8f6b'],
+            [0.75, '#d09a54'],
+            [1, '#a35f5f'],
+          ],
+        },
+      },
+      pointer: {
+        icon: 'path://M10 0 L20 42 L0 42 Z',
+        length: '54%',
+        width: 10,
+        offsetCenter: [0, '-10%'],
+        itemStyle: { color: '#1f3942' },
+      },
+      anchor: {
+        show: true,
+        size: 14,
+        itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
+      },
+      axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
+      splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
+      axisLabel: { color: axisLabelColor, fontSize: 10, distance: -42 },
+      title: { offsetCenter: [0, '22%'], fontSize: 13, color: axisLabelColor },
+      detail: {
+        fontSize: 30,
+        offsetCenter: [0, '48%'],
+        valueAnimation: true,
+        color: '#213840',
+        formatter: '{value}°',
+      },
+      data: [{ value: 50, name: '情绪温度' }],
+    }],
   })
 
-  /** 情绪三维趋势折线 -- 积极/中性/消极三条线，面积渐变填充 */
   const emotionTrendsOption = ref({
-    tooltip: { trigger: 'axis', backgroundColor: '#2B2B2F', borderColor: '#44474E', textStyle: { color: '#E3E2E6' } },
-    legend: { data: ['积极', '中性', '消极'], bottom: 0, textStyle: { color: '#44474E' } },
-    grid: { left: 50, right: 20, top: 20, bottom: 40 },
-    xAxis: { type: 'category', data: [], axisLine: { lineStyle: { color: '#C4C6CF' } }, axisLabel: { color: '#44474E' } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { color: '#C4C6CF', opacity: 0.2 } }, axisLabel: { color: '#44474E' } },
+    tooltip: { ...tooltipBase },
+    legend: {
+      data: ['积极', '中性', '消极'],
+      top: 0,
+      itemGap: 18,
+      icon: 'circle',
+      textStyle: { color: axisLabelColor, fontSize: 12 },
+    },
+    grid: { left: 48, right: 18, top: 44, bottom: 36 },
+    xAxis: {
+      type: 'category',
+      data: [],
+      boundaryGap: false,
+      ...softAxis,
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 4,
+      splitLine: { lineStyle: { color: splitLineColor } },
+      axisLabel: { color: axisLabelColor, fontSize: 11 },
+    },
     series: [
-      { name: '积极', type: 'line', smooth: true, data: [], lineStyle: { color: '#2E7D32' }, itemStyle: { color: '#2E7D32' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(46,125,50,0.25)' }, { offset: 1, color: 'rgba(46,125,50,0.02)' }] } } },
-      { name: '中性', type: 'line', smooth: true, data: [], lineStyle: { color: '#E65100' }, itemStyle: { color: '#E65100' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(230,81,0,0.25)' }, { offset: 1, color: 'rgba(230,81,0,0.02)' }] } } },
-      { name: '消极', type: 'line', smooth: true, data: [], lineStyle: { color: '#BA1A1A' }, itemStyle: { color: '#BA1A1A' }, areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(186,26,26,0.25)' }, { offset: 1, color: 'rgba(186,26,26,0.02)' }] } } },
-    ]
+      {
+        name: '积极',
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: [],
+        lineStyle: { color: '#4d8f6b', width: 2.4 },
+        itemStyle: { color: '#4d8f6b' },
+        areaStyle: lineArea('rgba(77, 143, 107, 0.22)', 'rgba(77, 143, 107, 0.02)'),
+      },
+      {
+        name: '中性',
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: [],
+        lineStyle: { color: '#b67a42', width: 2.4 },
+        itemStyle: { color: '#b67a42' },
+        areaStyle: lineArea('rgba(182, 122, 66, 0.2)', 'rgba(182, 122, 66, 0.02)'),
+      },
+      {
+        name: '消极',
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: [],
+        lineStyle: { color: '#a35f5f', width: 2.4 },
+        itemStyle: { color: '#a35f5f' },
+        areaStyle: lineArea('rgba(163, 95, 95, 0.2)', 'rgba(163, 95, 95, 0.02)'),
+      },
+    ],
   })
 
   return {
-    userGrowthOption, moodTrendOption, moodDistributionOption,
-    activeTimeOption, emotionPulseOption, emotionTrendsOption,
+    userGrowthOption,
+    moodTrendOption,
+    moodDistributionOption,
+    activeTimeOption,
+    emotionPulseOption,
+    emotionTrendsOption,
   }
 }
