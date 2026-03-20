@@ -8,8 +8,8 @@ services:
       -c maintenance_work_mem=64MB
       -c wal_buffers=16MB
       -c min_wal_size=80MB
-      -c max_wal_size=1GB
-      -c max_connections=60
+      -c max_wal_size=512MB
+      -c max_connections=40
     logging:
       options:
         max-size: "10m"
@@ -17,7 +17,7 @@ services:
 
   redis:
     command: >
-      sh -c "redis-server --appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 192mb --maxmemory-policy allkeys-lru --tcp-keepalive 60"
+      sh -c "redis-server --appendonly yes --appendfsync everysec --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 128mb --maxmemory-policy allkeys-lru --tcp-keepalive 60"
     logging:
       options:
         max-size: "10m"
@@ -39,11 +39,17 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_BASE_URL: ${AI_BASE_URL:-http://127.0.0.1:11434}
       AI_MODEL: ${AI_MODEL:-heartlake-qwen}
-      AI_TIMEOUT: ${AI_TIMEOUT:-3}
-      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-0}
-      AI_CIRCUIT_BREAKER_FAILURES: ${AI_CIRCUIT_BREAKER_FAILURES:-1}
-      AI_CIRCUIT_BREAKER_COOLDOWN_SEC: ${AI_CIRCUIT_BREAKER_COOLDOWN_SEC:-300}
+      AI_TIMEOUT: ${AI_TIMEOUT:-15}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-1}
+      AI_CIRCUIT_BREAKER_FAILURES: ${AI_CIRCUIT_BREAKER_FAILURES:-2}
+      AI_CIRCUIT_BREAKER_COOLDOWN_SEC: ${AI_CIRCUIT_BREAKER_COOLDOWN_SEC:-60}
+      AI_SEMANTIC_CACHE_MAX_SIZE: ${AI_SEMANTIC_CACHE_MAX_SIZE:-2000}
+      AI_SENTIMENT_CACHE_MAX_SIZE: ${AI_SENTIMENT_CACHE_MAX_SIZE:-8000}
       AI_OLLAMA_FORCE_GPU: ${AI_OLLAMA_FORCE_GPU:-false}
+      AI_OLLAMA_NUM_THREAD: ${AI_OLLAMA_NUM_THREAD:-2}
+      AI_OLLAMA_NUM_CTX: ${AI_OLLAMA_NUM_CTX:-2048}
+      EMBEDDING_CACHE_SIZE: ${EMBEDDING_CACHE_SIZE:-6000}
+      EDGE_AI_SENTIMENT_CACHE_MAX_SIZE: ${EDGE_AI_SENTIMENT_CACHE_MAX_SIZE:-4096}
       EDGE_AI_ONNX_ENABLED: ${EDGE_AI_ONNX_ENABLED:-false}
       EDGE_AI_ONNX_THREADS: ${EDGE_AI_ONNX_THREADS:-1}
       PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
@@ -51,9 +57,9 @@ services:
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?CORS_ALLOWED_ORIGIN is required}
       ENV_MODE: production
       EMBEDDING_WARMUP_ON_BOOT: ${EMBEDDING_WARMUP_ON_BOOT:-false}
-      ENABLE_LAKE_GOD_GUARDIAN: ${ENABLE_LAKE_GOD_GUARDIAN:-true}
-      ENABLE_EMOTION_TRACKING: ${ENABLE_EMOTION_TRACKING:-true}
-      ENABLE_USER_FOLLOWUP: ${ENABLE_USER_FOLLOWUP:-true}
+      ENABLE_LAKE_GOD_GUARDIAN: ${ENABLE_LAKE_GOD_GUARDIAN:-false}
+      ENABLE_EMOTION_TRACKING: ${ENABLE_EMOTION_TRACKING:-false}
+      ENABLE_USER_FOLLOWUP: ${ENABLE_USER_FOLLOWUP:-false}
       LAKE_GOD_STARTUP_DELAY_SEC: ${LAKE_GOD_STARTUP_DELAY_SEC:-300}
       LAKE_GOD_SCAN_INTERVAL_MINUTES: ${LAKE_GOD_SCAN_INTERVAL_MINUTES:-60}
       LAKE_GOD_ZERO_INTERACTION_THRESHOLD_HOURS: ${LAKE_GOD_ZERO_INTERACTION_THRESHOLD_HOURS:-6}

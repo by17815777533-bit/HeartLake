@@ -3,7 +3,7 @@
  *
  * @details
  * 封装 Drogon 的 RedisClient，提供统一的异步缓存接口。
- * 当 Redis 不可用时自动降级到进程内 LRU 缓存（最多 10000 条），
+ * 当 Redis 不可用时自动降级到进程内 LRU 缓存（最多 2048 条），
  * 并通过指数退避策略在后台尝试重连，恢复后自动切回 Redis。
  *
  * 支持的数据结构：String / Hash / Counter / Lua 脚本，
@@ -35,11 +35,11 @@ namespace cache {
 
 /// Redis 连接池配置参数
 struct RedisPoolConfig {
-    int initialSize = 30;           ///< 初始连接数
-    int maxSize = 100;              ///< 最大连接数
+    int initialSize = 4;            ///< 初始连接数
+    int maxSize = 8;                ///< 最大连接数
     int idleTimeoutMs = 30000;      ///< 空闲连接超时 (30s)
     int connectionTimeoutMs = 5000; ///< 建连超时 (5s)
-    bool enableAutoScale = true;    ///< 是否根据负载动态伸缩
+    bool enableAutoScale = false;   ///< 是否根据负载动态伸缩
 };
 
 /**
@@ -220,7 +220,7 @@ private:
     std::atomic<int> poolSize_{0};           ///< 当前池大小
 
     // ---- 内存 LRU 降级缓存 ----
-    static constexpr size_t MAX_CACHE_SIZE = 10000;
+    static constexpr size_t MAX_CACHE_SIZE = 2048;
 
     struct CacheEntry {
         std::string value;

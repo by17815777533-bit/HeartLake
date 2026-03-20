@@ -35,7 +35,7 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-当前 `server-lite` 模板已默认关闭 ONNX 线程放大，并把 Redis 连接池上限压到 `8`，更适合 `2C2G` 单机。
+当前 `server-lite` 模板已默认关闭 ONNX 线程放大，把 Redis 连接池上限压到 `8`，并默认关闭湖神守护 / 情绪追踪 / 用户回访这三类后台扫描任务，更适合 `2C2G` 单机。
 
 注意：
 
@@ -61,6 +61,12 @@ cp .env.server-lite .env
 ./scripts/generate-server-env.sh --host your.domain.com --https --admin-password '替换成强密码'
 cp .env.server-lite .env
 ```
+
+说明：
+
+- `server-lite` 模板现在默认按“外部 OpenAI-compatible API”口径填写 AI 参数，更适合 `2C2G`
+- 如果你要改回本机 `ollama`，请手动把 `AI_PROVIDER=ollama`，并确认 `AI_BASE_URL` 在服务器内可达
+- 三类后台扫描任务默认关闭；确认机器余量后再逐项改为 `true`
 
 ## 4. 启动精简部署
 

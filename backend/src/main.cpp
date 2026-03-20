@@ -123,6 +123,15 @@ static std::string stripOptionalQuotes(const std::string& value) {
     return value;
 }
 
+/// 仅在环境变量缺失时注入默认值，避免低配机器误用高占用参数。
+static void setDefaultEnvIfMissing(const char* key, const std::string& value) {
+    const char* existing = std::getenv(key);
+    if (existing && *existing != '\0') {
+        return;
+    }
+    setenv(key, value.c_str(), 0);
+}
+
 /**
  * 解析 .env 文件并注入环境变量。
  * 支持 # 注释、export 前缀、内联注释裁剪、引号剥离。
@@ -326,6 +335,22 @@ int main(int argc, char *argv[]) {
             LOG_WARN << "Invalid EDGE_AI_ONNX_ENABLED value, skip ONNX thread auto-upgrade";
         }
         LOG_INFO << "Server threads set to " << serverThreads;
+
+        const bool lowResourceProfile = (serverThreads <= 2);
+        if (lowResourceProfile) {
+            setDefaultEnvIfMissing("EMBEDDING_CACHE_SIZE", "6000");
+            setDefaultEnvIfMissing("AI_SEMANTIC_CACHE_MAX_SIZE", "2000");
+            setDefaultEnvIfMissing("AI_SENTIMENT_CACHE_MAX_SIZE", "8000");
+            setDefaultEnvIfMissing("EDGE_AI_SENTIMENT_CACHE_MAX_SIZE", "4096");
+            setDefaultEnvIfMissing("REDIS_POOL_SIZE", "4");
+            setDefaultEnvIfMissing("REDIS_MAX_POOL_SIZE", "8");
+            setDefaultEnvIfMissing("AI_OLLAMA_NUM_THREAD", "2");
+            setDefaultEnvIfMissing("AI_OLLAMA_NUM_CTX", "2048");
+            setDefaultEnvIfMissing("ENABLE_LAKE_GOD_GUARDIAN", "false");
+            setDefaultEnvIfMissing("ENABLE_EMOTION_TRACKING", "false");
+            setDefaultEnvIfMissing("ENABLE_USER_FOLLOWUP", "false");
+            LOG_INFO << "Low-resource profile active: 2C2G-friendly defaults applied";
+        }
 
         // 配置服务器
         app.addListener(serverHost, static_cast<uint16_t>(serverPort));
