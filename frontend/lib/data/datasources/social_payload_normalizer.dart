@@ -1,5 +1,22 @@
+import 'dart:collection';
+
 Map<String, dynamic> _asMap(Map raw) =>
     Map<String, dynamic>.from(raw.cast<String, dynamic>());
+
+Iterable<Map<String, dynamic>> _candidateMaps(dynamic raw) sync* {
+  if (raw is! Map) return;
+  final source = _asMap(raw);
+  yield source;
+
+  final nested = source['data'];
+  if (nested is Map) {
+    yield _asMap(nested);
+  }
+}
+
+List<String> _mergeListKeys(List<String> listKeys) {
+  return LinkedHashSet<String>.from([...listKeys, 'items', 'list']).toList();
+}
 
 dynamic _firstValue(Map<String, dynamic> data, List<String> keys) {
   for (final key in keys) {
@@ -30,10 +47,11 @@ List<Map<String, dynamic>> extractNormalizedList(
         .toList();
   }
   if (raw is Map) {
-    final data = _asMap(raw);
-    for (final key in listKeys) {
-      final value = data[key];
-      if (value is List) {
+    final mergedKeys = _mergeListKeys(listKeys);
+    for (final data in _candidateMaps(raw)) {
+      for (final key in mergedKeys) {
+        final value = data[key];
+        if (value is! List) continue;
         return value
             .whereType<Map>()
             .map((item) => itemNormalizer(_asMap(item)))
@@ -48,14 +66,26 @@ Map<String, dynamic> extractPaginationPayload(
   dynamic raw, {
   int itemCount = 0,
 }) {
-  final source = raw is Map ? _asMap(raw) : <String, dynamic>{};
-  final nested = source['pagination'] is Map
-      ? _asMap(source['pagination'] as Map)
-      : <String, dynamic>{};
+  final sources = raw is Map
+      ? _candidateMaps(raw).toList()
+      : const <Map<String, dynamic>>[];
+  final source = sources.isNotEmpty ? sources.first : <String, dynamic>{};
+
+  Map<String, dynamic> pagination = <String, dynamic>{};
+  for (final candidate in sources) {
+    final value = candidate['pagination'];
+    if (value is Map) {
+      pagination = _asMap(value);
+      break;
+    }
+  }
 
   dynamic read(List<String> keys) {
-    final fromSource = _firstValue(source, keys);
-    return fromSource ?? _firstValue(nested, keys);
+    for (final candidate in sources) {
+      final value = _firstValue(candidate, keys);
+      if (value != null) return value;
+    }
+    return _firstValue(pagination, keys);
   }
 
   final total = _toInt(read(const ['total'])) ?? itemCount;

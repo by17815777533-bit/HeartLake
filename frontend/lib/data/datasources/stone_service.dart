@@ -5,6 +5,7 @@ import '../../utils/input_validator.dart';
 import '../../utils/mood_colors.dart';
 import 'base_service.dart';
 import 'cache_service.dart';
+import 'social_payload_normalizer.dart';
 
 /// 石头（帖子）服务，负责石头的发布、列表查询、详情获取和删除
 ///
@@ -20,6 +21,45 @@ class StoneService extends BaseService {
     callTimeout: const Duration(seconds: 15),
   );
   final CacheService _cache = CacheService();
+
+  List<dynamic> _extractStoneItems(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map) return const [];
+
+    final source = Map<String, dynamic>.from(data.cast<String, dynamic>());
+    final items = source['stones'] as List? ??
+        source['items'] as List? ??
+        source['list'] as List?;
+    return items ?? const [];
+  }
+
+  Map<String, dynamic> _buildStoneCollection(dynamic data) {
+    final items = _extractStoneItems(data);
+    final List<Stone> stones = [];
+    for (final json in items) {
+      try {
+        stones.add(Stone.fromJson(json));
+      } catch (e) {
+        if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
+      }
+    }
+
+    final pagination = extractPaginationPayload(data, itemCount: stones.length);
+    return {
+      'success': true,
+      'stones': stones,
+      'items': stones,
+      'list': stones,
+      'total': pagination['total'],
+      'page': pagination['page'],
+      'page_size': pagination['page_size'],
+      'pageSize': pagination['pageSize'],
+      'total_pages': pagination['total_pages'],
+      'totalPages': pagination['totalPages'],
+      'has_more': pagination['has_more'],
+      'pagination': pagination,
+    };
+  }
 
   /// 发布一颗石头，内容经过 XSS 过滤和长度校验
   ///
@@ -106,23 +146,7 @@ class StoneService extends BaseService {
         });
 
         if (!response.success) return toMap(response);
-
-        final data = response.data;
-        final items = data?['stones'] as List? ?? data?['items'] as List? ?? [];
-        final List<Stone> stones = [];
-        for (final json in items) {
-          try {
-            stones.add(Stone.fromJson(json));
-          } catch (e) {
-            if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
-          }
-        }
-
-        final result = {
-          'success': true,
-          'stones': stones,
-          'pagination': _buildPagination(data),
-        };
+        final result = _buildStoneCollection(response.data);
         _cache.set(cacheKey, result, ttl: const Duration(minutes: 3));
         return result;
       });
@@ -153,23 +177,7 @@ class StoneService extends BaseService {
     if (!response.success) {
       return toMap(response);
     }
-
-    final data = response.data;
-    final items = data?['stones'] as List? ?? data?['items'] as List? ?? [];
-    final List<Stone> stones = [];
-    for (final json in items) {
-      try {
-        stones.add(Stone.fromJson(json));
-      } catch (e) {
-        if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
-      }
-    }
-
-    return {
-      'success': true,
-      'stones': stones,
-      'pagination': _buildPagination(data),
-    };
+    return _buildStoneCollection(response.data);
   }
 
   /// 获取湖面实时气象数据，熔断时降级到缓存
@@ -195,22 +203,6 @@ class StoneService extends BaseService {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await delete('/stones/$stoneId');
     return toMap(response);
-  }
-
-  /// 从后端响应中提取分页信息
-  Map<String, dynamic> _buildPagination(Map<String, dynamic>? data) {
-    final page = data?['page'] ?? 1;
-    final totalPages = data?['total_pages'] ?? data?['totalPages'] ?? 1;
-    final total = data?['total'] ?? 0;
-    final pageSize = data?['page_size'] ?? data?['pageSize'] ?? 20;
-    final hasMore = data?['has_more'] ?? page < totalPages;
-    return {
-      'page': page,
-      'total_pages': totalPages,
-      'total': total,
-      'page_size': pageSize,
-      'has_more': hasMore,
-    };
   }
 
   /// 获取单颗石头的详细信息

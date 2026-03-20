@@ -146,6 +146,7 @@ class FriendService extends BaseService {
       'success': true,
       'messages': messages,
       'items': messages,
+      'list': messages,
     };
   }
 
