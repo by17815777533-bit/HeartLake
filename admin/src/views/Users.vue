@@ -10,63 +10,44 @@
 
 <template>
   <div class="users-page ops-page">
-    <OpsPageHero
-      eyebrow="旅人"
-      title="旅人关怀"
-      :description="usersHeroDescription"
-      :status="engagementLabel"
-      :chips="usersHeroChips"
-    >
-      <template #actions>
-        <el-button type="primary" @click="handleSearch">
-          <el-icon><Search /></el-icon>
-          搜索旅人
-        </el-button>
-        <el-button @click="handleReset">
-          <el-icon><Refresh /></el-icon>
-          重置视角
-        </el-button>
-      </template>
-    </OpsPageHero>
-
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="总览"
-          title="旅人概览"
+          eyebrow="旅人"
+          title="旅人关怀"
           :chip="`${engagementScore} 分 ${engagementLabel}`"
           tone="sky"
         >
-          <div class="users-stage-shell">
-            <div class="ops-big-metric">
-              <span class="ops-big-metric__label">旅人总数</span>
-              <div class="ops-big-metric__value">
-                {{ summaryItems[0]?.value || 0 }}
-                <small>人</small>
-              </div>
-              <p class="ops-big-metric__note">
-                查看账号状态、活跃轨迹与基础产出，统一处理封禁、解封与个体关注。
-              </p>
+          <div class="ops-big-metric">
+            <span class="ops-big-metric__label">旅人总数</span>
+            <div class="ops-big-metric__value">
+              {{ summaryItems[0]?.value || 0 }}
+              <small>人</small>
             </div>
+            <p class="ops-big-metric__note">
+              查看账号状态、活跃轨迹与基础产出，统一处理封禁、解封与个体关注。
+            </p>
+          </div>
 
-            <div class="users-stage-aside">
-              <article class="users-stage-pod">
-                <span>最近回湖</span>
-                <strong>{{ latestActiveMeta.value }}</strong>
-                <small>{{ latestActiveMeta.note }}</small>
-              </article>
+          <div class="ops-soft-actions users-stage-actions">
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              搜索旅人
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><Refresh /></el-icon>
+              重置视角
+            </el-button>
+          </div>
 
-              <article class="users-stage-pod is-mint">
-                <span>互动密度</span>
-                <strong>{{ travelerSignals[2]?.value || '0.0 / 人' }}</strong>
-                <small>{{ travelerSignals[2]?.note }}</small>
-              </article>
-            </div>
+          <div class="users-stage-heading">
+            <span>重点摘要</span>
+            <small>值守重点</small>
           </div>
 
           <div class="ops-mini-grid">
             <article
-              v-for="item in summaryItems.slice(1)"
+              v-for="item in usersStageHighlights"
               :key="item.label"
               class="ops-mini-tile"
               :class="getWorkbenchTileTone(item.tone)"
@@ -302,7 +283,6 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -511,27 +491,34 @@ const travelerSignals = computed(() => {
   ]
 })
 
-const usersHeroDescription =
-  '先判断活跃与产出密度，再决定是深入查看、封禁处置，还是继续保持陪伴观察，让旅人列表真正承担值守台的作用。'
-
-const usersHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 位旅人`,
-  `${activeTravelerCount.value} 位活跃`,
-  `${engagementScore.value} 分 ${engagementLabel.value}`,
+const usersStageHighlights = computed(() => [
+  summaryItems.value[1],
+  {
+    label: '最近回湖',
+    value: latestActiveMeta.value.value,
+    note: latestActiveMeta.value.note,
+    tone: 'plain' as const,
+  },
+  {
+    label: '互动密度',
+    value: travelerSignals.value[2]?.value || '0.0 / 人',
+    note: travelerSignals.value[2]?.badge || '总产出 0',
+    tone: 'amber' as const,
+  },
 ])
 
 const usersGuideHeadline = computed(() => {
-  if (bannedTravelerCount.value > 0) return '先回看限制中的旅人，再决定解除还是继续观察'
-  if (activeTravelerCount.value > 0) return '活跃旅人状态平稳，优先留意最近回湖和高产出账号'
-  return '当前旅人侧比较安静，可以把注意力放在新入湖账号和基础陪伴上'
+  if (bannedTravelerCount.value > 0) return '先回看限制旅人'
+  if (activeTravelerCount.value > 0) return '旅人状态平稳'
+  return '当前旅人侧较安静'
 })
 
 const usersGuideCopy = computed(() => {
   if (bannedTravelerCount.value > 0) {
-    return `当前页仍有 ${formatCount(bannedTravelerCount.value)} 位旅人处于限制中，建议结合最近活跃与产出轨迹，确认是否需要继续限制。`
+    return `当前页仍有 ${formatCount(bannedTravelerCount.value)} 位账号处于限制中，优先结合最近活跃和产出轨迹判断是否继续限制。`
   }
   if (activeTravelerCount.value > 0) {
-    return `当前页 ${formatCount(activeTravelerCount.value)} 位旅人保持正常状态，优先关注最近回湖且互动密度偏高的账号，避免漏掉需要人工跟进的个体。`
+    return `优先留意最近回湖和互动密度偏高的账号，避免漏掉需要人工跟进的个体。`
   }
   return '当前页暂未呈现明显活跃波动，适合回看筛选条件并准备下一轮定向检索。'
 })
@@ -653,55 +640,52 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .users-page {
-  .users-stage-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.92fr);
-    gap: 14px;
-    align-items: start;
-    margin-bottom: 18px;
-  }
+  .users-stage-actions {
+    margin-top: 20px;
 
-  .users-stage-aside {
-    display: grid;
-    gap: 12px;
-  }
-
-  .users-stage-pod {
-    display: grid;
-    gap: 6px;
-    min-height: 128px;
-    padding: 16px 18px;
-    border-radius: 24px;
-    background: linear-gradient(180deg, rgba(245, 249, 255, 0.94), rgba(235, 242, 255, 0.96));
-    border: 1px solid rgba(162, 181, 221, 0.14);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.88),
-      0 14px 22px rgba(111, 136, 183, 0.06);
-
-    span {
-      color: var(--hl-ink-soft);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
+    :deep(.el-button) {
+      flex: 1 1 0;
+      min-width: 0;
+      height: 44px;
+      justify-content: flex-start;
+      gap: 10px;
+      border-radius: 999px !important;
+      padding: 0 18px 0 12px;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.96),
+        0 12px 18px rgba(113, 138, 184, 0.08);
     }
 
-    strong {
-      color: var(--hl-ink);
-      font-size: 24px;
-      font-weight: 760;
-      letter-spacing: -0.04em;
-      line-height: 1.08;
+    :deep(.el-button .el-icon) {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(233, 241, 255, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  .users-stage-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    margin-bottom: 14px;
+
+    span {
+      color: #111827;
+      font-size: 15px;
+      font-weight: 680;
     }
 
     small {
       color: var(--hl-ink-soft);
-      font-size: 11px;
-      line-height: 1.55;
+      font-size: 10px;
+      line-height: 1.4;
     }
-  }
-
-  .users-stage-pod.is-mint {
-    background: linear-gradient(180deg, rgba(226, 245, 240, 0.98), rgba(214, 239, 233, 0.98));
   }
 
   .users-filter-form {
@@ -869,12 +853,6 @@ onMounted(() => {
 
   .user-stat-pill.is-boat {
     background: linear-gradient(180deg, rgba(228, 246, 241, 0.96), rgba(218, 241, 235, 0.96));
-  }
-
-  @media (max-width: 960px) {
-    .users-stage-shell {
-      grid-template-columns: 1fr;
-    }
   }
 
   .registration-meta {
