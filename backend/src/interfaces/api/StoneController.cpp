@@ -158,8 +158,8 @@ void StoneController::createStone(
         std::vector<std::string> tags;
         if (json->isMember("tags")) {
             auto validation = ValidationRules::tags((*json)["tags"]);
-            if (!validation.valid) {
-                callback(ResponseUtil::badRequest(validation.message));
+            if (!validation.isValid) {
+                callback(ResponseUtil::badRequest(validation.errorMessage));
                 return;
             }
 
