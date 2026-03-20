@@ -105,7 +105,9 @@ class _GuardianScreenState extends State<GuardianScreen>
   Widget _buildInsightsCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+      color: isDark
+          ? const Color(0xFF16213E).withValues(alpha: 0.95)
+          : Colors.white.withValues(alpha: 0.95),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -132,8 +134,9 @@ class _GuardianScreenState extends State<GuardianScreen>
                 ),
                 if (!_insightsLoading && _insightsError == null)
                   IconButton(
-                    icon:
-                        Icon(Icons.refresh, size: 20, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey),
+                    icon: Icon(Icons.refresh,
+                        size: 20,
+                        color: isDark ? const Color(0xFF9AA0A6) : Colors.grey),
                     onPressed: () {
                       setState(() {
                         _insightsLoading = true;
@@ -164,10 +167,14 @@ class _GuardianScreenState extends State<GuardianScreen>
                   child: Column(
                     children: [
                       Icon(Icons.error_outline,
-                          color: isDark ? const Color(0xFF9AA0A6) : Colors.grey, size: 32),
+                          color: isDark ? const Color(0xFF9AA0A6) : Colors.grey,
+                          size: 32),
                       const SizedBox(height: 8),
                       Text(_insightsError!,
-                          style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+                          style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF9AA0A6)
+                                  : Colors.grey)),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () {
@@ -285,7 +292,9 @@ class _GuardianScreenState extends State<GuardianScreen>
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('暂无洞察数据', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+            child: Text('暂无洞察数据',
+                style: TextStyle(
+                    color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
           ),
         ),
       );
@@ -312,7 +321,7 @@ class _GuardianScreenState extends State<GuardianScreen>
     List<Map<String, dynamic>> friends = <Map<String, dynamic>>[];
     try {
       final result = await _friendService.getFriends();
-      final raw = result['friends'];
+      final raw = result['friends'] ?? result['items'] ?? result['list'];
       if (raw is List) {
         friends = raw
             .whereType<Map>()
@@ -340,7 +349,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                 children: [
                   Text('将你的温暖传递给需要的人',
                       style: TextStyle(
-                          color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+                          color:
+                              isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
                   const SizedBox(height: 16),
                   if (friends.isNotEmpty) ...[
                     DropdownButtonFormField<String>(
@@ -357,7 +367,8 @@ class _GuardianScreenState extends State<GuardianScreen>
                             final nickname = friend['nickname']?.toString() ??
                                 friend['nick_name']?.toString() ??
                                 '好友';
-                            final username = friend['username']?.toString() ?? '';
+                            final username =
+                                friend['username']?.toString() ?? '';
                             return DropdownMenuItem<String>(
                               value: friendId,
                               child: Text('$nickname ($username)'),
@@ -464,7 +475,10 @@ class _GuardianScreenState extends State<GuardianScreen>
                             padding: const EdgeInsets.all(16),
                             children: [
                               Card(
-                                color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                                color: isDark
+                                    ? const Color(0xFF16213E)
+                                        .withValues(alpha: 0.95)
+                                    : Colors.white.withValues(alpha: 0.95),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 child: Padding(
@@ -479,7 +493,9 @@ class _GuardianScreenState extends State<GuardianScreen>
                                         size: 64,
                                         color: _stats!['is_guardian'] == true
                                             ? Colors.orange
-                                            : isDark ? const Color(0xFF9AA0A6) : Colors.grey,
+                                            : isDark
+                                                ? const Color(0xFF9AA0A6)
+                                                : Colors.grey,
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
@@ -492,7 +508,10 @@ class _GuardianScreenState extends State<GuardianScreen>
                                       ),
                                       const SizedBox(height: 8),
                                       Text('用温暖的涟漪，照亮他人的心湖',
-                                          style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+                                          style: TextStyle(
+                                              color: isDark
+                                                  ? const Color(0xFF9AA0A6)
+                                                  : Colors.grey)),
                                     ],
                                   ),
                                 ),
@@ -537,7 +556,10 @@ class _GuardianScreenState extends State<GuardianScreen>
                               const SizedBox(height: 16),
                               // 湖神入口
                               Card(
-                                color: isDark ? const Color(0xFF16213E).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                                color: isDark
+                                    ? const Color(0xFF16213E)
+                                        .withValues(alpha: 0.95)
+                                    : Colors.white.withValues(alpha: 0.95),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16)),
                                 child: ListTile(
@@ -595,7 +617,9 @@ class _StatCard extends StatelessWidget {
                       color: AppTheme.skyBlue)),
               const SizedBox(height: 4),
               Text(label,
-                  style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
             ],
           ),
         ),

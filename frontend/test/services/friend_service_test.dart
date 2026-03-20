@@ -4,8 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 /// 提取核心响应处理逻辑进行测试。
 
 class FriendResponseProcessor {
-  Map<String, dynamic> processSendRequest(dynamic data, bool success, {String? message}) {
-    if (!success) return {'success': false, 'message': data is Map ? (data['message'] ?? '发送失败') : '发送失败'};
+  Map<String, dynamic> processSendRequest(dynamic data, bool success,
+      {String? message}) {
+    if (!success)
+      return {
+        'success': false,
+        'message': data is Map ? (data['message'] ?? '发送失败') : '发送失败'
+      };
     return {
       'success': true,
       'request_id': data is Map ? data['request_id'] : null,
@@ -26,19 +31,34 @@ class FriendResponseProcessor {
 
   Map<String, dynamic> processGetFriends(dynamic data, bool success) {
     if (!success) return {'success': false, 'message': '获取好友列表失败'};
+    final friends =
+        data is Map ? (data['friends'] ?? data['items'] ?? data['list']) : null;
+    final total = data is Map
+        ? data['total'] ?? (friends is List ? friends.length : null)
+        : null;
     return {
       'success': true,
-      'friends': data is Map ? data['friends'] : null,
-      'total': data is Map ? data['total'] : null,
+      'friends': friends,
+      'items': friends,
+      'list': friends,
+      'total': total,
     };
   }
 
   Map<String, dynamic> processGetPendingRequests(dynamic data, bool success) {
     if (!success) return {'success': false, 'message': '获取请求列表失败'};
+    final requests = data is Map
+        ? (data['requests'] ?? data['items'] ?? data['list'])
+        : null;
+    final total = data is Map
+        ? data['total'] ?? (requests is List ? requests.length : null)
+        : null;
     return {
       'success': true,
-      'requests': data is Map ? data['requests'] : null,
-      'total': data is Map ? data['total'] : null,
+      'requests': requests,
+      'items': requests,
+      'list': requests,
+      'total': total,
     };
   }
 
@@ -69,7 +89,8 @@ void main() {
 
   group('processSendRequest', () {
     test('should return success with request_id', () {
-      final result = processor.processSendRequest({'request_id': 'req_1'}, true);
+      final result =
+          processor.processSendRequest({'request_id': 'req_1'}, true);
       expect(result['success'], true);
       expect(result['request_id'], 'req_1');
     });
@@ -110,7 +131,8 @@ void main() {
     });
 
     test('should handle map with message on failure', () {
-      final result = processor.processSendRequest({'message': '好友数量已达上限'}, false);
+      final result =
+          processor.processSendRequest({'message': '好友数量已达上限'}, false);
       expect(result['message'], '好友数量已达上限');
     });
   });
@@ -167,10 +189,21 @@ void main() {
     });
 
     test('should handle empty friends list', () {
-      final result = processor.processGetFriends({'friends': [], 'total': 0}, true);
+      final result =
+          processor.processGetFriends({'friends': [], 'total': 0}, true);
       expect(result['success'], true);
       expect(result['friends'], isEmpty);
       expect(result['total'], 0);
+    });
+
+    test('should fall back to items when friends key is missing', () {
+      final result = processor.processGetFriends({
+        'items': [
+          {'user_id': 'u9', 'nickname': '候补'},
+        ],
+      }, true);
+      expect((result['friends'] as List).length, 1);
+      expect(result['total'], 1);
     });
 
     test('should handle null data on success', () {
@@ -187,14 +220,20 @@ void main() {
 
     test('should handle large friends list', () {
       final friends = List.generate(50, (i) => {'user_id': 'u$i'});
-      final result = processor.processGetFriends({'friends': friends, 'total': 50}, true);
+      final result =
+          processor.processGetFriends({'friends': friends, 'total': 50}, true);
       expect((result['friends'] as List).length, 50);
     });
 
     test('should preserve friend data structure', () {
       final result = processor.processGetFriends({
         'friends': [
-          {'user_id': 'u1', 'nickname': '小明', 'is_online': true, 'avatar_url': 'http://img.com/1.png'},
+          {
+            'user_id': 'u1',
+            'nickname': '小明',
+            'is_online': true,
+            'avatar_url': 'http://img.com/1.png'
+          },
         ],
         'total': 1,
       }, true);
@@ -225,7 +264,8 @@ void main() {
     });
 
     test('should handle empty requests', () {
-      final result = processor.processGetPendingRequests({'requests': [], 'total': 0}, true);
+      final result = processor
+          .processGetPendingRequests({'requests': [], 'total': 0}, true);
       expect(result['requests'], isEmpty);
     });
 
@@ -236,8 +276,9 @@ void main() {
     });
 
     test('should handle missing total', () {
-      final result = processor.processGetPendingRequests({'requests': []}, true);
-      expect(result['total'], isNull);
+      final result =
+          processor.processGetPendingRequests({'requests': []}, true);
+      expect(result['total'], 0);
     });
 
     test('should preserve request data', () {
@@ -250,6 +291,16 @@ void main() {
 
       final req = (result['requests'] as List).first;
       expect(req['message'], '想和你做朋友');
+    });
+
+    test('should fall back to items when requests key is missing', () {
+      final result = processor.processGetPendingRequests({
+        'items': [
+          {'user_id': 'u5', 'message': '兼容列表键'},
+        ],
+      }, true);
+      expect((result['requests'] as List).length, 1);
+      expect(result['total'], 1);
     });
   });
 
@@ -308,14 +359,21 @@ void main() {
     });
 
     test('should handle large message list', () {
-      final messages = List.generate(200, (i) => {'id': 'm$i', 'content': '消息$i'});
+      final messages =
+          List.generate(200, (i) => {'id': 'm$i', 'content': '消息$i'});
       final result = processor.processGetMessages(messages, true);
       expect((result['messages'] as List).length, 200);
     });
 
     test('should preserve message structure from list', () {
       final messages = [
-        {'id': 'm1', 'sender_id': 'u1', 'receiver_id': 'u2', 'content': '你好', 'created_at': '2026-01-01'},
+        {
+          'id': 'm1',
+          'sender_id': 'u1',
+          'receiver_id': 'u2',
+          'content': '你好',
+          'created_at': '2026-01-01'
+        },
       ];
       final result = processor.processGetMessages(messages, true);
       final msg = (result['messages'] as List).first;
@@ -338,10 +396,19 @@ void main() {
   group('TempFriend response processing', () {
     Map<String, dynamic> processGetTempFriends(dynamic data, bool success) {
       if (!success) return {'success': false, 'message': '获取临时好友失败'};
+      final friends = data is Map
+          ? (data['temp_friends'] ??
+              data['friends'] ??
+              data['items'] ??
+              data['list'] ??
+              [])
+          : [];
       return {
         'success': true,
-        'temp_friends': data is Map ? (data['friends'] ?? []) : [],
-        'total': data is Map ? (data['total'] ?? 0) : 0,
+        'temp_friends': friends,
+        'total': data is Map
+            ? (data['total'] ?? (friends is List ? friends.length : 0))
+            : 0,
       };
     }
 
@@ -360,11 +427,23 @@ void main() {
 
     test('getTempFriends should return list on success', () {
       final result = processGetTempFriends({
-        'friends': [{'temp_friend_id': 'tf1', 'nickname': '临时好友'}],
+        'temp_friends': [
+          {'temp_friend_id': 'tf1', 'nickname': '临时好友'}
+        ],
         'total': 1,
       }, true);
       expect(result['success'], true);
       expect((result['temp_friends'] as List).length, 1);
+    });
+
+    test('getTempFriends should fall back to items', () {
+      final result = processGetTempFriends({
+        'items': [
+          {'temp_friend_id': 'tf2', 'nickname': '兼容好友'}
+        ],
+      }, true);
+      expect((result['temp_friends'] as List).length, 1);
+      expect(result['total'], 1);
     });
 
     test('getTempFriends should handle empty list', () {
@@ -399,7 +478,8 @@ void main() {
     });
 
     test('checkStatus should return data on success', () {
-      final result = processCheckStatus({'is_temp_friend': true, 'expires_at': '2026-01-02'}, true);
+      final result = processCheckStatus(
+          {'is_temp_friend': true, 'expires_at': '2026-01-02'}, true);
       expect(result['success'], true);
       expect(result['data']['is_temp_friend'], true);
     });

@@ -85,13 +85,14 @@ class FriendService extends BaseService {
     final friends = extractNormalizedList(
       response.data,
       itemNormalizer: normalizeFriendPayload,
-      listKeys: const ['friends', 'items'],
+      listKeys: const ['friends', 'items', 'list'],
     );
 
     return {
       ...toMap(response),
       'friends': friends,
       'items': friends,
+      'list': friends,
       'total': response.data is Map
           ? (response.data as Map)['total'] ?? friends.length
           : friends.length,
@@ -109,13 +110,14 @@ class FriendService extends BaseService {
     final requests = extractNormalizedList(
       response.data,
       itemNormalizer: normalizeFriendPayload,
-      listKeys: const ['requests', 'items'],
+      listKeys: const ['requests', 'items', 'list'],
     );
 
     return {
       ...toMap(response),
       'requests': requests,
       'items': requests,
+      'list': requests,
       'total': response.data is Map
           ? (response.data as Map)['total'] ?? requests.length
           : requests.length,
@@ -151,7 +153,8 @@ class FriendService extends BaseService {
   ///
   /// [friendId] 好友ID
   /// [content] 消息内容，1-2000字符
-  Future<Map<String, dynamic>> sendMessage(String friendId, String content) async {
+  Future<Map<String, dynamic>> sendMessage(
+      String friendId, String content) async {
     InputValidator.validateUUID(friendId, '好友ID');
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);

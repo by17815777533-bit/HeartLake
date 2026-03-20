@@ -190,6 +190,7 @@ import type { FormInstance, TableInstance } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 
+import { normalizeCollectionResponse } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -496,9 +497,9 @@ async function fetchWords() {
   loading.value = true
   try {
     const res = await api.getSensitiveWords(buildParams(filters))
-    const data = res.data?.data || res.data || {}
-    wordList.value = data.words || data.list || []
-    pagination.total = data.total || 0
+    const { items, total } = normalizeCollectionResponse<SensitiveWord>(res.data, ['words'])
+    wordList.value = items
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取敏感词列表失败:', e)

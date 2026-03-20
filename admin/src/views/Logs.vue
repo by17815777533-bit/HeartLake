@@ -159,6 +159,7 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import api, { isRequestCanceled } from '@/api'
 import { ElMessage } from 'element-plus'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import { normalizeCollectionResponse } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -456,9 +457,9 @@ async function fetchLogs() {
     }
     const params = buildParams(extra)
     const res = await api.getOperationLogs(params)
-    const data = res.data?.data || res.data || {}
-    logList.value = data.list || []
-    pagination.total = data.total || 0
+    const { items, total } = normalizeCollectionResponse<OperationLog>(res.data, ['logs'])
+    logList.value = items
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取操作日志失败:', e)

@@ -214,6 +214,7 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import { normalizeCollectionResponse } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -541,10 +542,9 @@ const fetchUsers = async () => {
     const params = buildParams(extra)
 
     const res = await api.getUsers(params)
-    // 兼容后端两种响应格式: {data: {users, total}} 或 {users, total}
-    const resData = res.data?.data || res.data || {}
-    users.value = resData.users || []
-    pagination.total = resData.total || 0
+    const { items, total } = normalizeCollectionResponse<User>(res.data, ['users'])
+    users.value = items
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取用户列表失败:', e)

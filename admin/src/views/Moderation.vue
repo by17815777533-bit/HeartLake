@@ -212,6 +212,7 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import { normalizeCollectionResponse } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -491,9 +492,9 @@ async function fetchPending() {
   loading.value = true
   try {
     const res = await api.getPendingModeration(buildPendingParams())
-    const data = res.data?.data || res.data || {}
-    pendingList.value = data.list || []
-    pagination.total = data.total || 0
+    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['pending'])
+    pendingList.value = items
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取待审核列表失败:', e)
@@ -508,9 +509,9 @@ async function fetchHistory() {
   historyLoading.value = true
   try {
     const res = await api.getModerationHistory(buildHistoryParams(historyFilters))
-    const data = res.data?.data || res.data || {}
-    historyList.value = data.list || []
-    historyPagination.total = data.total || 0
+    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['history'])
+    historyList.value = items
+    historyPagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取审核历史失败:', e)

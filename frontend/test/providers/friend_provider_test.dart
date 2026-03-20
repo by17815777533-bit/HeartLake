@@ -12,18 +12,22 @@ class FriendState with ChangeNotifier {
 
   List<Map<String, dynamic>> get friends => List.unmodifiable(_friends);
   List<Map<String, dynamic>> get tempFriends => List.unmodifiable(_tempFriends);
-  List<Map<String, dynamic>> get pendingRequests => List.unmodifiable(_pendingRequests);
+  List<Map<String, dynamic>> get pendingRequests =>
+      List.unmodifiable(_pendingRequests);
   bool get isLoading => _isLoading;
   int get pendingCount => _pendingRequests.length;
   int get friendCount => _friends.length;
 
-  Future<void> fetchFriends(Future<Map<String, dynamic>> Function() fetchFn) async {
+  Future<void> fetchFriends(
+      Future<Map<String, dynamic>> Function() fetchFn) async {
     _isLoading = true;
     notifyListeners();
     try {
       final result = await fetchFn();
       if (result['success'] == true) {
-        _friends = List<Map<String, dynamic>>.from(result['friends'] ?? []);
+        _friends = List<Map<String, dynamic>>.from(
+          result['friends'] ?? result['items'] ?? result['list'] ?? [],
+        );
       }
     } catch (_) {
     } finally {
@@ -32,21 +36,31 @@ class FriendState with ChangeNotifier {
     }
   }
 
-  Future<void> fetchTempFriends(Future<Map<String, dynamic>> Function() fetchFn) async {
+  Future<void> fetchTempFriends(
+      Future<Map<String, dynamic>> Function() fetchFn) async {
     try {
       final result = await fetchFn();
       if (result['success'] == true) {
-        _tempFriends = List<Map<String, dynamic>>.from(result['temp_friends'] ?? []);
+        _tempFriends = List<Map<String, dynamic>>.from(
+          result['temp_friends'] ??
+              result['friends'] ??
+              result['items'] ??
+              result['list'] ??
+              [],
+        );
       }
     } catch (_) {}
     notifyListeners();
   }
 
-  Future<void> fetchPendingRequests(Future<Map<String, dynamic>> Function() fetchFn) async {
+  Future<void> fetchPendingRequests(
+      Future<Map<String, dynamic>> Function() fetchFn) async {
     try {
       final result = await fetchFn();
       if (result['success'] == true) {
-        _pendingRequests = List<Map<String, dynamic>>.from(result['requests'] ?? []);
+        _pendingRequests = List<Map<String, dynamic>>.from(
+          result['requests'] ?? result['items'] ?? result['list'] ?? [],
+        );
       }
     } catch (_) {}
     notifyListeners();
@@ -187,8 +201,10 @@ void main() {
 
   group('Initial state', () {
     test('should have empty friends', () => expect(state.friends, isEmpty));
-    test('should have empty temp friends', () => expect(state.tempFriends, isEmpty));
-    test('should have empty pending requests', () => expect(state.pendingRequests, isEmpty));
+    test('should have empty temp friends',
+        () => expect(state.tempFriends, isEmpty));
+    test('should have empty pending requests',
+        () => expect(state.pendingRequests, isEmpty));
     test('should not be loading', () => expect(state.isLoading, false));
     test('should have zero pending count', () => expect(state.pendingCount, 0));
     test('should have zero friend count', () => expect(state.friendCount, 0));
@@ -197,12 +213,12 @@ void main() {
   group('fetchFriends', () {
     test('should load friends successfully', () async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [
-          {'user_id': 'u1', 'nickname': '小明'},
-          {'user_id': 'u2', 'nickname': '小红'},
-        ],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1', 'nickname': '小明'},
+              {'user_id': 'u2', 'nickname': '小红'},
+            ],
+          });
       expect(state.friends.length, 2);
       expect(state.friendCount, 2);
       expect(state.isLoading, false);
@@ -211,6 +227,17 @@ void main() {
     test('should handle empty friends', () async {
       await state.fetchFriends(() async => {'success': true, 'friends': []});
       expect(state.friends, isEmpty);
+    });
+
+    test('should fall back to items list', () async {
+      await state.fetchFriends(() async => {
+            'success': true,
+            'items': [
+              {'user_id': 'u3', 'nickname': '小蓝'},
+            ],
+          });
+      expect(state.friendCount, 1);
+      expect(state.friends[0]['user_id'], 'u3');
     });
 
     test('should handle failure silently', () async {
@@ -231,15 +258,20 @@ void main() {
 
     test('should replace previous friends', () async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [{'user_id': 'u1'}],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1'}
+            ],
+          });
       expect(state.friendCount, 1);
 
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [{'user_id': 'u2'}, {'user_id': 'u3'}],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u2'},
+              {'user_id': 'u3'}
+            ],
+          });
       expect(state.friendCount, 2);
       expect(state.friends[0]['user_id'], 'u2');
     });
@@ -255,12 +287,23 @@ void main() {
   group('fetchTempFriends', () {
     test('should load temp friends', () async {
       await state.fetchTempFriends(() async => {
-        'success': true,
-        'temp_friends': [
-          {'temp_friend_id': 't1', 'user_id': 'u1'},
-        ],
-      });
+            'success': true,
+            'temp_friends': [
+              {'temp_friend_id': 't1', 'user_id': 'u1'},
+            ],
+          });
       expect(state.tempFriends.length, 1);
+    });
+
+    test('should fall back to items for temp friends', () async {
+      await state.fetchTempFriends(() async => {
+            'success': true,
+            'items': [
+              {'temp_friend_id': 't2', 'user_id': 'u2'},
+            ],
+          });
+      expect(state.tempFriends.length, 1);
+      expect(state.tempFriends[0]['temp_friend_id'], 't2');
     });
 
     test('should handle failure', () async {
@@ -277,14 +320,25 @@ void main() {
   group('fetchPendingRequests', () {
     test('should load pending requests', () async {
       await state.fetchPendingRequests(() async => {
-        'success': true,
-        'requests': [
-          {'user_id': 'u1', 'message': '你好'},
-          {'user_id': 'u2', 'message': '加个好友'},
-        ],
-      });
+            'success': true,
+            'requests': [
+              {'user_id': 'u1', 'message': '你好'},
+              {'user_id': 'u2', 'message': '加个好友'},
+            ],
+          });
       expect(state.pendingRequests.length, 2);
       expect(state.pendingCount, 2);
+    });
+
+    test('should fall back to items for pending requests', () async {
+      await state.fetchPendingRequests(() async => {
+            'success': true,
+            'items': [
+              {'user_id': 'u3', 'message': '新的请求'},
+            ],
+          });
+      expect(state.pendingCount, 1);
+      expect(state.pendingRequests[0]['user_id'], 'u3');
     });
 
     test('should handle failure', () async {
@@ -296,16 +350,17 @@ void main() {
   group('acceptRequest', () {
     setUp(() async {
       await state.fetchPendingRequests(() async => {
-        'success': true,
-        'requests': [
-          {'user_id': 'u1'},
-          {'user_id': 'u2'},
-        ],
-      });
+            'success': true,
+            'requests': [
+              {'user_id': 'u1'},
+              {'user_id': 'u2'},
+            ],
+          });
     });
 
     test('should remove from pending on success', () async {
-      final result = await state.acceptRequest('u1', (id) async => {'success': true});
+      final result =
+          await state.acceptRequest('u1', (id) async => {'success': true});
       expect(result['success'], true);
       expect(state.pendingCount, 1);
       expect(state.pendingRequests.every((r) => r['user_id'] != 'u1'), true);
@@ -317,7 +372,8 @@ void main() {
     });
 
     test('should handle exception', () async {
-      final result = await state.acceptRequest('u1', (id) async => throw Exception('err'));
+      final result =
+          await state.acceptRequest('u1', (id) async => throw Exception('err'));
       expect(result['success'], false);
       expect(result['message'], '操作失败');
     });
@@ -326,19 +382,24 @@ void main() {
   group('rejectRequest', () {
     setUp(() async {
       await state.fetchPendingRequests(() async => {
-        'success': true,
-        'requests': [{'user_id': 'u1'}, {'user_id': 'u2'}],
-      });
+            'success': true,
+            'requests': [
+              {'user_id': 'u1'},
+              {'user_id': 'u2'}
+            ],
+          });
     });
 
     test('should remove from pending on success', () async {
-      final result = await state.rejectRequest('u2', (id) async => {'success': true});
+      final result =
+          await state.rejectRequest('u2', (id) async => {'success': true});
       expect(result['success'], true);
       expect(state.pendingCount, 1);
     });
 
     test('should handle exception', () async {
-      final result = await state.rejectRequest('u1', (id) async => throw Exception('err'));
+      final result =
+          await state.rejectRequest('u1', (id) async => throw Exception('err'));
       expect(result['success'], false);
     });
   });
@@ -346,16 +407,17 @@ void main() {
   group('removeFriend', () {
     setUp(() async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [
-          {'user_id': 'u1', 'nickname': '小明'},
-          {'user_id': 'u2', 'nickname': '小红'},
-        ],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1', 'nickname': '小明'},
+              {'user_id': 'u2', 'nickname': '小红'},
+            ],
+          });
     });
 
     test('should remove friend on success', () async {
-      final result = await state.removeFriend('u1', (id) async => {'success': true});
+      final result =
+          await state.removeFriend('u1', (id) async => {'success': true});
       expect(result['success'], true);
       expect(state.friendCount, 1);
       expect(state.friends[0]['user_id'], 'u2');
@@ -367,20 +429,23 @@ void main() {
     });
 
     test('should handle exception', () async {
-      final result = await state.removeFriend('u1', (id) async => throw Exception('err'));
+      final result =
+          await state.removeFriend('u1', (id) async => throw Exception('err'));
       expect(result['success'], false);
     });
   });
 
   group('sendRequest', () {
     test('should return result from service', () async {
-      final result = await state.sendRequest('u1', (id) async => {'success': true, 'request_id': 'r1'});
+      final result = await state.sendRequest(
+          'u1', (id) async => {'success': true, 'request_id': 'r1'});
       expect(result['success'], true);
       expect(result['request_id'], 'r1');
     });
 
     test('should handle exception', () async {
-      final result = await state.sendRequest('u1', (id) async => throw Exception('err'));
+      final result =
+          await state.sendRequest('u1', (id) async => throw Exception('err'));
       expect(result['success'], false);
     });
   });
@@ -388,12 +453,12 @@ void main() {
   group('upgradeToPermanent', () {
     setUp(() async {
       await state.fetchTempFriends(() async => {
-        'success': true,
-        'temp_friends': [
-          {'temp_friend_id': 't1', 'user_id': 'u1'},
-          {'temp_friend_id': 't2', 'user_id': 'u2'},
-        ],
-      });
+            'success': true,
+            'temp_friends': [
+              {'temp_friend_id': 't1', 'user_id': 'u1'},
+              {'temp_friend_id': 't2', 'user_id': 'u2'},
+            ],
+          });
     });
 
     test('should remove temp friend and refresh on success', () async {
@@ -401,7 +466,9 @@ void main() {
       final result = await state.upgradeToPermanent(
         't1',
         (id) async => {'success': true},
-        () async { refreshCalled = true; },
+        () async {
+          refreshCalled = true;
+        },
       );
       expect(result['success'], true);
       expect(state.tempFriends.length, 1);
@@ -431,18 +498,20 @@ void main() {
   group('handleFriendOnline', () {
     setUp(() async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [
-          {'user_id': 'u1', 'is_online': false},
-          {'user_id': 'u2', 'is_online': false},
-        ],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1', 'is_online': false},
+              {'user_id': 'u2', 'is_online': false},
+            ],
+          });
     });
 
     test('should set friend online', () {
       state.handleFriendOnline({'user_id': 'u1'});
-      expect(state.friends.firstWhere((f) => f['user_id'] == 'u1')['is_online'], true);
-      expect(state.friends.firstWhere((f) => f['user_id'] == 'u2')['is_online'], false);
+      expect(state.friends.firstWhere((f) => f['user_id'] == 'u1')['is_online'],
+          true);
+      expect(state.friends.firstWhere((f) => f['user_id'] == 'u2')['is_online'],
+          false);
     });
 
     test('should ignore unknown user', () {
@@ -463,11 +532,11 @@ void main() {
   group('handleFriendOffline', () {
     setUp(() async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [
-          {'user_id': 'u1', 'is_online': true},
-        ],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1', 'is_online': true},
+            ],
+          });
     });
 
     test('should set friend offline', () {
@@ -517,9 +586,12 @@ void main() {
   group('handleFriendRemoved', () {
     setUp(() async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [{'user_id': 'u1'}, {'user_id': 'u2'}],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1'},
+              {'user_id': 'u2'}
+            ],
+          });
     });
 
     test('should remove friend', () {
@@ -536,12 +608,12 @@ void main() {
   group('handleTempFriendExpired', () {
     setUp(() async {
       await state.fetchTempFriends(() async => {
-        'success': true,
-        'temp_friends': [
-          {'temp_friend_id': 't1'},
-          {'temp_friend_id': 't2'},
-        ],
-      });
+            'success': true,
+            'temp_friends': [
+              {'temp_friend_id': 't1'},
+              {'temp_friend_id': 't2'},
+            ],
+          });
     });
 
     test('should remove expired temp friend', () {
@@ -558,14 +630,18 @@ void main() {
   group('clear', () {
     test('should clear all state', () async {
       await state.fetchFriends(() async => {
-        'success': true,
-        'friends': [{'user_id': 'u1'}],
-      });
+            'success': true,
+            'friends': [
+              {'user_id': 'u1'}
+            ],
+          });
       state.handleFriendRequest({'user_id': 'u2'});
       await state.fetchTempFriends(() async => {
-        'success': true,
-        'temp_friends': [{'temp_friend_id': 't1'}],
-      });
+            'success': true,
+            'temp_friends': [
+              {'temp_friend_id': 't1'}
+            ],
+          });
 
       state.clear();
 

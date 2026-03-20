@@ -39,7 +39,8 @@ class FriendProvider with ChangeNotifier {
 
   List<Map<String, dynamic>> get friends => List.unmodifiable(_friends);
   List<Map<String, dynamic>> get tempFriends => List.unmodifiable(_tempFriends);
-  List<Map<String, dynamic>> get pendingRequests => List.unmodifiable(_pendingRequests);
+  List<Map<String, dynamic>> get pendingRequests =>
+      List.unmodifiable(_pendingRequests);
   bool get isLoading => _isLoading;
   int get pendingCount => _pendingRequests.length;
   int get friendCount => _friends.length;
@@ -71,8 +72,7 @@ class FriendProvider with ChangeNotifier {
       item['temp_friend_id']?.toString();
 
   void _rebuildFriendIndex() {
-    _friendIndexByUserId
-      ..clear();
+    _friendIndexByUserId..clear();
     for (var i = 0; i < _friends.length; i++) {
       final userId = _friendUserId(_friends[i]);
       if (userId != null && userId.isNotEmpty) {
@@ -82,8 +82,7 @@ class FriendProvider with ChangeNotifier {
   }
 
   void _rebuildTempFriendIndex() {
-    _tempFriendIndexById
-      ..clear();
+    _tempFriendIndexById..clear();
     for (var i = 0; i < _tempFriends.length; i++) {
       final tempFriendId = _tempFriendId(_tempFriends[i]);
       if (tempFriendId != null && tempFriendId.isNotEmpty) {
@@ -93,8 +92,7 @@ class FriendProvider with ChangeNotifier {
   }
 
   void _rebuildPendingIndex() {
-    _pendingIndexByUserId
-      ..clear();
+    _pendingIndexByUserId..clear();
     for (var i = 0; i < _pendingRequests.length; i++) {
       final userId = _friendUserId(_pendingRequests[i]);
       if (userId != null && userId.isNotEmpty) {
@@ -221,7 +219,9 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.getFriends();
       if (result['success'] == true) {
-        _friends = List<Map<String, dynamic>>.from(result['friends'] ?? []);
+        _friends = List<Map<String, dynamic>>.from(
+          result['friends'] ?? result['items'] ?? result['list'] ?? [],
+        );
         _rebuildFriendIndex();
       }
     } catch (e) {
@@ -239,7 +239,13 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _tempFriendService.getMyTempFriends();
       if (result['success'] == true) {
-        _tempFriends = List<Map<String, dynamic>>.from(result['temp_friends'] ?? []);
+        _tempFriends = List<Map<String, dynamic>>.from(
+          result['temp_friends'] ??
+              result['friends'] ??
+              result['items'] ??
+              result['list'] ??
+              [],
+        );
         _rebuildTempFriendIndex();
         notifyListeners();
       }
@@ -255,7 +261,9 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.getPendingRequests();
       if (result['success'] == true) {
-        _pendingRequests = List<Map<String, dynamic>>.from(result['requests'] ?? []);
+        _pendingRequests = List<Map<String, dynamic>>.from(
+          result['requests'] ?? result['items'] ?? result['list'] ?? [],
+        );
         _rebuildPendingIndex();
         notifyListeners();
       }
@@ -310,9 +318,11 @@ class FriendProvider with ChangeNotifier {
   }
 
   /// 向目标用户发送好友请求
-  Future<Map<String, dynamic>> sendRequest(String userId, {String? message}) async {
+  Future<Map<String, dynamic>> sendRequest(String userId,
+      {String? message}) async {
     try {
-      return await _friendService.sendFriendRequest(userId: userId, message: message);
+      return await _friendService.sendFriendRequest(
+          userId: userId, message: message);
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 发送好友请求失败: $e');
       return {'success': false, 'message': '操作失败'};

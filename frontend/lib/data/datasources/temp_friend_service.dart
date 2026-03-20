@@ -25,12 +25,13 @@ class TempFriendService extends BaseService {
     final tempFriends = extractNormalizedList(
       response.data,
       itemNormalizer: _normalizeTempFriend,
-      listKeys: const ['friends', 'items'],
+      listKeys: const ['temp_friends', 'friends', 'items', 'list'],
     );
 
     return {
       ...toMap(response),
       'items': tempFriends,
+      'list': tempFriends,
       'temp_friends': tempFriends,
       'total': response.data is Map
           ? (response.data as Map)['total'] ?? tempFriends.length

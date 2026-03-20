@@ -144,6 +144,7 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import { normalizeCollectionResponse } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -420,9 +421,9 @@ async function fetchReports() {
   loading.value = true
   try {
     const res = await api.getReports(buildParams(filters))
-    const data = res.data?.data || res.data || {}
-    reportList.value = data.list || []
-    pagination.total = data.total || 0
+    const { items, total } = normalizeCollectionResponse<Report>(res.data, ['reports'])
+    reportList.value = items
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取举报列表失败:', e)

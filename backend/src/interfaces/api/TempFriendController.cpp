@@ -243,6 +243,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
         
         ret["data"]["items"] = friends;
         ret["data"]["friends"] = friends;
+        ret["data"]["temp_friends"] = friends;
         ret["data"]["total"] = static_cast<int>(result.size());
         
         auto resp = HttpResponse::newHttpJsonResponse(ret);

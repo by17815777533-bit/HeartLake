@@ -90,6 +90,40 @@ int toSensitiveLevel(const std::string &level) {
     if (level == "medium") return 2;
     return 1;
 }
+
+HttpResponsePtr collectionResponse(const Json::Value& items,
+                                   const char* semanticKey,
+                                   int total,
+                                   int page,
+                                   int pageSize) {
+    Json::Value data(Json::objectValue);
+    if (semanticKey != nullptr && *semanticKey != '\0') {
+        data[semanticKey] = items;
+    }
+    data["list"] = items;
+    data["items"] = items;
+    data["total"] = total;
+    data["page"] = page;
+    data["page_size"] = pageSize;
+    data["pageSize"] = pageSize;
+
+    const int totalPages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0;
+    const bool hasMore = pageSize > 0 && page * pageSize < total;
+    Json::Value pagination(Json::objectValue);
+    pagination["total"] = total;
+    pagination["page"] = page;
+    pagination["page_size"] = pageSize;
+    pagination["pageSize"] = pageSize;
+    pagination["total_pages"] = totalPages;
+    pagination["totalPages"] = totalPages;
+    pagination["has_more"] = hasMore;
+
+    data["total_pages"] = totalPages;
+    data["totalPages"] = totalPages;
+    data["has_more"] = hasMore;
+    data["pagination"] = pagination;
+    return ResponseUtil::success(data);
+}
 }
 
 void AdminManagementController::getUsers(const HttpRequestPtr &req,
@@ -193,10 +227,7 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
             users.append(user);
         }
 
-        Json::Value data;
-        data["users"] = users;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(users, "users", total, page, pageSize));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getUsers error: " << e.what();
         callback(ResponseUtil::internalError("获取用户列表失败"));
@@ -377,10 +408,7 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "stones", total, page, pageSize));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getStones error: " << e.what();
         callback(ResponseUtil::internalError("获取石头列表失败"));
@@ -501,10 +529,7 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "boats", total, page, pageSize));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getBoats error: " << e.what();
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
@@ -568,10 +593,7 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "pending", total, page, pageSize));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getPendingModeration error: " << e.what();
@@ -680,10 +702,7 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "history", total, page, pageSize));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getModerationHistory error: " << e.what();
@@ -773,10 +792,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "reports", total, page, pageSize));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getReports error: " << e.what();
@@ -911,10 +927,7 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
             words.append(item);
         }
 
-        Json::Value data;
-        data["words"] = words;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(words, "words", total, page, pageSize));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getSensitiveWords error: " << e.what();
@@ -1090,10 +1103,7 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "broadcasts", total, page, pageSize));
     } catch (const std::exception &e) {
         LOG_ERROR << "getBroadcastHistory error: " << e.what();
         callback(ResponseUtil::internalError("获取广播历史失败"));
@@ -1177,10 +1187,7 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
             list.append(item);
         }
 
-        Json::Value data;
-        data["list"] = list;
-        data["total"] = total;
-        callback(ResponseUtil::success(data));
+        callback(collectionResponse(list, "logs", total, page, pageSize));
     } catch (const std::exception &e) {
         LOG_ERROR << "getOperationLogs error: " << e.what();
         callback(ResponseUtil::internalError("获取操作日志失败"));

@@ -39,8 +39,10 @@ class _FriendsScreenState extends State<FriendsScreen>
   final FriendService _friendService = sl<FriendService>();
   List<Map<String, dynamic>> _friends = [];
   bool _isLoading = true;
+
   /// 列表项交错淡入动画控制器
   late AnimationController _listAnimController;
+
   /// 右下角漂浮小船循环动画控制器
   late AnimationController _boatAnimController;
 
@@ -109,7 +111,8 @@ class _FriendsScreenState extends State<FriendsScreen>
       final result = await _friendService.getFriends();
 
       if (result['success'] && mounted) {
-        final rawFriends = result['friends'];
+        final rawFriends =
+            result['friends'] ?? result['items'] ?? result['list'];
         final friends = rawFriends is List
             ? rawFriends
                 .whereType<Map>()
@@ -317,7 +320,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                               '未知'),
                           subtitle: Builder(
                             builder: (_) {
-                              final username = friend['username']?.toString() ?? '';
+                              final username =
+                                  friend['username']?.toString() ?? '';
                               final friendId = _extractFriendId(friend) ?? '';
                               return Text('账号: $username\n用户ID: $friendId');
                             },
@@ -363,8 +367,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                             onSelected: (value) {
                               final friendId = _extractFriendId(friend);
                               if (value == 'copy_id') {
-                                if (friendId == null || friendId.isEmpty) return;
-                                Clipboard.setData(ClipboardData(text: friendId));
+                                if (friendId == null || friendId.isEmpty)
+                                  return;
+                                Clipboard.setData(
+                                    ClipboardData(text: friendId));
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('用户ID已复制')),
                                 );
