@@ -85,6 +85,28 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="巡检建议" :chip="contentHealthLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ contentGuideHeadline }}</strong>
+              <span>{{ contentGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article
+                v-for="item in contentGuideMetrics"
+                :key="item.label"
+                class="ops-guidance__metric"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard eyebrow="动态" title="内容动态" :chip="latestContentMeta.value" tone="mint">
           <div class="ops-list-stack">
@@ -426,6 +448,28 @@ const contentHeroChips = computed(() => [
   `${summaryItems.value[0]?.value || 0} 条内容`,
   `${summaryItems.value[3]?.value || 0} 待确认`,
   `${contentHealthScore.value} 分 ${contentHealthLabel.value}`,
+])
+
+const contentGuideHeadline = computed(() => {
+  if (contentPendingCount.value > 0) return '先消化待确认内容，再决定是否进入深看和删除'
+  if (contentBoatCount.value > contentStoneCount.value) return '纸船流入更密，优先留意私密表达里的边界变化'
+  return '公开流向更稳，当前更适合回看最新入湖和异常关键词'
+})
+
+const contentGuideCopy = computed(() => {
+  if (contentPendingCount.value > 0) {
+    return `当前页仍有 ${formatCount(contentPendingCount.value)} 条内容待确认，建议优先处理最新流入，再回看关键词与作者信息。`
+  }
+  if (contentBoatCount.value > contentStoneCount.value) {
+    return `当前页纸船 ${formatCount(contentBoatCount.value)} 条，高于石头 ${formatCount(contentStoneCount.value)} 条，适合先关注一对一漂流里的连续表达。`
+  }
+  return `当前页公开内容更占主导，建议结合发布时间与关键词筛查，快速确认是否存在需要删除或继续观察的条目。`
+})
+
+const contentGuideMetrics = computed(() => [
+  { label: '待确认', value: `${formatCount(contentPendingCount.value)} 条` },
+  { label: '纸船占比', value: `${contentList.value.length ? Math.round((contentBoatCount.value / contentList.value.length) * 100) : 0}%` },
+  { label: '巡检评分', value: `${contentHealthScore.value} 分` },
 ])
 
 const {

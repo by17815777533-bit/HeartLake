@@ -13,14 +13,12 @@
         <slot name="stage" />
       </div>
 
-      <div v-if="hasSupport || hasFooter" class="ops-workbench__stack">
-        <div v-if="hasSupport" class="ops-workbench__support">
-          <slot name="support" />
-        </div>
+      <div v-if="hasSupport" class="ops-workbench__support">
+        <slot name="support" />
+      </div>
 
-        <div v-if="hasFooter" class="ops-workbench__footer">
-          <slot name="footer" />
-        </div>
+      <div v-if="hasFooter" class="ops-workbench__footer">
+        <slot name="footer" />
       </div>
 
       <div v-if="hasRail" class="ops-workbench__rail">
@@ -100,10 +98,10 @@ const hasDeck = computed(
 .ops-workbench__deck {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.54fr) minmax(300px, 0.98fr);
+  grid-template-columns: minmax(0, 1.52fr) minmax(228px, 0.86fr) minmax(300px, 0.98fr);
   grid-template-areas:
-    'stage stack'
-    'stage rail';
+    'stage support rail'
+    'stage footer rail';
   gap: var(--ops-workbench-gap);
   align-items: start;
   z-index: 1;
@@ -113,49 +111,43 @@ const hasDeck = computed(
   grid-area: stage;
 }
 
-.ops-workbench__stack {
-  grid-area: stack;
-}
-
 .ops-workbench__rail {
   grid-area: rail;
 }
 
-.ops-workbench__deck:not(.has-support) {
-  grid-template-columns: minmax(0, 1.42fr) minmax(260px, 0.94fr);
-  grid-template-areas: 'stage rail';
+.ops-workbench__support {
+  grid-area: support;
 }
 
-.ops-workbench__deck:not(.has-rail) {
-  grid-template-columns: minmax(0, 1.42fr) minmax(236px, 0.9fr);
-  grid-template-areas: 'stage stack';
-}
-
-.ops-workbench__deck:not(.has-support):not(.has-footer) {
-  grid-template-columns: minmax(0, 1.56fr) minmax(260px, 0.94fr);
-  grid-template-areas: 'stage rail';
-}
-
-.ops-workbench__deck:not(.has-support).has-footer:not(.has-rail) {
-  grid-template-columns: minmax(0, 1.42fr) minmax(236px, 0.9fr);
-  grid-template-areas: 'stage stack';
+.ops-workbench__footer {
+  grid-area: footer;
 }
 
 .ops-workbench__deck:not(.has-support).has-footer {
-  grid-template-columns: minmax(0, 1.56fr) minmax(260px, 0.94fr);
+  grid-template-columns: minmax(0, 1.52fr) minmax(228px, 0.86fr) minmax(300px, 0.98fr);
   grid-template-areas:
-    'stage stack'
-    'stage rail';
+    'stage footer rail'
+    'stage footer rail';
 }
 
-.ops-workbench__stack {
-  display: grid;
-  gap: var(--ops-workbench-gap);
-  align-self: start;
+.ops-workbench__deck:not(.has-footer).has-support {
+  grid-template-columns: minmax(0, 1.52fr) minmax(228px, 0.86fr) minmax(300px, 0.98fr);
+  grid-template-areas: 'stage support rail';
+}
+
+.ops-workbench__deck:not(.has-rail) {
+  grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.92fr);
+  grid-template-areas:
+    'stage support'
+    'stage footer';
+}
+
+.ops-workbench__deck:not(.has-support):not(.has-footer) {
+  grid-template-columns: minmax(0, 1.56fr) minmax(280px, 0.94fr);
+  grid-template-areas: 'stage rail';
 }
 
 .ops-workbench__stage,
-.ops-workbench__stack,
 .ops-workbench__support,
 .ops-workbench__rail,
 .ops-workbench__main,
@@ -178,18 +170,32 @@ const hasDeck = computed(
   }
 
   .ops-workbench__deck {
-    grid-template-columns: minmax(0, 1.46fr) minmax(250px, 0.92fr);
+    grid-template-columns: minmax(0, 1.44fr) minmax(210px, 0.82fr) minmax(250px, 0.92fr);
     grid-template-areas:
-      'stage stack'
-      'stage rail';
+      'stage support rail'
+      'stage footer rail';
+  }
+
+  .ops-workbench__deck:not(.has-footer).has-support {
+    grid-template-columns: minmax(0, 1.44fr) minmax(210px, 0.82fr) minmax(250px, 0.92fr);
+    grid-template-areas: 'stage support rail';
+  }
+
+  .ops-workbench__deck:not(.has-support).has-footer {
+    grid-template-columns: minmax(0, 1.44fr) minmax(210px, 0.82fr) minmax(250px, 0.92fr);
+    grid-template-areas:
+      'stage footer rail'
+      'stage footer rail';
   }
 
   .ops-workbench__deck:not(.has-rail) {
     grid-template-columns: minmax(0, 1.34fr) minmax(198px, 0.86fr);
-    grid-template-areas: 'stage stack';
+    grid-template-areas:
+      'stage support'
+      'stage footer';
   }
 
-  .ops-workbench__deck:not(.has-support) {
+  .ops-workbench__deck:not(.has-support):not(.has-footer) {
     grid-template-columns: minmax(0, 1.48fr) minmax(216px, 0.9fr);
     grid-template-areas: 'stage rail';
   }
@@ -215,7 +221,8 @@ const hasDeck = computed(
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       'stage'
-      'stack'
+      'support'
+      'footer'
       'rail';
   }
 }

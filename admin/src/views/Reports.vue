@@ -10,28 +10,52 @@
 
 <template>
   <div class="reports-page ops-page">
+    <OpsPageHero
+      eyebrow="求助"
+      title="求助处理"
+      :description="reportsHeroDescription"
+      :status="reportResolutionLabel"
+      :chips="reportsHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleSearch"> 刷新工单 </el-button>
+        <el-button @click="handleReset"> 重置筛查 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="求助"
-          title="求助处理"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 待处理` : '优先处置'"
+          eyebrow="总览"
+          title="求助概览"
+          :chip="`${reportResolutionScore} 分 ${reportResolutionLabel}`"
           tone="sky"
         >
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">求助总数</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[0]?.value || 0 }}
-              <small>条</small>
+          <div class="ops-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">求助总数</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[0]?.value || 0 }}
+                <small>条</small>
+              </div>
+              <p class="ops-big-metric__note">
+                汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。
-            </p>
-          </div>
 
-          <div class="ops-soft-actions reports-stage-actions">
-            <el-button type="primary" @click="handleSearch"> 刷新工单 </el-button>
-            <el-button @click="handleReset"> 重置筛查 </el-button>
+            <div class="ops-stage-aside">
+              <article class="ops-stage-pod">
+                <span>最新求助</span>
+                <strong>{{ latestReportMeta.value }}</strong>
+                <small>{{ latestReportMeta.note }}</small>
+              </article>
+
+              <article class="ops-stage-pod ops-stage-pod--mint">
+                <span>待处理占比</span>
+                <strong>{{ reportSignals[2]?.value || '0%' }}</strong>
+                <small>{{ reportSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid">
@@ -61,17 +85,43 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="处置建议" :chip="reportResolutionLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ reportGuideHeadline }}</strong>
+              <span>{{ reportGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article v-for="item in reportGuideMetrics" :key="item.label" class="ops-guidance__metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="状态"
-          title="处置状态"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 等待` : '空闲'"
+          eyebrow="动态"
+          title="求助动态"
+          :chip="latestReportMeta.value"
           tone="mint"
         >
-          <div class="ops-kv-grid">
-            <article v-for="item in summaryItems.slice(1)" :key="item.label" class="ops-kv-item">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
+          <div class="ops-list-stack">
+            <article v-for="item in reportSignals" :key="item.label" class="ops-list-row">
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
             </article>
           </div>
         </OpsSurfaceCard>
@@ -175,6 +225,7 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -313,6 +364,97 @@ const reportResolutionLabel = computed(() => {
   return '积压'
 })
 
+const getReportTimeNote = (value?: string) => {
+  if (!value) return '等待时间写入'
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (Number.isNaN(diffMinutes)) return '时间格式待确认'
+  if (diffMinutes <= 60) return `${diffMinutes} 分钟前发起`
+  if (diffMinutes <= 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时前发起`
+  return `${Math.floor(diffMinutes / (24 * 60))} 天前发起`
+}
+
+const latestReportMeta = computed(() => {
+  const latestItem = reportList.value.reduce<Report | null>((latest, item) => {
+    if (!latest) return item
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+  }, null)
+
+  if (!latestItem) {
+    return {
+      value: '暂无新求助',
+      note: '当前筛选条件下没有新的待回看记录。',
+    }
+  }
+
+  return {
+    value: latestItem.reason || '最新求助',
+    note: `${latestItem.created_at || '暂无时间'} · ${getReportTimeNote(latestItem.created_at)}`,
+  }
+})
+
+const reportSignals = computed(() => {
+  const total = reportList.value.length
+  const pendingRatio = total ? Math.round((reportPendingCount.value / total) * 100) : 0
+  const filterMode =
+    filters.status || filters.type
+      ? `${filters.status ? getStatusLabel(filters.status) : '全部状态'} / ${filters.type ? getTypeLabel(filters.type) : '全部类型'}`
+      : '全量视角'
+
+  return [
+    {
+      label: '当前视角',
+      value: filterMode,
+      note: filters.type
+        ? `当前重点关注“${getTypeLabel(filters.type)}”相关工单。`
+        : '默认同时查看全部求助和举报记录。',
+      badge: filters.status ? getStatusLabel(filters.status) : '未限状态',
+    },
+    {
+      label: '最新流入',
+      value: latestReportMeta.value.value,
+      note: latestReportMeta.value.note,
+      badge: `当前页 ${formatCount(total)} 条`,
+    },
+    {
+      label: '待处理占比',
+      value: `${pendingRatio}%`,
+      note: `当前页待处理 ${formatCount(reportPendingCount.value)} 条，已完成 ${formatCount(reportHandledCount.value)} 条。`,
+      badge: `忽略 ${formatCount(reportIgnoredCount.value)}`,
+    },
+  ]
+})
+
+const reportsHeroDescription =
+  '把求助、举报和回执状态收在同一张处置台面里，先判断队列温度，再决定是优先确认、回看历史，还是继续保持观察。'
+
+const reportsHeroChips = computed(() => [
+  `${summaryItems.value[0]?.value || 0} 条工单`,
+  `${reportPendingCount.value} 条待处理`,
+  `${reportResolutionScore.value} 分 ${reportResolutionLabel.value}`,
+])
+
+const reportGuideHeadline = computed(() => {
+  if (reportPendingCount.value > reportHandledCount.value) return '待处理工单偏多，先清掉堆积再回看已忽略项'
+  if (reportIgnoredCount.value > 0) return '当前队列不算拥挤，可以抽空复查已忽略记录是否仍然成立'
+  return '处置节奏平稳，继续盯住最新流入和高频类型即可'
+})
+
+const reportGuideCopy = computed(() => {
+  if (reportPendingCount.value > reportHandledCount.value) {
+    return `当前页待处理 ${formatCount(reportPendingCount.value)} 条，高于已完成 ${formatCount(reportHandledCount.value)} 条，建议优先处理新流入工单，避免队列继续堆积。`
+  }
+  if (reportIgnoredCount.value > 0) {
+    return `当前页有 ${formatCount(reportIgnoredCount.value)} 条已忽略记录，可以结合举报原因和目标类型进行抽样回看，降低误判遗留。`
+  }
+  return '当前队列节奏比较平稳，继续以最新流入和待处理状态为主轴即可。'
+})
+
+const reportGuideMetrics = computed(() => [
+  { label: '待处理', value: `${formatCount(reportPendingCount.value)} 条` },
+  { label: '已完成', value: `${formatCount(reportHandledCount.value)} 条` },
+  { label: '处置评分', value: `${reportResolutionScore.value} 分` },
+])
+
 async function fetchReports() {
   loading.value = true
   try {
@@ -361,10 +503,6 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .reports-page {
-  .reports-stage-actions {
-    margin: 22px 0 18px;
-  }
-
   .reports-filter-form {
     :deep(.el-form-item) {
       margin-bottom: 0;

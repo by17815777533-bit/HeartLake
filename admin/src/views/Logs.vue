@@ -9,28 +9,52 @@
 
 <template>
   <div class="logs-page ops-page">
+    <OpsPageHero
+      eyebrow="审计"
+      title="服务记录"
+      :description="logsHeroDescription"
+      :status="auditLabel"
+      :chips="logsHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleSearch"> 刷新审计 </el-button>
+        <el-button @click="handleReset"> 清空筛选 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="审计"
-          title="服务记录"
-          :chip="summaryItems[0]?.value ? `${summaryItems[0].value} 条留痕` : '全量留痕'"
+          eyebrow="总览"
+          title="审计概览"
+          :chip="`${auditScore} 分 ${auditLabel}`"
           tone="sky"
         >
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">记录总量</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[0]?.value || 0 }}
-              <small>条</small>
+          <div class="ops-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">记录总量</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[0]?.value || 0 }}
+                <small>条</small>
+              </div>
+              <p class="ops-big-metric__note">
+                按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。
-            </p>
-          </div>
 
-          <div class="ops-soft-actions logs-stage-actions">
-            <el-button type="primary" @click="handleSearch"> 刷新审计 </el-button>
-            <el-button @click="handleReset"> 清空筛选 </el-button>
+            <div class="ops-stage-aside">
+              <article class="ops-stage-pod">
+                <span>最近动作</span>
+                <strong>{{ latestLogMeta.value }}</strong>
+                <small>{{ latestLogMeta.note }}</small>
+              </article>
+
+              <article class="ops-stage-pod ops-stage-pod--mint">
+                <span>链路完整度</span>
+                <strong>{{ auditScore }} / 100</strong>
+                <small>{{ logSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid">
@@ -60,24 +84,42 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="核查建议" :chip="auditLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ logsGuideHeadline }}</strong>
+              <span>{{ logsGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article v-for="item in logsGuideMetrics" :key="item.label" class="ops-guidance__metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="分布"
-          title="动作分布"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 次登录` : '审计中'"
+          eyebrow="动态"
+          title="审计动态"
+          :chip="latestLogMeta.value"
           tone="mint"
         >
           <div class="ops-list-stack">
-            <article v-for="item in summaryItems.slice(1)" :key="item.label" class="ops-list-row">
+            <article v-for="item in logSignals" :key="item.label" class="ops-list-row">
               <div class="ops-list-row__badge">
                 {{ item.label.slice(0, 2) }}
               </div>
               <div class="ops-list-row__copy">
-                <strong>{{ item.label }}</strong>
+                <strong>{{ item.value }}</strong>
                 <span>{{ item.note }}</span>
               </div>
               <div class="ops-list-row__value">
-                {{ item.value }}
+                {{ item.badge }}
               </div>
             </article>
           </div>
@@ -199,6 +241,7 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import api, { isRequestCanceled } from '@/api'
 import { ElMessage } from 'element-plus'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -363,6 +406,84 @@ const auditLabel = computed(() => {
   return '稀疏'
 })
 
+const latestLogMeta = computed(() => {
+  const latestItem = logList.value.reduce<OperationLog | null>((latest, item) => {
+    if (!latest) return item
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+  }, null)
+
+  if (!latestItem) {
+    return {
+      value: '暂无新记录',
+      note: '当前筛选条件下还没有新的审计写入。',
+    }
+  }
+
+  return {
+    value: getActionLabel(latestItem.action),
+    note: `${getLogOperator(latestItem)} · ${latestItem.created_at || '暂无时间'} · ${getTimeNote(latestItem.created_at)}`,
+  }
+})
+
+const logSignals = computed(() => {
+  const filterMode =
+    filters.operator || filters.action
+      ? `${filters.operator || '全部操作人'} / ${filters.action ? getActionLabel(filters.action) : '全部动作'}`
+      : '全量留痕'
+
+  return [
+    {
+      label: '当前视角',
+      value: filterMode,
+      note: filters.dateRange?.length === 2 ? `已限定 ${filters.dateRange[0]} 至 ${filters.dateRange[1]}` : '默认查看当前条件下的全部审计写入。',
+      badge: `${formatCount(logList.value.length)} 条`,
+    },
+    {
+      label: '最近动作',
+      value: latestLogMeta.value.value,
+      note: latestLogMeta.value.note,
+      badge: `${formatCount(loginCount.value)} 次登录`,
+    },
+    {
+      label: '链路完整度',
+      value: `${auditScore.value} / 100`,
+      note: `内容处置 ${formatCount(contentActionCount.value)} 次，配置改动 ${formatCount(configActionCount.value)} 次。`,
+      badge: auditLabel.value,
+    },
+  ]
+})
+
+const logsHeroDescription =
+  '把后台登录、内容处置和配置改动收在同一条审计链路里，先判断最近动作和筛选范围，再决定是否继续深查。'
+
+const logsHeroChips = computed(() => [
+  `${summaryItems.value[0]?.value || 0} 条记录`,
+  `${loginCount.value} 次登录`,
+  `${auditScore.value} 分 ${auditLabel.value}`,
+])
+
+const logsGuideHeadline = computed(() => {
+  if (configActionCount.value > 0) return '最近存在配置改动，先核对参数变更是否符合预期'
+  if (contentActionCount.value > 0) return '内容处置链路活跃，建议回看动作细节和时间顺序'
+  return '当前以常规留痕为主，继续盯住登录和最新写入即可'
+})
+
+const logsGuideCopy = computed(() => {
+  if (configActionCount.value > 0) {
+    return `当前页包含 ${formatCount(configActionCount.value)} 次配置改动，建议优先核查改动时间、操作人和对应的后续动作是否匹配。`
+  }
+  if (contentActionCount.value > 0) {
+    return `当前页包含 ${formatCount(contentActionCount.value)} 次内容处置动作，可以按时间顺序回看审核、删除和举报处理之间的关联。`
+  }
+  return '当前页以基础登录留痕为主，没有明显异常链路，可以保持常规巡看。'
+})
+
+const logsGuideMetrics = computed(() => [
+  { label: '登录动作', value: `${formatCount(loginCount.value)} 次` },
+  { label: '内容处置', value: `${formatCount(contentActionCount.value)} 次` },
+  { label: '审计评分', value: `${auditScore.value} 分` },
+])
+
 async function fetchLogs() {
   loading.value = true
   try {
@@ -392,10 +513,6 @@ onMounted(() => fetchLogs())
 
 <style lang="scss" scoped>
 .logs-page {
-  .logs-stage-actions {
-    margin: 22px 0 18px;
-  }
-
   .logs-filter-form {
     :deep(.el-form-item) {
       margin-bottom: 0;

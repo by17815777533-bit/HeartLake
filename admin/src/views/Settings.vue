@@ -11,17 +11,46 @@
 
 <template>
   <div class="settings-page ops-page">
+    <OpsPageHero
+      eyebrow="控制台"
+      title="系统偏好"
+      :description="settingsHeroDescription"
+      :status="settingsLabel"
+      :chips="settingsHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="loadConfig"> 刷新配置 </el-button>
+        <el-button @click="testAI"> 测试连接 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
-        <OpsSurfaceCard eyebrow="控制台" title="系统偏好" :chip="activeTab" tone="sky">
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">当前工作区</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[2]?.value || '系统' }}
+        <OpsSurfaceCard eyebrow="总览" title="偏好概览" :chip="`${settingsScore} 分 ${settingsLabel}`" tone="sky">
+          <div class="ops-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">当前工作区</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[2]?.value || '系统' }}
+              </div>
+              <p class="ops-big-metric__note">
+                集中管理站点开关、智能回复、速率限制与全站广播，高权限操作在这里完成统一配置。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              集中管理站点开关、智能回复、速率限制与全站广播，高权限操作在这里完成统一配置。
-            </p>
+
+            <div class="ops-stage-aside">
+              <article class="ops-stage-pod">
+                <span>当前页签</span>
+                <strong>{{ settingsSignals[0]?.value || activeTab }}</strong>
+                <small>{{ settingsSignals[0]?.note }}</small>
+              </article>
+
+              <article class="ops-stage-pod ops-stage-pod--mint">
+                <span>广播准备</span>
+                <strong>{{ settingsSignals[2]?.value || '0 / 500' }}</strong>
+                <small>{{ settingsSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid settings-summary-grid">
@@ -51,25 +80,43 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="配置建议" :chip="settingsLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ settingsGuideHeadline }}</strong>
+              <span>{{ settingsGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article v-for="item in settingsGuideMetrics" :key="item.label" class="ops-guidance__metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="广播"
-          title="广播状态"
-          :chip="levelLabelMap[broadcastForm.level] || broadcastForm.level"
+          eyebrow="动态"
+          title="配置动态"
+          :chip="settingsSignals[1]?.value || activeTab"
           tone="mint"
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>消息上限</span>
-              <strong>{{ rateConfig.maxContentLength }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>分钟限额</span>
-              <strong>{{ rateConfig.messagePerMinute }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>广播字数</span>
-              <strong>{{ broadcastForm.message.length }}/500</strong>
+          <div class="ops-list-stack">
+            <article v-for="item in settingsSignals" :key="item.label" class="ops-list-row">
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
             </article>
           </div>
         </OpsSurfaceCard>
@@ -235,6 +282,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -416,6 +464,65 @@ const settingsLabel = computed(() => {
   if (settingsScore.value >= 60) return '已配置'
   return '待完善'
 })
+
+const tabLabelMap: Record<string, string> = {
+  system: '系统配置',
+  ai: '智能回复',
+  rate: '限流配置',
+  broadcast: '广播',
+}
+
+const settingsSignals = computed(() => [
+  {
+    label: '当前页签',
+    value: tabLabelMap[activeTab.value] || activeTab.value,
+    note: `当前主要处理 ${tabLabelMap[activeTab.value] || activeTab.value} 相关配置。`,
+    badge: summaryItems.value[2]?.value || '系统',
+  },
+  {
+    label: '回复方案',
+    value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
+    note: `模型 ${aiConfig.model || '未设置'} · 情感分析 ${aiConfig.enableSentiment ? '开启' : '关闭'}`,
+    badge: aiConfig.enableAutoReply ? '自动回复开启' : '自动回复关闭',
+  },
+  {
+    label: '广播准备',
+    value: `${broadcastForm.message.length} / 500`,
+    note: `当前级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
+    badge: `上限 ${rateConfig.maxContentLength}`,
+  },
+])
+
+const settingsHeroDescription =
+  '把站点开关、智能回复、限流与广播收进同一张控制台里，先判断当前页签和回复方案，再决定是否保存、测试或发出广播。'
+
+const settingsHeroChips = computed(() => [
+  tabLabelMap[activeTab.value] || activeTab.value,
+  providerLabelMap[aiConfig.provider] || aiConfig.provider,
+  `${settingsScore.value} 分 ${settingsLabel.value}`,
+])
+
+const settingsGuideHeadline = computed(() => {
+  if (!aiConfig.enableAutoReply) return '自动回复当前关闭，先确认这是主动策略还是遗漏配置'
+  if (broadcastForm.message.trim()) return '广播内容已经写入，发送前先确认级别和文案长度'
+  return '当前配置较完整，继续围绕限流阈值和系统开关做细调即可'
+})
+
+const settingsGuideCopy = computed(() => {
+  if (!aiConfig.enableAutoReply) {
+    return '当前自动回复未开启，如果比赛现场需要演示完整链路，建议先确认是否要启用并测试连接。'
+  }
+  if (broadcastForm.message.trim()) {
+    return `当前广播已写入 ${broadcastForm.message.length} 个字符，建议在发送前再次确认级别、文案和在线用户场景。`
+  }
+  return '当前核心配置已经齐备，可以优先回看限流阈值、匿名入口和注册开关是否符合比赛演示策略。'
+})
+
+const settingsGuideMetrics = computed(() => [
+  { label: '匿名进入', value: systemConfig.allowAnonymous ? '允许' : '关闭' },
+  { label: '自动回复', value: aiConfig.enableAutoReply ? '开启' : '关闭' },
+  { label: '配置评分', value: `${settingsScore.value} 分` },
+])
 
 // 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {

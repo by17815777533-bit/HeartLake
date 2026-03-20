@@ -11,28 +11,58 @@
 
 <template>
   <div class="moderation-page ops-page">
+    <OpsPageHero
+      eyebrow="守护"
+      title="温暖守护"
+      :description="moderationHeroDescription"
+      :status="moderationLabel"
+      :chips="moderationHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="fetchPending"> 刷新队列 </el-button>
+        <el-button @click="fetchHistory"> 回看历史 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="守护"
-          title="温暖守护"
-          :chip="activeTab === 'pending' ? '待审核视角' : '历史视角'"
+          eyebrow="总览"
+          title="守护概览"
+          :chip="`${moderationScore} 分 ${moderationLabel}`"
           tone="sky"
         >
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">待复核队列</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[0]?.value || 0 }}
-              <small>条</small>
+          <div class="ops-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">待复核队列</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[0]?.value || 0 }}
+                <small>条</small>
+              </div>
+              <p class="ops-big-metric__note">
+                查看待审核队列与审核历史，结合触发原因完成人工复核，保证社区秩序与表达边界。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              查看待审核队列与审核历史，结合触发原因完成人工复核，保证社区秩序与表达边界。
-            </p>
-          </div>
 
-          <div class="ops-soft-actions moderation-stage-actions">
-            <el-button type="primary" @click="fetchPending"> 刷新队列 </el-button>
-            <el-button @click="fetchHistory"> 回看历史 </el-button>
+            <div class="ops-stage-aside">
+              <article class="ops-stage-pod">
+                <span>主要触发</span>
+                <strong>{{ dominantReason.reason }}</strong>
+                <small>
+                  {{
+                    dominantReason.count
+                      ? `${dominantReason.count} 条内容触发同类原因`
+                      : '当前没有待审核内容'
+                  }}
+                </small>
+              </article>
+
+              <article class="ops-stage-pod ops-stage-pod--mint">
+                <span>人工倾向</span>
+                <strong>{{ moderationSignals[2]?.value || '0%' }}</strong>
+                <small>{{ moderationSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid">
@@ -59,6 +89,28 @@
           compact
         >
           <OpsMiniBars :items="moderationVizBars" />
+        </OpsSurfaceCard>
+      </template>
+
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="复核建议" :chip="moderationLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ moderationGuideHeadline }}</strong>
+              <span>{{ moderationGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article
+                v-for="item in moderationGuideMetrics"
+                :key="item.label"
+                class="ops-guidance__metric"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
         </OpsSurfaceCard>
       </template>
 
@@ -249,6 +301,7 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -452,6 +505,37 @@ const moderationSignals = computed(() => {
   ]
 })
 
+const moderationHeroDescription =
+  '把待复核队列、人审历史和风险触发收在同一张守护台里，先判断高危密度，再决定是继续放行、拦截，还是回看边界误伤。'
+
+const moderationHeroChips = computed(() => [
+  `${summaryItems.value[0]?.value || 0} 条待复核`,
+  `${highRiskPendingCount.value} 条高危`,
+  `${moderationScore.value} 分 ${moderationLabel.value}`,
+])
+
+const moderationGuideHeadline = computed(() => {
+  if (highRiskPendingCount.value > 0) return '高危条目仍在队列里，先处理边界最清晰的一批'
+  if (historyList.value.length > 0) return '队列相对平稳，可以抽时间回看历史通过率和误伤边界'
+  return '当前队列较轻，保持巡看即可，重点等待新的触发原因出现'
+})
+
+const moderationGuideCopy = computed(() => {
+  if (highRiskPendingCount.value > 0) {
+    return `当前页仍有 ${formatCount(highRiskPendingCount.value)} 条高危内容等待人工复核，建议先处理风险分最高且触发原因最集中的条目。`
+  }
+  if (historyList.value.length > 0) {
+    return `当前已回看 ${formatCount(historyList.value.length)} 条历史记录，可以顺手检查通过与拒绝比例是否仍符合当前边界标准。`
+  }
+  return '当前没有明显堆积，保持对新入队内容的持续巡看即可。'
+})
+
+const moderationGuideMetrics = computed(() => [
+  { label: '高危队列', value: `${formatCount(highRiskPendingCount.value)} 条` },
+  { label: '历史回看', value: `${formatCount(historyList.value.length)} 条` },
+  { label: '守护评分', value: `${moderationScore.value} 分` },
+])
+
 async function fetchPending() {
   loading.value = true
   try {
@@ -558,10 +642,6 @@ onMounted(() => fetchPending())
 
 <style lang="scss" scoped>
 .moderation-page {
-  .moderation-stage-actions {
-    margin: 22px 0 18px;
-  }
-
   .moderation-table-copy {
     h3 {
       color: var(--hl-ink);

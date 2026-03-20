@@ -11,28 +11,52 @@
 
 <template>
   <div class="sensitive-words-page ops-page">
+    <OpsPageHero
+      eyebrow="词典"
+      title="风险词典"
+      :description="sensitiveHeroDescription"
+      :status="sensitiveLabel"
+      :chips="sensitiveHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
+        <el-button @click="handleSearch"> 刷新词典 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="词典"
-          title="风险词典"
-          :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 高风险` : '实时生效'"
+          eyebrow="总览"
+          title="词典概览"
+          :chip="`${sensitiveScore} 分 ${sensitiveLabel}`"
           tone="sky"
         >
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">词条总量</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[0]?.value || 0 }}
-              <small>条</small>
+          <div class="ops-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">词条总量</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[0]?.value || 0 }}
+                <small>条</small>
+              </div>
+              <p class="ops-big-metric__note">
+                维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。
-            </p>
-          </div>
 
-          <div class="ops-soft-actions sensitive-stage-actions">
-            <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
-            <el-button @click="handleSearch"> 刷新词典 </el-button>
+            <div class="ops-stage-aside">
+              <article class="ops-stage-pod">
+                <span>最新词条</span>
+                <strong>{{ latestSensitiveMeta.value }}</strong>
+                <small>{{ latestSensitiveMeta.note }}</small>
+              </article>
+
+              <article class="ops-stage-pod ops-stage-pod--mint">
+                <span>批量准备</span>
+                <strong>{{ sensitiveSignals[2]?.value || '0 条' }}</strong>
+                <small>{{ sensitiveSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid">
@@ -62,25 +86,47 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="维护建议" :chip="sensitiveLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ sensitiveGuideHeadline }}</strong>
+              <span>{{ sensitiveGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article
+                v-for="item in sensitiveGuideMetrics"
+                :key="item.label"
+                class="ops-guidance__metric"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="批量"
-          title="批量状态"
-          :chip="selectedWords.length ? `${selectedWords.length} 已选` : '等待选择'"
+          eyebrow="动态"
+          title="词典动态"
+          :chip="latestSensitiveMeta.value"
           tone="mint"
         >
-          <div class="ops-kv-grid">
-            <article class="ops-kv-item">
-              <span>当前选中</span>
-              <strong>{{ selectedWords.length }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>替换策略</span>
-              <strong>{{ summaryItems[2]?.value || 0 }}</strong>
-            </article>
-            <article class="ops-kv-item">
-              <span>批量上限</span>
-              <strong>{{ MAX_BATCH_SIZE }}</strong>
+          <div class="ops-list-stack">
+            <article v-for="item in sensitiveSignals" :key="item.label" class="ops-list-row">
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.badge }}
+              </div>
             </article>
           </div>
         </OpsSurfaceCard>
@@ -229,6 +275,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, TableInstance } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -406,6 +453,86 @@ const sensitiveLabel = computed(() => {
   return '松散'
 })
 
+const latestSensitiveMeta = computed(() => {
+  const latestItem = wordList.value.reduce<SensitiveWord | null>((latest, item) => {
+    if (!latest) return item
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+  }, null)
+
+  if (!latestItem) {
+    return {
+      value: '暂无新词条',
+      note: '当前筛选条件下还没有更新的词条。',
+    }
+  }
+
+  return {
+    value: latestItem.word,
+    note: `${getLevelLabel(latestItem.level)}级 · ${latestItem.created_at || '暂无时间'}`,
+  }
+})
+
+const sensitiveSignals = computed(() => {
+  const filterMode =
+    filters.keyword || filters.level
+      ? `${filters.keyword || '全部关键词'} / ${filters.level ? `${getLevelLabel(filters.level)}级` : '全部级别'}`
+      : '全量词典'
+
+  return [
+    {
+      label: '当前视角',
+      value: filterMode,
+      note: filters.keyword ? `正在按“${filters.keyword}”缩小词典范围。` : '默认查看全部词条和级别分布。',
+      badge: `${formatCount(wordList.value.length)} 条`,
+    },
+    {
+      label: '最新词条',
+      value: latestSensitiveMeta.value.value,
+      note: latestSensitiveMeta.value.note,
+      badge: `高风险 ${formatCount(highRiskWordCount.value)}`,
+    },
+    {
+      label: '批量准备',
+      value: `${formatCount(selectedWords.value.length)} 条`,
+      note: selectedWords.value.length
+        ? `当前已选 ${formatCount(selectedWords.value.length)} 条，可直接执行批量删除。`
+        : `单次最多可处理 ${MAX_BATCH_SIZE} 条词条。`,
+      badge: `上限 ${MAX_BATCH_SIZE}`,
+    },
+  ]
+})
+
+const sensitiveHeroDescription =
+  '把风险词、替换策略和批量操作集中到同一张维护台面里，先判断级别密度，再决定是新增、调整，还是批量清理。'
+
+const sensitiveHeroChips = computed(() => [
+  `${summaryItems.value[0]?.value || 0} 条词条`,
+  `${highRiskWordCount.value} 条高风险`,
+  `${sensitiveScore.value} 分 ${sensitiveLabel.value}`,
+])
+
+const sensitiveGuideHeadline = computed(() => {
+  if (selectedWords.value.length > 0) return '当前已经选中一批词条，先确认误删风险再执行批量操作'
+  if (highRiskWordCount.value > mediumRiskWordCount.value) return '高风险词条偏多，优先回看替换策略和误伤边界'
+  return '词典结构相对稳定，继续补充新词和细化中风险表达即可'
+})
+
+const sensitiveGuideCopy = computed(() => {
+  if (selectedWords.value.length > 0) {
+    return `当前已选中 ${formatCount(selectedWords.value.length)} 条词条，建议先复核级别和替换词，再进行批量删除。`
+  }
+  if (highRiskWordCount.value > mediumRiskWordCount.value) {
+    return `当前页高风险词条 ${formatCount(highRiskWordCount.value)} 条，多于中风险 ${formatCount(mediumRiskWordCount.value)} 条，建议优先确认是否需要更细的替换策略。`
+  }
+  return '当前词典没有明显堆积，适合继续补充新出现的表达并保持规则整洁。'
+})
+
+const sensitiveGuideMetrics = computed(() => [
+  { label: '高风险词条', value: `${formatCount(highRiskWordCount.value)} 条` },
+  { label: '替换策略', value: `${formatCount(replacementWordCount.value)} 条` },
+  { label: '词典评分', value: `${sensitiveScore.value} 分` },
+])
+
 async function fetchWords() {
   loading.value = true
   try {
@@ -479,10 +606,6 @@ onMounted(() => fetchWords())
 
 <style lang="scss" scoped>
 .sensitive-words-page {
-  .sensitive-stage-actions {
-    margin: 22px 0 18px;
-  }
-
   .sensitive-filter-form {
     :deep(.el-form-item) {
       margin-bottom: 0;

@@ -91,6 +91,24 @@
         </OpsSurfaceCard>
       </template>
 
+      <template #footer>
+        <OpsSurfaceCard eyebrow="建议" title="关怀建议" :chip="engagementLabel" tone="mint">
+          <div class="ops-guidance">
+            <div class="ops-guidance__headline">
+              <strong>{{ usersGuideHeadline }}</strong>
+              <span>{{ usersGuideCopy }}</span>
+            </div>
+
+            <div class="ops-guidance__meta">
+              <article v-for="item in usersGuideMetrics" :key="item.label" class="ops-guidance__metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+          </div>
+        </OpsSurfaceCard>
+      </template>
+
       <template #rail>
         <OpsSurfaceCard eyebrow="动态" title="旅人动态" :chip="latestActiveMeta.value" tone="mint">
           <div class="ops-list-stack">
@@ -500,6 +518,28 @@ const usersHeroChips = computed(() => [
   `${summaryItems.value[0]?.value || 0} 位旅人`,
   `${activeTravelerCount.value} 位活跃`,
   `${engagementScore.value} 分 ${engagementLabel.value}`,
+])
+
+const usersGuideHeadline = computed(() => {
+  if (bannedTravelerCount.value > 0) return '先回看限制中的旅人，再决定解除还是继续观察'
+  if (activeTravelerCount.value > 0) return '活跃旅人状态平稳，优先留意最近回湖和高产出账号'
+  return '当前旅人侧比较安静，可以把注意力放在新入湖账号和基础陪伴上'
+})
+
+const usersGuideCopy = computed(() => {
+  if (bannedTravelerCount.value > 0) {
+    return `当前页仍有 ${formatCount(bannedTravelerCount.value)} 位旅人处于限制中，建议结合最近活跃与产出轨迹，确认是否需要继续限制。`
+  }
+  if (activeTravelerCount.value > 0) {
+    return `当前页 ${formatCount(activeTravelerCount.value)} 位旅人保持正常状态，优先关注最近回湖且互动密度偏高的账号，避免漏掉需要人工跟进的个体。`
+  }
+  return '当前页暂未呈现明显活跃波动，适合回看筛选条件并准备下一轮定向检索。'
+})
+
+const usersGuideMetrics = computed(() => [
+  { label: '限制中账号', value: `${formatCount(bannedTravelerCount.value)} 位` },
+  { label: '总互动产出', value: `${formatCount(totalStones.value + totalBoats.value)} 条` },
+  { label: '关怀评分', value: `${engagementScore.value} 分` },
 ])
 
 /**
