@@ -22,6 +22,19 @@
         <slot name="actions" />
       </div>
 
+      <div v-if="overviewHighlights.length" class="overview-highlights">
+        <article
+          v-for="item in overviewHighlights"
+          :key="item.label"
+          class="overview-highlight"
+          :class="item.tone"
+        >
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.note }}</small>
+        </article>
+      </div>
+
       <div class="section-heading">
         <span>{{ sectionLabel }}</span>
         <small>{{ sectionNote }}</small>
@@ -130,7 +143,6 @@
           <div class="guide-item__badge">{{ item.value }}</div>
           <div class="guide-item__copy">
             <strong>{{ item.label }}</strong>
-            <span v-if="item.note">{{ item.note }}</span>
           </div>
         </article>
       </div>
@@ -158,6 +170,13 @@ interface FocusCard {
   label: string
   value: string
   note: string
+}
+
+interface OverviewHighlight {
+  label: string
+  value: string
+  note: string
+  tone?: OverviewCardTone
 }
 
 interface RhythmItem {
@@ -193,6 +212,7 @@ const props = withDefaults(
     sectionLabel?: string
     sectionNote?: string
     overviewCards: OverviewCard[]
+    overviewHighlights?: OverviewHighlight[]
     focusCard: FocusCard
     rhythmEyebrow?: string
     rhythmTitle: string
@@ -221,6 +241,7 @@ const props = withDefaults(
     rhythmEyebrow: '节律',
     activityEyebrow: '动态',
     guideEyebrow: '建议',
+    overviewHighlights: () => [],
   },
 )
 
@@ -429,6 +450,59 @@ const normalizedRhythmItems = computed(() => {
   place-items: center;
   border-radius: 50%;
   background: rgba(233, 241, 255, 0.92);
+}
+
+.overview-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.overview-highlight {
+  display: grid;
+  gap: 5px;
+  min-height: 104px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(152, 175, 222, 0.14);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 16px 28px rgba(108, 132, 182, 0.08);
+
+  span,
+  small {
+    color: rgba(19, 32, 51, 0.62);
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  strong {
+    color: #132033;
+    font-size: 24px;
+    font-weight: 760;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+}
+
+.overview-highlight.lake,
+.overview-highlight.is-blue {
+  background: linear-gradient(180deg, rgba(245, 249, 255, 0.92), rgba(236, 243, 255, 0.92));
+}
+
+.overview-highlight.sage,
+.overview-highlight.is-mint {
+  background: linear-gradient(180deg, rgba(233, 247, 243, 0.94), rgba(223, 243, 237, 0.94));
+}
+
+.overview-highlight.amber {
+  background: linear-gradient(180deg, rgba(248, 242, 225, 0.94), rgba(242, 234, 210, 0.94));
+}
+
+.overview-highlight.rose {
+  background: linear-gradient(180deg, rgba(249, 235, 238, 0.94), rgba(245, 228, 232, 0.94));
 }
 
 .section-heading {
@@ -779,12 +853,20 @@ const normalizedRhythmItems = computed(() => {
     font-weight: 720;
     letter-spacing: -0.04em;
     line-height: 1.2;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   span {
     color: rgba(19, 32, 51, 0.68);
     font-size: 12px;
     line-height: 1.65;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 }
 
@@ -828,8 +910,9 @@ const normalizedRhythmItems = computed(() => {
 
 .guide-item {
   display: grid;
-  gap: 8px;
-  align-content: start;
+  gap: 10px;
+  align-content: space-between;
+  min-height: 92px;
   padding: 12px 14px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.7);
@@ -853,27 +936,12 @@ const normalizedRhythmItems = computed(() => {
   letter-spacing: 0.02em;
 }
 
-.guide-item__copy {
-  min-width: 0;
-
-  strong,
-  span {
-    display: block;
-  }
-
-  strong {
-    color: #132033;
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1.4;
-  }
-
-  span {
-    margin-top: 3px;
-    color: rgba(19, 32, 51, 0.62);
-    font-size: 10px;
-    line-height: 1.5;
-  }
+.guide-item__copy strong {
+  display: block;
+  color: #132033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 @media (max-width: 1180px) and (min-width: 961px) {
@@ -930,6 +998,20 @@ const normalizedRhythmItems = computed(() => {
 
   .overview-actions {
     margin-top: 14px;
+  }
+
+  .overview-highlights {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .overview-highlight {
+    min-height: 88px;
+    padding: 12px;
+
+    strong {
+      font-size: 18px;
+    }
   }
 
   .section-heading {
@@ -1078,7 +1160,7 @@ const normalizedRhythmItems = computed(() => {
   }
 
   .guide-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1112,6 +1194,10 @@ const normalizedRhythmItems = computed(() => {
     flex-direction: column;
   }
 
+  .overview-highlights {
+    grid-template-columns: 1fr;
+  }
+
   .overview-cards {
     grid-template-columns: 1fr;
   }
@@ -1123,6 +1209,10 @@ const normalizedRhythmItems = computed(() => {
   .spending-bars,
   .spending-bars--quad {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .guide-list {
+    grid-template-columns: 1fr;
   }
 }
 </style>

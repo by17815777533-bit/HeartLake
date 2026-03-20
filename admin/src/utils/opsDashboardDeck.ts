@@ -46,6 +46,14 @@ export const createDeckFocusCard = (item?: SummaryItem, fallbackNote = '') => ({
   note: fallbackNote || item?.note || '保持当前巡看节奏。',
 })
 
+export const createDeckOverviewHighlights = (items: SummaryItem[]) =>
+  items.slice(0, 2).map((item) => ({
+    label: item.label,
+    value: item.value,
+    note: item.note,
+    tone: normalizeTone(item.tone),
+  }))
+
 export const createDeckRhythmItems = (items: BarItem[]) =>
   items.map((item) => ({
     label: item.label,

@@ -45,6 +45,11 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-table-prelude">
+        <OpsMetricStrip :items="summaryItems.slice(0, 4)" />
+        <OpsSignalDeck :items="settingsSignals" />
+      </div>
+
       <div class="ops-soft-toolbar">
         <div class="settings-table-copy">
           <h3>高权限配置</h3>
@@ -204,6 +209,8 @@ import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import {
   createDeckActivityRows,
@@ -658,8 +665,44 @@ const sendBroadcast = async () => {
     }
   }
 
-  :deep(.el-form) {
-    max-width: 680px;
+  :deep(.el-form[aria-label='系统配置']),
+  :deep(.el-form[aria-label='智能回复设置']),
+  :deep(.el-form[aria-label='限流配置']),
+  :deep(.el-form[aria-label='广播消息']) {
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  :deep(.el-form[aria-label='系统配置'] .el-form-item:nth-child(2)),
+  :deep(.el-form[aria-label='系统配置'] .el-form-item:last-child),
+  :deep(.el-form[aria-label='智能回复设置'] .el-form-item:last-child),
+  :deep(.el-form[aria-label='广播消息'] .el-form-item:first-child),
+  :deep(.el-form[aria-label='广播消息'] .el-form-item:last-child),
+  :deep(.el-form[aria-label='限流配置'] .el-form-item:last-child) {
+    grid-column: span 2;
+  }
+
+  :deep(.el-input-number) {
+    width: 100%;
+  }
+
+  @media (max-width: 960px) {
+    :deep(.el-form[aria-label='系统配置']),
+    :deep(.el-form[aria-label='智能回复设置']),
+    :deep(.el-form[aria-label='限流配置']),
+    :deep(.el-form[aria-label='广播消息']) {
+      grid-template-columns: 1fr;
+    }
+
+    :deep(.el-form[aria-label='系统配置'] .el-form-item:nth-child(2)),
+    :deep(.el-form[aria-label='系统配置'] .el-form-item:last-child),
+    :deep(.el-form[aria-label='智能回复设置'] .el-form-item:last-child),
+    :deep(.el-form[aria-label='广播消息'] .el-form-item:first-child),
+    :deep(.el-form[aria-label='广播消息'] .el-form-item:last-child),
+    :deep(.el-form[aria-label='限流配置'] .el-form-item:last-child) {
+      grid-column: auto;
+    }
   }
 }
 </style>

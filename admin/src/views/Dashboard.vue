@@ -11,10 +11,10 @@
         </div>
 
         <div class="overview-total">
-          <span>湖面总量</span>
+          <span>累计旅人</span>
           <div class="overview-total__value">
             <strong>{{ formattedTravelerCount }}</strong>
-            <small>.{{ travelerFraction }}</small>
+            <small>位</small>
           </div>
           <p>{{ balanceDescription }}</p>
         </div>
@@ -50,7 +50,8 @@
           </article>
 
           <button type="button" class="overview-shortcut" @click="jumpToAssist">
-            <span>+</span>
+            <strong>AI</strong>
+            <small>智能辅助</small>
           </button>
         </div>
       </article>
@@ -177,19 +178,19 @@
         <div class="card-heading">
           <div>
             <span class="card-caption">评分</span>
-            <h3>湖面评分</h3>
+            <h3>湖面健康度</h3>
           </div>
           <button type="button" class="text-action" @click="jumpToReports">查看详情</button>
         </div>
 
         <OpsGaugeMeter
           :value="creditScoreValue"
-          :max="2000"
+          :max="100"
           :label="creditScoreLabel"
           :formatter="formatCreditScore"
         />
 
-        <button type="button" class="score-button" @click="jumpToReports">查看报告</button>
+        <button type="button" class="score-button" @click="jumpToReports">查看预警</button>
       </article>
     </section>
   </div>
@@ -237,15 +238,12 @@ const formatCompactTitle = (value: string, max = 12) => {
 }
 
 const formattedTravelerCount = computed(() => Number(stats.totalUsers || 0).toLocaleString())
-const travelerFraction = computed(() =>
-  String(Math.max(0, Math.min(99, Math.round(Number(lakeWeatherTemp.value || 0))))).padStart(
-    2,
-    '0',
-  ),
+const formattedHeatIndex = computed(
+  () => `${Math.max(0, Math.min(100, Math.round(Number(lakeWeatherTemp.value || 0))))}/100`,
 )
 
 const balanceDescription = computed(() => {
-  return `${lakeWeather.value.desc} · 在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 待处理 ${formatNumber(Number(stats.pendingReports || 0))}`
+  return `${lakeWeather.value.desc} · 当前在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 待处置 ${formatNumber(Number(stats.pendingReports || 0))} 项 · 情绪温度 ${formattedHeatIndex.value}`
 })
 
 const growthLabels = computed(() =>
@@ -301,22 +299,26 @@ const spendingColumns = computed(() => {
 
 const spendingPeakLabel = computed(() => {
   const peak = spendingColumns.value.find((item) => item.isPeak) || spendingColumns.value[0]
-  return peak ? `峰值 ${formatNumber(peak.value)}` : '峰值 --'
+  return peak
+    ? `近 ${chartRange.value} 天最高单日新增 ${formatNumber(peak.value)} 位`
+    : '暂无新增波峰'
 })
 
 const activityRows = computed(() => {
   if (aiTrendingContent.value.length) {
     return aiTrendingContent.value.slice(0, 5).map((item, index) => {
       const content = String(item.content || '')
-      const normalizedScore = Math.max(18, Math.round((Number(item.score || 0) || 0) * 960))
-      const isPositive = normalizedScore >= 520
+      const normalizedScore = Math.round(
+        Math.max(0, Math.min(1, Number(item.score || 0) || 0)) * 100,
+      )
+      const isPositive = normalizedScore >= 70
       return {
         id: item.id || `content-${index}`,
         badge: String(index + 1),
         title: formatCompactTitle(content),
-        meta: item.mood ? `情绪 ${item.mood}` : '内容推荐',
-        amount: `${isPositive ? '+' : '-'}${normalizedScore}`,
-        tone: isPositive ? 'is-positive' : 'is-negative',
+        meta: item.mood ? `推荐内容 · 情绪 ${item.mood}` : '推荐内容',
+        amount: `${normalizedScore} 分`,
+        tone: isPositive ? 'is-positive' : normalizedScore >= 45 ? 'is-neutral' : 'is-negative',
         iconTone: index % 2 === 0 ? 'is-blue' : 'is-mint',
       }
     })
@@ -328,8 +330,8 @@ const activityRows = computed(() => {
       badge: String(index + 1),
       title: formatCompactTitle(item.keyword, 10),
       meta: '热度话题',
-      amount: `${index % 2 === 0 ? '-' : '+'}${formatNumber(Number(item.count || 0))}`,
-      tone: index % 2 === 0 ? 'is-negative' : 'is-positive',
+      amount: `${formatNumber(Number(item.count || 0))} 次`,
+      tone: index === 0 ? 'is-positive' : 'is-neutral',
       iconTone: index % 2 === 0 ? 'is-blue' : 'is-mint',
     }))
   }
@@ -340,8 +342,8 @@ const activityRows = computed(() => {
       badge: '旅',
       title: '累计旅人',
       meta: '当前账户池',
-      amount: `+${formattedTravelerCount.value}`,
-      tone: 'is-positive',
+      amount: `${formattedTravelerCount.value} 位`,
+      tone: 'is-neutral',
       iconTone: 'is-blue',
     },
     {
@@ -349,7 +351,7 @@ const activityRows = computed(() => {
       badge: '活',
       title: '在线陪伴',
       meta: '湖面实时活跃',
-      amount: `+${formatNumber(Number(stats.onlineCount || 0))}`,
+      amount: `${formatNumber(Number(stats.onlineCount || 0))} 人`,
       tone: 'is-positive',
       iconTone: 'is-mint',
     },
@@ -358,7 +360,7 @@ const activityRows = computed(() => {
       badge: '报',
       title: '待处理提醒',
       meta: '守护队列待办',
-      amount: `-${formatNumber(Number(stats.pendingReports || 0))}`,
+      amount: `${formatNumber(Number(stats.pendingReports || 0))} 项`,
       tone: 'is-negative',
       iconTone: 'is-blue',
     },
@@ -367,7 +369,7 @@ const activityRows = computed(() => {
       badge: '石',
       title: '今日投石',
       meta: '公开表达条数',
-      amount: `+${formatNumber(Number(stats.todayStones || 0))}`,
+      amount: `${formatNumber(Number(stats.todayStones || 0))} 条`,
       tone: 'is-positive',
       iconTone: 'is-mint',
     },
@@ -376,7 +378,7 @@ const activityRows = computed(() => {
       badge: lakeWeather.value.label.charAt(0),
       title: `湖面${lakeWeather.value.label}`,
       meta: lakeWeather.value.desc,
-      amount: `${travelerFraction.value}°`,
+      amount: formattedHeatIndex.value,
       tone: 'is-neutral',
       iconTone: 'is-blue',
     },
@@ -430,7 +432,7 @@ const trendPeakInfo = computed(() => {
 const guidePulseValue = computed(() => `${communityScore.value} 分`)
 const guidePulseNote = computed(
   () =>
-    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 峰值 ${trendPeakInfo.value.valueLabel}`,
+    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 峰值 ${trendPeakInfo.value.valueLabel} · 最近刷新 ${lastUpdateTime.value}`,
 )
 
 const guideSignals = computed(() => {
@@ -460,20 +462,19 @@ const guideSignals = computed(() => {
 })
 
 const trendHeadline = computed(() => `峰值 ${trendPeakInfo.value.valueLabel}`)
-const trendChipLabel = computed(() => trendPeakInfo.value.dateLabel)
-const trendContext = computed(() => `最近刷新 ${lastUpdateTime.value} · 近 ${chartRange.value} 天`)
-
-const creditScoreValue = computed(() =>
-  Math.max(1280, Math.min(1880, 1080 + communityScore.value * 7)),
+const trendChipLabel = computed(() => `近 ${chartRange.value} 天`)
+const trendContext = computed(
+  () => `峰值日 ${trendPeakInfo.value.dateLabel} · 最近刷新 ${lastUpdateTime.value}`,
 )
+
+const creditScoreValue = computed(() => communityScore.value)
 const creditScoreLabel = computed(() => {
-  if (creditScoreValue.value >= 1680) return '优秀'
-  if (creditScoreValue.value >= 1540) return '健康'
-  if (creditScoreValue.value >= 1440) return '平稳'
+  if (creditScoreValue.value >= 82) return '稳健'
+  if (creditScoreValue.value >= 66) return '平稳'
   return '关注中'
 })
 
-const formatCreditScore = (value: number) => Math.round(value).toLocaleString('zh-CN')
+const formatCreditScore = (value: number) => `${Math.round(value)}`
 
 const jumpToAssist = () => router.push('/edge-ai')
 const jumpToContent = () => router.push('/content')
@@ -853,17 +854,34 @@ onUnmounted(() => {
 
 .overview-shortcut {
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
   min-height: 132px;
   background: #232326;
   color: #ffffff;
   cursor: pointer;
   box-shadow: 0 20px 30px rgba(35, 35, 38, 0.2);
 
-  span {
-    font-size: 38px;
-    font-weight: 300;
-    line-height: 1;
+  strong,
+  small {
+    display: block;
+    position: relative;
+    z-index: 1;
+  }
+
+  strong {
+    font-size: 24px;
+    font-weight: 760;
+    letter-spacing: 0.08em;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 }
 

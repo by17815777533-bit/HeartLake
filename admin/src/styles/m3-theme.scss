@@ -830,7 +830,7 @@ html.dark {
 }
 
 .ops-page .el-form-item__label {
-  color: var(--hl-ink-soft);
+  color: rgba(35, 47, 70, 0.76);
   font-weight: 600;
 }
 
@@ -884,6 +884,17 @@ html.dark {
   display: grid;
   gap: 24px;
   padding: 24px 26px !important;
+}
+
+.ops-table-prelude {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(153, 175, 221, 0.14);
+}
+
+.ops-table-prelude :where(.ops-metric-strip, .ops-signal-deck) {
+  margin-bottom: 0;
 }
 
 .ops-soft-toolbar,
@@ -952,7 +963,7 @@ html.dark {
 }
 
 [class$='-table-copy'] p {
-  color: var(--hl-ink-soft);
+  color: rgba(33, 42, 58, 0.72);
   font-size: 13px;
   line-height: 1.66;
 }
@@ -971,7 +982,7 @@ html.dark {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(160, 179, 215, 0.12);
-  color: var(--hl-ink);
+  color: #27324a;
   font-size: 11px;
   font-weight: 600;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
@@ -1423,14 +1434,18 @@ html.dark {
   padding: 0 14px;
   font-size: 11px;
   letter-spacing: 0.04em;
+  color: rgba(64, 79, 112, 0.82);
+  font-weight: 700;
 }
 
 .ops-table-card .el-table td.el-table__cell {
   padding: 14px;
+  vertical-align: top;
 }
 
 .ops-table-card .el-table .cell {
   font-size: 13px;
+  line-height: 1.55;
 }
 
 .ops-table-card .pagination-wrapper {
@@ -1473,6 +1488,11 @@ html.dark {
   .ops-table-card .el-card__body {
     gap: 16px;
     padding: 18px !important;
+  }
+
+  .ops-table-prelude {
+    gap: 14px;
+    padding-bottom: 16px;
   }
 
   .ops-soft-toolbar {

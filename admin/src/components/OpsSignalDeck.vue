@@ -8,10 +8,7 @@
     >
       <div class="ops-signal-deck__top">
         <span class="ops-signal-deck__label">{{ item.label }}</span>
-        <span
-          v-if="item.badge"
-          class="ops-signal-deck__badge"
-        >
+        <span v-if="item.badge" class="ops-signal-deck__badge">
           {{ item.badge }}
         </span>
       </div>
@@ -39,15 +36,15 @@ defineProps<{
 .ops-signal-deck {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .ops-signal-deck__card {
   position: relative;
-  min-height: 156px;
-  padding: 18px 20px;
-  border-radius: 28px;
+  min-height: 136px;
+  padding: 16px 18px;
+  border-radius: 24px;
   border: 1px solid rgba(133, 156, 201, 0.12);
   background:
     radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 30%),
@@ -86,10 +83,10 @@ defineProps<{
     position: relative;
     z-index: 1;
     display: block;
-    margin-top: 18px;
+    margin-top: 14px;
     color: var(--hl-ink);
     font-family: var(--hl-font-display);
-    font-size: clamp(24px, 3vw, 34px);
+    font-size: clamp(22px, 2.6vw, 30px);
     font-weight: 700;
     line-height: 1.04;
     letter-spacing: -0.03em;
@@ -98,11 +95,11 @@ defineProps<{
   p {
     position: relative;
     z-index: 1;
-    max-width: 22ch;
-    margin: 10px 0 0;
+    max-width: 24ch;
+    margin: 8px 0 0;
     color: var(--hl-ink-soft);
-    font-size: 13px;
-    line-height: 1.7;
+    font-size: 12px;
+    line-height: 1.6;
   }
 }
 

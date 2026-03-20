@@ -46,11 +46,12 @@
           </article>
           <article class="engine-mini-card is-mint">
             <span>保护余量</span>
-            <strong>{{ privacy.epsilonRemaining }}</strong>
+            <strong>ε {{ privacy.epsilonRemaining }}</strong>
             <small>剩余查询 {{ privacy.queriesRemaining }}</small>
           </article>
           <button type="button" class="engine-mini-card engine-mini-card--more" @click="loadConfig">
-            <span>+</span>
+            <strong>配置</strong>
+            <small>查看参数</small>
           </button>
         </div>
       </article>
@@ -265,7 +266,7 @@ const emotionGaugeOption = computed(() => ({
         offsetCenter: [0, '48%'],
         valueAnimation: true,
         color: '#213840',
-        formatter: '{value}°',
+        formatter: '{value}/100',
       },
       data: [{ value: emotionPulse.temperature, name: '情绪温度' }],
     },
@@ -465,11 +466,11 @@ const heroDescription = computed(() => {
     ? `当前有 ${engineStatus.activeNodes} 个服务节点在线`
     : '当前辅助引擎未处于运行状态'
 
-  return `${currentTime.value} 的陪伴链路以${emotionTrendLabel.value}为主，${statusText}，平均响应 ${engineStatus.avgLatency}ms，保护额度剩余 ${privacy.epsilonRemaining}。`
+  return `${currentTime.value} 的陪伴链路以${emotionTrendLabel.value}为主，${statusText}，平均响应 ${engineStatus.avgLatency}ms，剩余保护预算 ε ${privacy.epsilonRemaining} / ${privacy.epsilonTotal}。`
 })
 
 const heroChips = computed(() =>
-  [...techBadges.map(({ label }) => label), `情绪水温 ${emotionPulse.temperature}°`].slice(0, 5),
+  [...techBadges.map(({ label }) => label), `情绪温度 ${emotionPulse.temperature}/100`].slice(0, 5),
 )
 
 const summaryItems = computed(() => [
@@ -493,7 +494,7 @@ const summaryItems = computed(() => [
   },
   {
     label: '保护余量',
-    value: `${privacy.epsilonRemaining}`,
+    value: `ε ${privacy.epsilonRemaining} / ${privacy.epsilonTotal}`,
     note: `已使用 ${privacy.epsilonPercent}% · ${privacyNoiseLabel.value}`,
     tone: 'rose' as const,
   },
@@ -509,7 +510,7 @@ const edgeSignals = computed(() => [
   },
   {
     label: '情绪水温',
-    value: `${emotionPulse.temperature}°`,
+    value: `${emotionPulse.temperature}/100`,
     note: `${emotionTrendLabel.value} · 最近波动持续观察中`,
     badge: '每 30 秒更新',
     tone: 'amber' as const,
@@ -1048,7 +1049,7 @@ onUnmounted(() => {
 
 .engine-stack {
   display: grid;
-  grid-template-columns: 1fr 1fr 62px;
+  grid-template-columns: 1fr 1fr minmax(94px, 0.64fr);
   gap: 12px;
   align-items: end;
   margin-top: 28px;
@@ -1098,14 +1099,29 @@ onUnmounted(() => {
 .engine-mini-card--more {
   min-height: 138px;
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
   background: #212121;
   box-shadow: 0 20px 34px rgba(33, 33, 33, 0.22);
 
-  span {
+  strong,
+  small {
+    display: block;
+  }
+
+  strong {
     color: #ffffff;
-    font-size: 34px;
-    font-weight: 300;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 }
 
@@ -1308,7 +1324,7 @@ onUnmounted(() => {
   }
 
   .engine-stack {
-    grid-template-columns: 1fr 1fr 54px;
+    grid-template-columns: 1fr 1fr minmax(82px, 0.62fr);
     gap: 10px;
     margin-top: 20px;
   }

@@ -45,6 +45,11 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-table-prelude">
+        <OpsMetricStrip :items="summaryItems.slice(1, 4)" />
+        <OpsSignalDeck :items="reportSignals" />
+      </div>
+
       <div class="ops-soft-toolbar reports-table-toolbar">
         <div class="reports-table-copy">
           <h3>求助列表</h3>
@@ -138,6 +143,8 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
+import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {

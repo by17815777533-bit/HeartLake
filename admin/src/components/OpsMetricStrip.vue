@@ -10,10 +10,7 @@
       <div class="ops-metric-strip__value-row">
         <strong>{{ item.value }}</strong>
       </div>
-      <p
-        v-if="item.note"
-        class="ops-metric-strip__note"
-      >
+      <p v-if="item.note" class="ops-metric-strip__note">
         {{ item.note }}
       </p>
     </article>
@@ -37,15 +34,15 @@ defineProps<{
 .ops-metric-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .ops-metric-strip__card {
   position: relative;
-  min-height: 126px;
-  padding: 18px 20px;
-  border-radius: 26px;
+  min-height: 112px;
+  padding: 16px 18px;
+  border-radius: 24px;
   border: 1px solid rgba(133, 156, 201, 0.12);
   background:
     radial-gradient(circle at 88% 22%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 32%),
@@ -76,9 +73,18 @@ defineProps<{
     top: 25px;
     width: 52px;
     height: 18px;
-    background:
-      linear-gradient(180deg, transparent 0 50%, var(--metric-accent, #6d8876) 50% 100%);
-    mask: linear-gradient(90deg, #000 0 8px, transparent 8px 13px, #000 13px 21px, transparent 21px 26px, #000 26px 34px, transparent 34px 39px, #000 39px 47px, transparent 47px 52px);
+    background: linear-gradient(180deg, transparent 0 50%, var(--metric-accent, #6d8876) 50% 100%);
+    mask: linear-gradient(
+      90deg,
+      #000 0 8px,
+      transparent 8px 13px,
+      #000 13px 21px,
+      transparent 21px 26px,
+      #000 26px 34px,
+      transparent 34px 39px,
+      #000 39px 47px,
+      transparent 47px 52px
+    );
     opacity: 0.65;
   }
 }
@@ -98,13 +104,13 @@ defineProps<{
 }
 
 .ops-metric-strip__value-row {
-  margin-top: 14px;
+  margin-top: 12px;
 
   strong {
     display: block;
     color: var(--hl-ink);
     font-family: var(--hl-font-display);
-    font-size: clamp(30px, 3vw, 38px);
+    font-size: clamp(28px, 2.7vw, 34px);
     font-weight: 700;
     line-height: 1;
     letter-spacing: -0.03em;
@@ -113,10 +119,10 @@ defineProps<{
 
 .ops-metric-strip__note {
   max-width: 20ch;
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--hl-ink-soft);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .is-lake {
