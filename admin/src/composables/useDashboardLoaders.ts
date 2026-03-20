@@ -33,7 +33,11 @@ interface DashboardStats {
 /** ECharts 图表最小结构，仅保留 loader 会访问的字段，避免引入完整 ECharts 类型 */
 interface ChartOptionWithAxisAndSeries {
   xAxis: { data: string[] }
-  series: Array<{ data: (number | string)[] }>
+  series: Array<{
+    data: (number | string)[]
+    markPoint?: { data: Array<Record<string, unknown>> }
+    markLine?: { data: Array<Record<string, unknown>> }
+  }>
 }
 
 /** 仅含 series 的图表（如活跃时段柱状图，x 轴固定不变） */
@@ -107,8 +111,18 @@ export function useDashboardLoaders({
       const list = Array.isArray(raw) ? raw : (raw?.list || [])
       if (list.length) {
         const counts = list.map((item: GrowthDataItem) => item.count)
-        userGrowthOption.value.xAxis.data = list.map((item: GrowthDataItem) => item.date)
+        const dates = list.map((item: GrowthDataItem) => item.date)
+        const peakValue = Math.max(...counts)
+        const peakIndex = counts.indexOf(peakValue)
+        const peakDate = dates[peakIndex]
+        userGrowthOption.value.xAxis.data = dates
         userGrowthOption.value.series[0].data = counts
+        userGrowthOption.value.series[0].markPoint = {
+          data: peakDate ? [{ coord: [peakDate, peakValue], value: peakValue }] : [],
+        }
+        userGrowthOption.value.series[0].markLine = {
+          data: peakDate ? [{ xAxis: peakDate }] : [],
+        }
         if (userGrowthOption.value.series[1]) {
           userGrowthOption.value.series[1].data = createSoftBaseline(counts)
         }
@@ -294,14 +308,14 @@ export function useDashboardLoaders({
   /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
-      const res = await api.getStones({ page: 1, page_size: 10 })
+      const res = await api.getStones({ page: 1, page_size: 6 })
       const d = res.data?.data || res.data || {}
       const list = Array.isArray(d) ? d : (d?.list || [])
       const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number; boat_count?: number }) =>
         Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
       ))
 
-      aiTrendingContent.value = list.slice(0, 10).map((item: {
+      aiTrendingContent.value = list.slice(0, 6).map((item: {
         stone_id?: string
         content?: string
         mood_type?: string

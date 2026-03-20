@@ -891,6 +891,18 @@ html.dark {
   gap: 16px 20px;
 }
 
+.ops-soft-toolbar--stacked {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.ops-soft-toolbar--stacked > [class$='-inline-filter'] {
+  width: 100%;
+  max-width: none;
+  flex-basis: 100%;
+}
+
 .ops-soft-toolbar > * {
   min-width: 0;
 }
@@ -905,7 +917,7 @@ html.dark {
 }
 
 [class$='-table-copy']::before {
-  content: 'Workbench';
+  content: '操作台';
   display: inline-flex;
   align-items: center;
   min-height: 30px;
@@ -914,10 +926,9 @@ html.dark {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.7);
   color: var(--hl-ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
@@ -935,10 +946,32 @@ html.dark {
   line-height: 1.6;
 }
 
+.ops-toolbar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ops-toolbar-meta__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(160, 179, 215, 0.12);
+  color: var(--hl-ink);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
 [class$='-inline-filter'] {
-  flex: 1 1 500px;
-  justify-content: flex-end;
-  align-items: flex-start;
+  flex: 1 1 520px;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  justify-content: stretch;
+  align-items: end;
   gap: 10px 12px;
   padding: 12px 14px;
   border-radius: 24px;
@@ -951,16 +984,42 @@ html.dark {
 
 [class$='-inline-filter'] .el-form-item {
   margin-bottom: 0 !important;
+  margin-right: 0 !important;
+  min-width: 0;
+  grid-column: span 3;
+}
+
+[class$='-inline-filter'] .el-form-item:last-child {
+  grid-column: span 3;
+  justify-self: end;
+}
+
+[class$='-inline-filter'] .el-form-item__label-wrap {
+  margin-left: 0 !important;
 }
 
 [class$='-inline-filter'] .el-form-item__label {
-  min-height: 32px;
-  padding-right: 8px;
+  min-height: auto;
+  width: auto !important;
+  padding: 0;
   color: var(--hl-ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  line-height: 1.35;
+}
+
+[class$='-inline-filter'] .el-form-item__content {
+  width: 100%;
+  min-width: 0;
+}
+
+[class$='-inline-filter'] .el-form-item:last-child .el-form-item__content {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 [class$='-inline-filter'] .el-form-item__content,
@@ -1178,8 +1237,8 @@ html.dark {
 .ops-table-card .el-table th.el-table__cell {
   height: 50px;
   padding: 0 14px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .ops-table-card .el-table td.el-table__cell {
@@ -1247,9 +1306,16 @@ html.dark {
 
   [class$='-inline-filter'] {
     flex-basis: 100%;
-    justify-content: flex-start;
     padding: 10px 12px;
     border-radius: 20px;
+  }
+
+  [class$='-inline-filter'] .el-form-item {
+    grid-column: span 4;
+  }
+
+  [class$='-inline-filter'] .el-form-item:last-child {
+    grid-column: span 4;
   }
 
   .ops-big-metric__value {
@@ -1346,6 +1412,19 @@ html.dark {
 
 @media (max-width: 960px) {
   [class$='-inline-filter'] {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  [class$='-inline-filter'] .el-form-item {
+    grid-column: span 3;
+  }
+
+  [class$='-inline-filter'] .el-form-item:last-child {
+    grid-column: span 6;
+    justify-self: stretch;
+  }
+
+  [class$='-inline-filter'] .el-form-item:last-child .el-form-item__content {
     justify-content: flex-start;
   }
 }
@@ -1357,10 +1436,12 @@ html.dark {
 
   [class$='-inline-filter'] {
     flex-basis: 100%;
+    grid-template-columns: 1fr;
   }
 
-  [class$='-inline-filter'] .el-form-item {
-    width: 100%;
+  [class$='-inline-filter'] .el-form-item,
+  [class$='-inline-filter'] .el-form-item:last-child {
+    grid-column: auto;
   }
 }
 

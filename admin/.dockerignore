@@ -1,0 +1,9 @@
+node_modules
+dist
+.playwright-cli
+coverage
+*.log
+.DS_Store
+.idea
+.vscode
+__tests__

@@ -50,6 +50,8 @@ void LakeGodGuardianService::stop() {
 
 void LakeGodGuardianService::scanLoop() {
     const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("LAKE_GOD_STARTUP_DELAY_SEC", 60);
+    const int scanIntervalMinutes = heartlake::utils::parsePositiveIntEnv(
+        "LAKE_GOD_SCAN_INTERVAL_MINUTES", SCAN_INTERVAL_MINUTES);
     for (int i = 0; i < startupDelaySec && running_; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -57,7 +59,7 @@ void LakeGodGuardianService::scanLoop() {
     while (running_) {
         cleanStalePendingBoats();
         processZeroInteractionStones();
-        for (int i = 0; i < SCAN_INTERVAL_MINUTES * 60 && running_; ++i) {
+        for (int i = 0; i < scanIntervalMinutes * 60 && running_; ++i) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
@@ -87,6 +89,8 @@ void LakeGodGuardianService::processZeroInteractionStones() {
     std::lock_guard<std::mutex> lock(mutex_);
     auto db = drogon::app().getDbClient("default");
     const int batchSize = heartlake::utils::parsePositiveIntEnv("LAKE_GOD_SCAN_BATCH_SIZE", 3);
+    const int zeroInteractionThresholdHours = heartlake::utils::parsePositiveIntEnv(
+        "LAKE_GOD_ZERO_INTERACTION_THRESHOLD_HOURS", ZERO_INTERACTION_THRESHOLD_HOURS);
 
     try {
         // 查找零互动石头：无涟漪、无纸船、超过阈值时间
@@ -98,7 +102,7 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             "AND created_at < NOW() - make_interval(hours => CAST($1 AS INT)) "
             "AND NOT EXISTS (SELECT 1 FROM paper_boats WHERE stone_id = stones.stone_id AND sender_id = 'lake_god') "
             "LIMIT CAST($2 AS INT)",
-            ZERO_INTERACTION_THRESHOLD_HOURS, batchSize
+            zeroInteractionThresholdHours, batchSize
         );
 
         for (const auto& row : result) {
@@ -133,10 +137,13 @@ void LakeGodGuardianService::sendAutoBoat(const std::string& stoneId, const std:
 
     aiService.generateStoneComment(stoneContent, mood, [stoneId, boatId](const std::string& comment, const std::string& error) {
         auto db = drogon::app().getDbClient("default");
-        if (!error.empty()) {
-            LOG_ERROR << "LakeGod AI generation failed: " << error;
+        if (!error.empty() && comment.empty()) {
+            LOG_ERROR << "LakeGod AI generation failed without fallback comment: " << error;
             db->execSqlSync("DELETE FROM paper_boats WHERE boat_id = $1", boatId);
             return;
+        }
+        if (!error.empty()) {
+            LOG_WARN << "LakeGod AI generation failed, using fallback comment: " << error;
         }
 
         try {

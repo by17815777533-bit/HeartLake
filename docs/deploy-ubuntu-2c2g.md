@@ -35,6 +35,8 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
+当前 `server-lite` 模板已默认关闭 ONNX 线程放大，并把 Redis 连接池上限压到 `8`，更适合 `2C2G` 单机。
+
 ## 3. 拉代码并生成服务器环境文件
 
 ```bash

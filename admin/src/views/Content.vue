@@ -13,7 +13,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Content"
+          eyebrow="内容"
           title="石头与纸船"
           :chip="contentSignals[0]?.value || '混合巡检'"
           tone="sky"
@@ -30,15 +30,8 @@
           </div>
 
           <div class="ops-soft-actions content-stage-actions">
-            <el-button
-              type="primary"
-              @click="handleSearch"
-            >
-              搜索内容
-            </el-button>
-            <el-button @click="handleReset">
-              重置视图
-            </el-button>
+            <el-button type="primary" @click="handleSearch"> 搜索内容 </el-button>
+            <el-button @click="handleReset"> 重置视图 </el-button>
           </div>
 
           <div class="ops-mini-grid">
@@ -58,7 +51,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Flow"
+          eyebrow="流向"
           title="内容流向"
           :chip="`${contentFlowScore}% 待确认占比`"
           tone="ice"
@@ -69,18 +62,9 @@
       </template>
 
       <template #rail>
-        <OpsSurfaceCard
-          eyebrow="Watch"
-          title="内容动态"
-          :chip="latestContentMeta.value"
-          tone="mint"
-        >
+        <OpsSurfaceCard eyebrow="动态" title="内容动态" :chip="latestContentMeta.value" tone="mint">
           <div class="ops-list-stack">
-            <article
-              v-for="item in contentSignals"
-              :key="item.label"
-              class="ops-list-row"
-            >
+            <article v-for="item in contentSignals" :key="item.label" class="ops-list-row">
               <div class="ops-list-row__badge">
                 {{ item.label.slice(0, 2) }}
               </div>
@@ -98,69 +82,34 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="巡检评分"
           :chip="`${contentHealthScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="contentHealthScore"
-            :max="100"
-            :label="contentHealthLabel"
-          />
+          <OpsGaugeMeter :value="contentHealthScore" :max="100" :label="contentHealthLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
+      <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar content-table-toolbar">
           <div class="content-table-copy">
             <h3>内容列表</h3>
             <p>石头和纸船在同一张工作台上巡检，删除会强制要求理由并保留处置痕迹。</p>
           </div>
-          <el-form
-            :model="filters"
-            inline
-            aria-label="内容筛选"
-            class="content-inline-filter"
-          >
+          <el-form :model="filters" inline aria-label="内容筛选" class="content-inline-filter">
             <el-form-item label="类型">
-              <el-select
-                v-model="filters.type"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="石头"
-                  value="stone"
-                />
-                <el-option
-                  label="纸船"
-                  value="boat"
-                />
+              <el-select v-model="filters.type" placeholder="全部" clearable>
+                <el-option label="石头" value="stone" />
+                <el-option label="纸船" value="boat" />
               </el-select>
             </el-form-item>
             <el-form-item label="状态">
-              <el-select
-                v-model="filters.status"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="已发布"
-                  value="published"
-                />
-                <el-option
-                  label="待审核"
-                  value="pending"
-                />
-                <el-option
-                  label="已删除"
-                  value="deleted"
-                />
+              <el-select v-model="filters.status" placeholder="全部" clearable>
+                <el-option label="已发布" value="published" />
+                <el-option label="待审核" value="pending" />
+                <el-option label="已删除" value="deleted" />
               </el-select>
             </el-form-item>
             <el-form-item label="关键词">
@@ -172,62 +121,38 @@
               />
             </el-form-item>
             <el-form-item>
-              <el-button
-                type="primary"
-                @click="handleSearch"
-              >
-                搜索
-              </el-button>
-              <el-button @click="handleReset">
-                重置
-              </el-button>
+              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+              <el-button @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
 
-        <el-table
-          v-loading="loading"
-          :data="contentList"
-          stripe
-          aria-label="内容列表"
-        >
-          <el-table-column
-            prop="id"
-            label="ID"
-            width="100"
-          />
-          <el-table-column
-            label="类型"
-            width="80"
-          >
+        <el-table v-loading="loading" :data="contentList" stripe aria-label="内容列表">
+          <el-table-column prop="id" label="ID" width="100" />
+          <el-table-column label="类型" width="80">
             <template #default="{ row }">
-              <el-tag
-                :type="row.type === 'stone' ? 'primary' : 'success'"
-                size="small"
-              >
+              <el-tag :type="row.type === 'stone' ? 'primary' : 'success'" size="small">
                 {{ row.type === 'stone' ? '石头' : '纸船' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            label="内容"
-            min-width="300"
-          >
+          <el-table-column label="内容" min-width="300">
             <template #default="{ row }">
               <div class="content-copy">
                 <p class="content-text">
                   {{ row.content?.substring(0, 100) }}{{ row.content?.length > 100 ? '...' : '' }}
                 </p>
                 <span class="content-note">
-                  {{ filters.keyword ? `当前关键词：${filters.keyword}` : '未指定关键词，展示最新内容切片。' }}
+                  {{
+                    filters.keyword
+                      ? `当前关键词：${filters.keyword}`
+                      : '未指定关键词，展示最新内容切片。'
+                  }}
                 </span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="作者"
-            width="120"
-          >
+          <el-table-column label="作者" width="120">
             <template #default="{ row }">
               <div class="content-author">
                 <strong>{{ row.user?.nickname || '匿名' }}</strong>
@@ -235,24 +160,14 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="状态"
-            width="100"
-          >
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag
-                :type="getStatusType(row.status)"
-                size="small"
-              >
+              <el-tag :type="getStatusType(row.status)" size="small">
                 {{ getStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="created_at"
-            label="发布时间"
-            width="180"
-          >
+          <el-table-column prop="created_at" label="发布时间" width="180">
             <template #default="{ row }">
               <div class="content-time">
                 <strong>{{ row.created_at || '暂无时间' }}</strong>
@@ -260,33 +175,14 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="操作"
-            width="150"
-            fixed="right"
-          >
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <el-button
-                type="primary"
-                link
-                @click="viewContent(row)"
-              >
-                查看
-              </el-button>
-              <el-button
-                type="danger"
-                link
-                @click="deleteContent(row)"
-              >
-                删除
-              </el-button>
+              <el-button type="primary" link @click="viewContent(row)"> 查看 </el-button>
+              <el-button type="danger" link @click="deleteContent(row)"> 删除 </el-button>
             </template>
           </el-table-column>
           <template #empty>
-            <el-empty
-              description="暂无内容数据"
-              :image-size="120"
-            />
+            <el-empty description="暂无内容数据" :image-size="120" />
           </template>
         </el-table>
 
@@ -312,10 +208,7 @@
       aria-labelledby="content-detail-title"
     >
       <div v-if="currentContent">
-        <el-descriptions
-          :column="2"
-          border
-        >
+        <el-descriptions :column="2" border>
           <el-descriptions-item label="ID">
             {{ currentContent.id }}
           </el-descriptions-item>
@@ -328,16 +221,10 @@
           <el-descriptions-item label="状态">
             {{ getStatusLabel(currentContent.status) }}
           </el-descriptions-item>
-          <el-descriptions-item
-            label="发布时间"
-            :span="2"
-          >
+          <el-descriptions-item label="发布时间" :span="2">
             {{ currentContent.created_at }}
           </el-descriptions-item>
-          <el-descriptions-item
-            label="内容"
-            :span="2"
-          >
+          <el-descriptions-item label="内容" :span="2">
             <div class="detail-content">
               {{ currentContent.content }}
             </div>
@@ -392,22 +279,56 @@ const summaryItems = computed(() => {
   const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
 
   return [
-    { label: '内容总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的内容总数', tone: 'lake' as const },
-    { label: '当前页石头', value: formatCount(stoneCount), note: '公开心声内容', tone: 'amber' as const },
-    { label: '当前页纸船', value: formatCount(boatCount), note: '一对一漂流内容', tone: 'sage' as const },
-    { label: '待确认内容', value: formatCount(pendingCount), note: '当前页需要继续观察的条目', tone: 'rose' as const },
+    {
+      label: '内容总量',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前筛选下的内容总数',
+      tone: 'lake' as const,
+    },
+    {
+      label: '当前页石头',
+      value: formatCount(stoneCount),
+      note: '公开心声内容',
+      tone: 'amber' as const,
+    },
+    {
+      label: '当前页纸船',
+      value: formatCount(boatCount),
+      note: '一对一漂流内容',
+      tone: 'sage' as const,
+    },
+    {
+      label: '待确认内容',
+      value: formatCount(pendingCount),
+      note: '当前页需要继续观察的条目',
+      tone: 'rose' as const,
+    },
   ]
 })
 
-const contentStoneCount = computed(() => contentList.value.filter((item) => item.type === 'stone').length)
-const contentBoatCount = computed(() => contentList.value.filter((item) => item.type === 'boat').length)
-const contentPendingCount = computed(() => contentList.value.filter((item) => item.status === 'pending').length)
+const contentStoneCount = computed(
+  () => contentList.value.filter((item) => item.type === 'stone').length,
+)
+const contentBoatCount = computed(
+  () => contentList.value.filter((item) => item.type === 'boat').length,
+)
+const contentPendingCount = computed(
+  () => contentList.value.filter((item) => item.status === 'pending').length,
+)
 
 const contentVizBars = computed(() => [
   { label: '石头', value: contentStoneCount.value, display: formatCount(contentStoneCount.value) },
   { label: '纸船', value: contentBoatCount.value, display: formatCount(contentBoatCount.value) },
-  { label: '待审', value: contentPendingCount.value, display: formatCount(contentPendingCount.value) },
-  { label: '总量', value: contentList.value.length, display: formatCount(contentList.value.length) },
+  {
+    label: '待审',
+    value: contentPendingCount.value,
+    display: formatCount(contentPendingCount.value),
+  },
+  {
+    label: '总量',
+    value: contentList.value.length,
+    display: formatCount(contentList.value.length),
+  },
 ])
 
 const contentFlowScore = computed(() => {
@@ -434,7 +355,9 @@ const getTimelineNote = (value?: string) => {
 const latestContentMeta = computed(() => {
   const latestItem = contentList.value.reduce<ContentItem | null>((latest, item) => {
     if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
+      ? item
+      : latest
   }, null)
 
   if (!latestItem) {
@@ -454,15 +377,16 @@ const contentSignals = computed(() => {
   const totalCount = contentList.value.length
   const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
   const boatCount = contentList.value.filter((item) => item.type === 'boat').length
-  const watchMode = filters.type === 'stone'
-    ? '石头巡检'
-    : (filters.type === 'boat' ? '纸船巡检' : '混合巡检')
+  const watchMode =
+    filters.type === 'stone' ? '石头巡检' : filters.type === 'boat' ? '纸船巡检' : '混合巡检'
 
   return [
     {
       label: '巡检模式',
       value: watchMode,
-      note: filters.status ? `当前只查看“${getStatusLabel(filters.status)}”状态内容。` : '默认同时查看石头与纸船的最新流入。',
+      note: filters.status
+        ? `当前只查看“${getStatusLabel(filters.status)}”状态内容。`
+        : '默认同时查看石头与纸船的最新流入。',
       badge: filters.keyword ? '关键词筛查' : '全量浏览',
       tone: 'lake' as const,
     },
@@ -483,7 +407,14 @@ const contentSignals = computed(() => {
   ]
 })
 
-const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchContent, {
+const {
+  pagination,
+  buildParams,
+  handleSizeChange,
+  handleCurrentChange,
+  handleSearch,
+  handleReset,
+} = useTablePagination(fetchContent, {
   filters,
   defaultFilters: { type: '', status: '', keyword: '' },
   beforeSearch: () => {
@@ -497,7 +428,11 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
 
 /** 内容状态 → el-tag type 映射 */
 const getStatusType = (status: string) => {
-  const map: Record<string, string> = { published: 'success', pending: 'warning', deleted: 'danger' }
+  const map: Record<string, string> = {
+    published: 'success',
+    pending: 'warning',
+    deleted: 'danger',
+  }
   return map[status] || 'info'
 }
 
@@ -522,7 +457,7 @@ async function fetchContent() {
       const res = await api.getBoats(params)
       const resData = res.data?.data || res.data || {}
       const list = resData.list || []
-      contentList.value = list.map(item => ({
+      contentList.value = list.map((item) => ({
         id: item.boat_id || item.id,
         type: 'boat',
         content: item.content,
@@ -538,7 +473,7 @@ async function fetchContent() {
       const res = await api.getStones(params)
       const resData = res.data?.data || res.data || {}
       const list = resData.list || []
-      contentList.value = list.map(item => ({
+      contentList.value = list.map((item) => ({
         id: item.stone_id || item.id,
         type: 'stone',
         content: item.content,
@@ -563,7 +498,7 @@ async function fetchContent() {
     const stonesData = stonesRes.data?.data || stonesRes.data || {}
     const boatsData = boatsRes.data?.data || boatsRes.data || {}
     const mergedList = [
-      ...(stonesData.list || []).map(item => ({
+      ...(stonesData.list || []).map((item) => ({
         id: item.stone_id || item.id,
         type: 'stone',
         content: item.content,
@@ -571,7 +506,7 @@ async function fetchContent() {
         status: item.status,
         created_at: item.created_at,
       })),
-      ...(boatsData.list || []).map(item => ({
+      ...(boatsData.list || []).map((item) => ({
         id: item.boat_id || item.id,
         type: 'boat',
         content: item.content,
@@ -597,7 +532,14 @@ async function fetchContent() {
 }
 
 /** 打开内容详情弹窗 */
-const viewContent = (row: { id: string; type: string; content: string; user?: { nickname: string }; status: string; created_at: string }) => {
+const viewContent = (row: {
+  id: string
+  type: string
+  content: string
+  user?: { nickname: string }
+  status: string
+  created_at: string
+}) => {
   currentContent.value = row
   detailVisible.value = true
 }
@@ -653,6 +595,19 @@ onMounted(() => {
 
   .content-inline-filter {
     justify-content: flex-end;
+
+    :deep(.el-form-item:nth-child(1)),
+    :deep(.el-form-item:nth-child(2)) {
+      grid-column: span 3;
+    }
+
+    :deep(.el-form-item:nth-child(3)) {
+      grid-column: span 4;
+    }
+
+    :deep(.el-form-item:nth-child(4)) {
+      grid-column: span 2;
+    }
   }
 
   .content-table-copy {

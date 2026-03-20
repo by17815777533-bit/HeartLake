@@ -47,12 +47,35 @@ class AppConfig {
     defaultValue: '',
   );
 
+  /// 公网网关 Origin（例如 https://example.com），用于统一推导 API/WS 地址
+  static const String _publicOriginOverride = String.fromEnvironment(
+    'PUBLIC_ORIGIN',
+    defaultValue: '',
+  );
+
+  /// WebSocket 完整地址覆盖（例如 wss://example.com/ws/broadcast）
+  static const String _wsUrlOverride = String.fromEnvironment(
+    'WS_URL',
+    defaultValue: '',
+  );
+
   /// 获取API基础URL
   ///
   /// 根据当前环境返回对应的API地址。
   String get apiBaseUrl {
-    if (_apiBaseUrlOverride.isNotEmpty) {
-      return _apiBaseUrlOverride;
+    final explicitApiBaseUrl = _normalizeApiBaseUrl(_apiBaseUrlOverride);
+    if (explicitApiBaseUrl.isNotEmpty) {
+      return explicitApiBaseUrl;
+    }
+
+    final publicOriginApiBaseUrl = _originToApiBaseUrl(_publicOriginOverride);
+    if (publicOriginApiBaseUrl.isNotEmpty) {
+      return publicOriginApiBaseUrl;
+    }
+
+    final webApiBaseUrl = _getCurrentWebApiUrl();
+    if (webApiBaseUrl.isNotEmpty) {
+      return webApiBaseUrl;
     }
 
     switch (_environment) {
@@ -69,17 +92,11 @@ class AppConfig {
   ///
   /// 根据平台自动切换合适的地址。
   String _getDevelopmentApiUrl() {
-    if (kIsWeb) {
-      final scheme = Uri.base.scheme.isNotEmpty ? Uri.base.scheme : 'http';
-      final rawHost = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      final host = rawHost == '0.0.0.0' ? 'localhost' : rawHost;
-      return '$scheme://$host:8080/api';
-    }
-
     // 优先使用环境变量
     const envUrl = String.fromEnvironment('DEV_API_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) {
-      return envUrl;
+    final normalizedEnvUrl = _normalizeApiBaseUrl(envUrl);
+    if (normalizedEnvUrl.isNotEmpty) {
+      return normalizedEnvUrl;
     }
 
     // 根据平台智能选择
@@ -87,51 +104,170 @@ class AppConfig {
       if (Platform.isAndroid) {
         // 模拟器用 10.0.2.2，真机用局域网IP（可通过ANDROID_API_HOST环境变量配置）
         const androidHost = String.fromEnvironment('ANDROID_API_HOST', defaultValue: '10.0.2.2');
-        return 'http://$androidHost:8080/api';
+        return _originToApiBaseUrl('http://$androidHost:8080');
       }
       if (Platform.isIOS) {
         // iOS模拟器可直接访问 localhost，真机需要局域网IP
         const iosHost = String.fromEnvironment('IOS_API_HOST', defaultValue: 'localhost');
-        return 'http://$iosHost:8080/api';
+        return _originToApiBaseUrl('http://$iosHost:8080');
       }
       // Windows / macOS / Linux 桌面端均使用 localhost
-      return 'http://localhost:8080/api';
+      return _originToApiBaseUrl('http://localhost:8080');
     } catch (e) {
-      return 'http://localhost:8080/api';
+      return _originToApiBaseUrl('http://localhost:8080');
     }
   }
 
   /// WebSocket URL
   String get wsUrl {
-    final baseUrl = apiBaseUrl;
-    return '${baseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://').replaceFirst('/api', '').replaceFirst(RegExp(r'/+$'), '')}/ws/broadcast';
+    final explicitWsUrl = _normalizeWsUrl(_wsUrlOverride);
+    if (explicitWsUrl.isNotEmpty) {
+      return explicitWsUrl;
+    }
+
+    final publicOriginWsUrl = _originToWsUrl(_publicOriginOverride);
+    if (publicOriginWsUrl.isNotEmpty) {
+      return publicOriginWsUrl;
+    }
+
+    return _apiBaseUrlToWsUrl(apiBaseUrl);
+  }
+
+  String _getCurrentWebApiUrl() {
+    if (!kIsWeb) return '';
+    final base = Uri.base;
+    final webOrigin = _getCurrentWebOrigin();
+    if (webOrigin.isEmpty) return '';
+
+    final rawHost = base.host.isNotEmpty ? base.host : 'localhost';
+    final host = rawHost == '0.0.0.0' ? 'localhost' : rawHost;
+    final isPrivateIp = RegExp(
+      r'^(127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$',
+    ).hasMatch(host);
+    final isLocalHost = host == 'localhost' || isPrivateIp;
+    final port = base.hasPort ? base.port : (base.scheme == 'https' ? 443 : 80);
+
+    // Flutter Web 独立调试服务通常运行在随机端口；这时仍保持直连后端 8080 的旧行为。
+    if (isLocalHost && port != 80 && port != 443 && port != 3000 && port != 8080) {
+      return _originToApiBaseUrl('${base.scheme}://$host:8080');
+    }
+
+    return _originToApiBaseUrl(webOrigin);
+  }
+
+  String _getCurrentWebOrigin() {
+    if (!kIsWeb) return '';
+    final base = Uri.base;
+    final scheme = base.scheme;
+    if (scheme != 'http' && scheme != 'https') {
+      return '';
+    }
+    final origin = base.origin;
+    if (origin.isEmpty) {
+      return '';
+    }
+    return origin.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  String _normalizeApiBaseUrl(String rawUrl) {
+    final normalized = rawUrl.trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+    if (normalized.endsWith('/api')) {
+      return normalized;
+    }
+    if (normalized.endsWith('/api/')) {
+      return normalized.substring(0, normalized.length - 1);
+    }
+    return '${normalized.replaceAll(RegExp(r'/+$'), '')}/api';
+  }
+
+  String _normalizeWsUrl(String rawUrl) {
+    final normalized = rawUrl.trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+    if (normalized.endsWith('/ws/broadcast')) {
+      return normalized;
+    }
+    if (normalized.endsWith('/ws/broadcast/')) {
+      return normalized.substring(0, normalized.length - 1);
+    }
+    return '${normalized.replaceAll(RegExp(r'/+$'), '')}/ws/broadcast';
+  }
+
+  String _originToApiBaseUrl(String rawOrigin) {
+    final origin = rawOrigin.trim();
+    if (origin.isEmpty) {
+      return '';
+    }
+    final normalizedOrigin = origin
+        .replaceAll(RegExp(r'/api/?$'), '')
+        .replaceAll(RegExp(r'/+$'), '');
+    return '$normalizedOrigin/api';
+  }
+
+  String _originToWsUrl(String rawOrigin) {
+    final origin = rawOrigin.trim();
+    if (origin.isEmpty) {
+      return '';
+    }
+    final normalizedOrigin = origin
+        .replaceAll(RegExp(r'/api/?$'), '')
+        .replaceAll(RegExp(r'/ws/broadcast/?$'), '')
+        .replaceAll(RegExp(r'/+$'), '');
+    final wsOrigin = normalizedOrigin
+        .replaceFirst('http://', 'ws://')
+        .replaceFirst('https://', 'wss://');
+    return '$wsOrigin/ws/broadcast';
+  }
+
+  String _apiBaseUrlToWsUrl(String rawApiBaseUrl) {
+    final normalizedApiBaseUrl = _normalizeApiBaseUrl(rawApiBaseUrl);
+    final origin = normalizedApiBaseUrl.replaceAll(RegExp(r'/api/?$'), '');
+    final wsOrigin = origin
+        .replaceFirst('http://', 'ws://')
+        .replaceFirst('https://', 'wss://')
+        .replaceAll(RegExp(r'/+$'), '');
+    return '$wsOrigin/ws/broadcast';
   }
 
   // ============================================================
   // 超时配置
   // ============================================================
 
-  /// 连接超时时间（优化为10秒，C++后端响应快）
-  Duration get connectTimeout => const Duration(seconds: 30);
+  /// 连接超时时间。
+  ///
+  /// 生产环境优先保证低配云机上的失败快速返回，开发环境保留更宽松窗口。
+  Duration get connectTimeout =>
+      isProduction ? const Duration(seconds: 15) : const Duration(seconds: 30);
 
-  /// 接收超时时间（优化为30秒）
-  Duration get receiveTimeout => const Duration(seconds: 30);
+  /// 接收超时时间。
+  ///
+  /// 保留足够的业务处理窗口，同时避免移动端在弱网下长时间挂起。
+  Duration get receiveTimeout =>
+      isProduction ? const Duration(seconds: 25) : const Duration(seconds: 30);
 
-  /// 发送超时时间（优化为30秒）
-  Duration get sendTimeout => const Duration(seconds: 30);
+  /// 发送超时时间。
+  Duration get sendTimeout =>
+      isProduction ? const Duration(seconds: 20) : const Duration(seconds: 30);
 
   // ============================================================
   // 连接池配置
   // ============================================================
 
-  /// HTTP最大连接数
-  int get maxConnections => 5;
+  /// HTTP最大连接数。
+  ///
+  /// 低配生产服务器上适度压低并发连接，减少瞬时拥塞。
+  int get maxConnections => isProduction ? 4 : 6;
 
   /// 连接空闲超时
-  Duration get idleTimeout => const Duration(seconds: 30);
+  Duration get idleTimeout =>
+      isProduction ? const Duration(seconds: 20) : const Duration(seconds: 30);
 
   /// 最大重试次数
-  int get maxRetries => 2;
+  int get maxRetries => isProduction ? 1 : 2;
 
   // ============================================================
   // 缓存配置

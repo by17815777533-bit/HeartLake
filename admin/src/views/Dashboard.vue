@@ -11,7 +11,7 @@
         </div>
 
         <div class="overview-total">
-          <span>Total Balance</span>
+          <span>湖面总量</span>
           <div class="overview-total__value">
             <strong>{{ formattedTravelerCount }}</strong>
             <small>.{{ travelerFraction }}</small>
@@ -31,7 +31,7 @@
         </div>
 
         <div class="section-heading">
-          <span>My cards</span>
+          <span>常用入口</span>
           <small>桌面常用入口</small>
         </div>
 
@@ -58,7 +58,7 @@
       <article class="dashboard-card dashboard-card--spending">
         <div class="card-heading">
           <div>
-            <span class="card-caption">Spending</span>
+            <span class="card-caption">节律</span>
             <h3>湖面节律</h3>
           </div>
           <el-select
@@ -95,7 +95,7 @@
       <article class="dashboard-card dashboard-card--activity">
         <div class="card-heading">
           <div>
-            <span class="card-caption">Transactions</span>
+            <span class="card-caption">动态</span>
             <h3>湖面动态</h3>
           </div>
           <button type="button" class="text-action" @click="jumpToContent">查看全部</button>
@@ -120,22 +120,40 @@
       <article class="dashboard-card dashboard-card--guide">
         <div class="card-heading">
           <div>
-            <span class="card-caption">Guide</span>
-            <h3>How To Keep The Lake Stable?</h3>
+            <span class="card-caption">建议</span>
+            <h3>守湖建议</h3>
           </div>
+          <span class="card-chip">{{ guideChip }}</span>
         </div>
 
-        <p class="guide-copy">
-          {{ guideCopy }}
-        </p>
+        <div class="guide-hero">
+          <strong>{{ guideHeadline }}</strong>
+          <span>{{ guideCopy }}</span>
+        </div>
 
-        <button type="button" class="guide-button" @click="jumpToAssist">Learn More</button>
+        <div class="guide-pulse">
+          <span class="guide-pulse__label">当前巡看节奏</span>
+          <strong>{{ guidePulseValue }}</strong>
+          <small>{{ guidePulseNote }}</small>
+        </div>
+
+        <div class="guide-list">
+          <article v-for="item in guideSignals" :key="item.label" class="guide-item">
+            <div class="guide-item__badge">{{ item.badge }}</div>
+            <div class="guide-item__copy">
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.note }}</span>
+            </div>
+          </article>
+        </div>
+
+        <button type="button" class="guide-button" @click="jumpToAssist">前往智能辅助</button>
       </article>
 
       <article class="dashboard-card dashboard-card--chart">
         <div class="card-heading">
           <div>
-            <span class="card-caption">Expenses</span>
+            <span class="card-caption">曲线</span>
             <h3>旅人波动曲线</h3>
           </div>
           <span class="card-chip">{{ trendChipLabel }}</span>
@@ -158,7 +176,7 @@
       <article class="dashboard-card dashboard-card--score">
         <div class="card-heading">
           <div>
-            <span class="card-caption">Credit Score</span>
+            <span class="card-caption">评分</span>
             <h3>湖面评分</h3>
           </div>
           <button type="button" class="text-action" @click="jumpToReports">查看详情</button>
@@ -171,7 +189,7 @@
           :formatter="formatCreditScore"
         />
 
-        <button type="button" class="score-button" @click="jumpToReports">Explore Reports</button>
+        <button type="button" class="score-button" @click="jumpToReports">查看报告</button>
       </article>
     </section>
   </div>
@@ -262,7 +280,7 @@ const highlightCards = computed(() => [
 ])
 
 const spendingColumns = computed(() => {
-  const defaultLabels = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const defaultLabels = ['6月', '7月', '8月', '9月', '10月', '11月', '12月']
   const sourceValues = growthValues.value.length
     ? growthValues.value.slice(-7)
     : [64, 48, 46, 76, 40, 84, 34]
@@ -368,10 +386,29 @@ const activityRows = computed(() => {
 const guideCopy = computed(() => {
   const topTopic = trendingTopics.value[0]?.keyword
   if (topTopic) {
-    return `“${topTopic}” 仍在上升，建议前置提醒和巡看。`
+    return `“${formatCompactTitle(topTopic, 10)}”仍在升温，建议提前提醒并加密巡看。`
   }
 
-  return '波动平稳，保持巡看和提醒节奏即可。'
+  return '当前节律平稳，保持巡看频次和温和提醒即可。'
+})
+
+const guideChip = computed(() => {
+  const pendingCount = Number(stats.pendingReports || 0)
+  if (pendingCount > 0) return `待处理 ${formatNumber(pendingCount)} 条`
+  return trendingTopics.value[0]?.keyword ? '话题升温' : '当前平稳'
+})
+
+const guideHeadline = computed(() => {
+  const topTopic = trendingTopics.value[0]?.keyword
+  if (topTopic) {
+    return `盯住“${formatCompactTitle(topTopic, 8)}”的波动`
+  }
+
+  if (Number(stats.pendingReports || 0) > 0) {
+    return '先处理异常反馈，再回看节律'
+  }
+
+  return '湖面状态稳定，维持当前巡看即可'
 })
 
 const trendPeakInfo = computed(() => {
@@ -390,6 +427,38 @@ const trendPeakInfo = computed(() => {
   }
 })
 
+const guidePulseValue = computed(() => `${communityScore.value} 分`)
+const guidePulseNote = computed(
+  () =>
+    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 峰值 ${trendPeakInfo.value.valueLabel}`,
+)
+
+const guideSignals = computed(() => {
+  const pendingCount = Number(stats.pendingReports || 0)
+  const topTopic = trendingTopics.value[0]?.keyword
+
+  return [
+    {
+      label: '峰值窗口',
+      badge: trendPeakInfo.value.dateLabel,
+      note: `最近高点 ${trendPeakInfo.value.valueLabel}，适合回看节律是否突增。`,
+    },
+    pendingCount > 0
+      ? {
+          label: '优先事项',
+          badge: `${formatNumber(pendingCount)} 条`,
+          note: '先处理待办反馈，再调整广播或巡看策略。',
+        }
+      : {
+          label: '巡看主题',
+          badge: topTopic ? formatCompactTitle(topTopic, 6) : '平稳',
+          note: topTopic
+            ? `围绕“${formatCompactTitle(topTopic, 8)}”提高巡看密度。`
+            : '暂无明显升温主题，保持当前节奏即可。',
+        },
+  ]
+})
+
 const trendHeadline = computed(() => `峰值 ${trendPeakInfo.value.valueLabel}`)
 const trendChipLabel = computed(() => trendPeakInfo.value.dateLabel)
 const trendContext = computed(() => `最近刷新 ${lastUpdateTime.value} · 近 ${chartRange.value} 天`)
@@ -398,13 +467,13 @@ const creditScoreValue = computed(() =>
   Math.max(1280, Math.min(1880, 1080 + communityScore.value * 7)),
 )
 const creditScoreLabel = computed(() => {
-  if (creditScoreValue.value >= 1680) return 'Excellent'
-  if (creditScoreValue.value >= 1540) return 'Healthy'
-  if (creditScoreValue.value >= 1440) return 'Stable'
-  return 'Watch'
+  if (creditScoreValue.value >= 1680) return '优秀'
+  if (creditScoreValue.value >= 1540) return '健康'
+  if (creditScoreValue.value >= 1440) return '平稳'
+  return '关注中'
 })
 
-const formatCreditScore = (value: number) => Math.round(value).toLocaleString('en-US')
+const formatCreditScore = (value: number) => Math.round(value).toLocaleString('zh-CN')
 
 const jumpToAssist = () => router.push('/edge-ai')
 const jumpToContent = () => router.push('/content')
@@ -974,29 +1043,123 @@ onUnmounted(() => {
 }
 
 .dashboard-card--guide::before {
-  right: 32px;
-  bottom: 28px;
-  width: 108px;
-  height: 108px;
+  right: 26px;
+  bottom: 26px;
+  width: 94px;
+  height: 94px;
 }
 
 .dashboard-card--guide::after {
-  right: 80px;
-  bottom: 8px;
-  width: 68px;
-  height: 68px;
+  right: 70px;
+  bottom: 14px;
+  width: 54px;
+  height: 54px;
 }
 
-.guide-copy {
-  max-width: 18ch;
-  margin: 12px 0 0;
-  color: #172033;
-  font-size: 12px;
+.guide-hero {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+
+  strong {
+    color: #132033;
+    font-size: 18px;
+    font-weight: 720;
+    letter-spacing: -0.04em;
+    line-height: 1.2;
+  }
+
+  span {
+    color: rgba(19, 32, 51, 0.68);
+    font-size: 12px;
+    line-height: 1.65;
+  }
+}
+
+.guide-pulse {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
+  border: 1px solid rgba(143, 166, 228, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.guide-pulse__label {
+  color: rgba(19, 32, 51, 0.62);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.guide-pulse strong {
+  color: #132033;
+  font-size: 26px;
+  font-weight: 780;
+  letter-spacing: -0.05em;
+}
+
+.guide-pulse small {
+  color: rgba(19, 32, 51, 0.62);
+  font-size: 11px;
   line-height: 1.5;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+}
+
+.guide-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.guide-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(143, 166, 228, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.guide-item__badge {
+  min-width: 56px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(231, 241, 255, 0.92);
+  color: #3b5e9f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.guide-item__copy {
+  min-width: 0;
+
+  strong,
+  span {
+    display: block;
+  }
+
+  strong {
+    color: #132033;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  span {
+    margin-top: 4px;
+    color: rgba(19, 32, 51, 0.62);
+    font-size: 11px;
+    line-height: 1.55;
+  }
 }
 
 .guide-button,
@@ -1312,10 +1475,52 @@ onUnmounted(() => {
     height: 46px;
   }
 
-  .guide-copy {
-    max-width: 17ch;
+  .guide-hero {
     margin-top: 10px;
+
+    strong {
+      font-size: 15px;
+    }
+
+    span {
+      font-size: 10px;
+    }
+  }
+
+  .guide-pulse {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .guide-pulse strong {
+    font-size: 22px;
+  }
+
+  .guide-list {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .guide-item {
+    padding: 10px 12px;
+    border-radius: 18px;
+  }
+
+  .guide-item__badge {
+    min-width: 48px;
+    min-height: 30px;
     font-size: 10px;
+  }
+
+  .guide-item__copy {
+    strong {
+      font-size: 11px;
+    }
+
+    span {
+      font-size: 10px;
+    }
   }
 
   .guide-button,
@@ -1618,9 +1823,28 @@ onUnmounted(() => {
     height: 58px;
   }
 
-  .guide-copy {
+  .guide-hero {
     margin-top: 10px;
-    font-size: 11px;
+
+    strong {
+      font-size: 16px;
+    }
+
+    span {
+      font-size: 11px;
+      line-height: 1.5;
+    }
+  }
+
+  .guide-pulse {
+    padding: 13px 14px;
+  }
+
+  .guide-pulse strong {
+    font-size: 24px;
+  }
+
+  .guide-item__copy span {
     line-height: 1.5;
   }
 
@@ -1831,8 +2055,15 @@ onUnmounted(() => {
 
   .spending-badge,
   .text-action,
-  .guide-copy,
   .chart-summary span {
+    font-size: 9px;
+  }
+
+  .guide-hero span,
+  .guide-pulse__label,
+  .guide-pulse small,
+  .guide-item__badge,
+  .guide-item__copy span {
     font-size: 9px;
   }
 
@@ -1907,10 +2138,30 @@ onUnmounted(() => {
     height: 46px;
   }
 
-  .guide-copy {
-    max-width: 22ch;
+  .guide-hero {
     margin-top: 8px;
-    line-height: 1.45;
+
+    span {
+      line-height: 1.45;
+    }
+  }
+
+  .guide-pulse {
+    margin-top: 10px;
+    padding: 12px;
+  }
+
+  .guide-list {
+    margin-top: 10px;
+  }
+
+  .guide-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .guide-item__badge {
+    justify-self: flex-start;
   }
 
   .guide-button,

@@ -76,6 +76,11 @@ done
 echo "[docker-test] 验证管理后台首页..."
 curl -fsS "${API_BASE}/admin/" >/dev/null
 
+if command -v node >/dev/null 2>&1; then
+  echo "[docker-test] 验证客户端 HTTP + WebSocket 联调链路..."
+  node ./scripts/smoke-client-connect.mjs "${API_BASE}"
+fi
+
 if [[ "${RUN_EXISTING_TESTS}" == "1" ]]; then
   echo "[docker-test] 执行现有测试集合（tests/clients/run_all.sh）..."
   ./tests/clients/run_all.sh

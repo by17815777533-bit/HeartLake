@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: heartlake-postgres
     restart: unless-stopped
     environment:
@@ -71,6 +71,7 @@ services:
       ADMIN_PASETO_KEY: ${ADMIN_PASETO_KEY:?ADMIN_PASETO_KEY is required}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      AI_API_KEY: ${AI_API_KEY:-}
       AI_BASE_URL: ${AI_BASE_URL:-http://ollama:11434}
       AI_MODEL: ${AI_MODEL:-heartlake-qwen}
       AI_TIMEOUT: ${AI_TIMEOUT:-30}
@@ -83,6 +84,9 @@ services:
       ENABLE_USER_FOLLOWUP: ${ENABLE_USER_FOLLOWUP:-true}
       ENABLE_WS_HEARTBEAT: ${ENABLE_WS_HEARTBEAT:-true}
       REALTIME_QUIC_ENABLED: ${REALTIME_QUIC_ENABLED:-true}
+    volumes:
+      - heartlake_backend_config:/app/config
+      - heartlake_backend_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,3 +129,5 @@ volumes:
   heartlake_postgres_data:
   heartlake_redis_data:
   heartlake_ollama_data:
+  heartlake_backend_config:
+  heartlake_backend_uploads:

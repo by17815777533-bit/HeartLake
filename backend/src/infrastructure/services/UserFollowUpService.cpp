@@ -46,13 +46,15 @@ void UserFollowUpService::stop() {
 
 void UserFollowUpService::scanLoop() {
     const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("USER_FOLLOWUP_STARTUP_DELAY_SEC", 120);
+    const int scanIntervalHours = heartlake::utils::parsePositiveIntEnv(
+        "USER_FOLLOWUP_SCAN_INTERVAL_HOURS", SCAN_INTERVAL_HOURS);
     for (int i = 0; i < startupDelaySec && running_; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     while (running_) {
         scanOnce();
-        for (int i = 0; i < SCAN_INTERVAL_HOURS * 3600 && running_; ++i) {
+        for (int i = 0; i < scanIntervalHours * 3600 && running_; ++i) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }

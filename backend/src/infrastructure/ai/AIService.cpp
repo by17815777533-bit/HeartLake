@@ -279,8 +279,16 @@ void AIService::initialize(const Json::Value& config) {
         consecutiveFailures_ = 0;
     }
 
+    const float semanticCacheThreshold = parseFloatEnv(
+        "AI_SEMANTIC_CACHE_THRESHOLD", 0.92f, 0.70f, 0.99f);
+    const int semanticCacheMaxSize = heartlake::utils::parsePositiveIntEnv(
+        "AI_SEMANTIC_CACHE_MAX_SIZE", 5000);
+    const int semanticCacheTTLSeconds = heartlake::utils::parsePositiveIntEnv(
+        "AI_SEMANTIC_CACHE_TTL_SEC", 86400);
+
     // 初始化语义缓存
-    SemanticCache::getInstance().initialize(0.92f, 5000, 86400);
+    SemanticCache::getInstance().initialize(
+        semanticCacheThreshold, static_cast<size_t>(semanticCacheMaxSize), semanticCacheTTLSeconds);
 
     // 创建复用的 HTTP 客户端
     ollamaClient_ = HttpClient::newHttpClient(baseUrl_);
@@ -302,6 +310,9 @@ void AIService::initialize(const Json::Value& config) {
              << ", sentiment_cache_max_size=" << sentimentCacheMaxSize_
              << ", sentiment_adaptive_inflight_threshold=" << sentimentAdaptiveInflightThreshold_
              << ", sentiment_adaptive_local_conf_delta=" << sentimentAdaptiveLocalConfDelta_
+             << ", semantic_cache_threshold=" << semanticCacheThreshold
+             << ", semantic_cache_max_size=" << semanticCacheMaxSize
+             << ", semantic_cache_ttl_sec=" << semanticCacheTTLSeconds
              << ", ollama_force_gpu=" << (ollamaForceGpu ? "true" : "false")
              << ", ollama_num_gpu=" << ollamaNumGpu
              << ", ollama_main_gpu=" << ollamaMainGpu

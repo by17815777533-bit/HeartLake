@@ -14,7 +14,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Lexicon"
+          eyebrow="词典"
           title="风险词典"
           :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 高风险` : '实时生效'"
           tone="sky"
@@ -31,15 +31,8 @@
           </div>
 
           <div class="ops-soft-actions sensitive-stage-actions">
-            <el-button
-              type="primary"
-              @click="showAddDialog"
-            >
-              添加敏感词
-            </el-button>
-            <el-button @click="handleSearch">
-              刷新词典
-            </el-button>
+            <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
+            <el-button @click="handleSearch"> 刷新词典 </el-button>
           </div>
 
           <div class="ops-mini-grid">
@@ -59,7 +52,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Levels"
+          eyebrow="级别"
           title="级别分布"
           :chip="`${highRiskWordCount} 高风险`"
           tone="ice"
@@ -71,7 +64,7 @@
 
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="Batch"
+          eyebrow="批量"
           title="批量状态"
           :chip="selectedWords.length ? `${selectedWords.length} 已选` : '等待选择'"
           tone="mint"
@@ -95,24 +88,17 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="策略强度"
           :chip="`${sensitiveScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="sensitiveScore"
-            :max="100"
-            :label="sensitiveLabel"
-          />
+          <OpsGaugeMeter :value="sensitiveScore" :max="100" :label="sensitiveLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
+      <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar sensitive-table-toolbar">
           <div class="sensitive-table-copy">
             <h3>词典列表</h3>
@@ -134,62 +120,26 @@
                 />
               </el-form-item>
               <el-form-item label="级别">
-                <el-select
-                  v-model="filters.level"
-                  placeholder="全部"
-                  clearable
-                >
-                  <el-option
-                    label="低"
-                    value="low"
-                  />
-                  <el-option
-                    label="中"
-                    value="medium"
-                  />
-                  <el-option
-                    label="高"
-                    value="high"
-                  />
+                <el-select v-model="filters.level" placeholder="全部" clearable>
+                  <el-option label="低" value="low" />
+                  <el-option label="中" value="medium" />
+                  <el-option label="高" value="high" />
                 </el-select>
               </el-form-item>
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="handleSearch"
-                >
-                  搜索
-                </el-button>
-                <el-button @click="handleReset">
-                  重置
-                </el-button>
+                <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+                <el-button @click="handleReset"> 重置 </el-button>
               </el-form-item>
             </el-form>
-            <el-button
-              type="primary"
-              @click="showAddDialog"
-            >
-              添加敏感词
-            </el-button>
+            <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
           </div>
         </div>
 
-        <div
-          v-if="selectedWords.length > 0"
-          class="batch-bar"
-        >
+        <div v-if="selectedWords.length > 0" class="batch-bar">
           <span>已选 {{ selectedWords.length }} 项</span>
-          <el-popconfirm
-            title="确定批量删除选中的敏感词？"
-            @confirm="handleBatchDelete"
-          >
+          <el-popconfirm title="确定批量删除选中的敏感词？" @confirm="handleBatchDelete">
             <template #reference>
-              <el-button
-                type="danger"
-                size="small"
-              >
-                批量删除
-              </el-button>
+              <el-button type="danger" size="small"> 批量删除 </el-button>
             </template>
           </el-popconfirm>
         </div>
@@ -202,72 +152,28 @@
           aria-label="敏感词列表"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column
-            type="selection"
-            width="45"
-            :selectable="canSelect"
-          />
-          <el-table-column
-            prop="id"
-            label="ID"
-            width="80"
-          />
-          <el-table-column
-            prop="word"
-            label="敏感词"
-            min-width="150"
-          />
-          <el-table-column
-            label="级别"
-            width="100"
-          >
+          <el-table-column type="selection" width="45" :selectable="canSelect" />
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column prop="word" label="敏感词" min-width="150" />
+          <el-table-column label="级别" width="100">
             <template #default="{ row }">
-              <el-tag
-                :type="getLevelType(row.level)"
-                size="small"
-              >
+              <el-tag :type="getLevelType(row.level)" size="small">
                 {{ getLevelLabel(row.level) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="replacement"
-            label="替换词"
-            width="120"
-          >
+          <el-table-column prop="replacement" label="替换词" width="120">
             <template #default="{ row }">
               {{ row.replacement || '***' }}
             </template>
           </el-table-column>
-          <el-table-column
-            prop="created_at"
-            label="添加时间"
-            width="180"
-          />
-          <el-table-column
-            label="操作"
-            width="150"
-            fixed="right"
-          >
+          <el-table-column prop="created_at" label="添加时间" width="180" />
+          <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <el-button
-                type="primary"
-                link
-                @click="showEditDialog(row)"
-              >
-                编辑
-              </el-button>
-              <el-popconfirm
-                title="确定删除此敏感词？"
-                @confirm="handleDelete(row)"
-              >
+              <el-button type="primary" link @click="showEditDialog(row)"> 编辑 </el-button>
+              <el-popconfirm title="确定删除此敏感词？" @confirm="handleDelete(row)">
                 <template #reference>
-                  <el-button
-                    type="danger"
-                    link
-                  >
-                    删除
-                  </el-button>
+                  <el-button type="danger" link> 删除 </el-button>
                 </template>
               </el-popconfirm>
             </template>
@@ -295,43 +201,15 @@
       width="450px"
       aria-labelledby="sensitive-word-dialog-title"
     >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="80px"
-      >
-        <el-form-item
-          label="敏感词"
-          prop="word"
-        >
-          <el-input
-            v-model="form.word"
-            placeholder="请输入敏感词"
-            maxlength="50"
-            show-word-limit
-          />
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="敏感词" prop="word">
+          <el-input v-model="form.word" placeholder="请输入敏感词" maxlength="50" show-word-limit />
         </el-form-item>
-        <el-form-item
-          label="级别"
-          prop="level"
-        >
-          <el-select
-            v-model="form.level"
-            style="width: 100%"
-          >
-            <el-option
-              label="低 - 仅记录"
-              value="low"
-            />
-            <el-option
-              label="中 - 替换显示"
-              value="medium"
-            />
-            <el-option
-              label="高 - 拦截发布"
-              value="high"
-            />
+        <el-form-item label="级别" prop="level">
+          <el-select v-model="form.level" style="width: 100%">
+            <el-option label="低 - 仅记录" value="low" />
+            <el-option label="中 - 替换显示" value="medium" />
+            <el-option label="高 - 拦截发布" value="high" />
           </el-select>
         </el-form-item>
         <el-form-item label="替换词">
@@ -344,9 +222,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">
-          取消
-        </el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
         <el-button
           type="primary"
           :loading="submitting"
@@ -398,7 +274,7 @@ const handleSelectionChange = (rows: Array<{ id: string | number }>) => {
     const table = tableRef.value
     if (table) {
       table.clearSelection()
-      kept.forEach(row => table.toggleRowSelection(row, true))
+      kept.forEach((row) => table.toggleRowSelection(row, true))
     }
     return
   }
@@ -414,7 +290,7 @@ const handleBatchDelete = async () => {
   if (selectedWords.value.length === 0) return
   submitting.value = true
   try {
-    await Promise.all(selectedWords.value.map(w => api.deleteSensitiveWord(w.id)))
+    await Promise.all(selectedWords.value.map((w) => api.deleteSensitiveWord(w.id)))
     ElMessage.success(`成功删除 ${selectedWords.value.length} 条敏感词`)
     selectedWords.value = []
     fetchWords()
@@ -426,7 +302,14 @@ const handleBatchDelete = async () => {
 }
 
 const filters = reactive({ keyword: '', level: '' })
-const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchWords, {
+const {
+  pagination,
+  buildParams,
+  handleSizeChange,
+  handleCurrentChange,
+  handleSearch,
+  handleReset,
+} = useTablePagination(fetchWords, {
   filters,
   defaultFilters: { keyword: '', level: '' },
   beforeSearch: () => {
@@ -442,17 +325,20 @@ const form = reactive({ word: '', level: 'medium', replacement: '' })
 const originalForm = reactive({ word: '', level: 'medium', replacement: '' })
 const hasFormChanged = computed(() => {
   if (!isEdit.value) return true // 新增模式始终允许提交
-  return form.word !== originalForm.word
-    || form.level !== originalForm.level
-    || form.replacement !== originalForm.replacement
+  return (
+    form.word !== originalForm.word ||
+    form.level !== originalForm.level ||
+    form.replacement !== originalForm.replacement
+  )
 })
 const rules = {
   word: [{ required: true, message: '请输入敏感词', trigger: 'blur' }],
   level: [{ required: true, message: '请选择级别', trigger: 'change' }],
 }
 
-const getLevelType = (level: string) => ({ low: 'info', medium: 'warning', high: 'danger' }[level] || 'info')
-const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' }[level] || level)
+const getLevelType = (level: string) =>
+  ({ low: 'info', medium: 'warning', high: 'danger' })[level] || 'info'
+const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' })[level] || level
 const formatCount = (value: number) => value.toLocaleString()
 
 const summaryItems = computed(() => {
@@ -460,27 +346,71 @@ const summaryItems = computed(() => {
   const replacementCount = replacementWordCount.value
 
   return [
-    { label: '词条总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选条件下的规则总数', tone: 'lake' as const },
-    { label: '高风险词条', value: formatCount(highRiskCount), note: '当前页高强度拦截或重点观察词条', tone: 'rose' as const },
-    { label: '替换策略', value: formatCount(replacementCount), note: '当前页设置了替换文案的词条', tone: 'amber' as const },
-    { label: '批量选中', value: formatCount(selectedWords.value.length), note: `单次最多处理 ${MAX_BATCH_SIZE} 条`, tone: 'sage' as const },
+    {
+      label: '词条总量',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前筛选条件下的规则总数',
+      tone: 'lake' as const,
+    },
+    {
+      label: '高风险词条',
+      value: formatCount(highRiskCount),
+      note: '当前页高强度拦截或重点观察词条',
+      tone: 'rose' as const,
+    },
+    {
+      label: '替换策略',
+      value: formatCount(replacementCount),
+      note: '当前页设置了替换文案的词条',
+      tone: 'amber' as const,
+    },
+    {
+      label: '批量选中',
+      value: formatCount(selectedWords.value.length),
+      note: `单次最多处理 ${MAX_BATCH_SIZE} 条`,
+      tone: 'sage' as const,
+    },
   ]
 })
 
-const highRiskWordCount = computed(() => wordList.value.filter((item) => item.level === 'high' || item.level === 'critical').length)
-const replacementWordCount = computed(() => wordList.value.filter((item) => Boolean(item.replacement)).length)
-const mediumRiskWordCount = computed(() => wordList.value.filter((item) => item.level === 'medium').length)
+const highRiskWordCount = computed(
+  () => wordList.value.filter((item) => item.level === 'high' || item.level === 'critical').length,
+)
+const replacementWordCount = computed(
+  () => wordList.value.filter((item) => Boolean(item.replacement)).length,
+)
+const mediumRiskWordCount = computed(
+  () => wordList.value.filter((item) => item.level === 'medium').length,
+)
 
 const sensitiveVizBars = computed(() => [
   { label: '高', value: highRiskWordCount.value, display: formatCount(highRiskWordCount.value) },
-  { label: '中', value: mediumRiskWordCount.value, display: formatCount(mediumRiskWordCount.value) },
-  { label: '替换', value: replacementWordCount.value, display: formatCount(replacementWordCount.value) },
-  { label: '选中', value: selectedWords.value.length, display: formatCount(selectedWords.value.length) },
+  {
+    label: '中',
+    value: mediumRiskWordCount.value,
+    display: formatCount(mediumRiskWordCount.value),
+  },
+  {
+    label: '替换',
+    value: replacementWordCount.value,
+    display: formatCount(replacementWordCount.value),
+  },
+  {
+    label: '选中',
+    value: selectedWords.value.length,
+    display: formatCount(selectedWords.value.length),
+  },
 ])
 
 const sensitiveScore = computed(() => {
   const total = Math.max(wordList.value.length, 1)
-  return Math.max(30, Math.min(96, Math.round(((highRiskWordCount.value + replacementWordCount.value) / total) * 60 + 35)))
+  return Math.max(
+    30,
+    Math.min(
+      96,
+      Math.round(((highRiskWordCount.value + replacementWordCount.value) / total) * 60 + 35),
+    ),
+  )
 })
 
 const sensitiveLabel = computed(() => {

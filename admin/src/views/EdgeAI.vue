@@ -13,7 +13,7 @@
       <article class="edge-card edge-card--engine">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">{{ engineStatus.enabled ? 'Running' : 'Paused' }}</span>
+            <span class="edge-eyebrow">{{ engineStatus.enabled ? '已启用' : '已暂停' }}</span>
             <h2>智能辅助引擎</h2>
           </div>
           <span class="edge-chip">{{ currentTime }}</span>
@@ -58,7 +58,7 @@
       <article class="edge-card edge-card--perf">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">Performance</span>
+            <span class="edge-eyebrow">性能</span>
             <h3>性能概览</h3>
           </div>
         </div>
@@ -69,7 +69,7 @@
       <article class="edge-card edge-card--queue">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">Systems</span>
+            <span class="edge-eyebrow">链路</span>
             <h3>节点与链路</h3>
           </div>
           <button type="button" class="text-action" @click="loadConfig">查看配置</button>
@@ -94,7 +94,7 @@
       <article class="edge-card edge-card--guide">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">Privacy</span>
+            <span class="edge-eyebrow">建议</span>
             <h3>预算建议</h3>
           </div>
         </div>
@@ -109,7 +109,7 @@
       <article class="edge-card edge-card--chart">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">Emotion</span>
+            <span class="edge-eyebrow">情绪</span>
             <h3>情绪脉搏曲线</h3>
           </div>
           <span class="edge-chip">最近刷新 {{ lastUpdateTime }}</span>
@@ -127,7 +127,7 @@
       <article class="edge-card edge-card--score">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">Health</span>
+            <span class="edge-eyebrow">评分</span>
             <h3>引擎评分</h3>
           </div>
         </div>

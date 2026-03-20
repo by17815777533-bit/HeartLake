@@ -13,6 +13,7 @@ vi.mock('element-plus', () => ({
 
 vi.mock('@/api', () => ({
   default: { getUsers: vi.fn(), banUser: vi.fn(), unbanUser: vi.fn() },
+  isRequestCanceled: vi.fn().mockReturnValue(false),
 }))
 vi.mock('@/utils/errorHelper', () => ({
   getErrorMessage: (_e: any, f: string) => f,

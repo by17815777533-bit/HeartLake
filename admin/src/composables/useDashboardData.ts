@@ -144,10 +144,34 @@ export function useDashboardData() {
     ...charts,
   })
 
+  const loadPrimaryDashboardData = () => Promise.allSettled([
+    loaders.loadStats(),
+    loaders.loadGrowthData(),
+    loaders.loadTrendingTopics(),
+    loaders.loadEmotionPulse(),
+    loaders.loadAITrendingContent(),
+  ])
+
+  const loadSecondaryDashboardData = () => Promise.allSettled([
+    loaders.loadMoodDistribution(),
+    loaders.loadMoodTrend(),
+    loaders.loadActiveTimeStats(),
+    loaders.loadPrivacyStats(),
+    loaders.loadResonanceStats(),
+    loaders.loadEmotionTrends(),
+  ])
+
+  const ensureMoodDistributionLoaded = async () => {
+    const moodItems = charts.moodDistributionOption.value.series[0].data || []
+    if (moodItems.length) return
+    await loaders.loadMoodDistribution()
+  }
+
   /**
    * 导出大屏数据为 JSON 文件，只保留展示用的业务字段。
    */
-  const exportData = () => {
+  const exportData = async () => {
+    await ensureMoodDistributionLoaded()
     // 清洗统计数据，只保留展示用的业务字段
     const cleanedStats = {
       totalUsers: stats.totalUsers,
@@ -192,16 +216,12 @@ export function useDashboardData() {
   /** 并行刷新大屏全部数据。 */
   const refreshData = async () => {
     loading.value = true
-    await Promise.allSettled([
-      loaders.loadStats(), loaders.loadGrowthData(),
-      loaders.loadMoodDistribution(), loaders.loadMoodTrend(),
-      loaders.loadTrendingTopics(), loaders.loadActiveTimeStats(),
-      loaders.loadPrivacyStats(), loaders.loadResonanceStats(),
-      loaders.loadEmotionPulse(), loaders.loadEmotionTrends(),
-      loaders.loadAITrendingContent(),
-    ])
+    await loadPrimaryDashboardData()
     lastUpdateTime.value = dayjs().format('HH:mm:ss')
     loading.value = false
+    setTimeout(() => {
+      void loadSecondaryDashboardData()
+    }, 180)
   }
 
   return {

@@ -10,12 +10,6 @@ class PsychSupportService extends BaseService {
   /// 允许传入的情绪类型
   static const _allowedMoods = MoodColors.supportedMoodKeys;
 
-  /// 允许传入的资源类型
-  static const _allowedResourceTypes = [
-    'hotline', 'tool', 'article', 'video', 'exercise',
-    'meditation', 'breathing', 'journal', 'prompt',
-  ];
-
   /// 获取心理援助热线列表
   Future<Map<String, dynamic>> getHotlines() async {
     final response = await get('/safe-harbor/hotlines');
@@ -51,10 +45,11 @@ class PsychSupportService extends BaseService {
   }
 
   /// 记录访问（用于统计用户使用安全港湾的频率）
-  Future<Map<String, dynamic>> recordAccess({required String resourceType}) async {
-    InputValidator.validateEnum(resourceType, _allowedResourceTypes, '资源类型');
+  Future<Map<String, dynamic>> recordAccess(
+      {required String resourceId}) async {
+    InputValidator.validateUUID(resourceId, '资源ID');
     final response =
-        await post('/safe-harbor/access', data: {'resource_type': resourceType});
+        await post('/safe-harbor/access', data: {'resource_id': resourceId});
     return toMap(response);
   }
 

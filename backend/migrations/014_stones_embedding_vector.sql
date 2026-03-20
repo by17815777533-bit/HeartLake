@@ -7,10 +7,24 @@
 
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS vector;
-
 DO $$
+DECLARE
+    has_vector_extension BOOLEAN := FALSE;
 BEGIN
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS vector;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE '014 skipped: pgvector extension unavailable: %', SQLERRM;
+    END;
+
+    SELECT EXISTS (
+        SELECT 1 FROM pg_extension WHERE extname = 'vector'
+    ) INTO has_vector_extension;
+
+    IF NOT has_vector_extension THEN
+        RETURN;
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -20,10 +34,7 @@ BEGIN
     ) THEN
         ALTER TABLE stones ADD COLUMN embedding vector(256);
     END IF;
-END $$;
-
-DO $$
-BEGIN
+    
     IF EXISTS (
         SELECT 1
         FROM information_schema.tables
@@ -38,13 +49,17 @@ BEGIN
           AND se.embedding IS NOT NULL
           AND btrim(se.embedding) <> '';
     END IF;
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE '014 backfill skipped: %', SQLERRM;
-END $$;
 
-CREATE INDEX IF NOT EXISTS idx_stones_embedding_ivfflat
-ON stones
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+    BEGIN
+        CREATE INDEX IF NOT EXISTS idx_stones_embedding_ivfflat
+        ON stones
+        USING ivfflat (embedding vector_cosine_ops)
+        WITH (lists = 100);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE '014 index creation skipped: %', SQLERRM;
+    END;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE '014 migration skipped: %', SQLERRM;
+END $$;
 
 COMMIT;

@@ -56,7 +56,7 @@
             心湖管理后台
           </h1>
           <p class="subtitle">
-            HeartLake Admin Console
+            值守与处置工作台
           </p>
         </div>
 

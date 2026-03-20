@@ -13,7 +13,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Reports"
+          eyebrow="求助"
           title="求助处理"
           :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 待处理` : '优先处置'"
           tone="sky"
@@ -30,15 +30,8 @@
           </div>
 
           <div class="ops-soft-actions reports-stage-actions">
-            <el-button
-              type="primary"
-              @click="handleSearch"
-            >
-              刷新工单
-            </el-button>
-            <el-button @click="handleReset">
-              重置筛查
-            </el-button>
+            <el-button type="primary" @click="handleSearch"> 刷新工单 </el-button>
+            <el-button @click="handleReset"> 重置筛查 </el-button>
           </div>
 
           <div class="ops-mini-grid">
@@ -58,7 +51,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Queue"
+          eyebrow="队列"
           title="处置分布"
           :chip="`${reportPendingCount} 待处理`"
           tone="ice"
@@ -70,17 +63,13 @@
 
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="Status"
+          eyebrow="状态"
           title="处置状态"
           :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 等待` : '空闲'"
           tone="mint"
         >
           <div class="ops-kv-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-kv-item"
-            >
+            <article v-for="item in summaryItems.slice(1)" :key="item.label" class="ops-kv-item">
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
             </article>
@@ -90,189 +79,91 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="回执效率"
           :chip="`${reportResolutionScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="reportResolutionScore"
-            :max="100"
-            :label="reportResolutionLabel"
-          />
+          <OpsGaugeMeter :value="reportResolutionScore" :max="100" :label="reportResolutionLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
+      <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar reports-table-toolbar">
           <div class="reports-table-copy">
             <h3>求助列表</h3>
             <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
           </div>
-          <el-form
-            :model="filters"
-            inline
-            aria-label="举报筛选"
-            class="reports-inline-filter"
-          >
+          <el-form :model="filters" inline aria-label="举报筛选" class="reports-inline-filter">
             <el-form-item label="状态">
-              <el-select
-                v-model="filters.status"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="待处理"
-                  value="pending"
-                />
-                <el-option
-                  label="已处理"
-                  value="handled"
-                />
-                <el-option
-                  label="已忽略"
-                  value="ignored"
-                />
+              <el-select v-model="filters.status" placeholder="全部" clearable>
+                <el-option label="待处理" value="pending" />
+                <el-option label="已处理" value="handled" />
+                <el-option label="已忽略" value="ignored" />
               </el-select>
             </el-form-item>
             <el-form-item label="类型">
-              <el-select
-                v-model="filters.type"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="垃圾信息"
-                  value="spam"
-                />
-                <el-option
-                  label="骚扰辱骂"
-                  value="harassment"
-                />
-                <el-option
-                  label="不当内容"
-                  value="inappropriate"
-                />
-                <el-option
-                  label="暴力内容"
-                  value="violence"
-                />
-                <el-option
-                  label="其他"
-                  value="other"
-                />
+              <el-select v-model="filters.type" placeholder="全部" clearable>
+                <el-option label="垃圾信息" value="spam" />
+                <el-option label="骚扰辱骂" value="harassment" />
+                <el-option label="不当内容" value="inappropriate" />
+                <el-option label="暴力内容" value="violence" />
+                <el-option label="其他" value="other" />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button
-                type="primary"
-                @click="handleSearch"
-              >
-                搜索
-              </el-button>
-              <el-button @click="handleReset">
-                重置
-              </el-button>
+              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+              <el-button @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
 
-        <el-table
-          v-loading="loading"
-          :data="reportList"
-          stripe
-          aria-label="举报列表"
-        >
-          <el-table-column
-            prop="id"
-            label="ID"
-            width="100"
-          />
-          <el-table-column
-            label="举报类型"
-            width="100"
-          >
+        <el-table v-loading="loading" :data="reportList" stripe aria-label="举报列表">
+          <el-table-column prop="id" label="ID" width="100" />
+          <el-table-column label="举报类型" width="100">
             <template #default="{ row }">
               <el-tag
                 size="small"
                 :color="getTypeColor(row.type)"
-                style="border:none;color:#fff"
+                style="border: none; color: #fff"
               >
                 {{ getTypeLabel(row.type) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            label="举报原因"
-            min-width="200"
-          >
+          <el-table-column label="举报原因" min-width="200">
             <template #default="{ row }">
               {{ row.reason }}
             </template>
           </el-table-column>
-          <el-table-column
-            label="被举报内容"
-            min-width="200"
-          >
+          <el-table-column label="被举报内容" min-width="200">
             <template #default="{ row }">
-              {{ row.target_content?.substring(0, 50) }}{{ row.target_content?.length > 50 ? '...' : '' }}
+              {{ row.target_content?.substring(0, 50)
+              }}{{ row.target_content?.length > 50 ? '...' : '' }}
             </template>
           </el-table-column>
-          <el-table-column
-            label="状态"
-            width="100"
-          >
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag
-                :type="getStatusType(row.status)"
-                size="small"
-              >
+              <el-tag :type="getStatusType(row.status)" size="small">
                 {{ getStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="created_at"
-            label="举报时间"
-            width="180"
-          />
-          <el-table-column
-            label="操作"
-            width="200"
-            fixed="right"
-          >
+          <el-table-column prop="created_at" label="举报时间" width="180" />
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <template v-if="row.status === 'pending'">
-                <el-button
-                  type="success"
-                  link
-                  @click="handleReport(row, 'handled')"
-                >
+                <el-button type="success" link @click="handleReport(row, 'handled')">
                   处理
                 </el-button>
-                <el-button
-                  type="info"
-                  link
-                  @click="handleReport(row, 'ignored')"
-                >
-                  忽略
-                </el-button>
+                <el-button type="info" link @click="handleReport(row, 'ignored')"> 忽略 </el-button>
               </template>
-              <span
-                v-else
-                class="handled-text"
-              >已{{ getStatusLabel(row.status) }}</span>
+              <span v-else class="handled-text">已{{ getStatusLabel(row.status) }}</span>
             </template>
           </el-table-column>
           <template #empty>
-            <el-empty
-              description="暂无举报数据"
-              :image-size="120"
-            />
+            <el-empty description="暂无举报数据" :image-size="120" />
           </template>
         </el-table>
 
@@ -313,18 +204,37 @@ const filters = reactive({
   type: '',
 })
 
-const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchReports, {
+const {
+  pagination,
+  buildParams,
+  handleSizeChange,
+  handleCurrentChange,
+  handleSearch,
+  handleReset,
+} = useTablePagination(fetchReports, {
   filters,
   defaultFilters: { status: '', type: '' },
 })
 
 const getTypeLabel = (type: string) => {
-  const map: Record<string, string> = { spam: '垃圾信息', harassment: '骚扰辱骂', inappropriate: '不当内容', violence: '暴力内容', other: '其他' }
+  const map: Record<string, string> = {
+    spam: '垃圾信息',
+    harassment: '骚扰辱骂',
+    inappropriate: '不当内容',
+    violence: '暴力内容',
+    other: '其他',
+  }
   return map[type] || type
 }
 
 const getTypeColor = (type: string) => {
-  const map: Record<string, string> = { spam: '#909399', harassment: '#E07A5F', inappropriate: '#F2CC8F', violence: '#E6A23C', other: '#81B29A' }
+  const map: Record<string, string> = {
+    spam: '#909399',
+    harassment: '#E07A5F',
+    inappropriate: '#F2CC8F',
+    violence: '#E6A23C',
+    other: '#81B29A',
+  }
   return map[type] || '#909399'
 }
 
@@ -346,27 +256,68 @@ const summaryItems = computed(() => {
   const ignoredCount = reportList.value.filter((item) => item.status === 'ignored').length
 
   return [
-    { label: '求助总数', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的记录总量', tone: 'lake' as const },
-    { label: '待优先处理', value: formatCount(pendingCount), note: '当前页仍需人工判断的记录', tone: 'rose' as const },
-    { label: '已完成处理', value: formatCount(handledCount), note: '当前页已给出处置结果', tone: 'sage' as const },
-    { label: '已忽略', value: formatCount(ignoredCount), note: '当前页不进入进一步处理的记录', tone: 'amber' as const },
+    {
+      label: '求助总数',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前筛选下的记录总量',
+      tone: 'lake' as const,
+    },
+    {
+      label: '待优先处理',
+      value: formatCount(pendingCount),
+      note: '当前页仍需人工判断的记录',
+      tone: 'rose' as const,
+    },
+    {
+      label: '已完成处理',
+      value: formatCount(handledCount),
+      note: '当前页已给出处置结果',
+      tone: 'sage' as const,
+    },
+    {
+      label: '已忽略',
+      value: formatCount(ignoredCount),
+      note: '当前页不进入进一步处理的记录',
+      tone: 'amber' as const,
+    },
   ]
 })
 
-const reportPendingCount = computed(() => reportList.value.filter((item) => item.status === 'pending').length)
-const reportHandledCount = computed(() => reportList.value.filter((item) => item.status === 'handled').length)
-const reportIgnoredCount = computed(() => reportList.value.filter((item) => item.status === 'ignored').length)
+const reportPendingCount = computed(
+  () => reportList.value.filter((item) => item.status === 'pending').length,
+)
+const reportHandledCount = computed(
+  () => reportList.value.filter((item) => item.status === 'handled').length,
+)
+const reportIgnoredCount = computed(
+  () => reportList.value.filter((item) => item.status === 'ignored').length,
+)
 
 const reportVizBars = computed(() => [
-  { label: '待处理', value: reportPendingCount.value, display: formatCount(reportPendingCount.value) },
-  { label: '已处理', value: reportHandledCount.value, display: formatCount(reportHandledCount.value) },
-  { label: '已忽略', value: reportIgnoredCount.value, display: formatCount(reportIgnoredCount.value) },
+  {
+    label: '待处理',
+    value: reportPendingCount.value,
+    display: formatCount(reportPendingCount.value),
+  },
+  {
+    label: '已处理',
+    value: reportHandledCount.value,
+    display: formatCount(reportHandledCount.value),
+  },
+  {
+    label: '已忽略',
+    value: reportIgnoredCount.value,
+    display: formatCount(reportIgnoredCount.value),
+  },
   { label: '总量', value: reportList.value.length, display: formatCount(reportList.value.length) },
 ])
 
 const reportResolutionScore = computed(() => {
   const total = Math.max(reportList.value.length, 1)
-  return Math.max(24, Math.min(96, Math.round(((reportHandledCount.value + reportIgnoredCount.value) / total) * 100)))
+  return Math.max(
+    24,
+    Math.min(96, Math.round(((reportHandledCount.value + reportIgnoredCount.value) / total) * 100)),
+  )
 })
 
 const reportResolutionLabel = computed(() => {

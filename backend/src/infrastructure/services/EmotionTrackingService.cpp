@@ -51,6 +51,8 @@ void EmotionTrackingService::stop() {
 
 void EmotionTrackingService::scanLoop() {
     const int startupDelaySec = heartlake::utils::parsePositiveIntEnv("EMOTION_TRACKING_STARTUP_DELAY_SEC", 90);
+    const int scanIntervalMinutes = heartlake::utils::parsePositiveIntEnv(
+        "EMOTION_TRACKING_SCAN_INTERVAL_MINUTES", SCAN_INTERVAL_MINUTES);
     for (int i = 0; i < startupDelaySec && running_; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -58,7 +60,7 @@ void EmotionTrackingService::scanLoop() {
     while (running_) {
         scanOnce();
         std::unique_lock<std::mutex> lock(cvMutex_);
-        cv_.wait_for(lock, std::chrono::minutes(SCAN_INTERVAL_MINUTES), [this]() {
+        cv_.wait_for(lock, std::chrono::minutes(scanIntervalMinutes), [this]() {
             return !running_.load();
         });
     }

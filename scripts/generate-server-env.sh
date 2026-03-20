@@ -13,6 +13,11 @@ usage() {
   --host HOST            公网 IP 或域名
   --admin-user USER      管理员用户名，默认 admin
   --admin-password PASS  管理员密码；不传则交互输入
+  --allow-origin ORIGIN  追加允许的 CORS 来源，可重复传入
+  --ai-provider NAME     AI 提供方，默认 ollama
+  --ai-api-key KEY       外部 AI 服务密钥
+  --ai-base-url URL      AI 服务地址
+  --ai-model MODEL       AI 模型名
   --https                生成 https/wss 公网地址
   --output FILE          输出文件，默认 .env.server-lite
 EOF
@@ -23,6 +28,11 @@ ADMIN_USER="admin"
 ADMIN_PASSWORD=""
 OUTPUT_FILE=".env.server-lite"
 USE_HTTPS="false"
+ALLOWED_ORIGINS=()
+AI_PROVIDER_VALUE="ollama"
+AI_API_KEY_VALUE=""
+AI_BASE_URL_VALUE="http://127.0.0.1:11434"
+AI_MODEL_VALUE="heartlake-qwen"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +46,26 @@ while [[ $# -gt 0 ]]; do
       ;;
     --admin-password)
       ADMIN_PASSWORD="${2:-}"
+      shift 2
+      ;;
+    --allow-origin)
+      ALLOWED_ORIGINS+=("${2:-}")
+      shift 2
+      ;;
+    --ai-provider)
+      AI_PROVIDER_VALUE="${2:-}"
+      shift 2
+      ;;
+    --ai-api-key)
+      AI_API_KEY_VALUE="${2:-}"
+      shift 2
+      ;;
+    --ai-base-url)
+      AI_BASE_URL_VALUE="${2:-}"
+      shift 2
+      ;;
+    --ai-model)
+      AI_MODEL_VALUE="${2:-}"
       shift 2
       ;;
     --https)
@@ -81,6 +111,14 @@ if [[ "${USE_HTTPS}" == "true" ]]; then
   WS_SCHEME="wss"
 fi
 
+ALL_CORS_ORIGINS=("${SCHEME}://${HOST}")
+for origin in "${ALLOWED_ORIGINS[@]}"; do
+  if [[ -n "${origin}" ]]; then
+    ALL_CORS_ORIGINS+=("${origin}")
+  fi
+done
+CORS_ALLOWED_ORIGIN="$(IFS=,; printf '%s' "${ALL_CORS_ORIGINS[*]}")"
+
 DB_PASSWORD="$(openssl rand -hex 16)"
 REDIS_PASSWORD="$(openssl rand -hex 16)"
 PASETO_KEY="$(openssl rand -hex 32)"
@@ -118,11 +156,12 @@ BACKEND_BUILD_JOBS=1
 SERVER_THREADS=2
 DB_POOL_SIZE=4
 REDIS_POOL_SIZE=4
+REDIS_MAX_POOL_SIZE=8
 LOG_LEVEL=WARN
 
 PUBLIC_API_URL=${SCHEME}://${HOST}/api
 PUBLIC_WS_URL=${WS_SCHEME}://${HOST}/ws/broadcast
-CORS_ALLOWED_ORIGIN=${SCHEME}://${HOST}
+CORS_ALLOWED_ORIGIN=${CORS_ALLOWED_ORIGIN}
 
 ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
@@ -130,15 +169,32 @@ ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
 PASETO_KEY=${PASETO_KEY}
 ADMIN_PASETO_KEY=${ADMIN_PASETO_KEY}
 
-AI_PROVIDER=ollama
-AI_BASE_URL=http://127.0.0.1:11434
-AI_MODEL=heartlake-qwen
-AI_TIMEOUT=5
+AI_PROVIDER=${AI_PROVIDER_VALUE}
+AI_API_KEY=${AI_API_KEY_VALUE}
+AI_BASE_URL=${AI_BASE_URL_VALUE}
+AI_MODEL=${AI_MODEL_VALUE}
+AI_TIMEOUT=3
+AI_MAX_RETRIES=0
+AI_CIRCUIT_BREAKER_FAILURES=1
+AI_CIRCUIT_BREAKER_COOLDOWN_SEC=300
+AI_OLLAMA_FORCE_GPU=false
+AI_SEMANTIC_CACHE_MAX_SIZE=5000
+AI_SEMANTIC_CACHE_TTL_SEC=86400
+EDGE_AI_ONNX_ENABLED=false
+EDGE_AI_ONNX_THREADS=1
 
 EMBEDDING_WARMUP_ON_BOOT=false
-ENABLE_LAKE_GOD_GUARDIAN=false
-ENABLE_EMOTION_TRACKING=false
-ENABLE_USER_FOLLOWUP=false
+ENABLE_LAKE_GOD_GUARDIAN=true
+LAKE_GOD_STARTUP_DELAY_SEC=300
+LAKE_GOD_SCAN_INTERVAL_MINUTES=60
+LAKE_GOD_ZERO_INTERACTION_THRESHOLD_HOURS=6
+LAKE_GOD_SCAN_BATCH_SIZE=1
+ENABLE_EMOTION_TRACKING=true
+EMOTION_TRACKING_STARTUP_DELAY_SEC=300
+EMOTION_TRACKING_SCAN_INTERVAL_MINUTES=60
+ENABLE_USER_FOLLOWUP=true
+USER_FOLLOWUP_STARTUP_DELAY_SEC=600
+USER_FOLLOWUP_SCAN_INTERVAL_HOURS=12
 ENABLE_WS_HEARTBEAT=true
 REALTIME_QUIC_ENABLED=false
 EOF
@@ -146,4 +202,5 @@ EOF
 echo "已生成 ${OUTPUT_FILE}"
 echo "管理员用户名: ${ADMIN_USER}"
 echo "公网入口: ${SCHEME}://${HOST}"
+echo "AI 提供方: ${AI_PROVIDER_VALUE}"
 echo "下一步: cp ${OUTPUT_FILE} .env && ./scripts/docker-up.sh server-lite"

@@ -50,19 +50,30 @@ class ApiClient {
   /// 客户端级 GET 缓存，减少重复请求
   final CacheService cacheService = CacheService();
 
-  /// SSL 证书指纹列表，用于证书固定验证
-  static const List<String> _pinnedCertFingerprints = [
-    // 主证书 SHA-256 指纹（heartlake.app）
-    'a]4b9c2d1e0f3a5b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
-    // 备用证书指纹（证书轮换时使用）
-    'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1',
-  ];
-
-  /// 是否启用证书固定验证（可通过编译期环境变量关闭）
+  /// 证书固定开关（默认关闭，只有显式提供指纹后才建议开启）
   static const bool _enableCertPinning = bool.fromEnvironment(
     'ENABLE_CERT_PINNING',
-    defaultValue: true,
+    defaultValue: false,
   );
+
+  /// 逗号分隔的 SHA-256 指纹列表（小写十六进制）
+  static const String _pinnedCertFingerprintsRaw = String.fromEnvironment(
+    'CERT_SHA256_PINS',
+    defaultValue: '',
+  );
+
+  static final Set<String> _pinnedCertFingerprints = _parsePinnedFingerprints();
+
+  static Set<String> _parsePinnedFingerprints() {
+    return _pinnedCertFingerprintsRaw
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+  }
+
+  bool get _shouldUseCertificatePinning =>
+      !kIsWeb && _enableCertPinning && _pinnedCertFingerprints.isNotEmpty;
 
   ApiClient._internal() {
     _initializeDio();
@@ -93,24 +104,21 @@ class ApiClient {
         client.idleTimeout = appConfig.idleTimeout;
         client.connectionTimeout = appConfig.connectTimeout;
 
-        // 调试模式下允许自签名证书，方便本地测试
-        if (kDebugMode || !_enableCertPinning) {
+        // 仅在调试模式下允许自签名证书，生产环境保留系统默认证书校验。
+        if (kDebugMode) {
           client.badCertificateCallback =
               (X509Certificate cert, String host, int port) => true;
-        } else {
-          client.badCertificateCallback =
-              (X509Certificate cert, String host, int port) => false;
         }
 
         return client;
       };
 
-      // 生产环境下启用证书指纹验证
-      if (!kDebugMode && _enableCertPinning) {
+      // 仅在显式提供证书指纹时启用 Pinning，避免线上证书轮换导致客户端彻底失联。
+      if (_shouldUseCertificatePinning) {
         (_dio.httpClientAdapter as IOHttpClientAdapter).validateCertificate =
             (X509Certificate? cert, String host, int port) {
           if (cert == null) return false;
-          final fingerprint = sha256.convert(cert.der).toString();
+          final fingerprint = sha256.convert(cert.der).toString().toLowerCase();
           return _pinnedCertFingerprints.contains(fingerprint);
         };
       }

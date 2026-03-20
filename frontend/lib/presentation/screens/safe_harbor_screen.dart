@@ -1,3 +1,5 @@
+import 'dart:async';
+
 /// 安全港湾页面
 ///
 /// 心理支持与自助资源入口，提供热线、工具和推荐资源。
@@ -65,6 +67,36 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     super.dispose();
   }
 
+  void _recordAccessSilently(String resourceId) {
+    unawaited(() async {
+      try {
+        await _service.recordAccess(resourceId: resourceId);
+      } catch (error) {
+        debugPrint('Safe harbor access ignored: $error');
+      }
+    }());
+  }
+
+  String _promptFromPayload(dynamic payload) {
+    if (payload is! Map) {
+      return '你不是一个人，这里永远是你的安全港湾';
+    }
+    final text = payload['text'] ?? payload['message'] ?? payload['title'];
+    return text?.toString().trim().isNotEmpty == true
+        ? text.toString().trim()
+        : '你不是一个人，这里永远是你的安全港湾';
+  }
+
+  String _toolStyleKey(String name) {
+    if (name.contains('深呼吸')) return '深呼吸';
+    if (name.contains('五感着陆')) return '五感着陆';
+    if (name.contains('情绪日记')) return '情绪日记';
+    if (name.contains('正念')) return '正念冥想';
+    if (name.contains('身体扫描')) return '身体扫描';
+    if (name.contains('安全空间')) return '安全空间';
+    return name;
+  }
+
   /// 并行加载所有支持资源，完成后记录匿名访问并播放淡入动画
   Future<void> _loadAll() async {
     setState(() {
@@ -81,14 +113,12 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
       ]);
 
       // 记录访问
-      _service.recordAccess(resourceType: 'page_view');
+      _recordAccessSilently('page_view');
 
       if (mounted) {
         setState(() {
           final promptData = results[0];
-          _promptText = promptData['data'] is Map
-              ? (promptData['data']['text'] ?? '你不是一个人，这里永远是你的安全港湾')
-              : '你不是一个人，这里永远是你的安全港湾';
+          _promptText = _promptFromPayload(promptData['data']);
 
           final hotlineData = results[1];
           _hotlines = hotlineData['data'] is List
@@ -372,11 +402,15 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
           ...List.generate(_tools.length, (i) {
             final tool = _tools[i];
             final name = tool['name'] ?? '工具';
+            final styleKey = _toolStyleKey(name.toString());
             final desc = tool['description'] ?? '';
             final guide = tool['guide'] ?? tool['content'] ?? '';
+            final toolId = tool['id']?.toString().trim().isNotEmpty == true
+                ? tool['id'].toString().trim()
+                : 'tool_${i + 1}';
             final isExpanded = _expandedTools.contains(i);
-            final icon = toolIcons[name] ?? Icons.build_circle_outlined;
-            final color = toolColors[name] ?? AppTheme.primaryColor;
+            final icon = toolIcons[styleKey] ?? Icons.build_circle_outlined;
+            final color = toolColors[styleKey] ?? AppTheme.primaryColor;
 
             return Card(
               color: isDark
@@ -396,7 +430,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                             _expandedTools.add(i);
                           }
                         });
-                        _service.recordAccess(resourceType: 'tool_$name');
+                        _recordAccessSilently(toolId);
                       }
                     : null,
                 child: Column(

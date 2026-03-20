@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
@@ -73,11 +74,7 @@ class WebSocketManager {
         return false;
       }
 
-      final baseUrl = appConfig.apiBaseUrl.replaceFirst('/api', '');
-      final wsUrl = baseUrl
-          .replaceFirst('http://', 'ws://')
-          .replaceFirst('https://', 'wss://');
-      final baseUri = Uri.parse('$wsUrl/ws/broadcast');
+      final baseUri = Uri.parse(appConfig.wsUrl);
       final uri = baseUri.replace(
         queryParameters: <String, String>{
           ...baseUri.queryParameters,
@@ -277,9 +274,13 @@ class WebSocketManager {
     if (_reconnectTimer?.isActive == true) return;
     _reconnectAttempts++;
     // 前10次指数退避，之后每60秒尝试一次
-    final delay = _reconnectAttempts <= _maxReconnectAttempts
+    final baseDelay = _reconnectAttempts <= _maxReconnectAttempts
         ? Duration(seconds: (1 << _reconnectAttempts).clamp(1, 30))
         : const Duration(seconds: 60);
+    final jitterFactor = 0.75 + math.Random().nextDouble() * 0.5;
+    final delay = Duration(
+      milliseconds: (baseDelay.inMilliseconds * jitterFactor).round(),
+    );
     _reconnectTimer = Timer(delay, () async {
       await connect();
     });

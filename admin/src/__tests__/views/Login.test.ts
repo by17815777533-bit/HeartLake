@@ -78,7 +78,7 @@ describe('Login.vue', () => {
 
   it('包含副标题', () => {
     const wrapper = mount(Login, mountOpts)
-    expect(wrapper.text()).toContain('HeartLake Admin Console')
+    expect(wrapper.text()).toContain('值守与处置工作台')
   })
 
   it('包含版权信息', () => {

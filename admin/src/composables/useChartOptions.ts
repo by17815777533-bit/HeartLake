@@ -8,6 +8,7 @@
  * - tooltip / legend / 数据点的细节统一
  */
 import { ref } from 'vue'
+import dayjs from 'dayjs'
 import type { EChartsTooltipParam } from '@/types'
 
 const escapeHtml = (str: string): string => String(str).replace(/[<>&"']/g, c => ({
@@ -25,7 +26,7 @@ export const moodGradients = [
 ]
 
 const axisLineColor = '#d4deef'
-const splitLineColor = 'rgba(141, 161, 206, 0.16)'
+const splitLineColor = 'rgba(141, 161, 206, 0.12)'
 const axisLabelColor = '#7c8baa'
 const tooltipBase = {
   trigger: 'axis',
@@ -37,7 +38,7 @@ const tooltipBase = {
   extraCssText: 'box-shadow: 0 16px 34px rgba(43, 58, 94, 0.24); border-radius: 14px;',
 } as const
 
-const softGrid = { left: 44, right: 20, top: 28, bottom: 30 }
+const softGrid = { left: 38, right: 14, top: 18, bottom: 26 }
 const softAxis = {
   axisLine: { show: false, lineStyle: { color: axisLineColor } },
   axisTick: { show: false },
@@ -58,10 +59,35 @@ const lineArea = (from: string, to: string) => ({
   },
 })
 
+const formatShortDate = (value: string) => {
+  if (!value) return ''
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('M月D') : value
+}
+
+const formatAxisValue = (value: number) => {
+  if (!Number.isFinite(value)) return ''
+  if (Math.abs(value) >= 1000) {
+    return `${Math.round(value / 1000)}k`
+  }
+  return String(Math.round(value))
+}
+
 export function useChartOptions() {
   const userGrowthOption = ref({
+    animationDuration: 420,
+    animationEasing: 'cubicOut',
+    animationThreshold: 80,
+    progressive: 200,
     tooltip: {
       ...tooltipBase,
+      axisPointer: {
+        type: 'line',
+        lineStyle: {
+          color: 'rgba(77, 88, 126, 0.22)',
+          width: 1.1,
+        },
+      },
       formatter: (params: EChartsTooltipParam[]) => {
         const rows = Array.isArray(params) ? params : [params]
         const mainPoint = rows.find(item => item.seriesName === '旅人波峰') ?? rows[0]
@@ -76,41 +102,75 @@ export function useChartOptions() {
       data: [],
       boundaryGap: false,
       ...softAxis,
+      axisLabel: {
+        color: axisLabelColor,
+        fontSize: 11,
+        margin: 12,
+        formatter: (value: string) => formatShortDate(value),
+      },
     },
     yAxis: {
       type: 'value',
+      minInterval: 1,
       splitNumber: 4,
-      splitLine: { lineStyle: { color: splitLineColor, type: 'dashed' } },
+      splitLine: { lineStyle: { color: 'rgba(109, 135, 194, 0.1)', type: 'solid' } },
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: axisLabelColor, fontSize: 11 },
+      axisLabel: {
+        color: axisLabelColor,
+        fontSize: 11,
+        formatter: (value: number) => formatAxisValue(value),
+      },
     },
     series: [
       {
         name: '旅人波峰',
         type: 'line',
-        smooth: 0.42,
+        smooth: 0.5,
         symbol: 'circle',
-        symbolSize: 7,
+        symbolSize: 9,
         showSymbol: false,
         data: [],
         z: 2,
         itemStyle: {
-          color: '#8eaefd',
+          color: '#ecf4ff',
           borderColor: '#f8fbff',
-          borderWidth: 2,
+          borderWidth: 3,
         },
-        lineStyle: { color: '#8eaefd', width: 3.4 },
-        areaStyle: lineArea('rgba(142, 174, 253, 0.38)', 'rgba(142, 174, 253, 0.08)'),
+        lineStyle: { color: '#7fa6ff', width: 2.4 },
+        areaStyle: lineArea('rgba(135, 169, 255, 0.48)', 'rgba(135, 169, 255, 0.12)'),
+        markPoint: {
+          symbol: 'circle',
+          symbolSize: 16,
+          label: { show: false },
+          itemStyle: {
+            color: '#dce9ff',
+            borderColor: '#ffffff',
+            borderWidth: 3,
+            shadowBlur: 18,
+            shadowColor: 'rgba(126, 156, 241, 0.24)',
+          },
+          data: [],
+        },
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          label: { show: false },
+          lineStyle: {
+            color: 'rgba(91, 110, 154, 0.2)',
+            width: 1.1,
+          },
+          data: [],
+        },
       },
       {
         name: '陪伴基线',
         type: 'line',
-        smooth: 0.5,
+        smooth: 0.38,
         symbol: 'none',
         data: [],
         z: 3,
-        lineStyle: { color: '#283245', width: 2.6 },
+        lineStyle: { color: '#2c3345', width: 2.2 },
         itemStyle: { color: '#283245' },
       }
     ],

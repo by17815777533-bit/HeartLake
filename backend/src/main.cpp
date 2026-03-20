@@ -47,6 +47,7 @@
 #include "infrastructure/ArchitectureBootstrap.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/EnvUtils.h"
+#include "utils/AdminConfigStore.h"
 
 using namespace drogon;
 
@@ -78,6 +79,29 @@ static int getDefaultServerThreads() {
     // 低配环境优先：默认线程数随CPU核数变化，避免固定16线程造成过度抢占
     const unsigned int capped = std::min(8u, hw);
     return static_cast<int>(std::max(2u, capped));
+}
+
+/// 解析显式布尔环境变量；未设置或格式非法时返回 std::nullopt
+static std::optional<bool> parseExplicitBoolEnv(const char* rawValue) {
+    if (!rawValue || *rawValue == '\0') {
+        return std::nullopt;
+    }
+
+    std::string normalized = rawValue;
+    normalized.erase(normalized.begin(), std::find_if(normalized.begin(), normalized.end(),
+        [](unsigned char ch) { return !std::isspace(ch); }));
+    normalized.erase(std::find_if(normalized.rbegin(), normalized.rend(),
+        [](unsigned char ch) { return !std::isspace(ch); }).base(), normalized.end());
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
+        return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
+        return false;
+    }
+    return std::nullopt;
 }
 
 /// 去除字符串首尾空白字符
@@ -286,19 +310,20 @@ int main(int argc, char *argv[]) {
                 LOG_WARN << "Invalid SERVER_THREADS value, fallback to default: " << defaultServerThreads;
             }
         }
-        // ONNX 推理属于重负载路径，线程数过低会放大排队延迟。
-        const bool onnxLikelyEnabled = heartlake::utils::parseBoolEnv(
-            std::getenv("EDGE_AI_ONNX_ENABLED"), true);
-        if (onnxLikelyEnabled) {
+        // 只有在显式启用 ONNX 时才额外预留线程，避免 2C2G 环境被“自动放大”到 8 线程。
+        const auto explicitOnnxSwitch = parseExplicitBoolEnv(std::getenv("EDGE_AI_ONNX_ENABLED"));
+        if (explicitOnnxSwitch.has_value() && explicitOnnxSwitch.value()) {
             const unsigned int hw = std::thread::hardware_concurrency();
             const unsigned int effectiveHw = (hw == 0) ? 8u : hw;
-            const int minThreadsForOnnx = static_cast<int>(std::clamp(effectiveHw, 8u, 16u));
+            const int minThreadsForOnnx = static_cast<int>(std::clamp(effectiveHw, 4u, 8u));
             if (serverThreads < minThreadsForOnnx) {
                 LOG_WARN << "SERVER_THREADS=" << serverThreads
                          << " is too low for ONNX path, auto-upgrade to "
                          << minThreadsForOnnx;
                 serverThreads = minThreadsForOnnx;
             }
+        } else if (!explicitOnnxSwitch.has_value() && std::getenv("EDGE_AI_ONNX_ENABLED")) {
+            LOG_WARN << "Invalid EDGE_AI_ONNX_ENABLED value, skip ONNX thread auto-upgrade";
         }
         LOG_INFO << "Server threads set to " << serverThreads;
 
@@ -596,17 +621,19 @@ int main(int argc, char *argv[]) {
 
         // 初始化AI服务
         LOG_INFO << "Initializing AI Service...";
-        Json::Value aiConfig;
-        const char* ai_provider = std::getenv("AI_PROVIDER");
-        const char* ai_key = std::getenv("AI_API_KEY");
-        const char* ai_url = std::getenv("AI_BASE_URL");
-        const char* ai_model = std::getenv("AI_MODEL");
-        const char* ai_timeout = std::getenv("AI_TIMEOUT");
-        aiConfig["provider"] = ai_provider ? ai_provider : "ollama";
-        aiConfig["api_key"] = ai_key ? ai_key : "";
-        aiConfig["base_url"] = ai_url ? ai_url : "http://127.0.0.1:11434";
-        aiConfig["model"] = ai_model ? ai_model : "heartlake-qwen";
-        aiConfig["timeout"] = ai_timeout ? std::atoi(ai_timeout) : 10;
+        Json::Value aiConfig = heartlake::utils::AdminConfigStore::load()["ai"];
+        if (!aiConfig.isObject()) {
+            const char* ai_provider = std::getenv("AI_PROVIDER");
+            const char* ai_key = std::getenv("AI_API_KEY");
+            const char* ai_url = std::getenv("AI_BASE_URL");
+            const char* ai_model = std::getenv("AI_MODEL");
+            const char* ai_timeout = std::getenv("AI_TIMEOUT");
+            aiConfig["provider"] = ai_provider ? ai_provider : "ollama";
+            aiConfig["api_key"] = ai_key ? ai_key : "";
+            aiConfig["base_url"] = ai_url ? ai_url : "http://127.0.0.1:11434";
+            aiConfig["model"] = ai_model ? ai_model : "heartlake-qwen";
+            aiConfig["timeout"] = ai_timeout ? std::atoi(ai_timeout) : 10;
+        }
         heartlake::ai::AIService::getInstance().initialize(aiConfig);
 
         // 初始化嵌入向量引擎（统一配置，避免多服务维度漂移）
@@ -660,7 +687,7 @@ int main(int argc, char *argv[]) {
         heartlake::cache::RedisPoolConfig redisConfig;
         const int redisPoolInitial = heartlake::utils::parsePositiveIntEnv("REDIS_POOL_SIZE", 12);
         const int redisPoolMax = heartlake::utils::parsePositiveIntEnv(
-            "REDIS_MAX_POOL_SIZE", std::max(redisPoolInitial, 24));
+            "REDIS_MAX_POOL_SIZE", std::max(redisPoolInitial, std::min(redisPoolInitial * 2, 12)));
         redisConfig.initialSize = redisPoolInitial;
         redisConfig.maxSize = redisPoolMax;
         redisConfig.idleTimeoutMs = 30000;

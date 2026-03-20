@@ -12,7 +12,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Audit"
+          eyebrow="审计"
           title="服务记录"
           :chip="summaryItems[0]?.value ? `${summaryItems[0].value} 条留痕` : '全量留痕'"
           tone="sky"
@@ -29,15 +29,8 @@
           </div>
 
           <div class="ops-soft-actions logs-stage-actions">
-            <el-button
-              type="primary"
-              @click="handleSearch"
-            >
-              刷新审计
-            </el-button>
-            <el-button @click="handleReset">
-              清空筛选
-            </el-button>
+            <el-button type="primary" @click="handleSearch"> 刷新审计 </el-button>
+            <el-button @click="handleReset"> 清空筛选 </el-button>
           </div>
 
           <div class="ops-mini-grid">
@@ -57,7 +50,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Audit"
+          eyebrow="节律"
           title="动作频次"
           :chip="`${loginCount} 次登录`"
           tone="ice"
@@ -69,19 +62,23 @@
 
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="Actions"
+          eyebrow="分布"
           title="动作分布"
           :chip="summaryItems[1]?.value ? `${summaryItems[1].value} 次登录` : '审计中'"
           tone="mint"
         >
-          <div class="ops-kv-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-kv-item"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
+          <div class="ops-list-stack">
+            <article v-for="item in summaryItems.slice(1)" :key="item.label" class="ops-list-row">
+              <div class="ops-list-row__badge">
+                {{ item.label.slice(0, 2) }}
+              </div>
+              <div class="ops-list-row__copy">
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.note }}</span>
+              </div>
+              <div class="ops-list-row__value">
+                {{ item.value }}
+              </div>
             </article>
           </div>
         </OpsSurfaceCard>
@@ -89,96 +86,45 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="审计完整度"
           :chip="`${auditScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="auditScore"
-            :max="100"
-            :label="auditLabel"
-          />
+          <OpsGaugeMeter :value="auditScore" :max="100" :label="auditLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
-        <div class="ops-soft-toolbar logs-table-toolbar">
+      <el-card shadow="never" class="table-card ops-table-card">
+        <div class="ops-soft-toolbar ops-soft-toolbar--stacked logs-table-toolbar">
           <div class="logs-table-copy">
             <h3>审计列表</h3>
-            <p>登录、处置、配置和广播都在这里串联起来，便于交接和回放整个后台动作。</p>
+            <p>登录、处置、配置和广播都在这里串起来，交接时能快速还原后台动作链路。</p>
+            <div class="ops-toolbar-meta">
+              <span class="ops-toolbar-meta__item">当前页 {{ logList.length }} 条</span>
+              <span class="ops-toolbar-meta__item">登录 {{ loginCount }} 次</span>
+              <span class="ops-toolbar-meta__item">完整度 {{ auditScore }} / 100</span>
+            </div>
           </div>
-          <el-form
-            :model="filters"
-            inline
-            aria-label="日志筛选"
-            class="logs-inline-filter"
-          >
+          <el-form :model="filters" inline aria-label="日志筛选" class="logs-inline-filter">
             <el-form-item label="操作人">
-              <el-input
-                v-model="filters.operator"
-                placeholder="管理员账号"
-                clearable
-              />
+              <el-input v-model="filters.operator" placeholder="管理员账号" clearable />
             </el-form-item>
             <el-form-item label="操作类型">
-              <el-select
-                v-model="filters.action"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="登录"
-                  value="login"
-                />
-                <el-option
-                  label="封禁用户"
-                  value="ban_user"
-                />
-                <el-option
-                  label="解封用户"
-                  value="unban_user"
-                />
-                <el-option
-                  label="删除内容"
-                  value="delete_content"
-                />
-                <el-option
-                  label="审核通过"
-                  value="approve"
-                />
-                <el-option
-                  label="审核拒绝"
-                  value="reject"
-                />
-                <el-option
-                  label="修改配置"
-                  value="config"
-                />
-                <el-option
-                  label="处理举报"
-                  value="handle_report"
-                />
-                <el-option
-                  label="发送广播"
-                  value="broadcast"
-                />
-                <el-option
-                  label="新增敏感词"
-                  value="sensitive_add"
-                />
-                <el-option
-                  label="更新敏感词"
-                  value="sensitive_update"
-                />
-                <el-option
-                  label="删除敏感词"
-                  value="sensitive_delete"
-                />
+              <el-select v-model="filters.action" placeholder="全部" clearable>
+                <el-option label="登录" value="login" />
+                <el-option label="封禁用户" value="ban_user" />
+                <el-option label="解封用户" value="unban_user" />
+                <el-option label="删除内容" value="delete_content" />
+                <el-option label="审核通过" value="approve" />
+                <el-option label="审核拒绝" value="reject" />
+                <el-option label="修改配置" value="config" />
+                <el-option label="处理举报" value="handle_report" />
+                <el-option label="发送广播" value="broadcast" />
+                <el-option label="新增敏感词" value="sensitive_add" />
+                <el-option label="更新敏感词" value="sensitive_update" />
+                <el-option label="删除敏感词" value="sensitive_delete" />
               </el-select>
             </el-form-item>
             <el-form-item label="时间范围">
@@ -193,72 +139,55 @@
               />
             </el-form-item>
             <el-form-item>
-              <el-button
-                type="primary"
-                @click="handleSearch"
-              >
-                搜索
-              </el-button>
-              <el-button @click="handleReset">
-                重置
-              </el-button>
+              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+              <el-button @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
 
-        <el-table
-          v-loading="loading"
-          :data="logList"
-          stripe
-          aria-label="操作日志列表"
-        >
-          <el-table-column
-            prop="id"
-            label="ID"
-            width="80"
-          />
-          <el-table-column
-            prop="admin_id"
-            label="操作人"
-            width="120"
-          />
-          <el-table-column
-            label="操作类型"
-            width="120"
-          >
+        <el-table v-loading="loading" :data="logList" stripe aria-label="操作日志列表">
+          <el-table-column prop="id" label="编号" width="88" />
+          <el-table-column label="操作人" min-width="180">
             <template #default="{ row }">
-              <el-tag
-                :type="getActionType(row.action)"
-                size="small"
-              >
+              <div class="log-operator">
+                <strong>{{ getLogOperator(row) }}</strong>
+                <span>{{ getOperatorMeta(row) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作类型" width="120">
+            <template #default="{ row }">
+              <el-tag :type="getActionType(row.action)" size="small">
                 {{ getActionLabel(row.action) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            label="操作对象"
-            width="150"
-          >
+          <el-table-column label="操作对象" min-width="170">
             <template #default="{ row }">
-              {{ row.target_type ? `${row.target_type}:${row.target_id}` : '-' }}
+              <div class="log-target">
+                <strong>{{ getLogTarget(row) }}</strong>
+                <span>{{ getActionLabel(row.action) }}链路</span>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="details"
-            label="详情"
-            min-width="200"
-            show-overflow-tooltip
-          />
-          <el-table-column
-            prop="created_at"
-            label="操作时间"
-            width="180"
-          />
+          <el-table-column label="详情" min-width="260">
+            <template #default="{ row }">
+              <div class="log-detail">
+                <strong>{{ getLogDetail(row) }}</strong>
+                <span>{{ getActionNote(row.action) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作时间" width="188">
+            <template #default="{ row }">
+              <div class="log-time">
+                <strong>{{ row.created_at || '暂无时间' }}</strong>
+                <span>{{ getTimeNote(row.created_at) }}</span>
+              </div>
+            </template>
+          </el-table-column>
           <template #empty>
-            <el-empty
-              description="暂无操作日志"
-              :image-size="120"
-            />
+            <el-empty description="暂无操作日志" :image-size="120" />
           </template>
         </el-table>
 
@@ -309,7 +238,14 @@ const disabledDate = (date: Date) => {
   return false
 }
 
-const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchLogs, {
+const {
+  pagination,
+  buildParams,
+  handleSizeChange,
+  handleCurrentChange,
+  handleSearch,
+  handleReset,
+} = useTablePagination(fetchLogs, {
   filters,
   defaultFilters: { operator: '', action: '', dateRange: null },
   beforeSearch: () => {
@@ -321,45 +257,109 @@ const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSe
   },
 })
 
-const actionMap: Record<string, { label: string; type: string; icon: string }> = {
-  login: { label: '登录', type: 'info', icon: '🔑' },
-  ban_user: { label: '封禁用户', type: 'danger', icon: '🚫' },
-  unban_user: { label: '解封用户', type: 'success', icon: '✓' },
-  delete_content: { label: '删除内容', type: 'danger', icon: '🗑' },
-  approve: { label: '审核通过', type: 'success', icon: '✓' },
-  reject: { label: '审核拒绝', type: 'warning', icon: '✗' },
-  config: { label: '修改配置', type: 'primary', icon: '⚙' },
-  handle_report: { label: '处理举报', type: 'warning', icon: '📮' },
-  broadcast: { label: '发送广播', type: 'primary', icon: '📡' },
-  sensitive_add: { label: '新增敏感词', type: 'warning', icon: '＋' },
-  sensitive_update: { label: '更新敏感词', type: 'info', icon: '✎' },
-  sensitive_delete: { label: '删除敏感词', type: 'danger', icon: '－' },
-  user_status: { label: '更新状态', type: 'info', icon: '◉' },
+const actionMap: Record<string, { label: string; type: string; note: string }> = {
+  login: { label: '登录', type: 'info', note: '后台进入或会话恢复已被记录。' },
+  ban_user: { label: '封禁用户', type: 'danger', note: '账号状态被切换到限制中。' },
+  unban_user: { label: '解封用户', type: 'success', note: '账号已恢复为正常可用状态。' },
+  delete_content: { label: '删除内容', type: 'danger', note: '内容已从公开流向中移除。' },
+  approve: { label: '审核通过', type: 'success', note: '审核队列中的内容被放行。' },
+  reject: { label: '审核拒绝', type: 'warning', note: '审核结果为拦截或退回。' },
+  config: { label: '修改配置', type: 'primary', note: '系统偏好或阈值发生了调整。' },
+  handle_report: { label: '处理举报', type: 'warning', note: '求助或举报单已进入处置闭环。' },
+  broadcast: { label: '发送广播', type: 'primary', note: '面向全站的消息已发出。' },
+  sensitive_add: { label: '新增敏感词', type: 'warning', note: '风控词典增加了新的拦截项。' },
+  sensitive_update: { label: '更新敏感词', type: 'info', note: '风控词典中的策略被更新。' },
+  sensitive_delete: { label: '删除敏感词', type: 'danger', note: '已有风险词已从词典中移除。' },
+  user_status: { label: '更新状态', type: 'info', note: '旅人状态被人工重新标记。' },
 }
 
-const getActionLabel = (action: string) => `${actionMap[action]?.icon || ''} ${actionMap[action]?.label || action}`
+const getActionLabel = (action: string) => actionMap[action]?.label || action
 const getActionType = (action: string) => actionMap[action]?.type || 'info'
+const getActionNote = (action: string) => actionMap[action]?.note || '后台动作已写入审计链路。'
 const formatCount = (value: number) => value.toLocaleString()
 
+const getLogOperator = (row: Partial<OperationLog> & Record<string, unknown>) =>
+  String(row.operator || row.admin_id || '系统')
+
+const getOperatorMeta = (row: Partial<OperationLog> & Record<string, unknown>) => {
+  const ip = row.ip?.toString().trim()
+  return ip ? `来源 ${ip}` : '后台操作员'
+}
+
+const getLogTarget = (row: Partial<OperationLog> & Record<string, unknown>) => {
+  const target = row.target?.toString().trim()
+  if (target) return target
+
+  const targetType = row.target_type?.toString().trim()
+  const targetId = row.target_id?.toString().trim()
+  if (!targetType) return '系统范围'
+  return targetId ? `${targetType} · ${targetId}` : targetType
+}
+
+const getLogDetail = (row: Partial<OperationLog> & Record<string, unknown>) => {
+  const detail = row.detail?.toString().trim() || row.details?.toString().trim()
+  return detail || '未提供额外详情'
+}
+
+const getTimeNote = (value?: string) => {
+  if (!value) return '等待写入时间'
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
+  if (Number.isNaN(diffMinutes)) return '时间格式待确认'
+  if (diffMinutes <= 5) return '刚刚写入'
+  if (diffMinutes <= 60) return `${diffMinutes} 分钟前`
+  if (diffMinutes <= 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时前`
+  return `${Math.floor(diffMinutes / (24 * 60))} 天前`
+}
+
 const loginCount = computed(() => logList.value.filter((item) => item.action === 'login').length)
-const contentActionCount = computed(() => logList.value.filter((item) => ['delete_content', 'approve', 'reject'].includes(item.action)).length)
-const configActionCount = computed(() => logList.value.filter((item) => item.action === 'config').length)
+const contentActionCount = computed(
+  () =>
+    logList.value.filter((item) => ['delete_content', 'approve', 'reject'].includes(item.action))
+      .length,
+)
+const configActionCount = computed(
+  () => logList.value.filter((item) => item.action === 'config').length,
+)
 
 const summaryItems = computed(() => {
   const contentActions = contentActionCount.value
   const configCount = configActionCount.value
 
   return [
-    { label: '记录总量', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的审计记录总数', tone: 'lake' as const },
-    { label: '登录动作', value: formatCount(loginCount.value), note: '当前页账号进入后台的记录', tone: 'sage' as const },
-    { label: '内容处置', value: formatCount(contentActions), note: '当前页涉及审核或删除的动作', tone: 'amber' as const },
-    { label: '配置改动', value: formatCount(configCount), note: '当前页涉及系统偏好调整的动作', tone: 'rose' as const },
+    {
+      label: '记录总量',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前筛选下的审计记录总数',
+      tone: 'lake' as const,
+    },
+    {
+      label: '登录动作',
+      value: formatCount(loginCount.value),
+      note: '当前页账号进入后台的记录',
+      tone: 'sage' as const,
+    },
+    {
+      label: '内容处置',
+      value: formatCount(contentActions),
+      note: '当前页涉及审核或删除的动作',
+      tone: 'amber' as const,
+    },
+    {
+      label: '配置改动',
+      value: formatCount(configCount),
+      note: '当前页涉及系统偏好调整的动作',
+      tone: 'rose' as const,
+    },
   ]
 })
 
 const logVizBars = computed(() => [
   { label: '登录', value: loginCount.value, display: formatCount(loginCount.value) },
-  { label: '内容', value: contentActionCount.value, display: formatCount(contentActionCount.value) },
+  {
+    label: '内容',
+    value: contentActionCount.value,
+    display: formatCount(contentActionCount.value),
+  },
   { label: '配置', value: configActionCount.value, display: formatCount(configActionCount.value) },
   { label: '总量', value: logList.value.length, display: formatCount(logList.value.length) },
 ])
@@ -416,11 +416,25 @@ onMounted(() => fetchLogs())
   }
 
   .logs-table-toolbar {
-    align-items: flex-start;
+    gap: 18px;
   }
 
   .logs-inline-filter {
-    justify-content: flex-end;
+    width: 100%;
+    justify-content: stretch;
+
+    :deep(.el-form-item:nth-child(1)),
+    :deep(.el-form-item:nth-child(2)) {
+      grid-column: span 3;
+    }
+
+    :deep(.el-form-item:nth-child(3)) {
+      grid-column: span 4;
+    }
+
+    :deep(.el-form-item:nth-child(4)) {
+      grid-column: span 2;
+    }
   }
 
   .logs-table-copy {
@@ -437,6 +451,36 @@ onMounted(() => fetchLogs())
       font-size: 13px;
       line-height: 1.7;
     }
+  }
+
+  .log-operator,
+  .log-target,
+  .log-detail,
+  .log-time {
+    display: grid;
+    gap: 4px;
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+  }
+
+  .log-target strong {
+    font-family: var(--hl-font-mono);
+    font-size: 12px;
+  }
+
+  .log-time strong {
+    font-size: 12px;
   }
 
   .pagination-wrapper {

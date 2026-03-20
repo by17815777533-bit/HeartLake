@@ -12,7 +12,7 @@
           </div>
           <div class="brand-mark__copy">
             <strong>心湖后台</strong>
-            <span>HeartLake Admin</span>
+            <span>值守工作台</span>
           </div>
         </button>
 

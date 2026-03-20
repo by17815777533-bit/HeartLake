@@ -10,7 +10,10 @@ vi.mock('element-plus', () => ({
   ElMessage: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }))
 
-vi.mock('@/api', () => ({ default: { getOperationLogs: vi.fn() } }))
+vi.mock('@/api', () => ({
+  default: { getOperationLogs: vi.fn() },
+  isRequestCanceled: vi.fn().mockReturnValue(false),
+}))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 vi.mock('@/composables/useTablePagination', () => ({
   useTablePagination: (_fn: any, _opts: any) => {

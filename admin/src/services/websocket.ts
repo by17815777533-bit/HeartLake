@@ -2,7 +2,7 @@
  * WebSocket 服务 -- 安全认证、心跳保活、消息类型白名单
  *
  * 连接策略：
- * - 连接时不在 URL 中携带 token，通过 onopen 后发送 auth 消息认证
+ * - 握手时优先通过 URL query 传递 token，并在 onopen 后补发 auth 首包兼容后端双通道鉴权
  * - 心跳间隔 30s，超过 2 个周期未收到 pong 判定连接已死并强制重连
  * - 非正常关闭时指数退避重连（基础 1s，最大 30s），叠加随机抖动避免惊群
  * - 最多重连 10 次，disconnect() 后不再自动重连
@@ -60,6 +60,15 @@ type WSMessageType = typeof WS_MESSAGE_TYPE_LIST[number]
 
 export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
 
+function resolveWsEndpoint(token: string): URL {
+  const explicitUrl = import.meta.env.VITE_WS_URL?.trim()
+  const rawUrl = explicitUrl || `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/broadcast`
+  const wsUrl = new URL(rawUrl, `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`)
+  // 低配机的代理链路更稳定地支持握手期 query 鉴权；连接后仍兼容发送 auth 首包。
+  wsUrl.searchParams.set('token', token)
+  return wsUrl
+}
+
 /** 启动心跳定时器，定期发送 ping 并检测 pong 超时 */
 function startHeartbeat() {
   stopHeartbeat()
@@ -96,16 +105,13 @@ export default {
     const token = appStore.getToken()
     if (!token) return
 
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = new URL(`${protocol}//${location.host}/ws/broadcast`)
-    // 低配机的代理链路更稳定地支持握手期 query 鉴权；连接后仍兼容发送 auth 首包。
-    wsUrl.searchParams.set('token', token)
-    ws = new WebSocket(wsUrl.toString())
+    ws = new WebSocket(resolveWsEndpoint(token).toString())
 
     ws.onopen = () => {
       hasEverConnected = true
       reconnectAttempts = 0
       lastPongTime = Date.now()
+      ws?.send(JSON.stringify({ type: 'auth', token }))
       // 启动心跳保活
       startHeartbeat()
     }

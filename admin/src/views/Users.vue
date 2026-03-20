@@ -13,7 +13,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Travelers"
+          eyebrow="旅人"
           title="旅人关怀"
           :chip="`${summaryItems[1]?.value || 0} 正常`"
           tone="sky"
@@ -30,10 +30,7 @@
           </div>
 
           <div class="ops-soft-actions users-stage-actions">
-            <el-button
-              type="primary"
-              @click="handleSearch"
-            >
+            <el-button type="primary" @click="handleSearch">
               <el-icon><Search /></el-icon>
               搜索旅人
             </el-button>
@@ -60,7 +57,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Overview"
+          eyebrow="概览"
           title="活跃分布"
           :chip="`${activeTravelerCount} 活跃`"
           tone="ice"
@@ -71,18 +68,9 @@
       </template>
 
       <template #rail>
-        <OpsSurfaceCard
-          eyebrow="Pulse"
-          title="旅人动态"
-          :chip="latestActiveMeta.value"
-          tone="mint"
-        >
+        <OpsSurfaceCard eyebrow="动态" title="旅人动态" :chip="latestActiveMeta.value" tone="mint">
           <div class="ops-list-stack">
-            <article
-              v-for="item in travelerSignals"
-              :key="item.label"
-              class="ops-list-row"
-            >
+            <article v-for="item in travelerSignals" :key="item.label" class="ops-list-row">
               <div class="ops-list-row__badge">
                 {{ item.label.slice(0, 2) }}
               </div>
@@ -100,41 +88,30 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="陪伴指数"
           :chip="`${engagementScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="engagementScore"
-            :max="100"
-            :label="engagementLabel"
-          />
+          <OpsGaugeMeter :value="engagementScore" :max="100" :label="engagementLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
-        <div class="ops-soft-toolbar users-table-toolbar">
+      <el-card shadow="never" class="table-card ops-table-card">
+        <div class="ops-soft-toolbar ops-soft-toolbar--stacked users-table-toolbar">
           <div class="users-table-copy">
             <h3>旅人列表</h3>
-            <p>列表保留真实石头和纸船聚合，封禁与解封操作直接写入后台。</p>
+            <p>把身份、活跃和互动产出收在同一张台面里，便于值守时快速判断该关注谁。</p>
+            <div class="ops-toolbar-meta">
+              <span class="ops-toolbar-meta__item">当前页 {{ users.length }} 人</span>
+              <span class="ops-toolbar-meta__item">活跃 {{ activeTravelerCount }} 人</span>
+              <span class="ops-toolbar-meta__item">产出 {{ formatCount(totalStones + totalBoats) }} 条</span>
+            </div>
           </div>
-          <el-form
-            :model="filters"
-            inline
-            aria-label="用户筛选"
-            class="users-inline-filter"
-          >
+          <el-form :model="filters" inline aria-label="用户筛选" class="users-inline-filter">
             <el-form-item label="用户ID">
-              <el-input
-                v-model="filters.userId"
-                placeholder="请输入用户ID"
-                clearable
-              />
+              <el-input v-model="filters.userId" placeholder="请输入用户ID" clearable />
             </el-form-item>
             <el-form-item label="昵称">
               <el-input
@@ -145,26 +122,13 @@
               />
             </el-form-item>
             <el-form-item label="状态">
-              <el-select
-                v-model="filters.status"
-                placeholder="全部"
-                clearable
-              >
-                <el-option
-                  label="正常"
-                  value="active"
-                />
-                <el-option
-                  label="已封禁"
-                  value="banned"
-                />
+              <el-select v-model="filters.status" placeholder="全部" clearable>
+                <el-option label="正常" value="active" />
+                <el-option label="已封禁" value="banned" />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button
-                type="primary"
-                @click="handleSearch"
-              >
+              <el-button type="primary" @click="handleSearch">
                 <el-icon><Search /></el-icon>
                 搜索
               </el-button>
@@ -183,88 +147,69 @@
           style="width: 100%"
           aria-label="用户列表"
         >
-          <el-table-column
-            prop="user_id"
-            label="用户ID"
-            width="180"
-          />
-          <el-table-column
-            label="旅人"
-            min-width="190"
-          >
+          <el-table-column label="旅人档案" min-width="286">
             <template #default="{ row }">
-              <div class="traveler-identity">
-                <strong>{{ row.nickname || '未命名旅人' }}</strong>
-                <span>@{{ row.username || row.user_id }}</span>
+              <div class="traveler-identity traveler-identity--rich">
+                <div class="traveler-identity__avatar">
+                  {{ getTravelerInitial(row) }}
+                </div>
+                <div class="traveler-identity__copy">
+                  <strong>{{ row.nickname || '未命名旅人' }}</strong>
+                  <span>@{{ row.username || row.user_id }}</span>
+                  <div class="traveler-identity__meta">
+                    <em>{{ row.user_id }}</em>
+                    <i :class="row.status === 'active' ? 'is-active' : 'is-banned'">
+                      {{ row.status === 'active' ? '正常陪伴' : '限制中' }}
+                    </i>
+                  </div>
+                </div>
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="活跃轨迹"
-            width="190"
-          >
+          <el-table-column label="活跃轨迹" width="200">
             <template #default="{ row }">
               <div class="activity-meta">
-                <strong>{{ row.last_active_at || '暂无记录' }}</strong>
-                <span>{{ getActivityNote(row.last_active_at) }}</span>
+                <strong>{{ getActivityNote(row.last_active_at) }}</strong>
+                <span>{{ row.last_active_at || '暂无记录' }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="统计"
-            width="220"
-          >
+          <el-table-column label="互动画像" width="228">
             <template #default="{ row }">
               <div class="user-stats">
-                <span class="stat-item"><i class="stat-dot stone" />投石 {{ row.stones_count || 0 }}</span>
-                <span class="stat-item"><i class="stat-dot boat" />纸船 {{ row.boat_count || 0 }}</span>
+                <article class="user-stat-pill is-stone">
+                  <span>投石</span>
+                  <strong>{{ row.stones_count || 0 }}</strong>
+                </article>
+                <article class="user-stat-pill is-boat">
+                  <span>纸船</span>
+                  <strong>{{ row.boat_count || 0 }}</strong>
+                </article>
               </div>
             </template>
           </el-table-column>
-          <el-table-column
-            label="状态"
-            width="100"
-          >
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
                 {{ row.status === 'active' ? '正常' : '已封禁' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="created_at"
-            label="注册时间"
-            width="180"
-          />
-          <el-table-column
-            label="操作"
-            fixed="right"
-            width="180"
-          >
+          <el-table-column label="入湖时间" width="188">
             <template #default="{ row }">
-              <el-button
-                type="primary"
-                link
-                @click="handleViewDetail(row)"
-              >
-                详情
-              </el-button>
-              <el-button
-                v-if="row.status === 'active'"
-                type="danger"
-                link
-                @click="handleBan(row)"
-              >
+              <div class="registration-meta">
+                <strong>{{ row.created_at || '暂无记录' }}</strong>
+                <span>{{ getRegistrationNote(row.created_at) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" fixed="right" width="180">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="handleViewDetail(row)"> 详情 </el-button>
+              <el-button v-if="row.status === 'active'" type="danger" link @click="handleBan(row)">
                 封禁
               </el-button>
-              <el-button
-                v-else
-                type="success"
-                link
-                @click="handleUnban(row)"
-              >
-                解封
-              </el-button>
+              <el-button v-else type="success" link @click="handleUnban(row)"> 解封 </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -290,11 +235,7 @@
       width="600px"
       aria-labelledby="user-detail-title"
     >
-      <el-descriptions
-        v-if="currentUser"
-        :column="2"
-        border
-      >
+      <el-descriptions v-if="currentUser" :column="2" border>
         <el-descriptions-item label="用户ID">
           {{ currentUser.user_id }}
         </el-descriptions-item>
@@ -374,21 +315,57 @@ const summaryItems = computed(() => {
   const boatsCount = users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0)
 
   return [
-    { label: '旅人总数', value: formatCount(Number(pagination.total || 0)), note: '当前筛选下的总账号数', tone: 'lake' as const },
-    { label: '正常状态', value: formatCount(activeCount), note: '当前页可直接服务的账号', tone: 'sage' as const },
-    { label: '封禁处置', value: formatCount(bannedCount), note: '当前页仍处于限制中的账号', tone: 'rose' as const },
-    { label: '互动产出', value: formatCount(stonesCount + boatsCount), note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`, tone: 'amber' as const },
+    {
+      label: '旅人总数',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前筛选下的总账号数',
+      tone: 'lake' as const,
+    },
+    {
+      label: '正常状态',
+      value: formatCount(activeCount),
+      note: '当前页可直接服务的账号',
+      tone: 'sage' as const,
+    },
+    {
+      label: '封禁处置',
+      value: formatCount(bannedCount),
+      note: '当前页仍处于限制中的账号',
+      tone: 'rose' as const,
+    },
+    {
+      label: '互动产出',
+      value: formatCount(stonesCount + boatsCount),
+      note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`,
+      tone: 'amber' as const,
+    },
   ]
 })
 
-const activeTravelerCount = computed(() => users.value.filter((item) => item.status === 'active').length)
-const bannedTravelerCount = computed(() => users.value.filter((item) => item.status === 'banned').length)
-const totalStones = computed(() => users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0))
-const totalBoats = computed(() => users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0))
+const activeTravelerCount = computed(
+  () => users.value.filter((item) => item.status === 'active').length,
+)
+const bannedTravelerCount = computed(
+  () => users.value.filter((item) => item.status === 'banned').length,
+)
+const totalStones = computed(() =>
+  users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0),
+)
+const totalBoats = computed(() =>
+  users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0),
+)
 
 const usersVizBars = computed(() => [
-  { label: '活跃', value: activeTravelerCount.value, display: formatCount(activeTravelerCount.value) },
-  { label: '封禁', value: bannedTravelerCount.value, display: formatCount(bannedTravelerCount.value) },
+  {
+    label: '活跃',
+    value: activeTravelerCount.value,
+    display: formatCount(activeTravelerCount.value),
+  },
+  {
+    label: '封禁',
+    value: bannedTravelerCount.value,
+    display: formatCount(bannedTravelerCount.value),
+  },
   { label: '投石', value: totalStones.value, display: formatCount(totalStones.value) },
   { label: '纸船', value: totalBoats.value, display: formatCount(totalBoats.value) },
 ])
@@ -424,10 +401,28 @@ const getActivityNote = (value?: string) => {
   return `${Math.floor(diffMinutes / (24 * 60))} 天前活跃`
 }
 
+const getRegistrationNote = (value?: string) => {
+  if (!value) return '入湖时间待补充'
+  const diffDays = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000))
+  if (Number.isNaN(diffDays)) return '时间格式待确认'
+  if (diffDays <= 1) return '近 24 小时入湖'
+  if (diffDays <= 7) return '近一周加入'
+  if (diffDays <= 30) return `${diffDays} 天湖龄`
+  return `${Math.max(1, Math.floor(diffDays / 30))} 个月湖龄`
+}
+
+const getTravelerInitial = (user: User) => {
+  const source = (user.nickname || user.username || user.user_id || '旅').trim()
+  return source.charAt(0).toUpperCase()
+}
+
 const latestActiveMeta = computed(() => {
   const latestUser = users.value.reduce<User | null>((latest, item) => {
     if (!latest) return item
-    return formatRecentTime(item.last_active_at).timestamp > formatRecentTime(latest.last_active_at).timestamp ? item : latest
+    return formatRecentTime(item.last_active_at).timestamp >
+      formatRecentTime(latest.last_active_at).timestamp
+      ? item
+      : latest
   }, null)
 
   if (!latestUser) {
@@ -445,11 +440,17 @@ const latestActiveMeta = computed(() => {
 
 const travelerSignals = computed(() => {
   const activeCount = users.value.filter((item) => item.status === 'active').length
-  const outputCount = users.value.reduce((sum, item) => sum + Number(item.stones_count || 0) + Number(item.boat_count || 0), 0)
+  const outputCount = users.value.reduce(
+    (sum, item) => sum + Number(item.stones_count || 0) + Number(item.boat_count || 0),
+    0,
+  )
   const averageOutput = users.value.length ? (outputCount / users.value.length).toFixed(1) : '0.0'
-  const filterFocus = filters.status === 'banned'
-    ? '封禁回看'
-    : (filters.userId || filters.nickname ? '定向检索' : '旅人总览')
+  const filterFocus =
+    filters.status === 'banned'
+      ? '封禁回看'
+      : filters.userId || filters.nickname
+        ? '定向检索'
+        : '旅人总览'
 
   return [
     {
@@ -457,7 +458,9 @@ const travelerSignals = computed(() => {
       value: filterFocus,
       note: filters.nickname
         ? `正在按昵称“${filters.nickname}”缩小范围。`
-        : (filters.userId ? `正在定向查看用户 ${filters.userId}。` : '默认浏览全量旅人，优先留意异常状态与高活跃账号。'),
+        : filters.userId
+          ? `正在定向查看用户 ${filters.userId}。`
+          : '默认浏览全量旅人，优先留意异常状态与高活跃账号。',
       badge: filters.status ? `状态 ${filters.status}` : '全部状态',
       tone: 'lake' as const,
     },
@@ -509,7 +512,14 @@ const fetchUsers = async () => {
   }
 }
 
-const { pagination, buildParams, handleSizeChange, handleCurrentChange, handleSearch, handleReset } = useTablePagination(fetchUsers, {
+const {
+  pagination,
+  buildParams,
+  handleSizeChange,
+  handleCurrentChange,
+  handleSearch,
+  handleReset,
+} = useTablePagination(fetchUsers, {
   filters,
   defaultFilters,
   beforeSearch: () => {
@@ -593,11 +603,19 @@ onMounted(() => {
   }
 
   .users-table-toolbar {
-    align-items: flex-start;
+    gap: 18px;
   }
 
   .users-inline-filter {
-    justify-content: flex-end;
+    width: 100%;
+    justify-content: stretch;
+
+    :deep(.el-form-item:nth-child(1)),
+    :deep(.el-form-item:nth-child(2)),
+    :deep(.el-form-item:nth-child(3)),
+    :deep(.el-form-item:nth-child(4)) {
+      grid-column: span 3;
+    }
   }
 
   .users-table-copy {
@@ -634,35 +652,132 @@ onMounted(() => {
     }
   }
 
-  .user-stats {
-    display: flex;
-    gap: 16px;
+  .traveler-identity--rich {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
 
-    .stat-item {
-      display: flex;
-      align-items: center;
-      min-height: 30px;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.58);
-      border: 1px solid rgba(115, 141, 151, 0.12);
+  .traveler-identity__avatar {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(184, 208, 255, 0.94), rgba(171, 197, 255, 0.98));
+    color: #18233a;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+
+  .traveler-identity__copy {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+
+    span {
       font-size: 12px;
-      color: var(--m3-on-surface-variant);
+    }
 
-      .stat-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-right: 6px;
+    strong {
+      line-height: 1.4;
+    }
 
-        &.stone {
-          background: var(--m3-error);
-        }
+    em {
+      color: rgba(91, 105, 136, 0.82);
+      font-size: 11px;
+      font-style: normal;
+      font-family: var(--hl-font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 
-        &.boat {
-          background: var(--m3-success);
-        }
-      }
+  .traveler-identity__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+
+    i {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-style: normal;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    }
+
+    i.is-active {
+      background: rgba(219, 245, 239, 0.96);
+      color: #1f7a69;
+    }
+
+    i.is-banned {
+      background: rgba(255, 231, 233, 0.94);
+      color: #b44d59;
+    }
+  }
+
+  .user-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .user-stat-pill {
+    display: grid;
+    gap: 3px;
+    min-height: 62px;
+    padding: 11px 12px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.68);
+    border: 1px solid rgba(149, 171, 214, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 18px;
+      font-weight: 760;
+      letter-spacing: -0.04em;
+    }
+  }
+
+  .user-stat-pill.is-stone {
+    background: linear-gradient(180deg, rgba(244, 248, 255, 0.96), rgba(233, 241, 255, 0.96));
+  }
+
+  .user-stat-pill.is-boat {
+    background: linear-gradient(180deg, rgba(228, 246, 241, 0.96), rgba(218, 241, 235, 0.96));
+  }
+
+  .registration-meta {
+    display: grid;
+    gap: 4px;
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      line-height: 1.5;
     }
   }
 

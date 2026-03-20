@@ -23,7 +23,10 @@ const mockApi = vi.hoisted(() => ({
   getStones: vi.fn(),
 }))
 
-vi.mock('@/api', () => ({ default: mockApi }))
+vi.mock('@/api', () => ({
+  default: mockApi,
+  isRequestCanceled: vi.fn(() => false),
+}))
 
 import { useDashboardLoaders } from '@/composables/useDashboardLoaders'
 
@@ -345,7 +348,7 @@ describe('useDashboardLoaders', () => {
       const deps = createDeps()
       const { loadAITrendingContent } = useDashboardLoaders(deps)
       await loadAITrendingContent()
-      expect(deps.aiTrendingContent.value).toHaveLength(10)
+      expect(deps.aiTrendingContent.value).toHaveLength(6)
     })
 
     it('少于 10 条时全部显示', async () => {

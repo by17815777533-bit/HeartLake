@@ -173,25 +173,24 @@ withDefaults(
 .ops-surface-card__chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 11px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .ops-surface-card__eyebrow {
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--surface-accent-strong);
-  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.66);
+  color: color-mix(in srgb, var(--surface-accent-strong) 78%, #42506d 22%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .ops-surface-card__title {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   color: var(--hl-ink);
-  font-size: clamp(19px, 2vw, 24px);
+  font-size: clamp(20px, 1.92vw, 24px);
   font-weight: 680;
   letter-spacing: -0.05em;
   line-height: 1.08;
@@ -207,7 +206,7 @@ withDefaults(
 
 .ops-surface-card__chip {
   color: var(--hl-ink);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(166, 184, 220, 0.18);
 }
 
@@ -257,7 +256,7 @@ withDefaults(
   .ops-surface-card__chip {
     min-height: 28px;
     padding: 0 10px;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .ops-surface-card__title {

@@ -58,6 +58,9 @@ Testing/
 .claude/
 .codex/
 .playwright-mcp/
+**/.playwright-cli/
+output/
+admin/public/__dev_*.html
 papers/
 *_rows.json
 

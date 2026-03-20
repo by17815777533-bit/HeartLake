@@ -14,7 +14,7 @@
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="Moderation"
+          eyebrow="守护"
           title="温暖守护"
           :chip="activeTab === 'pending' ? '待审核视角' : '历史视角'"
           tone="sky"
@@ -31,15 +31,8 @@
           </div>
 
           <div class="ops-soft-actions moderation-stage-actions">
-            <el-button
-              type="primary"
-              @click="fetchPending"
-            >
-              刷新队列
-            </el-button>
-            <el-button @click="fetchHistory">
-              回看历史
-            </el-button>
+            <el-button type="primary" @click="fetchPending"> 刷新队列 </el-button>
+            <el-button @click="fetchHistory"> 回看历史 </el-button>
           </div>
 
           <div class="ops-mini-grid">
@@ -59,7 +52,7 @@
 
       <template #support>
         <OpsSurfaceCard
-          eyebrow="Risk"
+          eyebrow="风险"
           title="风险分布"
           :chip="`${highRiskPendingCount} 高危`"
           tone="ice"
@@ -71,17 +64,13 @@
 
       <template #rail>
         <OpsSurfaceCard
-          eyebrow="Signals"
+          eyebrow="情报"
           title="风险情报"
           :chip="moderationSignals[0]?.value || '秩序平稳'"
           tone="mint"
         >
           <div class="ops-list-stack">
-            <article
-              v-for="item in moderationSignals"
-              :key="item.label"
-              class="ops-list-row"
-            >
+            <article v-for="item in moderationSignals" :key="item.label" class="ops-list-row">
               <div class="ops-list-row__badge">
                 {{ item.label.slice(0, 2) }}
               </div>
@@ -99,24 +88,17 @@
 
       <template #footer>
         <OpsSurfaceCard
-          eyebrow="Score"
+          eyebrow="评分"
           title="人审核准"
           :chip="`${moderationScore} / 100`"
           tone="plain"
           compact
         >
-          <OpsGaugeMeter
-            :value="moderationScore"
-            :max="100"
-            :label="moderationLabel"
-          />
+          <OpsGaugeMeter :value="moderationScore" :max="100" :label="moderationLabel" />
         </OpsSurfaceCard>
       </template>
 
-      <el-card
-        shadow="never"
-        class="table-card ops-table-card"
-      >
+      <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar">
           <div class="moderation-table-copy">
             <h3>审核工作区</h3>
@@ -124,65 +106,32 @@
           </div>
         </div>
 
-        <el-tabs
-          v-model="activeTab"
-          @tab-change="handleTabChange"
-        >
-          <el-tab-pane
-            label="待审核"
-            name="pending"
-          >
-            <el-table
-              v-loading="loading"
-              :data="pendingList"
-              stripe
-              aria-label="待审核内容列表"
-            >
-              <el-table-column
-                prop="moderation_id"
-                label="ID"
-                width="80"
-              />
-              <el-table-column
-                label="类型"
-                width="80"
-              >
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+          <el-tab-pane label="待审核" name="pending">
+            <el-table v-loading="loading" :data="pendingList" stripe aria-label="待审核内容列表">
+              <el-table-column prop="moderation_id" label="ID" width="80" />
+              <el-table-column label="类型" width="80">
                 <template #default="{ row }">
-                  <el-tag
-                    :type="row.content_type === 'stone' ? 'primary' : 'success'"
-                    size="small"
-                  >
+                  <el-tag :type="row.content_type === 'stone' ? 'primary' : 'success'" size="small">
                     {{ row.content_type === 'stone' ? '石头' : '纸船' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column
-                label="内容"
-                min-width="250"
-              >
+              <el-table-column label="内容" min-width="250">
                 <template #default="{ row }">
                   <p class="content-preview">
                     {{ row.content?.substring(0, 80) }}{{ row.content?.length > 80 ? '...' : '' }}
                   </p>
                 </template>
               </el-table-column>
-              <el-table-column
-                label="触发原因"
-                width="150"
-              >
+              <el-table-column label="触发原因" width="150">
                 <template #default="{ row }">
-                  <el-tag
-                    type="warning"
-                    size="small"
-                  >
+                  <el-tag type="warning" size="small">
                     {{ row.ai_reason || '系统识别' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column
-                label="风险分"
-                width="180"
-              >
+              <el-table-column label="风险分" width="180">
                 <template #default="{ row }">
                   <div class="risk-meter">
                     <div class="risk-meter__meta">
@@ -198,38 +147,12 @@
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="created_at"
-                label="提交时间"
-                width="170"
-              />
-              <el-table-column
-                label="操作"
-                width="180"
-                fixed="right"
-              >
+              <el-table-column prop="created_at" label="提交时间" width="170" />
+              <el-table-column label="操作" width="180" fixed="right">
                 <template #default="{ row }">
-                  <el-button
-                    type="success"
-                    link
-                    @click="handleApprove(row)"
-                  >
-                    通过
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    link
-                    @click="handleReject(row)"
-                  >
-                    拒绝
-                  </el-button>
-                  <el-button
-                    type="primary"
-                    link
-                    @click="viewDetail(row)"
-                  >
-                    详情
-                  </el-button>
+                  <el-button type="success" link @click="handleApprove(row)"> 通过 </el-button>
+                  <el-button type="danger" link @click="handleReject(row)"> 拒绝 </el-button>
+                  <el-button type="primary" link @click="viewDetail(row)"> 详情 </el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -246,39 +169,17 @@
             </div>
           </el-tab-pane>
 
-          <el-tab-pane
-            label="审核历史"
-            name="history"
-          >
+          <el-tab-pane label="审核历史" name="history">
             <div class="moderation-history-filter">
-              <el-form
-                :model="historyFilters"
-                inline
-                aria-label="审核历史筛选"
-              >
+              <el-form :model="historyFilters" inline aria-label="审核历史筛选">
                 <el-form-item label="结果">
-                  <el-select
-                    v-model="historyFilters.result"
-                    placeholder="全部"
-                    clearable
-                  >
-                    <el-option
-                      label="通过"
-                      value="approved"
-                    />
-                    <el-option
-                      label="拒绝"
-                      value="rejected"
-                    />
+                  <el-select v-model="historyFilters.result" placeholder="全部" clearable>
+                    <el-option label="通过" value="approved" />
+                    <el-option label="拒绝" value="rejected" />
                   </el-select>
                 </el-form-item>
                 <el-form-item>
-                  <el-button
-                    type="primary"
-                    @click="fetchHistory"
-                  >
-                    搜索
-                  </el-button>
+                  <el-button type="primary" @click="fetchHistory"> 搜索 </el-button>
                 </el-form-item>
               </el-form>
             </div>
@@ -289,42 +190,21 @@
               stripe
               aria-label="审核历史列表"
             >
-              <el-table-column
-                prop="moderation_id"
-                label="ID"
-                width="80"
-              />
-              <el-table-column
-                label="内容摘要"
-                min-width="200"
-              >
+              <el-table-column prop="moderation_id" label="ID" width="80" />
+              <el-table-column label="内容摘要" min-width="200">
                 <template #default="{ row }">
                   {{ row.content?.substring(0, 50) }}{{ row.content?.length > 50 ? '...' : '' }}
                 </template>
               </el-table-column>
-              <el-table-column
-                label="审核结果"
-                width="100"
-              >
+              <el-table-column label="审核结果" width="100">
                 <template #default="{ row }">
-                  <el-tag
-                    :type="row.result === 'approved' ? 'success' : 'danger'"
-                    size="small"
-                  >
+                  <el-tag :type="row.result === 'approved' ? 'success' : 'danger'" size="small">
                     {{ row.result === 'approved' ? '通过' : '拒绝' }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column
-                prop="moderator"
-                label="操作人"
-                width="100"
-              />
-              <el-table-column
-                prop="moderated_at"
-                label="处理时间"
-                width="170"
-              />
+              <el-table-column prop="moderator" label="操作人" width="100" />
+              <el-table-column prop="moderated_at" label="处理时间" width="170" />
             </el-table>
             <div class="pagination-wrapper">
               <el-pagination
@@ -350,20 +230,14 @@
       aria-labelledby="moderation-detail-title"
     >
       <div v-if="currentItem">
-        <el-descriptions
-          :column="2"
-          border
-        >
+        <el-descriptions :column="2" border>
           <el-descriptions-item label="ID">
             {{ currentItem.moderation_id || currentItem.content_id }}
           </el-descriptions-item>
           <el-descriptions-item label="类型">
             {{ currentItem.content_type === 'stone' ? '石头' : '纸船' }}
           </el-descriptions-item>
-          <el-descriptions-item
-            label="触发原因"
-            :span="2"
-          >
+          <el-descriptions-item label="触发原因" :span="2">
             {{ currentItem.ai_reason || '自动检测' }}
           </el-descriptions-item>
           <el-descriptions-item label="风险评级">
@@ -372,10 +246,7 @@
           <el-descriptions-item label="风险分">
             {{ getRiskPercent(currentItem.ai_score) }}%
           </el-descriptions-item>
-          <el-descriptions-item
-            label="内容"
-            :span="2"
-          >
+          <el-descriptions-item label="内容" :span="2">
             <div class="detail-content">
               {{ currentItem.content }}
             </div>
@@ -411,7 +282,12 @@ const historyFilters = reactive({ result: '' })
 
 const formatCount = (value: number) => value.toLocaleString()
 
-const { pagination, buildParams: buildPendingParams, handleSizeChange: handlePendingSizeChange, handleCurrentChange: handlePendingCurrentChange } = useTablePagination(fetchPending)
+const {
+  pagination,
+  buildParams: buildPendingParams,
+  handleSizeChange: handlePendingSizeChange,
+  handleCurrentChange: handlePendingCurrentChange,
+} = useTablePagination(fetchPending)
 const {
   pagination: historyPagination,
   buildParams: buildHistoryParams,
@@ -424,18 +300,43 @@ const {
 
 const summaryItems = computed(() => {
   const highRiskCount = pendingList.value.filter((item) => Number(item.ai_score || 0) >= 0.7).length
-  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
-  const rejectedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'rejected').length
+  const approvedCount = historyList.value.filter(
+    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
+  ).length
+  const rejectedCount = historyList.value.filter(
+    (item) => (item as ModerationItem & { result?: string }).result === 'rejected',
+  ).length
 
   return [
-    { label: '待复核队列', value: formatCount(Number(pagination.total || 0)), note: '当前仍等待人工复核的内容', tone: 'rose' as const },
-    { label: '高风险提示', value: formatCount(highRiskCount), note: '当前页风险分较高的条目', tone: 'amber' as const },
-    { label: '历史通过', value: formatCount(approvedCount), note: '当前页审核历史中的通过条目', tone: 'sage' as const },
-    { label: '历史拒绝', value: formatCount(rejectedCount), note: '当前页审核历史中的拦截条目', tone: 'lake' as const },
+    {
+      label: '待复核队列',
+      value: formatCount(Number(pagination.total || 0)),
+      note: '当前仍等待人工复核的内容',
+      tone: 'rose' as const,
+    },
+    {
+      label: '高风险提示',
+      value: formatCount(highRiskCount),
+      note: '当前页风险分较高的条目',
+      tone: 'amber' as const,
+    },
+    {
+      label: '历史通过',
+      value: formatCount(approvedCount),
+      note: '当前页审核历史中的通过条目',
+      tone: 'sage' as const,
+    },
+    {
+      label: '历史拒绝',
+      value: formatCount(rejectedCount),
+      note: '当前页审核历史中的拦截条目',
+      tone: 'lake' as const,
+    },
   ]
 })
 
-const getRiskPercent = (score?: number) => Math.min(100, Math.max(0, Math.round(Number(score || 0) * 100)))
+const getRiskPercent = (score?: number) =>
+  Math.min(100, Math.max(0, Math.round(Number(score || 0) * 100)))
 
 const getRiskLabel = (score?: number) => {
   const percent = getRiskPercent(score)
@@ -453,25 +354,53 @@ const getRiskColor = (score?: number) => {
   return '#49735a'
 }
 
-const highRiskPendingCount = computed(() => pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length)
-const mediumRiskPendingCount = computed(() => pendingList.value.filter((item) => {
-  const percent = getRiskPercent(item.ai_score)
-  return percent >= 60 && percent < 85
-}).length)
-const lowRiskPendingCount = computed(() => pendingList.value.filter((item) => getRiskPercent(item.ai_score) < 60).length)
+const highRiskPendingCount = computed(
+  () => pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length,
+)
+const mediumRiskPendingCount = computed(
+  () =>
+    pendingList.value.filter((item) => {
+      const percent = getRiskPercent(item.ai_score)
+      return percent >= 60 && percent < 85
+    }).length,
+)
+const lowRiskPendingCount = computed(
+  () => pendingList.value.filter((item) => getRiskPercent(item.ai_score) < 60).length,
+)
 
 const moderationVizBars = computed(() => [
-  { label: '高危', value: highRiskPendingCount.value, display: formatCount(highRiskPendingCount.value) },
-  { label: '中危', value: mediumRiskPendingCount.value, display: formatCount(mediumRiskPendingCount.value) },
-  { label: '低危', value: lowRiskPendingCount.value, display: formatCount(lowRiskPendingCount.value) },
-  { label: '历史', value: historyList.value.length, display: formatCount(historyList.value.length) },
+  {
+    label: '高危',
+    value: highRiskPendingCount.value,
+    display: formatCount(highRiskPendingCount.value),
+  },
+  {
+    label: '中危',
+    value: mediumRiskPendingCount.value,
+    display: formatCount(mediumRiskPendingCount.value),
+  },
+  {
+    label: '低危',
+    value: lowRiskPendingCount.value,
+    display: formatCount(lowRiskPendingCount.value),
+  },
+  {
+    label: '历史',
+    value: historyList.value.length,
+    display: formatCount(historyList.value.length),
+  },
 ])
 
 const moderationScore = computed(() => {
   const reviewedCount = historyList.value.length
-  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
+  const approvedCount = historyList.value.filter(
+    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
+  ).length
   const approvalRate = reviewedCount ? approvedCount / reviewedCount : 0
-  return Math.max(28, Math.min(96, Math.round(68 + approvalRate * 22 - highRiskPendingCount.value * 4)))
+  return Math.max(
+    28,
+    Math.min(96, Math.round(68 + approvalRate * 22 - highRiskPendingCount.value * 4)),
+  )
 })
 
 const moderationLabel = computed(() => {
@@ -492,27 +421,35 @@ const dominantReason = computed(() => {
 })
 
 const moderationSignals = computed(() => {
-  const highRiskCount = pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length
+  const highRiskCount = pendingList.value.filter(
+    (item) => getRiskPercent(item.ai_score) >= 85,
+  ).length
   const reviewedCount = historyList.value.length
-  const approvedCount = historyList.value.filter((item) => (item as ModerationItem & { result?: string }).result === 'approved').length
-  const approvalRate = reviewedCount ? `${Math.round((approvedCount / reviewedCount) * 100)}%` : '0%'
+  const approvedCount = historyList.value.filter(
+    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
+  ).length
+  const approvalRate = reviewedCount
+    ? `${Math.round((approvedCount / reviewedCount) * 100)}%`
+    : '0%'
 
   return [
     {
       label: '队列温度',
       value: highRiskCount > 0 ? '需要优先干预' : '秩序平稳',
-      note: highRiskCount > 0
-        ? `当前仍有 ${formatCount(highRiskCount)} 条高危内容等待人工复核。`
-        : '当前页暂未出现高危条目，可以更关注边界判断与误伤风险。',
+      note:
+        highRiskCount > 0
+          ? `当前仍有 ${formatCount(highRiskCount)} 条高危内容等待人工复核。`
+          : '当前页暂未出现高危条目，可以更关注边界判断与误伤风险。',
       badge: `待复核 ${formatCount(Number(pagination.total || 0))}`,
       tone: 'rose' as const,
     },
     {
       label: '主要触发',
       value: dominantReason.value.reason,
-      note: dominantReason.value.count > 0
-        ? `${formatCount(dominantReason.value.count)} 条内容触发了同类原因。`
-        : '当前没有待审核内容，触发原因将随新队列更新。',
+      note:
+        dominantReason.value.count > 0
+          ? `${formatCount(dominantReason.value.count)} 条内容触发了同类原因。`
+          : '当前没有待审核内容，触发原因将随新队列更新。',
       badge: activeTab.value === 'pending' ? '待审核视角' : '历史视角',
       tone: 'amber' as const,
     },
@@ -562,7 +499,9 @@ async function fetchHistory() {
   }
 }
 
-const handleTabChange = (tab: string) => { tab === 'pending' ? fetchPending() : fetchHistory() }
+const handleTabChange = (tab: string) => {
+  tab === 'pending' ? fetchPending() : fetchHistory()
+}
 
 // 审核通过添加二次确认
 const handleApprove = async (row: ModerationItem) => {
@@ -578,7 +517,7 @@ const handleApprove = async (row: ModerationItem) => {
   // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
   const removedIndex = pendingList.value.findIndex(
-    (item) => (item.moderation_id || item.content_id) === itemId
+    (item) => (item.moderation_id || item.content_id) === itemId,
   )
   const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
@@ -597,13 +536,16 @@ const handleApprove = async (row: ModerationItem) => {
 
 const handleReject = async (row: ModerationItem) => {
   const { value: reason } = await ElMessageBox.prompt('请输入拒绝原因', '拒绝内容', {
-    confirmButtonText: '确定', cancelButtonText: '取消', inputPattern: /\S+/, inputErrorMessage: '请输入原因'
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPattern: /\S+/,
+    inputErrorMessage: '请输入原因',
   }).catch(() => ({ value: null }))
   if (!reason) return
   // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
   const removedIndex = pendingList.value.findIndex(
-    (item) => (item.moderation_id || item.content_id) === itemId
+    (item) => (item.moderation_id || item.content_id) === itemId,
   )
   const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
@@ -619,7 +561,10 @@ const handleReject = async (row: ModerationItem) => {
   }
 }
 
-const viewDetail = (row: ModerationItem) => { currentItem.value = row; detailVisible.value = true }
+const viewDetail = (row: ModerationItem) => {
+  currentItem.value = row
+  detailVisible.value = true
+}
 
 onMounted(() => fetchPending())
 </script>
