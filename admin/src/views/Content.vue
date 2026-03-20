@@ -10,28 +10,52 @@
 
 <template>
   <div class="content-page ops-page">
+    <OpsPageHero
+      eyebrow="内容"
+      title="石头与纸船"
+      :description="contentHeroDescription"
+      :status="contentSignals[0]?.value || '混合巡检'"
+      :chips="contentHeroChips"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleSearch"> 搜索内容 </el-button>
+        <el-button @click="handleReset"> 重置视图 </el-button>
+      </template>
+    </OpsPageHero>
+
     <OpsWorkbench>
       <template #stage>
         <OpsSurfaceCard
-          eyebrow="内容"
-          title="石头与纸船"
-          :chip="contentSignals[0]?.value || '混合巡检'"
+          eyebrow="总览"
+          title="内容概览"
+          :chip="`${contentHealthScore} 分 ${contentHealthLabel}`"
           tone="sky"
         >
-          <div class="ops-big-metric">
-            <span class="ops-big-metric__label">内容总量</span>
-            <div class="ops-big-metric__value">
-              {{ summaryItems[0]?.value || 0 }}
-              <small>条</small>
+          <div class="content-stage-shell">
+            <div class="ops-big-metric">
+              <span class="ops-big-metric__label">内容总量</span>
+              <div class="ops-big-metric__value">
+                {{ summaryItems[0]?.value || 0 }}
+                <small>条</small>
+              </div>
+              <p class="ops-big-metric__note">
+                统一查看石头与纸船的状态、文案与作者信息，必要时直接处置并保留操作原因。
+              </p>
             </div>
-            <p class="ops-big-metric__note">
-              统一查看石头与纸船的状态、文案与作者信息，必要时直接处置并保留操作原因。
-            </p>
-          </div>
 
-          <div class="ops-soft-actions content-stage-actions">
-            <el-button type="primary" @click="handleSearch"> 搜索内容 </el-button>
-            <el-button @click="handleReset"> 重置视图 </el-button>
+            <div class="content-stage-aside">
+              <article class="content-stage-pod">
+                <span>最新流入</span>
+                <strong>{{ latestContentMeta.value }}</strong>
+                <small>{{ latestContentMeta.note }}</small>
+              </article>
+
+              <article class="content-stage-pod is-mint">
+                <span>待确认占比</span>
+                <strong>{{ contentSignals[2]?.value || '0%' }}</strong>
+                <small>{{ contentSignals[2]?.note }}</small>
+              </article>
+            </div>
           </div>
 
           <div class="ops-mini-grid">
@@ -227,6 +251,7 @@
 import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
+import OpsPageHero from '@/components/OpsPageHero.vue'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
@@ -393,6 +418,15 @@ const contentSignals = computed(() => {
     },
   ]
 })
+
+const contentHeroDescription =
+  '把公开表达与一对一漂流收在同一张巡看桌面里，先判断流入节奏，再决定是否深入查看、删除或继续观察。'
+
+const contentHeroChips = computed(() => [
+  `${summaryItems.value[0]?.value || 0} 条内容`,
+  `${summaryItems.value[3]?.value || 0} 待确认`,
+  `${contentHealthScore.value} 分 ${contentHealthLabel.value}`,
+])
 
 const {
   pagination,
@@ -566,8 +600,55 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .content-page {
-  .content-stage-actions {
-    margin: 22px 0 18px;
+  .content-stage-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.92fr);
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 18px;
+  }
+
+  .content-stage-aside {
+    display: grid;
+    gap: 12px;
+  }
+
+  .content-stage-pod {
+    display: grid;
+    gap: 6px;
+    min-height: 128px;
+    padding: 16px 18px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(245, 249, 255, 0.94), rgba(235, 242, 255, 0.96));
+    border: 1px solid rgba(162, 181, 221, 0.14);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.88),
+      0 14px 22px rgba(111, 136, 183, 0.06);
+
+    span {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    strong {
+      color: var(--hl-ink);
+      font-size: 24px;
+      font-weight: 760;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+    }
+
+    small {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+  }
+
+  .content-stage-pod.is-mint {
+    background: linear-gradient(180deg, rgba(226, 245, 240, 0.98), rgba(214, 239, 233, 0.98));
   }
 
   .content-filter-form {
@@ -651,6 +732,12 @@ onMounted(() => {
     color: var(--m3-on-surface);
     white-space: pre-wrap;
     line-height: 1.6;
+  }
+
+  @media (max-width: 960px) {
+    .content-stage-shell {
+      grid-template-columns: 1fr;
+    }
   }
 }
 </style>
