@@ -66,8 +66,8 @@ void FriendController::sendFriendRequest(
         return;
     }
 
-    if (!json->isMember("user_id")) {
-        callback(ResponseUtil::badRequest("缺少user_id字段"));
+    if (!json->isMember("user_id") && !json->isMember("target_user_id")) {
+        callback(ResponseUtil::badRequest("缺少 target_user_id 字段"));
         return;
     }
 
@@ -77,9 +77,9 @@ void FriendController::sendFriendRequest(
         return;
     }
     auto userId = *userIdOpt;
-    const std::string targetUserId = (*json)["user_id"].asString();
+    const std::string targetUserId = json->get("target_user_id", json->get("user_id", "")).asString();
     if (targetUserId.empty()) {
-        callback(ResponseUtil::badRequest("target user_id 不能为空"));
+        callback(ResponseUtil::badRequest("target_user_id 不能为空"));
         return;
     }
     if (targetUserId == userId) {
@@ -108,6 +108,10 @@ void FriendController::sendFriendRequest(
         data["mode"] = "intimacy_auto";
         data["from_user_id"] = userId;
         data["to_user_id"] = targetUserId;
+        data["peer_id"] = targetUserId;
+        data["user_id"] = targetUserId;
+        data["friend_id"] = targetUserId;
+        data["friend_user_id"] = targetUserId;
         data["intimacy_score"] = score;
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
@@ -144,6 +148,9 @@ void FriendController::acceptFriendRequest(
         Json::Value data;
         data["mode"] = "intimacy_auto";
         data["peer_id"] = userId;
+        data["user_id"] = userId;
+        data["friend_id"] = userId;
+        data["friend_user_id"] = userId;
         data["intimacy_score"] = score;
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
@@ -171,6 +178,9 @@ void FriendController::rejectFriendRequest(
         Json::Value data;
         data["mode"] = "intimacy_auto";
         data["peer_id"] = userId;
+        data["user_id"] = userId;
+        data["friend_id"] = userId;
+        data["friend_user_id"] = userId;
         data["note"] = "系统不再使用手动同意/拒绝流程";
         callback(ResponseUtil::success(data, "无需拒绝：系统按互动亲密分自动判断关系"));
     } catch (const std::exception& e) {
@@ -211,6 +221,9 @@ void FriendController::removeFriend(
             result["success"] = true;
             result["mode"] = "intimacy_auto_hidden";
             result["friend_id"] = friendId;
+            result["friend_user_id"] = friendId;
+            result["user_id"] = friendId;
+            result["peer_id"] = friendId;
             callback(ResponseUtil::success(result, "已从好友列表移除"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Error in removeFriend: " << e.what();
@@ -263,6 +276,7 @@ void FriendController::getFriends(
             Json::Value item;
             item["friendship_id"] = "intimacy_auto:" + peer.userId;
             item["friend_id"] = peer.userId;
+            item["friend_user_id"] = peer.userId;
             item["user_id"] = peer.userId;
             item["username"] = peer.username;
             item["nickname"] = peer.nickname;
@@ -299,7 +313,8 @@ void FriendController::getFriends(
         Json::Value data;
         data["mode"] = "intimacy_auto";
         data["friends"] = friends;
-        data["total"] = static_cast<int>(peers.size());
+        data["items"] = friends;
+        data["total"] = static_cast<int>(friends.size());
 
         callback(ResponseUtil::success(data, "好友关系已由亲密分自动生成"));
     } catch (const std::exception& e) {
@@ -322,6 +337,7 @@ void FriendController::getPendingRequests(
     Json::Value data;
     data["mode"] = "intimacy_auto";
     data["requests"] = Json::arrayValue;
+    data["items"] = Json::arrayValue;
     data["total"] = 0;
     callback(ResponseUtil::success(data, "手动好友申请已下线，关系由互动亲密分自动判定"));
 }

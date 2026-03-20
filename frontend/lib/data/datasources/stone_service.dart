@@ -34,9 +34,16 @@ class StoneService extends BaseService {
   }) async {
     InputValidator.requireLength(content, '石头内容', min: 1, max: 5000);
     content = InputValidator.sanitizeText(content);
-    InputValidator.requireInList(stoneType, const [
-      'small', 'medium', 'large', 'light', 'heavy',
-    ], '石头类型');
+    InputValidator.requireInList(
+        stoneType,
+        const [
+          'small',
+          'medium',
+          'large',
+          'light',
+          'heavy',
+        ],
+        '石头类型');
     InputValidator.requireNonEmpty(stoneColor, '石头颜色');
     InputValidator.optionalInList(
       moodType,
@@ -86,7 +93,8 @@ class StoneService extends BaseService {
   }) async {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
-    InputValidator.requireInList(sort, const ['latest', 'hot', 'random'], '排序方式');
+    InputValidator.requireInList(
+        sort, const ['latest', 'hot', 'random'], '排序方式');
     final cacheKey = 'stones_${page}_${pageSize}_$sort';
 
     try {
@@ -100,7 +108,7 @@ class StoneService extends BaseService {
         if (!response.success) return toMap(response);
 
         final data = response.data;
-        final items = data?['stones'] as List? ?? [];
+        final items = data?['stones'] as List? ?? data?['items'] as List? ?? [];
         final List<Stone> stones = [];
         for (final json in items) {
           try {
@@ -147,7 +155,7 @@ class StoneService extends BaseService {
     }
 
     final data = response.data;
-    final items = data?['stones'] as List? ?? [];
+    final items = data?['stones'] as List? ?? data?['items'] as List? ?? [];
     final List<Stone> stones = [];
     for (final json in items) {
       try {
@@ -192,15 +200,16 @@ class StoneService extends BaseService {
   /// 从后端响应中提取分页信息
   Map<String, dynamic> _buildPagination(Map<String, dynamic>? data) {
     final page = data?['page'] ?? 1;
-    final totalPages = data?['total_pages'] ?? 1;
+    final totalPages = data?['total_pages'] ?? data?['totalPages'] ?? 1;
     final total = data?['total'] ?? 0;
-    final pageSize = data?['page_size'] ?? 20;
+    final pageSize = data?['page_size'] ?? data?['pageSize'] ?? 20;
+    final hasMore = data?['has_more'] ?? page < totalPages;
     return {
       'page': page,
       'total_pages': totalPages,
       'total': total,
       'page_size': pageSize,
-      'has_more': page < totalPages,
+      'has_more': hasMore,
     };
   }
 

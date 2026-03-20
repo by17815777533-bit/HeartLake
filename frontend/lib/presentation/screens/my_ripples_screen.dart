@@ -11,6 +11,7 @@ import '../../data/datasources/interaction_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 
 /// 我的涟漪列表页面
 ///
@@ -30,6 +31,8 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
 
   /// 解析后的 Stone 列表，与 _ripplesData 索引一一对应
   final List<Stone> _ripples = [];
+  final Map<String, int> _rippleIndexById = {};
+  final Map<String, Set<String>> _rippleIdsByStoneId = {};
   bool _isLoading = false;
   final InteractionService _interactionService = sl<InteractionService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -60,14 +63,10 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     // 监听涟漪删除 - 从列表中移除对应条目
     _rippleDeletedListener = (data) {
       if (!mounted) return;
-      final rippleId = data['ripple_id'];
+      final rippleId = extractRippleEntityId(data);
       if (rippleId == null) return;
       setState(() {
-        final index = _ripplesData.indexWhere((r) => r['ripple_id'] == rippleId);
-        if (index >= 0) {
-          _ripplesData.removeAt(index);
-          _ripples.removeAt(index);
-        }
+        _removeRippleById(rippleId);
       });
     };
     _wsManager.on('ripple_deleted', _rippleDeletedListener);
@@ -75,21 +74,10 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     // 监听石头删除 - 移除该石头相关的涟漪
     _stoneDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == null) return;
       setState(() {
-        final indicesToRemove = <int>[];
-        for (int i = 0; i < _ripplesData.length; i++) {
-          if (_ripplesData[i]['stone_id'] == stoneId) {
-            indicesToRemove.add(i);
-          }
-        }
-        // 从后往前删除，避免索引偏移
-        for (int i = indicesToRemove.length - 1; i >= 0; i--) {
-          final idx = indicesToRemove[i];
-          _ripplesData.removeAt(idx);
-          _ripples.removeAt(idx);
-        }
+        _removeRipplesByStoneId(stoneId);
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
@@ -97,18 +85,81 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     // 监听涟漪更新 - 更新石头的涟漪计数
     _rippleUpdateListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       final rippleCount = data['ripple_count'];
       if (stoneId == null || rippleCount is! int) return;
       setState(() {
-        for (int i = 0; i < _ripples.length; i++) {
-          if (_ripples[i].stoneId == stoneId) {
-            _ripples[i] = _ripples[i].copyWith(rippleCount: rippleCount);
-          }
-        }
+        _updateRippleCountByStoneId(stoneId, rippleCount);
       });
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
+  }
+
+  void _rebuildRippleIndices() {
+    _rippleIndexById.clear();
+    _rippleIdsByStoneId.clear();
+    for (var i = 0; i < _ripplesData.length; i++) {
+      final rippleId = _ripplesData[i]['ripple_id']?.toString();
+      final stoneId =
+          _ripplesData[i]['stone_id']?.toString() ?? _ripples[i].stoneId;
+      if (rippleId == null || rippleId.isEmpty) continue;
+      _rippleIndexById[rippleId] = i;
+      if (stoneId.isNotEmpty) {
+        (_rippleIdsByStoneId[stoneId] ??= <String>{}).add(rippleId);
+      }
+    }
+  }
+
+  bool _removeRippleById(String rippleId) {
+    final index = _rippleIndexById[rippleId];
+    if (index == null) return false;
+    _ripplesData.removeAt(index);
+    _ripples.removeAt(index);
+    _rebuildRippleIndices();
+    return true;
+  }
+
+  bool _removeRipplesByStoneId(String stoneId) {
+    final rippleIds = _rippleIdsByStoneId[stoneId];
+    if (rippleIds == null || rippleIds.isEmpty) return false;
+
+    final retainedData = <Map<String, dynamic>>[];
+    final retainedStones = <Stone>[];
+    var removed = false;
+
+    for (var i = 0; i < _ripplesData.length; i++) {
+      final rippleId = _ripplesData[i]['ripple_id']?.toString();
+      if (rippleId != null && rippleIds.contains(rippleId)) {
+        removed = true;
+        continue;
+      }
+      retainedData.add(_ripplesData[i]);
+      retainedStones.add(_ripples[i]);
+    }
+
+    if (!removed) return false;
+    _ripplesData
+      ..clear()
+      ..addAll(retainedData);
+    _ripples
+      ..clear()
+      ..addAll(retainedStones);
+    _rebuildRippleIndices();
+    return true;
+  }
+
+  bool _updateRippleCountByStoneId(String stoneId, int rippleCount) {
+    final rippleIds = _rippleIdsByStoneId[stoneId];
+    if (rippleIds == null || rippleIds.isEmpty) return false;
+
+    var updated = false;
+    for (final rippleId in rippleIds) {
+      final index = _rippleIndexById[rippleId];
+      if (index == null) continue;
+      _ripples[index] = _ripples[index].copyWith(rippleCount: rippleCount);
+      updated = true;
+    }
+    return updated;
   }
 
   /// 从后端加载当前用户的涟漪列表
@@ -122,13 +173,17 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
       );
 
       if (result['success'] == true && mounted) {
-        final items = result['ripples'] as List;
+        final items = (result['ripples'] as List? ?? const [])
+            .whereType<Map>()
+            .map((json) =>
+                normalizePayloadContract(Map<String, dynamic>.from(json)))
+            .toList();
         setState(() {
           _ripplesData.clear();
-          _ripplesData
-              .addAll(items.map((json) => Map<String, dynamic>.from(json)));
+          _ripplesData.addAll(items);
           _ripples.clear();
           _ripples.addAll(items.map((json) => Stone.fromJson(json)));
+          _rebuildRippleIndices();
           _isLoading = false;
         });
       } else {
@@ -165,115 +220,125 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? AppTheme.nightDeep : const Color(0xFFF0F8FF), isDark ? AppTheme.nightSurface : const Color(0xFFE8F0FA)],
+            colors: [
+              isDark ? AppTheme.nightDeep : const Color(0xFFF0F8FF),
+              isDark ? AppTheme.nightSurface : const Color(0xFFE8F0FA)
+            ],
           ),
         ),
         child: RefreshIndicator(
           onRefresh: _loadMyRipples,
           child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _ripples.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.waves,
-                                size: 80,
-                                color: isDark ? Colors.white24 : Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '还没有涟漪，你的声音会被听见',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+              ? const Center(child: CircularProgressIndicator())
+              : _ripples.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.waves,
+                                  size: 80,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.grey[300],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _ripples.length,
-                    itemBuilder: (context, index) {
-                      final rippleId =
-                          _ripplesData[index]['ripple_id']?.toString() ?? '';
-                      return Dismissible(
-                        key: Key(rippleId),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: const Icon(Icons.undo, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          return await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('取消涟漪'),
-                              content: const Text('确定要取消这个涟漪吗？'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('取消'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red),
-                                  child: const Text('确定'),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '还没有涟漪，你的声音会被听见',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: isDark
+                                        ? AppTheme.darkTextSecondary
+                                        : Colors.grey[600],
+                                  ),
                                 ),
                               ],
                             ),
-                          );
-                        },
-                        onDismissed: (direction) async {
-                          // 保存备份用于回滚
-                          final removedData = _ripplesData[index];
-                          final removedStone = _ripples[index];
-                          final removedIndex = index;
-                          setState(() {
-                            _ripplesData.removeAt(index);
-                            _ripples.removeAt(index);
-                          });
-                          try {
-                            await _interactionService.deleteRipple(rippleId);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('涟漪已取消')),
-                            );
-                          } catch (e) {
-                            // API 失败时回滚
-                            if (!context.mounted) return;
-                            setState(() {
-                              _ripplesData.insert(removedIndex, removedData);
-                              _ripples.insert(removedIndex, removedStone);
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('删除失败，请重试')),
-                            );
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: StoneCard(stone: _ripples[index]),
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _ripples.length,
+                      itemBuilder: (context, index) {
+                        final rippleId =
+                            _ripplesData[index]['ripple_id']?.toString() ?? '';
+                        return Dismissible(
+                          key: Key(rippleId),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: const Icon(Icons.undo, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) async {
+                            return await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('取消涟漪'),
+                                content: const Text('确定要取消这个涟漪吗？'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('取消'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red),
+                                    child: const Text('确定'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          onDismissed: (direction) async {
+                            // 保存备份用于回滚
+                            final removedData = _ripplesData[index];
+                            final removedStone = _ripples[index];
+                            final removedIndex = index;
+                            setState(() {
+                              _ripplesData.removeAt(index);
+                              _ripples.removeAt(index);
+                              _rebuildRippleIndices();
+                            });
+                            try {
+                              await _interactionService.deleteRipple(rippleId);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('涟漪已取消')),
+                              );
+                            } catch (e) {
+                              // API 失败时回滚
+                              if (!context.mounted) return;
+                              setState(() {
+                                _ripplesData.insert(removedIndex, removedData);
+                                _ripples.insert(removedIndex, removedStone);
+                                _rebuildRippleIndices();
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('删除失败，请重试')),
+                              );
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: StoneCard(stone: _ripples[index]),
+                          ),
+                        );
+                      },
+                    ),
         ),
       ),
     );

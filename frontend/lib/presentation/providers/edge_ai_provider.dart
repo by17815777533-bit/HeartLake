@@ -1,17 +1,17 @@
-/// 端侧AI推理状态管理
-///
-/// 采用「远程优先 + 本地降级」的混合推理策略：
-/// 1. 优先调用后端SentimentAnalyzer获取情绪分析结果
-/// 2. 后端弃权或置信度过低时，降级到本地规则引擎 + tflite模型
-/// 3. 两路结果按置信度加权融合，输出七维情绪概率分布
-///
-/// 本地推理链路经过LocalDPClassifier的Laplace噪声注入，
-/// 确保上传数据满足epsilon-DP隐私保证。
+// 端侧AI推理状态管理
+//
+// 采用「远程优先 + 本地降级」的混合推理策略：
+// 1. 优先调用后端SentimentAnalyzer获取情绪分析结果
+// 2. 后端弃权或置信度过低时，降级到本地规则引擎 + tflite模型
+// 3. 两路结果按置信度加权融合，输出七维情绪概率分布
+//
+// 本地推理链路经过LocalDPClassifier的Laplace噪声注入，
+// 确保上传数据满足epsilon-DP隐私保证。
 
 import 'package:flutter/foundation.dart';
-import '../edge_ai/emotion_classifier.dart';
-import '../data/datasources/edge_ai_service.dart';
-import '../di/service_locator.dart';
+import '../../edge_ai/emotion_classifier.dart';
+import '../../data/datasources/edge_ai_service.dart';
+import '../../di/service_locator.dart';
 
 /// 端侧 AI 推理状态管理器
 ///

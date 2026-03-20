@@ -6,6 +6,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/temp_friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
@@ -22,6 +23,9 @@ class FriendProvider with ChangeNotifier {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _tempFriends = [];
   List<Map<String, dynamic>> _pendingRequests = [];
+  final Map<String, int> _friendIndexByUserId = {};
+  final Map<String, int> _tempFriendIndexById = {};
+  final Map<String, int> _pendingIndexByUserId = {};
   bool _isLoading = false;
   bool _wsRegistered = false;
 
@@ -44,50 +48,145 @@ class FriendProvider with ChangeNotifier {
     _setupWebSocket();
   }
 
+  String? _friendUserId(Map<String, dynamic> item) {
+    final candidate = item['user_id'] ??
+        item['friend_id'] ??
+        item['friend_user_id'] ??
+        item['userId'] ??
+        item['friendId'] ??
+        item['friendUserId'] ??
+        item['peer_id'] ??
+        item['from_user_id'] ??
+        item['to_user_id'] ??
+        item['target_user_id'] ??
+        item['requester_id'];
+    final userId = candidate?.toString();
+    if (userId == null || userId.isEmpty) {
+      return null;
+    }
+    return userId;
+  }
+
+  String? _tempFriendId(Map<String, dynamic> item) =>
+      item['temp_friend_id']?.toString();
+
+  void _rebuildFriendIndex() {
+    _friendIndexByUserId
+      ..clear();
+    for (var i = 0; i < _friends.length; i++) {
+      final userId = _friendUserId(_friends[i]);
+      if (userId != null && userId.isNotEmpty) {
+        _friendIndexByUserId[userId] = i;
+      }
+    }
+  }
+
+  void _rebuildTempFriendIndex() {
+    _tempFriendIndexById
+      ..clear();
+    for (var i = 0; i < _tempFriends.length; i++) {
+      final tempFriendId = _tempFriendId(_tempFriends[i]);
+      if (tempFriendId != null && tempFriendId.isNotEmpty) {
+        _tempFriendIndexById[tempFriendId] = i;
+      }
+    }
+  }
+
+  void _rebuildPendingIndex() {
+    _pendingIndexByUserId
+      ..clear();
+    for (var i = 0; i < _pendingRequests.length; i++) {
+      final userId = _friendUserId(_pendingRequests[i]);
+      if (userId != null && userId.isNotEmpty) {
+        _pendingIndexByUserId[userId] = i;
+      }
+    }
+  }
+
+  bool _removeFriendByUserId(String userId) {
+    final idx = _friendIndexByUserId[userId];
+    if (idx == null) {
+      return false;
+    }
+    _friends.removeAt(idx);
+    _rebuildFriendIndex();
+    return true;
+  }
+
+  bool _removeTempFriendById(String tempFriendId) {
+    final idx = _tempFriendIndexById[tempFriendId];
+    if (idx == null) {
+      return false;
+    }
+    _tempFriends.removeAt(idx);
+    _rebuildTempFriendIndex();
+    return true;
+  }
+
+  bool _removePendingByUserId(String userId) {
+    final idx = _pendingIndexByUserId[userId];
+    if (idx == null) {
+      return false;
+    }
+    _pendingRequests.removeAt(idx);
+    _rebuildPendingIndex();
+    return true;
+  }
+
   /// 注册 WebSocket 事件监听器，监听好友相关的 6 种实时事件
   void _setupWebSocket() {
     if (_wsRegistered) return;
 
     _onFriendOnline = (data) {
-      final userId = data['user_id']?.toString();
+      final userId = _friendUserId(data);
       if (userId == null) return;
-      final idx = _friends.indexWhere((f) => f['user_id'] == userId);
-      if (idx >= 0) {
+      final idx = _friendIndexByUserId[userId];
+      if (idx != null) {
         _friends[idx] = {..._friends[idx], 'is_online': true};
         notifyListeners();
       }
     };
 
     _onFriendOffline = (data) {
-      final userId = data['user_id']?.toString();
+      final userId = _friendUserId(data);
       if (userId == null) return;
-      final idx = _friends.indexWhere((f) => f['user_id'] == userId);
-      if (idx >= 0) {
+      final idx = _friendIndexByUserId[userId];
+      if (idx != null) {
         _friends[idx] = {..._friends[idx], 'is_online': false};
         notifyListeners();
       }
     };
 
     _onFriendRequest = (data) {
-      _pendingRequests.insert(0, data);
+      _pendingRequests.insert(0, normalizeFriendPayload(data));
+      _rebuildPendingIndex();
       notifyListeners();
     };
 
     _onFriendAccepted = (data) {
-      _pendingRequests.removeWhere((r) => r['user_id'] == data['user_id']);
+      final userId = _friendUserId(data);
+      if (userId != null) {
+        _removePendingByUserId(userId);
+      }
       fetchFriends();
     };
 
     _onFriendRemoved = (data) {
-      final userId = data['user_id']?.toString();
-      _friends.removeWhere((f) => f['user_id'] == userId);
-      notifyListeners();
+      final userId = _friendUserId(data);
+      if (userId != null) {
+        if (_removeFriendByUserId(userId)) {
+          notifyListeners();
+        }
+      }
     };
 
     _onTempFriendExpired = (data) {
       final id = data['temp_friend_id']?.toString();
-      _tempFriends.removeWhere((f) => f['temp_friend_id'] == id);
-      notifyListeners();
+      if (id != null) {
+        if (_removeTempFriendById(id)) {
+          notifyListeners();
+        }
+      }
     };
 
     _wsManager.on('friend_online', _onFriendOnline);
@@ -123,6 +222,7 @@ class FriendProvider with ChangeNotifier {
       final result = await _friendService.getFriends();
       if (result['success'] == true) {
         _friends = List<Map<String, dynamic>>.from(result['friends'] ?? []);
+        _rebuildFriendIndex();
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 获取好友列表失败: $e');
@@ -140,6 +240,7 @@ class FriendProvider with ChangeNotifier {
       final result = await _tempFriendService.getMyTempFriends();
       if (result['success'] == true) {
         _tempFriends = List<Map<String, dynamic>>.from(result['temp_friends'] ?? []);
+        _rebuildTempFriendIndex();
         notifyListeners();
       }
     } catch (e) {
@@ -155,6 +256,7 @@ class FriendProvider with ChangeNotifier {
       final result = await _friendService.getPendingRequests();
       if (result['success'] == true) {
         _pendingRequests = List<Map<String, dynamic>>.from(result['requests'] ?? []);
+        _rebuildPendingIndex();
         notifyListeners();
       }
     } catch (e) {
@@ -167,7 +269,7 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.acceptFriendRequest(userId);
       if (result['success'] == true) {
-        _pendingRequests.removeWhere((r) => r['user_id'] == userId);
+        _removePendingByUserId(userId);
         await fetchFriends();
       }
       return result;
@@ -182,7 +284,7 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.rejectFriendRequest(userId);
       if (result['success'] == true) {
-        _pendingRequests.removeWhere((r) => r['user_id'] == userId);
+        _removePendingByUserId(userId);
         notifyListeners();
       }
       return result;
@@ -197,7 +299,7 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.removeFriend(friendId);
       if (result['success'] == true) {
-        _friends.removeWhere((f) => f['user_id'] == friendId);
+        _removeFriendByUserId(friendId);
         notifyListeners();
       }
       return result;
@@ -226,7 +328,7 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _tempFriendService.upgradeToPermanent(tempFriendId);
       if (result['success'] == true) {
-        _tempFriends.removeWhere((f) => f['temp_friend_id'] == tempFriendId);
+        _removeTempFriendById(tempFriendId);
         await fetchFriends();
       }
       return result;
@@ -241,6 +343,9 @@ class FriendProvider with ChangeNotifier {
     _friends.clear();
     _tempFriends.clear();
     _pendingRequests.clear();
+    _friendIndexByUserId.clear();
+    _tempFriendIndexById.clear();
+    _pendingIndexByUserId.clear();
     notifyListeners();
   }
 }

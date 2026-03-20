@@ -1,6 +1,6 @@
-/// 发布石头界面
-///
-/// 投石编辑页面，支持情绪选择、标签添加和内容审核。
+// 发布石头界面
+//
+// 投石编辑页面，支持情绪选择、标签添加和内容审核。
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -12,7 +12,7 @@ import '../../utils/mood_colors.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/cache_service.dart';
 import '../../di/service_locator.dart';
-import '../../providers/edge_ai_provider.dart';
+import '../providers/edge_ai_provider.dart';
 
 /// 投石（发布石头）页面
 ///

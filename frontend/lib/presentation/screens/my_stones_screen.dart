@@ -11,6 +11,7 @@ import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 
 /// 我的石头列表页面
 ///
@@ -25,6 +26,7 @@ class MyStonesScreen extends StatefulWidget {
 
 class _MyStonesScreenState extends State<MyStonesScreen> {
   final List<Stone> _myStones = [];
+  final Map<String, int> _stoneIndexById = {};
   bool _isLoading = false;
   final StoneService _stoneService = sl<StoneService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -62,10 +64,10 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     // 监听石头删除
     _stoneDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == null) return;
       setState(() {
-        _myStones.removeWhere((s) => s.stoneId == stoneId);
+        _removeStoneById(stoneId);
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
@@ -73,12 +75,12 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     // 监听涟漪更新 - 使用服务器实际总数和copyWith
     _rippleUpdateListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       final rippleCount = data['ripple_count'];
       if (stoneId == null || rippleCount is! int) return;
       setState(() {
-        final index = _myStones.indexWhere((s) => s.stoneId == stoneId);
-        if (index >= 0) {
+        final index = _stoneIndexById[stoneId];
+        if (index != null) {
           _myStones[index] = _myStones[index].copyWith(rippleCount: rippleCount);
         }
       });
@@ -88,12 +90,12 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     // 监听涟漪删除
     _rippleDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       final rippleCount = data['ripple_count'];
       if (stoneId == null || rippleCount is! int) return;
       setState(() {
-        final index = _myStones.indexWhere((s) => s.stoneId == stoneId);
-        if (index >= 0) {
+        final index = _stoneIndexById[stoneId];
+        if (index != null) {
           _myStones[index] = _myStones[index].copyWith(rippleCount: rippleCount);
         }
       });
@@ -103,12 +105,12 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     // 监听纸船更新 - 使用服务器实际总数和copyWith
     _boatUpdateListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       final boatCount = data['boat_count'];
       if (stoneId == null || boatCount is! int) return;
       setState(() {
-        final index = _myStones.indexWhere((s) => s.stoneId == stoneId);
-        if (index >= 0) {
+        final index = _stoneIndexById[stoneId];
+        if (index != null) {
           _myStones[index] = _myStones[index].copyWith(boatCount: boatCount);
         }
       });
@@ -118,17 +120,33 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     // 监听纸船删除
     _boatDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       final boatCount = data['boat_count'];
       if (stoneId == null || boatCount is! int) return;
       setState(() {
-        final index = _myStones.indexWhere((s) => s.stoneId == stoneId);
-        if (index >= 0) {
+        final index = _stoneIndexById[stoneId];
+        if (index != null) {
           _myStones[index] = _myStones[index].copyWith(boatCount: boatCount);
         }
       });
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
+  }
+
+  void _rebuildStoneIndex() {
+    _stoneIndexById
+      ..clear();
+    for (var i = 0; i < _myStones.length; i++) {
+      _stoneIndexById[_myStones[i].stoneId] = i;
+    }
+  }
+
+  bool _removeStoneById(String stoneId) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _myStones.removeAt(index);
+    _rebuildStoneIndex();
+    return true;
   }
 
   /// 从后端加载当前用户的石头列表（一次性加载，不分页）
@@ -142,6 +160,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
         setState(() {
           _myStones.clear();
           _myStones.addAll(result['stones'] as List<Stone>);
+          _rebuildStoneIndex();
           _isLoading = false;
         });
       } else {

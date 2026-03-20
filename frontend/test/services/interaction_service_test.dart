@@ -4,6 +4,48 @@ import 'package:flutter_test/flutter_test.dart';
 /// 提取核心响应处理逻辑进行测试。
 
 class InteractionResponseProcessor {
+  Map<String, dynamic> _extractPagination(dynamic data, int itemCount) {
+    if (data is! Map) {
+      return {
+        'total': itemCount,
+        'page': 1,
+        'page_size': itemCount,
+        'pageSize': itemCount,
+        'total_pages': itemCount == 0 ? 0 : 1,
+        'totalPages': itemCount == 0 ? 0 : 1,
+        'has_more': false,
+      };
+    }
+
+    final pagination =
+        data['pagination'] is Map ? data['pagination'] as Map : const {};
+    final total = (data['total'] ?? pagination['total'] ?? itemCount) as int;
+    final page = (data['page'] ?? pagination['page'] ?? 1) as int;
+    final pageSize = (data['page_size'] ??
+        data['pageSize'] ??
+        pagination['page_size'] ??
+        pagination['pageSize'] ??
+        itemCount) as int;
+    final totalPages = (data['total_pages'] ??
+        data['totalPages'] ??
+        pagination['total_pages'] ??
+        pagination['totalPages'] ??
+        (pageSize == 0 ? 0 : (total + pageSize - 1) ~/ pageSize)) as int;
+    final hasMore = (data['has_more'] ??
+        pagination['has_more'] ??
+        (page * pageSize < total)) as bool;
+
+    return {
+      'total': total,
+      'page': page,
+      'page_size': pageSize,
+      'pageSize': pageSize,
+      'total_pages': totalPages,
+      'totalPages': totalPages,
+      'has_more': hasMore,
+    };
+  }
+
   Map<String, dynamic> processCreateRipple(dynamic data, bool success) {
     if (!success) return {'success': false, 'message': '涟漪创建失败'};
     return {
@@ -33,7 +75,15 @@ class InteractionResponseProcessor {
     final boats = data is List
         ? data
         : (data is Map ? (data['boats'] ?? data['items'] ?? []) : []);
-    return {'success': true, 'boats': boats};
+    final pagination =
+        _extractPagination(data, boats is List ? boats.length : 0);
+    return {
+      'success': true,
+      'boats': boats,
+      'items': boats,
+      'pagination': pagination,
+      'total': pagination['total'],
+    };
   }
 
   Map<String, dynamic> processGetMessages(dynamic data, bool success) {
@@ -41,7 +91,14 @@ class InteractionResponseProcessor {
     final messages = data is List
         ? data
         : (data is Map ? (data['items'] ?? data['messages'] ?? []) : []);
-    return {'success': true, 'messages': messages};
+    final pagination =
+        _extractPagination(data, messages is List ? messages.length : 0);
+    return {
+      'success': true,
+      'messages': messages,
+      'items': messages,
+      'pagination': pagination,
+    };
   }
 
   Map<String, dynamic> processSendMessage({
@@ -65,7 +122,14 @@ class InteractionResponseProcessor {
     final ripples = data is List
         ? data
         : (data is Map ? (data['items'] ?? data['ripples'] ?? []) : []);
-    return {'success': true, 'ripples': ripples};
+    final pagination =
+        _extractPagination(data, ripples is List ? ripples.length : 0);
+    return {
+      'success': true,
+      'ripples': ripples,
+      'items': ripples,
+      'pagination': pagination,
+    };
   }
 
   Map<String, dynamic> processGetMyBoatsComments(dynamic data, bool success) {
@@ -73,7 +137,14 @@ class InteractionResponseProcessor {
     final boats = data is List
         ? data
         : (data is Map ? (data['boats'] ?? data['items'] ?? []) : []);
-    return {'success': true, 'boats': boats};
+    final pagination =
+        _extractPagination(data, boats is List ? boats.length : 0);
+    return {
+      'success': true,
+      'boats': boats,
+      'items': boats,
+      'pagination': pagination,
+    };
   }
 
   Map<String, dynamic> buildSendMessageData({
@@ -100,7 +171,8 @@ void main() {
 
   group('processCreateRipple', () {
     test('should return success with ripple_id', () {
-      final result = processor.processCreateRipple({'ripple_id': 'r1', 'count': 5}, true);
+      final result =
+          processor.processCreateRipple({'ripple_id': 'r1', 'count': 5}, true);
       expect(result['success'], true);
       expect(result['ripple_id'], 'r1');
     });
@@ -228,16 +300,36 @@ void main() {
 
     test('should handle Map with boats key', () {
       final result = processor.processGetBoats({
-        'boats': [{'boat_id': 'b1'}],
+        'boats': [
+          {'boat_id': 'b1'}
+        ],
       }, true);
       expect((result['boats'] as List).length, 1);
     });
 
     test('should handle Map with items key', () {
       final result = processor.processGetBoats({
-        'items': [{'boat_id': 'b1'}, {'boat_id': 'b2'}],
+        'items': [
+          {'boat_id': 'b1'},
+          {'boat_id': 'b2'}
+        ],
       }, true);
       expect((result['boats'] as List).length, 2);
+    });
+
+    test('should keep pagination metadata when present', () {
+      final result = processor.processGetBoats({
+        'boats': [
+          {'boat_id': 'b1'}
+        ],
+        'total': 9,
+        'page': 2,
+        'page_size': 1,
+        'has_more': true,
+      }, true);
+      expect(result['total'], 9);
+      expect(result['pagination']['page'], 2);
+      expect(result['pagination']['has_more'], true);
     });
 
     test('should handle empty list', () {
@@ -277,14 +369,19 @@ void main() {
 
     test('should handle Map with messages key', () {
       final result = processor.processGetMessages({
-        'messages': [{'id': 'm1'}],
+        'messages': [
+          {'id': 'm1'}
+        ],
       }, true);
       expect((result['messages'] as List).length, 1);
     });
 
     test('should handle Map with items key', () {
       final result = processor.processGetMessages({
-        'items': [{'id': 'm1'}, {'id': 'm2'}],
+        'items': [
+          {'id': 'm1'},
+          {'id': 'm2'}
+        ],
       }, true);
       expect((result['messages'] as List).length, 2);
     });
@@ -306,17 +403,40 @@ void main() {
 
     test('should prefer items over messages key', () {
       final result = processor.processGetMessages({
-        'items': [{'id': 'i1'}],
-        'messages': [{'id': 'm1'}, {'id': 'm2'}],
+        'items': [
+          {'id': 'i1'}
+        ],
+        'messages': [
+          {'id': 'm1'},
+          {'id': 'm2'}
+        ],
       }, true);
       expect((result['messages'] as List).length, 1);
+    });
+
+    test('should read nested pagination metadata', () {
+      final result = processor.processGetMessages({
+        'messages': [
+          {'id': 'm1'}
+        ],
+        'pagination': {
+          'total': 8,
+          'page': 1,
+          'page_size': 1,
+          'has_more': true,
+        },
+      }, true);
+      expect(result['pagination']['total'], 8);
+      expect(result['pagination']['has_more'], true);
     });
   });
 
   group('processSendMessage', () {
     test('should return success with message data', () {
       final result = processor.processSendMessage(
-        data: {'message': {'id': 'm1', 'content': '你好'}},
+        data: {
+          'message': {'id': 'm1', 'content': '你好'}
+        },
         success: true,
         content: '你好',
       );
@@ -397,14 +517,18 @@ void main() {
 
     test('should handle Map with ripples key', () {
       final result = processor.processGetMyRipples({
-        'ripples': [{'ripple_id': 'r1'}],
+        'ripples': [
+          {'ripple_id': 'r1'}
+        ],
       }, true);
       expect((result['ripples'] as List).length, 1);
     });
 
     test('should handle Map with items key', () {
       final result = processor.processGetMyRipples({
-        'items': [{'ripple_id': 'r1'}],
+        'items': [
+          {'ripple_id': 'r1'}
+        ],
       }, true);
       expect((result['ripples'] as List).length, 1);
     });
@@ -436,14 +560,19 @@ void main() {
 
     test('should handle Map with boats key', () {
       final result = processor.processGetMyBoatsComments({
-        'boats': [{'boat_id': 'b1'}, {'boat_id': 'b2'}],
+        'boats': [
+          {'boat_id': 'b1'},
+          {'boat_id': 'b2'}
+        ],
       }, true);
       expect((result['boats'] as List).length, 2);
     });
 
     test('should handle Map with items key', () {
       final result = processor.processGetMyBoatsComments({
-        'items': [{'boat_id': 'b1'}],
+        'items': [
+          {'boat_id': 'b1'}
+        ],
       }, true);
       expect((result['boats'] as List).length, 1);
     });

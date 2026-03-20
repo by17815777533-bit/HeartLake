@@ -1,21 +1,27 @@
+import 'package:heart_lake/data/datasources/user_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// UserService 继承 BaseService，无法直接实例化。
 /// 提取核心响应处理逻辑进行测试。
 
 class UserResponseProcessor {
-  Map<String, dynamic> processSearchUsers(Map<String, dynamic>? data, bool success) {
-    if (!success) return {'success': false, 'message': data?['message'] ?? '搜索失败'};
+  Map<String, dynamic> processSearchUsers(dynamic data, bool success) {
+    if (!success) {
+      return {'success': false, 'message': data?['message'] ?? '搜索失败'};
+    }
+    final users = UserPayloadNormalizer.extractUserList(data);
+    final total =
+        UserPayloadNormalizer.extractTotal(data, fallback: users.length);
     return {
       'success': true,
-      'users': data?['users'] ?? [],
-      'total': data?['total'] ?? 0,
+      'users': users,
+      'total': total,
     };
   }
 
   Map<String, dynamic> processGetUserInfo(dynamic data, bool success) {
     if (!success) return {'success': false, 'message': '获取用户信息失败'};
-    return {'success': true, 'user': data};
+    return {'success': true, 'user': UserPayloadNormalizer.normalizeUser(data)};
   }
 
   Map<String, dynamic> processGetUserStats(dynamic data, bool success) {
@@ -28,10 +34,17 @@ class UserResponseProcessor {
     return {'success': true, 'data': data};
   }
 
-  Map<String, dynamic> processEmotionCalendar(dynamic data, bool success, int year, int month) {
-    if (year < 2020 || year > 2100) return {'success': false, 'message': '年份无效'};
-    if (month < 1 || month > 12) return {'success': false, 'message': '月份无效'};
-    if (!success) return {'success': false, 'message': '获取日历失败'};
+  Map<String, dynamic> processEmotionCalendar(
+      dynamic data, bool success, int year, int month) {
+    if (year < 2020 || year > 2100) {
+      return {'success': false, 'message': '年份无效'};
+    }
+    if (month < 1 || month > 12) {
+      return {'success': false, 'message': '月份无效'};
+    }
+    if (!success) {
+      return {'success': false, 'message': '获取日历失败'};
+    }
     return {'success': true, 'data': data};
   }
 
@@ -40,11 +53,17 @@ class UserResponseProcessor {
     return {'success': true, 'data': data};
   }
 
-  Map<String, dynamic> processUploadFile(int? statusCode, Map<String, dynamic>? data) {
+  Map<String, dynamic> processUploadFile(
+      int? statusCode, Map<String, dynamic>? data) {
+    final payload = UserPayloadNormalizer.normalizeUploadedFile(data?['data']);
     if (statusCode == 200 && data?['code'] == 0) {
-      return {'success': true, 'data': data!['data']};
+      return {'success': true, 'data': payload ?? <String, dynamic>{}};
     }
-    return {'success': false, 'message': data?['message'] ?? '上传失败'};
+    return {
+      'success': false,
+      'message': data?['message'] ?? '上传失败',
+      'data': payload,
+    };
   }
 }
 
@@ -71,7 +90,8 @@ void main() {
     });
 
     test('should return empty list when no users', () {
-      final result = processor.processSearchUsers({'users': [], 'total': 0}, true);
+      final result =
+          processor.processSearchUsers({'users': [], 'total': 0}, true);
       expect(result['success'], true);
       expect(result['users'], isEmpty);
       expect(result['total'], 0);
@@ -91,8 +111,12 @@ void main() {
     });
 
     test('should handle missing total key', () {
-      final result = processor.processSearchUsers({'users': [{'user_id': 'u1'}]}, true);
-      expect(result['total'], 0);
+      final result = processor.processSearchUsers({
+        'users': [
+          {'user_id': 'u1'}
+        ]
+      }, true);
+      expect(result['total'], 1);
     });
 
     test('should fail on unsuccessful response', () {
@@ -108,8 +132,10 @@ void main() {
     });
 
     test('should handle large user list', () {
-      final users = List.generate(100, (i) => {'user_id': 'u$i', 'nickname': '用户$i'});
-      final result = processor.processSearchUsers({'users': users, 'total': 100}, true);
+      final users =
+          List.generate(100, (i) => {'user_id': 'u$i', 'nickname': '用户$i'});
+      final result =
+          processor.processSearchUsers({'users': users, 'total': 100}, true);
       expect(result['success'], true);
       expect((result['users'] as List).length, 100);
       expect(result['total'], 100);
@@ -118,7 +144,12 @@ void main() {
     test('should preserve user data structure', () {
       final result = processor.processSearchUsers({
         'users': [
-          {'user_id': 'u1', 'nickname': '小明', 'avatar_url': 'http://img.com/1.png', 'bio': '你好'},
+          {
+            'user_id': 'u1',
+            'nickname': '小明',
+            'avatar_url': 'http://img.com/1.png',
+            'bio': '你好'
+          },
         ],
         'total': 1,
       }, true);
@@ -142,7 +173,10 @@ void main() {
       final userData = {'user_id': 'u1', 'nickname': '小明', 'bio': '热爱生活'};
       final result = processor.processGetUserInfo(userData, true);
       expect(result['success'], true);
-      expect(result['user'], userData);
+      expect(result['user']['user_id'], 'u1');
+      expect(result['user']['userId'], 'u1');
+      expect(result['user']['nickname'], '小明');
+      expect(result['user']['bio'], '热爱生活');
     });
 
     test('should fail on unsuccessful response', () {
@@ -158,12 +192,15 @@ void main() {
 
     test('should handle complex user data', () {
       final userData = {
-        'user_id': 'u1',
-        'nickname': '小明',
+        'userId': 'u1',
+        'name': '小明',
         'vip_level': 2,
         'stats': {'stones': 10, 'friends': 5},
       };
       final result = processor.processGetUserInfo(userData, true);
+      expect(result['user']['user_id'], 'u1');
+      expect(result['user']['userId'], 'u1');
+      expect(result['user']['nickname'], '小明');
       expect(result['user']['stats']['stones'], 10);
     });
 
@@ -239,7 +276,11 @@ void main() {
 
   group('processEmotionCalendar', () {
     test('should return calendar data for valid date', () {
-      final calendar = {'days': [{'day': 1, 'mood': 'happy'}]};
+      final calendar = {
+        'days': [
+          {'day': 1, 'mood': 'happy'}
+        ]
+      };
       final result = processor.processEmotionCalendar(calendar, true, 2026, 2);
       expect(result['success'], true);
       expect(result['data'], calendar);
@@ -296,7 +337,11 @@ void main() {
 
   group('processMyBoats', () {
     test('should return boats on success', () {
-      final boats = {'boats': [{'boat_id': 'b1', 'content': '加油'}]};
+      final boats = {
+        'boats': [
+          {'boat_id': 'b1', 'content': '加油'}
+        ]
+      };
       final result = processor.processMyBoats(boats, true);
       expect(result['success'], true);
       expect(result['data'], boats);
@@ -336,7 +381,8 @@ void main() {
     });
 
     test('should fail with non-0 code', () {
-      final result = processor.processUploadFile(200, {'code': 1, 'message': '文件太大'});
+      final result =
+          processor.processUploadFile(200, {'code': 1, 'message': '文件太大'});
       expect(result['success'], false);
       expect(result['message'], '文件太大');
     });
@@ -367,11 +413,22 @@ void main() {
       expect(result['success'], false);
       expect(result['message'], '文件超过限制');
     });
+
+    test('should normalize file_url to url', () {
+      final result = processor.processUploadFile(200, {
+        'code': 0,
+        'data': {'file_url': 'http://img.com/avatar.png'},
+      });
+      expect(result['success'], true);
+      expect(result['data']['url'], 'http://img.com/avatar.png');
+      expect(result['data']['fileUrl'], 'http://img.com/avatar.png');
+    });
   });
 
   // ==================== ServiceResponse.fromResponse 模拟 ====================
   group('ServiceResponse fromResponse pattern', () {
-    Map<String, dynamic> simulateFromResponse(Map<String, dynamic> responseData) {
+    Map<String, dynamic> simulateFromResponse(
+        Map<String, dynamic> responseData) {
       final code = responseData['code'] as int?;
       final success = code == 0;
       return {
@@ -420,7 +477,8 @@ void main() {
 
   // ==================== toMap 转换逻辑 ====================
   group('toMap conversion pattern', () {
-    Map<String, dynamic> toMap(bool success, int? code, String? message, dynamic data) {
+    Map<String, dynamic> toMap(
+        bool success, int? code, String? message, dynamic data) {
       return {
         'success': success,
         'code': code,
@@ -453,7 +511,10 @@ void main() {
 
     test('should preserve complex data', () {
       final data = {
-        'users': [{'id': 'u1'}, {'id': 'u2'}],
+        'users': [
+          {'id': 'u1'},
+          {'id': 'u2'}
+        ],
         'total': 2,
       };
       final map = toMap(true, 0, 'ok', data);

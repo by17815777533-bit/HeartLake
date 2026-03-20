@@ -9,6 +9,7 @@ library;
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
+import 'recommendation_response_parser.dart';
 
 /// AI推荐服务
 ///
@@ -32,7 +33,7 @@ class AIRecommendationService extends BaseService {
     final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }
@@ -50,7 +51,7 @@ class AIRecommendationService extends BaseService {
     final resp = await get<dynamic>('/recommendations/stones',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }
@@ -68,7 +69,7 @@ class AIRecommendationService extends BaseService {
     final resp = await get<dynamic>('/recommendations/advanced',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }
@@ -119,19 +120,5 @@ class AIRecommendationService extends BaseService {
       'reward': reward,
     });
     return resp.success;
-  }
-
-  List<Map<String, dynamic>> _extractList(dynamic data) {
-    if (data is List) {
-      return data.whereType<Map<String, dynamic>>().toList();
-    }
-    if (data is Map<String, dynamic>) {
-      for (final key in ['stones', 'items', 'recommendations', 'data']) {
-        if (data[key] is List) {
-          return (data[key] as List).whereType<Map<String, dynamic>>().toList();
-        }
-      }
-    }
-    return [];
   }
 }

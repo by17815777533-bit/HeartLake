@@ -68,8 +68,8 @@ public:
   /**
    * PUT /api/account/profile - 更新个人资料
    *
-   * 支持字段: nickname, bio, gender, birthday（均可选）。
-   * 昵称会经过 HTML 转义和长度校验。
+   * 支持字段: nickname, bio, avatar_url/avatar, gender, birthday, location,
+   * email（均可选）。昵称会经过 HTML 转义和长度校验。
    */
   void updateProfile(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
@@ -142,7 +142,7 @@ public:
    * POST /api/account/delete-permanent - 永久删除账号及所有关联数据
    *
    * 请求体: { "confirmation": "DELETE" }
-   * 在事务中按依赖顺序级联删除30+张关联表的数据，不可恢复。
+   * 在事务中按依赖顺序级联删除主链路关联数据，不可恢复。
    */
   void deleteAccountPermanently(const HttpRequestPtr &req,
                           std::function<void(const HttpResponsePtr &)> &&callback);

@@ -1,6 +1,6 @@
-/// 观湖主页面
-///
-/// 心湖核心页面，展示石头列表和湖面气象数据。
+// 观湖主页面
+//
+// 心湖核心页面，展示石头列表和湖面气象数据。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +20,7 @@ import 'lake_god_chat_screen.dart';
 import 'discover_screen.dart';
 import '../providers/notification_provider.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 
 /// 观湖主页面 - 心湖的核心浏览界面
 ///
@@ -41,6 +42,7 @@ class LakeScreen extends StatefulWidget {
 class LakeScreenState extends State<LakeScreen> {
   final StoneService _stoneService = sl<StoneService>();
   List<Stone> _stones = [];
+  final Map<String, int> _stoneIndexById = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
   int _currentPage = 1;
@@ -58,6 +60,31 @@ class LakeScreenState extends State<LakeScreen> {
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
   late void Function(Map<String, dynamic>) _disconnectedListener;
   late void Function(Map<String, dynamic>) _reconnectedListener;
+
+  void _rebuildStoneIndex() {
+    _stoneIndexById.clear();
+    for (var i = 0; i < _stones.length; i++) {
+      _stoneIndexById[_stones[i].stoneId] = i;
+    }
+  }
+
+  bool _removeStoneById(String stoneId) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones.removeAt(index);
+    _rebuildStoneIndex();
+    return true;
+  }
+
+  bool _updateStoneById(
+    String stoneId,
+    Stone Function(Stone stone) update,
+  ) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones[index] = update(_stones[index]);
+    return true;
+  }
 
   @override
   void initState() {
@@ -172,93 +199,81 @@ class LakeScreenState extends State<LakeScreen> {
   /// 处理纸船新增事件，更新对应石头的 boat_count
   void _handleBoatUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final boatCount = data['boat_count'];
+    final boatCount = extractBoatCount(data);
 
     setState(() {
-      final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          boatCount:
-              boatCount is int ? boatCount : _stones[index].boatCount + 1,
+      _updateStoneById(stoneId, (stone) {
+        return stone.copyWith(
+          boatCount: boatCount ?? stone.boatCount + 1,
         );
-      }
+      });
     });
   }
 
   /// 处理涟漪新增事件，更新对应石头的 ripple_count
   void _handleRippleUpdate(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final rippleCount = data['ripple_count'];
+    final rippleCount = extractRippleCount(data);
 
     setState(() {
-      final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          rippleCount:
-              rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
+      _updateStoneById(stoneId, (stone) {
+        return stone.copyWith(
+          rippleCount: rippleCount ?? stone.rippleCount + 1,
         );
-      }
+      });
     });
   }
 
   /// 处理石头删除事件，从本地列表中移除对应石头
   void _handleStoneDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
     setState(() {
-      _stones.removeWhere((s) => s.stoneId == stoneId);
+      _removeStoneById(stoneId);
     });
   }
 
   /// 处理纸船删除事件，递减对应石头的 boat_count
   void _handleBoatDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final boatCount = data['boat_count'];
+    final boatCount = extractBoatCount(data);
 
     setState(() {
-      final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          boatCount: boatCount is int
-              ? boatCount
-              : ((_stones[index].boatCount > 0)
-                  ? _stones[index].boatCount - 1
-                  : 0),
+      _updateStoneById(stoneId, (stone) {
+        return stone.copyWith(
+          boatCount:
+              boatCount ?? (stone.boatCount > 0 ? stone.boatCount - 1 : 0),
         );
-      }
+      });
     });
   }
 
   /// 处理涟漪删除事件，递减对应石头的 ripple_count
   void _handleRippleDeleted(Map<String, dynamic> data) {
     if (!mounted) return;
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final rippleCount = data['ripple_count'];
+    final rippleCount = extractRippleCount(data);
 
     setState(() {
-      final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-      if (index >= 0) {
-        _stones[index] = _stones[index].copyWith(
-          rippleCount: rippleCount is int
-              ? rippleCount
-              : ((_stones[index].rippleCount > 0)
-                  ? _stones[index].rippleCount - 1
-                  : 0),
+      _updateStoneById(stoneId, (stone) {
+        return stone.copyWith(
+          rippleCount: rippleCount ??
+              (stone.rippleCount > 0 ? stone.rippleCount - 1 : 0),
         );
-      }
+      });
     });
   }
 
@@ -266,31 +281,17 @@ class LakeScreenState extends State<LakeScreen> {
   void _handleNewStone(Map<String, dynamic> data) {
     if (!mounted) return;
 
-    // 从 data['stone'] 中提取石头数据
-    final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
-    final stoneId = stoneData['stone_id'] ?? '';
+    final stoneData = extractStonePayload(data);
+    final stoneId = stoneData['stone_id']?.toString() ?? '';
 
     // 防止重复添加
-    if (_stones.any((s) => s.stoneId == stoneId)) {
+    if (stoneId.isEmpty || _stoneIndexById.containsKey(stoneId)) {
       return;
     }
 
     setState(() {
-      // 在列表顶部添加新石头
-      final newStone = Stone(
-        stoneId: stoneId,
-        content: stoneData['content'] ?? '',
-        userId: stoneData['user_id'] ?? '',
-        stoneType: stoneData['stone_type'] ?? 'medium',
-        stoneColor: stoneData['stone_color'] ?? '#7A92A3',
-        moodType: stoneData['mood_type'], // 添加心情类型字段
-        isAnonymous:
-            Stone.parseBool(stoneData['is_anonymous'], defaultValue: true),
-        rippleCount: 0,
-        boatCount: 0,
-        createdAt: DateTime.now(),
-      );
-      _stones.insert(0, newStone);
+      _stones.insert(0, Stone.fromJson(stoneData));
+      _rebuildStoneIndex();
     });
 
     // 显示提示
@@ -359,6 +360,7 @@ class LakeScreenState extends State<LakeScreen> {
           } else {
             _stones.addAll(newStones);
             _currentPage = page;
+            _rebuildStoneIndex();
           }
           _isLoadingMore = false;
         });
@@ -399,6 +401,7 @@ class LakeScreenState extends State<LakeScreen> {
           } else {
             _stones.addAll(newStones);
           }
+          _rebuildStoneIndex();
           _hasMore = newStones.isNotEmpty;
           _errorMessage = null;
         });
@@ -613,7 +616,7 @@ class LakeScreenState extends State<LakeScreen> {
                 stone: _stones[index],
                 onDeleted: () {
                   setState(() {
-                    _stones.removeAt(index);
+                    _removeStoneById(_stones[index].stoneId);
                   });
                 },
               ),

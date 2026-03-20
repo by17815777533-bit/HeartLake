@@ -13,6 +13,11 @@
 #include "domain/friend/repositories/FriendRepository.h"
 #include "utils/RequestHelper.h"
 
+namespace {
+constexpr const char kFriendSelectColumns[] =
+    "friendship_id, user_id, friend_id, status, created_at";
+}
+
 namespace heartlake::domain::friend_domain {
 using namespace heartlake::utils;
 
@@ -46,7 +51,8 @@ drogon::Task<std::optional<FriendEntity>> FriendRepository::findByUserAndFriendA
     const std::string& userId, const std::string& friendId) {
     auto db = drogon::app().getDbClient("default");
     auto result = co_await db->execSqlCoro(
-        "SELECT * FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
+        std::string("SELECT ") + kFriendSelectColumns +
+            " FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
         userId, friendId
     );
     auto row = safeRow(result);
@@ -58,7 +64,9 @@ drogon::Task<std::optional<FriendEntity>> FriendRepository::findByUserAndFriendA
 drogon::Task<std::vector<FriendEntity>> FriendRepository::findByUserIdAsync(const std::string& userId) {
     auto db = drogon::app().getDbClient("default");
     auto result = co_await db->execSqlCoro(
-        "SELECT * FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'", userId
+        std::string("SELECT ") + kFriendSelectColumns +
+            " FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+        userId
     );
     std::vector<FriendEntity> friends;
     for (const auto& row : result) {
@@ -71,7 +79,9 @@ drogon::Task<std::vector<FriendEntity>> FriendRepository::findByUserIdAsync(cons
 drogon::Task<std::vector<FriendEntity>> FriendRepository::findAllByUserIdAsync(const std::string& userId) {
     auto db = drogon::app().getDbClient("default");
     auto result = co_await db->execSqlCoro(
-        "SELECT * FROM friends WHERE user_id = $1 OR friend_id = $1", userId
+        std::string("SELECT ") + kFriendSelectColumns +
+            " FROM friends WHERE user_id = $1 OR friend_id = $1",
+        userId
     );
     std::vector<FriendEntity> friends;
     for (const auto& row : result) {
@@ -114,7 +124,8 @@ void FriendRepository::save(const FriendEntity& friendship) {
 std::optional<FriendEntity> FriendRepository::findByUserAndFriend(const std::string& userId, const std::string& friendId) {
     auto db = drogon::app().getDbClient("default");
     auto result = db->execSqlSync(
-        "SELECT * FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
+        std::string("SELECT ") + kFriendSelectColumns +
+            " FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
         userId, friendId
     );
     auto row = safeRow(result);
@@ -125,7 +136,9 @@ std::optional<FriendEntity> FriendRepository::findByUserAndFriend(const std::str
 std::vector<FriendEntity> FriendRepository::findByUserId(const std::string& userId) {
     auto db = drogon::app().getDbClient("default");
     auto result = db->execSqlSync(
-        "SELECT * FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'", userId
+        std::string("SELECT ") + kFriendSelectColumns +
+            " FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
+        userId
     );
     std::vector<FriendEntity> friends;
     for (const auto& row : result) {

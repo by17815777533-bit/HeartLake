@@ -245,6 +245,7 @@ public:
      */
     Json::Value getConnectionMessages(
         const std::string& connectionId,
+        const std::string& userId,
         int page,
         int pageSize
     );

@@ -13,6 +13,7 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/mood_colors.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
 import '../widgets/similar_stones_section.dart';
@@ -44,6 +45,8 @@ class StoneDetailScreen extends StatefulWidget {
 class _StoneDetailScreenState extends State<StoneDetailScreen>
     with TickerProviderStateMixin {
   final List<Map<String, dynamic>> _boats = [];
+  final Map<String, int> _boatIndexById = {};
+  final Set<String> _tempBoatIds = <String>{};
   bool _isLoading = false;
   bool _isSendingRipple = false;
   int _localRipplesCount = 0;
@@ -110,7 +113,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
     // 定义监听器函数 - 使用服务器返回的实际总数
     _rippleListener = (data) {
-      if (data['stone_id'] == widget.stone.stoneId && mounted) {
+      if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
         final serverCount = data['ripple_count'];
         if (serverCount is int) {
           setState(() {
@@ -121,7 +124,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     };
 
     _rippleDeletedListener = (data) {
-      if (data['stone_id'] == widget.stone.stoneId && mounted) {
+      if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
         final serverCount = data['ripple_count'];
         setState(() {
           if (serverCount is int) {
@@ -134,7 +137,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     };
 
     _boatListener = (data) {
-      if (data['stone_id'] == widget.stone.stoneId && mounted) {
+      if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
         final serverCount = data['boat_count'];
         if (serverCount is int) {
           setState(() {
@@ -147,8 +150,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     };
 
     _boatDeletedListener = (data) {
-      if (data['stone_id'] == widget.stone.stoneId && mounted) {
-        final deletedBoatId = data['boat_id'];
+      if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
+        final deletedBoatId = extractBoatEntityId(data);
         final serverCount = data['boat_count'];
         setState(() {
           if (serverCount is int) {
@@ -156,15 +159,16 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           } else {
             _localBoatsCount = (_localBoatsCount - 1).clamp(0, 99999);
           }
-          // 从本地列表中移除被删除的纸船
-          _boats.removeWhere((b) => b['boat_id'] == deletedBoatId);
+          if (deletedBoatId != null) {
+            _removeBoatById(deletedBoatId);
+          }
         });
       }
     };
 
     // 监听石头删除 - 当石头被删除时自动返回
     _stoneDeletedListener = (data) {
-      if (data['stone_id'] == widget.stone.stoneId && mounted) {
+      if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
         // 使用 addPostFrameCallback 确保在安全的时机执行导航
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && Navigator.canPop(context)) {
@@ -196,6 +200,69 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       }
     };
     _wsManager.on('reconnected', _reconnectedListener);
+  }
+
+  void _rebuildBoatIndex() {
+    _boatIndexById.clear();
+    _tempBoatIds.clear();
+    for (var i = 0; i < _boats.length; i++) {
+      final normalized = normalizePayloadContract(_boats[i]);
+      _boats[i] = normalized;
+      final boatId = extractBoatEntityId(normalized);
+      if (boatId == null) continue;
+      _boatIndexById[boatId] = i;
+      if (normalized['_isTemp'] == true) {
+        _tempBoatIds.add(boatId);
+      }
+    }
+  }
+
+  bool _removeBoatById(String boatId) {
+    final index = _boatIndexById[boatId];
+    if (index == null) return false;
+    _boats.removeAt(index);
+    _rebuildBoatIndex();
+    return true;
+  }
+
+  int _removeBoatIds(Set<String> boatIds) {
+    if (boatIds.isEmpty) return 0;
+    final retained = <Map<String, dynamic>>[];
+    var removedCount = 0;
+
+    for (final boat in _boats) {
+      final boatId = extractBoatEntityId(boat);
+      if (boatId != null && boatIds.contains(boatId)) {
+        removedCount++;
+        continue;
+      }
+      retained.add(boat);
+    }
+
+    if (removedCount == 0) return 0;
+    _boats
+      ..clear()
+      ..addAll(retained);
+    _rebuildBoatIndex();
+    return removedCount;
+  }
+
+  int _removeTempBoats() {
+    return _removeBoatIds(Set<String>.from(_tempBoatIds));
+  }
+
+  bool _finalizeFirstTempBoat(String boatId) {
+    if (_tempBoatIds.isEmpty) return false;
+    final tempBoatId = _tempBoatIds.first;
+    final index = _boatIndexById[tempBoatId];
+    if (index == null) return false;
+
+    final updatedBoat = Map<String, dynamic>.from(_boats[index]);
+    updatedBoat['boat_id'] = boatId;
+    updatedBoat.remove('_isTemp');
+    _boats[index] = updatedBoat;
+    _rebuildBoatIndex();
+    return true;
   }
 
   /// 离开石头房间并移除所有 WebSocket 监听器
@@ -232,9 +299,15 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       );
 
       if (result['success'] == true && mounted) {
+        final normalizedBoats = (result['boats'] as List? ?? const [])
+            .whereType<Map>()
+            .map((boat) =>
+                normalizePayloadContract(Map<String, dynamic>.from(boat)))
+            .toList();
         setState(() {
           _boats.clear();
-          _boats.addAll(List<Map<String, dynamic>>.from(result['boats'] ?? []));
+          _boats.addAll(normalizedBoats);
+          _rebuildBoatIndex();
 
           // 同步本地纸船计数：优先用后端 pagination.total，否则用实际加载的数量
           if (result['pagination'] != null &&
@@ -335,7 +408,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     };
 
     setState(() {
-      _boats.insert(0, tempBoat); // 插入到列表顶部
+      _boats.insert(0, normalizePayloadContract(tempBoat)); // 插入到列表顶部
+      _rebuildBoatIndex();
       _localBoatsCount++;
       _hasInteraction = true;
     });
@@ -396,11 +470,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
           if (result['data']['boat_id'] != null) {
             setState(() {
-              final index = _boats.indexWhere((b) => b['_isTemp'] == true);
-              if (index >= 0) {
-                _boats[index]['boat_id'] = result['data']['boat_id'];
-                _boats[index].remove('_isTemp');
-              }
+              _finalizeFirstTempBoat(result['data']['boat_id'].toString());
             });
           }
         }
@@ -413,8 +483,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
         if (mounted) {
           // 失败时移除临时评论
           setState(() {
-            _boats.removeWhere((b) => b['_isTemp'] == true);
-            _localBoatsCount--;
+            final removedCount = _removeTempBoats();
+            if (removedCount > 0) {
+              _localBoatsCount =
+                  (_localBoatsCount - removedCount).clamp(0, 99999);
+            }
           });
           // 恢复输入内容
           _commentController.text = contentToSend;
@@ -432,8 +505,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       if (mounted) {
         // 失败时移除临时评论
         setState(() {
-          _boats.removeWhere((b) => b['_isTemp'] == true);
-          _localBoatsCount--;
+          final removedCount = _removeTempBoats();
+          if (removedCount > 0) {
+            _localBoatsCount =
+                (_localBoatsCount - removedCount).clamp(0, 99999);
+          }
         });
         // 恢复输入内容
         _commentController.text = contentToSend;

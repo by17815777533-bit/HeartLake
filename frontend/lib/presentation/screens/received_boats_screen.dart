@@ -1,6 +1,6 @@
-/// 收到的纸船列表界面
-///
-/// 展示其他用户对我的石头的匿名回应。
+// 收到的纸船列表界面
+//
+// 展示其他用户对我的石头的匿名回应。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';
@@ -8,6 +8,7 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 import 'stone_detail_screen.dart';
 
 /// 收到的纸船列表页面
@@ -30,6 +31,8 @@ class ReceivedBoatsScreen extends StatefulWidget {
 /// - stone_deleted: 移除该石头关联的所有纸船
 class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
+  final Map<String, int> _boatIndexById = {};
+  final Map<String, Set<String>> _boatIdsByStoneId = {};
   final UserService _userService = sl<UserService>();
   final WebSocketManager _wsManager = WebSocketManager();
   bool _isLoading = false;
@@ -77,11 +80,10 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     // 监听纸船删除 - 从列表中移除
     _boatDeletedListener = (data) {
       if (!mounted) return;
-      final boatId = data['boat_id'];
+      final boatId = extractBoatEntityId(data);
       if (boatId == null) return;
-      
       setState(() {
-        _boats.removeWhere((b) => b['boat_id'] == boatId);
+        _removeBoatById(boatId);
       });
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
@@ -89,13 +91,67 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     // 监听石头删除 - 移除该石头相关的收到的纸船
     _stoneDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == null) return;
       setState(() {
-        _boats.removeWhere((b) => b['stone_id'] == stoneId);
+        _removeBoatsByStoneId(stoneId);
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
+  }
+
+  void _rebuildBoatIndices() {
+    _boatIndexById.clear();
+    _boatIdsByStoneId.clear();
+    for (var i = 0; i < _boats.length; i++) {
+      final boatId = _boats[i]['boat_id']?.toString();
+      if (boatId != null && boatId.isNotEmpty) {
+        _boatIndexById[boatId] = i;
+      }
+      final stoneId = _boats[i]['stone_id']?.toString();
+      if (stoneId != null &&
+          stoneId.isNotEmpty &&
+          boatId != null &&
+          boatId.isNotEmpty) {
+        (_boatIdsByStoneId[stoneId] ??= <String>{}).add(boatId);
+      }
+    }
+  }
+
+  bool _removeBoatById(String boatId) {
+    final index = _boatIndexById[boatId];
+    if (index == null) return false;
+    _boats.removeAt(index);
+    _rebuildBoatIndices();
+    return true;
+  }
+
+  int _removeBoatIds(Set<String> boatIds) {
+    if (boatIds.isEmpty) return 0;
+    final retained = <Map<String, dynamic>>[];
+    var removedCount = 0;
+
+    for (final boat in _boats) {
+      final boatId = boat['boat_id']?.toString();
+      if (boatId != null && boatIds.contains(boatId)) {
+        removedCount++;
+        continue;
+      }
+      retained.add(boat);
+    }
+
+    if (removedCount == 0) return 0;
+    _boats
+      ..clear()
+      ..addAll(retained);
+    _rebuildBoatIndices();
+    return removedCount;
+  }
+
+  bool _removeBoatsByStoneId(String stoneId) {
+    final boatIds = _boatIdsByStoneId[stoneId];
+    if (boatIds == null || boatIds.isEmpty) return false;
+    return _removeBoatIds(boatIds) > 0;
   }
 
   /// 从后端加载收到的纸船列表，支持下拉刷新
@@ -107,10 +163,15 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
 
       if (result['success'] == true && mounted) {
         final data = result['data'] as Map<String, dynamic>?;
-        final items = data?['items'] as List? ?? [];
+        final items = (data?['items'] as List? ?? const [])
+            .whereType<Map>()
+            .map((boat) =>
+                normalizePayloadContract(Map<String, dynamic>.from(boat)))
+            .toList();
         setState(() {
           _boats.clear();
-          _boats.addAll(items.whereType<Map<String, dynamic>>());
+          _boats.addAll(items);
+          _rebuildBoatIndices();
           _isLoading = false;
         });
       } else {
@@ -145,50 +206,55 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? AppTheme.nightDeep : AppTheme.skyBlue.withValues(alpha: 0.1), isDark ? AppTheme.nightSurface : Colors.white],
+            colors: [
+              isDark
+                  ? AppTheme.nightDeep
+                  : AppTheme.skyBlue.withValues(alpha: 0.1),
+              isDark ? AppTheme.nightSurface : Colors.white
+            ],
           ),
         ),
         child: RefreshIndicator(
-        onRefresh: _loadReceivedBoats,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _boats.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.sailing_outlined,
-                                size: 80,
-                                color: Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '还没有收到纸船',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
+          onRefresh: _loadReceivedBoats,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _boats.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sailing_outlined,
+                                  size: 80,
+                                  color: Colors.grey[300],
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '别人会在你的石头下留言',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[400],
+                                const SizedBox(height: 16),
+                                Text(
+                                  '还没有收到纸船',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 8),
+                                Text(
+                                  '别人会在你的石头下留言',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[400],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
+                      ],
+                    )
+                  : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: _boats.length,
                       itemBuilder: (context, index) {
@@ -208,19 +274,12 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                             onTap: () {
                               final stoneId = boat['stone_id']?.toString();
                               if (stoneId != null && stoneId.isNotEmpty) {
-                                final stone = Stone(
-                                  stoneId: stoneId,
-                                  userId: boat['stone_user_id']?.toString() ?? '',
-                                  content: boat['stone_content']?.toString() ?? '',
-                                  stoneType: 'medium',
-                                  stoneColor: '#7A92A3',
-                                  createdAt: DateTime.tryParse(boat['stone_created_at']?.toString() ?? '') ?? DateTime.now(),
-                                  moodType: boat['stone_mood_type']?.toString(),
-                                );
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => StoneDetailScreen(stone: stone),
+                                    builder: (_) => StoneDetailScreen(
+                                      stone: Stone.fromBoatReference(boat),
+                                    ),
                                   ),
                                 );
                               }
@@ -262,7 +321,9 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: isDark ? AppTheme.nightSurface : Colors.grey[100],
+                                      color: isDark
+                                          ? AppTheme.nightSurface
+                                          : Colors.grey[100],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Column(
@@ -273,7 +334,9 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                           '你的石头:',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+                                            color: isDark
+                                                ? AppTheme.darkTextSecondary
+                                                : Colors.grey[600],
                                           ),
                                         ),
                                         const SizedBox(height: 4),
@@ -281,7 +344,9 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                           boat['stone_content'] ?? '',
                                           style: TextStyle(
                                             fontSize: 14,
-                                            color: isDark ? AppTheme.darkTextPrimary : Colors.grey[800],
+                                            color: isDark
+                                                ? AppTheme.darkTextPrimary
+                                                : Colors.grey[800],
                                           ),
                                           maxLines: 3,
                                           overflow: TextOverflow.ellipsis,

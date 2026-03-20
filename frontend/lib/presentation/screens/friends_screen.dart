@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
@@ -96,24 +97,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   /// 从好友数据中提取用户ID
-  ///
-  /// 后端返回的字段名不统一（user_id / friend_id / userId / friendId），
-  /// 按优先级逐个尝试，返回第一个非空值。
-  String? _extractFriendId(Map<String, dynamic> friend) {
-    final candidates = [
-      friend['user_id'],
-      friend['friend_id'],
-      friend['userId'],
-      friend['friendId'],
-    ];
-    for (final candidate in candidates) {
-      final value = candidate?.toString().trim();
-      if (value != null && value.isNotEmpty) {
-        return value;
-      }
-    }
-    return null;
-  }
+  String? _extractFriendId(Map<String, dynamic> friend) =>
+      extractFriendEntityId(friend);
 
   /// 加载好友列表，加载完成后触发列表交错淡入动画
   Future<void> _loadFriends() async {

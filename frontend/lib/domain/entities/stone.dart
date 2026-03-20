@@ -1,9 +1,10 @@
-/// 石头数据模型
-///
-/// 代表用户投入心湖的情感内容载体，包含基本信息、互动数据、
-/// AI分析结果和媒体文件等。
+// 石头数据模型
+//
+// 代表用户投入心湖的情感内容载体，包含基本信息、互动数据、
+// AI分析结果和媒体文件等。
 
 import 'package:flutter/foundation.dart';
+import '../../utils/payload_contract.dart';
 
 /// 石头模型
 ///
@@ -58,14 +59,16 @@ class Stone {
 
   factory Stone.fromJson(Map<String, dynamic> json) {
     try {
+      final normalized = normalizePayloadContract(json);
+
       // 解析 media_ids
       List<String>? mediaIds;
-      if (json['media_ids'] != null) {
-        if (json['media_ids'] is List) {
-          mediaIds = List<String>.from(json['media_ids']);
-        } else if (json['media_ids'] is String) {
+      if (normalized['media_ids'] != null) {
+        if (normalized['media_ids'] is List) {
+          mediaIds = List<String>.from(normalized['media_ids']);
+        } else if (normalized['media_ids'] is String) {
           // 处理 PostgreSQL 数组格式 "{id1,id2}"
-          final str = json['media_ids'] as String;
+          final str = normalized['media_ids'] as String;
           if (str.startsWith('{') && str.endsWith('}')) {
             final inner = str.substring(1, str.length - 1);
             if (inner.isNotEmpty) {
@@ -75,42 +78,51 @@ class Stone {
         }
       }
 
+      final author = normalized['author'];
+      final legacyUser = normalized['user'];
+      final authorMap = author is Map
+          ? normalizePayloadContract(author)
+          : legacyUser is Map
+              ? normalizePayloadContract(legacyUser)
+              : null;
+
       return Stone(
-        stoneId: json['stone_id'] ?? '',
-        userId: json['user_id'] ?? '',
-        content: json['content'] ?? '',
-        stoneType: json['stone_type'] ?? 'medium',
-        stoneColor: json['stone_color'] ?? '#7A92A3',
-        isAnonymous: parseBool(json['is_anonymous'], defaultValue: true),
-        status: json['status'] ?? 'published',
-        viewCount: json['view_count'] is int
-            ? json['view_count']
-            : int.tryParse(json['view_count']?.toString() ?? '0') ?? 0,
-        rippleCount: json['ripple_count'] is int
-            ? json['ripple_count']
-            : int.tryParse(json['ripple_count']?.toString() ?? '0') ?? 0,
-        boatCount: json['boat_count'] is int
-            ? json['boat_count']
-            : int.tryParse(json['boat_count']?.toString() ?? '0') ?? 0,
-        tags: json['tags'] is List
-            ? (json['tags'] as List).map((e) => e.toString()).toList()
+        stoneId: normalized['stone_id'] ?? normalized['id'] ?? '',
+        userId: normalized['user_id'] ?? normalized['author_id'] ?? '',
+        content: normalized['content'] ?? normalized['stone_content'] ?? '',
+        stoneType: normalized['stone_type'] ?? 'medium',
+        stoneColor: normalized['stone_color'] ?? '#7A92A3',
+        isAnonymous: parseBool(normalized['is_anonymous'], defaultValue: true),
+        status: normalized['status'] ?? 'published',
+        viewCount: normalized['view_count'] is int
+            ? normalized['view_count']
+            : int.tryParse(normalized['view_count']?.toString() ?? '0') ?? 0,
+        rippleCount: normalized['ripple_count'] is int
+            ? normalized['ripple_count']
+            : int.tryParse(normalized['ripple_count']?.toString() ?? '0') ?? 0,
+        boatCount: normalized['boat_count'] is int
+            ? normalized['boat_count']
+            : int.tryParse(normalized['boat_count']?.toString() ?? '0') ?? 0,
+        tags: normalized['tags'] is List
+            ? (normalized['tags'] as List).map((e) => e.toString()).toList()
             : [],
-        createdAt: _parseDate(json['created_at']),
+        createdAt: _parseDate(normalized['created_at']),
         // 兼容推荐API的平铺 author_name 和标准API的嵌套 author.nickname
-        authorNickname: json['author']?['nickname'] ??
-            json['author_name'] ??
-            json['nickname'],
+        authorNickname: authorMap?['nickname'] ??
+            normalized['author_name'] ??
+            normalized['nickname'],
         // AI 分析字段 - 兼容 emotion_score 和 sentiment_score
-        moodType: json['mood_type'],
-        sentimentScore:
-            _parseDouble(json['sentiment_score'] ?? json['emotion_score']),
-        aiTags:
-            json['ai_tags'] != null ? List<String>.from(json['ai_tags']) : null,
+        moodType: normalized['mood_type'],
+        sentimentScore: _parseDouble(
+            normalized['sentiment_score'] ?? normalized['emotion_score']),
+        aiTags: normalized['ai_tags'] != null
+            ? List<String>.from(normalized['ai_tags'])
+            : null,
         // 媒体字段
         mediaIds: mediaIds,
-        hasMedia: parseBool(json['has_media']) ||
+        hasMedia: parseBool(normalized['has_media']) ||
             (mediaIds != null && mediaIds.isNotEmpty),
-        hasRippled: parseBool(json['has_rippled']),
+        hasRippled: parseBool(normalized['has_rippled']),
       );
     } catch (e, stackTrace) {
       // 记录详细错误信息，包含原始JSON便于排查
@@ -121,6 +133,28 @@ class Stone {
         'Stone JSON 解析失败: $e, keys=${json.keys.toList()}',
       );
     }
+  }
+
+  factory Stone.fromPayload(Map<String, dynamic> payload) {
+    return Stone.fromJson(extractStonePayload(payload));
+  }
+
+  factory Stone.fromBoatReference(Map<String, dynamic> payload) {
+    final normalized = normalizePayloadContract(payload);
+    return Stone.fromJson({
+      'stone_id': normalized['stone_id'],
+      'user_id': normalized['stone_user_id'] ?? normalized['user_id'],
+      'content': normalized['stone_content'] ?? normalized['content'],
+      'stone_type': normalized['stone_type'] ?? 'medium',
+      'stone_color': normalized['stone_color'] ?? '#7A92A3',
+      'created_at': normalized['stone_created_at'] ?? normalized['created_at'],
+      'mood_type': normalized['stone_mood_type'] ?? normalized['mood_type'],
+      'ripple_count': normalized['stone_ripple_count'],
+      'boat_count': normalized['stone_boat_count'],
+      'author_name': normalized['author_name'] ??
+          normalized['sender_name'] ??
+          normalized['nickname'],
+    });
   }
 
   static bool parseBool(dynamic value, {bool defaultValue = false}) {

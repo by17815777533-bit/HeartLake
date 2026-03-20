@@ -1,5 +1,6 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
 
 /// 通知服务，负责通知列表查询、未读计数和已读标记
 ///
@@ -8,8 +9,35 @@ class NotificationService extends BaseService {
   @override
   String get serviceName => 'NotificationService';
 
+  List<Map<String, dynamic>> _normalizeNotifications(dynamic rawItems) {
+    if (rawItems is! List) return const [];
+
+    return rawItems.whereType<Map>().map((item) {
+      final normalized = normalizePayloadContract(
+        Map<String, dynamic>.from(item),
+      );
+      final notificationId = extractNotificationEntityId(normalized);
+      if (notificationId != null) {
+        normalized['notification_id'] = notificationId;
+        normalized['id'] = notificationId;
+      }
+
+      final relatedId = normalized['related_id'] ??
+          normalized['target_id'] ??
+          normalized['stone_id'] ??
+          normalized['friend_id'];
+      if (relatedId != null) {
+        normalized['related_id'] = relatedId;
+        normalized['target_id'] = relatedId;
+      }
+
+      return normalized;
+    }).toList();
+  }
+
   /// 分页获取通知列表，同时返回未读数
-  Future<Map<String, dynamic>> getNotifications({int page = 1, int pageSize = 20}) async {
+  Future<Map<String, dynamic>> getNotifications(
+      {int page = 1, int pageSize = 20}) async {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
     final response = await get('/notifications', queryParameters: {
@@ -21,18 +49,32 @@ class NotificationService extends BaseService {
     final data = response.data;
     // 兼容后端纯数组和对象两种返回格式
     if (data is List) {
-      final unread = data.where((n) => n['is_read'] != true).length;
+      final items = _normalizeNotifications(data);
+      final unread = items.where((n) => n['is_read'] != true).length;
       return {
         'success': true,
-        'notifications': data,
+        'notifications': items,
         'unread_count': unread,
       };
     }
     if (data is Map<String, dynamic>) {
-      final rawNotifications = data['notifications'];
-      final rawItems = data['items'];
-      final items = rawNotifications is List ? rawNotifications : (rawItems is List ? rawItems : []);
-      final unreadCount = data['unread_count'] as int? ?? 0;
+      dynamic rawItems = data['notifications'] ??
+          data['items'] ??
+          data['results'] ??
+          data['data'];
+      if (rawItems is Map<String, dynamic>) {
+        rawItems = rawItems['notifications'] ??
+            rawItems['items'] ??
+            rawItems['results'] ??
+            rawItems['data'];
+      }
+
+      final items = _normalizeNotifications(rawItems);
+      final nestedData = data['data'];
+      final nestedMap = nestedData is Map<String, dynamic> ? nestedData : null;
+      final unreadCount = data['unread_count'] as int? ??
+          nestedMap?['unread_count'] as int? ??
+          items.where((n) => n['is_read'] != true).length;
       return {
         'success': true,
         'notifications': items,
@@ -62,7 +104,10 @@ class NotificationService extends BaseService {
     if (!response.success) return toMap(response);
 
     final data = response.data;
-    final unreadCount = (data is Map) ? data['unread_count'] : null;
+    final normalized = data is Map
+        ? normalizePayloadContract(Map<String, dynamic>.from(data))
+        : data;
+    final unreadCount = (normalized is Map) ? normalized['unread_count'] : null;
     return {...toMap(response), 'unread_count': unreadCount};
   }
 

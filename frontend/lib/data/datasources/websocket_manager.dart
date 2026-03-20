@@ -5,6 +5,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/app_config.dart';
+import '../../utils/payload_contract.dart';
 import 'cache_service.dart';
 import 'api_client.dart';
 
@@ -198,7 +199,9 @@ class WebSocketManager {
   void _onMessage(dynamic message) {
     try {
       if (message is! String) return;
-      final data = jsonDecode(message) as Map<String, dynamic>;
+      final decoded = jsonDecode(message);
+      if (decoded is! Map) return;
+      final data = normalizePayloadContract(decoded);
       final type = data['type']?.toString();
       // 收到后端 ping 时回 pong 并更新时间戳
       if (type == 'ping') {

@@ -1,11 +1,11 @@
-/// HeartLake应用主入口
-///
-/// 作为Flutter应用的启动入口，负责：
-/// - 全局异常捕获和错误处理
-/// - 依赖注入容器初始化
-/// - 缓存服务启动
-/// - 认证状态管理
-/// - Provider状态管理树构建
+// HeartLake应用主入口
+//
+// 作为Flutter应用的启动入口，负责：
+// - 全局异常捕获和错误处理
+// - 依赖注入容器初始化
+// - 缓存服务启动
+// - 认证状态管理
+// - Provider状态管理树构建
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -15,7 +15,7 @@ import 'presentation/providers/user_provider.dart';
 import 'presentation/providers/notification_provider.dart';
 import 'presentation/providers/stone_provider.dart';
 import 'presentation/providers/friend_provider.dart';
-import 'providers/edge_ai_provider.dart';
+import 'presentation/providers/edge_ai_provider.dart';
 import 'data/datasources/cache_service.dart';
 import 'data/datasources/websocket_manager.dart';
 import 'data/datasources/api_client.dart';

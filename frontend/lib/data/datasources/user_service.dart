@@ -3,6 +3,169 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 
+/// 用户相关响应归一化器。
+///
+/// 统一兼容后端字段别名和列表包装格式，避免各处散落判断：
+/// - 用户字段：`user_id/userId/id`、`avatar_url/avatarUrl`
+/// - 列表字段：`users/items/list/results/data`
+/// - 总数字段：`total/count/total_count/pagination.total/meta.total`
+class UserPayloadNormalizer {
+  UserPayloadNormalizer._();
+
+  static Map<String, dynamic>? asMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(value);
+    }
+    if (value is Map) {
+      return value.map(
+        (key, item) => MapEntry(key.toString(), item),
+      );
+    }
+    return null;
+  }
+
+  static Map<String, dynamic>? normalizeUser(dynamic payload) {
+    final source = _extractUserMap(payload);
+    if (source == null) return null;
+
+    final normalized = Map<String, dynamic>.from(source);
+    _applyAlias(normalized, source,
+        canonicalKey: 'user_id', aliasKeys: const ['userId', 'id']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'nickname',
+        aliasKeys: const ['display_name', 'displayName', 'name']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'avatar_url',
+        aliasKeys: const ['avatarUrl', 'avatar', 'avatar_path', 'image']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'bio',
+        aliasKeys: const ['signature', 'intro', 'introduction']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'created_at', aliasKeys: const ['createdAt']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'last_active_at',
+        aliasKeys: const ['lastActiveAt', 'last_seen_at', 'lastSeenAt']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'vip_level', aliasKeys: const ['vipLevel']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'vip_expires_at', aliasKeys: const ['vipExpiresAt']);
+    _applyAlias(normalized, source,
+        canonicalKey: 'is_anonymous', aliasKeys: const ['isAnonymous']);
+
+    _mirrorCamelAlias(normalized, 'user_id', 'userId');
+    _mirrorCamelAlias(normalized, 'avatar_url', 'avatarUrl');
+    _mirrorCamelAlias(normalized, 'created_at', 'createdAt');
+    _mirrorCamelAlias(normalized, 'last_active_at', 'lastActiveAt');
+    _mirrorCamelAlias(normalized, 'vip_level', 'vipLevel');
+    _mirrorCamelAlias(normalized, 'vip_expires_at', 'vipExpiresAt');
+    _mirrorCamelAlias(normalized, 'is_anonymous', 'isAnonymous');
+
+    return normalized;
+  }
+
+  static List<Map<String, dynamic>> extractUserList(dynamic payload) {
+    if (payload is List) {
+      return payload
+          .map(normalizeUser)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+    }
+
+    final source = asMap(payload);
+    if (source == null) return const [];
+
+    for (final key in const ['users', 'items', 'list', 'results', 'data']) {
+      final candidate = source[key];
+      if (candidate is List) {
+        return candidate
+            .map(normalizeUser)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+      }
+    }
+
+    return const [];
+  }
+
+  static int extractTotal(dynamic payload, {int fallback = 0}) {
+    final source = asMap(payload);
+    if (source == null) return fallback;
+
+    final direct = _toInt(source['total']) ??
+        _toInt(source['count']) ??
+        _toInt(source['total_count']) ??
+        _toInt(asMap(source['pagination'])?['total']) ??
+        _toInt(asMap(source['meta'])?['total']);
+
+    if (direct != null) return direct;
+
+    final users = extractUserList(payload);
+    return users.isEmpty ? fallback : users.length;
+  }
+
+  static Map<String, dynamic>? normalizeUploadedFile(dynamic payload) {
+    final source = asMap(payload);
+    if (source == null) return null;
+
+    final normalized = Map<String, dynamic>.from(source);
+    _applyAlias(normalized, source,
+        canonicalKey: 'url',
+        aliasKeys: const ['file_url', 'avatar_url', 'media_url']);
+    _mirrorCamelAlias(normalized, 'url', 'fileUrl');
+    return normalized;
+  }
+
+  static Map<String, dynamic>? _extractUserMap(dynamic payload) {
+    final source = asMap(payload);
+    if (source == null) return null;
+
+    for (final key in const ['user', 'profile', 'data']) {
+      final nested = asMap(source[key]);
+      if (nested != null) return nested;
+    }
+
+    return source;
+  }
+
+  static void _applyAlias(
+    Map<String, dynamic> target,
+    Map<String, dynamic> source, {
+    required String canonicalKey,
+    required List<String> aliasKeys,
+  }) {
+    final value = source[canonicalKey] ?? _firstValue(source, aliasKeys);
+    if (value != null) {
+      target[canonicalKey] = value;
+    }
+  }
+
+  static void _mirrorCamelAlias(
+    Map<String, dynamic> target,
+    String sourceKey,
+    String aliasKey,
+  ) {
+    final value = target[sourceKey];
+    if (value != null) {
+      target[aliasKey] = value;
+    }
+  }
+
+  static dynamic _firstValue(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+}
+
 /// 用户信息查询与管理服务
 ///
 /// 提供面向当前用户和其他用户的查询能力：
@@ -26,10 +189,18 @@ class UserService extends BaseService {
 
     if (!response.success) return toMap(response);
 
+    final users = UserPayloadNormalizer.extractUserList(response.data);
+    final total = UserPayloadNormalizer.extractTotal(response.data,
+        fallback: users.length);
+
     return {
       'success': true,
-      'users': response.data?['users'] ?? [],
-      'total': response.data?['total'] ?? 0,
+      'users': users,
+      'total': total,
+      'data': {
+        'users': users,
+        'total': total,
+      },
     };
   }
 
@@ -40,9 +211,12 @@ class UserService extends BaseService {
 
     if (!response.success) return toMap(response);
 
+    final user = UserPayloadNormalizer.normalizeUser(response.data);
+
     return {
       'success': true,
-      'user': response.data,
+      'user': user,
+      'data': user,
     };
   }
 
@@ -112,10 +286,17 @@ class UserService extends BaseService {
     }
     try {
       final response = await client.uploadFile('/media/upload', file: file);
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        return {'success': true, 'data': response.data['data']};
+      final payload = UserPayloadNormalizer.asMap(response.data);
+      final data =
+          UserPayloadNormalizer.normalizeUploadedFile(payload?['data']);
+      if (response.statusCode == 200 && payload?['code'] == 0) {
+        return {'success': true, 'data': data ?? const <String, dynamic>{}};
       }
-      return {'success': false, 'message': response.data['message'] ?? '上传失败'};
+      return {
+        'success': false,
+        'message': payload?['message'] ?? '上传失败',
+        'data': data,
+      };
     } catch (e) {
       return {'success': false, 'message': '上传失败: $e'};
     }

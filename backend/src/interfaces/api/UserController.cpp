@@ -5,8 +5,8 @@
 #include "utils/IdGenerator.h"
 #include "utils/PasetoUtil.h"
 #include "utils/RecoveryKeyGenerator.h"
-#include "utils/ResponseUtil.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <algorithm>
 #include <cctype>
@@ -99,7 +99,8 @@ void UserController::anonymousLogin(
             "UPDATE users SET recovery_key_hash = $1 WHERE user_id = $2",
             recoveryKeyHash, user_id);
       } catch (const drogon::orm::DrogonDbException &e) {
-        LOG_WARN << "Failed to persist recovery_key_hash (schema not ready?): " << e.base().what();
+        LOG_WARN << "Failed to persist recovery_key_hash (schema not ready?): "
+                 << e.base().what();
       }
 
       responseData["user_id"] = user_id;
@@ -131,86 +132,90 @@ void UserController::anonymousLogin(
 void UserController::recoverWithKey(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-    try {
-        auto json = req->getJsonObject();
-        if (!json) {
-            callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
-            return;
-        }
-
-        if (!json->isMember("recovery_key") || (*json)["recovery_key"].asString().empty()) {
-            callback(ResponseUtil::badRequest("请提供恢复关键词"));
-            return;
-        }
-
-        auto recoveryKey = (*json)["recovery_key"].asString();
-        std::string deviceId;
-        if (json->isMember("device_id")) {
-            deviceId = (*json)["device_id"].asString();
-        }
-
-        auto dbClient = drogon::app().getDbClient("default");
-
-        // 加盐哈希无法通过SQL等值匹配，需在应用层逐条验证
-        // 优先用 device_id 缩小范围；无 device_id 时扫描全部持有恢复密钥的活跃用户
-        auto result = !deviceId.empty()
-            ? dbClient->execSqlSync(
-                "SELECT user_id, nickname, is_anonymous, recovery_key_hash FROM users "
-                "WHERE device_id = $1 AND recovery_key_hash IS NOT NULL AND status = 'active'",
-                deviceId)
-            : dbClient->execSqlSync(
-                "SELECT user_id, nickname, is_anonymous, recovery_key_hash FROM users "
-                "WHERE recovery_key_hash IS NOT NULL AND status = 'active'");
-
-        if (result.empty()) {
-            callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
-            return;
-        }
-
-        // 逐条验证恢复关键词（加盐哈希无法 SQL 等值匹配）
-        size_t matchIdx = result.size(); // 哨兵值，表示未匹配
-        for (size_t i = 0; i < result.size(); ++i) {
-            auto storedHash = result[i]["recovery_key_hash"].as<std::string>();
-            if (RecoveryKeyGenerator::verify(recoveryKey, storedHash)) {
-                matchIdx = i;
-                break;
-            }
-        }
-
-        if (matchIdx == result.size()) {
-            LOG_WARN << "Recovery attempt with invalid key from device: "
-                     << (deviceId.empty() ? "unknown" : deviceId);
-            callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
-            return;
-        }
-
-        auto userId = result[matchIdx]["user_id"].as<std::string>();
-        auto nickname = result[matchIdx]["nickname"].as<std::string>();
-
-        dbClient->execSqlSync(
-            "UPDATE users SET last_active_at = NOW() WHERE user_id = $1",
-            userId);
-
-        std::string key = PasetoUtil::getKey();
-        std::string token = PasetoUtil::generateToken(userId, key, 24);
-
-        Json::Value responseData;
-        responseData["user_id"] = userId;
-        responseData["nickname"] = nickname;
-        responseData["token"] = token;
-        responseData["is_new_user"] = false;
-        responseData["expires_at"] =
-            static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
-
-        callback(ResponseUtil::success(responseData, "账号恢复成功"));
-
-    } catch (const drogon::orm::DrogonDbException &e) {
-        LOG_ERROR << "Database error in recoverWithKey: " << e.base().what();
-        callback(ResponseUtil::internalError("恢复失败，请稍后重试"));
-    } catch (const std::exception &e) {
-        LOG_ERROR << "Error in recoverWithKey: " << e.what();
-        callback(ResponseUtil::internalError());
+  try {
+    auto json = req->getJsonObject();
+    if (!json) {
+      callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
+      return;
     }
+
+    if (!json->isMember("recovery_key") ||
+        (*json)["recovery_key"].asString().empty()) {
+      callback(ResponseUtil::badRequest("请提供恢复关键词"));
+      return;
+    }
+
+    auto recoveryKey = (*json)["recovery_key"].asString();
+    std::string deviceId;
+    if (json->isMember("device_id")) {
+      deviceId = (*json)["device_id"].asString();
+    }
+
+    auto dbClient = drogon::app().getDbClient("default");
+
+    // 加盐哈希无法通过SQL等值匹配，需在应用层逐条验证
+    // 优先用 device_id 缩小范围；无 device_id 时扫描全部持有恢复密钥的活跃用户
+    auto result =
+        !deviceId.empty()
+            ? dbClient->execSqlSync(
+                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash "
+                  "FROM users "
+                  "WHERE device_id = $1 AND recovery_key_hash IS NOT NULL AND "
+                  "status = 'active'",
+                  deviceId)
+            : dbClient->execSqlSync(
+                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash "
+                  "FROM users "
+                  "WHERE recovery_key_hash IS NOT NULL AND status = 'active'");
+
+    if (result.empty()) {
+      callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
+      return;
+    }
+
+    // 逐条验证恢复关键词（加盐哈希无法 SQL 等值匹配）
+    size_t matchIdx = result.size(); // 哨兵值，表示未匹配
+    for (size_t i = 0; i < result.size(); ++i) {
+      auto storedHash = result[i]["recovery_key_hash"].as<std::string>();
+      if (RecoveryKeyGenerator::verify(recoveryKey, storedHash)) {
+        matchIdx = i;
+        break;
+      }
+    }
+
+    if (matchIdx == result.size()) {
+      LOG_WARN << "Recovery attempt with invalid key from device: "
+               << (deviceId.empty() ? "unknown" : deviceId);
+      callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
+      return;
+    }
+
+    auto userId = result[matchIdx]["user_id"].as<std::string>();
+    auto nickname = result[matchIdx]["nickname"].as<std::string>();
+
+    dbClient->execSqlSync(
+        "UPDATE users SET last_active_at = NOW() WHERE user_id = $1", userId);
+
+    std::string key = PasetoUtil::getKey();
+    std::string token = PasetoUtil::generateToken(userId, key, 24);
+
+    Json::Value responseData;
+    responseData["user_id"] = userId;
+    responseData["nickname"] = nickname;
+    responseData["token"] = token;
+    responseData["is_new_user"] = false;
+    responseData["expires_at"] =
+        static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
+
+    callback(ResponseUtil::success(responseData, "账号恢复成功"));
+
+  } catch (const drogon::orm::DrogonDbException &e) {
+    LOG_ERROR << "Database error in recoverWithKey: " << e.base().what();
+    callback(ResponseUtil::internalError("恢复失败，请稍后重试"));
+  } catch (const std::exception &e) {
+    LOG_ERROR << "Error in recoverWithKey: " << e.what();
+    callback(ResponseUtil::internalError());
+  }
 }
 
 void UserController::refreshToken(
@@ -229,7 +234,8 @@ void UserController::refreshToken(
 
     Json::Value responseData;
     responseData["token"] = token;
-    responseData["expires_at"] = static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
+    responseData["expires_at"] =
+        static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 
     callback(ResponseUtil::success(responseData, "Token刷新成功"));
   } catch (const std::exception &e) {
@@ -266,14 +272,24 @@ void UserController::deleteAccount(
 
     try {
       transPtr->execSqlSync("DELETE FROM stones WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM paper_boats WHERE sender_id = $1", user_id);
+      transPtr->execSqlSync("DELETE FROM paper_boats WHERE sender_id = $1",
+                            user_id);
       transPtr->execSqlSync("DELETE FROM ripples WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM friend_messages WHERE sender_id = $1 OR receiver_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM temp_friends WHERE user1_id = $1 OR user2_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM notifications WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM lake_god_messages WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("UPDATE users SET status = 'deleted', updated_at = NOW() WHERE user_id = $1", user_id);
+      transPtr->execSqlSync("DELETE FROM friend_messages WHERE sender_id = $1 "
+                            "OR receiver_id = $1",
+                            user_id);
+      transPtr->execSqlSync(
+          "DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", user_id);
+      transPtr->execSqlSync(
+          "DELETE FROM temp_friends WHERE user1_id = $1 OR user2_id = $1",
+          user_id);
+      transPtr->execSqlSync("DELETE FROM notifications WHERE user_id = $1",
+                            user_id);
+      transPtr->execSqlSync("DELETE FROM lake_god_messages WHERE user_id = $1",
+                            user_id);
+      transPtr->execSqlSync("UPDATE users SET status = 'deleted', updated_at = "
+                            "NOW() WHERE user_id = $1",
+                            user_id);
 
       callback(ResponseUtil::success(Json::Value(), "账号已注销"));
     } catch (const std::exception &e) {
@@ -356,12 +372,17 @@ void UserController::getUserStats(
 
     auto result = dbClient->execSqlSync(
         "SELECT "
-        "  (SELECT COUNT(*) FROM stones WHERE user_id = $1 AND status = 'published') as stones_count,"
-        "  (SELECT COALESCE(SUM(ripple_count), 0) FROM stones WHERE user_id = $1) as ripples_received,"
-        "  (SELECT COALESCE(SUM(boat_count), 0) FROM stones WHERE user_id = $1) as boats_received,"
+        "  (SELECT COUNT(*) FROM stones WHERE user_id = $1 AND status = "
+        "'published') as stones_count,"
+        "  (SELECT COALESCE(SUM(ripple_count), 0) FROM stones WHERE user_id = "
+        "$1) as ripples_received,"
+        "  (SELECT COALESCE(SUM(boat_count), 0) FROM stones WHERE user_id = "
+        "$1) as boats_received,"
         "  (SELECT COUNT(*) FROM ripples WHERE user_id = $1) as ripples_sent,"
-        "  (SELECT COUNT(*) FROM paper_boats WHERE sender_id = $1) as boats_sent,"
-        "  (SELECT DATE_PART('day', NOW() - created_at) FROM users WHERE user_id = $1) as join_days",
+        "  (SELECT COUNT(*) FROM paper_boats WHERE sender_id = $1) as "
+        "boats_sent,"
+        "  (SELECT DATE_PART('day', NOW() - created_at) FROM users WHERE "
+        "user_id = $1) as join_days",
         userId);
 
     if (result.empty()) {
@@ -410,35 +431,63 @@ void UserController::searchUsers(
       std::string result;
       result.reserve(input.size());
       for (char c : input) {
-        if (c == '%' || c == '_' || c == '\\') result += '\\';
+        if (c == '%' || c == '_' || c == '\\')
+          result += '\\';
         result += c;
       }
       return result;
     };
 
     auto dbClient = drogon::app().getDbClient("default");
+    auto [page, pageSize] = safePagination(req);
+    int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
-        "SELECT user_id, username, nickname, is_anonymous, created_at "
+        "SELECT user_id, username, nickname, avatar_url, is_anonymous, "
+        "created_at, COUNT(*) OVER() AS total_count "
         "FROM users "
         "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE '\\') "
         "AND status = 'active' AND user_id != $2 "
-        "ORDER BY created_at DESC LIMIT 20",
-        "%" + escapeLike(query) + "%", user_id);
+        "ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+        "%" + escapeLike(query) + "%", user_id, static_cast<int64_t>(pageSize),
+        offset);
 
     Json::Value users(Json::arrayValue);
+    int total = 0;
     for (const auto &row : result) {
       Json::Value user;
-      user["user_id"] = row["user_id"].as<std::string>();
-      user["username"] = row["username"].as<std::string>();
-      user["nickname"] = row["nickname"].as<std::string>();
-      user["is_anonymous"] = row["is_anonymous"].as<bool>();
+      user["user_id"] =
+          row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();
+      user["id"] = user["user_id"];
+      user["userId"] = user["user_id"];
+      user["username"] =
+          row["username"].isNull() ? "" : row["username"].as<std::string>();
+      user["nickname"] = row["nickname"].isNull()
+                             ? user["username"].asString()
+                             : row["nickname"].as<std::string>();
+      if (!row["avatar_url"].isNull()) {
+        user["avatar_url"] = row["avatar_url"].as<std::string>();
+        user["avatarUrl"] = user["avatar_url"];
+      }
+      user["is_anonymous"] =
+          row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
       users.append(user);
+
+      if (total == 0 && !row["total_count"].isNull()) {
+        total = row["total_count"].as<int>();
+      }
     }
 
     Json::Value data;
     data["users"] = users;
-    data["total"] = static_cast<int>(users.size());
+    data["items"] = users;
+    data["total"] = total;
+    data["page"] = page;
+    data["page_size"] = pageSize;
+    data["pageSize"] = pageSize;
+    data["total_pages"] = (total + pageSize - 1) / pageSize;
+    data["totalPages"] = data["total_pages"];
+    data["has_more"] = page < data["total_pages"].asInt();
 
     callback(ResponseUtil::success(data));
 
@@ -476,7 +525,8 @@ void UserController::getMyBoats(
     int64_t offset = static_cast<int64_t>(page - 1) * page_size;
     auto result = dbClient->execSqlSync(
         "SELECT b.boat_id, b.stone_id, b.content, b.boat_style, b.created_at, "
-        "b.status, b.sender_id, b.is_anonymous, b.mood, b.response_content, b.response_at "
+        "b.status, b.sender_id, b.is_anonymous, b.mood, b.response_content, "
+        "b.response_at "
         "FROM paper_boats b "
         "INNER JOIN stones s ON b.stone_id = s.stone_id "
         "WHERE s.user_id = $1 AND b.sender_id <> $1 "
@@ -487,20 +537,29 @@ void UserController::getMyBoats(
     for (const auto &row : result) {
       Json::Value boat;
       boat["boat_id"] = row["boat_id"].as<std::string>();
-      boat["stone_id"] = row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();
+      boat["stone_id"] =
+          row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();
       boat["content"] = row["content"].as<std::string>();
-      boat["boat_style"] = row["boat_style"].isNull() ? "paper" : row["boat_style"].as<std::string>();
+      boat["boat_style"] = row["boat_style"].isNull()
+                               ? "paper"
+                               : row["boat_style"].as<std::string>();
       boat["created_at"] = row["created_at"].as<std::string>();
       boat["status"] = row["status"].as<std::string>();
-      boat["is_anonymous"] = row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
+      boat["is_anonymous"] =
+          row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
       boat["mood"] = row["mood"].isNull() ? "" : row["mood"].as<std::string>();
-      boat["response_content"] = row["response_content"].isNull() ? "" : row["response_content"].as<std::string>();
-      boat["response_at"] = row["response_at"].isNull() ? "" : row["response_at"].as<std::string>();
+      boat["response_content"] =
+          row["response_content"].isNull()
+              ? ""
+              : row["response_content"].as<std::string>();
+      boat["response_at"] = row["response_at"].isNull()
+                                ? ""
+                                : row["response_at"].as<std::string>();
       boats.append(boat);
     }
 
     Json::Value data;
-    data["items"] = boats;  // 前端兼容字段
+    data["items"] = boats; // 前端兼容字段
     data["boats"] = boats;
     data["total"] = total;
     data["page"] = page;
@@ -541,7 +600,8 @@ void UserController::updateProfile(
     std::vector<std::string> paramValues;
     int paramIdx = 1;
 
-    if (json->isMember("avatar_url") && !(*json)["avatar_url"].asString().empty()) {
+    if (json->isMember("avatar_url") &&
+        !(*json)["avatar_url"].asString().empty()) {
       setClauses.push_back("avatar_url = $" + std::to_string(paramIdx++));
       paramValues.push_back((*json)["avatar_url"].asString());
     }
@@ -571,7 +631,8 @@ void UserController::updateProfile(
 
     std::string sql = "UPDATE users SET ";
     for (size_t i = 0; i < setClauses.size(); ++i) {
-      if (i > 0) sql += ", ";
+      if (i > 0)
+        sql += ", ";
       sql += setClauses[i];
     }
     sql += ", updated_at = NOW() WHERE user_id = $" + std::to_string(paramIdx);
@@ -581,12 +642,13 @@ void UserController::updateProfile(
     } else if (paramValues.size() == 2) {
       dbClient->execSqlSync(sql, paramValues[0], paramValues[1], user_id);
     } else if (paramValues.size() == 3) {
-      dbClient->execSqlSync(sql, paramValues[0], paramValues[1], paramValues[2], user_id);
+      dbClient->execSqlSync(sql, paramValues[0], paramValues[1], paramValues[2],
+                            user_id);
     }
 
-    auto result = dbClient->execSqlSync(
-        "SELECT user_id, nickname, avatar_url, bio FROM users WHERE user_id = $1",
-        user_id);
+    auto result = dbClient->execSqlSync("SELECT user_id, nickname, avatar_url, "
+                                        "bio FROM users WHERE user_id = $1",
+                                        user_id);
 
     if (result.empty()) {
       callback(ResponseUtil::internalError("更新失败"));
@@ -597,8 +659,10 @@ void UserController::updateProfile(
     Json::Value responseData;
     responseData["user_id"] = row["user_id"].as<std::string>();
     responseData["nickname"] = row["nickname"].as<std::string>();
-    responseData["avatar_url"] = row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
-    responseData["bio"] = row["bio"].isNull() ? "" : row["bio"].as<std::string>();
+    responseData["avatar_url"] =
+        row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
+    responseData["bio"] =
+        row["bio"].isNull() ? "" : row["bio"].as<std::string>();
 
     callback(ResponseUtil::success(responseData, "资料更新成功"));
 
@@ -636,8 +700,8 @@ void UserController::getEmotionCalendar(
       int mon = safeInt(monthParam, 0);
       if (year >= 2000 && year <= 2100 && mon >= 1 && mon <= 12) {
         std::ostringstream oss;
-        oss << std::setfill('0') << std::setw(4) << year
-            << "-" << std::setw(2) << mon;
+        oss << std::setfill('0') << std::setw(4) << year << "-" << std::setw(2)
+            << mon;
         month = oss.str();
       }
     }
@@ -654,23 +718,35 @@ void UserController::getEmotionCalendar(
     auto dbClient = drogon::app().getDbClient("default");
 
     auto result = dbClient->execSqlSync(
-        "SELECT DATE(created_at) as date, COALESCE(mood_type, 'neutral') as mood, COUNT(*) as count "
+        "SELECT DATE(created_at) as date, COALESCE(mood_type, 'neutral') as "
+        "mood, COUNT(*) as count "
         "FROM stones WHERE user_id = $1 AND status = 'published' "
         "AND TO_CHAR(created_at, 'YYYY-MM') = $2 "
-        "GROUP BY DATE(created_at), COALESCE(mood_type, 'neutral') ORDER BY date",
+        "GROUP BY DATE(created_at), COALESCE(mood_type, 'neutral') ORDER BY "
+        "date",
         user_id, month);
 
     auto moodToScore = [](const std::string &mood) -> double {
-      if (mood == "happy") return 0.75;
-      if (mood == "calm") return 0.35;
-      if (mood == "neutral") return 0.0;
-      if (mood == "hopeful") return 0.55;
-      if (mood == "grateful") return 0.65;
-      if (mood == "sad") return -0.75;
-      if (mood == "anxious") return -0.45;
-      if (mood == "angry") return -0.65;
-      if (mood == "lonely") return -0.55;
-      if (mood == "confused") return -0.1;
+      if (mood == "happy")
+        return 0.75;
+      if (mood == "calm")
+        return 0.35;
+      if (mood == "neutral")
+        return 0.0;
+      if (mood == "hopeful")
+        return 0.55;
+      if (mood == "grateful")
+        return 0.65;
+      if (mood == "sad")
+        return -0.75;
+      if (mood == "anxious")
+        return -0.45;
+      if (mood == "angry")
+        return -0.65;
+      if (mood == "lonely")
+        return -0.55;
+      if (mood == "confused")
+        return -0.1;
       return 0.0;
     };
 
@@ -678,7 +754,8 @@ void UserController::getEmotionCalendar(
     std::map<std::string, std::pair<double, int>> dayScoreAgg;
     for (const auto &row : result) {
       std::string date = row["date"].as<std::string>();
-      std::string mood = row["mood"].isNull() ? "neutral" : row["mood"].as<std::string>();
+      std::string mood =
+          row["mood"].isNull() ? "neutral" : row["mood"].as<std::string>();
       int count = row["count"].as<int>();
       if (!days.isMember(date)) {
         days[date] = Json::Value(Json::objectValue);
@@ -686,7 +763,8 @@ void UserController::getEmotionCalendar(
         days[date]["moods"] = Json::Value(Json::objectValue);
       }
       days[date]["count"] = days[date]["count"].asInt() + count;
-      days[date]["moods"][mood] = days[date]["moods"].get(mood, 0).asInt() + count;
+      days[date]["moods"][mood] =
+          days[date]["moods"].get(mood, 0).asInt() + count;
       dayScoreAgg[date].first += moodToScore(mood) * count;
       dayScoreAgg[date].second += count;
     }
@@ -725,7 +803,8 @@ void UserController::getEmotionHeatmap(
     auto user_id = *userIdOpt;
 
     int days_count = safeInt(req->getParameter("days"), 30);
-    if (days_count < 1 || days_count > 365) days_count = 30;
+    if (days_count < 1 || days_count > 365)
+      days_count = 30;
 
     auto dbClient = drogon::app().getDbClient("default");
 
@@ -755,7 +834,8 @@ void UserController::getEmotionHeatmap(
       std::string date = row["date"].as<std::string>();
       int count = row["count"].as<int>();
       Json::Value dayData;
-      const double rawScore = row["avg_score"].isNull() ? 0.0 : row["avg_score"].as<double>();
+      const double rawScore =
+          row["avg_score"].isNull() ? 0.0 : row["avg_score"].as<double>();
       const double normalized = std::clamp((rawScore + 1.0) / 2.0, 0.0, 1.0);
       dayData["score"] = normalized;
       dayData["raw_score"] = rawScore;

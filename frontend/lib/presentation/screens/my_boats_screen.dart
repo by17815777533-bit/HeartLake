@@ -1,6 +1,6 @@
-/// 我的纸船列表界面
-///
-/// 展示当前用户发送的所有纸船（评论）记录。
+// 我的纸船列表界面
+//
+// 展示当前用户发送的所有纸船（评论）记录。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/interaction_service.dart';
@@ -8,6 +8,7 @@ import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/mood_colors.dart';
+import '../../utils/payload_contract.dart';
 import '../../domain/entities/stone.dart';
 import 'stone_detail_screen.dart';
 
@@ -28,6 +29,8 @@ class MyBoatsScreen extends StatefulWidget {
 /// 通过 [InteractionService] 加载纸船数据，使用 [WebSocketManager] 监听删除事件。
 class _MyBoatsScreenState extends State<MyBoatsScreen> {
   final List<Map<String, dynamic>> _boats = [];
+  final Map<String, int> _boatIndexById = {};
+  final Map<String, Set<String>> _boatIdsByStoneId = {};
   bool _isLoading = false;
   final InteractionService _interactionService = sl<InteractionService>();
   late final WebSocketManager _wsManager;
@@ -56,10 +59,10 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     // 监听纸船删除
     _boatDeletedListener = (data) {
       if (!mounted) return;
-      final boatId = data['boat_id'];
+      final boatId = extractBoatEntityId(data);
       if (boatId == null) return;
       setState(() {
-        _boats.removeWhere((b) => b['boat_id'] == boatId);
+        _removeBoatById(boatId);
       });
     };
     _wsManager.on('boat_deleted', _boatDeletedListener);
@@ -67,13 +70,67 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     // 监听石头删除（石头没了，评论也该没了）
     _stoneDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == null) return;
       setState(() {
-        _boats.removeWhere((b) => b['stone_id'] == stoneId);
+        _removeBoatsByStoneId(stoneId);
       });
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
+  }
+
+  void _rebuildBoatIndices() {
+    _boatIndexById.clear();
+    _boatIdsByStoneId.clear();
+    for (var i = 0; i < _boats.length; i++) {
+      final boatId = _boats[i]['boat_id']?.toString();
+      if (boatId != null && boatId.isNotEmpty) {
+        _boatIndexById[boatId] = i;
+      }
+      final stoneId = _boats[i]['stone_id']?.toString();
+      if (stoneId != null &&
+          stoneId.isNotEmpty &&
+          boatId != null &&
+          boatId.isNotEmpty) {
+        (_boatIdsByStoneId[stoneId] ??= <String>{}).add(boatId);
+      }
+    }
+  }
+
+  bool _removeBoatById(String boatId) {
+    final index = _boatIndexById[boatId];
+    if (index == null) return false;
+    _boats.removeAt(index);
+    _rebuildBoatIndices();
+    return true;
+  }
+
+  int _removeBoatIds(Set<String> boatIds) {
+    if (boatIds.isEmpty) return 0;
+    final retained = <Map<String, dynamic>>[];
+    var removedCount = 0;
+
+    for (final boat in _boats) {
+      final boatId = boat['boat_id']?.toString();
+      if (boatId != null && boatIds.contains(boatId)) {
+        removedCount++;
+        continue;
+      }
+      retained.add(boat);
+    }
+
+    if (removedCount == 0) return 0;
+    _boats
+      ..clear()
+      ..addAll(retained);
+    _rebuildBoatIndices();
+    return removedCount;
+  }
+
+  bool _removeBoatsByStoneId(String stoneId) {
+    final boatIds = _boatIdsByStoneId[stoneId];
+    if (boatIds == null || boatIds.isEmpty) return false;
+    return _removeBoatIds(boatIds) > 0;
   }
 
   /// 从后端加载纸船列表，当前固定加载第一页（最多50条）
@@ -87,9 +144,15 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       );
 
       if (result['success'] == true && mounted) {
+        final boats = (result['boats'] as List? ?? const [])
+            .whereType<Map>()
+            .map((boat) =>
+                normalizePayloadContract(Map<String, dynamic>.from(boat)))
+            .toList();
         setState(() {
           _boats.clear();
-          _boats.addAll(List<Map<String, dynamic>>.from(result['boats'] ?? []));
+          _boats.addAll(boats);
+          _rebuildBoatIndices();
           _isLoading = false;
         });
       } else {
@@ -108,7 +171,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   }
 
   /// 弹出确认对话框后删除指定纸船，成功后从本地列表移除
-  Future<void> _deleteBoat(String boatId, int index) async {
+  Future<void> _deleteBoat(String boatId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -133,7 +196,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       final result = await _interactionService.deleteBoat(boatId);
       if (result['success'] == true) {
         setState(() {
-          _boats.removeAt(index);
+          _removeBoatById(boatId);
         });
         messenger.showSnackBar(
           const SnackBar(
@@ -190,237 +253,255 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         child: RefreshIndicator(
           onRefresh: _loadMyBoats,
           child: _isLoading
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在追踪纸船的漂流...', style: TextStyle(color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600]))]))
-            : _boats.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.sailing_outlined,
-                                size: 80,
-                                color: isDark ? Colors.white24 : Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '还没有纸船，试着给陌生人送去温暖',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600],
+              ? Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('正在追踪纸船的漂流...',
+                      style: TextStyle(
+                          color: isDark
+                              ? const Color(0xFF9AA0A6)
+                              : Colors.grey[600]))
+                ]))
+              : _boats.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.sailing_outlined,
+                                  size: 80,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.grey[300],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _boats.length,
-                    itemBuilder: (context, index) {
-                      final boat = _boats[index];
-                      final moodConfig = _getMoodConfig(boat);
-                      final boatId = boat['boat_id']?.toString() ?? '';
-
-                      return Dismissible(
-                        key: Key(boatId),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          color: Colors.red,
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          return await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('删除纸船'),
-                              content: const Text('确定要删除这条纸船吗？'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: const Text('取消'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red),
-                                  child: const Text('删除'),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '还没有纸船，试着给陌生人送去温暖',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: isDark
+                                        ? const Color(0xFF9AA0A6)
+                                        : Colors.grey[600],
+                                  ),
                                 ),
                               ],
                             ),
-                          );
-                        },
-                        onDismissed: (direction) {
-                          _interactionService.deleteBoat(boatId);
-                          setState(() {
-                            _boats.removeAt(index);
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已轻轻放下')),
-                          );
-                        },
-                        child: Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(
-                              color: moodConfig.primary.withValues(alpha: 0.4),
-                              width: 2,
-                            ),
                           ),
-                          elevation: 3,
-                          shadowColor: moodConfig.primary.withValues(alpha: 0.2),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              final stoneId = boat['stone_id']?.toString();
-                              if (stoneId != null && stoneId.isNotEmpty) {
-                                final stone = Stone(
-                                  stoneId: stoneId,
-                                  userId: boat['stone_user_id']?.toString() ?? '',
-                                  content: boat['stone_content']?.toString() ?? '',
-                                  stoneType: 'medium',
-                                  stoneColor: '#7A92A3',
-                                  createdAt: DateTime.tryParse(boat['stone_created_at']?.toString() ?? '') ?? DateTime.now(),
-                                  moodType: boat['stone_mood_type']?.toString(),
-                                );
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => StoneDetailScreen(stone: stone),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _boats.length,
+                      itemBuilder: (context, index) {
+                        final boat = _boats[index];
+                        final moodConfig = _getMoodConfig(boat);
+                        final boatId = boat['boat_id']?.toString() ?? '';
+
+                        return Dismissible(
+                          key: Key(boatId),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            color: Colors.red,
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) async {
+                            return await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('删除纸船'),
+                                content: const Text('确定要删除这条纸船吗？'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('取消'),
                                   ),
-                                );
-                              }
-                            },
-                            onLongPress: () => _deleteBoat(boatId, index),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    isDark ? const Color(0xFF1B2838) : Colors.white,
-                                    moodConfig.primary.withValues(alpha: 0.05),
-                                  ],
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      // 治愈风格图标
-                                      Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              moodConfig.primary
-                                                  .withValues(alpha: 0.6),
-                                              moodConfig.rippleColor
-                                                  .withValues(alpha: 0.4),
-                                            ],
-                                          ),
-                                        ),
-                                        child: CircleAvatar(
-                                          radius: 14,
-                                          backgroundColor: isDark ? const Color(0xFF1B2838) : Colors.white,
-                                          child: Icon(
-                                            Icons.sailing,
-                                            color: moodConfig.primary,
-                                            size: 16,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '我的纸船',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: moodConfig.primary,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      // 删除按钮
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons.delete_outline,
-                                          color: isDark ? Colors.white30 : Colors.grey[400],
-                                          size: 20,
-                                        ),
-                                        onPressed: () =>
-                                            _deleteBoat(boatId, index),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  // 内容区域带治愈边框
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          moodConfig.primary.withValues(alpha: 0.05),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: moodConfig.primary
-                                            .withValues(alpha: 0.15),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.format_quote,
-                                          size: 16,
-                                          color: moodConfig.primary
-                                              .withValues(alpha: 0.4),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            boat['content'] ?? '',
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              height: 1.5,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    boat['created_at'] ?? '',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.white38 : Colors.grey[500],
-                                    ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red),
+                                    child: const Text('删除'),
                                   ),
                                 ],
                               ),
+                            );
+                          },
+                          onDismissed: (direction) {
+                            _interactionService.deleteBoat(boatId);
+                            setState(() {
+                              _boats.removeAt(index);
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('已轻轻放下')),
+                            );
+                          },
+                          child: Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color:
+                                    moodConfig.primary.withValues(alpha: 0.4),
+                                width: 2,
+                              ),
+                            ),
+                            elevation: 3,
+                            shadowColor:
+                                moodConfig.primary.withValues(alpha: 0.2),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                final stoneId = boat['stone_id']?.toString();
+                                if (stoneId != null && stoneId.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => StoneDetailScreen(
+                                        stone: Stone.fromBoatReference(boat),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              onLongPress: () => _deleteBoat(boatId),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      isDark
+                                          ? const Color(0xFF1B2838)
+                                          : Colors.white,
+                                      moodConfig.primary
+                                          .withValues(alpha: 0.05),
+                                    ],
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        // 治愈风格图标
+                                        Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                moodConfig.primary
+                                                    .withValues(alpha: 0.6),
+                                                moodConfig.rippleColor
+                                                    .withValues(alpha: 0.4),
+                                              ],
+                                            ),
+                                          ),
+                                          child: CircleAvatar(
+                                            radius: 14,
+                                            backgroundColor: isDark
+                                                ? const Color(0xFF1B2838)
+                                                : Colors.white,
+                                            child: Icon(
+                                              Icons.sailing,
+                                              color: moodConfig.primary,
+                                              size: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '我的纸船',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: moodConfig.primary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        // 删除按钮
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline,
+                                            color: isDark
+                                                ? Colors.white30
+                                                : Colors.grey[400],
+                                            size: 20,
+                                          ),
+                                          onPressed: () => _deleteBoat(boatId),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // 内容区域带治愈边框
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: moodConfig.primary
+                                            .withValues(alpha: 0.05),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: moodConfig.primary
+                                              .withValues(alpha: 0.15),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.format_quote,
+                                            size: 16,
+                                            color: moodConfig.primary
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              boat['content'] ?? '',
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      boat['created_at'] ?? '',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? Colors.white38
+                                            : Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
         ),
       ),
     );

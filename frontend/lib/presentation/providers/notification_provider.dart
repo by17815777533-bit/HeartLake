@@ -1,13 +1,14 @@
-/// 通知状态管理
-///
-/// 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
-/// 实时通知事件和纸船事件更新未读角标。
-/// 依赖 [NotificationService] 完成后端交互，依赖 [WebSocketManager] 接收推送。
+// 通知状态管理
+//
+// 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
+// 实时通知事件和纸船事件更新未读角标。
+// 依赖 [NotificationService] 完成后端交互，依赖 [WebSocketManager] 接收推送。
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
+import '../../utils/payload_contract.dart';
 
 /// 通知中心状态管理器
 ///
@@ -19,12 +20,14 @@ class NotificationProvider with ChangeNotifier {
   final WebSocketManager _wsManager = WebSocketManager();
   int _unreadCount = 0;
   bool _isLoading = false;
+
   /// 上次拉取未读数的时间，用于节流
   DateTime? _lastUpdate;
   bool _wsListenerRegistered = false;
 
   // 通知列表管理
   List<Map<String, dynamic>> _notifications = [];
+  final Map<String, int> _notificationIndexById = {};
   bool _isLoadingNotifications = false;
   bool _hasMore = true;
   int _currentPage = 1;
@@ -40,7 +43,8 @@ class NotificationProvider with ChangeNotifier {
   int get unreadCount => _unreadCount;
   bool get isLoading => _isLoading;
   bool get hasUnread => _unreadCount > 0;
-  List<Map<String, dynamic>> get notifications => List.unmodifiable(_notifications);
+  List<Map<String, dynamic>> get notifications =>
+      List.unmodifiable(_notifications);
   bool get isLoadingNotifications => _isLoadingNotifications;
   bool get hasMore => _hasMore;
 
@@ -52,9 +56,9 @@ class NotificationProvider with ChangeNotifier {
   void _setupWebSocketListener() {
     if (_wsListenerRegistered) return;
     _onNewNotification = (data) {
-      incrementUnread();
-      // 实时推送的通知插入列表头部，保持时间倒序
-      _notifications.insert(0, data);
+      if (_upsertNotification(data, insertAtHead: true)) {
+        _unreadCount++;
+      }
       notifyListeners();
     };
     _onBoatUpdate = (data) {
@@ -63,6 +67,62 @@ class NotificationProvider with ChangeNotifier {
     _wsManager.on('new_notification', _onNewNotification);
     _wsManager.on('boat_update', _onBoatUpdate);
     _wsListenerRegistered = true;
+  }
+
+  void _rebuildNotificationIndex() {
+    _notificationIndexById.clear();
+    for (var i = 0; i < _notifications.length; i++) {
+      final notificationId = _notificationIdOf(_notifications[i]);
+      if (notificationId != null) {
+        _notificationIndexById[notificationId] = i;
+      }
+    }
+  }
+
+  String? _notificationIdOf(Map<String, dynamic> notification) {
+    return extractNotificationEntityId(notification);
+  }
+
+  bool _upsertNotification(
+    Map<String, dynamic> notification, {
+    bool insertAtHead = false,
+  }) {
+    final normalized = normalizePayloadContract(notification);
+    final notificationId = _notificationIdOf(normalized);
+    if (notificationId != null) {
+      normalized['notification_id'] = notificationId;
+      normalized['id'] = notificationId;
+    }
+
+    final existingIndex =
+        notificationId == null ? null : _notificationIndexById[notificationId];
+    final wasUnread = existingIndex != null &&
+        _notifications[existingIndex]['is_read'] != true;
+    final shouldCountUnread = normalized['is_read'] != true;
+    if (existingIndex != null) {
+      _notifications[existingIndex] = {
+        ..._notifications[existingIndex],
+        ...normalized,
+      };
+    } else if (insertAtHead) {
+      _notifications.insert(0, normalized);
+    } else {
+      _notifications.add(normalized);
+    }
+
+    _rebuildNotificationIndex();
+    return shouldCountUnread && !wasUnread;
+  }
+
+  bool _markNotificationReadLocal(String notificationId) {
+    final index = _notificationIndexById[notificationId];
+    if (index == null) return false;
+    if (_notifications[index]['is_read'] == true) return false;
+    _notifications[index] = {
+      ..._notifications[index],
+      'is_read': true,
+    };
+    return true;
   }
 
   /// 释放资源，移除 WebSocket 监听器
@@ -93,7 +153,9 @@ class NotificationProvider with ChangeNotifier {
         _lastUpdate = DateTime.now();
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('加载未读数量失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('加载未读数量失败: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -106,21 +168,17 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAsRead(String notificationId) async {
     try {
       final result = await _notificationService.markAsRead(notificationId);
-      if (_unreadCount > 0) {
-        _unreadCount--;
-      }
-      // 同步列表中的已读状态
-      final idx = _notifications.indexWhere((n) => n['id']?.toString() == notificationId);
-      if (idx >= 0) {
-        _notifications[idx] = {..._notifications[idx], 'is_read': true};
-      }
-      // 服务端返回的未读数优先
+      final changed = _markNotificationReadLocal(notificationId);
       if (result['unread_count'] != null) {
         _unreadCount = result['unread_count'] as int;
+      } else if (changed && _unreadCount > 0) {
+        _unreadCount--;
       }
       notifyListeners();
     } catch (e) {
-      if (kDebugMode) { debugPrint('标记通知已读失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('标记通知已读失败: $e');
+      }
     }
   }
 
@@ -137,7 +195,9 @@ class NotificationProvider with ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      if (kDebugMode) { debugPrint('标记所有通知已读失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('标记所有通知已读失败: $e');
+      }
     }
   }
 
@@ -178,6 +238,7 @@ class NotificationProvider with ChangeNotifier {
     if (refresh) {
       _currentPage = 1;
       _notifications = [];
+      _notificationIndexById.clear();
       _hasMore = true;
     }
 
@@ -194,7 +255,9 @@ class NotificationProvider with ChangeNotifier {
       if (result['success'] == true) {
         final items = result['notifications'] as List? ?? [];
         final newItems = items.whereType<Map<String, dynamic>>().toList();
-        _notifications.addAll(newItems);
+        for (final item in newItems) {
+          _upsertNotification(item);
+        }
         _hasMore = newItems.length >= _pageSize;
         _currentPage++;
         // 同步未读数
@@ -203,7 +266,9 @@ class NotificationProvider with ChangeNotifier {
         }
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('加载通知列表失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('加载通知列表失败: $e');
+      }
     } finally {
       _isLoadingNotifications = false;
       notifyListeners();
@@ -215,6 +280,7 @@ class NotificationProvider with ChangeNotifier {
     _unreadCount = 0;
     _lastUpdate = null;
     _notifications = [];
+    _notificationIndexById.clear();
     _currentPage = 1;
     _hasMore = true;
     _isLoadingNotifications = false;

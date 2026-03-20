@@ -1,13 +1,14 @@
-/// 互动服务
-///
-/// 处理石头的涟漪（点赞）和纸船（评论）等社交互动操作，
-/// 以及限时会话、消息收发和内容删除功能。
-/// 对示例石头（showcase_stone_ 前缀）做只读保护，禁止互动操作。
-/// 依赖 [BaseService] 提供的 HTTP 方法，依赖 [StoneService] 代理石头删除。
+// 互动服务
+//
+// 处理石头的涟漪（点赞）和纸船（评论）等社交互动操作，
+// 以及限时会话、消息收发和内容删除功能。
+// 对示例石头（showcase_stone_ 前缀）做只读保护，禁止互动操作。
+// 依赖 BaseService 提供的 HTTP 方法，依赖 StoneService 代理石头删除。
 
 import '../../utils/input_validator.dart';
 import '../../di/service_locator.dart';
 import 'base_service.dart';
+import 'social_payload_normalizer.dart';
 import 'stone_service.dart';
 
 /// 互动服务
@@ -128,15 +129,25 @@ class InteractionService extends BaseService {
       return _friendlyStoneNotFound(toMap(response), stoneId);
     }
 
-    // API 返回 data 直接是 boats 数组
-    final boats = response.data is List
-        ? response.data
-        : (response.data is Map
-            ? (response.data?['boats'] ?? response.data?['items'] ?? [])
-            : []);
+    final boats = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeBoatPayload,
+      listKeys: const ['boats', 'items'],
+    );
+    final pagination =
+        extractPaginationPayload(response.data, itemCount: boats.length);
     return {
       'success': true,
       'boats': boats,
+      'items': boats,
+      'total': pagination['total'],
+      'page': pagination['page'],
+      'page_size': pagination['page_size'],
+      'pageSize': pagination['pageSize'],
+      'total_pages': pagination['total_pages'],
+      'totalPages': pagination['totalPages'],
+      'has_more': pagination['has_more'],
+      'pagination': pagination,
     };
   }
 
@@ -178,14 +189,25 @@ class InteractionService extends BaseService {
     final response = await get('/connections/$connectionId/messages');
     if (!response.success) return toMap(response);
 
-    final messages = response.data is List
-        ? response.data
-        : (response.data is Map
-            ? (response.data?['items'] ?? response.data?['messages'] ?? [])
-            : []);
+    final messages = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeMessagePayload,
+      listKeys: const ['items', 'messages'],
+    );
+    final pagination =
+        extractPaginationPayload(response.data, itemCount: messages.length);
     return {
       'success': true,
       'messages': messages,
+      'items': messages,
+      'total': pagination['total'],
+      'page': pagination['page'],
+      'page_size': pagination['page_size'],
+      'pageSize': pagination['pageSize'],
+      'total_pages': pagination['total_pages'],
+      'totalPages': pagination['totalPages'],
+      'has_more': pagination['has_more'],
+      'pagination': pagination,
     };
   }
 
@@ -216,10 +238,14 @@ class InteractionService extends BaseService {
     });
     if (!response.success) return toMap(response);
 
+    final payload = response.data is Map
+        ? normalizeMessagePayload(response.data as Map)
+        : response.data;
+
     return {
       'success': true,
-      'message':
-          response.data is Map ? response.data['message'] : response.data,
+      'message': payload,
+      'data': payload,
     };
   }
 
@@ -238,14 +264,25 @@ class InteractionService extends BaseService {
     });
     if (!response.success) return toMap(response);
 
-    final ripples = response.data is List
-        ? response.data
-        : (response.data is Map
-            ? (response.data?['items'] ?? response.data?['ripples'] ?? [])
-            : []);
+    final ripples = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeRipplePayload,
+      listKeys: const ['items', 'ripples'],
+    );
+    final pagination =
+        extractPaginationPayload(response.data, itemCount: ripples.length);
     return {
       'success': true,
       'ripples': ripples,
+      'items': ripples,
+      'total': pagination['total'],
+      'page': pagination['page'],
+      'page_size': pagination['page_size'],
+      'pageSize': pagination['pageSize'],
+      'total_pages': pagination['total_pages'],
+      'totalPages': pagination['totalPages'],
+      'has_more': pagination['has_more'],
+      'pagination': pagination,
     };
   }
 
@@ -264,15 +301,25 @@ class InteractionService extends BaseService {
     });
     if (!response.success) return toMap(response);
 
-    // API 返回 data 直接是 boats 数组
-    final myBoats = response.data is List
-        ? response.data
-        : (response.data is Map
-            ? (response.data?['boats'] ?? response.data?['items'] ?? [])
-            : []);
+    final myBoats = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeBoatPayload,
+      listKeys: const ['boats', 'items'],
+    );
+    final pagination =
+        extractPaginationPayload(response.data, itemCount: myBoats.length);
     return {
       'success': true,
       'boats': myBoats,
+      'items': myBoats,
+      'total': pagination['total'],
+      'page': pagination['page'],
+      'page_size': pagination['page_size'],
+      'pageSize': pagination['pageSize'],
+      'total_pages': pagination['total_pages'],
+      'totalPages': pagination['totalPages'],
+      'has_more': pagination['has_more'],
+      'pagination': pagination,
     };
   }
 

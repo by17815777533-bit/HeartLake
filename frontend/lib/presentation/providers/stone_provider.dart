@@ -12,6 +12,7 @@ import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/cache_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
+import '../../utils/payload_contract.dart';
 
 /// 石头列表状态管理器
 ///
@@ -28,6 +29,7 @@ class StoneProvider with ChangeNotifier {
 
   // 石头列表状态
   List<Stone> _stones = [];
+  final Map<String, int> _stoneIndexById = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -57,6 +59,31 @@ class StoneProvider with ChangeNotifier {
 
   StoneProvider() {
     _initWebSocketListeners();
+  }
+
+  void _rebuildStoneIndex() {
+    _stoneIndexById.clear();
+    for (var i = 0; i < _stones.length; i++) {
+      _stoneIndexById[_stones[i].stoneId] = i;
+    }
+  }
+
+  bool _removeStoneById(String stoneId) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones.removeAt(index);
+    _rebuildStoneIndex();
+    return true;
+  }
+
+  bool _updateStoneById(
+    String stoneId,
+    Stone Function(Stone stone) update,
+  ) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones[index] = update(_stones[index]);
+    return true;
   }
 
   // ==================== WebSocket 实时更新 ====================
@@ -133,69 +160,62 @@ class StoneProvider with ChangeNotifier {
   ///
   /// 通过 stoneId 去重，防止 WebSocket 重复推送导致列表出现重复项。
   void _handleNewStone(Map<String, dynamic> data) {
-    final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
-    final stoneId = stoneData['stone_id'] ?? '';
+    final stoneData = extractStonePayload(data);
+    final stoneId = stoneData['stone_id']?.toString() ?? '';
 
     // 防止重复
-    if (_stones.any((s) => s.stoneId == stoneId)) return;
+    if (stoneId.isEmpty || _stoneIndexById.containsKey(stoneId)) {
+      return;
+    }
 
-    final newStone = Stone(
-      stoneId: stoneId,
-      content: stoneData['content'] ?? '',
-      userId: stoneData['user_id'] ?? '',
-      stoneType: stoneData['stone_type'] ?? 'medium',
-      stoneColor: stoneData['stone_color'] ?? '#7A92A3',
-      moodType: stoneData['mood_type'],
-      isAnonymous:
-          Stone.parseBool(stoneData['is_anonymous'], defaultValue: true),
-      rippleCount: 0,
-      boatCount: 0,
-      createdAt: DateTime.now(),
-    );
-    _stones.insert(0, newStone);
-    _invalidateCache();
-    notifyListeners();
+    try {
+      _stones.insert(0, Stone.fromJson(stoneData));
+      _rebuildStoneIndex();
+      _invalidateCache();
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 忽略无法解析的 new_stone: $e');
+      }
+    }
   }
 
   /// 处理纸船数量更新，优先使用服务端返回的精确计数，否则 +1
   void _handleBoatUpdate(Map<String, dynamic> data) {
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final boatCount = data['boat_count'];
-    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-    if (index >= 0) {
-      _stones[index] = _stones[index].copyWith(
-        boatCount: boatCount is int ? boatCount : _stones[index].boatCount + 1,
+    final boatCount = extractBoatCount(data);
+    if (_updateStoneById(stoneId, (stone) {
+      return stone.copyWith(
+        boatCount: boatCount ?? stone.boatCount + 1,
       );
+    })) {
       notifyListeners();
     }
   }
 
   /// 处理涟漪数量更新，优先使用服务端返回的精确计数，否则 +1
   void _handleRippleUpdate(Map<String, dynamic> data) {
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final rippleCount = data['ripple_count'];
-    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-    if (index >= 0) {
-      _stones[index] = _stones[index].copyWith(
-        rippleCount:
-            rippleCount is int ? rippleCount : _stones[index].rippleCount + 1,
+    final rippleCount = extractRippleCount(data);
+    if (_updateStoneById(stoneId, (stone) {
+      return stone.copyWith(
+        rippleCount: rippleCount ?? stone.rippleCount + 1,
       );
+    })) {
       notifyListeners();
     }
   }
 
   /// 处理石头删除事件，从列表中移除并清除缓存
   void _handleStoneDeleted(Map<String, dynamic> data) {
-    final stoneId = data['stone_id'] ?? data['stone']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final removed = _stones.length;
-    _stones.removeWhere((s) => s.stoneId == stoneId);
-    if (_stones.length != removed) {
+    if (_removeStoneById(stoneId)) {
       _invalidateCache();
       notifyListeners();
     }
@@ -203,36 +223,31 @@ class StoneProvider with ChangeNotifier {
 
   /// 处理纸船删除事件，优先使用服务端计数，否则 -1（下限为 0）
   void _handleBoatDeleted(Map<String, dynamic> data) {
-    final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final boatCount = data['boat_count'];
-    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-    if (index >= 0) {
-      _stones[index] = _stones[index].copyWith(
-        boatCount: boatCount is int
-            ? boatCount
-            : (_stones[index].boatCount > 0 ? _stones[index].boatCount - 1 : 0),
+    final boatCount = extractBoatCount(data);
+    if (_updateStoneById(stoneId, (stone) {
+      return stone.copyWith(
+        boatCount: boatCount ?? (stone.boatCount > 0 ? stone.boatCount - 1 : 0),
       );
+    })) {
       notifyListeners();
     }
   }
 
   /// 处理涟漪删除事件，优先使用服务端计数，否则 -1（下限为 0）
   void _handleRippleDeleted(Map<String, dynamic> data) {
-    final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+    final stoneId = extractStoneEntityId(data);
     if (stoneId == null) return;
 
-    final rippleCount = data['ripple_count'];
-    final index = _stones.indexWhere((s) => s.stoneId == stoneId);
-    if (index >= 0) {
-      _stones[index] = _stones[index].copyWith(
-        rippleCount: rippleCount is int
-            ? rippleCount
-            : (_stones[index].rippleCount > 0
-                ? _stones[index].rippleCount - 1
-                : 0),
+    final rippleCount = extractRippleCount(data);
+    if (_updateStoneById(stoneId, (stone) {
+      return stone.copyWith(
+        rippleCount:
+            rippleCount ?? (stone.rippleCount > 0 ? stone.rippleCount - 1 : 0),
       );
+    })) {
       notifyListeners();
     }
   }
@@ -261,6 +276,7 @@ class StoneProvider with ChangeNotifier {
         final cached = _cache.get<List<Stone>>('${_cachePrefix}page_$page');
         if (cached != null) {
           _stones.addAll(cached);
+          _rebuildStoneIndex();
           _isLoading = false;
           notifyListeners();
           return;
@@ -278,6 +294,7 @@ class StoneProvider with ChangeNotifier {
         } else {
           _stones.addAll(newStones);
         }
+        _rebuildStoneIndex();
         _hasMore = newStones.isNotEmpty;
         _errorMessage = null;
 
@@ -321,6 +338,7 @@ class StoneProvider with ChangeNotifier {
         } else {
           _stones.addAll(newStones);
           _currentPage = page;
+          _rebuildStoneIndex();
 
           _cache.set<List<Stone>>('${_cachePrefix}page_$page', newStones);
         }
@@ -377,7 +395,7 @@ class StoneProvider with ChangeNotifier {
       final result = await _stoneService.deleteStone(stoneId);
 
       if (result['success'] == true) {
-        _stones.removeWhere((s) => s.stoneId == stoneId);
+        _removeStoneById(stoneId);
         _invalidateCache();
         notifyListeners();
       }
@@ -405,6 +423,7 @@ class StoneProvider with ChangeNotifier {
   /// 清空所有状态并重置分页（退出登录时调用）
   void clear() {
     _stones = [];
+    _stoneIndexById.clear();
     _currentPage = 1;
     _hasMore = true;
     _errorMessage = null;

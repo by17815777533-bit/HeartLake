@@ -5,6 +5,7 @@ import '../../../domain/entities/stone.dart';
 import '../../../data/datasources/interaction_service.dart';
 import '../../../data/datasources/websocket_manager.dart';
 import '../../../di/service_locator.dart';
+import '../../../utils/payload_contract.dart';
 import '../../../utils/storage_util.dart';
 
 /// StoneCard 状态控制器 - 管理业务逻辑和WebSocket监听
@@ -40,10 +41,10 @@ class StoneCardController {
     final ws = WebSocketManager();
 
     _rippleUpdateListener = (data) {
-      final stoneId = data['stone_id'] ?? data['ripple']?['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == stone.stoneId) {
-        final triggeredBy = data['triggered_by']?.toString();
-        final serverCount = data['ripple_count'];
+        final triggeredBy = extractPayloadUserId(data);
+        final serverCount = extractRippleCount(data);
         if (serverCount is int && triggeredBy != currentUserId) {
           localRipplesCount = serverCount;
           onStateChanged?.call();
@@ -53,10 +54,10 @@ class StoneCardController {
     ws.on('ripple_update', _rippleUpdateListener);
 
     _boatUpdateListener = (data) {
-      final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == stone.stoneId) {
-        final triggeredBy = data['triggered_by']?.toString();
-        final serverCount = data['boat_count'];
+        final triggeredBy = extractPayloadUserId(data);
+        final serverCount = extractBoatCount(data);
         if (serverCount is int && triggeredBy != currentUserId) {
           localBoatsCount = serverCount;
           onStateChanged?.call();
@@ -66,10 +67,10 @@ class StoneCardController {
     ws.on('boat_update', _boatUpdateListener);
 
     _boatDeletedListener = (data) {
-      final stoneId = data['stone_id'] ?? data['boat']?['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == stone.stoneId) {
-        final triggeredBy = data['triggered_by']?.toString();
-        final serverCount = data['boat_count'];
+        final triggeredBy = extractPayloadUserId(data);
+        final serverCount = extractBoatCount(data);
         if (serverCount is int && triggeredBy != currentUserId) {
           localBoatsCount = serverCount;
           onStateChanged?.call();
@@ -79,10 +80,10 @@ class StoneCardController {
     ws.on('boat_deleted', _boatDeletedListener);
 
     _rippleDeletedListener = (data) {
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == stone.stoneId) {
-        final triggeredBy = data['triggered_by']?.toString();
-        final serverCount = data['ripple_count'];
+        final triggeredBy = extractPayloadUserId(data);
+        final serverCount = extractRippleCount(data);
         if (serverCount is int && triggeredBy != currentUserId) {
           localRipplesCount = serverCount;
           onStateChanged?.call();

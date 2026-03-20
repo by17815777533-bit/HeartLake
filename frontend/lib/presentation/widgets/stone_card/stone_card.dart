@@ -486,6 +486,21 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                         _cardController.onStateChanged?.call();
                         boatController.clear();
 
+                        void rollbackTempBoat() {
+                          final tempIndex = boats.indexWhere(
+                            (boat) => boat['_isTemp'] == true,
+                          );
+                          if (tempIndex >= 0) {
+                            setModalState(() => boats.removeAt(tempIndex));
+                          }
+                          _cardController.localBoatsCount =
+                              (_cardController.localBoatsCount - 1).clamp(
+                            0,
+                            99999,
+                          );
+                          _cardController.onStateChanged?.call();
+                        }
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('纸船正在漂向湖心... 🚣'),
@@ -509,12 +524,7 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                             }
                             await loadBoats(setModalState);
                           } else {
-                            setModalState(() =>
-                                boats.removeWhere((b) => b['_isTemp'] == true));
-                            _cardController.localBoatsCount =
-                                (_cardController.localBoatsCount - 1)
-                                    .clamp(0, 99999);
-                            _cardController.onStateChanged?.call();
+                            rollbackTempBoat();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -526,12 +536,7 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                             }
                           }
                         } catch (_) {
-                          setModalState(() =>
-                              boats.removeWhere((b) => b['_isTemp'] == true));
-                          _cardController.localBoatsCount =
-                              (_cardController.localBoatsCount - 1)
-                                  .clamp(0, 99999);
-                          _cardController.onStateChanged?.call();
+                          rollbackTempBoat();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(

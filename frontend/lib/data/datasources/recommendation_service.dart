@@ -1,4 +1,5 @@
 import 'base_service.dart';
+import 'recommendation_response_parser.dart';
 import '../../utils/input_validator.dart';
 import '../../utils/mood_colors.dart';
 
@@ -19,7 +20,7 @@ class RecommendationService extends BaseService {
     final resp = await get<dynamic>('/recommendations/trending',
         queryParameters: {'limit': limit});
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }
@@ -31,7 +32,7 @@ class RecommendationService extends BaseService {
     final resp =
         await post<dynamic>('/recommendations/search', data: {'query': query});
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }
@@ -41,29 +42,7 @@ class RecommendationService extends BaseService {
     InputValidator.validateEnum(mood, _allowedMoods, '情绪类型');
     final resp = await get<dynamic>('/recommendations/discover/$mood');
     if (resp.success && resp.data != null) {
-      return _extractList(resp.data);
-    }
-    return [];
-  }
-
-  /// 从后端响应中提取石头列表，兼容多种返回格式
-  List<Map<String, dynamic>> _extractList(dynamic data) {
-    if (data is List) {
-      return data.whereType<Map<String, dynamic>>().toList();
-    }
-    if (data is Map<String, dynamic>) {
-      for (final key in [
-        'trending_stones',
-        'results',
-        'stones',
-        'items',
-        'recommendations',
-        'data'
-      ]) {
-        if (data[key] is List) {
-          return (data[key] as List).whereType<Map<String, dynamic>>().toList();
-        }
-      }
+      return RecommendationResponseParser.extractList(resp.data);
     }
     return [];
   }

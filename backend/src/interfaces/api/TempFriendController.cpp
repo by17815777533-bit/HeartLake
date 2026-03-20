@@ -13,6 +13,15 @@ using namespace heartlake::controllers;
 using namespace heartlake::utils;
 using namespace drogon;
 
+namespace {
+constexpr const char kTempFriendBaseColumns[] =
+    "temp_friend_id, user1_id, user2_id, source, source_id, status, "
+    "upgraded_to_friend, created_at, expires_at";
+constexpr const char kTempFriendAliasedColumns[] =
+    "tf.temp_friend_id, tf.user1_id, tf.user2_id, tf.source, tf.source_id, "
+    "tf.status, tf.upgraded_to_friend, tf.created_at, tf.expires_at";
+}
+
 void TempFriendController::createTempFriend(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
@@ -59,9 +68,43 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+
+        if (targetUserId == currentUserId) {
+            Json::Value ret;
+            ret["code"] = 400;
+            ret["message"] = "不能添加自己为临时好友";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            callback(resp);
+            return;
+        }
         
         // 检查是否已经是好友
         auto dbClient = app().getDbClient("default");
+        auto targetResult = dbClient->execSqlSync(
+            "SELECT user_id FROM users WHERE user_id = $1 LIMIT 1", targetUserId);
+        if (targetResult.empty()) {
+            Json::Value ret;
+            ret["code"] = 404;
+            ret["message"] = "目标用户不存在";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            callback(resp);
+            return;
+        }
+
+        auto friendCheck = dbClient->execSqlSync(
+            "SELECT friendship_id FROM friends "
+            "WHERE ((user_id = $1 AND friend_id = $2) "
+            "OR (user_id = $2 AND friend_id = $1)) "
+            "AND status = 'accepted' LIMIT 1",
+            currentUserId, targetUserId);
+        if (!friendCheck.empty()) {
+            Json::Value ret;
+            ret["code"] = 400;
+            ret["message"] = "已经是永久好友";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            callback(resp);
+            return;
+        }
         
         // 检查是否已存在临时好友或永久好友关系
         auto checkSql = "SELECT COUNT(*) as cnt FROM temp_friends "
@@ -85,7 +128,8 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
         
         auto insertSql = "INSERT INTO temp_friends "
                         "(temp_friend_id, user1_id, user2_id, source, source_id, expires_at) "
-                        "VALUES ($1, $2, $3, $4, $5, $6) RETURNING *";
+                        "VALUES ($1, $2, $3, $4, $5, $6) "
+                        "RETURNING temp_friend_id, expires_at";
         
         auto insertResult = dbClient->execSqlSync(insertSql, 
             tempFriendId, currentUserId, targetUserId, 
@@ -149,7 +193,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
         dbClient->execSqlSync(cleanupSql);
         
         // 查询临时好友列表
-        auto querySql = "SELECT tf.*, "
+        auto querySql = std::string("SELECT ") + kTempFriendAliasedColumns + ", "
                        "CASE "
                        "  WHEN tf.user1_id = $1 THEN u2.nickname "
                        "  ELSE u1.nickname "
@@ -181,6 +225,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             Json::Value friend_;
             friend_["temp_friend_id"] = row["temp_friend_id"].as<std::string>();
             friend_["friend_user_id"] = row["friend_user_id"].as<std::string>();
+            friend_["friend_id"] = row["friend_user_id"].as<std::string>();
             friend_["friend_nickname"] = row["friend_nickname"].isNull() ? "匿名用户" : row["friend_nickname"].as<std::string>();
             friend_["friend_avatar"] = row["friend_avatar"].isNull() ? "" : row["friend_avatar"].as<std::string>();
             friend_["source"] = row["source"].as<std::string>();
@@ -193,6 +238,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             friends.append(friend_);
         }
         
+        ret["data"]["items"] = friends;
         ret["data"]["friends"] = friends;
         ret["data"]["total"] = static_cast<int>(result.size());
         
@@ -226,7 +272,7 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         auto& currentUserId = *userIdOpt4;
         auto dbClient = app().getDbClient("default");
 
-        auto querySql = "SELECT tf.*, "
+        auto querySql = std::string("SELECT ") + kTempFriendAliasedColumns + ", "
                        "u1.nickname as user1_nickname, u1.avatar_url as user1_avatar, "
                        "u2.nickname as user2_nickname, u2.avatar_url as user2_avatar, "
                        "EXTRACT(EPOCH FROM (tf.expires_at - NOW())) as seconds_remaining "
@@ -276,6 +322,7 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         }
         
         data["friend_user_id"] = friendUserId;
+        data["friend_id"] = friendUserId;
         data["friend_nickname"] = friendNickname;
         data["friend_avatar"] = friendAvatar;
         
@@ -310,7 +357,7 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
         }
         auto& currentUserId = *userIdOpt3;
         auto dbClient = app().getDbClient("default");
-        auto querySql = "SELECT * FROM temp_friends "
+        auto querySql = std::string("SELECT ") + kTempFriendBaseColumns + " FROM temp_friends "
                        "WHERE temp_friend_id = $1 "
                        "AND (user1_id = $2 OR user2_id = $2) "
                        "AND status = 'active'";
@@ -449,7 +496,7 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
 
         // 检查临时好友关系
-        auto querySql = "SELECT tf.*, "
+        auto querySql = std::string("SELECT ") + kTempFriendAliasedColumns + ", "
                        "EXTRACT(EPOCH FROM (tf.expires_at - NOW())) as seconds_remaining "
                        "FROM temp_friends tf "
                        "WHERE ((tf.user1_id = $1 AND tf.user2_id = $2) "

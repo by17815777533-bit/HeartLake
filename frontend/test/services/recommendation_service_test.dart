@@ -1,37 +1,28 @@
+import 'package:heart_lake/data/datasources/recommendation_response_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// RecommendationService 继承 BaseService，无法直接实例化。
 /// 提取核心逻辑进行测试：列表提取、响应处理。
 
 class RecommendationResponseProcessor {
-  List<Map<String, dynamic>> extractList(dynamic data) {
-    if (data is List) {
-      return data.whereType<Map<String, dynamic>>().toList();
-    }
-    if (data is Map<String, dynamic>) {
-      for (final key in [
-        'trending_stones', 'results', 'stones', 'items', 'recommendations', 'data'
-      ]) {
-        if (data[key] is List) {
-          return (data[key] as List).whereType<Map<String, dynamic>>().toList();
-        }
-      }
-    }
-    return [];
-  }
+  List<Map<String, dynamic>> extractList(dynamic data) =>
+      RecommendationResponseParser.extractList(data);
 
-  List<Map<String, dynamic>> processTrending(dynamic data, bool success, {int limit = 20}) {
+  List<Map<String, dynamic>> processTrending(dynamic data, bool success,
+      {int limit = 20}) {
     if (!success || data == null) return [];
     return extractList(data);
   }
 
-  List<Map<String, dynamic>> processSearch(dynamic data, bool success, String query) {
+  List<Map<String, dynamic>> processSearch(
+      dynamic data, bool success, String query) {
     if (query.isEmpty) return [];
     if (!success || data == null) return [];
     return extractList(data);
   }
 
-  List<Map<String, dynamic>> processDiscoverByMood(dynamic data, bool success, String mood) {
+  List<Map<String, dynamic>> processDiscoverByMood(
+      dynamic data, bool success, String mood) {
     if (mood.isEmpty) return [];
     if (!success || data == null) return [];
     return extractList(data);
@@ -82,7 +73,9 @@ void main() {
 
     test('should extract from results key', () {
       final data = {
-        'results': [{'stone_id': 's1'}]
+        'results': [
+          {'stone_id': 's1'}
+        ]
       };
       final result = processor.extractList(data);
       expect(result.length, 1);
@@ -90,7 +83,10 @@ void main() {
 
     test('should extract from stones key', () {
       final data = {
-        'stones': [{'stone_id': 's1'}, {'stone_id': 's2'}]
+        'stones': [
+          {'stone_id': 's1'},
+          {'stone_id': 's2'}
+        ]
       };
       final result = processor.extractList(data);
       expect(result.length, 2);
@@ -98,7 +94,9 @@ void main() {
 
     test('should extract from items key', () {
       final data = {
-        'items': [{'stone_id': 's1'}]
+        'items': [
+          {'stone_id': 's1'}
+        ]
       };
       final result = processor.extractList(data);
       expect(result.length, 1);
@@ -106,7 +104,11 @@ void main() {
 
     test('should extract from recommendations key', () {
       final data = {
-        'recommendations': [{'stone_id': 's1'}, {'stone_id': 's2'}, {'stone_id': 's3'}]
+        'recommendations': [
+          {'stone_id': 's1'},
+          {'stone_id': 's2'},
+          {'stone_id': 's3'}
+        ]
       };
       final result = processor.extractList(data);
       expect(result.length, 3);
@@ -114,7 +116,9 @@ void main() {
 
     test('should extract from data key', () {
       final data = {
-        'data': [{'stone_id': 's1'}]
+        'data': [
+          {'stone_id': 's1'}
+        ]
       };
       final result = processor.extractList(data);
       expect(result.length, 1);
@@ -122,8 +126,13 @@ void main() {
 
     test('should prioritize first matching key', () {
       final data = {
-        'trending_stones': [{'stone_id': 'trending'}],
-        'results': [{'stone_id': 'result1'}, {'stone_id': 'result2'}],
+        'trending_stones': [
+          {'stone_id': 'trending'}
+        ],
+        'results': [
+          {'stone_id': 'result1'},
+          {'stone_id': 'result2'}
+        ],
       };
       final result = processor.extractList(data);
       expect(result.length, 1);
@@ -151,7 +160,11 @@ void main() {
     });
 
     test('should return empty for map without matching keys', () {
-      final data = {'unknown_key': [{'stone_id': 's1'}]};
+      final data = {
+        'unknown_key': [
+          {'stone_id': 's1'}
+        ]
+      };
       expect(processor.extractList(data), isEmpty);
     });
 
@@ -211,13 +224,22 @@ void main() {
     });
 
     test('should filter invalid items', () {
-      final data = [{'stone_id': 's1'}, 'invalid', null, {'stone_id': 's2'}];
+      final data = [
+        {'stone_id': 's1'},
+        'invalid',
+        null,
+        {'stone_id': 's2'}
+      ];
       final result = processor.processTrending(data, true);
       expect(result.length, 2);
     });
 
     test('should handle map with items key', () {
-      final data = {'items': [{'stone_id': 's1'}]};
+      final data = {
+        'items': [
+          {'stone_id': 's1'}
+        ]
+      };
       final result = processor.processTrending(data, true);
       expect(result.length, 1);
     });
@@ -237,7 +259,11 @@ void main() {
     });
 
     test('should return empty on empty query', () {
-      final data = {'results': [{'stone_id': 's1'}]};
+      final data = {
+        'results': [
+          {'stone_id': 's1'}
+        ]
+      };
       expect(processor.processSearch(data, true, ''), isEmpty);
     });
 
@@ -250,19 +276,25 @@ void main() {
     });
 
     test('should handle direct list response', () {
-      final data = [{'stone_id': 's1', 'content': '匹配'}];
+      final data = [
+        {'stone_id': 's1', 'content': '匹配'}
+      ];
       final result = processor.processSearch(data, true, '匹配');
       expect(result.length, 1);
     });
 
     test('should handle Chinese query', () {
-      final data = [{'stone_id': 's1', 'content': '心情日记'}];
+      final data = [
+        {'stone_id': 's1', 'content': '心情日记'}
+      ];
       final result = processor.processSearch(data, true, '心情');
       expect(result.length, 1);
     });
 
     test('should handle special characters in query', () {
-      final data = [{'stone_id': 's1'}];
+      final data = [
+        {'stone_id': 's1'}
+      ];
       final result = processor.processSearch(data, true, '特殊@#\$');
       expect(result.length, 1);
     });
@@ -297,9 +329,20 @@ void main() {
     });
 
     test('should handle all mood types', () {
-      final moods = ['happy', 'sad', 'calm', 'anxious', 'angry', 'surprised', 'confused', 'neutral'];
+      final moods = [
+        'happy',
+        'sad',
+        'calm',
+        'anxious',
+        'angry',
+        'surprised',
+        'confused',
+        'neutral'
+      ];
       for (final mood in moods) {
-        final data = [{'stone_id': 's1', 'mood_type': mood}];
+        final data = [
+          {'stone_id': 's1', 'mood_type': mood}
+        ];
         final result = processor.processDiscoverByMood(data, true, mood);
         expect(result.length, 1, reason: 'Failed for mood: $mood');
       }
@@ -307,7 +350,9 @@ void main() {
 
     test('should handle map response with stones key', () {
       final data = {
-        'stones': [{'stone_id': 's1', 'mood_type': 'calm'}]
+        'stones': [
+          {'stone_id': 's1', 'mood_type': 'calm'}
+        ]
       };
       final result = processor.processDiscoverByMood(data, true, 'calm');
       expect(result.length, 1);
@@ -318,7 +363,11 @@ void main() {
     });
 
     test('should filter non-map items', () {
-      final data = [{'stone_id': 's1'}, null, 'invalid'];
+      final data = [
+        {'stone_id': 's1'},
+        null,
+        'invalid'
+      ];
       final result = processor.processDiscoverByMood(data, true, 'happy');
       expect(result.length, 1);
     });
@@ -331,7 +380,9 @@ void main() {
         'stones': [
           {
             'stone_id': 's1',
-            'nested': {'deep': {'value': 42}},
+            'nested': {
+              'deep': {'value': 42}
+            },
           }
         ]
       };
@@ -355,14 +406,19 @@ void main() {
     });
 
     test('processSearch should handle whitespace-only query', () {
-      final data = [{'stone_id': 's1'}];
+      final data = [
+        {'stone_id': 's1'}
+      ];
       final result = processor.processSearch(data, true, '   ');
       expect(result.length, 1); // whitespace is not empty
     });
 
     test('processDiscoverByMood should handle unknown mood', () {
-      final data = [{'stone_id': 's1'}];
-      final result = processor.processDiscoverByMood(data, true, 'unknown_mood');
+      final data = [
+        {'stone_id': 's1'}
+      ];
+      final result =
+          processor.processDiscoverByMood(data, true, 'unknown_mood');
       expect(result.length, 1);
     });
   });

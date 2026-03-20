@@ -4,6 +4,7 @@
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
+import 'social_payload_normalizer.dart';
 
 /// 好友关系管理服务
 ///
@@ -28,15 +29,21 @@ class FriendService extends BaseService {
       message = InputValidator.sanitizeText(message);
     }
     final response = await post('/friends/request', data: {
-      'user_id': userId,
+      'target_user_id': userId,
       if (message != null) 'message': message,
     });
 
     if (!response.success) return toMap(response);
 
+    final payload = response.data is Map
+        ? normalizeFriendPayload(response.data as Map)
+        : response.data;
+
     return {
       ...toMap(response),
-      'request_id': response.data?['request_id'],
+      'data': payload,
+      'request_id':
+          response.data is Map ? (response.data as Map)['request_id'] : null,
     };
   }
 
@@ -75,10 +82,19 @@ class FriendService extends BaseService {
 
     if (!response.success) return toMap(response);
 
+    final friends = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeFriendPayload,
+      listKeys: const ['friends', 'items'],
+    );
+
     return {
       ...toMap(response),
-      'friends': response.data?['friends'],
-      'total': response.data?['total'],
+      'friends': friends,
+      'items': friends,
+      'total': response.data is Map
+          ? (response.data as Map)['total'] ?? friends.length
+          : friends.length,
     };
   }
 
@@ -90,10 +106,19 @@ class FriendService extends BaseService {
 
     if (!response.success) return toMap(response);
 
+    final requests = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeFriendPayload,
+      listKeys: const ['requests', 'items'],
+    );
+
     return {
       ...toMap(response),
-      'requests': response.data?['requests'],
-      'total': response.data?['total'],
+      'requests': requests,
+      'items': requests,
+      'total': response.data is Map
+          ? (response.data as Map)['total'] ?? requests.length
+          : requests.length,
     };
   }
 
@@ -109,19 +134,16 @@ class FriendService extends BaseService {
     if (!response.success) return toMap(response);
 
     // 兼容后端两种返回格式：直接数组 或 { "messages": [...] }
-    final rawData = response.data;
-    List messages;
-    if (rawData is List) {
-      messages = rawData;
-    } else if (rawData is Map) {
-      messages = rawData['messages'] ?? [];
-    } else {
-      messages = [];
-    }
+    final messages = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeMessagePayload,
+      listKeys: const ['messages', 'items'],
+    );
 
     return {
       'success': true,
       'messages': messages,
+      'items': messages,
     };
   }
 
@@ -136,7 +158,15 @@ class FriendService extends BaseService {
     final response = await post('/friends/$friendId/messages', data: {
       'content': content,
     });
+    if (!response.success) return toMap(response);
 
-    return toMap(response);
+    final payload = response.data is Map
+        ? normalizeMessagePayload(response.data as Map)
+        : response.data;
+    return {
+      ...toMap(response),
+      'data': payload,
+      'message': payload,
+    };
   }
 }

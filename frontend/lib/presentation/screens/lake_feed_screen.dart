@@ -1,12 +1,13 @@
-/// 心湖动态流界面
-///
-/// 展示心湖社区的实时动态信息流。
+// 心湖动态流界面
+//
+// 展示心湖社区的实时动态信息流。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/stone_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../domain/entities/stone.dart';
+import '../../utils/payload_contract.dart';
 import '../widgets/stone_card/stone_card.dart';
 import 'dart:async';
 
@@ -27,6 +28,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
   final WebSocketManager _wsManager = WebSocketManager();
 
   List<Stone> _stones = [];
+  final Map<String, int> _stoneIndexById = {};
   Map<String, dynamic>? _weather;
   bool _isLoading = true;
   int _currentPage = 1;
@@ -52,58 +54,76 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
 
     _newStoneListener = (data) {
       if (!mounted) return;
-      final stoneData = data['stone'] as Map<String, dynamic>? ?? data;
-      final stoneId = stoneData['stone_id'] ?? '';
-      if (_stones.any((s) => s.stoneId == stoneId)) return;
+      final stoneData = extractStonePayload(data);
+      final stoneId = stoneData['stone_id']?.toString() ?? '';
+      if (stoneId.isEmpty || _stoneIndexById.containsKey(stoneId)) return;
       setState(() {
-        _stones.insert(
-            0,
-            Stone(
-              stoneId: stoneId,
-              content: stoneData['content'] ?? '',
-              userId: stoneData['user_id'] ?? '',
-              stoneType: stoneData['stone_type'] ?? 'medium',
-              stoneColor: stoneData['stone_color'] ?? '#7A92A3',
-              moodType: stoneData['mood_type'],
-              isAnonymous: Stone.parseBool(stoneData['is_anonymous'],
-                  defaultValue: true),
-              createdAt: DateTime.now(),
-            ));
+        _stones.insert(0, Stone.fromJson(stoneData));
+        _rebuildStoneIndex();
       });
     };
     _wsManager.on('new_stone', _newStoneListener);
 
     _stoneDeletedListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
+      final stoneId = extractStoneEntityId(data);
       if (stoneId == null) return;
-      setState(() => _stones.removeWhere((s) => s.stoneId == stoneId));
+      setState(() => _removeStoneById(stoneId));
     };
     _wsManager.on('stone_deleted', _stoneDeletedListener);
 
     _rippleUpdateListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
-      final count = data['ripple_count'];
-      if (stoneId == null || count is! int) return;
+      final stoneId = extractStoneEntityId(data);
+      final count = extractRippleCount(data);
+      if (stoneId == null || count == null) return;
       setState(() {
-        final idx = _stones.indexWhere((s) => s.stoneId == stoneId);
-        if (idx >= 0) _stones[idx] = _stones[idx].copyWith(rippleCount: count);
+        final idx = _stoneIndexById[stoneId];
+        if (idx != null) {
+          _stones[idx] = _stones[idx].copyWith(rippleCount: count);
+        }
       });
     };
     _wsManager.on('ripple_update', _rippleUpdateListener);
 
     _boatUpdateListener = (data) {
       if (!mounted) return;
-      final stoneId = data['stone_id'];
-      final count = data['boat_count'];
-      if (stoneId == null || count is! int) return;
+      final stoneId = extractStoneEntityId(data);
+      final count = extractBoatCount(data);
+      if (stoneId == null || count == null) return;
       setState(() {
-        final idx = _stones.indexWhere((s) => s.stoneId == stoneId);
-        if (idx >= 0) _stones[idx] = _stones[idx].copyWith(boatCount: count);
+        final idx = _stoneIndexById[stoneId];
+        if (idx != null) {
+          _stones[idx] = _stones[idx].copyWith(boatCount: count);
+        }
       });
     };
     _wsManager.on('boat_update', _boatUpdateListener);
+  }
+
+  void _rebuildStoneIndex() {
+    _stoneIndexById.clear();
+    for (var i = 0; i < _stones.length; i++) {
+      _stoneIndexById[_stones[i].stoneId] = i;
+    }
+  }
+
+  bool _removeStoneById(String stoneId) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones.removeAt(index);
+    _rebuildStoneIndex();
+    return true;
+  }
+
+  bool _updateStoneById(
+    String stoneId,
+    Stone Function(Stone stone) update,
+  ) {
+    final index = _stoneIndexById[stoneId];
+    if (index == null) return false;
+    _stones[index] = update(_stones[index]);
+    return true;
   }
 
   /// 并行加载湖面气象和石头列表
@@ -145,6 +165,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
             } else {
               _stones.addAll(result['stones']);
             }
+            _rebuildStoneIndex();
             _hasMore = result['pagination']?['has_more'] ?? false;
           }
         });
@@ -289,22 +310,19 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                 onRippleSuccess: () {
                                   // 涉漪成功后更新本地计数
                                   setState(() {
-                                    final idx = _stones.indexWhere(
-                                        (s) => s.stoneId == stone.stoneId);
-                                    if (idx != -1) {
-                                      _stones[idx] = Stone.fromJson({
-                                        ..._stones[idx].toJson(),
-                                        'ripple_count':
-                                            _stones[idx].rippleCount + 1,
-                                      });
-                                    }
+                                    _updateStoneById(
+                                      stone.stoneId,
+                                      (currentStone) => currentStone.copyWith(
+                                        rippleCount:
+                                            currentStone.rippleCount + 1,
+                                      ),
+                                    );
                                   });
                                 },
                                 onDeleted: () {
                                   // 删除后从列表中移除
                                   setState(() {
-                                    _stones.removeWhere(
-                                        (s) => s.stoneId == stone.stoneId);
+                                    _removeStoneById(stone.stoneId);
                                   });
                                 },
                               ),

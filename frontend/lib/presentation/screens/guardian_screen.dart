@@ -4,6 +4,7 @@ import '../../data/datasources/guardian_service.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 import '../widgets/water_background.dart';
 import 'lake_god_chat_screen.dart';
 
@@ -303,21 +304,8 @@ class _GuardianScreenState extends State<GuardianScreen>
     return mapping[trend.toLowerCase()] ?? trend;
   }
 
-  String? _extractFriendId(Map<String, dynamic> friend) {
-    final candidates = [
-      friend['user_id'],
-      friend['friend_id'],
-      friend['userId'],
-      friend['friendId'],
-    ];
-    for (final candidate in candidates) {
-      final value = candidate?.toString().trim();
-      if (value != null && value.isNotEmpty) {
-        return value;
-      }
-    }
-    return null;
-  }
+  String? _extractFriendId(Map<String, dynamic> friend) =>
+      extractFriendEntityId(friend);
 
   Future<void> _showTransferDialog() async {
     final controller = TextEditingController();

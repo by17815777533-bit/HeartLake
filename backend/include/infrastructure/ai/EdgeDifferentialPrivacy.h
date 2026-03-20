@@ -1,9 +1,8 @@
 /**
  * @brief 边缘差分隐私引擎 — EdgeAIEngine 子系统级 DP 接口
  *
- * @details 与 DifferentialPrivacyEngine（独立模块）功能类似，但作为 EdgeAIEngine
- * 八大子系统之一存在，由门面类统一管理生命周期。DPConfig 定义复用
- * DifferentialPrivacyEngine.h 中的版本，避免 ODR 违规。
+ * @details 作为 EdgeAIEngine 八大子系统之一存在，由门面类统一管理生命周期。
+ * DPConfig 独立放在 DPConfig.h 中，避免仅为共享配置类型而额外保留废弃实现。
  *
  * 支持 Laplace 和 Gaussian 两种噪声机制：
  * - Laplace: noise ~ Lap(sensitivity / epsilon)，适合标量和低维场景
@@ -19,13 +18,10 @@
 #include <mutex>
 #include <shared_mutex>
 #include <random>
-// DPConfig 统一定义在 DifferentialPrivacyEngine.h 中，避免 ODR 违规
-#include "infrastructure/ai/DifferentialPrivacyEngine.h"
+#include "infrastructure/ai/DPConfig.h"
 
 namespace heartlake {
 namespace ai {
-
-// 注意：DPConfig 已在 DifferentialPrivacyEngine.h 中定义，此处不再重复声明。
 
 /**
  * 独立差分隐私引擎（从 EdgeAIEngine 提取）

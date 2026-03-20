@@ -16,6 +16,26 @@ class AccountService extends BaseService {
   @override
   String get serviceName => 'AccountService';
 
+  Map<String, dynamic> _normalizePayload(Map<String, dynamic> payload) {
+    final normalized = Map<String, dynamic>.from(payload);
+    final rawData = normalized['data'];
+    if (rawData is Map) {
+      final data = Map<String, dynamic>.from(rawData.cast<String, dynamic>());
+      final avatar = data['avatar'];
+      if ((data['avatar_url'] == null ||
+              data['avatar_url'].toString().isEmpty) &&
+          avatar != null) {
+        data['avatar_url'] = avatar;
+      }
+      final blockedUsers = data['blocked_users'];
+      if (data['items'] == null && blockedUsers is List) {
+        data['items'] = blockedUsers;
+      }
+      normalized['data'] = data;
+    }
+    return normalized;
+  }
+
   /// 隐私设置白名单，只有这些 key 才会被提交到后端
   static const _allowedPrivacyKeys = [
     // 后端当前生效字段
@@ -41,9 +61,11 @@ class AccountService extends BaseService {
     'nickname',
     'bio',
     'avatar',
+    'avatar_url',
     'gender',
     'birthday',
     'location',
+    'email',
   ];
 
   /// 获取账号信息
@@ -51,7 +73,7 @@ class AccountService extends BaseService {
   /// 返回当前用户的基本账号信息。
   Future<Map<String, dynamic>> getAccountInfo() async {
     final response = await get('/account/info');
-    return toMap(response);
+    return _normalizePayload(toMap(response));
   }
 
   /// 获取账号统计
@@ -119,7 +141,7 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    return toMap(response);
+    return _normalizePayload(toMap(response));
   }
 
   /// 拉黑用户
@@ -203,6 +225,10 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> updateProfile(
       Map<String, dynamic> profile) async {
     profile = InputValidator.validateMapKeys(profile, _allowedProfileKeys);
+    if (profile.containsKey('avatar') && !profile.containsKey('avatar_url')) {
+      profile['avatar_url'] = profile['avatar'];
+    }
+    profile.remove('avatar');
     // 校验昵称长度
     if (profile.containsKey('nickname') && profile['nickname'] is String) {
       final sanitized =

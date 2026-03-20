@@ -16,6 +16,12 @@
 #include "utils/RequestHelper.h"
 #include <set>
 
+namespace {
+constexpr const char kStoneSelectColumns[] =
+    "stone_id, user_id, content, stone_type, stone_color, mood_type, "
+    "is_anonymous, ripple_count, boat_count, view_count, status, created_at";
+}
+
 namespace heartlake::domain::stone {
 using namespace heartlake::utils;
 
@@ -60,7 +66,9 @@ StoneEntity StoneRepository::save(const StoneEntity& stone) {
 std::optional<StoneEntity> StoneRepository::findById(const std::string& stoneId) {
     auto db = drogon::app().getDbClient("default");
     auto result = db->execSqlSync(
-        "SELECT * FROM stones WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL", stoneId
+        std::string("SELECT ") + kStoneSelectColumns +
+            " FROM stones WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL",
+        stoneId
     );
     auto row = safeRow(result);
     if (!row) return std::nullopt;
@@ -72,8 +80,9 @@ std::vector<StoneEntity> StoneRepository::findByUserId(const std::string& userId
     auto db = drogon::app().getDbClient("default");
     int offset = (page - 1) * pageSize;
     auto result = db->execSqlSync(
-        "SELECT * FROM stones WHERE user_id = $1 AND status = 'published' AND deleted_at IS NULL "
-        "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        std::string("SELECT ") + kStoneSelectColumns +
+            " FROM stones WHERE user_id = $1 AND status = 'published' AND deleted_at IS NULL "
+            "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
         userId, pageSize, offset
     );
     std::vector<StoneEntity> stones;
@@ -96,14 +105,18 @@ std::vector<StoneEntity> StoneRepository::findAll(int page, int pageSize, const 
     // 有情绪过滤条件时走参数化查询分支
     if (!filterMood.empty()) {
         auto result = db->execSqlSync(
-            "SELECT * FROM stones WHERE status = 'published' AND deleted_at IS NULL AND mood_type = $1 ORDER BY " + safeSortBy + " DESC LIMIT $2 OFFSET $3",
+            std::string("SELECT ") + kStoneSelectColumns +
+                " FROM stones WHERE status = 'published' AND deleted_at IS NULL AND mood_type = $1 ORDER BY " +
+                safeSortBy + " DESC LIMIT $2 OFFSET $3",
             filterMood, pageSize, offset);
         std::vector<StoneEntity> stones;
         for (const auto& row : result) stones.push_back(rowToEntity(row));
         return stones;
     }
     auto result = db->execSqlSync(
-        "SELECT * FROM stones WHERE status = 'published' AND deleted_at IS NULL ORDER BY " + safeSortBy + " DESC LIMIT $1 OFFSET $2",
+        std::string("SELECT ") + kStoneSelectColumns +
+            " FROM stones WHERE status = 'published' AND deleted_at IS NULL ORDER BY " +
+            safeSortBy + " DESC LIMIT $1 OFFSET $2",
         pageSize, offset);
     std::vector<StoneEntity> stones;
     for (const auto& row : result) stones.push_back(rowToEntity(row));

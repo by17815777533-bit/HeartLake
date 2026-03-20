@@ -621,7 +621,7 @@ std::vector<IntimacyProfile> IntimacyService::getTopIntimacyPeers(
             kIntimacyBaseQuery +
             "SELECT "
             "  fs.peer_id AS user_id, "
-            "  COALESCE(NULLIF(u.user_id, ''), u.id) AS username, "
+            "  COALESCE(NULLIF(u.username, ''), u.user_id) AS username, "
             "  COALESCE(NULLIF(u.nickname, ''), '匿名旅人') AS nickname, "
             "  fs.intimacy_score, "
             "  fs.interaction_count, "
@@ -643,7 +643,7 @@ std::vector<IntimacyProfile> IntimacyService::getTopIntimacyPeers(
             "  fs.anti_gaming_penalty, "
             "  fs.behavior_health "
             "FROM final_score fs "
-            "JOIN users u ON u.id = fs.peer_id "
+            "JOIN users u ON u.user_id = fs.peer_id "
             "WHERE u.status = 'active' "
             "  AND fs.intimacy_score >= CAST($2 AS DOUBLE PRECISION) "
             "ORDER BY fs.intimacy_score DESC, fs.last_interacted_at DESC "

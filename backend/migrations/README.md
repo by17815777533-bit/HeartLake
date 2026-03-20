@@ -16,6 +16,12 @@
 | 010 | `010_data_export.sql` | 数据导出 |
 | 011 | `011_performance_schema_hardening.sql` | 性能索引与架构一致性增强 |
 | 012 | `012_users_username_compat.sql` | users 表兼容列补齐 |
+| 013 | `013_schema_fixes.sql` | 缺失表、索引与时区一致性修复 |
+| 014 | `014_stones_embedding_vector.sql` | stone_embeddings 向量列补齐 |
+| 015 | `015_runtime_schema_hotfix.sql` | 运行时账号 schema 热修复 |
+| 016 | `016_admin_runtime_tables.sql` | 管理后台运行时表补齐 |
+| 017 | `017_account_schema_alignment.sql` | 账户字段、拉黑表与消息索引对齐 |
+| 018 | `018_user_identity_contract.sql` | 用户身份主键契约与外键统一 |
 
 ## 执行方式
 
@@ -196,6 +202,44 @@ ALTER TABLE notifications DROP COLUMN IF EXISTS notification_id;
 DROP INDEX IF EXISTS idx_users_username;
 ALTER TABLE users DROP COLUMN IF EXISTS recovery_key_hash;
 ALTER TABLE users DROP COLUMN IF EXISTS username;
+```
+
+### 017_account_schema_alignment — 回滚
+
+```sql
+DROP INDEX IF EXISTS idx_connection_messages_conn_created;
+DROP INDEX IF EXISTS idx_user_blocks_blocked_created;
+DROP INDEX IF EXISTS idx_user_blocks_user_created;
+DROP TABLE IF EXISTS user_blocks;
+DROP INDEX IF EXISTS idx_users_email;
+ALTER TABLE users DROP COLUMN IF EXISTS location;
+ALTER TABLE users DROP COLUMN IF EXISTS birthday;
+ALTER TABLE users DROP COLUMN IF EXISTS gender;
+ALTER TABLE users DROP COLUMN IF EXISTS email;
+```
+
+### 018_user_identity_contract — 回滚
+
+```sql
+DROP TRIGGER IF EXISTS trg_users_sync_identity ON users;
+DROP FUNCTION IF EXISTS sync_users_identity_columns();
+ALTER TABLE IF EXISTS user_followups DROP CONSTRAINT IF EXISTS fk_user_followups_user;
+ALTER TABLE IF EXISTS data_export_tasks DROP CONSTRAINT IF EXISTS fk_data_export_tasks_user;
+ALTER TABLE IF EXISTS consultation_sessions DROP CONSTRAINT IF EXISTS fk_consultation_user;
+ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS fk_notifications_user;
+ALTER TABLE IF EXISTS connections DROP CONSTRAINT IF EXISTS fk_connections_target_user;
+ALTER TABLE IF EXISTS connections DROP CONSTRAINT IF EXISTS fk_connections_user;
+ALTER TABLE IF EXISTS ripples DROP CONSTRAINT IF EXISTS fk_ripples_user;
+ALTER TABLE IF EXISTS friend_messages DROP CONSTRAINT IF EXISTS fk_friend_messages_receiver;
+ALTER TABLE IF EXISTS friend_messages DROP CONSTRAINT IF EXISTS fk_friend_messages_sender;
+ALTER TABLE IF EXISTS temp_friends DROP CONSTRAINT IF EXISTS fk_temp_friends_user2;
+ALTER TABLE IF EXISTS temp_friends DROP CONSTRAINT IF EXISTS fk_temp_friends_user1;
+ALTER TABLE IF EXISTS friends DROP CONSTRAINT IF EXISTS fk_friends_friend;
+ALTER TABLE IF EXISTS friends DROP CONSTRAINT IF EXISTS fk_friends_user;
+ALTER TABLE IF EXISTS stones DROP CONSTRAINT IF EXISTS fk_stones_user;
+ALTER TABLE IF EXISTS user_similarity DROP CONSTRAINT IF EXISTS fk_user_similarity_user2;
+ALTER TABLE IF EXISTS user_similarity DROP CONSTRAINT IF EXISTS fk_user_similarity_user1;
+ALTER TABLE users ALTER COLUMN user_id DROP NOT NULL;
 ```
 
 ## 紧急回滚流程

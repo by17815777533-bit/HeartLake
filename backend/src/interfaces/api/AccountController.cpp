@@ -44,6 +44,40 @@ void ensureUserPrivacySettingsTable(const drogon::orm::DbClientPtr &dbClient) {
       ")");
 }
 
+void ensureUserProfileColumns(const drogon::orm::DbClientPtr &dbClient) {
+  dbClient->execSqlSync(
+      "ALTER TABLE users "
+      "ADD COLUMN IF NOT EXISTS email VARCHAR(255), "
+      "ADD COLUMN IF NOT EXISTS gender VARCHAR(32), "
+      "ADD COLUMN IF NOT EXISTS birthday DATE, "
+      "ADD COLUMN IF NOT EXISTS location VARCHAR(128)");
+}
+
+void ensureUserBlocksTable(const drogon::orm::DbClientPtr &dbClient) {
+  dbClient->execSqlSync(
+      "CREATE TABLE IF NOT EXISTS user_blocks ("
+      "user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE "
+      "CASCADE,"
+      "blocked_user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON "
+      "DELETE CASCADE,"
+      "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+      "PRIMARY KEY (user_id, blocked_user_id),"
+      "CONSTRAINT chk_user_blocks_not_self CHECK (user_id <> blocked_user_id)"
+      ")");
+  dbClient->execSqlSync(
+      "CREATE INDEX IF NOT EXISTS idx_user_blocks_user_created "
+      "ON user_blocks(user_id, created_at DESC)");
+  dbClient->execSqlSync(
+      "CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked_created "
+      "ON user_blocks(blocked_user_id, created_at DESC)");
+}
+
+void ensureAccountRuntimeSchema(const drogon::orm::DbClientPtr &dbClient) {
+  ensureUserProfileColumns(dbClient);
+  ensureUserPrivacySettingsTable(dbClient);
+  ensureUserBlocksTable(dbClient);
+}
+
 bool parseBoolCompat(const Json::Value &json, const char *key,
                      bool defaultValue) {
   if (!json.isMember(key)) return defaultValue;
@@ -99,10 +133,11 @@ void AccountController::getAccountInfo(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
 
     auto result =
         dbClient->execSqlSync("SELECT user_id, username, nickname, avatar_url, "
-                              "bio, gender, birthday, "
+                              "bio, gender, birthday, location, "
                               "email, status, created_at, last_active_at "
                               "FROM users WHERE user_id = $1",
                               userId);
@@ -126,12 +161,17 @@ void AccountController::getAccountInfo(
         row["gender"].isNull() ? "" : row["gender"].as<std::string>();
     data["birthday"] =
         row["birthday"].isNull() ? "" : row["birthday"].as<std::string>();
+    data["location"] =
+        row["location"].isNull() ? "" : row["location"].as<std::string>();
     data["email"] = row["email"].isNull() ? "" : row["email"].as<std::string>();
     data["status"] =
         row["status"].isNull() ? "active" : row["status"].as<std::string>();
     // BUG-FIX: created_at 可能为 NULL，添加空值保护
     data["created_at"] =
         row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+    data["last_active_at"] = row["last_active_at"].isNull()
+                                 ? ""
+                                 : row["last_active_at"].as<std::string>();
 
     callback(ResponseUtil::success(data));
   } catch (const std::exception &e) {
@@ -151,12 +191,26 @@ void AccountController::updateAvatar(
     }
     auto userId = *userIdOpt;
     auto json = req->getJsonObject();
-    if (!json || !json->isMember("avatar_url")) {
+    if (!json || (!json->isMember("avatar_url") && !json->isMember("avatar"))) {
       callback(ResponseUtil::badRequest("缺少avatar_url参数"));
       return;
     }
 
-    std::string avatarUrl = (*json)["avatar_url"].asString();
+    const auto &avatarNode =
+        json->isMember("avatar_url") ? (*json)["avatar_url"] : (*json)["avatar"];
+    if (!avatarNode.isString()) {
+      callback(ResponseUtil::badRequest("头像地址格式不正确"));
+      return;
+    }
+
+    std::string avatarUrl = trimAscii(avatarNode.asString());
+    if (!avatarUrl.empty()) {
+      auto avatarValidation = Validator::url(avatarUrl, "头像地址");
+      if (!avatarValidation) {
+        callback(ResponseUtil::badRequest(avatarValidation.errorMessage));
+        return;
+      }
+    }
     auto dbClient = app().getDbClient("default");
 
     dbClient->execSqlSync("UPDATE users SET avatar_url = $1 WHERE user_id = $2",
@@ -189,6 +243,7 @@ void AccountController::updateProfile(
     }
 
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
     std::vector<std::string> updates;
     std::vector<std::string> params;
     int paramIndex = 1;
@@ -221,13 +276,81 @@ void AccountController::updateProfile(
       updates.push_back("bio = $" + std::to_string(paramIndex++));
       params.push_back(bio);
     }
+    if (json->isMember("avatar_url") || json->isMember("avatar")) {
+      const auto &avatarNode = json->isMember("avatar_url")
+                                   ? (*json)["avatar_url"]
+                                   : (*json)["avatar"];
+      if (!avatarNode.isString()) {
+        callback(ResponseUtil::badRequest("头像地址格式不正确"));
+        return;
+      }
+      std::string avatarUrl = trimAscii(avatarNode.asString());
+      if (!avatarUrl.empty()) {
+        auto avatarValidation = Validator::url(avatarUrl, "头像地址");
+        if (!avatarValidation) {
+          callback(ResponseUtil::badRequest(avatarValidation.errorMessage));
+          return;
+        }
+      }
+      updates.push_back("avatar_url = NULLIF($" + std::to_string(paramIndex++) +
+                        ", '')");
+      params.push_back(avatarUrl);
+    }
     if (json->isMember("gender")) {
-      updates.push_back("gender = $" + std::to_string(paramIndex++));
-      params.push_back((*json)["gender"].asString());
+      if (!(*json)["gender"].isString()) {
+        callback(ResponseUtil::badRequest("性别格式不正确"));
+        return;
+      }
+      std::string gender = trimAscii((*json)["gender"].asString());
+      auto genderValidation = Validator::length(gender, 0, 32, "性别");
+      if (!genderValidation) {
+        callback(ResponseUtil::badRequest(genderValidation.errorMessage));
+        return;
+      }
+      updates.push_back("gender = NULLIF($" + std::to_string(paramIndex++) +
+                        ", '')");
+      params.push_back(gender);
     }
     if (json->isMember("birthday")) {
-      updates.push_back("birthday = $" + std::to_string(paramIndex++));
-      params.push_back((*json)["birthday"].asString());
+      if (!(*json)["birthday"].isString()) {
+        callback(ResponseUtil::badRequest("生日格式不正确"));
+        return;
+      }
+      updates.push_back("birthday = NULLIF($" + std::to_string(paramIndex++) +
+                        ", '')::date");
+      params.push_back(trimAscii((*json)["birthday"].asString()));
+    }
+    if (json->isMember("location")) {
+      if (!(*json)["location"].isString()) {
+        callback(ResponseUtil::badRequest("地区格式不正确"));
+        return;
+      }
+      std::string location = trimAscii((*json)["location"].asString());
+      auto locationValidation = Validator::length(location, 0, 128, "地区");
+      if (!locationValidation) {
+        callback(ResponseUtil::badRequest(locationValidation.errorMessage));
+        return;
+      }
+      updates.push_back("location = NULLIF($" + std::to_string(paramIndex++) +
+                        ", '')");
+      params.push_back(location);
+    }
+    if (json->isMember("email")) {
+      if (!(*json)["email"].isString()) {
+        callback(ResponseUtil::badRequest("邮箱格式不正确"));
+        return;
+      }
+      std::string email = trimAscii((*json)["email"].asString());
+      if (!email.empty()) {
+        auto emailValidation = Validator::email(email);
+        if (!emailValidation) {
+          callback(ResponseUtil::badRequest(emailValidation.errorMessage));
+          return;
+        }
+      }
+      updates.push_back("email = NULLIF($" + std::to_string(paramIndex++) +
+                        ", '')");
+      params.push_back(email);
     }
 
     if (updates.empty()) {
@@ -251,6 +374,15 @@ void AccountController::updateProfile(
     } else if (params.size() == 4) {
       dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3],
                             userId);
+    } else if (params.size() == 5) {
+      dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3],
+                            params[4], userId);
+    } else if (params.size() == 6) {
+      dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3],
+                            params[4], params[5], userId);
+    } else if (params.size() == 7) {
+      dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3],
+                            params[4], params[5], params[6], userId);
     }
 
     callback(ResponseUtil::success(Json::Value(), "资料更新成功"));
@@ -475,10 +607,12 @@ void AccountController::getPrivacySettings(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureUserPrivacySettingsTable(dbClient);
+    ensureAccountRuntimeSchema(dbClient);
 
     auto result = dbClient->execSqlSync(
-        "SELECT * FROM user_privacy_settings WHERE user_id = $1", userId);
+        "SELECT profile_visibility, show_online_status, allow_friend_request, "
+        "allow_message_from_stranger FROM user_privacy_settings WHERE user_id = $1",
+        userId);
 
     Json::Value data;
     if (result.empty()) {
@@ -521,7 +655,7 @@ void AccountController::updatePrivacySettings(
     }
 
     auto dbClient = app().getDbClient("default");
-    ensureUserPrivacySettingsTable(dbClient);
+    ensureAccountRuntimeSchema(dbClient);
 
     std::string visibility = parseVisibilityCompat(*json);
     bool showOnline = parseBoolCompat(*json, "show_online_status", true);
@@ -559,12 +693,35 @@ void AccountController::getBlockedUsers(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
+
+    int page = 1;
+    int pageSize = 20;
+    try {
+      if (req->getParameter("page").empty() == false) {
+        page = std::stoi(req->getParameter("page"));
+      }
+      if (req->getParameter("page_size").empty() == false) {
+        pageSize = std::stoi(req->getParameter("page_size"));
+      }
+    } catch (const std::exception &) {
+      callback(ResponseUtil::badRequest("分页参数格式不正确"));
+      return;
+    }
+    auto paginationValidation = Validator::paginationParams(page, pageSize);
+    if (!paginationValidation) {
+      callback(ResponseUtil::badRequest(paginationValidation.errorMessage));
+      return;
+    }
+    int offset = (page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
         "SELECT b.blocked_user_id, u.nickname, u.avatar_url, b.created_at "
         "FROM user_blocks b JOIN users u ON b.blocked_user_id = u.user_id "
-        "WHERE b.user_id = $1 ORDER BY b.created_at DESC",
-        userId);
+        "WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
+        userId, pageSize, offset);
+    auto countResult = dbClient->execSqlSync(
+        "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1", userId);
 
     Json::Value users(Json::arrayValue);
     for (const auto &row : result) {
@@ -579,7 +736,11 @@ void AccountController::getBlockedUsers(
     }
 
     Json::Value data;
+    data["items"] = users;
     data["blocked_users"] = users;
+    data["total"] = safeCount(countResult);
+    data["page"] = page;
+    data["page_size"] = pageSize;
     callback(ResponseUtil::success(data));
   } catch (const std::exception &e) {
     LOG_ERROR << "getBlockedUsers error: " << e.what();
@@ -605,6 +766,14 @@ void AccountController::blockUser(
     }
 
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
+    auto targetResult =
+        dbClient->execSqlSync("SELECT user_id FROM users WHERE user_id = $1",
+                              targetUserId);
+    if (targetResult.empty()) {
+      callback(ResponseUtil::notFound("用户不存在"));
+      return;
+    }
 
     dbClient->execSqlSync(
         "INSERT INTO user_blocks (user_id, blocked_user_id) VALUES ($1, $2) "
@@ -631,6 +800,7 @@ void AccountController::unblockUser(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
 
     dbClient->execSqlSync(
         "DELETE FROM user_blocks WHERE user_id = $1 AND blocked_user_id = $2",
@@ -657,6 +827,7 @@ void AccountController::exportData(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
 
     std::string taskId = IdGenerator::generateUserId();
 
@@ -786,13 +957,14 @@ void AccountController::deleteAccountPermanently(
     }
 
     auto dbClient = app().getDbClient("default");
+    ensureAccountRuntimeSchema(dbClient);
     auto trans = dbClient->newTransaction();
 
     // 按依赖顺序删除关联数据
-    trans->execSqlSync("DELETE FROM notification_reads WHERE user_id = $1",
-                       userId);
     trans->execSqlSync("DELETE FROM notifications WHERE user_id = $1", userId);
-    trans->execSqlSync("DELETE FROM device_tokens WHERE user_id = $1", userId);
+    trans->execSqlSync(
+        "DELETE FROM user_blocks WHERE user_id = $1 OR blocked_user_id = $1",
+        userId);
     trans->execSqlSync("DELETE FROM resonance_points WHERE user_id = $1",
                        userId);
     trans->execSqlSync(
@@ -802,23 +974,18 @@ void AccountController::deleteAccountPermanently(
                        userId);
     trans->execSqlSync(
         "DELETE FROM user_interaction_history WHERE user_id = $1", userId);
-    trans->execSqlSync("DELETE FROM user_items WHERE user_id = $1", userId);
-    trans->execSqlSync("DELETE FROM emotion_records WHERE user_id = $1",
-                       userId);
-    trans->execSqlSync(
-        "DELETE FROM consultation_appointments WHERE user_id = $1", userId);
     trans->execSqlSync(
         "DELETE FROM consultation_messages WHERE session_id IN (SELECT "
-        "session_id FROM consultation_sessions WHERE user_id = $1)",
+        "id FROM consultation_sessions WHERE user_id = $1)",
         userId);
     trans->execSqlSync("DELETE FROM consultation_sessions WHERE user_id = $1",
                        userId);
     trans->execSqlSync("DELETE FROM connection_messages WHERE connection_id IN "
-                       "(SELECT connection_id FROM connections WHERE user_id_1 "
-                       "= $1 OR user_id_2 = $1)",
+                       "(SELECT connection_id FROM connections WHERE user_id "
+                       "= $1 OR target_user_id = $1)",
                        userId);
     trans->execSqlSync(
-        "DELETE FROM connections WHERE user_id_1 = $1 OR user_id_2 = $1",
+        "DELETE FROM connections WHERE user_id = $1 OR target_user_id = $1",
         userId);
     trans->execSqlSync(
         "DELETE FROM friend_messages WHERE sender_id = $1 OR receiver_id = $1",
@@ -829,24 +996,17 @@ void AccountController::deleteAccountPermanently(
     trans->execSqlSync(
         "DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", userId);
     trans->execSqlSync(
-        "DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1",
+        "DELETE FROM paper_boats WHERE sender_id = $1 OR receiver_id = $1",
         userId);
-    trans->execSqlSync(
-        "DELETE FROM conversations WHERE user_id_1 = $1 OR user_id_2 = $1",
-        userId);
-    trans->execSqlSync("DELETE FROM comments WHERE user_id = $1", userId);
-    trans->execSqlSync("DELETE FROM likes WHERE user_id = $1", userId);
-    trans->execSqlSync("DELETE FROM paper_boats WHERE sender_id = $1", userId);
     trans->execSqlSync("DELETE FROM ripples WHERE user_id = $1", userId);
     trans->execSqlSync("DELETE FROM stone_embeddings WHERE stone_id IN (SELECT "
-                       "stone_id FROM stones WHERE author_id = $1)",
+                       "stone_id FROM stones WHERE user_id = $1)",
                        userId);
-    trans->execSqlSync("DELETE FROM stones WHERE author_id = $1", userId);
+    trans->execSqlSync("DELETE FROM stones WHERE user_id = $1", userId);
     trans->execSqlSync(
-        "DELETE FROM warm_boats WHERE sender_id = $1 OR receiver_id = $1",
+        "DELETE FROM reports WHERE reporter_id = $1 OR (target_type = 'user' "
+        "AND target_id = $1)",
         userId);
-    trans->execSqlSync("DELETE FROM reports WHERE reporter_id = $1", userId);
-    trans->execSqlSync("DELETE FROM feedback WHERE user_id = $1", userId);
     trans->execSqlSync("DELETE FROM lake_god_messages WHERE user_id = $1",
                        userId);
     trans->execSqlSync("DELETE FROM user_emotion_history WHERE user_id = $1",
@@ -867,10 +1027,8 @@ void AccountController::deleteAccountPermanently(
     trans->execSqlSync("DELETE FROM user_privacy_settings WHERE user_id = $1",
                        userId);
     trans->execSqlSync(
-        "DELETE FROM user_similarity WHERE user_id_1 = $1 OR user_id_2 = $1",
+        "DELETE FROM user_similarity WHERE user1_id = $1 OR user2_id = $1",
         userId);
-    trans->execSqlSync("DELETE FROM operation_logs WHERE operator_id = $1",
-                       userId);
     // 最后删除用户记录
     trans->execSqlSync("DELETE FROM users WHERE user_id = $1", userId);
 

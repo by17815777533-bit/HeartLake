@@ -9,6 +9,7 @@ import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
 import '../../utils/storage_util.dart';
 import '../widgets/water_background.dart';
 import '../widgets/emotion_pulse_widget.dart';
@@ -102,16 +103,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
     if (currentUserId == null || currentUserId.isEmpty) {
       return true;
     }
-    final candidateIds = <String?>[
-      payload['triggered_by']?.toString(),
-      payload['user_id']?.toString(),
-      payload['userId']?.toString(),
-      (payload['stone'] as Map?)?['user_id']?.toString(),
-      (payload['stone'] as Map?)?['userId']?.toString(),
-      (payload['stone'] as Map?)?['author_id']?.toString(),
-      (payload['stone'] as Map?)?['authorId']?.toString(),
-    ];
-    return candidateIds.any((id) => id != null && id == currentUserId);
+    return extractPayloadUserId(payload) == currentUserId;
   }
 
   /// 防抖刷新：300ms 内合并多次事件，[withFollowUp] 为 true 时 2s 后再补刷一次
