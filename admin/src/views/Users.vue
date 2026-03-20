@@ -86,18 +86,6 @@
         </OpsSurfaceCard>
       </template>
 
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="评分"
-          title="陪伴指数"
-          :chip="`${engagementScore} / 100`"
-          tone="plain"
-          compact
-        >
-          <OpsGaugeMeter :value="engagementScore" :max="100" :label="engagementLabel" />
-        </OpsSurfaceCard>
-      </template>
-
       <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar ops-soft-toolbar--stacked users-table-toolbar">
           <div class="users-table-copy">
@@ -275,7 +263,6 @@ import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'

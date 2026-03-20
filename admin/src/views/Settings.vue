@@ -75,18 +75,6 @@
         </OpsSurfaceCard>
       </template>
 
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="评分"
-          title="配置完整度"
-          :chip="`${settingsScore} / 100`"
-          tone="plain"
-          compact
-        >
-          <OpsGaugeMeter :value="settingsScore" :max="100" :label="settingsLabel" />
-        </OpsSurfaceCard>
-      </template>
-
       <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar">
           <div class="settings-table-copy">
@@ -250,7 +238,6 @@ import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'
 

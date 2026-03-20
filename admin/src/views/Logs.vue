@@ -84,18 +84,6 @@
         </OpsSurfaceCard>
       </template>
 
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="评分"
-          title="审计完整度"
-          :chip="`${auditScore} / 100`"
-          tone="plain"
-          compact
-        >
-          <OpsGaugeMeter :value="auditScore" :max="100" :label="auditLabel" />
-        </OpsSurfaceCard>
-      </template>
-
       <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar ops-soft-toolbar--stacked logs-table-toolbar">
           <div class="logs-table-copy">
@@ -214,7 +202,6 @@ import { ElMessage } from 'element-plus'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'

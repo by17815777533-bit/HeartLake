@@ -59,7 +59,7 @@ const hasDeck = computed(
 
 .ops-workbench__deck {
   display: grid;
-  grid-template-columns: minmax(0, 1.48fr) minmax(168px, 0.74fr) minmax(242px, 0.98fr);
+  grid-template-columns: minmax(0, 1.38fr) minmax(220px, 0.9fr) minmax(260px, 1fr);
   gap: var(--ops-workbench-gap);
   align-items: start;
 }
@@ -106,7 +106,7 @@ const hasDeck = computed(
   }
 
   .ops-workbench__deck {
-    grid-template-columns: minmax(0, 1.4fr) minmax(148px, 0.7fr) minmax(214px, 0.9fr);
+    grid-template-columns: minmax(0, 1.34fr) minmax(190px, 0.82fr) minmax(228px, 0.94fr);
   }
 
   .ops-workbench__deck:not(.has-rail) {

@@ -18,6 +18,7 @@ vi.mock('@/api', () => ({
     approveContent: vi.fn(),
     rejectContent: vi.fn(),
   },
+  isRequestCanceled: vi.fn().mockReturnValue(false),
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 

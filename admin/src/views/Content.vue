@@ -80,18 +80,6 @@
         </OpsSurfaceCard>
       </template>
 
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="评分"
-          title="巡检评分"
-          :chip="`${contentHealthScore} / 100`"
-          tone="plain"
-          compact
-        >
-          <OpsGaugeMeter :value="contentHealthScore" :max="100" :label="contentHealthLabel" />
-        </OpsSurfaceCard>
-      </template>
-
       <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar content-table-toolbar">
           <div class="content-table-copy">
@@ -242,7 +230,6 @@ import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { getWorkbenchTileTone } from '@/utils/workbenchTone'

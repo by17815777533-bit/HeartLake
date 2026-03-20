@@ -12,6 +12,7 @@ vi.mock('element-plus', () => ({
 
 vi.mock('@/api', () => ({
   default: { getSensitiveWords: vi.fn(), addSensitiveWord: vi.fn(), updateSensitiveWord: vi.fn(), deleteSensitiveWord: vi.fn() },
+  isRequestCanceled: vi.fn().mockReturnValue(false),
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 vi.mock('@/composables/useTablePagination', () => ({

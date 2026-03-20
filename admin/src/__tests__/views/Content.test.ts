@@ -13,6 +13,7 @@ vi.mock('element-plus', () => ({
 
 vi.mock('@/api', () => ({
   default: { getContents: vi.fn(), getStones: vi.fn(), getBoats: vi.fn(), deleteStone: vi.fn(), deleteBoat: vi.fn() },
+  isRequestCanceled: vi.fn().mockReturnValue(false),
 }))
 vi.mock('@/utils/errorHelper', () => ({ getErrorMessage: (_e: any, f: string) => f }))
 vi.mock('@/composables/useTablePagination', () => ({

@@ -86,18 +86,6 @@
         </OpsSurfaceCard>
       </template>
 
-      <template #footer>
-        <OpsSurfaceCard
-          eyebrow="评分"
-          title="策略强度"
-          :chip="`${sensitiveScore} / 100`"
-          tone="plain"
-          compact
-        >
-          <OpsGaugeMeter :value="sensitiveScore" :max="100" :label="sensitiveLabel" />
-        </OpsSurfaceCard>
-      </template>
-
       <el-card shadow="never" class="table-card ops-table-card">
         <div class="ops-soft-toolbar sensitive-table-toolbar">
           <div class="sensitive-table-copy">
@@ -244,7 +232,6 @@ import api, { isRequestCanceled } from '@/api'
 import OpsWorkbench from '@/components/OpsWorkbench.vue'
 import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
