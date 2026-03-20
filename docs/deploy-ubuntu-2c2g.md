@@ -37,6 +37,15 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 当前 `server-lite` 模板已默认关闭 ONNX 线程放大，并把 Redis 连接池上限压到 `8`，更适合 `2C2G` 单机。
 
+注意：
+
+- `2C2G` 机器不要把“只改后台前端”也用成 `docker compose ... up -d --build admin`
+- 这类命令在 Compose 依赖链下可能把 `backend` 也一起带进构建，云机容易进入持续内存压力，严重时 SSH/HTTP 会一起卡死
+- 全量升级才用 `./scripts/docker-up.sh server-lite`
+- 只改管理后台时改用 `./scripts/docker-up.sh server-lite-admin`
+- 只改后端时改用 `./scripts/docker-up.sh server-lite-backend`
+- 只改网关配置时改用 `./scripts/docker-up.sh server-lite-gateway`
+
 ## 3. 拉代码并生成服务器环境文件
 
 ```bash
@@ -58,6 +67,19 @@ cp .env.server-lite .env
 ```bash
 docker compose pull postgres redis gateway || true
 ./scripts/docker-up.sh server-lite
+```
+
+如果只是增量更新，优先用更轻的命令：
+
+```bash
+# 只改 admin
+./scripts/docker-up.sh server-lite-admin
+
+# 只改 backend
+./scripts/docker-up.sh server-lite-backend
+
+# 只改 gateway
+./scripts/docker-up.sh server-lite-gateway
 ```
 
 ## 5. 冒烟验证

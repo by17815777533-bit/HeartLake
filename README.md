@@ -75,6 +75,9 @@ cp .env.example .env
 | 全量 | `./scripts/docker-up.sh all` | 全部 6 个容器 |
 | 精简 | `./scripts/docker-up.sh lite` | 除 Ollama 外的全部服务（无 LLM 对话能力，EdgeAI 本地分析正常） |
 | 低配服务器 | `./scripts/docker-up.sh server-lite` | 适配 2C2G Ubuntu，内部端口默认仅绑定本机 |
+| 低配增量 admin | `./scripts/docker-up.sh server-lite-admin` | 仅重建管理后台，避免顺带重建 backend |
+| 低配增量 backend | `./scripts/docker-up.sh server-lite-backend` | 仅重建后端，避免顺带重建 admin |
+| 低配增量 gateway | `./scripts/docker-up.sh server-lite-gateway` | 仅重启网关 |
 | 仅数据库 | `./scripts/docker-up.sh db` | PostgreSQL + Redis |
 
 ### 服务访问地址

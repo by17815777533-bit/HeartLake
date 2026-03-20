@@ -33,12 +33,26 @@ case "${MODE}" in
     echo "[docker-up] 启动 2C2G Ubuntu 服务器精简栈（低内存构建 + 本机绑定内部端口）..."
     docker compose -f docker-compose.yml -f docker-compose.server-lite.yml up -d --build postgres redis backend admin gateway
     ;;
+  server-lite-admin)
+    echo "[docker-up] 2C2G Ubuntu 服务器增量重建 admin（避免顺带重建 backend）..."
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml build admin
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml up -d --no-deps admin
+    ;;
+  server-lite-backend)
+    echo "[docker-up] 2C2G Ubuntu 服务器增量重建 backend（避免顺带重建 admin）..."
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml build backend
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml up -d --no-deps backend
+    ;;
+  server-lite-gateway)
+    echo "[docker-up] 2C2G Ubuntu 服务器仅重启 gateway..."
+    docker compose -f docker-compose.yml -f docker-compose.server-lite.yml up -d --no-deps gateway
+    ;;
   db)
     echo "[docker-up] 仅启动数据库与缓存..."
     docker compose up -d postgres redis
     ;;
   *)
-    echo "用法: $0 [all|lite|server-lite|db]"
+    echo "用法: $0 [all|lite|server-lite|server-lite-admin|server-lite-backend|server-lite-gateway|db]"
     echo "兼容别名: full/dev/prod -> all"
     exit 1
     ;;
