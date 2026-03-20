@@ -436,7 +436,8 @@ const normalizedRhythmItems = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 18px;
+  margin-top: auto;
+  padding-top: 18px;
 
   span {
     color: #111827;
@@ -667,10 +668,10 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .transaction-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0;
   margin-top: 8px;
-  flex: 1 1 auto;
 }
 
 .transaction-item {
@@ -791,7 +792,7 @@ const normalizedRhythmItems = computed(() => {
   display: grid;
   gap: 4px;
   margin-top: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
   border: 1px solid rgba(143, 166, 228, 0.12);
@@ -820,15 +821,15 @@ const normalizedRhythmItems = computed(() => {
 
 .guide-list {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
 
 .guide-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
+  gap: 8px;
+  align-content: start;
   padding: 12px 14px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.7);
@@ -837,16 +838,17 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .guide-item__badge {
-  min-width: 56px;
-  min-height: 34px;
+  width: fit-content;
+  min-width: 44px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 9px;
   border-radius: 999px;
   background: rgba(231, 241, 255, 0.92);
   color: #3b5e9f;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -863,13 +865,14 @@ const normalizedRhythmItems = computed(() => {
     color: #132033;
     font-size: 12px;
     font-weight: 700;
+    line-height: 1.4;
   }
 
   span {
-    margin-top: 4px;
+    margin-top: 3px;
     color: rgba(19, 32, 51, 0.62);
-    font-size: 11px;
-    line-height: 1.55;
+    font-size: 10px;
+    line-height: 1.5;
   }
 }
 
@@ -1072,6 +1075,10 @@ const normalizedRhythmItems = computed(() => {
 
   .guide-pulse strong {
     font-size: 22px;
+  }
+
+  .guide-list {
+    grid-template-columns: 1fr;
   }
 }
 
