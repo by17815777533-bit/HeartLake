@@ -296,7 +296,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 
   grid-template-columns: minmax(0, 1.42fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
   grid-template-rows: minmax(0, 1fr) minmax(0, 0.66fr);
-  height: clamp(336px, 36vh, 392px);
+  height: clamp(360px, 38vh, 410px);
   margin-bottom: 12px;
 }
 
@@ -442,10 +442,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
   p {
     margin-top: 8px;
     line-height: 1.45;
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    max-width: 24rem;
   }
 }
 
@@ -730,7 +727,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 }
 
 .ops-dashboard-deck.is-compact .overview-mini-card {
-  min-height: 88px;
+  min-height: 94px;
   padding: 11px;
 
   span,
@@ -745,9 +742,11 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
   }
 
   small {
-    white-space: nowrap;
+    line-height: 1.28;
+    display: -webkit-box;
     overflow: hidden;
-    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   em {
@@ -825,7 +824,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 }
 
 .ops-dashboard-deck.is-compact .overview-shortcut {
-  min-height: 88px;
+  min-height: 94px;
 }
 
 .overview-shortcut--data {
@@ -1056,9 +1055,11 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
     color: #132033;
     font-size: 14px;
     font-weight: 680;
-    white-space: nowrap;
+    line-height: 1.24;
+    display: -webkit-box;
     overflow: hidden;
-    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   span {
@@ -1066,23 +1067,23 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
     margin-top: 3px;
     color: rgba(19, 32, 51, 0.62);
     font-size: 10px;
+    line-height: 1.32;
   }
 }
 
 .ops-dashboard-deck.is-compact .transaction-item__copy {
   strong {
     font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   span {
     margin-top: 2px;
     font-size: 9px;
-    white-space: nowrap;
+    line-height: 1.28;
+    display: -webkit-box;
     overflow: hidden;
-    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -1164,6 +1165,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 
   strong {
     font-size: 15px;
+    -webkit-line-clamp: 3;
   }
 
   span {
@@ -1172,7 +1174,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -1188,13 +1190,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 }
 
 .ops-dashboard-deck.is-compact .guide-pulse {
-  margin-top: 6px;
-  padding: 7px 9px;
-  border-radius: 14px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  display: none;
 }
 
 .guide-pulse__label {
@@ -1209,20 +1205,6 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
   font-size: 26px;
   font-weight: 780;
   letter-spacing: -0.05em;
-}
-
-.ops-dashboard-deck.is-compact .guide-pulse strong {
-  font-size: 17px;
-  flex: 0 0 auto;
-}
-
-.ops-dashboard-deck.is-compact .guide-pulse small {
-  display: none;
-}
-
-.ops-dashboard-deck.is-compact .guide-pulse__label {
-  font-size: 9px;
-  min-width: 0;
 }
 
 .guide-pulse small {
