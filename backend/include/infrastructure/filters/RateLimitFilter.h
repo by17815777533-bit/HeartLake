@@ -113,7 +113,7 @@ private:
  * @brief AI 专用限流过滤器
  *
  * @details 复用 RateLimitFilter 的限流逻辑，但强制使用 AI 限流参数。
- * 挂载在 /api/edge-ai/* 和 /api/guardian/chat 等 AI 推理端点上。
+ * 挂载在 /api/edge-ai/ 前缀和 /api/guardian/chat 等 AI 推理端点上。
  */
 class AIRateLimitFilter : public HttpFilter<AIRateLimitFilter> {
 public:

@@ -65,6 +65,8 @@ const pulseData = {
 
 describe('Dashboard API', () => {
   let mock: MockAdapter
+  let noRetryId: number
+  let cleanupInterceptorId: number
 
   beforeEach(() => {
     localStorage.clear()
@@ -72,78 +74,96 @@ describe('Dashboard API', () => {
     vi.clearAllMocks()
     setActivePinia(createPinia())
     mock = new MockAdapter(http)
+    noRetryId = http.interceptors.request.use((config) => {
+      ;(config as any)._retryCount = Infinity
+      return config
+    })
+    cleanupInterceptorId = http.interceptors.response.use(undefined, (error) => {
+      if (error?.config) {
+        try {
+          error.config = JSON.parse(JSON.stringify(error.config))
+        } catch {
+          error.config = {}
+        }
+      }
+      return Promise.reject(error)
+    })
   })
 
-  afterEach(() => { mock.restore() })
+  afterEach(() => {
+    http.interceptors.request.eject(noRetryId)
+    http.interceptors.response.eject(cleanupInterceptorId)
+    mock.restore()
+  })
 
   describe('仪表盘统计', () => {
     it('应正确获取统计数据', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
       const res = await api.getDashboardStats()
       expect(res.data.data.total_users).toBe(1234)
       expect(res.data.data.total_stones).toBe(5678)
     })
 
     it('应包含今日数据', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
       const res = await api.getDashboardStats()
       expect(res.data.data.today_users).toBe(56)
       expect(res.data.data.today_stones).toBe(123)
     })
 
     it('接口错误应抛出异常', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(400)
+      mock.onGet('/admin/stats/dashboard').reply(400)
       await expect(api.getDashboardStats()).rejects.toThrow()
     })
 
     it('网络错误应抛出异常', async () => {
-      mock.onGet('/admin/dashboard/stats').networkError()
+      mock.onGet('/admin/stats/dashboard').networkError()
       try { await api.getDashboardStats(); expect.unreachable() } catch (e: any) { expect(e.message).toContain('Network Error') }
     })
 
     it('应包含 total_boats', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
       const res = await api.getDashboardStats()
       expect(res.data.data.total_boats).toBe(890)
     })
 
     it('应包含 total_ripples', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
       const res = await api.getDashboardStats()
       expect(res.data.data.total_ripples).toBe(3456)
     })
 
     it('空响应体不崩溃', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, {})
+      mock.onGet('/admin/stats/dashboard').reply(200, {})
       const res = await api.getDashboardStats()
       expect(res.status).toBe(200)
     })
 
     it('应传递 range 参数 7d', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, growthData)
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, growthData)
       await api.getUserGrowthStats('7d')
-      expect(mock.history.get[0].url).toContain('range=7d')
+      expect(mock.history.get[0].url).toContain('days=7d')
     })
   })
 
   describe('用户增长趋势', () => {
     it('应正确获取增长数据', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, growthData)
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, growthData)
       const res = await api.getUserGrowthStats('7d')
       expect(res.data.data).toHaveLength(3)
       expect(res.data.data[0].date).toBe('2025-01-01')
     })
 
     it('应传递 range 参数', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, growthData)
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, growthData)
       await api.getUserGrowthStats('30d')
-      expect(mock.history.get[0].url).toContain('range=30d')
+      expect(mock.history.get[0].url).toContain('days=30d')
     })
   })
 
   describe('心情分布', () => {
     it('应正确获取心情分布', async () => {
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, moodData)
+      mock.onGet('/admin/stats/mood-distribution').reply(200, moodData)
       const res = await api.getMoodDistribution()
       expect(res.data.data).toHaveLength(4)
       expect(res.data.data[0].mood).toBe('joyful')
@@ -181,7 +201,7 @@ describe('Dashboard API', () => {
 
   describe('数据完整性', () => {
     it('应包含所有心情类型', async () => {
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, moodData)
+      mock.onGet('/admin/stats/mood-distribution').reply(200, moodData)
       const res = await api.getMoodDistribution()
       const moods = res.data.data.map((d: any) => d.mood)
       expect(moods).toContain('joyful')
@@ -202,41 +222,41 @@ describe('Dashboard API', () => {
     })
 
     it('getRealtimeStats 成功', async () => {
-      mock.onGet('/admin/realtime-stats').reply(200, { data: { online: 42 } })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: { online: 42 } })
       const res = await api.getRealtimeStats()
       expect(res.data.data.online).toBe(42)
     })
 
     it('getActiveTimeStats 成功', async () => {
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: [{ hour: 0, count: 10 }] })
+      mock.onGet('/admin/stats/active-time').reply(200, { data: [{ hour: 0, count: 10 }] })
       const res = await api.getActiveTimeStats()
       expect(res.data.data[0].hour).toBe(0)
     })
 
     it('getTrendingTopics 成功', async () => {
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: [{ topic: '心湖', count: 99 }] })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: [{ topic: '心湖', count: 99 }] })
       const res = await api.getTrendingTopics()
       expect(res.data.data[0].topic).toBe('心湖')
     })
 
     it('getMoodTrend 成功', async () => {
-      mock.onGet(/\/admin\/dashboard\/mood-trend/).reply(200, { data: [{ date: '2025-01-01', score: 0.7 }] })
+      mock.onGet(/\/admin\/stats\/mood-trend/).reply(200, { data: [{ date: '2025-01-01', score: 0.7 }] })
       const res = await api.getMoodTrend('7d')
       expect(res.data.data[0].score).toBe(0.7)
     })
 
     it('部分接口失败不影响其他', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(400)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
+      mock.onGet('/admin/stats/mood-distribution').reply(400)
       const results = await Promise.allSettled([api.getDashboardStats(), api.getMoodDistribution()])
       expect(results[0].status).toBe('fulfilled')
       expect(results[1].status).toBe('rejected')
     })
 
     it('所有统计接口应能并发调用', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, statsData)
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, growthData)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, moodData)
+      mock.onGet('/admin/stats/dashboard').reply(200, statsData)
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, growthData)
+      mock.onGet('/admin/stats/mood-distribution').reply(200, moodData)
       mock.onGet('/admin/edge-ai/privacy-budget').reply(200, privacyData)
       mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, pulseData)
 

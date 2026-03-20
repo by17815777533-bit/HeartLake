@@ -22,9 +22,9 @@ std::string PasetoUtil::base64urlEncode(const std::string& input) {
     std::string result;
     result.reserve((input.size() + 2) / 3 * 4);
     for (size_t i = 0; i < input.size(); i += 3) {
-        uint32_t n = (uint8_t)input[i] << 16;
-        if (i + 1 < input.size()) n |= (uint8_t)input[i + 1] << 8;
-        if (i + 2 < input.size()) n |= (uint8_t)input[i + 2];
+        uint32_t n = static_cast<uint8_t>(input[i]) << 16;
+        if (i + 1 < input.size()) n |= static_cast<uint8_t>(input[i + 1]) << 8;
+        if (i + 2 < input.size()) n |= static_cast<uint8_t>(input[i + 2]);
         result += table[(n >> 18) & 0x3F];
         result += table[(n >> 12) & 0x3F];
         if (i + 1 < input.size()) result += table[(n >> 6) & 0x3F];
@@ -43,11 +43,15 @@ std::string PasetoUtil::base64urlDecode(const std::string& input) {
     std::string result;
     uint32_t buf = 0; int bits = 0;
     for (char c : input) {
-        int v = table[(uint8_t)c];
+        int v = table[static_cast<uint8_t>(c)];
         if (v < 0) continue;
         buf = (buf << 6) | v;
         bits += 6;
-        if (bits >= 8) { bits -= 8; result += (char)(buf >> bits); buf &= (1 << bits) - 1; }
+        if (bits >= 8) {
+            bits -= 8;
+            result += static_cast<char>(buf >> bits);
+            buf &= (1U << bits) - 1U;
+        }
     }
     return result;
 }

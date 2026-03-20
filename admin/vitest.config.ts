@@ -4,6 +4,13 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],

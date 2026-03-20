@@ -96,6 +96,24 @@ curl -I http://127.0.0.1/admin/
 GATEWAY_PORT=80 RUN_EXISTING_TESTS=0 ./scripts/docker-test.sh
 ```
 
+如果要做论文验收或交付前全量验证，直接跑统一的 2C2G 标准脚本：
+
+```bash
+./scripts/verify-2c2g.sh
+```
+
+如果需要恢复中文情绪 ONNX 模型，再执行：
+
+```bash
+./scripts/restore-onnx-model.sh
+```
+
+如果需要验证 AI 模块已经真实加载 ONNX Runtime 与模型文件，再执行：
+
+```bash
+VERIFY_ONNX_SMOKE=1 ./scripts/verify-onnx-smoke.sh
+```
+
 ## 6. 访问入口
 
 - 管理后台：`http://服务器IP/admin/`

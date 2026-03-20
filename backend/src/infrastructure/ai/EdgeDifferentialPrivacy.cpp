@@ -103,7 +103,7 @@ float EdgeDifferentialPrivacy::addLaplaceNoise(float value, float sensitivity) {
     // 检查隐私预算
     float remaining = maxBudget - consumedEpsilon_.load();
     if (remaining <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Privacy budget exhausted, returning original value";
+        LOG_DEBUG << "[EdgeDP] Privacy budget exhausted, returning original value";
         return value;
     }
 
@@ -134,7 +134,7 @@ std::vector<float> EdgeDifferentialPrivacy::addLaplaceNoiseVec(const std::vector
 
     float remaining = maxBudget - consumedEpsilon_.load();
     if (remaining <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Privacy budget exhausted, returning original vector";
+        LOG_DEBUG << "[EdgeDP] Privacy budget exhausted, returning original vector";
         return values;
     }
 
@@ -199,14 +199,14 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
     // 检查 epsilon 预算
     float remainingEps = maxEpsBudget - consumedEpsilon_.load();
     if (remainingEps <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Epsilon budget exhausted, returning original vector";
+        LOG_DEBUG << "[EdgeDP] Epsilon budget exhausted, returning original vector";
         return values;
     }
 
     // 检查 delta 预算
     float remainingDelta = maxDeltaBudget - consumedDelta_.load();
     if (remainingDelta <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Delta budget exhausted, returning original vector";
+        LOG_DEBUG << "[EdgeDP] Delta budget exhausted, returning original vector";
         return values;
     }
 
@@ -226,12 +226,12 @@ std::vector<float> EdgeDifferentialPrivacy::addGaussianNoiseVec(const std::vecto
         std::min(std::max(maxDeltaBudget, kMinDelta), 1.0f - kMinDelta));
     const float remainingRho = rhoBudget - consumedRho_.load();
     if (remainingRho <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Rho budget exhausted, returning original vector";
+        LOG_DEBUG << "[EdgeDP] Rho budget exhausted, returning original vector";
         return values;
     }
     const float rhoToUse = std::min(targetRho, remainingRho);
     if (rhoToUse <= 0.0f) {
-        LOG_WARN << "[EdgeDP] Rho budget insufficient, returning original vector";
+        LOG_DEBUG << "[EdgeDP] Rho budget insufficient, returning original vector";
         return values;
     }
 
@@ -289,9 +289,9 @@ void EdgeDifferentialPrivacy::resetPrivacyBudget() {
     consumedEpsilon_.store(0.0f);
     consumedDelta_.store(0.0f);
     consumedRho_.store(0.0f);
-    LOG_INFO << "[EdgeDP] Privacy budget reset. Max epsilon budget: "
-             << dpConfig_.maxEpsilonBudget
-             << ", max delta budget: " << dpConfig_.maxDeltaBudget;
+    LOG_DEBUG << "[EdgeDP] Privacy budget reset. Max epsilon budget: "
+              << dpConfig_.maxEpsilonBudget
+              << ", max delta budget: " << dpConfig_.maxDeltaBudget;
 }
 
 DPConfig EdgeDifferentialPrivacy::getDPConfig() const {

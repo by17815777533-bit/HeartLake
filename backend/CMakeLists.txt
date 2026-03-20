@@ -2,18 +2,33 @@ cmake_minimum_required(VERSION 3.16)
 cmake_policy(SET CMP0144 NEW)
 project(HeartLake CXX)
 
+include(CheckIPOSupported)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Release optimization flags
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# 默认使用 Release，避免测试/压测误落到无优化构建，和 2C2G 口径保持一致。
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release RelWithDebInfo MinSizeRel)
+
+check_ipo_supported(RESULT HEARTLAKE_IPO_SUPPORTED OUTPUT HEARTLAKE_IPO_ERROR)
+if(HEARTLAKE_IPO_SUPPORTED)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO ON)
+else()
+    message(STATUS "IPO/LTO disabled: ${HEARTLAKE_IPO_ERROR}")
 endif()
 
 # 安全编译选项（栈保护 + FORTIFY_SOURCE + PIE）
-add_compile_options(-fstack-protector-strong -D_FORTIFY_SOURCE=2)
+add_compile_options(-fstack-protector-strong)
+add_compile_definitions(
+    $<$<CONFIG:Release>:_FORTIFY_SOURCE=2>
+    $<$<CONFIG:RelWithDebInfo>:_FORTIFY_SOURCE=2>
+    $<$<CONFIG:MinSizeRel>:_FORTIFY_SOURCE=2>
+)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -Wl,-z,relro,-z,now")
 

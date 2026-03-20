@@ -20,6 +20,7 @@ thread_local std::mt19937_64 TraceMiddleware::rng_{
 void TraceMiddleware::doFilter(const drogon::HttpRequestPtr& req,
                                drogon::FilterCallback&& fcb,
                                drogon::FilterChainCallback&& fccb) {
+    (void)fcb;
     auto startTime = std::chrono::steady_clock::now();
 
     // 读取或生成 trace_id（支持上游 nginx/网关传入）

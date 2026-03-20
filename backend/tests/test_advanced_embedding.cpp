@@ -151,7 +151,12 @@ TEST_F(AdvancedEmbeddingEngineTest, MixedChineseEnglish) {
 
 // 测试长文本处理
 TEST_F(AdvancedEmbeddingEngineTest, LongTextHandling) {
-    std::string longText = "这是一段很长的文本。" + std::string(1000, '测') + "结束。";
+    std::string repeated;
+    repeated.reserve(1000 * 3);
+    for (int i = 0; i < 1000; ++i) {
+        repeated += "测";
+    }
+    std::string longText = "这是一段很长的文本。" + repeated + "结束。";
     auto embedding = engine->generateEmbedding(longText);
 
     EXPECT_EQ(embedding.size(), 128);

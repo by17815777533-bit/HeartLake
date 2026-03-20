@@ -28,7 +28,7 @@ namespace filters {
  * @brief 管理员 PASETO 认证过滤器
  *
  * @details 在 Drogon 请求管道中作为前置过滤器运行，
- * 挂载在所有 /api/admin/* 路由上。通过 classTypeName()
+ * 挂载在所有 /api/admin/ 前缀路由上。通过 classTypeName()
  * 注册为 "filters::AdminAuthFilter"，供路由宏引用。
  */
 class AdminAuthFilter : public HttpFilter<AdminAuthFilter> {

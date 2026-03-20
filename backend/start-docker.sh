@@ -1,6 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
+clamp_int() {
+    local raw="${1:-0}"
+    local min="${2:-1}"
+    local max="${3:-999999}"
+    if [[ ! "${raw}" =~ ^[0-9]+$ ]]; then
+        echo "${min}"
+        return
+    fi
+    if (( raw < min )); then
+        echo "${min}"
+        return
+    fi
+    if (( raw > max )); then
+        echo "${max}"
+        return
+    fi
+    echo "${raw}"
+}
+
+SERVER_THREADS_VALUE="$(clamp_int "${SERVER_THREADS:-4}" 2 8)"
+DB_POOL_SIZE_VALUE="$(clamp_int "${DB_POOL_SIZE:-$(( SERVER_THREADS_VALUE * 2 ))}" 4 12)"
+REDIS_POOL_SIZE_VALUE="$(clamp_int "${REDIS_POOL_SIZE:-$(( SERVER_THREADS_VALUE * 2 ))}" 4 8)"
+
 # Generate config.json from environment variables
 cat > config.json <<CONF
 {
@@ -22,7 +45,7 @@ cat > config.json <<CONF
     "dbname": "${DB_NAME:-heartlake}",
     "user": "${DB_USER:-postgres}",
     "passwd": "${DB_PASSWORD}",
-    "connection_number": ${DB_POOL_SIZE:-10},
+    "connection_number": ${DB_POOL_SIZE_VALUE},
     "timeout": ${DB_TIMEOUT:-30}
   }],
   "redis_clients": [{
@@ -30,7 +53,7 @@ cat > config.json <<CONF
     "host": "${REDIS_HOST:-127.0.0.1}",
     "port": ${REDIS_PORT:-6379},
     "passwd": "${REDIS_PASSWORD:-}",
-    "connection_number": ${REDIS_POOL_SIZE:-10}
+    "connection_number": ${REDIS_POOL_SIZE_VALUE}
   }]
 }
 CONF

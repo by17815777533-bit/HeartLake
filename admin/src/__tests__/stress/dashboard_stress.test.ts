@@ -55,7 +55,7 @@ describe('Dashboard Stress Tests', () => {
         date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
         value: Math.random() * 10000,
       }))
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { chart_data: points } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { chart_data: points } })
       const res = await api.getDashboardStats()
       expect(res.data.data.chart_data).toHaveLength(10000)
     })
@@ -65,7 +65,7 @@ describe('Dashboard Stress Tests', () => {
         mood: ['happy', 'sad', 'angry', 'neutral', 'excited'][i % 5],
         count: Math.floor(Math.random() * 100000),
       }))
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: moods })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: moods })
       const res = await api.getMoodDistribution()
       expect(res.data.data).toHaveLength(5000)
     })
@@ -76,7 +76,7 @@ describe('Dashboard Stress Tests', () => {
         new_users: Math.floor(Math.random() * 1000),
         total_users: i * 100,
       }))
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: growth })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: growth })
       const res = await api.getUserGrowthStats('10y')
       expect(res.data.data).toHaveLength(3650)
     })
@@ -87,7 +87,7 @@ describe('Dashboard Stress Tests', () => {
         count: Math.floor(Math.random() * 50000),
         trend: Math.random() > 0.5 ? 'up' : 'down',
       }))
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: topics })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: topics })
       const res = await api.getTrendingTopics()
       expect(res.data.data).toHaveLength(2000)
     })
@@ -98,7 +98,7 @@ describe('Dashboard Stress Tests', () => {
         day: Math.floor(i / 24),
         active_users: Math.floor(Math.random() * 10000),
       }))
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: timeStats })
+      mock.onGet('/admin/stats/active-time').reply(200, { data: timeStats })
       const res = await api.getActiveTimeStats()
       expect(res.data.data).toHaveLength(8760)
     })
@@ -110,7 +110,7 @@ describe('Dashboard Stress Tests', () => {
         requests_per_second: 100000,
         events: Array.from({ length: 1000 }, (_, i) => ({ id: i, type: 'action', ts: Date.now() })),
       }
-      mock.onGet('/admin/realtime-stats').reply(200, { data: realtime })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: realtime })
       const res = await api.getRealtimeStats()
       expect(res.data.data.events).toHaveLength(1000)
     })
@@ -120,28 +120,28 @@ describe('Dashboard Stress Tests', () => {
   describe('极端数值处理', () => {
     it('处理Number.MAX_SAFE_INTEGER', async () => {
       const stats = { data: { total_users: Number.MAX_SAFE_INTEGER, total_stones: Number.MAX_SAFE_INTEGER } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       expect(res.data.data.total_users).toBe(Number.MAX_SAFE_INTEGER)
     })
 
     it('处理0值', async () => {
       const stats = { data: { total_users: 0, total_stones: 0, active_users: 0, new_users_today: 0 } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       expect(res.data.data.total_users).toBe(0)
     })
 
     it('处理负数值', async () => {
       const stats = { data: { total_users: -1, growth_rate: -99.99 } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       expect(res.data.data.growth_rate).toBe(-99.99)
     })
 
     it('处理浮点精度极端值', async () => {
       const stats = { data: { rate: 0.1 + 0.2, tiny: Number.MIN_VALUE, big: Number.MAX_VALUE } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       expect(res.data.data.tiny).toBe(Number.MIN_VALUE)
       expect(res.data.data.big).toBe(Number.MAX_VALUE)
@@ -149,7 +149,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('处理Infinity值', async () => {
       const stats = { data: { ratio: Infinity, neg_ratio: -Infinity } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       // JSON.stringify converts Infinity to null
       expect(res.data.data.ratio).toBeNull()
@@ -157,7 +157,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('处理NaN值', async () => {
       const stats = { data: { value: NaN } }
-      mock.onGet('/admin/dashboard/stats').reply(200, stats)
+      mock.onGet('/admin/stats/dashboard').reply(200, stats)
       const res = await api.getDashboardStats()
       expect(res.data.data.value).toBeNull()
     })
@@ -166,37 +166,37 @@ describe('Dashboard Stress Tests', () => {
   // ========== 空数据/null/undefined ==========
   describe('空数据和边界值', () => {
     it('处理空数据响应', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       const res = await api.getDashboardStats()
       expect(res.data.data).toEqual({})
     })
 
     it('处理null数据响应', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: null })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: null })
       const res = await api.getDashboardStats()
       expect(res.data.data).toBeNull()
     })
 
     it('处理空数组', async () => {
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: [] })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: [] })
       const res = await api.getMoodDistribution()
       expect(res.data.data).toEqual([])
     })
 
     it('处理undefined字段', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { total_users: undefined } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { total_users: undefined } })
       const res = await api.getDashboardStats()
       expect(res.data.data.total_users).toBeUndefined()
     })
 
     it('处理完全空的响应体', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, '')
+      mock.onGet('/admin/stats/dashboard').reply(200, '')
       const res = await api.getDashboardStats()
       expect(res.data).toBe('')
     })
 
     it('处理嵌套空对象', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { nested: { deep: { value: null } } } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { nested: { deep: { value: null } } } })
       const res = await api.getDashboardStats()
       expect(res.data.data.nested.deep.value).toBeNull()
     })
@@ -205,25 +205,25 @@ describe('Dashboard Stress Tests', () => {
   // ========== 日期范围极端值 ==========
   describe('日期范围极端值', () => {
     it('处理极大日期范围', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: [] })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: [] })
       const res = await api.getUserGrowthStats('100y')
       expect(res.status).toBe(200)
     })
 
     it('处理空日期范围', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: [] })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: [] })
       const res = await api.getUserGrowthStats('')
       expect(res.status).toBe(200)
     })
 
     it('处理特殊字符日期范围', async () => {
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: [] })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: [] })
       const res = await api.getUserGrowthStats('<script>alert(1)</script>')
       expect(res.status).toBe(200)
     })
 
     it('处理mood-trend各种范围', async () => {
-      mock.onGet(/\/admin\/dashboard\/mood-trend/).reply(200, { data: [] })
+      mock.onGet(/\/admin\/stats\/mood-trend/).reply(200, { data: [] })
       const ranges = ['1d', '7d', '30d', '90d', '365d', '0d', '-1d']
       const results = await Promise.all(ranges.map(r => api.getMoodTrend(r)))
       expect(results).toHaveLength(7)
@@ -234,13 +234,13 @@ describe('Dashboard Stress Tests', () => {
   // ========== API并发压测 ==========
   describe('API并发压测', () => {
     it('同时发起10个不同dashboard API请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { total: 1 } })
-      mock.onGet('/admin/realtime-stats').reply(200, { data: { online: 2 } })
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: [] })
-      mock.onGet(/\/admin\/dashboard\/mood-trend/).reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: [] })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { total: 1 } })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: { online: 2 } })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: [] })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: [] })
+      mock.onGet(/\/admin\/stats\/mood-trend/).reply(200, { data: [] })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: [] })
+      mock.onGet('/admin/stats/active-time').reply(200, { data: [] })
       mock.onGet('/admin/edge-ai/status').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/metrics').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/emotion-pulse').reply(200, { data: {} })
@@ -263,7 +263,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('快速连续调用同一API 50次（去重机制）', async () => {
       let callCount = 0
-      mock.onGet('/admin/dashboard/stats').reply(() => {
+      mock.onGet('/admin/stats/dashboard').reply(() => {
         callCount++
         return [200, { data: { call: callCount } }]
       })
@@ -277,7 +277,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('部分请求失败时的容错', async () => {
       let count = 0
-      mock.onGet('/admin/dashboard/stats').reply(() => {
+      mock.onGet('/admin/stats/dashboard').reply(() => {
         count++
         return count % 3 === 0 ? [400, { message: 'error' }] : [200, { data: {} }]
       })
@@ -291,9 +291,9 @@ describe('Dashboard Stress Tests', () => {
     })
 
     it('所有请求同时失败', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(400, { message: 'server error' })
-      mock.onGet('/admin/realtime-stats').reply(400, { message: 'server error' })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(400, { message: 'server error' })
+      mock.onGet('/admin/stats/dashboard').reply(400, { message: 'server error' })
+      mock.onGet('/admin/stats/realtime').reply(400, { message: 'server error' })
+      mock.onGet('/admin/stats/mood-distribution').reply(400, { message: 'server error' })
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -304,9 +304,9 @@ describe('Dashboard Stress Tests', () => {
     }, 30000)
 
     it('混合成功和超时请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
-      mock.onGet('/admin/realtime-stats').reply(200, { data: {} })
-      mock.onGet('/admin/dashboard/mood-distribution').timeout()
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: {} })
+      mock.onGet('/admin/stats/mood-distribution').timeout()
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -320,8 +320,8 @@ describe('Dashboard Stress Tests', () => {
     })
 
     it('混合成功和网络错误请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
-      mock.onGet('/admin/realtime-stats').networkError()
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
+      mock.onGet('/admin/stats/realtime').networkError()
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -340,7 +340,7 @@ describe('Dashboard Stress Tests', () => {
         value: Math.random() * 1000,
         category: `cat_${i % 10}`,
       }))
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { items: data } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { items: data } })
       const res = await api.getDashboardStats()
       const items = res.data.data.items
       expect(items).toHaveLength(5000)
@@ -362,7 +362,7 @@ describe('Dashboard Stress Tests', () => {
         { topic: '日本語テスト', count: 7 },
         { topic: 'العربية', count: 8 },
       ]
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: topics })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: topics })
       const res = await api.getTrendingTopics()
       expect(res.data.data).toHaveLength(8)
       expect(res.data.data[0].topic).toContain('script')
@@ -370,7 +370,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('超长字符串字段处理', async () => {
       const longString = 'x'.repeat(1_000_000)
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { description: longString } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { description: longString } })
       const res = await api.getDashboardStats()
       expect(res.data.data.description).toHaveLength(1_000_000)
     })
@@ -380,7 +380,7 @@ describe('Dashboard Stress Tests', () => {
       for (let i = 0; i < 100; i++) {
         nested = { child: nested }
       }
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: nested })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: nested })
       const res = await api.getDashboardStats()
       let current = res.data.data
       for (let i = 0; i < 100; i++) {
@@ -395,7 +395,7 @@ describe('Dashboard Stress Tests', () => {
         count: 42,
         date: '2026-01-01',
       }))
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data })
       const res = await api.getMoodDistribution()
       expect(res.data.data).toHaveLength(10000)
       expect(new Set(res.data.data.map((d: { mood: string }) => d.mood)).size).toBe(1)
@@ -403,7 +403,7 @@ describe('Dashboard Stress Tests', () => {
 
     it('混合类型数组数据', async () => {
       const mixed = [1, 'string', null, true, { key: 'value' }, [1, 2, 3], 0, '', false]
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { values: mixed } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { values: mixed } })
       const res = await api.getDashboardStats()
       expect(res.data.data.values).toHaveLength(9)
     })
@@ -418,7 +418,7 @@ describe('Dashboard Stress Tests', () => {
         email: `user${i}@example.com`,
         metadata: { key1: 'value1', key2: 'value2', key3: i },
       }))
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: largeArray })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: largeArray })
       const res = await api.getDashboardStats()
       expect(res.data.data).toHaveLength(10000)
     })
@@ -427,7 +427,7 @@ describe('Dashboard Stress Tests', () => {
       const matrix = Array.from({ length: 100 }, (_, i) =>
         Array.from({ length: 100 }, (_, j) => i * 100 + j)
       )
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { matrix } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { matrix } })
       const res = await api.getDashboardStats()
       expect(res.data.data.matrix).toHaveLength(100)
       expect(res.data.data.matrix[0]).toHaveLength(100)

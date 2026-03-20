@@ -2,6 +2,8 @@ node_modules
 dist
 .playwright-cli
 coverage
+src/__tests__
+.vitest
 *.log
 .DS_Store
 .idea

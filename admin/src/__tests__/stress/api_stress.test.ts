@@ -22,6 +22,7 @@ vi.mock('@/utils/errorHelper', () => ({
 describe('API Stress Tests', () => {
   let mock: MockAdapter
   let appStore: ReturnType<typeof useAppStore>
+  let noRetryId: number
   let cleanupInterceptorId: number
 
   beforeEach(() => {
@@ -31,6 +32,10 @@ describe('API Stress Tests', () => {
     setActivePinia(createPinia())
     appStore = useAppStore()
     mock = new MockAdapter(http)
+    noRetryId = http.interceptors.request.use((config) => {
+      ;(config as any)._retryCount = Infinity
+      return config
+    })
     // Prevent DataCloneError: JSON round-trip strips ALL functions/classes from error objects
     // so Vitest's structured-clone RPC can serialize them safely.
     cleanupInterceptorId = http.interceptors.response.use(undefined, (error) => {
@@ -46,6 +51,7 @@ describe('API Stress Tests', () => {
   })
 
   afterEach(() => {
+    http.interceptors.request.eject(noRetryId)
     http.interceptors.response.eject(cleanupInterceptorId)
     mock.restore()
   })
@@ -53,14 +59,14 @@ describe('API Stress Tests', () => {
   // ========== 并发请求压测 ==========
   describe('并发请求', () => {
     it('同时发起10个不同API请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { total: 1 } })
-      mock.onGet('/admin/realtime-stats').reply(200, { data: { online: 2 } })
-      mock.onGet(/\/admin\/dashboard\/user-growth/).reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: [] })
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: [] })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { total: 1 } })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: { online: 2 } })
+      mock.onGet(/\/admin\/stats\/user-growth/).reply(200, { data: [] })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: [] })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: [] })
+      mock.onGet('/admin/stats/active-time').reply(200, { data: [] })
       mock.onGet('/admin/users').reply(200, { data: [] })
-      mock.onGet('/admin/contents').reply(200, { data: [] })
+      mock.onGet('/admin/stones').reply(200, { data: [] })
       mock.onGet('/admin/reports').reply(200, { data: [] })
       mock.onGet('/admin/logs').reply(200, { data: [] })
 
@@ -107,11 +113,11 @@ describe('API Stress Tests', () => {
     })
 
     it('部分请求失败时其他请求正常完成', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { ok: true } })
-      mock.onGet('/admin/realtime-stats').reply(400)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: { ok: true } })
-      mock.onGet('/admin/dashboard/trending-topics').reply(403)
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: { ok: true } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { ok: true } })
+      mock.onGet('/admin/stats/realtime').reply(400)
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: { ok: true } })
+      mock.onGet('/admin/stats/trending-topics').reply(403)
+      mock.onGet('/admin/stats/active-time').reply(200, { data: { ok: true } })
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -128,11 +134,11 @@ describe('API Stress Tests', () => {
     }, 30000)
 
     it('所有请求同时失败', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(400)
-      mock.onGet('/admin/realtime-stats').reply(400)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(403)
-      mock.onGet('/admin/dashboard/trending-topics').reply(403)
-      mock.onGet('/admin/dashboard/active-time').reply(400)
+      mock.onGet('/admin/stats/dashboard').reply(400)
+      mock.onGet('/admin/stats/realtime').reply(400)
+      mock.onGet('/admin/stats/mood-distribution').reply(403)
+      mock.onGet('/admin/stats/trending-topics').reply(403)
+      mock.onGet('/admin/stats/active-time').reply(400)
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -146,11 +152,11 @@ describe('API Stress Tests', () => {
     }, 30000)
 
     it('混合成功、失败和超时请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
-      mock.onGet('/admin/realtime-stats').reply(400)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: {} })
-      mock.onGet('/admin/dashboard/trending-topics').reply(403)
-      mock.onGet('/admin/dashboard/active-time').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
+      mock.onGet('/admin/stats/realtime').reply(400)
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: {} })
+      mock.onGet('/admin/stats/trending-topics').reply(403)
+      mock.onGet('/admin/stats/active-time').reply(200, { data: {} })
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -168,7 +174,7 @@ describe('API Stress Tests', () => {
   // ========== 请求去重（同URL覆盖） ==========
   describe('请求去重机制', () => {
     it('相同URL的请求会取消前一个', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { v: 'latest' } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { v: 'latest' } })
 
       const results = await Promise.allSettled([
         api.getDashboardStats(),
@@ -182,7 +188,7 @@ describe('API Stress Tests', () => {
     })
 
     it('快速连续发起5个相同请求只有最后一个成功', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { v: 'final' } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { v: 'final' } })
 
       const promises = []
       for (let i = 0; i < 5; i++) {
@@ -195,9 +201,9 @@ describe('API Stress Tests', () => {
     })
 
     it('不同URL的请求不会互相取消', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { a: 1 } })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: { b: 2 } })
-      mock.onGet('/admin/dashboard/trending-topics').reply(200, { data: { c: 3 } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { a: 1 } })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: { b: 2 } })
+      mock.onGet('/admin/stats/trending-topics').reply(200, { data: { c: 3 } })
 
       const results = await Promise.all([
         api.getDashboardStats(),
@@ -213,8 +219,8 @@ describe('API Stress Tests', () => {
   // ========== cancelAllRequests 压测 ==========
   describe('cancelAllRequests', () => {
     it('取消所有进行中的请求', async () => {
-      mock.onGet('/admin/dashboard/stats').timeout()
-      mock.onGet('/admin/realtime-stats').timeout()
+      mock.onGet('/admin/stats/dashboard').timeout()
+      mock.onGet('/admin/stats/realtime').timeout()
 
       const p1 = api.getDashboardStats()
       const p2 = api.getRealtimeStats()
@@ -226,7 +232,7 @@ describe('API Stress Tests', () => {
     })
 
     it('取消后可以重新发起请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: { ok: true } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: { ok: true } })
 
       cancelAllRequests()
 
@@ -251,9 +257,9 @@ describe('API Stress Tests', () => {
   describe('Token注入一致性', () => {
     it('设置token后所有请求都携带Authorization', async () => {
       appStore.setToken('stress-test-token')
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
-      mock.onGet('/admin/realtime-stats').reply(200, { data: {} })
-      mock.onGet('/admin/dashboard/mood-distribution').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: {} })
+      mock.onGet('/admin/stats/mood-distribution').reply(200, { data: {} })
 
       await Promise.all([
         api.getDashboardStats(),
@@ -268,7 +274,7 @@ describe('API Stress Tests', () => {
     })
 
     it('无token时请求不携带Authorization', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
 
       await api.getDashboardStats()
 
@@ -279,7 +285,7 @@ describe('API Stress Tests', () => {
     it('token更新后新请求使用新token', async () => {
       appStore.setToken('old-token')
       appStore.setToken('new-token')
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
 
       await api.getDashboardStats()
 
@@ -290,7 +296,7 @@ describe('API Stress Tests', () => {
     it('clearToken后请求不携带Authorization', async () => {
       appStore.setToken('some-token')
       appStore.clearToken()
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
 
       await api.getDashboardStats()
 
@@ -303,7 +309,7 @@ describe('API Stress Tests', () => {
   describe('401响应处理', () => {
     it('401响应清除token', async () => {
       appStore.setToken('expired-token')
-      mock.onGet('/admin/dashboard/stats').reply(401)
+      mock.onGet('/admin/stats/dashboard').reply(401)
 
       await api.getDashboardStats().catch(() => {})
       expect(appStore.getToken()).toBe('')
@@ -313,9 +319,9 @@ describe('API Stress Tests', () => {
       const router = await import('@/router')
       appStore.setToken('expired-token')
 
-      mock.onGet('/admin/dashboard/stats').reply(401)
-      mock.onGet('/admin/realtime-stats').reply(401)
-      mock.onGet('/admin/dashboard/mood-distribution').reply(401)
+      mock.onGet('/admin/stats/dashboard').reply(401)
+      mock.onGet('/admin/stats/realtime').reply(401)
+      mock.onGet('/admin/stats/mood-distribution').reply(401)
 
       await Promise.allSettled([
         api.getDashboardStats(),
@@ -329,13 +335,13 @@ describe('API Stress Tests', () => {
 
     it('401后重新登录设置新token', async () => {
       appStore.setToken('expired-token')
-      mock.onGet('/admin/dashboard/stats').reply(401)
+      mock.onGet('/admin/stats/dashboard').reply(401)
       await api.getDashboardStats().catch(() => {})
 
       expect(appStore.getToken()).toBe('')
 
       appStore.setToken('new-valid-token')
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       const res = await api.getDashboardStats()
       expect(res.status).toBe(200)
     })
@@ -344,9 +350,9 @@ describe('API Stress Tests', () => {
   // ========== Loading状态压测 ==========
   describe('Loading状态', () => {
     it('并发请求正确管理loading计数', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       mock.onGet('/admin/users').reply(200, { data: [] })
-      mock.onGet('/admin/contents').reply(200, { data: [] })
+      mock.onGet('/admin/stones').reply(200, { data: [] })
 
       await Promise.all([
         api.getDashboardStats(),
@@ -358,7 +364,7 @@ describe('API Stress Tests', () => {
     })
 
     it('skipLoading请求不影响loading计数', async () => {
-      mock.onGet('/admin/realtime-stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/realtime').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/status').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/metrics').reply(200, { data: {} })
 
@@ -372,7 +378,7 @@ describe('API Stress Tests', () => {
     })
 
     it('请求失败也正确减少loading计数', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(500)
+      mock.onGet('/admin/stats/dashboard').reply(500)
       mock.onGet('/admin/users').reply(500)
 
       await Promise.allSettled([
@@ -384,7 +390,7 @@ describe('API Stress Tests', () => {
     }, 30000)
 
     it('混合skipLoading和普通请求', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: {} })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       mock.onGet('/admin/edge-ai/status').reply(200, { data: {} })
       mock.onGet('/admin/users').reply(200, { data: [] })
       mock.onGet('/admin/edge-ai/metrics').reply(200, { data: {} })
@@ -406,7 +412,7 @@ describe('API Stress Tests', () => {
 
     statusCodes.forEach(code => {
       it(`处理HTTP ${code}状态码`, async () => {
-        mock.onGet('/admin/dashboard/stats').reply(code)
+        mock.onGet('/admin/stats/dashboard').reply(code)
         const result = await api.getDashboardStats().catch(e => e)
         expect(result).toBeDefined()
       }, 15000)
@@ -420,7 +426,7 @@ describe('API Stress Tests', () => {
       for (let i = 0; i < 1000; i++) {
         bigObj[`field_${i}`] = `value_${i}_${'x'.repeat(100)}`
       }
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: bigObj })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: bigObj })
       const res = await api.getDashboardStats()
       expect(Object.keys(res.data.data)).toHaveLength(1000)
     })
@@ -430,7 +436,7 @@ describe('API Stress Tests', () => {
       for (let i = 0; i < 50; i++) {
         nested = { child: nested }
       }
-      mock.onGet('/admin/dashboard/stats').reply(200, { data: nested })
+      mock.onGet('/admin/stats/dashboard').reply(200, { data: nested })
       const res = await api.getDashboardStats()
       expect(res.data.data).toHaveProperty('child')
     })
@@ -449,7 +455,7 @@ describe('API Stress Tests', () => {
       const codes = [200001, 200002, 200003, 200004, 200005]
       for (const code of codes) {
         appStore.setToken('some-token')
-        mock.onGet('/admin/dashboard/stats').reply(200, { code, message: `auth error ${code}` })
+        mock.onGet('/admin/stats/dashboard').reply(200, { code, message: `auth error ${code}` })
         await api.getDashboardStats().catch(() => {})
         expect(appStore.getToken()).toBe('')
         mock.reset()
@@ -457,20 +463,20 @@ describe('API Stress Tests', () => {
     })
 
     it('处理普通业务错误码', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { code: 400001, message: 'bad request' })
+      mock.onGet('/admin/stats/dashboard').reply(200, { code: 400001, message: 'bad request' })
       const result = await api.getDashboardStats().catch(e => e)
       expect(result).toBeInstanceOf(Error)
       expect(result.message).toBe('bad request')
     })
 
     it('code为0表示成功', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { code: 0, data: { ok: true } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { code: 0, data: { ok: true } })
       const res = await api.getDashboardStats()
       expect(res.data.data.ok).toBe(true)
     })
 
     it('code为200表示成功', async () => {
-      mock.onGet('/admin/dashboard/stats').reply(200, { code: 200, data: { ok: true } })
+      mock.onGet('/admin/stats/dashboard').reply(200, { code: 200, data: { ok: true } })
       const res = await api.getDashboardStats()
       expect(res.data.data.ok).toBe(true)
     })
@@ -546,7 +552,7 @@ describe('API Stress Tests', () => {
           unicode: '你好\n\t\r世界',
         },
       }
-      mock.onGet('/admin/dashboard/stats').reply(200, specialData)
+      mock.onGet('/admin/stats/dashboard').reply(200, specialData)
       const res = await api.getDashboardStats()
       expect(res.data.data.name).toContain('<script>')
     })

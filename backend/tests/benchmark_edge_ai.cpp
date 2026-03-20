@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 class BenchmarkTimer {
 public:
@@ -302,6 +303,18 @@ static std::vector<BinarySentimentSample> loadBinaryDatasetCsv(const std::string
     return rows;
 }
 
+static std::optional<std::filesystem::path> resolveDatasetPath(const std::vector<std::string>& relativeCandidates) {
+    namespace fs = std::filesystem;
+    const fs::path repoRoot = fs::path(__FILE__).parent_path().parent_path().parent_path();
+    for (const auto& relative : relativeCandidates) {
+        const fs::path candidate = repoRoot / relative;
+        if (std::error_code ec; fs::exists(candidate, ec) && fs::is_regular_file(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return std::nullopt;
+}
+
 static std::string compactWhitespace(const std::string& text) {
     std::string out;
     out.reserve(text.size());
@@ -453,8 +466,14 @@ TEST_F(EdgeAIBenchmark, SentimentAccuracyBenchmark) {
 }
 
 TEST_F(EdgeAIBenchmark, PublicChineseSentimentDatasetPrecision) {
-    const auto devSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment/dev.csv");
-    const auto testSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment/test.csv");
+    const auto devPath = resolveDatasetPath({"datasets/chinese_sentiment/dev.csv"});
+    const auto testPath = resolveDatasetPath({"datasets/chinese_sentiment/test.csv"});
+    if (!devPath || !testPath) {
+        GTEST_SKIP() << "Optional public Chinese sentiment dataset is not present in the repository";
+    }
+
+    const auto devSamples = loadBinaryDatasetCsv(devPath->string());
+    const auto testSamples = loadBinaryDatasetCsv(testPath->string());
     ASSERT_FALSE(devSamples.empty()) << "dev数据集为空";
     ASSERT_FALSE(testSamples.empty()) << "test数据集为空";
 
@@ -544,8 +563,14 @@ TEST_F(EdgeAIBenchmark, PublicChineseSentimentDatasetPrecision) {
 }
 
 TEST_F(EdgeAIBenchmark, SimplifiedChineseChnSentiCorpPrecision) {
-    const auto devSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment_simplified/dev.csv");
-    const auto testSamples = loadBinaryDatasetCsv("../../datasets/chinese_sentiment_simplified/test.csv");
+    const auto devPath = resolveDatasetPath({"datasets/chinese_sentiment_simplified/dev.csv"});
+    const auto testPath = resolveDatasetPath({"datasets/chinese_sentiment_simplified/test.csv"});
+    if (!devPath || !testPath) {
+        GTEST_SKIP() << "Optional simplified sentiment dataset is not present in the repository";
+    }
+
+    const auto devSamples = loadBinaryDatasetCsv(devPath->string());
+    const auto testSamples = loadBinaryDatasetCsv(testPath->string());
     ASSERT_FALSE(devSamples.empty()) << "简体dev数据集为空";
     ASSERT_FALSE(testSamples.empty()) << "简体test数据集为空";
 

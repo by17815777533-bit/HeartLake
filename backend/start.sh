@@ -30,18 +30,79 @@ source "${ENV_FILE}"
 set +a
 export HEARTLAKE_ENV_PATH="${ENV_FILE}"
 
+clamp_int() {
+    local raw="${1:-0}"
+    local min="${2:-1}"
+    local max="${3:-999999}"
+    if [[ ! "${raw}" =~ ^[0-9]+$ ]]; then
+        echo "${min}"
+        return
+    fi
+    if (( raw < min )); then
+        echo "${min}"
+        return
+    fi
+    if (( raw > max )); then
+        echo "${max}"
+        return
+    fi
+    echo "${raw}"
+}
+
+detect_server_threads() {
+    if [[ -n "${SERVER_THREADS:-}" ]]; then
+        clamp_int "${SERVER_THREADS}" 2 8
+        return
+    fi
+    local detected="2"
+    if command -v nproc >/dev/null 2>&1; then
+        detected="$(nproc)"
+    elif command -v sysctl >/dev/null 2>&1; then
+        detected="$(sysctl -n hw.ncpu 2>/dev/null || echo 2)"
+    fi
+    clamp_int "${detected}" 2 8
+}
+
+resolve_compiler() {
+    local preferred="${1:-}"
+    local fallback="${2:-}"
+    local resolved=""
+
+    if [[ -n "${preferred}" ]]; then
+        resolved="$(command -v "${preferred}" 2>/dev/null || printf '%s' "${preferred}")"
+        if [[ "${resolved}" == *openharmony* ]]; then
+            resolved=""
+        fi
+    fi
+
+    if [[ -z "${resolved}" && -n "${fallback}" ]]; then
+        resolved="$(command -v "${fallback}" 2>/dev/null || true)"
+    fi
+
+    printf '%s' "${resolved}"
+}
+
+DEFAULT_SERVER_THREADS="$(detect_server_threads)"
+DEFAULT_DB_POOL="$(( DEFAULT_SERVER_THREADS * 2 ))"
+DEFAULT_REDIS_POOL="$(( DEFAULT_SERVER_THREADS * 2 ))"
+DEFAULT_DB_POOL="$(clamp_int "${DEFAULT_DB_POOL}" 4 12)"
+DEFAULT_REDIS_POOL="$(clamp_int "${DEFAULT_REDIS_POOL}" 4 8)"
+NATIVE_CC="$(resolve_compiler "${BACKEND_CC:-${CC:-}}" gcc)"
+NATIVE_CXX="$(resolve_compiler "${BACKEND_CXX:-${CXX:-}}" g++)"
+
 # --------- Defaults (single source of truth) ---------
 export SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
 export SERVER_PORT="${SERVER_PORT:-8080}"
+export SERVER_THREADS="${SERVER_THREADS:-${DEFAULT_SERVER_THREADS}}"
 export DB_HOST="${DB_HOST:-127.0.0.1}"
 export DB_PORT="${DB_PORT:-5432}"
 export DB_NAME="${DB_NAME:-heartlake}"
 export DB_USER="${DB_USER:-postgres}"
-export DB_CONNECTION_POOL_SIZE="${DB_CONNECTION_POOL_SIZE:-${DB_POOL_SIZE:-12}}"
+export DB_CONNECTION_POOL_SIZE="${DB_CONNECTION_POOL_SIZE:-${DB_POOL_SIZE:-${DEFAULT_DB_POOL}}}"
 export DB_TIMEOUT="${DB_TIMEOUT:-30}"
 export REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
-export REDIS_CONNECTION_POOL_SIZE="${REDIS_CONNECTION_POOL_SIZE:-${REDIS_POOL_SIZE:-12}}"
+export REDIS_CONNECTION_POOL_SIZE="${REDIS_CONNECTION_POOL_SIZE:-${REDIS_POOL_SIZE:-${DEFAULT_REDIS_POOL}}}"
 export REALTIME_QUIC_ENABLED="${REALTIME_QUIC_ENABLED:-true}"
 export QUIC_GATEWAY_BIND="${QUIC_GATEWAY_BIND:-0.0.0.0:8443}"
 export AI_PROVIDER="${AI_PROVIDER:-ollama}"
@@ -264,13 +325,23 @@ done
 shopt -u nullglob
 
 # --------- Configure & Build ---------
+if [[ -f "${SCRIPT_DIR}/build/CMakeCache.txt" && -n "${NATIVE_CXX}" ]]; then
+    CURRENT_CXX_COMPILER="$(sed -n 's#^CMAKE_CXX_COMPILER:FILEPATH=##p' "${SCRIPT_DIR}/build/CMakeCache.txt" | head -n 1)"
+    if [[ -n "${CURRENT_CXX_COMPILER}" && "${CURRENT_CXX_COMPILER}" != "${NATIVE_CXX}" ]]; then
+        echo "Compiler changed (${CURRENT_CXX_COMPILER} -> ${NATIVE_CXX}), recreating build directory"
+        rm -rf "${SCRIPT_DIR}/build"
+    fi
+fi
+
 cmake -S "${SCRIPT_DIR}" -B "${SCRIPT_DIR}/build" \
+    ${NATIVE_CC:+-DCMAKE_C_COMPILER="${NATIVE_CC}"} \
+    ${NATIVE_CXX:+-DCMAKE_CXX_COMPILER="${NATIVE_CXX}"} \
     -DCMAKE_BUILD_TYPE=Release \
     -DHEARTLAKE_USE_ONNX=ON \
     -DONNXRUNTIME_ROOT="${ONNXRUNTIME_ROOT:-}"
 
 if [[ "${HEARTLAKE_SKIP_BUILD:-false}" != "true" ]]; then
-    cmake --build "${SCRIPT_DIR}/build" -j"$(nproc)"
+    cmake --build "${SCRIPT_DIR}/build" -j"${SERVER_THREADS}"
 fi
 
 # --------- Rust QUIC gateway (dual-channel realtime) ---------

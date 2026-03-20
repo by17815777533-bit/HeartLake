@@ -203,6 +203,7 @@ std::string convertTraditionalToSimplified(const std::string& text) {
     return out;
 }
 
+#ifdef HEARTLAKE_USE_ONNX
 std::atomic<int> gOnnxInFlight{0};
 
 bool tryAcquireOnnxSlot(std::atomic<int>& counter, int limit) {
@@ -236,6 +237,7 @@ private:
     std::atomic<int>& counter_;
     bool acquired_{false};
 };
+#endif
 
 struct AffectiveAnchorSignal {
     float score{0.0f};      // [-1, 1]
@@ -1429,6 +1431,10 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentiment(const std::string& text,
 }
 
 EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::string& text, bool preferOnnx) {
+#ifndef HEARTLAKE_USE_ONNX
+    (void)preferOnnx;
+#endif
+
     if (text.empty()) {
         return {0.0f, "neutral", 0.0f, "disabled"};
     }
@@ -1611,25 +1617,8 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         confidence = std::max(0.10f, confidence - penalty);
     }
 
-    static const std::vector<std::string> positiveEventHints = {
-        "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬", "认可", "肯定", "赞扬",
-        "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜"
-    };
-    static const std::vector<std::string> negativeEventHints = {
-        "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃",
-        "孤独", "孤单", "寂寞", "脆弱", "落寞", "无助",
-        "不好", "不值", "不值得", "最差", "太差", "很差", "差劲", "忽悠",
-        "无聊", "没意思", "无意义", "不满意", "不推荐", "坑", "坑人",
-        "臭味", "再也不", "贵",
-        "沒有", "沒有", "沒", "壞", "最差", "很差", "太差", "不好", "不推薦", "不滿意", "忽悠", "坑人",
-        "無聊", "沒意思", "無意義", "貴", "臭", "損壞", "缺貨"
-    };
-    const bool positiveEventSignal =
-        (containsAnyPhrase(normalizedText, positiveEventHints) && !containsAnyPhrase(normalizedText, negativeEventHints))
-        || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
-
     // 内部标签 → Ekman 六基本情绪标准标签映射
-    auto toEkmanMood = [](const std::string& internalMood, float calibratedScore, const std::string& normalizedText) -> std::string {
+    auto toEkmanMood = [](const std::string& internalMood, float calibratedScore, const std::string& textForMood) -> std::string {
         static const std::vector<std::string> kNeutralStrongSignals = {
             "没什么特别情绪", "心情平平", "日程正常", "按计划", "没有好消息也没有坏消息",
             "什么都没发生", "不开心，也不难过", "不开心也不难过", "就是发呆", "心情一般"
@@ -1640,7 +1629,7 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
         if (internalMood == "anxious") return "fear";
         if (internalMood == "surprised") return "surprise";
         if (internalMood == "calm") {
-            if (calibratedScore >= 0.26f && !containsAnyPhrase(normalizedText, kNeutralStrongSignals)) {
+            if (calibratedScore >= 0.26f && !containsAnyPhrase(textForMood, kNeutralStrongSignals)) {
                 return "joy";
             }
             return "neutral";
@@ -1662,6 +1651,23 @@ EdgeSentimentResult SentimentAnalyzer::analyzeSentimentUncached(const std::strin
 
 #ifdef HEARTLAKE_USE_ONNX
     if (onnxEnabled_ && onnxEngine_ && onnxEngine_->isInitialized()) {
+        static const std::vector<std::string> positiveEventHints = {
+            "收到", "收到了", "礼物", "礼物很好看", "表扬", "夸奖", "夸了我", "夸我", "老师夸", "老师表扬", "认可", "肯定", "赞扬",
+            "通过", "成功", "晋级", "被录取", "拿到", "获奖", "中奖", "惊喜"
+        };
+        static const std::vector<std::string> negativeEventHints = {
+            "焦虑", "担心", "不安", "难过", "伤心", "害怕", "恐惧", "压力", "烦躁", "痛苦", "绝望", "崩溃",
+            "孤独", "孤单", "寂寞", "脆弱", "落寞", "无助",
+            "不好", "不值", "不值得", "最差", "太差", "很差", "差劲", "忽悠",
+            "无聊", "没意思", "无意义", "不满意", "不推荐", "坑", "坑人",
+            "臭味", "再也不", "贵",
+            "沒有", "沒有", "沒", "壞", "最差", "很差", "太差", "不好", "不推薦", "不滿意", "忽悠", "坑人",
+            "無聊", "沒意思", "無意義", "貴", "臭", "損壞", "缺貨"
+        };
+        const bool positiveEventSignal =
+            (containsAnyPhrase(normalizedText, positiveEventHints) && !containsAnyPhrase(normalizedText, negativeEventHints))
+            || (anchorSignal.score > 0.35f && anchorSignal.strength > 0.18f);
+
         // 默认优先走 ONNX 融合路径，只有在本地分支极高置信时才短路，避免“有大模型但命中少”。
         const bool preferOnnxPath = preferOnnx || envFlagEnabled("EDGE_AI_PREFER_ONNX", true);
         constexpr float kFastPathConfidence = 0.82f;

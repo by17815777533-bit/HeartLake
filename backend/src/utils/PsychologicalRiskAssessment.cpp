@@ -217,7 +217,7 @@ PsychologicalRiskResult PsychologicalRiskAssessment::assessRisk(
     // 记录情绪历史
     recordEmotionHistory(userId, sentimentScore, emotion, text);
 
-    LOG_INFO << "Risk assessment for user " << userId
+    LOG_DEBUG << "Risk assessment for user " << userId
              << ": score=" << result.overallScore
              << ", level=" << static_cast<int>(result.riskLevel);
 

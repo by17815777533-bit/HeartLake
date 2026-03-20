@@ -401,8 +401,8 @@ void DualMemoryRAG::evictLeastRelevant(
                 auto emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
                 float sim = cosineSimilarity(currentEmbedding, emb);
                 retainScore += alpha * std::max(0.0f, sim);
-            } catch (const std::exception& e) {
-                LOG_WARN << "Embedding similarity failed: " << e.what();
+            } catch (const std::exception& ex) {
+                LOG_WARN << "Embedding similarity failed: " << ex.what();
             }
         }
         // 词面回退

@@ -9,6 +9,7 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-heartlake_runtime}"
 GATEWAY_PORT="${GATEWAY_PORT:-3000}"
 API_BASE="http://127.0.0.1:${GATEWAY_PORT}"
 RUN_EXISTING_TESTS="${RUN_EXISTING_TESTS:-1}"
+TEST_RUNNER="${TEST_RUNNER:-./scripts/verify-2c2g.sh}"
 
 extract_json_string_field() {
   local json="$1"
@@ -82,8 +83,8 @@ if command -v node >/dev/null 2>&1; then
 fi
 
 if [[ "${RUN_EXISTING_TESTS}" == "1" ]]; then
-  echo "[docker-test] 执行现有测试集合（tests/clients/run_all.sh）..."
-  ./tests/clients/run_all.sh
+  echo "[docker-test] 执行测试集合（${TEST_RUNNER}）..."
+  "${TEST_RUNNER}"
 fi
 
 echo "[docker-test] 验证匿名登录接口..."

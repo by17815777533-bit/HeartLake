@@ -57,7 +57,7 @@ static HttpResponsePtr createErrorResponse(int code, const std::string& message)
     json["code"] = code;
     json["message"] = message;
     json["data"] = Json::nullValue;
-    json["timestamp"] = (Json::Int64)std::time(nullptr);
+    json["timestamp"] = static_cast<Json::Int64>(std::time(nullptr));
     auto resp = HttpResponse::newHttpJsonResponse(json);
     // Map error code to appropriate HTTP status
     HttpStatusCode httpStatus = k500InternalServerError;

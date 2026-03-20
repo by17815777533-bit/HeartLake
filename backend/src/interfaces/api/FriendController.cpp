@@ -12,7 +12,6 @@
 
 #include "interfaces/api/FriendController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
-#include "application/FriendApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "infrastructure/services/IntimacyService.h"
 #include "utils/IdGenerator.h"
@@ -26,12 +25,6 @@
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
-using namespace heartlake::application;
-
-static std::shared_ptr<FriendApplicationService> getFriendService() {
-    return heartlake::core::di::ServiceLocator::instance().resolve<FriendApplicationService>();
-}
-
 static std::string intimacyLevelZh(const std::string& level) {
     if (level == "soulmate") return "灵魂同频";
     if (level == "close") return "深度共鸣";

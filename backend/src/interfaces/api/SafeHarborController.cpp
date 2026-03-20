@@ -13,7 +13,7 @@ using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
 void SafeHarborController::getHotlines(
-    const drogon::HttpRequestPtr& req,
+    const drogon::HttpRequestPtr&,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
     try {
@@ -26,7 +26,7 @@ void SafeHarborController::getHotlines(
 }
 
 void SafeHarborController::getSelfHelpTools(
-    const drogon::HttpRequestPtr& req,
+    const drogon::HttpRequestPtr&,
     std::function<void(const drogon::HttpResponsePtr&)>&& callback
 ) {
     try {

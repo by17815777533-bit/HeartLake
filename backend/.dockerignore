@@ -1,10 +1,14 @@
 build
 build-*
+.cache
+tests
+third_party
 logs
 quic_gateway
 .git
 .idea
 .vscode
 *.log
+compile_commands.json
 core
 core.*

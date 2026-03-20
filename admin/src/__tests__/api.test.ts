@@ -25,6 +25,8 @@ vi.mock('@/router', () => ({
 describe('API Module', () => {
   let mock: MockAdapter
   let appStore: ReturnType<typeof useAppStore>
+  let noRetryId: number
+  let cleanupInterceptorId: number
 
   beforeEach(() => {
     localStorage.clear()
@@ -35,9 +37,25 @@ describe('API Module', () => {
     appStore = useAppStore()
 
     mock = new MockAdapter(http)
+    noRetryId = http.interceptors.request.use((config) => {
+      ;(config as any)._retryCount = Infinity
+      return config
+    })
+    cleanupInterceptorId = http.interceptors.response.use(undefined, (error) => {
+      if (error?.config) {
+        try {
+          error.config = JSON.parse(JSON.stringify(error.config))
+        } catch {
+          error.config = {}
+        }
+      }
+      return Promise.reject(error)
+    })
   })
 
   afterEach(() => {
+    http.interceptors.request.eject(noRetryId)
+    http.interceptors.response.eject(cleanupInterceptorId)
     mock.restore()
   })
 
