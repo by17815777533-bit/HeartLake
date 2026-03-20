@@ -481,12 +481,14 @@ onMounted(() => fetchLogs())
   }
 
   .logs-table-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
     gap: 14px;
   }
 
   .logs-inline-filter {
-    width: auto;
-    flex: 1 1 600px;
+    width: 100%;
+    flex: none;
     justify-content: stretch;
 
     :deep(.el-form-item:nth-child(1)),
@@ -516,6 +518,12 @@ onMounted(() => fetchLogs())
       color: var(--hl-ink-soft);
       font-size: 12px;
       line-height: 1.55;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    .logs-table-toolbar {
+      grid-template-columns: 1fr;
     }
   }
 

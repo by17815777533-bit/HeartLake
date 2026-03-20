@@ -324,7 +324,7 @@ onUnmounted(() => {
 }
 
 .workspace-shell {
-  width: min(1248px, 100%);
+  width: 100%;
   margin: 0 auto;
   min-height: calc(100vh - 28px);
   display: flex;
@@ -561,7 +561,7 @@ onUnmounted(() => {
   }
 
   .workspace-shell {
-    width: min(100%, 1032px);
+    width: 100%;
     min-height: calc(100vh - 28px);
     padding: 16px 16px 18px;
     border-width: 6px;
@@ -650,7 +650,7 @@ onUnmounted(() => {
   }
 
   .workspace-shell {
-    width: min(1218px, 100%);
+    width: 100%;
     min-height: calc(100vh - 24px);
     padding: 16px 18px 18px;
     border-radius: 30px;

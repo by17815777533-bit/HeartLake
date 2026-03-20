@@ -572,10 +572,20 @@ onMounted(() => fetchWords())
   }
 
   .sensitive-table-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
     align-items: flex-end;
   }
 
+  :deep(.sensitive-table-toolbar .ops-soft-actions) {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
   .sensitive-inline-filter {
+    width: 100%;
     justify-content: flex-end;
   }
 
@@ -592,6 +602,16 @@ onMounted(() => fetchWords())
       color: var(--hl-ink-soft);
       font-size: 12px;
       line-height: 1.55;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    .sensitive-table-toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    :deep(.sensitive-table-toolbar .ops-soft-actions) {
+      grid-template-columns: 1fr;
     }
   }
 

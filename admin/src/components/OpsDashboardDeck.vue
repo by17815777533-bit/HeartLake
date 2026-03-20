@@ -275,7 +275,7 @@ const normalizedRhythmItems = computed(() => {
 
   display: grid;
   gap: var(--deck-gap);
-  grid-template-columns: minmax(0, 1.48fr) minmax(230px, 0.82fr) minmax(292px, 0.94fr);
+  grid-template-columns: minmax(0, 1.48fr) minmax(0, 0.82fr) minmax(0, 0.94fr);
   grid-template-rows: minmax(182px, auto) minmax(138px, auto);
   grid-template-areas:
     'overview spending activity'
@@ -287,7 +287,7 @@ const normalizedRhythmItems = computed(() => {
   --deck-gap: 14px;
   --deck-radius: 24px;
 
-  grid-template-columns: minmax(0, 1.42fr) minmax(208px, 0.8fr) minmax(264px, 0.9fr);
+  grid-template-columns: minmax(0, 1.42fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
   grid-template-rows: minmax(162px, auto) minmax(124px, auto);
   margin-bottom: 14px;
 }
@@ -1203,7 +1203,7 @@ const normalizedRhythmItems = computed(() => {
   .ops-dashboard-deck {
     --deck-gap: 14px;
     --deck-radius: 24px;
-    grid-template-columns: minmax(0, 1.4fr) minmax(176px, 0.76fr) minmax(232px, 0.88fr);
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.76fr) minmax(0, 0.88fr);
     grid-template-rows: minmax(148px, auto) minmax(116px, auto);
   }
 

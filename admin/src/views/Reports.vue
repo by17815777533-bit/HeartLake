@@ -471,6 +471,8 @@ onMounted(() => {
   }
 
   .reports-table-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
     align-items: flex-end;
   }
 
@@ -491,6 +493,12 @@ onMounted(() => {
       color: var(--hl-ink-soft);
       font-size: 12px;
       line-height: 1.55;
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .reports-table-toolbar {
+      grid-template-columns: 1fr;
     }
   }
 

@@ -691,12 +691,14 @@ onMounted(() => {
   }
 
   .users-table-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
     gap: 14px;
   }
 
   .users-inline-filter {
-    width: auto;
-    flex: 1 1 560px;
+    width: 100%;
+    flex: none;
     justify-content: stretch;
 
     :deep(.el-form-item:nth-child(1)),
@@ -720,6 +722,12 @@ onMounted(() => {
       color: var(--hl-ink-soft);
       font-size: 12px;
       line-height: 1.55;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    .users-table-toolbar {
+      grid-template-columns: 1fr;
     }
   }
 

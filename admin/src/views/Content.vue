@@ -688,6 +688,8 @@ onMounted(() => {
   }
 
   .content-table-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
     align-items: flex-end;
   }
 
@@ -721,6 +723,12 @@ onMounted(() => {
       color: var(--hl-ink-soft);
       font-size: 12px;
       line-height: 1.55;
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .content-table-toolbar {
+      grid-template-columns: 1fr;
     }
   }
 
