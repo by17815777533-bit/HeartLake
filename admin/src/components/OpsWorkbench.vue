@@ -100,26 +100,52 @@ const hasDeck = computed(
 .ops-workbench__deck {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.38fr) minmax(220px, 0.9fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 1.54fr) minmax(300px, 0.98fr);
+  grid-template-areas:
+    'stage stack'
+    'stage rail';
   gap: var(--ops-workbench-gap);
   align-items: start;
   z-index: 1;
 }
 
+.ops-workbench__stage {
+  grid-area: stage;
+}
+
+.ops-workbench__stack {
+  grid-area: stack;
+}
+
+.ops-workbench__rail {
+  grid-area: rail;
+}
+
+.ops-workbench__deck:not(.has-support) {
+  grid-template-columns: minmax(0, 1.42fr) minmax(260px, 0.94fr);
+  grid-template-areas: 'stage rail';
+}
+
 .ops-workbench__deck:not(.has-rail) {
-  grid-template-columns: minmax(0, 1.42fr) minmax(212px, 0.9fr);
+  grid-template-columns: minmax(0, 1.42fr) minmax(236px, 0.9fr);
+  grid-template-areas: 'stage stack';
 }
 
 .ops-workbench__deck:not(.has-support):not(.has-footer) {
-  grid-template-columns: minmax(0, 1.56fr) minmax(228px, 0.94fr);
+  grid-template-columns: minmax(0, 1.56fr) minmax(260px, 0.94fr);
+  grid-template-areas: 'stage rail';
 }
 
 .ops-workbench__deck:not(.has-support).has-footer:not(.has-rail) {
-  grid-template-columns: minmax(0, 1.42fr) minmax(212px, 0.9fr);
+  grid-template-columns: minmax(0, 1.42fr) minmax(236px, 0.9fr);
+  grid-template-areas: 'stage stack';
 }
 
 .ops-workbench__deck:not(.has-support).has-footer {
-  grid-template-columns: minmax(0, 1.56fr) minmax(228px, 0.94fr);
+  grid-template-columns: minmax(0, 1.56fr) minmax(260px, 0.94fr);
+  grid-template-areas:
+    'stage stack'
+    'stage rail';
 }
 
 .ops-workbench__stack {
@@ -152,15 +178,20 @@ const hasDeck = computed(
   }
 
   .ops-workbench__deck {
-    grid-template-columns: minmax(0, 1.34fr) minmax(190px, 0.82fr) minmax(228px, 0.94fr);
+    grid-template-columns: minmax(0, 1.46fr) minmax(250px, 0.92fr);
+    grid-template-areas:
+      'stage stack'
+      'stage rail';
   }
 
   .ops-workbench__deck:not(.has-rail) {
-    grid-template-columns: minmax(0, 1.34fr) minmax(184px, 0.86fr);
+    grid-template-columns: minmax(0, 1.34fr) minmax(198px, 0.86fr);
+    grid-template-areas: 'stage stack';
   }
 
   .ops-workbench__deck:not(.has-support) {
-    grid-template-columns: minmax(0, 1.48fr) minmax(202px, 0.9fr);
+    grid-template-columns: minmax(0, 1.48fr) minmax(216px, 0.9fr);
+    grid-template-areas: 'stage rail';
   }
 }
 
@@ -182,6 +213,10 @@ const hasDeck = computed(
   .ops-workbench__deck:not(.has-support),
   .ops-workbench__deck:not(.has-footer) {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'stage'
+      'stack'
+      'rail';
   }
 }
 </style>
