@@ -127,20 +127,15 @@ done
 # Run migrations with proper error handling
 if [ -d "migrations" ]; then
     echo "Running migrations..."
-    MIGRATION_FAILED=0
     for f in $(ls migrations/*.sql 2>/dev/null | sort); do
         echo "  Applying $(basename "$f")..."
         if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
             -v ON_ERROR_STOP=1 -f "$f" 2>&1; then
-            echo "  WARNING: Migration $(basename "$f") had errors (may already be applied)"
-            MIGRATION_FAILED=$((MIGRATION_FAILED + 1))
+            echo "  FATAL: Migration $(basename "$f") failed"
+            exit 1
         fi
     done
-    if [ "$MIGRATION_FAILED" -gt 0 ]; then
-        echo "Migrations complete with $MIGRATION_FAILED warnings"
-    else
-        echo "All migrations applied successfully"
-    fi
+    echo "All migrations applied successfully"
 fi
 
 exec ./HeartLake

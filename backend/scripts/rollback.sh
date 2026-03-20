@@ -60,6 +60,30 @@ PSQL_OPTS="-h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME $*"
 # 去掉前导零，方便数值比较
 target_num=$((10#$TARGET))
 
+missing_rollbacks=()
+for migration_file in "$MIGRATIONS_DIR"/*.sql; do
+    [[ -f "$migration_file" ]] || continue
+    migration_basename="$(basename "$migration_file")"
+    migration_num_str="${migration_basename%%_*}"
+    migration_num=$((10#$migration_num_str))
+    if [[ $migration_num -lt $target_num ]]; then
+        continue
+    fi
+
+    expected_rollback="$ROLLBACK_DIR/${migration_basename%.sql}_down.sql"
+    if [[ ! -f "$expected_rollback" ]]; then
+        missing_rollbacks+=("$migration_basename")
+    fi
+done
+
+if [[ ${#missing_rollbacks[@]} -gt 0 ]]; then
+    echo -e "${RED}错误: 以下迁移缺少回滚脚本，已拒绝继续执行:${NC}"
+    for missing in "${missing_rollbacks[@]}"; do
+        echo "  - $missing"
+    done
+    exit 1
+fi
+
 # 收集所有需要回滚的迁移编号（从最新到 target，降序）
 rollback_files=()
 for f in "$ROLLBACK_DIR"/*_down.sql; do

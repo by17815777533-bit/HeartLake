@@ -7,6 +7,13 @@ RUNTIME_DIR="${ROOT_DIR}/.runtime"
 LOG_DIR="${RUNTIME_DIR}/logs"
 mkdir -p "${RUNTIME_DIR}" "${LOG_DIR}" "${RUNTIME_DIR}/redis"
 
+BOOTSTRAP_LIB="${ROOT_DIR}/scripts/lib/env-bootstrap.sh"
+if [[ ! -f "${BOOTSTRAP_LIB}" ]]; then
+    echo "FATAL: bootstrap helper missing: ${BOOTSTRAP_LIB}"
+    exit 1
+fi
+source "${BOOTSTRAP_LIB}"
+
 ENV_FILE="${HEARTLAKE_ENV_PATH:-}"
 if [[ -z "${ENV_FILE}" ]]; then
     if [[ -f "${SCRIPT_DIR}/.env" ]]; then
@@ -22,6 +29,14 @@ fi
 
 if [[ ! -f "${ENV_FILE}" ]]; then
     echo "FATAL: env file not found: ${ENV_FILE}"
+    exit 1
+fi
+
+if bootstrap_msg="$(heartlake_bootstrap_env "${ENV_FILE}" "${RUNTIME_DIR}/bootstrap-secrets.txt" "backend/start.sh")"; then
+    if [[ -n "${bootstrap_msg}" ]]; then
+        echo "${bootstrap_msg}"
+    fi
+else
     exit 1
 fi
 
@@ -204,8 +219,14 @@ wait_pg() {
     local retries="${1:-10}"
     local timeout_sec="${2:-1}"
     for _ in $(seq 1 "${retries}"); do
-        if pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -t "${timeout_sec}" >/dev/null 2>&1; then
-            return 0
+        if command -v pg_isready >/dev/null 2>&1; then
+            if pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -t "${timeout_sec}" >/dev/null 2>&1; then
+                return 0
+            fi
+        elif command -v psql >/dev/null 2>&1; then
+            if PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+                return 0
+            fi
         fi
         sleep 1
     done
@@ -229,6 +250,34 @@ prepend_ld_library_path() {
         export LD_LIBRARY_PATH="${dir}:${LD_LIBRARY_PATH}"
     fi
 }
+
+missing_commands=()
+require_command() {
+    local cmd="$1"
+    if ! command -v "${cmd}" >/dev/null 2>&1; then
+        missing_commands+=("${cmd}")
+    fi
+}
+
+require_command "cmake"
+require_command "psql"
+require_command "redis-cli"
+if [[ -z "${NATIVE_CXX}" ]]; then
+    missing_commands+=("g++")
+fi
+if local_addr "${DB_HOST}"; then
+    require_command "initdb"
+    require_command "pg_ctl"
+fi
+if local_addr "${REDIS_HOST}"; then
+    require_command "redis-server"
+fi
+
+if (( ${#missing_commands[@]} > 0 )); then
+    printf 'FATAL: missing required commands: %s\n' "$(IFS=', '; echo "${missing_commands[*]}")"
+    echo "Hint: install local PostgreSQL/Redis toolchains, or use ./scripts/docker-up.sh once Docker is available."
+    exit 1
+fi
 
 # --------- PostgreSQL (persistent local runtime) ---------
 if ! wait_pg 5 1; then
@@ -263,6 +312,10 @@ if ! wait_pg 20 1; then
 fi
 
 if ! PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
+    if ! command -v createdb >/dev/null 2>&1; then
+        echo "FATAL: createdb is required to create missing database ${DB_NAME}"
+        exit 1
+    fi
     PGPASSWORD="${DB_PASSWORD}" createdb -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" "${DB_NAME}"
 fi
 
@@ -330,7 +383,9 @@ if [[ -d "${SCRIPT_DIR}/migrations" ]]; then
     for f in $(ls "${SCRIPT_DIR}"/migrations/*.sql 2>/dev/null | sort); do
         echo "Applying $(basename "$f")"
         if ! PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -v ON_ERROR_STOP=1 -f "$f" >> "${LOG_DIR}/migrations.log" 2>&1; then
-            echo "WARN: migration failed or already applied: $(basename "$f")"
+            echo "FATAL: migration failed: $(basename "$f")"
+            echo "See ${LOG_DIR}/migrations.log for details"
+            exit 1
         fi
     done
 fi

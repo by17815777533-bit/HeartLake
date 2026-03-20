@@ -26,7 +26,7 @@
 
 ## 执行方式
 
-迁移按文件名数字顺序执行，所有语句使用 `IF NOT EXISTS` / `IF EXISTS` 保证幂等性。
+迁移按文件名数字顺序执行，所有语句使用 `IF NOT EXISTS` / `IF EXISTS` 保证幂等性。每个 `up` 迁移都必须存在同编号的 `rollback/*_down.sql`，否则视为不完整版本，不应进入生产环境。
 
 ```bash
 for f in $(ls migrations/*.sql | sort); do
@@ -203,6 +203,31 @@ ALTER TABLE notifications DROP COLUMN IF EXISTS notification_id;
 DROP INDEX IF EXISTS idx_users_username;
 ALTER TABLE users DROP COLUMN IF EXISTS recovery_key_hash;
 ALTER TABLE users DROP COLUMN IF EXISTS username;
+```
+
+### 013_schema_fixes — 回滚
+
+详见 `rollback/013_schema_fixes_down.sql`
+
+### 014_stones_embedding_vector — 回滚
+
+详见 `rollback/014_stones_embedding_vector_down.sql`
+
+### 015_runtime_schema_hotfix — 回滚
+
+详见 `rollback/015_runtime_schema_hotfix_down.sql`
+
+### 016_admin_runtime_tables — 回滚
+
+```sql
+DROP INDEX IF EXISTS idx_moderation_logs_target;
+DROP INDEX IF EXISTS idx_moderation_logs_created;
+DROP TABLE IF EXISTS moderation_logs;
+DROP INDEX IF EXISTS idx_reports_target;
+DROP INDEX IF EXISTS idx_reports_status_created;
+DROP INDEX IF EXISTS idx_reports_reporter_created;
+DROP TABLE IF EXISTS reports;
+DROP TABLE IF EXISTS broadcast_messages;
 ```
 
 ### 017_account_schema_alignment — 回滚

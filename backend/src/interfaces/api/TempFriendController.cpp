@@ -3,6 +3,7 @@
  */
 #include "interfaces/api/TempFriendController.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <drogon/HttpResponse.h>
@@ -231,9 +232,11 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             friend_["source"] = row["source"].as<std::string>();
             friend_["created_at"] = row["created_at"].as<std::string>();
             friend_["expires_at"] = row["expires_at"].as<std::string>();
-            int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+            int secRemaining = row["seconds_remaining"].isNull()
+                                   ? 0
+                                   : clampRemainingSeconds(row["seconds_remaining"].as<int>());
             friend_["seconds_remaining"] = secRemaining;
-            friend_["hours_remaining"] = secRemaining / 3600;
+            friend_["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
             
             friends.append(friend_);
         }
@@ -304,9 +307,11 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         data["source"] = row["source"].as<std::string>();
         data["created_at"] = row["created_at"].as<std::string>();
         data["expires_at"] = row["expires_at"].as<std::string>();
-        int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+        int secRemaining = row["seconds_remaining"].isNull()
+                               ? 0
+                               : clampRemainingSeconds(row["seconds_remaining"].as<int>());
         data["seconds_remaining"] = secRemaining;
-        data["hours_remaining"] = secRemaining / 3600;
+        data["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
         data["upgraded_to_friend"] = row["upgraded_to_friend"].as<bool>();
         
         // 判断对方是谁
@@ -514,9 +519,11 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
             data["is_temp_friend"] = true;
             data["temp_friend_id"] = row["temp_friend_id"].as<std::string>();
             data["expires_at"] = row["expires_at"].as<std::string>();
-            int secRemaining = row["seconds_remaining"].isNull() ? 0 : std::max(0, row["seconds_remaining"].as<int>());
+            int secRemaining = row["seconds_remaining"].isNull()
+                                   ? 0
+                                   : clampRemainingSeconds(row["seconds_remaining"].as<int>());
             data["seconds_remaining"] = secRemaining;
-            data["hours_remaining"] = secRemaining / 3600;
+            data["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
             ret["data"] = data;
         } else {
             Json::Value data;

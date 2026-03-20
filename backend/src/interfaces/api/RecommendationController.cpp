@@ -5,6 +5,7 @@
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <atomic>
@@ -282,10 +283,7 @@ void RecommendationController::trackInteraction(
         int dwellTime = (*json).get("dwell_time_seconds", 0).asInt();
 
         // 计算交互权重
-        double weight = 0.1; // view
-        if (interactionType == "ripple") weight = 1.0;
-        else if (interactionType == "boat") weight = 2.0;
-        else if (interactionType == "share") weight = 3.0;
+        double weight = interactionWeightForType(interactionType);
 
         auto dbClient = drogon::app().getDbClient("default");
 
@@ -702,18 +700,6 @@ void RecommendationController::searchRecommendations(
             "AND s.user_id != $1 "
             "AND s.content ILIKE $2 ESCAPE '\\' ";
 
-        // 转义LIKE通配符，防止用户输入的 % _ \ 被当作通配符
-        auto escapeLike = [](const std::string& input) -> std::string {
-            std::string result;
-            result.reserve(input.size());
-            for (char c : input) {
-                if (c == '%' || c == '_' || c == '\\') {
-                    result += '\\';
-                }
-                result += c;
-            }
-            return result;
-        };
         std::string searchPattern = "%" + escapeLike(query) + "%";
 
         // 排序和分页（使用参数化查询防止注入）
@@ -822,10 +808,7 @@ void RecommendationController::trackBatchInteractions(
             }
 
             // 计算交互权重
-            double weight = 0.1; // view
-            if (interactionType == "ripple") weight = 1.0;
-            else if (interactionType == "boat") weight = 2.0;
-            else if (interactionType == "share") weight = 3.0;
+            double weight = interactionWeightForType(interactionType);
             validInteractions.push_back({stoneId, interactionType, weight, dwellTime});
         }
 

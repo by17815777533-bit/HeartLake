@@ -13,6 +13,7 @@
  */
 
 #include "application/UserApplicationService.h"
+#include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <unordered_map>
@@ -244,18 +245,6 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
 
   try {
     int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
-    // 转义 LIKE 特殊字符，防止通配符注入
-    auto escapeLike = [](const std::string &s) {
-      std::string result;
-      result.reserve(s.size());
-      for (char c : s) {
-        if (c == '%' || c == '_' || c == '\\') {
-          result += '\\';
-        }
-        result += c;
-      }
-      return result;
-    };
     std::string searchPattern = "%" + escapeLike(keyword) + "%";
 
     auto result = dbClient->execSqlSync(

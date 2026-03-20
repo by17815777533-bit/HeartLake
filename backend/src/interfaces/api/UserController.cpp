@@ -3,6 +3,7 @@
  */
 #include "interfaces/api/UserController.h"
 #include "utils/IdGenerator.h"
+#include "utils/BusinessRules.h"
 #include "utils/PasetoUtil.h"
 #include "utils/RecoveryKeyGenerator.h"
 #include "utils/RequestHelper.h"
@@ -426,17 +427,6 @@ void UserController::searchUsers(
       callback(ResponseUtil::badRequest("搜索关键词不能为空"));
       return;
     }
-
-    auto escapeLike = [](const std::string &input) -> std::string {
-      std::string result;
-      result.reserve(input.size());
-      for (char c : input) {
-        if (c == '%' || c == '_' || c == '\\')
-          result += '\\';
-        result += c;
-      }
-      return result;
-    };
 
     auto dbClient = drogon::app().getDbClient("default");
     auto [page, pageSize] = safePagination(req);
