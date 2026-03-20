@@ -55,7 +55,8 @@ const hasFooter = computed(() => Boolean(slots.footer))
   gap: var(--ops-workbench-gap);
   grid-template-areas:
     'stage support rail'
-    'main main footer';
+    'stage footer rail'
+    'main main main';
   align-items: start;
 }
 
@@ -66,31 +67,31 @@ const hasFooter = computed(() => Boolean(slots.footer))
 }
 
 .ops-workbench:not(.has-rail) {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.42fr) minmax(212px, 0.9fr);
   grid-template-areas:
-    'stage'
-    'support'
-    'main'
-    'footer';
+    'stage support'
+    'stage footer'
+    'main main';
 }
 
 .ops-workbench:not(.has-support) {
   grid-template-columns: minmax(0, 1.56fr) minmax(228px, 0.94fr);
   grid-template-areas:
     'stage rail'
-    'main footer';
+    'footer rail'
+    'main main';
 }
 
 .ops-workbench:not(.has-footer) {
   grid-template-areas:
     'stage support rail'
-    'main main rail';
+    'main main main';
 }
 
 .ops-workbench:not(.has-support):not(.has-footer) {
   grid-template-areas:
     'stage rail'
-    'main rail';
+    'main main';
 }
 
 .ops-workbench__stage {
@@ -116,14 +117,7 @@ const hasFooter = computed(() => Boolean(slots.footer))
 .ops-workbench__main,
 .ops-workbench__footer {
   min-width: 0;
-  align-self: stretch;
-}
-
-.ops-workbench__stage :deep(.ops-surface-card),
-.ops-workbench__support :deep(.ops-surface-card),
-.ops-workbench__rail :deep(.ops-surface-card),
-.ops-workbench__footer :deep(.ops-surface-card) {
-  min-height: 100%;
+  align-self: start;
 }
 
 @media (max-width: 1180px) and (min-width: 961px) {
@@ -133,6 +127,10 @@ const hasFooter = computed(() => Boolean(slots.footer))
     --ops-workbench-stage: minmax(0, 1.4fr);
     --ops-workbench-support: minmax(148px, 0.7fr);
     --ops-workbench-rail: minmax(214px, 0.9fr);
+  }
+
+  .ops-workbench:not(.has-rail) {
+    grid-template-columns: minmax(0, 1.34fr) minmax(184px, 0.86fr);
   }
 
   .ops-workbench:not(.has-support) {
