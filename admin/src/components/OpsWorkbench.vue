@@ -55,13 +55,55 @@ const hasDeck = computed(
   position: relative;
   display: grid;
   gap: var(--ops-workbench-gap);
+  padding: 10px;
+  border-radius: 38px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.78), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(214, 232, 255, 0.44), transparent 24%),
+    linear-gradient(180deg, rgba(252, 254, 255, 0.62), rgba(236, 244, 255, 0.4));
+  border: 1px solid rgba(168, 185, 223, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 28px 54px rgba(104, 128, 176, 0.08);
+  isolation: isolate;
+}
+
+.ops-workbench::before,
+.ops-workbench::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.ops-workbench::before {
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 40%),
+    linear-gradient(180deg, rgba(139, 163, 214, 0.08), transparent 62%);
+  opacity: 0.95;
+}
+
+.ops-workbench::after {
+  top: 28px;
+  right: 22px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 1px solid rgba(145, 168, 218, 0.12);
+  box-shadow:
+    0 0 0 28px rgba(255, 255, 255, 0.08),
+    0 0 0 56px rgba(215, 229, 255, 0.08);
+  opacity: 0.68;
 }
 
 .ops-workbench__deck {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.38fr) minmax(220px, 0.9fr) minmax(260px, 1fr);
   gap: var(--ops-workbench-gap);
   align-items: start;
+  z-index: 1;
 }
 
 .ops-workbench__deck:not(.has-rail) {
@@ -98,11 +140,15 @@ const hasDeck = computed(
 
 .ops-workbench__main {
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 1180px) and (min-width: 961px) {
   .ops-workbench {
     --ops-workbench-gap: 14px;
+    padding: 8px;
+    border-radius: 32px;
   }
 
   .ops-workbench__deck {
@@ -119,6 +165,18 @@ const hasDeck = computed(
 }
 
 @media (max-width: 960px) {
+  .ops-workbench {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ops-workbench::before,
+  .ops-workbench::after {
+    display: none;
+  }
+
   .ops-workbench__deck,
   .ops-workbench__deck:not(.has-rail),
   .ops-workbench__deck:not(.has-support),
