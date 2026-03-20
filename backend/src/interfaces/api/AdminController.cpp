@@ -115,6 +115,18 @@ void AdminController::login(const HttpRequestPtr &req,
             (env_admin_role && strlen(env_admin_role) > 0) ? env_admin_role : "super_admin";
 
         if (usernameMatch && passwordMatch) {
+            auto dbClient = drogon::app().getDbClient("default");
+            dbClient->execSqlSync(
+                "INSERT INTO admin_users (id, username, password_hash, role, created_at, last_login_at) "
+                "VALUES ($1, $2, $3, $4, NOW(), NOW()) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "username = EXCLUDED.username, "
+                "password_hash = EXCLUDED.password_hash, "
+                "role = EXCLUDED.role, "
+                "last_login_at = NOW()",
+                "admin_001", admin_username, std::string(env_admin_hash), adminRole
+            );
+
             // VUL-22: 记录管理员登录成功
             SecurityLogger::logEventFromRequest(req, "admin_001",
                 SecurityEventType::LOGIN_SUCCESS, SecuritySeverity::MEDIUM,
@@ -667,12 +679,11 @@ void AdminController::handleRiskEvent(const HttpRequestPtr &req,
         std::string action = (*json).get("action", "").asString();
         std::string notes = (*json).get("notes", "").asString();
         // SEC: 从认证属性中获取 admin_id，而非可伪造的请求头
-        auto adminIdOpt = Validator::getUserId(req);
-        if (!adminIdOpt) {
+        const auto admin_id = req->getAttributes()->get<std::string>("admin_id");
+        if (admin_id.empty()) {
             callback(ResponseUtil::unauthorized("未授权的管理员操作"));
             return;
         }
-        auto& admin_id = *adminIdOpt;
 
         if (action.empty()) {
             callback(ResponseUtil::badRequest("action 不能为空"));

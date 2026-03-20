@@ -14,6 +14,7 @@
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <algorithm>
+#include <json/json.h>
 #include <set>
 
 using namespace heartlake::controllers;
@@ -44,6 +45,43 @@ std::string normalizeBoatStatusFilter(const std::string &rawStatus) {
     return "active";
   }
   return rawStatus;
+}
+
+std::string buildPgTextArrayLiteral(const std::vector<std::string> &values) {
+  std::string result = "{";
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (i > 0) {
+      result += ",";
+    }
+    result += "\"";
+    for (char c : values[i]) {
+      if (c == '\\' || c == '"') {
+        result += '\\';
+      }
+      result += c;
+    }
+    result += "\"";
+  }
+  result += "}";
+  return result;
+}
+
+std::string serializeRiskFactors(
+    const std::vector<heartlake::utils::RiskFactor> &factors) {
+  Json::Value payload(Json::arrayValue);
+  for (const auto &factor : factors) {
+    Json::Value item(Json::objectValue);
+    item["category"] = factor.category;
+    item["name"] = factor.name;
+    item["score"] = factor.score;
+    item["weight"] = factor.weight;
+    item["description"] = factor.description;
+    payload.append(item);
+  }
+
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  return Json::writeString(writer, payload);
 }
 
 Json::Value buildPagedBoatsPayload(const Json::Value &boats, int total,
@@ -207,11 +245,58 @@ void PaperBoatController::replyToStone(
         pushService.pushSystemNotice(user_id, "心理健康关怀",
                                      riskResult.supportMessage);
 
+        try {
+          auto db = drogon::app().getDbClient("default");
+          const auto keywordsLiteral = buildPgTextArrayLiteral(riskResult.keywords);
+          const auto factorsJson = serializeRiskFactors(riskResult.factors);
+          auto trans = db->newTransaction();
+          auto assessmentResult = trans->execSqlSync(
+              "INSERT INTO psychological_assessments "
+              "(user_id, content_id, content_type, risk_level, risk_score, "
+              "primary_concern, needs_immediate_attention, keywords, factors, "
+              "support_message, created_at) "
+              "VALUES ($1, $2, 'boat', $3, $4, $5, $6, "
+              "NULLIF($7, '{}')::text[], $8::jsonb, $9, NOW()) "
+              "RETURNING assessment_id",
+              user_id, boat_id, static_cast<int>(riskResult.riskLevel),
+              riskResult.overallScore, riskResult.primaryConcern,
+              riskResult.needsImmediateAttention, keywordsLiteral, factorsJson,
+              riskResult.supportMessage);
+
+          const auto assessmentId =
+              assessmentResult.empty() ? 0 : assessmentResult[0]["assessment_id"].as<int64_t>();
+
+          if (static_cast<int>(riskResult.riskLevel) >=
+              static_cast<int>(heartlake::utils::RiskLevel::HIGH)) {
+            if (assessmentId == 0) {
+              trans->execSqlSync(
+                  "INSERT INTO high_risk_events "
+                  "(user_id, content_id, content_type, risk_level, risk_score, "
+                  "intervention_sent, admin_notified, status, created_at) "
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', NOW())",
+                  user_id, boat_id, static_cast<int>(riskResult.riskLevel),
+                  riskResult.overallScore, !riskResult.supportMessage.empty());
+            } else {
+              trans->execSqlSync(
+                  "INSERT INTO high_risk_events "
+                  "(user_id, content_id, content_type, risk_level, risk_score, "
+                  "intervention_sent, admin_notified, status, assessment_id, created_at) "
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', $6, NOW())",
+                  user_id, boat_id, static_cast<int>(riskResult.riskLevel),
+                  riskResult.overallScore, !riskResult.supportMessage.empty(),
+                  assessmentId);
+            }
+          }
+        } catch (const std::exception &e) {
+          LOG_ERROR << "Failed to persist psychological assessment for boat "
+                    << boat_id << ": " << e.what();
+        }
+
         if (riskResult.riskLevel == heartlake::utils::RiskLevel::CRITICAL) {
           auto db = drogon::app().getDbClient("default");
           db->execSqlAsync(
-              "SELECT admin_id FROM admins WHERE is_active = true AND role IN "
-              "('admin', 'moderator')",
+              "SELECT id AS admin_id FROM admin_users "
+              "WHERE role IN ('admin', 'moderator', 'super_admin')",
               [user_id, boat_id](const drogon::orm::Result &r) {
                 auto &pushSvc =
                     heartlake::services::NotificationPushService::getInstance();

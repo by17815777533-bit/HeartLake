@@ -293,7 +293,11 @@ void RecommendationController::trackInteraction(
         dbClient->execSqlAsync(
             "INSERT INTO user_interaction_history "
             "(user_id, stone_id, interaction_type, interaction_weight, dwell_time_seconds) "
-            "VALUES ($1, $2, $3, $4, $5)",
+            "VALUES ($1, $2, $3, $4, $5) "
+            "ON CONFLICT (user_id, stone_id, interaction_type) DO UPDATE SET "
+            "interaction_weight = GREATEST(user_interaction_history.interaction_weight, EXCLUDED.interaction_weight), "
+            "dwell_time_seconds = GREATEST(user_interaction_history.dwell_time_seconds, EXCLUDED.dwell_time_seconds), "
+            "created_at = NOW()",
             [callback](const orm::Result&) {
                 Json::Value data;
                 data["tracked"] = true;
@@ -362,18 +366,29 @@ void RecommendationController::updateUserPreferences(
 
     // 分析最近30天的交互，更新偏好
     dbClient->execSqlAsync(
+        "WITH recent_items AS ("
+        "  SELECT DISTINCT uih.stone_id "
+        "  FROM user_interaction_history uih "
+        "  WHERE uih.user_id = $1 "
+        "    AND uih.created_at >= NOW() - INTERVAL '30 days' "
+        "    AND uih.interaction_weight >= 1.0"
+        "), expanded AS ("
+        "  SELECT "
+        "    COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "    tag "
+        "  FROM recent_items ri "
+        "  JOIN stones s ON ri.stone_id = s.stone_id "
+        "  LEFT JOIN LATERAL unnest("
+        "    COALESCE(s.tags, '{}'::text[]) || COALESCE(s.ai_tags, '{}'::text[])"
+        "  ) AS tag ON true"
+        ") "
         "INSERT INTO user_preferences (user_id, preferred_moods, preferred_tags, last_updated) "
         "SELECT "
         "  $1 as user_id, "
-        "  ARRAY_AGG(DISTINCT s.mood_type) as preferred_moods, "
-        "  ARRAY_AGG(DISTINCT tag) as preferred_tags, "
+        "  COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT mood_type), NULL), '{}'::text[]) as preferred_moods, "
+        "  COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT tag), NULL), '{}'::text[]) as preferred_tags, "
         "  NOW() as last_updated "
-        "FROM user_interaction_history uih "
-        "JOIN stones s ON uih.stone_id = s.stone_id "
-        "LEFT JOIN LATERAL unnest(s.emotion_tags) as tag ON true "
-        "WHERE uih.user_id = $1 "
-        "AND uih.created_at >= NOW() - INTERVAL '30 days' "
-        "AND uih.interaction_weight >= 1.0 "
+        "FROM expanded "
         "ON CONFLICT (user_id) DO UPDATE SET "
         "  preferred_moods = EXCLUDED.preferred_moods, "
         "  preferred_tags = EXCLUDED.preferred_tags, "
@@ -852,7 +867,11 @@ void RecommendationController::trackBatchInteractions(
                 dbClient->execSqlAsync(
                     "INSERT INTO user_interaction_history "
                     "(user_id, stone_id, interaction_type, interaction_weight, dwell_time_seconds) "
-                    "VALUES ($1, $2, $3, $4, $5)",
+                    "VALUES ($1, $2, $3, $4, $5) "
+                    "ON CONFLICT (user_id, stone_id, interaction_type) DO UPDATE SET "
+                    "interaction_weight = GREATEST(user_interaction_history.interaction_weight, EXCLUDED.interaction_weight), "
+                    "dwell_time_seconds = GREATEST(user_interaction_history.dwell_time_seconds, EXCLUDED.dwell_time_seconds), "
+                    "created_at = NOW()",
                     [successCount, finishOne](const orm::Result &) {
                         successCount->fetch_add(1);
                         finishOne();

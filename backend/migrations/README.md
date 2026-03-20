@@ -22,6 +22,7 @@
 | 016 | `016_admin_runtime_tables.sql` | 管理后台运行时表补齐 |
 | 017 | `017_account_schema_alignment.sql` | 账户字段、拉黑表与消息索引对齐 |
 | 018 | `018_user_identity_contract.sql` | 用户身份主键契约与外键统一 |
+| 019 | `019_feature_contract_completion.sql` | 推荐/VIP/风险监控缺失契约补齐 |
 
 ## 执行方式
 

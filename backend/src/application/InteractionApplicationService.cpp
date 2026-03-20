@@ -113,6 +113,24 @@ Json::Value buildAnonymousActor(const std::string &userId,
   return actor;
 }
 
+Json::Value buildConnectionPayload(const drogon::orm::Row &row) {
+  Json::Value result(Json::objectValue);
+  const auto connectionId = safeStringColumn(row, "connection_id");
+  result["connection_id"] = connectionId;
+  result["id"] = connectionId;
+  result["user_id"] = safeStringColumn(row, "user_id");
+  result["target_user_id"] = safeStringColumn(row, "target_user_id");
+  if (!row["stone_id"].isNull()) {
+    result["stone_id"] = row["stone_id"].as<std::string>();
+  }
+  result["status"] = safeStringColumn(row, "status", "active");
+  result["created_at"] = safeStringColumn(row, "created_at");
+  result["createdAt"] = result["created_at"];
+  result["expires_at"] = safeStringColumn(row, "expires_at");
+  result["expiresAt"] = result["expires_at"];
+  return result;
+}
+
 } // namespace
 
 namespace heartlake {
@@ -709,26 +727,45 @@ Json::Value InteractionApplicationService::createConnectionForStone(
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    // 1. 生成连接 ID
-    std::string connectionId = utils::IdGenerator::generateConnectionId();
+    auto stoneResult = dbClient->execSqlSync(
+        "SELECT user_id FROM stones "
+        "WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL",
+        stoneId);
+    if (stoneResult.empty()) {
+      throw std::runtime_error("石头不存在");
+    }
 
-    // 2. 插入数据库
-    dbClient->execSqlSync(
-        "INSERT INTO temp_connections (connection_id, stone_id, user_id, "
-        "status, created_at, expires_at) "
-        "VALUES ($1, $2, $3, 'active', NOW(), NOW() + INTERVAL '24 hours')",
-        connectionId, stoneId, userId);
+    const auto targetUserId = stoneResult[0]["user_id"].as<std::string>();
+    if (targetUserId.empty() || targetUserId == userId) {
+      throw std::runtime_error("不能和自己建立连接");
+    }
 
-    // 3. 返回结果
-    Json::Value result;
-    result["connection_id"] = connectionId;
-    result["stone_id"] = stoneId;
-    result["user_id"] = userId;
-    result["status"] = "active";
+    auto existing = dbClient->execSqlSync(
+        "SELECT connection_id, user_id, target_user_id, stone_id, status, "
+        "created_at, expires_at "
+        "FROM connections "
+        "WHERE stone_id = $1 "
+        "AND ((user_id = $2 AND target_user_id = $3) "
+        "  OR (user_id = $3 AND target_user_id = $2)) "
+        "AND status IN ('pending', 'active') "
+        "AND (expires_at IS NULL OR expires_at > NOW()) "
+        "ORDER BY created_at DESC LIMIT 1",
+        stoneId, userId, targetUserId);
+    if (!existing.empty()) {
+      return buildConnectionPayload(existing[0]);
+    }
+
+    const std::string connectionId = utils::IdGenerator::generateConnectionId();
+    auto insertResult = dbClient->execSqlSync(
+        "INSERT INTO connections (connection_id, user_id, target_user_id, "
+        "stone_id, status, created_at, expires_at) "
+        "VALUES ($1, $2, $3, $4, 'active', NOW(), NOW() + INTERVAL '24 hours') "
+        "RETURNING connection_id, user_id, target_user_id, stone_id, status, "
+        "created_at, expires_at",
+        connectionId, userId, targetUserId, stoneId);
 
     LOG_INFO << "Connection created: " << connectionId;
-
-    return result;
+    return buildConnectionPayload(*safeRow(insertResult));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to create connection: " << e.base().what();
@@ -743,23 +780,36 @@ InteractionApplicationService::createConnection(const std::string &targetUserId,
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    std::string connectionId = utils::IdGenerator::generateConnectionId();
+    if (targetUserId.empty() || targetUserId == userId) {
+      throw std::runtime_error("目标用户无效");
+    }
 
-    dbClient->execSqlSync(
-        "INSERT INTO temp_connections (connection_id, user_id, target_user_id, "
+    auto existing = dbClient->execSqlSync(
+        "SELECT connection_id, user_id, target_user_id, stone_id, status, "
+        "created_at, expires_at "
+        "FROM connections "
+        "WHERE stone_id IS NULL "
+        "AND ((user_id = $1 AND target_user_id = $2) "
+        "  OR (user_id = $2 AND target_user_id = $1)) "
+        "AND status IN ('pending', 'active') "
+        "AND (expires_at IS NULL OR expires_at > NOW()) "
+        "ORDER BY created_at DESC LIMIT 1",
+        userId, targetUserId);
+    if (!existing.empty()) {
+      return buildConnectionPayload(existing[0]);
+    }
+
+    const std::string connectionId = utils::IdGenerator::generateConnectionId();
+    auto insertResult = dbClient->execSqlSync(
+        "INSERT INTO connections (connection_id, user_id, target_user_id, "
         "status, created_at, expires_at) "
-        "VALUES ($1, $2, $3, 'active', NOW(), NOW() + INTERVAL '24 hours')",
+        "VALUES ($1, $2, $3, 'active', NOW(), NOW() + INTERVAL '24 hours') "
+        "RETURNING connection_id, user_id, target_user_id, stone_id, status, "
+        "created_at, expires_at",
         connectionId, userId, targetUserId);
 
-    Json::Value result;
-    result["connection_id"] = connectionId;
-    result["user_id"] = userId;
-    result["target_user_id"] = targetUserId;
-    result["status"] = "active";
-
     LOG_INFO << "Direct connection created: " << connectionId;
-
-    return result;
+    return buildConnectionPayload(*safeRow(insertResult));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to create direct connection: " << e.base().what();
@@ -1048,27 +1098,47 @@ Json::Value InteractionApplicationService::upgradeConnectionToFriend(
   try {
     auto trans = dbClient->newTransaction();
 
-    // 获取连接信息
-    auto connResult =
-        trans->execSqlSync("SELECT stone_id, user_id FROM temp_connections "
-                           "WHERE connection_id = $1 AND status = 'active'",
-                           connectionId);
+    auto connResult = trans->execSqlSync(
+        "SELECT connection_id, user_id, target_user_id, status, expires_at "
+        "FROM connections "
+        "WHERE connection_id = $1 "
+        "AND (user_id = $2 OR target_user_id = $2) "
+        "AND status IN ('pending', 'active') "
+        "AND (expires_at IS NULL OR expires_at > NOW())",
+        connectionId, userId);
     if (connResult.empty()) {
       throw std::runtime_error("连接不存在或已过期");
     }
-    std::string otherUserId = connResult[0]["user_id"].as<std::string>();
 
-    // 创建好友关系
-    std::string friendshipId = utils::IdGenerator::generateConnectionId();
-    trans->execSqlSync("INSERT INTO friendships (friendship_id, user_id, "
-                       "friend_id, status, created_at) "
-                       "VALUES ($1, $2, $3, 'accepted', NOW())",
-                       friendshipId, userId, otherUserId);
+    const auto row = connResult[0];
+    const auto ownerUserId = row["user_id"].as<std::string>();
+    const auto targetUserId = row["target_user_id"].as<std::string>();
+    const std::string otherUserId =
+        ownerUserId == userId ? targetUserId : ownerUserId;
+
+    auto existingFriendship = trans->execSqlSync(
+        "SELECT friendship_id FROM friends "
+        "WHERE ((user_id = $1 AND friend_id = $2) "
+        "   OR (user_id = $2 AND friend_id = $1)) "
+        "AND status = 'accepted' "
+        "LIMIT 1",
+        userId, otherUserId);
+
+    std::string friendshipId;
+    if (!existingFriendship.empty()) {
+      friendshipId = existingFriendship[0]["friendship_id"].as<std::string>();
+    } else {
+      friendshipId = utils::IdGenerator::generateUUID();
+      trans->execSqlSync(
+          "INSERT INTO friends (friendship_id, user_id, friend_id, status, "
+          "created_at) VALUES ($1, $2, $3, 'accepted', NOW())",
+          friendshipId, ownerUserId, targetUserId);
+    }
 
     // 更新连接状态
-    trans->execSqlSync("UPDATE temp_connections SET status = 'upgraded' WHERE "
-                       "connection_id = $1",
-                       connectionId);
+    trans->execSqlSync(
+        "UPDATE connections SET status = 'upgraded' WHERE connection_id = $1",
+        connectionId);
 
     Json::Value result;
     result["friendship_id"] = friendshipId;

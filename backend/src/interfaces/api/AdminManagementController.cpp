@@ -1096,10 +1096,7 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
         LOG_ERROR << "getBroadcastHistory error: " << e.what();
-        Json::Value data;
-        data["list"] = Json::arrayValue;
-        data["total"] = 0;
-        callback(ResponseUtil::success(data));
+        callback(ResponseUtil::internalError("获取广播历史失败"));
     }
 }
 
@@ -1186,9 +1183,6 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
         LOG_ERROR << "getOperationLogs error: " << e.what();
-        Json::Value data;
-        data["list"] = Json::arrayValue;
-        data["total"] = 0;
-        callback(ResponseUtil::success(data));
+        callback(ResponseUtil::internalError("获取操作日志失败"));
     }
 }

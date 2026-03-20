@@ -335,11 +335,20 @@ int VIPService::batchCheckEmotionsForVIP() {
 
     try {
         auto result = dbClient->execSqlSync(
-            "SELECT batch_check_emotions_for_vip()"
+            "SELECT user_id, COALESCE(AVG(avg_emotion_score), 0) AS avg_emotion_score "
+            "FROM user_emotion_profile "
+            "WHERE date >= CURRENT_DATE - INTERVAL '7 days' "
+            "GROUP BY user_id"
         );
 
         int count = 0;
-        if (auto rowOpt = safeRow(result)) count = (*rowOpt)[0].as<int>();
+        for (const auto& row : result) {
+            const auto userId = row["user_id"].as<std::string>();
+            const auto avgEmotionScore = row["avg_emotion_score"].as<float>();
+            if (checkEmotionAndGrantVIP(userId, avgEmotionScore, {})) {
+                count++;
+            }
+        }
         LOG_INFO << "Batch VIP emotion check completed. Granted VIP to " << count << " users.";
         return count;
     } catch (const std::exception& e) {
