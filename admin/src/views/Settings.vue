@@ -15,9 +15,10 @@
       compact
       eyebrow="控制台"
       title="系统偏好"
-      :heading-chip="`${settingsScore} 分 ${settingsLabel}`"
-      metric-label="当前工作区"
-      :metric-value="tabLabelMap[activeTab] || activeTab"
+      :heading-chip="tabLabelMap[activeTab] || activeTab"
+      metric-label="配置评分"
+      :metric-value="String(settingsScore)"
+      metric-unit="分"
       :metric-description="settingsOverviewDescription"
       section-note="配置重点"
       :overview-cards="settingsOverviewCards"

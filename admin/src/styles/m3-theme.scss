@@ -993,7 +993,7 @@ html.dark {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .ops-page--compact .ops-table-card {
@@ -1004,17 +1004,17 @@ html.dark {
 .ops-page--compact .ops-table-card .el-card__body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   height: 100%;
   min-height: 0;
-  padding: 18px 20px !important;
+  padding: 16px 18px !important;
   overflow: hidden;
 }
 
 .ops-page--compact .ops-soft-toolbar {
-  gap: 12px 14px;
-  align-items: end;
-  padding-bottom: 12px;
+  gap: 10px 12px;
+  align-items: center;
+  padding-bottom: 10px;
 }
 
 .ops-page--compact .ops-soft-actions {
@@ -1023,7 +1023,7 @@ html.dark {
 
 .ops-page--compact [class$='-table-copy'] {
   flex: 1 1 0;
-  gap: 6px;
+  gap: 5px;
   max-width: none;
 }
 
@@ -1032,35 +1032,30 @@ html.dark {
 }
 
 .ops-page--compact [class$='-table-copy'] h3 {
-  font-size: 20px;
-  line-height: 1.02;
+  font-size: 18px;
+  line-height: 1.06;
 }
 
 .ops-page--compact [class$='-table-copy'] p {
-  font-size: 11px;
-  line-height: 1.45;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  display: none;
 }
 
 .ops-page--compact .ops-toolbar-meta {
-  gap: 7px;
+  gap: 6px;
 }
 
 .ops-page--compact .ops-toolbar-meta__item {
-  min-height: 28px;
-  padding: 0 11px;
-  font-size: 10px;
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 9px;
 }
 
 .ops-page--compact [class$='-inline-filter'] {
   flex: 1 1 0;
   width: 100%;
-  gap: 8px 10px;
-  padding: 12px 14px;
-  border-radius: 24px;
+  gap: 7px 9px;
+  padding: 10px 12px;
+  border-radius: 22px;
 }
 
 .ops-page--compact [class$='-inline-filter'] .el-form-item__label {
@@ -1068,12 +1063,12 @@ html.dark {
 }
 
 .ops-page--compact .el-table th.el-table__cell {
-  height: 46px;
+  height: 42px;
   padding: 0 12px;
 }
 
 .ops-page--compact .el-table td.el-table__cell {
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .ops-page--compact .el-table .cell {
@@ -1102,16 +1097,16 @@ html.dark {
 }
 
 .ops-page--compact .el-table__empty-block {
-  min-height: 180px;
+  min-height: 124px;
 }
 
 .ops-page--compact .el-empty {
-  padding: 6px 0 10px;
+  padding: 2px 0 6px;
 }
 
 .ops-page--compact .el-empty__image {
-  width: 80px;
-  height: 80px;
+  width: 66px;
+  height: 66px;
 }
 
 .ops-page--compact .el-empty__description p {

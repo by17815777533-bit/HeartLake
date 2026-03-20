@@ -11,7 +11,7 @@
 
       <div class="overview-total">
         <span>{{ metricLabel }}</span>
-        <div class="overview-total__value">
+        <div class="overview-total__value" :class="{ 'is-textual': !isMetricNumeric }">
           <strong>{{ metricValue }}</strong>
           <small v-if="metricUnit">{{ metricUnit }}</small>
         </div>
@@ -22,7 +22,7 @@
         <slot name="actions" />
       </div>
 
-      <div v-if="overviewHighlights.length" class="overview-highlights">
+      <div v-if="overviewHighlights.length && !compact" class="overview-highlights">
         <article
           v-for="item in overviewHighlights"
           :key="item.label"
@@ -57,7 +57,7 @@
         <article class="overview-shortcut overview-shortcut--data">
           <strong>{{ focusCard.value }}</strong>
           <small>{{ focusCard.label }}</small>
-          <em>{{ focusCard.note }}</em>
+          <em v-if="!compact && focusCard.note">{{ focusCard.note }}</em>
         </article>
       </div>
     </article>
@@ -266,6 +266,8 @@ const normalizedRhythmItems = computed(() => {
     height: Math.max(26, Math.round((item.numericValue / max) * 100)),
   }))
 })
+
+const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim()))
 </script>
 
 <style scoped lang="scss">
@@ -288,8 +290,9 @@ const normalizedRhythmItems = computed(() => {
   --deck-radius: 24px;
 
   grid-template-columns: minmax(0, 1.42fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
-  grid-template-rows: minmax(162px, auto) minmax(124px, auto);
-  margin-bottom: 14px;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0.66fr);
+  height: clamp(336px, 36vh, 392px);
+  margin-bottom: 12px;
 }
 
 .ops-dashboard-card {
@@ -434,6 +437,10 @@ const normalizedRhythmItems = computed(() => {
   p {
     margin-top: 8px;
     line-height: 1.45;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -463,13 +470,30 @@ const normalizedRhythmItems = computed(() => {
   margin-top: 8px;
 
   strong {
-    font-size: clamp(40px, 4.2vw, 56px);
+    font-size: clamp(38px, 3.9vw, 52px);
   }
 
   small {
     margin-bottom: 5px;
     font-size: 16px;
   }
+}
+
+.overview-total__value.is-textual {
+  align-items: center;
+  line-height: 1.04;
+
+  strong {
+    max-width: 13rem;
+    font-size: clamp(30px, 2.4vw, 38px);
+    line-height: 1.04;
+    letter-spacing: -0.05em;
+    word-break: keep-all;
+  }
+}
+
+.ops-dashboard-deck.is-compact .overview-total__value.is-textual strong {
+  font-size: clamp(24px, 2vw, 30px);
 }
 
 .overview-actions {
@@ -480,7 +504,7 @@ const normalizedRhythmItems = computed(() => {
 
 .ops-dashboard-deck.is-compact .overview-actions {
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .overview-actions :deep(.overview-action) {
@@ -507,9 +531,9 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .overview-actions :deep(.overview-action) {
-  min-height: 38px;
-  padding: 0 14px;
-  font-size: 11px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 10px;
 }
 
 .overview-actions :deep(.overview-action:hover) {
@@ -618,14 +642,14 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .section-heading {
-  padding-top: 14px;
+  padding-top: 8px;
 
   span {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   small {
-    font-size: 9px;
+    display: none;
   }
 }
 
@@ -640,7 +664,7 @@ const normalizedRhythmItems = computed(() => {
 .ops-dashboard-deck.is-compact .overview-cards {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .overview-mini-card,
@@ -701,8 +725,8 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .overview-mini-card {
-  min-height: 112px;
-  padding: 14px;
+  min-height: 84px;
+  padding: 11px;
 
   span,
   small,
@@ -711,13 +735,13 @@ const normalizedRhythmItems = computed(() => {
   }
 
   strong {
-    margin-top: 18px;
-    font-size: 21px;
+    margin-top: 12px;
+    font-size: 18px;
   }
 
   em {
-    left: 14px;
-    bottom: 12px;
+    left: 11px;
+    bottom: 9px;
   }
 }
 
@@ -748,10 +772,10 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .overview-mini-card__ornament {
-  top: 10px;
-  right: 10px;
-  width: 66px;
-  height: 66px;
+  top: 9px;
+  right: 9px;
+  width: 60px;
+  height: 60px;
 
   &::before {
     inset: 8px;
@@ -790,7 +814,7 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .overview-shortcut {
-  min-height: 112px;
+  min-height: 84px;
 }
 
 .overview-shortcut--data {
@@ -822,7 +846,16 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .overview-shortcut--data strong {
-  font-size: 30px;
+  font-size: 22px;
+}
+
+.ops-dashboard-deck.is-compact .overview-shortcut--data {
+  padding: 10px 7px;
+}
+
+.ops-dashboard-deck.is-compact .overview-shortcut--data small {
+  font-size: 9px;
+  line-height: 1.2;
 }
 
 .spending-stage {
@@ -835,8 +868,8 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-stage {
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .spending-badge {
@@ -850,8 +883,8 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-badge {
-  padding: 5px 10px;
-  font-size: 10px;
+  padding: 4px 9px;
+  font-size: 9px;
 }
 
 .spending-bars {
@@ -864,7 +897,7 @@ const normalizedRhythmItems = computed(() => {
 
 .ops-dashboard-deck.is-compact .spending-bars {
   gap: 6px;
-  min-height: 92px;
+  min-height: 70px;
 }
 
 .spending-bars--quad {
@@ -878,7 +911,7 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-bar {
-  gap: 7px;
+  gap: 5px;
 }
 
 .spending-bar__track {
@@ -902,11 +935,11 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-bar__track {
-  width: 22px;
-  height: 78px;
+  width: 20px;
+  height: 70px;
 
   span {
-    width: 14px;
+    width: 12px;
   }
 }
 
@@ -917,7 +950,7 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-bar.is-peak .spending-bar__track span {
-  width: 16px;
+  width: 14px;
 }
 
 .spending-bar small {
@@ -927,7 +960,7 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .spending-bar small {
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .transaction-list {
@@ -938,7 +971,7 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .transaction-list {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .transaction-item {
@@ -953,7 +986,7 @@ const normalizedRhythmItems = computed(() => {
 .ops-dashboard-deck.is-compact .transaction-item {
   grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 8px 0;
+  padding: 5px 0;
 }
 
 .transaction-item:last-child {
@@ -1092,15 +1125,19 @@ const normalizedRhythmItems = computed(() => {
 
 .ops-dashboard-deck.is-compact .guide-hero {
   gap: 4px;
-  margin-top: 10px;
+  margin-top: 6px;
 
   strong {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   span {
-    font-size: 11px;
-    line-height: 1.52;
+    font-size: 10px;
+    line-height: 1.45;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
   }
 }
 
@@ -1116,9 +1153,9 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .guide-pulse {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 18px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 14px;
 }
 
 .guide-pulse__label {
@@ -1136,7 +1173,11 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .guide-pulse strong {
-  font-size: 22px;
+  font-size: 17px;
+}
+
+.ops-dashboard-deck.is-compact .guide-pulse small {
+  display: none;
 }
 
 .guide-pulse small {
@@ -1154,7 +1195,7 @@ const normalizedRhythmItems = computed(() => {
 
 .ops-dashboard-deck.is-compact .guide-list {
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .guide-item {
@@ -1170,9 +1211,21 @@ const normalizedRhythmItems = computed(() => {
 }
 
 .ops-dashboard-deck.is-compact .guide-item {
-  min-height: 82px;
-  gap: 8px;
-  padding: 10px 12px;
+  min-height: 58px;
+  gap: 5px;
+  padding: 8px 9px;
+}
+
+.ops-dashboard-deck.is-compact .guide-item__badge {
+  min-width: 34px;
+  min-height: 22px;
+  padding: 0 6px;
+  font-size: 9px;
+}
+
+.ops-dashboard-deck.is-compact .guide-item__copy strong {
+  font-size: 10px;
+  line-height: 1.28;
 }
 
 .guide-item__badge {
