@@ -29,20 +29,11 @@
         </div>
 
         <div class="engine-actions">
-          <button
-            type="button"
-            class="engine-action"
-            :disabled="loading"
-            @click="refreshAll"
-          >
+          <button type="button" class="engine-action" :disabled="loading" @click="refreshAll">
             <el-icon><RefreshRight /></el-icon>
             <span>刷新状态</span>
           </button>
-          <button
-            type="button"
-            class="engine-action"
-            @click="triggerAggregation"
-          >
+          <button type="button" class="engine-action" @click="triggerAggregation">
             <span>触发聚合</span>
           </button>
         </div>
@@ -58,11 +49,7 @@
             <strong>{{ privacy.epsilonRemaining }}</strong>
             <small>剩余查询 {{ privacy.queriesRemaining }}</small>
           </article>
-          <button
-            type="button"
-            class="engine-mini-card engine-mini-card--more"
-            @click="loadConfig"
-          >
+          <button type="button" class="engine-mini-card engine-mini-card--more" @click="loadConfig">
             <span>+</span>
           </button>
         </div>
@@ -85,21 +72,11 @@
             <span class="edge-eyebrow">Systems</span>
             <h3>节点与链路</h3>
           </div>
-          <button
-            type="button"
-            class="text-action"
-            @click="loadConfig"
-          >
-            查看配置
-          </button>
+          <button type="button" class="text-action" @click="loadConfig">查看配置</button>
         </div>
 
         <div class="queue-list">
-          <article
-            v-for="row in engineRows"
-            :key="row.id"
-            class="queue-item"
-          >
+          <article v-for="row in engineRows" :key="row.id" class="queue-item">
             <div class="queue-item__avatar">
               {{ row.badge }}
             </div>
@@ -107,10 +84,7 @@
               <strong>{{ row.title }}</strong>
               <span>{{ row.meta }}</span>
             </div>
-            <div
-              class="queue-item__value"
-              :class="row.tone"
-            >
+            <div class="queue-item__value" :class="row.tone">
               {{ row.value }}
             </div>
           </article>
@@ -129,13 +103,7 @@
           {{ edgeGuideCopy }}
         </p>
 
-        <button
-          type="button"
-          class="guide-button"
-          @click="triggerAggregation"
-        >
-          立即处理
-        </button>
+        <button type="button" class="guide-button" @click="triggerAggregation">立即处理</button>
       </article>
 
       <article class="edge-card edge-card--chart">
@@ -164,11 +132,7 @@
           </div>
         </div>
 
-        <OpsGaugeMeter
-          :value="edgeHealthScore"
-          :max="100"
-          :label="edgeHealthLabel"
-        />
+        <OpsGaugeMeter :value="edgeHealthScore" :max="100" :label="edgeHealthLabel" />
 
         <div class="score-meta">
           <span>缓存命中 {{ engineStatus.cacheHitRate }}%</span>
@@ -259,51 +223,53 @@ const emotionTrendLabel = computed(() => {
 })
 
 const emotionGaugeOption = computed(() => ({
-  series: [{
-    type: 'gauge',
-    center: ['50%', '58%'],
-    radius: '92%',
-    startAngle: 210,
-    endAngle: -30,
-    min: 0,
-    max: 100,
-    splitNumber: 8,
-    axisLine: {
-      lineStyle: {
-        width: 18,
-        color: [
-          [0.25, '#6f9dab'],
-          [0.5, '#4d8f6b'],
-          [0.75, '#d09a54'],
-          [1, '#a35f5f'],
-        ],
+  series: [
+    {
+      type: 'gauge',
+      center: ['50%', '58%'],
+      radius: '92%',
+      startAngle: 210,
+      endAngle: -30,
+      min: 0,
+      max: 100,
+      splitNumber: 8,
+      axisLine: {
+        lineStyle: {
+          width: 18,
+          color: [
+            [0.25, '#6f9dab'],
+            [0.5, '#4d8f6b'],
+            [0.75, '#d09a54'],
+            [1, '#a35f5f'],
+          ],
+        },
       },
+      pointer: {
+        icon: 'path://M10 0 L20 42 L0 42 Z',
+        length: '54%',
+        width: 10,
+        offsetCenter: [0, '-10%'],
+        itemStyle: { color: '#1f3942' },
+      },
+      anchor: {
+        show: true,
+        size: 14,
+        itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
+      },
+      axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
+      splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
+      axisLabel: { color: '#5f7882', fontSize: 10, distance: -42 },
+      title: { offsetCenter: [0, '22%'], fontSize: 13, color: '#5f7882' },
+      detail: {
+        fontSize: 30,
+        offsetCenter: [0, '48%'],
+        valueAnimation: true,
+        color: '#213840',
+        formatter: '{value}°',
+      },
+      data: [{ value: emotionPulse.temperature, name: '情绪温度' }],
     },
-    pointer: {
-      icon: 'path://M10 0 L20 42 L0 42 Z',
-      length: '54%',
-      width: 10,
-      offsetCenter: [0, '-10%'],
-      itemStyle: { color: '#1f3942' },
-    },
-    anchor: {
-      show: true,
-      size: 14,
-      itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
-    },
-    axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
-    splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
-    axisLabel: { color: '#5f7882', fontSize: 10, distance: -42 },
-    title: { offsetCenter: [0, '22%'], fontSize: 13, color: '#5f7882' },
-    detail: {
-      fontSize: 30,
-      offsetCenter: [0, '48%'],
-      valueAnimation: true,
-      color: '#213840',
-      formatter: '{value}°',
-    },
-    data: [{ value: emotionPulse.temperature, name: '情绪温度' }],
-  }],
+  ],
 }))
 
 const emotionPulseLineOption = computed(() => ({
@@ -367,7 +333,7 @@ const emotionPulseLineOption = computed(() => ({
       symbol: 'none',
       lineStyle: { color: '#283245', width: 2.5 },
       itemStyle: { color: '#283245' },
-    }
+    },
   ],
 }))
 
@@ -414,24 +380,27 @@ const privacyPieOption = computed(() => ({
     itemGap: 16,
     textStyle: { color: '#5f7882', fontSize: 11 },
   },
-  series: [{
-    type: 'pie',
-    radius: ['50%', '74%'],
-    center: ['50%', '42%'],
-    avoidLabelOverlap: true,
-    itemStyle: { borderRadius: 12, borderColor: '#f8fbfc', borderWidth: 3 },
-    label: { show: false },
-    emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
-    data: privacy.allocation.length > 0
-      ? privacy.allocation
-      : [
-          { value: 3, name: '情绪判断', itemStyle: { color: '#315b6f' } },
-          { value: 2, name: '内容检查', itemStyle: { color: '#4d8f6b' } },
-          { value: 2.5, name: '智能回复', itemStyle: { color: '#b67a42' } },
-          { value: 1.5, name: '内容检索', itemStyle: { color: '#a35f5f' } },
-          { value: 1, name: '预留', itemStyle: { color: '#5d6d77' } },
-        ],
-  }],
+  series: [
+    {
+      type: 'pie',
+      radius: ['50%', '74%'],
+      center: ['50%', '42%'],
+      avoidLabelOverlap: true,
+      itemStyle: { borderRadius: 12, borderColor: '#f8fbfc', borderWidth: 3 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
+      data:
+        privacy.allocation.length > 0
+          ? privacy.allocation
+          : [
+              { value: 3, name: '情绪判断', itemStyle: { color: '#315b6f' } },
+              { value: 2, name: '内容检查', itemStyle: { color: '#4d8f6b' } },
+              { value: 2.5, name: '智能回复', itemStyle: { color: '#b67a42' } },
+              { value: 1.5, name: '内容检索', itemStyle: { color: '#a35f5f' } },
+              { value: 1, name: '预留', itemStyle: { color: '#5d6d77' } },
+            ],
+    },
+  ],
 }))
 
 const vectorSearch = reactive({
@@ -442,7 +411,9 @@ const vectorSearch = reactive({
 const vectorSearched = ref(false)
 const vectorQuery = computed({
   get: () => vectorSearch.query,
-  set: (value: string) => { vectorSearch.query = value },
+  set: (value: string) => {
+    vectorSearch.query = value
+  },
 })
 const vectorSearching = computed(() => vectorSearch.searching)
 const vectorResults = computed(() => vectorSearch.results)
@@ -468,8 +439,16 @@ const edgeConfig = reactive({
 const configLoading = ref(false)
 const configSaving = ref(false)
 
-const sentimentTool = reactive({ text: '', loading: false, result: null as null | Record<string, any> })
-const moderationTool = reactive({ text: '', loading: false, result: null as null | Record<string, any> })
+const sentimentTool = reactive({
+  text: '',
+  loading: false,
+  result: null as null | Record<string, any>,
+})
+const moderationTool = reactive({
+  text: '',
+  loading: false,
+  result: null as null | Record<string, any>,
+})
 
 const formatCount = (value: number) => value.toLocaleString()
 const privacyNoiseLabel = computed(() => {
@@ -489,10 +468,9 @@ const heroDescription = computed(() => {
   return `${currentTime.value} 的陪伴链路以${emotionTrendLabel.value}为主，${statusText}，平均响应 ${engineStatus.avgLatency}ms，保护额度剩余 ${privacy.epsilonRemaining}。`
 })
 
-const heroChips = computed(() => [
-  ...techBadges.map(({ label }) => label),
-  `情绪水温 ${emotionPulse.temperature}°`,
-].slice(0, 5))
+const heroChips = computed(() =>
+  [...techBadges.map(({ label }) => label), `情绪水温 ${emotionPulse.temperature}°`].slice(0, 5),
+)
 
 const summaryItems = computed(() => [
   {
@@ -549,7 +527,9 @@ const engineRows = computed(() => {
   if (edgeNodes.value.length) {
     return edgeNodes.value.slice(0, 5).map((node, index) => ({
       id: node.id ?? index,
-      badge: String(node.name ?? node.node_id ?? `N${index + 1}`).slice(0, 1).toUpperCase(),
+      badge: String(node.name ?? node.node_id ?? `N${index + 1}`)
+        .slice(0, 1)
+        .toUpperCase(),
       title: node.name ?? node.node_id ?? `边缘节点 ${index + 1}`,
       meta: node.status ?? '在线',
       value: node.latency ? `${node.latency}ms` : `${node.load ?? node.qps ?? '--'}`,
@@ -610,7 +590,6 @@ const edgeHealthLabel = computed(() => {
   return '需检修'
 })
 
-
 async function loadStatus() {
   try {
     const { data } = await api.getEdgeAIStatus()
@@ -635,10 +614,13 @@ async function loadMetrics() {
   try {
     const { data } = await api.getEdgeAIMetrics()
     const m = data.data || data
-    if (m.avgLatency != null || m.avg_latency != null) engineStatus.avgLatency = Number(m.avgLatency ?? m.avg_latency) || 0
-    if (m.cacheHitRate != null || m.cache_hit_rate != null) engineStatus.cacheHitRate = Number(m.cacheHitRate ?? m.cache_hit_rate) || 0
+    if (m.avgLatency != null || m.avg_latency != null)
+      engineStatus.avgLatency = Number(m.avgLatency ?? m.avg_latency) || 0
+    if (m.cacheHitRate != null || m.cache_hit_rate != null)
+      engineStatus.cacheHitRate = Number(m.cacheHitRate ?? m.cache_hit_rate) || 0
     if (m.throughput != null) engineStatus.throughput = Number(m.throughput) || 0
-    if (m.inferenceCount != null || m.inference_count != null) engineStatus.inferenceCount = Number(m.inferenceCount ?? m.inference_count) || 0
+    if (m.inferenceCount != null || m.inference_count != null)
+      engineStatus.inferenceCount = Number(m.inferenceCount ?? m.inference_count) || 0
     if (Array.isArray(m.nodes)) {
       edgeNodes.value = m.nodes
     }
@@ -655,9 +637,8 @@ async function loadEmotionPulse() {
     const { data } = await api.getEmotionPulse()
     const ep = data.data || data
     const avgScore = ep.avg_score ?? ep.avgScore ?? ep.temperature ?? ep.value ?? 0
-    const normalizedTemp = avgScore <= 1 && avgScore >= -1
-      ? Math.round((avgScore + 1) * 50)
-      : Math.round(avgScore)
+    const normalizedTemp =
+      avgScore <= 1 && avgScore >= -1 ? Math.round((avgScore + 1) * 50) : Math.round(avgScore)
     emotionPulse.temperature = Math.max(0, Math.min(100, normalizedTemp))
     emotionPulse.trend = ep.dominant_mood ?? ep.dominantMood ?? ep.trend ?? 'stable'
 
@@ -686,7 +667,8 @@ async function loadFederatedStatus() {
         participatingNodes: m.federated.participatingNodes ?? m.federated.participating_nodes ?? 0,
         modelAccuracy: m.federated.modelAccuracy ?? m.federated.model_accuracy ?? '0%',
         convergenceRate: m.federated.convergenceRate ?? m.federated.convergence_rate ?? '0%',
-        aggregationProgress: m.federated.aggregationProgress ?? m.federated.aggregation_progress ?? 0,
+        aggregationProgress:
+          m.federated.aggregationProgress ?? m.federated.aggregation_progress ?? 0,
       })
     }
   } catch {
@@ -701,9 +683,10 @@ async function loadPrivacyBudget() {
     const epsilonTotal = Number(p.epsilonTotal ?? p.epsilon_total ?? p.total_budget ?? 10) || 10
     const epsilonUsed = Number(p.epsilonUsed ?? p.epsilon_used ?? p.consumed ?? 0) || 0
     const epsilonPercentRaw = p.epsilonPercent ?? p.epsilon_percent ?? p.utilization_percent
-    const epsilonPercent = epsilonPercentRaw != null
-      ? Number(epsilonPercentRaw) || 0
-      : Math.min(100, Math.max(0, (epsilonUsed / epsilonTotal) * 100))
+    const epsilonPercent =
+      epsilonPercentRaw != null
+        ? Number(epsilonPercentRaw) || 0
+        : Math.min(100, Math.max(0, (epsilonUsed / epsilonTotal) * 100))
 
     Object.assign(privacy, {
       epsilonUsed,
@@ -738,8 +721,14 @@ async function loadConfig() {
       cacheStrategy: c.cacheStrategy ?? c.cache_strategy ?? edgeConfig.cacheStrategy,
       maxBatchSize: c.maxBatchSize ?? c.max_batch_size ?? 32,
       cacheSizeMB: c.cacheSizeMB ?? c.cache_size_mb ?? edgeConfig.cacheSizeMB,
-      maxEpsilon: c.maxEpsilon ?? c.max_epsilon ?? c.privacyEpsilon ?? c.privacy_epsilon ?? edgeConfig.maxEpsilon,
-      federatedInterval: c.federatedInterval ?? c.federated_interval ?? edgeConfig.federatedInterval,
+      maxEpsilon:
+        c.maxEpsilon ??
+        c.max_epsilon ??
+        c.privacyEpsilon ??
+        c.privacy_epsilon ??
+        edgeConfig.maxEpsilon,
+      federatedInterval:
+        c.federatedInterval ?? c.federated_interval ?? edgeConfig.federatedInterval,
       emotionModel: c.emotionModel ?? c.emotion_model ?? 'standard',
       vectorSearchEnabled: c.vectorSearchEnabled ?? c.vector_search_enabled ?? true,
       inferenceTimeout: c.inferenceTimeout ?? c.inference_timeout ?? 5000,
@@ -888,39 +877,66 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .edge-workbench {
+  --edge-gap: 18px;
+  --edge-radius: 28px;
+
   padding-bottom: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .edge-grid {
   display: grid;
-  grid-template-columns: 1.55fr 0.92fr 1.18fr;
+  grid-template-columns: minmax(0, 1.46fr) minmax(184px, 0.78fr) minmax(252px, 0.96fr);
+  grid-template-rows: minmax(182px, 0.98fr) minmax(138px, 0.74fr) minmax(282px, 1fr);
   grid-template-areas:
-    "engine perf queue"
-    "engine guide queue"
-    "chart chart score";
-  gap: 20px;
+    'engine perf queue'
+    'engine guide queue'
+    'chart chart score';
+  gap: var(--edge-gap);
 }
 
 .edge-card {
   position: relative;
   overflow: hidden;
-  padding: 22px 24px;
-  border-radius: 28px;
+  min-height: 0;
+  padding: 24px;
+  border-radius: var(--edge-radius);
   border: 1px solid rgba(133, 156, 201, 0.12);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(151, 221, 209, 0.2), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(236, 245, 255, 0.96));
+  background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(241, 247, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 22px 46px rgba(104, 128, 173, 0.12);
+    0 22px 42px rgba(104, 128, 173, 0.12);
 }
 
-.edge-card--engine { grid-area: engine; min-height: 420px; }
-.edge-card--perf { grid-area: perf; min-height: 198px; }
-.edge-card--queue { grid-area: queue; min-height: 420px; background: linear-gradient(180deg, rgba(218, 244, 239, 0.86), rgba(212, 239, 233, 0.94)); }
-.edge-card--guide { grid-area: guide; min-height: 198px; }
-.edge-card--chart { grid-area: chart; min-height: 340px; }
-.edge-card--score { grid-area: score; min-height: 340px; }
+.edge-card--engine {
+  grid-area: engine;
+  min-height: 418px;
+}
+.edge-card--perf {
+  grid-area: perf;
+  min-height: 182px;
+  background: linear-gradient(180deg, rgba(215, 227, 255, 0.98), rgba(204, 218, 255, 0.98));
+}
+.edge-card--queue {
+  grid-area: queue;
+  min-height: 418px;
+  background: linear-gradient(180deg, rgba(214, 237, 231, 0.98), rgba(204, 233, 226, 0.98));
+}
+.edge-card--guide {
+  grid-area: guide;
+  min-height: 138px;
+  background: linear-gradient(180deg, rgba(221, 242, 236, 0.98), rgba(211, 238, 232, 0.98));
+}
+.edge-card--chart {
+  grid-area: chart;
+  min-height: 282px;
+  background: linear-gradient(180deg, rgba(241, 247, 255, 0.98), rgba(230, 239, 255, 0.98));
+}
+.edge-card--score {
+  grid-area: score;
+  min-height: 282px;
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(241, 246, 255, 0.98));
+}
 
 .edge-head {
   display: flex;
@@ -932,13 +948,14 @@ onUnmounted(() => {
   h3 {
     margin: 8px 0 0;
     color: var(--hl-ink);
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-size: 21px;
+    font-weight: 680;
+    letter-spacing: -0.04em;
+    line-height: 1.12;
   }
 
   h3 {
-    font-size: 24px;
+    font-size: 19px;
   }
 }
 
@@ -946,46 +963,49 @@ onUnmounted(() => {
 .edge-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
 }
 
 .edge-eyebrow {
-  background: rgba(239, 246, 255, 0.96);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--hl-ink-soft);
   text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .edge-chip {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.8);
   color: var(--hl-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .engine-total {
-  margin-top: 22px;
+  margin-top: 18px;
 
   > span {
     display: block;
     color: var(--hl-ink-soft);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   p {
-    margin-top: 12px;
+    max-width: 24rem;
+    margin-top: 10px;
     color: var(--hl-ink-soft);
-    font-size: 14px;
-    line-height: 1.8;
+    font-size: 13px;
+    line-height: 1.7;
   }
 }
 
 .engine-total__value {
-  margin-top: 10px;
+  margin-top: 8px;
   color: var(--hl-ink);
-  font-size: clamp(48px, 6vw, 62px);
+  font-size: clamp(46px, 5.4vw, 58px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
@@ -993,46 +1013,50 @@ onUnmounted(() => {
   small {
     margin-left: 8px;
     color: #8da5db;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
   }
 }
 
 .engine-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 22px;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .engine-action {
-  min-width: 132px;
-  height: 44px;
+  min-width: 124px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: 0 16px;
   border: none;
   border-radius: 999px;
-  background: rgba(244, 249, 255, 0.9);
+  background: rgba(255, 255, 255, 0.88);
   color: var(--hl-ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 12px 18px rgba(113, 138, 184, 0.08);
   transition: var(--m3-transition);
 }
 
 .engine-stack {
   display: grid;
-  grid-template-columns: 1fr 1fr 64px;
-  gap: 14px;
+  grid-template-columns: 1fr 1fr 62px;
+  gap: 12px;
   align-items: end;
-  margin-top: 34px;
+  margin-top: 28px;
 }
 
 .engine-mini-card {
-  min-height: 148px;
-  padding: 18px;
+  min-height: 134px;
+  padding: 16px;
   border: none;
   border-radius: 24px;
   text-align: left;
@@ -1045,21 +1069,21 @@ onUnmounted(() => {
 
   span {
     color: rgba(35, 45, 67, 0.74);
-    font-size: 12px;
+    font-size: 11px;
   }
 
   strong {
     display: block;
-    margin-top: 34px;
+    margin-top: 24px;
     color: #1d2740;
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
   }
 
   small {
     margin-top: 8px;
     color: rgba(35, 45, 67, 0.62);
-    font-size: 12px;
+    font-size: 11px;
   }
 }
 
@@ -1072,7 +1096,7 @@ onUnmounted(() => {
 }
 
 .engine-mini-card--more {
-  min-height: 152px;
+  min-height: 138px;
   display: grid;
   place-items: center;
   background: #212121;
@@ -1087,8 +1111,8 @@ onUnmounted(() => {
 
 .queue-list {
   display: grid;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 .queue-item {
@@ -1096,7 +1120,7 @@ onUnmounted(() => {
   grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 12px 0;
+  padding: 11px 0;
   border-bottom: 1px solid rgba(122, 163, 157, 0.16);
 }
 
@@ -1121,7 +1145,7 @@ onUnmounted(() => {
   strong {
     display: block;
     color: var(--hl-ink);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -1132,17 +1156,21 @@ onUnmounted(() => {
     display: block;
     margin-top: 4px;
     color: var(--hl-ink-soft);
-    font-size: 12px;
+    font-size: 11px;
   }
 }
 
 .queue-item__value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.queue-item__value.is-up { color: #5aaf9d; }
-.queue-item__value.is-neutral { color: #6f7c96; }
+.queue-item__value.is-up {
+  color: #5aaf9d;
+}
+.queue-item__value.is-neutral {
+  color: #6f7c96;
+}
 
 .text-action {
   border: none;
@@ -1177,35 +1205,35 @@ onUnmounted(() => {
 
 .guide-copy {
   max-width: 28ch;
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: var(--hl-ink);
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .guide-button {
-  margin-top: 22px;
-  height: 42px;
+  margin-top: 18px;
+  height: 40px;
   padding: 0 18px;
   border: none;
   border-radius: 999px;
   background: linear-gradient(180deg, #8cb2ff, #789cf2);
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(120, 156, 242, 0.22);
 }
 
 .edge-chart {
-  height: 250px;
-  margin-top: 18px;
+  height: 234px;
+  margin-top: 16px;
 }
 
 .score-meta {
   display: grid;
-  gap: 8px;
-  margin-top: 22px;
+  gap: 6px;
+  margin-top: 16px;
   text-align: center;
 
   span {
@@ -1214,28 +1242,194 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1180px) and (min-width: 961px) {
+  .edge-workbench {
+    --edge-gap: 14px;
+    --edge-radius: 24px;
+  }
+
   .edge-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.38fr) minmax(152px, 0.72fr) minmax(218px, 0.88fr);
+    grid-template-rows: minmax(154px, 0.96fr) minmax(118px, 0.74fr) minmax(236px, 1fr);
+  }
+
+  .edge-card {
+    padding: 18px;
+  }
+
+  .edge-head {
+    gap: 10px;
+
+    h2,
+    h3 {
+      font-size: 18px;
+    }
+
+    h3 {
+      font-size: 16px;
+    }
+  }
+
+  .edge-eyebrow,
+  .edge-chip {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 9px;
+  }
+
+  .engine-total {
+    margin-top: 14px;
+
+    > span,
+    p {
+      font-size: 11px;
+    }
+  }
+
+  .engine-total__value {
+    margin-top: 6px;
+    font-size: clamp(40px, 5vw, 50px);
+
+    small {
+      font-size: 18px;
+    }
+  }
+
+  .engine-actions {
+    margin-top: 14px;
+    gap: 8px;
+  }
+
+  .engine-action {
+    min-width: 116px;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  .engine-stack {
+    grid-template-columns: 1fr 1fr 54px;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .engine-mini-card {
+    min-height: 116px;
+    padding: 14px;
+    border-radius: 20px;
+
+    span {
+      font-size: 10px;
+    }
+
+    strong {
+      margin-top: 18px;
+      font-size: 18px;
+    }
+
+    small {
+      font-size: 10px;
+    }
+  }
+
+  .engine-mini-card--more {
+    min-height: 120px;
+  }
+
+  .queue-list {
+    margin-top: 14px;
+  }
+
+  .queue-item {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .queue-item__avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .queue-item__copy {
+    strong {
+      font-size: 12px;
+    }
+
+    span {
+      font-size: 10px;
+    }
+  }
+
+  .queue-item__value {
+    font-size: 11px;
+  }
+
+  .guide-copy {
+    margin-top: 12px;
+    font-size: 13px;
+  }
+
+  .guide-button {
+    margin-top: 14px;
+    height: 38px;
+    padding: 0 16px;
+    font-size: 11px;
+  }
+
+  .edge-card--guide::before {
+    width: 84px;
+    height: 84px;
+    right: 16px;
+    bottom: 14px;
+  }
+
+  .edge-card--guide::after {
+    width: 56px;
+    height: 56px;
+    right: 60px;
+    bottom: 36px;
+  }
+
+  .edge-chart {
+    height: 200px;
+    margin-top: 14px;
+  }
+
+  .score-meta {
+    margin-top: 12px;
+  }
+
+  .edge-card--score :deep(.ops-gauge-meter__content strong) {
+    font-size: clamp(30px, 3vw, 40px);
+  }
+}
+
+@media (max-width: 960px) and (min-width: 761px) {
+  .edge-grid {
+    grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+    grid-template-rows: none;
     grid-template-areas:
-      "engine engine"
-      "perf queue"
-      "guide queue"
-      "chart chart"
-      "score score";
+      'engine engine'
+      'perf guide'
+      'queue queue'
+      'chart chart'
+      'score score';
   }
 }
 
 @media (max-width: 760px) {
   .edge-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     grid-template-areas:
-      "engine"
-      "perf"
-      "guide"
-      "queue"
-      "chart"
-      "score";
+      'engine'
+      'perf'
+      'guide'
+      'queue'
+      'chart'
+      'score';
   }
 
   .engine-stack {

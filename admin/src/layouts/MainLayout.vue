@@ -1,24 +1,14 @@
 <template>
   <div class="main-layout">
-    <div
-      v-if="appStore.isGlobalLoading"
-      class="global-loading-bar"
-    >
+    <div v-if="appStore.isGlobalLoading" class="global-loading-bar">
       <div class="loading-progress" />
     </div>
 
     <div class="workspace-shell">
       <header class="workspace-shell__header">
-        <button
-          class="brand-mark"
-          type="button"
-          @click="navigateTo('/dashboard')"
-        >
+        <button class="brand-mark" type="button" @click="navigateTo('/dashboard')">
           <div class="brand-mark__icon">
-            <img
-              src="@/assets/logo.svg"
-              alt="HeartLake"
-            >
+            <img src="@/assets/logo.svg" alt="HeartLake" />
           </div>
           <div class="brand-mark__copy">
             <strong>心湖后台</strong>
@@ -26,10 +16,7 @@
           </div>
         </button>
 
-        <nav
-          class="top-nav"
-          aria-label="主导航"
-        >
+        <nav class="top-nav" aria-label="主导航">
           <button
             v-for="item in menuItems"
             :key="item.path"
@@ -52,10 +39,7 @@
               @keyup.enter="openFirstSearchResult"
             />
 
-            <div
-              v-if="navSearch.trim()"
-              class="shell-search__results"
-            >
+            <div v-if="navSearch.trim()" class="shell-search__results">
               <button
                 v-for="item in filteredMenuItems"
                 :key="item.path"
@@ -70,12 +54,7 @@
                 <small>{{ item.path.replace('/', '') || 'dashboard' }}</small>
               </button>
 
-              <div
-                v-if="!filteredMenuItems.length"
-                class="shell-search__empty"
-              >
-                没有匹配的入口
-              </div>
+              <div v-if="!filteredMenuItems.length" class="shell-search__empty">没有匹配的入口</div>
             </div>
           </div>
 
@@ -101,11 +80,7 @@
             :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'"
             placement="bottom"
           >
-            <button
-              class="header-icon-btn"
-              type="button"
-              @click="appStore.toggleDark()"
-            >
+            <button class="header-icon-btn" type="button" @click="appStore.toggleDark()">
               <el-icon>
                 <Sunny v-if="appStore.isDark" />
                 <Moon v-else />
@@ -114,25 +89,15 @@
           </el-tooltip>
 
           <el-dropdown @command="handleCommand">
-            <button
-              class="header-account"
-              type="button"
-            >
+            <button class="header-account" type="button">
               <el-avatar :size="38">
                 {{ adminInfo.nickname?.charAt(0) || 'A' }}
               </el-avatar>
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">
-                  个人设置
-                </el-dropdown-item>
-                <el-dropdown-item
-                  command="logout"
-                  divided
-                >
-                  退出登录
-                </el-dropdown-item>
+                <el-dropdown-item command="profile"> 个人设置 </el-dropdown-item>
+                <el-dropdown-item command="logout" divided> 退出登录 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -141,10 +106,7 @@
 
       <main class="main-content">
         <router-view v-slot="{ Component }">
-          <transition
-            name="fade"
-            mode="out-in"
-          >
+          <transition name="fade" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
@@ -206,9 +168,14 @@ const filteredMenuItems = computed(() => {
   const keyword = navSearch.value.trim().toLowerCase()
   if (!keyword) return []
 
-  return menuItems.filter((item) =>
-    [item.title, item.path, routeNarrativeMap[item.path]?.summary].join(' ').toLowerCase().includes(keyword)
-  ).slice(0, 6)
+  return menuItems
+    .filter((item) =>
+      [item.title, item.path, routeNarrativeMap[item.path]?.summary]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword),
+    )
+    .slice(0, 6)
 })
 
 const navigateTo = (path: string) => {
@@ -315,9 +282,15 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 @keyframes loading-progress {
-  0% { transform: translateX(-120%); }
-  50% { transform: translateX(-10%); }
-  100% { transform: translateX(120%); }
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(-10%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .global-loading-bar {
@@ -344,32 +317,42 @@ onUnmounted(() => {
 
 .main-layout {
   min-height: 100vh;
-  padding: 18px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(223, 236, 255, 0.92), transparent 44%),
+    linear-gradient(180deg, #dbe8fd 0%, #d0e0f8 100%);
 }
 
 .workspace-shell {
-  width: min(1420px, 100%);
+  width: min(1248px, 100%);
   margin: 0 auto;
-  min-height: calc(100vh - 36px);
-  padding: 18px 20px 24px;
+  min-height: calc(100vh - 28px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 20px 20px;
   border-radius: 32px;
-  border: 8px solid rgba(255, 255, 255, 0.98);
+  border: 7px solid rgba(255, 255, 255, 0.98);
   background:
-    radial-gradient(circle at 84% 84%, rgba(196, 240, 231, 0.4), transparent 18%),
-    radial-gradient(circle at 14% 10%, rgba(194, 211, 255, 0.34), transparent 20%),
-    linear-gradient(180deg, rgba(232, 241, 255, 0.98), rgba(223, 235, 255, 0.98));
+    radial-gradient(circle at 84% 80%, rgba(214, 240, 233, 0.32), transparent 18%),
+    radial-gradient(circle at 14% 12%, rgba(203, 219, 255, 0.28), transparent 22%),
+    linear-gradient(180deg, rgba(237, 244, 255, 0.98), rgba(229, 238, 255, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 30px 70px rgba(97, 127, 179, 0.16);
+    0 30px 64px rgba(97, 127, 179, 0.14);
   animation: shell-entrance 420ms ease-out;
+  -webkit-font-smoothing: antialiased;
+  font-family:
+    'Avenir Next', 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
 }
 
 .workspace-shell__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
+  flex: 0 0 auto;
 }
 
 .brand-mark {
@@ -383,16 +366,16 @@ onUnmounted(() => {
 }
 
 .brand-mark__icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(117, 205, 187, 0.14);
+  background: rgba(117, 205, 187, 0.18);
 
   img {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 }
 
@@ -417,8 +400,8 @@ onUnmounted(() => {
 .top-nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   min-width: 0;
   overflow-x: auto;
   padding: 0 2px;
@@ -427,14 +410,14 @@ onUnmounted(() => {
 
 .top-nav__item {
   flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: 30px;
+  padding: 0 9px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: transparent;
   color: #273149;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
   transition: var(--m3-transition);
 
@@ -452,24 +435,24 @@ onUnmounted(() => {
 .workspace-shell__tools {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   position: relative;
 }
 
 .shell-search {
   position: relative;
-  width: min(266px, 20vw);
+  width: min(222px, 17vw);
 
   :deep(.el-input__wrapper) {
-    min-height: 40px;
+    min-height: 38px;
     border-radius: 999px !important;
-    background: rgba(236, 243, 255, 0.88) !important;
-    border: 1px solid rgba(164, 183, 224, 0.28);
+    background: rgba(240, 246, 255, 0.9) !important;
+    border: 1px solid rgba(164, 183, 224, 0.24);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
   }
 
   :deep(.el-input__inner) {
-    font-size: 13px;
+    font-size: 12px;
   }
 }
 
@@ -527,8 +510,8 @@ onUnmounted(() => {
 .header-icon-btn,
 .header-account {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: none;
@@ -559,8 +542,11 @@ onUnmounted(() => {
 }
 
 .main-content {
+  flex: 1 1 auto;
   min-height: 0;
-  margin-top: 2px;
+  margin-top: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .main-content :deep(.ops-page),
@@ -569,9 +555,87 @@ onUnmounted(() => {
   animation: page-rise 460ms ease-out both;
 }
 
+@media (max-width: 1180px) and (min-width: 961px) {
+  .main-layout {
+    padding: 14px;
+  }
+
+  .workspace-shell {
+    width: min(100%, 1032px);
+    min-height: calc(100vh - 28px);
+    padding: 16px 16px 18px;
+    border-width: 6px;
+    border-radius: 28px;
+  }
+
+  .workspace-shell__header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .brand-mark {
+    gap: 8px;
+  }
+
+  .brand-mark__icon {
+    width: 30px;
+    height: 30px;
+
+    img {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .brand-mark__copy {
+    strong {
+      font-size: 13px;
+    }
+
+    span {
+      display: none;
+    }
+  }
+
+  .top-nav {
+    gap: 4px;
+  }
+
+  .top-nav__item {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .workspace-shell__tools {
+    gap: 6px;
+  }
+
+  .shell-search {
+    width: min(178px, 19vw);
+
+    :deep(.el-input__wrapper) {
+      min-height: 34px;
+    }
+
+    :deep(.el-input__inner) {
+      font-size: 11px;
+    }
+  }
+
+  .header-icon-btn,
+  .header-account {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .fade-enter-from,
@@ -580,7 +644,122 @@ onUnmounted(() => {
   transform: translateY(8px);
 }
 
-@media (max-width: 1120px) {
+@media (max-height: 820px) and (min-width: 1121px) {
+  .main-layout {
+    padding: 12px;
+  }
+
+  .workspace-shell {
+    width: min(1218px, 100%);
+    min-height: calc(100vh - 24px);
+    padding: 16px 18px 18px;
+    border-radius: 30px;
+  }
+
+  .workspace-shell__header {
+    gap: 14px;
+    padding-bottom: 12px;
+  }
+
+  .brand-mark__icon {
+    width: 32px;
+    height: 32px;
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .brand-mark__copy strong {
+    font-size: 14px;
+  }
+
+  .top-nav {
+    gap: 6px;
+  }
+
+  .top-nav__item {
+    min-height: 28px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
+  .shell-search {
+    width: min(204px, 16vw);
+
+    :deep(.el-input__wrapper) {
+      min-height: 36px;
+    }
+
+    :deep(.el-input__inner) {
+      font-size: 12px;
+    }
+  }
+
+  .header-icon-btn,
+  .header-account {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-height: 740px) and (min-width: 1181px) {
+  .main-layout {
+    padding: 10px;
+  }
+
+  .workspace-shell {
+    min-height: calc(100vh - 20px);
+    padding: 14px 16px 16px;
+    border-width: 6px;
+    border-radius: 28px;
+  }
+
+  .workspace-shell__header {
+    gap: 12px;
+    padding-bottom: 10px;
+  }
+
+  .brand-mark__icon {
+    width: 30px;
+    height: 30px;
+
+    img {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .brand-mark__copy strong {
+    font-size: 13px;
+  }
+
+  .brand-mark__copy span,
+  .top-nav__item {
+    font-size: 11px;
+  }
+
+  .shell-search {
+    width: min(194px, 15vw);
+
+    :deep(.el-input__wrapper) {
+      min-height: 34px;
+    }
+
+    :deep(.el-input__inner) {
+      font-size: 11px;
+    }
+  }
+
+  .header-icon-btn,
+  .header-account {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 960px) {
   .workspace-shell__header {
     grid-template-columns: 1fr;
   }
@@ -601,11 +780,11 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
   .main-layout {
-    padding: 10px;
+    padding: 12px;
   }
 
   .workspace-shell {
-    min-height: calc(100vh - 20px);
+    min-height: calc(100vh - 24px);
     padding: 16px;
     border-width: 6px;
     border-radius: 28px;
