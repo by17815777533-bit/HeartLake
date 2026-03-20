@@ -51,10 +51,13 @@
           <span>{{ item.label }}</span>
           <strong>{{ item.value }}</strong>
           <small>{{ item.note }}</small>
-          <em>{{ item.footer }}</em>
+          <em v-if="!compact">{{ item.footer }}</em>
         </article>
 
-        <article class="overview-shortcut overview-shortcut--data">
+        <article
+          class="overview-shortcut overview-shortcut--data"
+          :class="{ 'is-textual': !isFocusNumeric }"
+        >
           <strong>{{ focusCard.value }}</strong>
           <small>{{ focusCard.label }}</small>
           <em v-if="!compact && focusCard.note">{{ focusCard.note }}</em>
@@ -138,8 +141,8 @@
         <small>{{ guidePulseNote }}</small>
       </div>
 
-      <div class="guide-list">
-        <article v-for="item in guideItems" :key="item.label" class="guide-item">
+      <div v-if="resolvedGuideItems.length" class="guide-list" :class="{ 'is-hidden': compact }">
+        <article v-for="item in resolvedGuideItems" :key="item.label" class="guide-item">
           <div class="guide-item__badge">{{ item.value }}</div>
           <div class="guide-item__copy">
             <strong>{{ item.label }}</strong>
@@ -268,6 +271,8 @@ const normalizedRhythmItems = computed(() => {
 })
 
 const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim()))
+const isFocusNumeric = computed(() => /^[\d.,+\-/%]+$/.test(props.focusCard.value.trim()))
+const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slice(0, 2) : props.guideItems))
 </script>
 
 <style scoped lang="scss">
@@ -662,7 +667,7 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 }
 
 .ops-dashboard-deck.is-compact .overview-cards {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 68px;
   gap: 8px;
   margin-top: 6px;
 }
@@ -725,7 +730,7 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 }
 
 .ops-dashboard-deck.is-compact .overview-mini-card {
-  min-height: 84px;
+  min-height: 88px;
   padding: 11px;
 
   span,
@@ -737,6 +742,12 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
   strong {
     margin-top: 12px;
     font-size: 18px;
+  }
+
+  small {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   em {
@@ -814,7 +825,7 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 }
 
 .ops-dashboard-deck.is-compact .overview-shortcut {
-  min-height: 84px;
+  min-height: 88px;
 }
 
 .overview-shortcut--data {
@@ -849,6 +860,23 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
   font-size: 22px;
 }
 
+.overview-shortcut--data.is-textual strong {
+  max-width: 100%;
+  font-size: 19px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  word-break: break-all;
+  text-align: center;
+}
+
+.ops-dashboard-deck.is-compact .overview-shortcut--data.is-textual strong {
+  font-size: 11px;
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
 .ops-dashboard-deck.is-compact .overview-shortcut--data {
   padding: 10px 7px;
 }
@@ -856,6 +884,7 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 .ops-dashboard-deck.is-compact .overview-shortcut--data small {
   font-size: 9px;
   line-height: 1.2;
+  text-align: center;
 }
 
 .spending-stage {
@@ -1043,11 +1072,17 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 .ops-dashboard-deck.is-compact .transaction-item__copy {
   strong {
     font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   span {
     margin-top: 2px;
     font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -1156,6 +1191,10 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
   margin-top: 6px;
   padding: 7px 9px;
   border-radius: 14px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .guide-pulse__label {
@@ -1174,10 +1213,16 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 
 .ops-dashboard-deck.is-compact .guide-pulse strong {
   font-size: 17px;
+  flex: 0 0 auto;
 }
 
 .ops-dashboard-deck.is-compact .guide-pulse small {
   display: none;
+}
+
+.ops-dashboard-deck.is-compact .guide-pulse__label {
+  font-size: 9px;
+  min-width: 0;
 }
 
 .guide-pulse small {
@@ -1196,6 +1241,10 @@ const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim
 .ops-dashboard-deck.is-compact .guide-list {
   gap: 8px;
   margin-top: 6px;
+}
+
+.ops-dashboard-deck.is-compact .guide-list.is-hidden {
+  display: none;
 }
 
 .guide-item {
