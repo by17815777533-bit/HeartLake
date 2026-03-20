@@ -11,268 +11,189 @@
 
 <template>
   <div class="settings-page ops-page">
-    <OpsPageHero
+    <OpsDashboardDeck
       eyebrow="控制台"
       title="系统偏好"
-      :description="settingsHeroDescription"
-      :status="settingsLabel"
-      :chips="settingsHeroChips"
+      :heading-chip="`${settingsScore} 分 ${settingsLabel}`"
+      metric-label="当前工作区"
+      :metric-value="tabLabelMap[activeTab] || activeTab"
+      :metric-description="settingsOverviewDescription"
+      section-note="配置重点"
+      :overview-cards="settingsOverviewCards"
+      :focus-card="settingsFocusCard"
+      rhythm-eyebrow="概览"
+      rhythm-title="当前开关"
+      :rhythm-chip="providerLabelMap[aiConfig.provider] || aiConfig.provider"
+      :rhythm-badge="settingsSignals[1]?.badge || '自动回复关闭'"
+      :rhythm-items="settingsRhythmItems"
+      activity-title="配置动态"
+      :activity-chip="settingsSignals[1]?.value || activeTab"
+      :activity-rows="settingsActivityRows"
+      guide-title="配置建议"
+      :guide-chip="settingsLabel"
+      :guide-headline="settingsGuideHeadline"
+      :guide-copy="settingsGuideCopy"
+      guide-pulse-label="当前配置评分"
+      :guide-pulse-value="`${settingsScore} 分`"
+      :guide-pulse-note="settingsGuidePulseNote"
+      :guide-items="settingsGuideItems"
     >
       <template #actions>
-        <el-button type="primary" @click="loadConfig"> 刷新配置 </el-button>
-        <el-button @click="testAI"> 测试连接 </el-button>
+        <button type="button" class="overview-action" @click="loadConfig">刷新配置</button>
+        <button type="button" class="overview-action" @click="testAI">测试连接</button>
       </template>
-    </OpsPageHero>
+    </OpsDashboardDeck>
 
-    <OpsWorkbench>
-      <template #stage>
-        <OpsSurfaceCard eyebrow="总览" title="偏好概览" :chip="`${settingsScore} 分 ${settingsLabel}`" tone="sky">
-          <div class="ops-stage-shell">
-            <div class="ops-big-metric">
-              <span class="ops-big-metric__label">当前工作区</span>
-              <div class="ops-big-metric__value">
-                {{ summaryItems[2]?.value || '系统' }}
-              </div>
-              <p class="ops-big-metric__note">
-                集中管理站点开关、智能回复、速率限制与全站广播，高权限操作在这里完成统一配置。
-              </p>
-            </div>
-
-            <div class="ops-stage-aside">
-              <article class="ops-stage-pod">
-                <span>当前页签</span>
-                <strong>{{ settingsSignals[0]?.value || activeTab }}</strong>
-                <small>{{ settingsSignals[0]?.note }}</small>
-              </article>
-
-              <article class="ops-stage-pod ops-stage-pod--mint">
-                <span>广播准备</span>
-                <strong>{{ settingsSignals[2]?.value || '0 / 500' }}</strong>
-                <small>{{ settingsSignals[2]?.note }}</small>
-              </article>
-            </div>
-          </div>
-
-          <div class="ops-mini-grid settings-summary-grid">
-            <article
-              v-for="item in summaryItems"
-              :key="item.label"
-              class="ops-mini-tile"
-              :class="getWorkbenchTileTone(item.tone)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #support>
-        <OpsSurfaceCard
-          eyebrow="概览"
-          title="当前开关"
-          :chip="providerLabelMap[aiConfig.provider] || aiConfig.provider"
-          tone="ice"
-          compact
-        >
-          <OpsMiniBars :items="settingsVizBars" />
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard eyebrow="建议" title="配置建议" :chip="settingsLabel" tone="mint">
-          <div class="ops-guidance">
-            <div class="ops-guidance__headline">
-              <strong>{{ settingsGuideHeadline }}</strong>
-              <span>{{ settingsGuideCopy }}</span>
-            </div>
-
-            <div class="ops-guidance__meta">
-              <article v-for="item in settingsGuideMetrics" :key="item.label" class="ops-guidance__metric">
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="动态"
-          title="配置动态"
-          :chip="settingsSignals[1]?.value || activeTab"
-          tone="mint"
-        >
-          <div class="ops-list-stack">
-            <article v-for="item in settingsSignals" :key="item.label" class="ops-list-row">
-              <div class="ops-list-row__badge">
-                {{ item.label.slice(0, 2) }}
-              </div>
-              <div class="ops-list-row__copy">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.note }}</span>
-              </div>
-              <div class="ops-list-row__value">
-                {{ item.badge }}
-              </div>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card shadow="never" class="table-card ops-table-card">
-        <div class="ops-soft-toolbar">
-          <div class="settings-table-copy">
-            <h3>高权限配置</h3>
-            <p>系统、智能回复、限流和广播统一收进一张工作台，校验和保存逻辑保持原样。</p>
-          </div>
+    <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-soft-toolbar">
+        <div class="settings-table-copy">
+          <h3>高权限配置</h3>
+          <p>系统、智能回复、限流和广播统一收进一张工作台，校验和保存逻辑保持原样。</p>
         </div>
+      </div>
 
-        <el-tabs v-model="activeTab">
-          <el-tab-pane label="系统配置" name="system">
-            <el-form
-              ref="systemFormRef"
-              :model="systemConfig"
-              :rules="systemRules"
-              label-width="150px"
-              aria-label="系统配置"
-            >
-              <el-form-item label="系统名称" prop="name">
-                <el-input v-model="systemConfig.name" placeholder="心湖" />
-              </el-form-item>
-              <el-form-item label="系统描述" prop="description">
-                <el-input v-model="systemConfig.description" type="textarea" :rows="2" />
-              </el-form-item>
-              <el-form-item label="开启注册">
-                <el-switch v-model="systemConfig.allowRegister" />
-              </el-form-item>
-              <el-form-item label="开启匿名登录">
-                <el-switch v-model="systemConfig.allowAnonymous" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="saving" @click="saveConfig('system')">
-                  保存配置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="系统配置" name="system">
+          <el-form
+            ref="systemFormRef"
+            :model="systemConfig"
+            :rules="systemRules"
+            label-width="150px"
+            aria-label="系统配置"
+          >
+            <el-form-item label="系统名称" prop="name">
+              <el-input v-model="systemConfig.name" placeholder="心湖" />
+            </el-form-item>
+            <el-form-item label="系统描述" prop="description">
+              <el-input v-model="systemConfig.description" type="textarea" :rows="2" />
+            </el-form-item>
+            <el-form-item label="开启注册">
+              <el-switch v-model="systemConfig.allowRegister" />
+            </el-form-item>
+            <el-form-item label="开启匿名登录">
+              <el-switch v-model="systemConfig.allowAnonymous" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="saving" @click="saveConfig('system')">
+                保存配置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
 
-          <el-tab-pane label="智能回复" name="ai">
-            <el-form
-              ref="aiFormRef"
-              :model="aiConfig"
-              :rules="aiRules"
-              label-width="150px"
-              aria-label="智能回复设置"
-            >
-              <el-form-item label="回复服务提供商" prop="provider">
-                <el-select v-model="aiConfig.provider">
-                  <el-option label="DeepSeek" value="deepseek" />
-                  <el-option label="OpenAI" value="openai" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="访问密钥" prop="apiKey">
-                <el-input
-                  v-model="aiConfig.apiKey"
-                  :type="apiKeyVisible ? 'text' : 'password'"
-                  placeholder="sk-..."
-                  @focus="onApiKeyFocus"
-                  @input="onApiKeyInput"
-                >
-                  <template #suffix>
-                    <el-icon style="cursor: pointer" @click="apiKeyVisible = !apiKeyVisible">
-                      <View v-if="apiKeyVisible" />
-                      <Hide v-else />
-                    </el-icon>
-                  </template>
-                </el-input>
-              </el-form-item>
-              <el-form-item label="服务地址" prop="baseUrl">
-                <el-input v-model="aiConfig.baseUrl" placeholder="https://api.deepseek.com" />
-              </el-form-item>
-              <el-form-item label="使用模型" prop="model">
-                <el-input v-model="aiConfig.model" placeholder="deepseek-chat" />
-              </el-form-item>
-              <el-form-item label="开启情感分析">
-                <el-switch v-model="aiConfig.enableSentiment" />
-              </el-form-item>
-              <el-form-item label="开启智能回复">
-                <el-switch v-model="aiConfig.enableAutoReply" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="saving" @click="saveConfig('ai')">
-                  保存配置
-                </el-button>
-                <el-button :loading="testing" @click="testAI"> 测试连接 </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
+        <el-tab-pane label="智能回复" name="ai">
+          <el-form
+            ref="aiFormRef"
+            :model="aiConfig"
+            :rules="aiRules"
+            label-width="150px"
+            aria-label="智能回复设置"
+          >
+            <el-form-item label="回复服务提供商" prop="provider">
+              <el-select v-model="aiConfig.provider">
+                <el-option label="DeepSeek" value="deepseek" />
+                <el-option label="OpenAI" value="openai" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="访问密钥" prop="apiKey">
+              <el-input
+                v-model="aiConfig.apiKey"
+                :type="apiKeyVisible ? 'text' : 'password'"
+                placeholder="sk-..."
+                @focus="onApiKeyFocus"
+                @input="onApiKeyInput"
+              >
+                <template #suffix>
+                  <el-icon style="cursor: pointer" @click="apiKeyVisible = !apiKeyVisible">
+                    <View v-if="apiKeyVisible" />
+                    <Hide v-else />
+                  </el-icon>
+                </template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="服务地址" prop="baseUrl">
+              <el-input v-model="aiConfig.baseUrl" placeholder="https://api.deepseek.com" />
+            </el-form-item>
+            <el-form-item label="使用模型" prop="model">
+              <el-input v-model="aiConfig.model" placeholder="deepseek-chat" />
+            </el-form-item>
+            <el-form-item label="开启情感分析">
+              <el-switch v-model="aiConfig.enableSentiment" />
+            </el-form-item>
+            <el-form-item label="开启智能回复">
+              <el-switch v-model="aiConfig.enableAutoReply" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="saving" @click="saveConfig('ai')">
+                保存配置
+              </el-button>
+              <el-button :loading="testing" @click="testAI"> 测试连接 </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
 
-          <el-tab-pane label="限流配置" name="rate">
-            <el-form
-              ref="rateFormRef"
-              :model="rateConfig"
-              :rules="rateRules"
-              label-width="180px"
-              aria-label="限流配置"
-            >
-              <el-form-item label="每小时投石限制" prop="stonePerHour">
-                <el-input-number v-model="rateConfig.stonePerHour" :min="1" :max="100" />
-              </el-form-item>
-              <el-form-item label="每小时纸船限制" prop="boatPerHour">
-                <el-input-number v-model="rateConfig.boatPerHour" :min="1" :max="100" />
-              </el-form-item>
-              <el-form-item label="每分钟消息限制" prop="messagePerMinute">
-                <el-input-number v-model="rateConfig.messagePerMinute" :min="1" :max="120" />
-              </el-form-item>
-              <el-form-item label="内容最大长度" prop="maxContentLength">
-                <el-input-number
-                  v-model="rateConfig.maxContentLength"
-                  :min="100"
-                  :max="5000"
-                  :step="100"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="saving" @click="saveConfig('rate')">
-                  保存配置
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
+        <el-tab-pane label="限流配置" name="rate">
+          <el-form
+            ref="rateFormRef"
+            :model="rateConfig"
+            :rules="rateRules"
+            label-width="180px"
+            aria-label="限流配置"
+          >
+            <el-form-item label="每小时投石限制" prop="stonePerHour">
+              <el-input-number v-model="rateConfig.stonePerHour" :min="1" :max="100" />
+            </el-form-item>
+            <el-form-item label="每小时纸船限制" prop="boatPerHour">
+              <el-input-number v-model="rateConfig.boatPerHour" :min="1" :max="100" />
+            </el-form-item>
+            <el-form-item label="每分钟消息限制" prop="messagePerMinute">
+              <el-input-number v-model="rateConfig.messagePerMinute" :min="1" :max="120" />
+            </el-form-item>
+            <el-form-item label="内容最大长度" prop="maxContentLength">
+              <el-input-number
+                v-model="rateConfig.maxContentLength"
+                :min="100"
+                :max="5000"
+                :step="100"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="saving" @click="saveConfig('rate')">
+                保存配置
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
 
-          <el-tab-pane label="广播" name="broadcast">
-            <el-form :model="broadcastForm" label-width="120px" aria-label="广播消息">
-              <el-form-item label="广播内容">
-                <el-input
-                  v-model="broadcastForm.message"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="请输入要广播的内容"
-                  :maxlength="500"
-                  show-word-limit
-                />
-              </el-form-item>
-              <el-form-item label="级别">
-                <el-select v-model="broadcastForm.level">
-                  <el-option label="信息" value="info" />
-                  <el-option label="成功" value="success" />
-                  <el-option label="警告" value="warning" />
-                  <el-option label="错误" value="error" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :loading="broadcasting" @click="sendBroadcast">
-                  发送广播
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </el-tab-pane>
-        </el-tabs>
-      </el-card>
-    </OpsWorkbench>
+        <el-tab-pane label="广播" name="broadcast">
+          <el-form :model="broadcastForm" label-width="120px" aria-label="广播消息">
+            <el-form-item label="广播内容">
+              <el-input
+                v-model="broadcastForm.message"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入要广播的内容"
+                :maxlength="500"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item label="级别">
+              <el-select v-model="broadcastForm.level">
+                <el-option label="信息" value="info" />
+                <el-option label="成功" value="success" />
+                <el-option label="警告" value="warning" />
+                <el-option label="错误" value="error" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="broadcasting" @click="sendBroadcast">
+                发送广播
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
 
@@ -282,12 +203,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsWorkbench from '@/components/OpsWorkbench.vue'
-import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
-import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { getWorkbenchTileTone } from '@/utils/workbenchTone'
+import {
+  createDeckActivityRows,
+  createDeckFocusCard,
+  createDeckGuideItems,
+  createDeckOverviewCards,
+  createDeckRhythmItems,
+} from '@/utils/opsDashboardDeck'
 
 const activeTab = ref('system')
 const saving = ref(false)
@@ -523,6 +447,44 @@ const settingsGuideMetrics = computed(() => [
   { label: '自动回复', value: aiConfig.enableAutoReply ? '开启' : '关闭' },
   { label: '配置评分', value: `${settingsScore.value} 分` },
 ])
+
+const settingsOverviewDescription = computed(() => {
+  if (!aiConfig.enableAutoReply) {
+    return '集中管理站点开关、智能回复、速率限制与全站广播，当前优先确认自动回复关闭是否符合比赛演示策略。'
+  }
+  return '集中管理站点开关、智能回复、速率限制与全站广播，高权限操作在这里完成统一配置。'
+})
+
+const settingsOverviewCards = computed(() =>
+  createDeckOverviewCards(summaryItems.value.slice(0, 2)),
+)
+const settingsFocusCard = computed(() =>
+  createDeckFocusCard(summaryItems.value[2], '当前主要使用的回复方案和模型配置。'),
+)
+const settingsRhythmItems = computed(() => createDeckRhythmItems(settingsVizBars.value))
+const settingsActivityRows = computed(() => createDeckActivityRows(settingsSignals.value))
+const settingsGuidePulseNote = computed(
+  () => `${tabLabelMap[activeTab.value] || activeTab.value} · ${settingsLabel.value}`,
+)
+const settingsGuideItems = computed(() =>
+  createDeckGuideItems([
+    {
+      label: '匿名进入',
+      value: systemConfig.allowAnonymous ? '允许' : '关闭',
+      note: '比赛演示若需要低门槛体验，这个入口要保持和说明一致。',
+    },
+    {
+      label: '自动回复',
+      value: aiConfig.enableAutoReply ? '开启' : '关闭',
+      note: '关闭时要确认是否仍满足客户端到后端的完整演示链路。',
+    },
+    {
+      label: '配置评分',
+      value: `${settingsScore.value} 分`,
+      note: '综合核心开关、回复能力和广播准备形成当前判断。',
+    },
+  ]),
+)
 
 // 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {

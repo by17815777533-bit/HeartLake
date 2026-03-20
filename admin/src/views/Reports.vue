@@ -10,214 +10,126 @@
 
 <template>
   <div class="reports-page ops-page">
-    <OpsPageHero
+    <OpsDashboardDeck
       eyebrow="求助"
       title="求助处理"
-      :description="reportsHeroDescription"
-      :status="reportResolutionLabel"
-      :chips="reportsHeroChips"
+      :heading-chip="`${reportResolutionScore} 分 ${reportResolutionLabel}`"
+      metric-label="求助总数"
+      :metric-value="summaryItems[0]?.value || '0'"
+      metric-unit="条"
+      :metric-description="reportsOverviewDescription"
+      section-note="处置重点"
+      :overview-cards="reportsOverviewCards"
+      :focus-card="reportsFocusCard"
+      rhythm-eyebrow="队列"
+      rhythm-title="处置分布"
+      :rhythm-chip="`${reportPendingCount} 待处理`"
+      :rhythm-badge="`${reportHandledCount} 条已完成`"
+      :rhythm-items="reportRhythmItems"
+      activity-title="求助动态"
+      :activity-chip="latestReportMeta.value"
+      :activity-rows="reportActivityRows"
+      guide-title="处置建议"
+      :guide-chip="reportResolutionLabel"
+      :guide-headline="reportGuideHeadline"
+      :guide-copy="reportGuideCopy"
+      guide-pulse-label="当前处置评分"
+      :guide-pulse-value="`${reportResolutionScore} 分`"
+      :guide-pulse-note="reportsGuidePulseNote"
+      :guide-items="reportGuideItems"
     >
       <template #actions>
-        <el-button type="primary" @click="handleSearch"> 刷新工单 </el-button>
-        <el-button @click="handleReset"> 重置筛查 </el-button>
+        <button type="button" class="overview-action" @click="handleSearch">刷新工单</button>
+        <button type="button" class="overview-action" @click="handleReset">重置筛查</button>
       </template>
-    </OpsPageHero>
+    </OpsDashboardDeck>
 
-    <OpsWorkbench>
-      <template #stage>
-        <OpsSurfaceCard
-          eyebrow="总览"
-          title="求助概览"
-          :chip="`${reportResolutionScore} 分 ${reportResolutionLabel}`"
-          tone="sky"
-        >
-          <div class="ops-stage-shell">
-            <div class="ops-big-metric">
-              <span class="ops-big-metric__label">求助总数</span>
-              <div class="ops-big-metric__value">
-                {{ summaryItems[0]?.value || 0 }}
-                <small>条</small>
-              </div>
-              <p class="ops-big-metric__note">
-                汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。
-              </p>
-            </div>
-
-            <div class="ops-stage-aside">
-              <article class="ops-stage-pod">
-                <span>最新求助</span>
-                <strong>{{ latestReportMeta.value }}</strong>
-                <small>{{ latestReportMeta.note }}</small>
-              </article>
-
-              <article class="ops-stage-pod ops-stage-pod--mint">
-                <span>待处理占比</span>
-                <strong>{{ reportSignals[2]?.value || '0%' }}</strong>
-                <small>{{ reportSignals[2]?.note }}</small>
-              </article>
-            </div>
-          </div>
-
-          <div class="ops-mini-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-mini-tile"
-              :class="getWorkbenchTileTone(item.tone)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #support>
-        <OpsSurfaceCard
-          eyebrow="队列"
-          title="处置分布"
-          :chip="`${reportPendingCount} 待处理`"
-          tone="ice"
-          compact
-        >
-          <OpsMiniBars :items="reportVizBars" />
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard eyebrow="建议" title="处置建议" :chip="reportResolutionLabel" tone="mint">
-          <div class="ops-guidance">
-            <div class="ops-guidance__headline">
-              <strong>{{ reportGuideHeadline }}</strong>
-              <span>{{ reportGuideCopy }}</span>
-            </div>
-
-            <div class="ops-guidance__meta">
-              <article v-for="item in reportGuideMetrics" :key="item.label" class="ops-guidance__metric">
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="动态"
-          title="求助动态"
-          :chip="latestReportMeta.value"
-          tone="mint"
-        >
-          <div class="ops-list-stack">
-            <article v-for="item in reportSignals" :key="item.label" class="ops-list-row">
-              <div class="ops-list-row__badge">
-                {{ item.label.slice(0, 2) }}
-              </div>
-              <div class="ops-list-row__copy">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.note }}</span>
-              </div>
-              <div class="ops-list-row__value">
-                {{ item.badge }}
-              </div>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card shadow="never" class="table-card ops-table-card">
-        <div class="ops-soft-toolbar reports-table-toolbar">
-          <div class="reports-table-copy">
-            <h3>求助列表</h3>
-            <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
-          </div>
-          <el-form :model="filters" inline aria-label="举报筛选" class="reports-inline-filter">
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" placeholder="全部" clearable>
-                <el-option label="待处理" value="pending" />
-                <el-option label="已处理" value="handled" />
-                <el-option label="已忽略" value="ignored" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="类型">
-              <el-select v-model="filters.type" placeholder="全部" clearable>
-                <el-option label="垃圾信息" value="spam" />
-                <el-option label="骚扰辱骂" value="harassment" />
-                <el-option label="不当内容" value="inappropriate" />
-                <el-option label="暴力内容" value="violence" />
-                <el-option label="其他" value="other" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
-              <el-button @click="handleReset"> 重置 </el-button>
-            </el-form-item>
-          </el-form>
+    <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-soft-toolbar reports-table-toolbar">
+        <div class="reports-table-copy">
+          <h3>求助列表</h3>
+          <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
         </div>
+        <el-form :model="filters" inline aria-label="举报筛选" class="reports-inline-filter">
+          <el-form-item label="状态">
+            <el-select v-model="filters.status" placeholder="全部" clearable>
+              <el-option label="待处理" value="pending" />
+              <el-option label="已处理" value="handled" />
+              <el-option label="已忽略" value="ignored" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-select v-model="filters.type" placeholder="全部" clearable>
+              <el-option label="垃圾信息" value="spam" />
+              <el-option label="骚扰辱骂" value="harassment" />
+              <el-option label="不当内容" value="inappropriate" />
+              <el-option label="暴力内容" value="violence" />
+              <el-option label="其他" value="other" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+            <el-button @click="handleReset"> 重置 </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
-        <el-table v-loading="loading" :data="reportList" stripe aria-label="举报列表">
-          <el-table-column prop="id" label="ID" width="100" />
-          <el-table-column label="举报类型" width="100">
-            <template #default="{ row }">
-              <el-tag
-                size="small"
-                :color="getTypeColor(row.type)"
-                style="border: none; color: #fff"
-              >
-                {{ getTypeLabel(row.type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="举报原因" min-width="200">
-            <template #default="{ row }">
-              {{ row.reason }}
-            </template>
-          </el-table-column>
-          <el-table-column label="被举报内容" min-width="200">
-            <template #default="{ row }">
-              {{ row.target_content?.substring(0, 50)
-              }}{{ row.target_content?.length > 50 ? '...' : '' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusType(row.status)" size="small">
-                {{ getStatusLabel(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="举报时间" width="180" />
-          <el-table-column label="操作" width="200" fixed="right">
-            <template #default="{ row }">
-              <template v-if="row.status === 'pending'">
-                <el-button type="success" link @click="handleReport(row, 'handled')">
-                  处理
-                </el-button>
-                <el-button type="info" link @click="handleReport(row, 'ignored')"> 忽略 </el-button>
-              </template>
-              <span v-else class="handled-text">已{{ getStatusLabel(row.status) }}</span>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <el-empty description="暂无举报数据" :image-size="120" />
+      <el-table v-loading="loading" :data="reportList" stripe aria-label="举报列表">
+        <el-table-column prop="id" label="ID" width="100" />
+        <el-table-column label="举报类型" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" :color="getTypeColor(row.type)" style="border: none; color: #fff">
+              {{ getTypeLabel(row.type) }}
+            </el-tag>
           </template>
-        </el-table>
+        </el-table-column>
+        <el-table-column label="举报原因" min-width="200">
+          <template #default="{ row }">
+            {{ row.reason }}
+          </template>
+        </el-table-column>
+        <el-table-column label="被举报内容" min-width="200">
+          <template #default="{ row }">
+            {{ row.target_content?.substring(0, 50)
+            }}{{ row.target_content?.length > 50 ? '...' : '' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ getStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="举报时间" width="180" />
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <template v-if="row.status === 'pending'">
+              <el-button type="success" link @click="handleReport(row, 'handled')">
+                处理
+              </el-button>
+              <el-button type="info" link @click="handleReport(row, 'ignored')"> 忽略 </el-button>
+            </template>
+            <span v-else class="handled-text">已{{ getStatusLabel(row.status) }}</span>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无举报数据" :image-size="120" />
+        </template>
+      </el-table>
 
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
-        </div>
-      </el-card>
-    </OpsWorkbench>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -225,13 +137,16 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsWorkbench from '@/components/OpsWorkbench.vue'
-import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
-import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
-import { getWorkbenchTileTone } from '@/utils/workbenchTone'
+import {
+  createDeckActivityRows,
+  createDeckFocusCard,
+  createDeckGuideItems,
+  createDeckOverviewCards,
+  createDeckRhythmItems,
+} from '@/utils/opsDashboardDeck'
 import type { Report } from '@/types'
 
 const loading = ref(false)
@@ -376,7 +291,9 @@ const getReportTimeNote = (value?: string) => {
 const latestReportMeta = computed(() => {
   const latestItem = reportList.value.reduce<Report | null>((latest, item) => {
     if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
+      ? item
+      : latest
   }, null)
 
   if (!latestItem) {
@@ -434,7 +351,8 @@ const reportsHeroChips = computed(() => [
 ])
 
 const reportGuideHeadline = computed(() => {
-  if (reportPendingCount.value > reportHandledCount.value) return '待处理工单偏多，先清掉堆积再回看已忽略项'
+  if (reportPendingCount.value > reportHandledCount.value)
+    return '待处理工单偏多，先清掉堆积再回看已忽略项'
   if (reportIgnoredCount.value > 0) return '当前队列不算拥挤，可以抽空复查已忽略记录是否仍然成立'
   return '处置节奏平稳，继续盯住最新流入和高频类型即可'
 })
@@ -454,6 +372,43 @@ const reportGuideMetrics = computed(() => [
   { label: '已完成', value: `${formatCount(reportHandledCount.value)} 条` },
   { label: '处置评分', value: `${reportResolutionScore.value} 分` },
 ])
+
+const reportsOverviewDescription = computed(() => {
+  if (reportPendingCount.value > reportHandledCount.value) {
+    return `汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，当前优先消化 ${formatCount(reportPendingCount.value)} 条待处理工单。`
+  }
+  return '汇总举报与求助记录，按状态快速筛查并完成确认、驳回或忽略，保证处置过程清晰可追溯。'
+})
+
+const reportsOverviewCards = computed(() => createDeckOverviewCards(summaryItems.value.slice(1, 3)))
+const reportsFocusCard = computed(() =>
+  createDeckFocusCard(summaryItems.value[3], '当前页已忽略但仍可抽样回看的记录数量。'),
+)
+const reportRhythmItems = computed(() => createDeckRhythmItems(reportVizBars.value))
+const reportActivityRows = computed(() => createDeckActivityRows(reportSignals.value))
+const reportsGuidePulseNote = computed(
+  () =>
+    `待处理占比 ${reportList.value.length ? Math.round((reportPendingCount.value / reportList.value.length) * 100) : 0}% · ${reportResolutionLabel.value}`,
+)
+const reportGuideItems = computed(() =>
+  createDeckGuideItems([
+    {
+      label: '待处理',
+      value: `${formatCount(reportPendingCount.value)} 条`,
+      note: '先处理新流入工单，避免求助队列继续堆积。',
+    },
+    {
+      label: '已完成',
+      value: `${formatCount(reportHandledCount.value)} 条`,
+      note: '完成量反映当前人工处置节奏是否跟得上流入。',
+    },
+    {
+      label: '处置评分',
+      value: `${reportResolutionScore.value} 分`,
+      note: '综合待处理、已完成和已忽略比例形成当前判断。',
+    },
+  ]),
+)
 
 async function fetchReports() {
   loading.value = true

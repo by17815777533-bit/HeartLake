@@ -9,231 +9,147 @@
 
 <template>
   <div class="logs-page ops-page">
-    <OpsPageHero
+    <OpsDashboardDeck
       eyebrow="审计"
       title="服务记录"
-      :description="logsHeroDescription"
-      :status="auditLabel"
-      :chips="logsHeroChips"
+      :heading-chip="`${auditScore} 分 ${auditLabel}`"
+      metric-label="记录总量"
+      :metric-value="summaryItems[0]?.value || '0'"
+      metric-unit="条"
+      :metric-description="logsOverviewDescription"
+      section-note="核查重点"
+      :overview-cards="logsOverviewCards"
+      :focus-card="logsFocusCard"
+      rhythm-eyebrow="节律"
+      rhythm-title="动作频次"
+      :rhythm-chip="`${loginCount} 次登录`"
+      :rhythm-badge="`${formatCount(logList.length)} 条审计`"
+      :rhythm-items="logRhythmItems"
+      activity-title="审计动态"
+      :activity-chip="latestLogMeta.value"
+      :activity-rows="logActivityRows"
+      guide-title="核查建议"
+      :guide-chip="auditLabel"
+      :guide-headline="logsGuideHeadline"
+      :guide-copy="logsGuideCopy"
+      guide-pulse-label="当前审计评分"
+      :guide-pulse-value="`${auditScore} / 100`"
+      :guide-pulse-note="logsGuidePulseNote"
+      :guide-items="logsGuideItems"
     >
       <template #actions>
-        <el-button type="primary" @click="handleSearch"> 刷新审计 </el-button>
-        <el-button @click="handleReset"> 清空筛选 </el-button>
+        <button type="button" class="overview-action" @click="handleSearch">刷新审计</button>
+        <button type="button" class="overview-action" @click="handleReset">清空筛选</button>
       </template>
-    </OpsPageHero>
+    </OpsDashboardDeck>
 
-    <OpsWorkbench>
-      <template #stage>
-        <OpsSurfaceCard
-          eyebrow="总览"
-          title="审计概览"
-          :chip="`${auditScore} 分 ${auditLabel}`"
-          tone="sky"
-        >
-          <div class="ops-stage-shell">
-            <div class="ops-big-metric">
-              <span class="ops-big-metric__label">记录总量</span>
-              <div class="ops-big-metric__value">
-                {{ summaryItems[0]?.value || 0 }}
-                <small>条</small>
-              </div>
-              <p class="ops-big-metric__note">
-                按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。
-              </p>
-            </div>
-
-            <div class="ops-stage-aside">
-              <article class="ops-stage-pod">
-                <span>最近动作</span>
-                <strong>{{ latestLogMeta.value }}</strong>
-                <small>{{ latestLogMeta.note }}</small>
-              </article>
-
-              <article class="ops-stage-pod ops-stage-pod--mint">
-                <span>链路完整度</span>
-                <strong>{{ auditScore }} / 100</strong>
-                <small>{{ logSignals[2]?.note }}</small>
-              </article>
-            </div>
+    <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-soft-toolbar ops-soft-toolbar--stacked logs-table-toolbar">
+        <div class="logs-table-copy">
+          <h3>审计列表</h3>
+          <p>登录、处置、配置和广播都在这里串起来，交接时能快速还原后台动作链路。</p>
+          <div class="ops-toolbar-meta">
+            <span class="ops-toolbar-meta__item">当前页 {{ logList.length }} 条</span>
+            <span class="ops-toolbar-meta__item">登录 {{ loginCount }} 次</span>
+            <span class="ops-toolbar-meta__item">完整度 {{ auditScore }} / 100</span>
           </div>
-
-          <div class="ops-mini-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-mini-tile"
-              :class="getWorkbenchTileTone(item.tone)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #support>
-        <OpsSurfaceCard
-          eyebrow="节律"
-          title="动作频次"
-          :chip="`${loginCount} 次登录`"
-          tone="ice"
-          compact
-        >
-          <OpsMiniBars :items="logVizBars" />
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard eyebrow="建议" title="核查建议" :chip="auditLabel" tone="mint">
-          <div class="ops-guidance">
-            <div class="ops-guidance__headline">
-              <strong>{{ logsGuideHeadline }}</strong>
-              <span>{{ logsGuideCopy }}</span>
-            </div>
-
-            <div class="ops-guidance__meta">
-              <article v-for="item in logsGuideMetrics" :key="item.label" class="ops-guidance__metric">
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="动态"
-          title="审计动态"
-          :chip="latestLogMeta.value"
-          tone="mint"
-        >
-          <div class="ops-list-stack">
-            <article v-for="item in logSignals" :key="item.label" class="ops-list-row">
-              <div class="ops-list-row__badge">
-                {{ item.label.slice(0, 2) }}
-              </div>
-              <div class="ops-list-row__copy">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.note }}</span>
-              </div>
-              <div class="ops-list-row__value">
-                {{ item.badge }}
-              </div>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card shadow="never" class="table-card ops-table-card">
-        <div class="ops-soft-toolbar ops-soft-toolbar--stacked logs-table-toolbar">
-          <div class="logs-table-copy">
-            <h3>审计列表</h3>
-            <p>登录、处置、配置和广播都在这里串起来，交接时能快速还原后台动作链路。</p>
-            <div class="ops-toolbar-meta">
-              <span class="ops-toolbar-meta__item">当前页 {{ logList.length }} 条</span>
-              <span class="ops-toolbar-meta__item">登录 {{ loginCount }} 次</span>
-              <span class="ops-toolbar-meta__item">完整度 {{ auditScore }} / 100</span>
-            </div>
-          </div>
-          <el-form :model="filters" inline aria-label="日志筛选" class="logs-inline-filter">
-            <el-form-item label="操作人">
-              <el-input v-model="filters.operator" placeholder="管理员账号" clearable />
-            </el-form-item>
-            <el-form-item label="操作类型">
-              <el-select v-model="filters.action" placeholder="全部" clearable>
-                <el-option label="登录" value="login" />
-                <el-option label="封禁用户" value="ban_user" />
-                <el-option label="解封用户" value="unban_user" />
-                <el-option label="删除内容" value="delete_content" />
-                <el-option label="审核通过" value="approve" />
-                <el-option label="审核拒绝" value="reject" />
-                <el-option label="修改配置" value="config" />
-                <el-option label="处理举报" value="handle_report" />
-                <el-option label="发送广播" value="broadcast" />
-                <el-option label="新增敏感词" value="sensitive_add" />
-                <el-option label="更新敏感词" value="sensitive_update" />
-                <el-option label="删除敏感词" value="sensitive_delete" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="时间范围">
-              <el-date-picker
-                v-model="filters.dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                value-format="YYYY-MM-DD"
-                :disabled-date="disabledDate"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
-              <el-button @click="handleReset"> 重置 </el-button>
-            </el-form-item>
-          </el-form>
         </div>
+        <el-form :model="filters" inline aria-label="日志筛选" class="logs-inline-filter">
+          <el-form-item label="操作人">
+            <el-input v-model="filters.operator" placeholder="管理员账号" clearable />
+          </el-form-item>
+          <el-form-item label="操作类型">
+            <el-select v-model="filters.action" placeholder="全部" clearable>
+              <el-option label="登录" value="login" />
+              <el-option label="封禁用户" value="ban_user" />
+              <el-option label="解封用户" value="unban_user" />
+              <el-option label="删除内容" value="delete_content" />
+              <el-option label="审核通过" value="approve" />
+              <el-option label="审核拒绝" value="reject" />
+              <el-option label="修改配置" value="config" />
+              <el-option label="处理举报" value="handle_report" />
+              <el-option label="发送广播" value="broadcast" />
+              <el-option label="新增敏感词" value="sensitive_add" />
+              <el-option label="更新敏感词" value="sensitive_update" />
+              <el-option label="删除敏感词" value="sensitive_delete" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="时间范围">
+            <el-date-picker
+              v-model="filters.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              :disabled-date="disabledDate"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+            <el-button @click="handleReset"> 重置 </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
 
-        <el-table v-loading="loading" :data="logList" stripe aria-label="操作日志列表">
-          <el-table-column prop="id" label="编号" width="88" />
-          <el-table-column label="操作人" min-width="180">
-            <template #default="{ row }">
-              <div class="log-operator">
-                <strong>{{ getLogOperator(row) }}</strong>
-                <span>{{ getOperatorMeta(row) }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作类型" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getActionType(row.action)" size="small">
-                {{ getActionLabel(row.action) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作对象" min-width="170">
-            <template #default="{ row }">
-              <div class="log-target">
-                <strong>{{ getLogTarget(row) }}</strong>
-                <span>{{ getActionLabel(row.action) }}链路</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="详情" min-width="260">
-            <template #default="{ row }">
-              <div class="log-detail">
-                <strong>{{ getLogDetail(row) }}</strong>
-                <span>{{ getActionNote(row.action) }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作时间" width="188">
-            <template #default="{ row }">
-              <div class="log-time">
-                <strong>{{ row.created_at || '暂无时间' }}</strong>
-                <span>{{ getTimeNote(row.created_at) }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <el-empty description="暂无操作日志" :image-size="120" />
+      <el-table v-loading="loading" :data="logList" stripe aria-label="操作日志列表">
+        <el-table-column prop="id" label="编号" width="88" />
+        <el-table-column label="操作人" min-width="180">
+          <template #default="{ row }">
+            <div class="log-operator">
+              <strong>{{ getLogOperator(row) }}</strong>
+              <span>{{ getOperatorMeta(row) }}</span>
+            </div>
           </template>
-        </el-table>
+        </el-table-column>
+        <el-table-column label="操作类型" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getActionType(row.action)" size="small">
+              {{ getActionLabel(row.action) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作对象" min-width="170">
+          <template #default="{ row }">
+            <div class="log-target">
+              <strong>{{ getLogTarget(row) }}</strong>
+              <span>{{ getActionLabel(row.action) }}链路</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="详情" min-width="260">
+          <template #default="{ row }">
+            <div class="log-detail">
+              <strong>{{ getLogDetail(row) }}</strong>
+              <span>{{ getActionNote(row.action) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作时间" width="188">
+          <template #default="{ row }">
+            <div class="log-time">
+              <strong>{{ row.created_at || '暂无时间' }}</strong>
+              <span>{{ getTimeNote(row.created_at) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty description="暂无操作日志" :image-size="120" />
+        </template>
+      </el-table>
 
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[20, 50, 100]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
-        </div>
-      </el-card>
-    </OpsWorkbench>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -241,13 +157,16 @@
 import { computed, ref, reactive, onMounted } from 'vue'
 import api, { isRequestCanceled } from '@/api'
 import { ElMessage } from 'element-plus'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsWorkbench from '@/components/OpsWorkbench.vue'
-import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
-import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
-import { getWorkbenchTileTone } from '@/utils/workbenchTone'
+import {
+  createDeckActivityRows,
+  createDeckFocusCard,
+  createDeckGuideItems,
+  createDeckOverviewCards,
+  createDeckRhythmItems,
+} from '@/utils/opsDashboardDeck'
 import type { OperationLog } from '@/types'
 
 const loading = ref(false)
@@ -409,7 +328,9 @@ const auditLabel = computed(() => {
 const latestLogMeta = computed(() => {
   const latestItem = logList.value.reduce<OperationLog | null>((latest, item) => {
     if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
+      ? item
+      : latest
   }, null)
 
   if (!latestItem) {
@@ -435,7 +356,10 @@ const logSignals = computed(() => {
     {
       label: '当前视角',
       value: filterMode,
-      note: filters.dateRange?.length === 2 ? `已限定 ${filters.dateRange[0]} 至 ${filters.dateRange[1]}` : '默认查看当前条件下的全部审计写入。',
+      note:
+        filters.dateRange?.length === 2
+          ? `已限定 ${filters.dateRange[0]} 至 ${filters.dateRange[1]}`
+          : '默认查看当前条件下的全部审计写入。',
       badge: `${formatCount(logList.value.length)} 条`,
     },
     {
@@ -483,6 +407,42 @@ const logsGuideMetrics = computed(() => [
   { label: '内容处置', value: `${formatCount(contentActionCount.value)} 次` },
   { label: '审计评分', value: `${auditScore.value} 分` },
 ])
+
+const logsOverviewDescription = computed(() => {
+  if (configActionCount.value > 0) {
+    return `按操作人、动作类型和时间范围回看后台处理过程，当前优先核查 ${formatCount(configActionCount.value)} 次配置改动及其后续链路。`
+  }
+  return '按操作人、动作类型和时间范围回看后台处理过程，为核查、交接和安全审计提供依据。'
+})
+
+const logsOverviewCards = computed(() => createDeckOverviewCards(summaryItems.value.slice(1, 3)))
+const logsFocusCard = computed(() =>
+  createDeckFocusCard(summaryItems.value[3], '当前页涉及系统偏好或关键参数的配置改动次数。'),
+)
+const logRhythmItems = computed(() => createDeckRhythmItems(logVizBars.value))
+const logActivityRows = computed(() => createDeckActivityRows(logSignals.value))
+const logsGuidePulseNote = computed(
+  () => `内容处置 ${formatCount(contentActionCount.value)} 次 · ${auditLabel.value}`,
+)
+const logsGuideItems = computed(() =>
+  createDeckGuideItems([
+    {
+      label: '登录动作',
+      value: `${formatCount(loginCount.value)} 次`,
+      note: '登录记录用于判断后台值守与会话恢复是否正常。',
+    },
+    {
+      label: '内容处置',
+      value: `${formatCount(contentActionCount.value)} 次`,
+      note: '处置链路越密集，越需要按时间顺序回看动作关联。',
+    },
+    {
+      label: '审计评分',
+      value: `${auditScore.value} 分`,
+      note: '综合关键动作的结构化程度形成当前评分。',
+    },
+  ]),
+)
 
 async function fetchLogs() {
   loading.value = true

@@ -11,222 +11,129 @@
 
 <template>
   <div class="sensitive-words-page ops-page">
-    <OpsPageHero
+    <OpsDashboardDeck
       eyebrow="词典"
       title="风险词典"
-      :description="sensitiveHeroDescription"
-      :status="sensitiveLabel"
-      :chips="sensitiveHeroChips"
+      :heading-chip="`${sensitiveScore} 分 ${sensitiveLabel}`"
+      metric-label="词条总量"
+      :metric-value="summaryItems[0]?.value || '0'"
+      metric-unit="条"
+      :metric-description="sensitiveOverviewDescription"
+      section-note="维护重点"
+      :overview-cards="sensitiveOverviewCards"
+      :focus-card="sensitiveFocusCard"
+      rhythm-eyebrow="级别"
+      rhythm-title="级别分布"
+      :rhythm-chip="`${highRiskWordCount} 高风险`"
+      :rhythm-badge="`${formatCount(wordList.length)} 条词条`"
+      :rhythm-items="sensitiveRhythmItems"
+      activity-title="词典动态"
+      :activity-chip="latestSensitiveMeta.value"
+      :activity-rows="sensitiveActivityRows"
+      guide-title="维护建议"
+      :guide-chip="sensitiveLabel"
+      :guide-headline="sensitiveGuideHeadline"
+      :guide-copy="sensitiveGuideCopy"
+      guide-pulse-label="当前词典评分"
+      :guide-pulse-value="`${sensitiveScore} 分`"
+      :guide-pulse-note="sensitiveGuidePulseNote"
+      :guide-items="sensitiveGuideItems"
     >
       <template #actions>
-        <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
-        <el-button @click="handleSearch"> 刷新词典 </el-button>
+        <button type="button" class="overview-action" @click="showAddDialog">添加敏感词</button>
+        <button type="button" class="overview-action" @click="handleSearch">刷新词典</button>
       </template>
-    </OpsPageHero>
+    </OpsDashboardDeck>
 
-    <OpsWorkbench>
-      <template #stage>
-        <OpsSurfaceCard
-          eyebrow="总览"
-          title="词典概览"
-          :chip="`${sensitiveScore} 分 ${sensitiveLabel}`"
-          tone="sky"
-        >
-          <div class="ops-stage-shell">
-            <div class="ops-big-metric">
-              <span class="ops-big-metric__label">词条总量</span>
-              <div class="ops-big-metric__value">
-                {{ summaryItems[0]?.value || 0 }}
-                <small>条</small>
-              </div>
-              <p class="ops-big-metric__note">
-                维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。
-              </p>
-            </div>
-
-            <div class="ops-stage-aside">
-              <article class="ops-stage-pod">
-                <span>最新词条</span>
-                <strong>{{ latestSensitiveMeta.value }}</strong>
-                <small>{{ latestSensitiveMeta.note }}</small>
-              </article>
-
-              <article class="ops-stage-pod ops-stage-pod--mint">
-                <span>批量准备</span>
-                <strong>{{ sensitiveSignals[2]?.value || '0 条' }}</strong>
-                <small>{{ sensitiveSignals[2]?.note }}</small>
-              </article>
-            </div>
-          </div>
-
-          <div class="ops-mini-grid">
-            <article
-              v-for="item in summaryItems.slice(1)"
-              :key="item.label"
-              class="ops-mini-tile"
-              :class="getWorkbenchTileTone(item.tone)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #support>
-        <OpsSurfaceCard
-          eyebrow="级别"
-          title="级别分布"
-          :chip="`${highRiskWordCount} 高风险`"
-          tone="ice"
-          compact
-        >
-          <OpsMiniBars :items="sensitiveVizBars" />
-        </OpsSurfaceCard>
-      </template>
-
-      <template #footer>
-        <OpsSurfaceCard eyebrow="建议" title="维护建议" :chip="sensitiveLabel" tone="mint">
-          <div class="ops-guidance">
-            <div class="ops-guidance__headline">
-              <strong>{{ sensitiveGuideHeadline }}</strong>
-              <span>{{ sensitiveGuideCopy }}</span>
-            </div>
-
-            <div class="ops-guidance__meta">
-              <article
-                v-for="item in sensitiveGuideMetrics"
-                :key="item.label"
-                class="ops-guidance__metric"
-              >
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </article>
-            </div>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <template #rail>
-        <OpsSurfaceCard
-          eyebrow="动态"
-          title="词典动态"
-          :chip="latestSensitiveMeta.value"
-          tone="mint"
-        >
-          <div class="ops-list-stack">
-            <article v-for="item in sensitiveSignals" :key="item.label" class="ops-list-row">
-              <div class="ops-list-row__badge">
-                {{ item.label.slice(0, 2) }}
-              </div>
-              <div class="ops-list-row__copy">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.note }}</span>
-              </div>
-              <div class="ops-list-row__value">
-                {{ item.badge }}
-              </div>
-            </article>
-          </div>
-        </OpsSurfaceCard>
-      </template>
-
-      <el-card shadow="never" class="table-card ops-table-card">
-        <div class="ops-soft-toolbar sensitive-table-toolbar">
-          <div class="sensitive-table-copy">
-            <h3>词典列表</h3>
-            <p>词条、级别、替换词和批量操作都集中在这里，便于快速维护风控边界。</p>
-          </div>
-          <div class="ops-soft-actions">
-            <el-form
-              :model="filters"
-              inline
-              aria-label="敏感词筛选"
-              class="sensitive-inline-filter"
-            >
-              <el-form-item label="关键词">
-                <el-input
-                  v-model="filters.keyword"
-                  placeholder="搜索敏感词"
-                  clearable
-                  @keyup.enter="handleSearch"
-                />
-              </el-form-item>
-              <el-form-item label="级别">
-                <el-select v-model="filters.level" placeholder="全部" clearable>
-                  <el-option label="低" value="low" />
-                  <el-option label="中" value="medium" />
-                  <el-option label="高" value="high" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
-                <el-button @click="handleReset"> 重置 </el-button>
-              </el-form-item>
-            </el-form>
-            <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
-          </div>
+    <el-card shadow="never" class="table-card ops-table-card">
+      <div class="ops-soft-toolbar sensitive-table-toolbar">
+        <div class="sensitive-table-copy">
+          <h3>词典列表</h3>
+          <p>词条、级别、替换词和批量操作都集中在这里，便于快速维护风控边界。</p>
         </div>
-
-        <div v-if="selectedWords.length > 0" class="batch-bar">
-          <span>已选 {{ selectedWords.length }} 项</span>
-          <el-popconfirm title="确定批量删除选中的敏感词？" @confirm="handleBatchDelete">
-            <template #reference>
-              <el-button type="danger" size="small"> 批量删除 </el-button>
-            </template>
-          </el-popconfirm>
+        <div class="ops-soft-actions">
+          <el-form :model="filters" inline aria-label="敏感词筛选" class="sensitive-inline-filter">
+            <el-form-item label="关键词">
+              <el-input
+                v-model="filters.keyword"
+                placeholder="搜索敏感词"
+                clearable
+                @keyup.enter="handleSearch"
+              />
+            </el-form-item>
+            <el-form-item label="级别">
+              <el-select v-model="filters.level" placeholder="全部" clearable>
+                <el-option label="低" value="low" />
+                <el-option label="中" value="medium" />
+                <el-option label="高" value="high" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSearch"> 搜索 </el-button>
+              <el-button @click="handleReset"> 重置 </el-button>
+            </el-form-item>
+          </el-form>
+          <el-button type="primary" @click="showAddDialog"> 添加敏感词 </el-button>
         </div>
+      </div>
 
-        <el-table
-          ref="tableRef"
-          v-loading="loading"
-          :data="wordList"
-          stripe
-          aria-label="敏感词列表"
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="45" :selectable="canSelect" />
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="word" label="敏感词" min-width="150" />
-          <el-table-column label="级别" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getLevelType(row.level)" size="small">
-                {{ getLevelLabel(row.level) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="replacement" label="替换词" width="120">
-            <template #default="{ row }">
-              {{ row.replacement || '***' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="添加时间" width="180" />
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="{ row }">
-              <el-button type="primary" link @click="showEditDialog(row)"> 编辑 </el-button>
-              <el-popconfirm title="确定删除此敏感词？" @confirm="handleDelete(row)">
-                <template #reference>
-                  <el-button type="danger" link> 删除 </el-button>
-                </template>
-              </el-popconfirm>
-            </template>
-          </el-table-column>
-        </el-table>
+      <div v-if="selectedWords.length > 0" class="batch-bar">
+        <span>已选 {{ selectedWords.length }} 项</span>
+        <el-popconfirm title="确定批量删除选中的敏感词？" @confirm="handleBatchDelete">
+          <template #reference>
+            <el-button type="danger" size="small"> 批量删除 </el-button>
+          </template>
+        </el-popconfirm>
+      </div>
 
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :page-sizes="[20, 50, 100]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
-        </div>
-      </el-card>
-    </OpsWorkbench>
+      <el-table
+        ref="tableRef"
+        v-loading="loading"
+        :data="wordList"
+        stripe
+        aria-label="敏感词列表"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="45" :selectable="canSelect" />
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="word" label="敏感词" min-width="150" />
+        <el-table-column label="级别" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getLevelType(row.level)" size="small">
+              {{ getLevelLabel(row.level) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="replacement" label="替换词" width="120">
+          <template #default="{ row }">
+            {{ row.replacement || '***' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="添加时间" width="180" />
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="showEditDialog(row)"> 编辑 </el-button>
+            <el-popconfirm title="确定删除此敏感词？" @confirm="handleDelete(row)">
+              <template #reference>
+                <el-button type="danger" link> 删除 </el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
 
     <!-- 添加/编辑弹窗 -->
     <el-dialog
@@ -275,14 +182,17 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, TableInstance } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
-import OpsPageHero from '@/components/OpsPageHero.vue'
-import OpsWorkbench from '@/components/OpsWorkbench.vue'
-import OpsSurfaceCard from '@/components/OpsSurfaceCard.vue'
-import OpsMiniBars from '@/components/OpsMiniBars.vue'
+import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
-import { getWorkbenchTileTone } from '@/utils/workbenchTone'
+import {
+  createDeckActivityRows,
+  createDeckFocusCard,
+  createDeckGuideItems,
+  createDeckOverviewCards,
+  createDeckRhythmItems,
+} from '@/utils/opsDashboardDeck'
 import type { SensitiveWord } from '@/types'
 
 const loading = ref(false)
@@ -456,7 +366,9 @@ const sensitiveLabel = computed(() => {
 const latestSensitiveMeta = computed(() => {
   const latestItem = wordList.value.reduce<SensitiveWord | null>((latest, item) => {
     if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime() ? item : latest
+    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
+      ? item
+      : latest
   }, null)
 
   if (!latestItem) {
@@ -482,7 +394,9 @@ const sensitiveSignals = computed(() => {
     {
       label: '当前视角',
       value: filterMode,
-      note: filters.keyword ? `正在按“${filters.keyword}”缩小词典范围。` : '默认查看全部词条和级别分布。',
+      note: filters.keyword
+        ? `正在按“${filters.keyword}”缩小词典范围。`
+        : '默认查看全部词条和级别分布。',
       badge: `${formatCount(wordList.value.length)} 条`,
     },
     {
@@ -513,7 +427,8 @@ const sensitiveHeroChips = computed(() => [
 
 const sensitiveGuideHeadline = computed(() => {
   if (selectedWords.value.length > 0) return '当前已经选中一批词条，先确认误删风险再执行批量操作'
-  if (highRiskWordCount.value > mediumRiskWordCount.value) return '高风险词条偏多，优先回看替换策略和误伤边界'
+  if (highRiskWordCount.value > mediumRiskWordCount.value)
+    return '高风险词条偏多，优先回看替换策略和误伤边界'
   return '词典结构相对稳定，继续补充新词和细化中风险表达即可'
 })
 
@@ -532,6 +447,44 @@ const sensitiveGuideMetrics = computed(() => [
   { label: '替换策略', value: `${formatCount(replacementWordCount.value)} 条` },
   { label: '词典评分', value: `${sensitiveScore.value} 分` },
 ])
+
+const sensitiveOverviewDescription = computed(() => {
+  if (selectedWords.value.length > 0) {
+    return `维护敏感词与风险等级，统一管理替换策略和批量删除，当前已有 ${formatCount(selectedWords.value.length)} 条词条待确认批量操作。`
+  }
+  return '维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。'
+})
+
+const sensitiveOverviewCards = computed(() =>
+  createDeckOverviewCards(summaryItems.value.slice(1, 3)),
+)
+const sensitiveFocusCard = computed(() =>
+  createDeckFocusCard(summaryItems.value[3], `单次最多可处理 ${MAX_BATCH_SIZE} 条词条。`),
+)
+const sensitiveRhythmItems = computed(() => createDeckRhythmItems(sensitiveVizBars.value))
+const sensitiveActivityRows = computed(() => createDeckActivityRows(sensitiveSignals.value))
+const sensitiveGuidePulseNote = computed(
+  () => `高风险 ${formatCount(highRiskWordCount.value)} 条 · ${sensitiveLabel.value}`,
+)
+const sensitiveGuideItems = computed(() =>
+  createDeckGuideItems([
+    {
+      label: '高风险词条',
+      value: `${formatCount(highRiskWordCount.value)} 条`,
+      note: '高风险密度更高时，优先回看替换策略与误伤边界。',
+    },
+    {
+      label: '替换策略',
+      value: `${formatCount(replacementWordCount.value)} 条`,
+      note: '替换词越清晰，比赛演示时越容易解释规则边界。',
+    },
+    {
+      label: '词典评分',
+      value: `${sensitiveScore.value} 分`,
+      note: '综合高风险词条、替换策略和批量准备形成当前判断。',
+    },
+  ]),
+)
 
 async function fetchWords() {
   loading.value = true
