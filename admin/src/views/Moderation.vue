@@ -47,15 +47,17 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
-      <div class="ops-table-prelude">
-        <OpsMetricStrip :items="summaryItems.slice(1, 4)" />
-        <OpsSignalDeck :items="moderationSignals" />
-      </div>
-
       <div class="ops-soft-toolbar">
         <div class="moderation-table-copy">
           <h3>审核工作区</h3>
           <p>待审核和审核历史共用同一张工作台，便于切换标准和回看人审决策。</p>
+          <div class="ops-toolbar-meta">
+            <span class="ops-toolbar-meta__item"
+              >待复核 {{ formatCount(Number(pagination.total || 0)) }} 条</span
+            >
+            <span class="ops-toolbar-meta__item">高风险 {{ highRiskPendingCount }} 条</span>
+            <span class="ops-toolbar-meta__item">守护评分 {{ moderationScore }} 分</span>
+          </div>
         </div>
       </div>
 
@@ -209,8 +211,6 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
-import OpsMetricStrip from '@/components/OpsMetricStrip.vue'
-import OpsSignalDeck from '@/components/OpsSignalDeck.vue'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
