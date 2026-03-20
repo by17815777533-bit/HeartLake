@@ -10,8 +10,9 @@
 -->
 
 <template>
-  <div class="sensitive-words-page ops-page">
+  <div class="sensitive-words-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="词典"
       title="风险词典"
       :heading-chip="`${sensitiveScore} 分 ${sensitiveLabel}`"
@@ -49,7 +50,7 @@
       <div class="ops-soft-toolbar sensitive-table-toolbar">
         <div class="sensitive-table-copy">
           <h3>词典列表</h3>
-          <p>词条、级别、替换词和批量操作都集中在这里，便于快速维护风控边界。</p>
+          <p>词条、级别与替换策略都集中在这里维护。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">高风险 {{ highRiskWordCount }} 条</span>
             <span class="ops-toolbar-meta__item">替换策略 {{ replacementWordCount }} 条</span>
@@ -571,7 +572,7 @@ onMounted(() => fetchWords())
   }
 
   .sensitive-table-toolbar {
-    align-items: flex-start;
+    align-items: flex-end;
   }
 
   .sensitive-inline-filter {
@@ -581,16 +582,16 @@ onMounted(() => fetchWords())
   .sensitive-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 

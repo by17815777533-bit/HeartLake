@@ -988,6 +988,117 @@ html.dark {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
+.ops-page--compact .ops-table-card .el-card__body {
+  gap: 18px;
+  padding: 20px 22px !important;
+}
+
+.ops-page--compact .ops-soft-toolbar {
+  gap: 12px 16px;
+  padding-bottom: 14px;
+}
+
+.ops-page--compact .ops-soft-actions {
+  gap: 8px;
+}
+
+.ops-page--compact [class$='-table-copy'] {
+  gap: 8px;
+  max-width: 34rem;
+}
+
+.ops-page--compact [class$='-table-copy']::before {
+  min-height: 28px;
+  padding: 0 11px;
+  font-size: 10px;
+}
+
+.ops-page--compact [class$='-table-copy'] h3 {
+  font-size: 22px;
+  line-height: 1.02;
+}
+
+.ops-page--compact [class$='-table-copy'] p {
+  font-size: 12px;
+  line-height: 1.52;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ops-page--compact .ops-toolbar-meta {
+  gap: 7px;
+}
+
+.ops-page--compact .ops-toolbar-meta__item {
+  min-height: 28px;
+  padding: 0 11px;
+  font-size: 10px;
+}
+
+.ops-page--compact [class$='-inline-filter'] {
+  gap: 8px 10px;
+  padding: 12px 14px;
+  border-radius: 24px;
+}
+
+.ops-page--compact [class$='-inline-filter'] .el-form-item__label {
+  font-size: 10px;
+}
+
+.ops-page--compact .el-table th.el-table__cell {
+  height: 46px;
+  padding: 0 12px;
+}
+
+.ops-page--compact .el-table td.el-table__cell {
+  padding: 12px;
+}
+
+.ops-page--compact .el-table .cell {
+  font-size: 12px;
+  line-height: 1.48;
+}
+
+.ops-page--compact .pagination-wrapper {
+  margin-top: 0;
+}
+
+.ops-page--compact :where(.el-form:not(.el-form--inline)) {
+  gap: 12px;
+}
+
+.ops-page--compact :where(.el-form:not(.el-form--inline)) .el-form-item {
+  padding: 12px 14px;
+  border-radius: 20px;
+}
+
+.ops-page--compact .el-tabs__header {
+  margin-bottom: 2px !important;
+}
+
+.ops-page--compact .el-tabs__content {
+  padding-top: 4px;
+}
+
+.ops-page--compact .el-table__empty-block {
+  min-height: 180px;
+}
+
+.ops-page--compact .el-empty {
+  padding: 6px 0 10px;
+}
+
+.ops-page--compact .el-empty__image {
+  width: 80px;
+  height: 80px;
+}
+
+.ops-page--compact .el-empty__description p {
+  font-size: 12px;
+}
+
 [class$='-inline-filter'] {
   flex: 1 1 520px;
   display: grid;

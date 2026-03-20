@@ -8,8 +8,9 @@
 -->
 
 <template>
-  <div class="logs-page ops-page">
+  <div class="logs-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="审计"
       title="服务记录"
       :heading-chip="`${auditScore} 分 ${auditLabel}`"
@@ -44,10 +45,10 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
-      <div class="ops-soft-toolbar ops-soft-toolbar--stacked logs-table-toolbar">
+      <div class="ops-soft-toolbar logs-table-toolbar">
         <div class="logs-table-copy">
           <h3>审计列表</h3>
-          <p>登录、处置、配置和广播都在这里串起来，交接时能快速还原后台动作链路。</p>
+          <p>按操作人、对象和结果回看后台动作链路。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">当前页 {{ logList.length }} 条</span>
             <span class="ops-toolbar-meta__item">登录 {{ loginCount }} 次</span>
@@ -134,7 +135,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无操作日志" :image-size="120" />
+          <el-empty description="暂无操作日志" :image-size="88" />
         </template>
       </el-table>
 
@@ -480,11 +481,12 @@ onMounted(() => fetchLogs())
   }
 
   .logs-table-toolbar {
-    gap: 18px;
+    gap: 14px;
   }
 
   .logs-inline-filter {
-    width: 100%;
+    width: auto;
+    flex: 1 1 600px;
     justify-content: stretch;
 
     :deep(.el-form-item:nth-child(1)),
@@ -504,16 +506,16 @@ onMounted(() => fetchLogs())
   .logs-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 

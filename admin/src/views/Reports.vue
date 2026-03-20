@@ -9,8 +9,9 @@
 -->
 
 <template>
-  <div class="reports-page ops-page">
+  <div class="reports-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="求助"
       title="求助处理"
       :heading-chip="`${reportResolutionScore} 分 ${reportResolutionLabel}`"
@@ -48,7 +49,7 @@
       <div class="ops-soft-toolbar reports-table-toolbar">
         <div class="reports-table-copy">
           <h3>求助列表</h3>
-          <p>待处理项和已回执项放在同一面板中回看，处置后会直接写入后台日志。</p>
+          <p>待处理与已回执共用一张工作台，处置同步写入日志。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">待处理 {{ reportPendingCount }} 条</span>
             <span class="ops-toolbar-meta__item">已完成 {{ reportHandledCount }} 条</span>
@@ -119,7 +120,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无举报数据" :image-size="120" />
+          <el-empty description="暂无举报数据" :image-size="88" />
         </template>
       </el-table>
 
@@ -470,7 +471,7 @@ onMounted(() => {
   }
 
   .reports-table-toolbar {
-    align-items: flex-start;
+    align-items: flex-end;
   }
 
   .reports-inline-filter {
@@ -480,21 +481,21 @@ onMounted(() => {
   .reports-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 
   .pagination-wrapper {
-    margin-top: 20px;
+    margin-top: 10px;
     display: flex;
     justify-content: flex-end;
   }

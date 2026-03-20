@@ -1,5 +1,5 @@
 <template>
-  <section class="ops-dashboard-deck">
+  <section class="ops-dashboard-deck" :class="{ 'is-compact': compact }">
     <article class="ops-dashboard-card ops-dashboard-card--overview">
       <div class="card-heading">
         <div>
@@ -232,6 +232,7 @@ const props = withDefaults(
     guidePulseValue: string
     guidePulseNote: string
     guideItems: GuideItem[]
+    compact?: boolean
   }>(),
   {
     headingChip: '',
@@ -242,6 +243,7 @@ const props = withDefaults(
     activityEyebrow: '动态',
     guideEyebrow: '建议',
     overviewHighlights: () => [],
+    compact: false,
   },
 )
 
@@ -281,6 +283,15 @@ const normalizedRhythmItems = computed(() => {
   margin-bottom: 18px;
 }
 
+.ops-dashboard-deck.is-compact {
+  --deck-gap: 14px;
+  --deck-radius: 24px;
+
+  grid-template-columns: minmax(0, 1.42fr) minmax(208px, 0.8fr) minmax(264px, 0.9fr);
+  grid-template-rows: minmax(162px, auto) minmax(124px, auto);
+  margin-bottom: 14px;
+}
+
 .ops-dashboard-card {
   position: relative;
   overflow: hidden;
@@ -294,6 +305,10 @@ const normalizedRhythmItems = computed(() => {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
     0 22px 42px rgba(105, 131, 183, 0.1);
+}
+
+.ops-dashboard-deck.is-compact .ops-dashboard-card {
+  padding: 20px;
 }
 
 .ops-dashboard-card--overview {
@@ -340,6 +355,23 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .card-heading {
+  gap: 10px;
+
+  > div {
+    gap: 4px;
+  }
+
+  h2,
+  h3 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+  }
+}
+
 .card-caption,
 .card-chip {
   display: inline-flex;
@@ -364,6 +396,13 @@ const normalizedRhythmItems = computed(() => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
+.ops-dashboard-deck.is-compact .card-caption,
+.ops-dashboard-deck.is-compact .card-chip {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 9px;
+}
+
 .overview-total {
   margin-top: 18px;
 
@@ -381,6 +420,20 @@ const normalizedRhythmItems = computed(() => {
     color: var(--hl-ink-soft);
     font-size: 11px;
     line-height: 1.5;
+  }
+}
+
+.ops-dashboard-deck.is-compact .overview-total {
+  margin-top: 12px;
+
+  > span,
+  p {
+    font-size: 10px;
+  }
+
+  p {
+    margin-top: 8px;
+    line-height: 1.45;
   }
 }
 
@@ -406,10 +459,28 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .overview-total__value {
+  margin-top: 8px;
+
+  strong {
+    font-size: clamp(40px, 4.2vw, 56px);
+  }
+
+  small {
+    margin-bottom: 5px;
+    font-size: 16px;
+  }
+}
+
 .overview-actions {
   display: flex;
   gap: 10px;
   margin-top: 20px;
+}
+
+.ops-dashboard-deck.is-compact .overview-actions {
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .overview-actions :deep(.overview-action) {
@@ -435,6 +506,12 @@ const normalizedRhythmItems = computed(() => {
     border-color 0.18s ease;
 }
 
+.ops-dashboard-deck.is-compact .overview-actions :deep(.overview-action) {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
 .overview-actions :deep(.overview-action:hover) {
   transform: translateY(-1px);
   border-color: rgba(126, 154, 225, 0.28);
@@ -457,6 +534,11 @@ const normalizedRhythmItems = computed(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
+}
+
+.ops-dashboard-deck.is-compact .overview-highlights {
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .overview-highlight {
@@ -484,6 +566,15 @@ const normalizedRhythmItems = computed(() => {
     font-weight: 760;
     letter-spacing: -0.04em;
     line-height: 1.1;
+  }
+}
+
+.ops-dashboard-deck.is-compact .overview-highlight {
+  min-height: 90px;
+  padding: 12px 14px;
+
+  strong {
+    font-size: 20px;
   }
 }
 
@@ -526,12 +617,30 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .section-heading {
+  padding-top: 14px;
+
+  span {
+    font-size: 14px;
+  }
+
+  small {
+    font-size: 9px;
+  }
+}
+
 .overview-cards {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 68px;
   gap: 10px;
   margin-top: 14px;
   align-items: stretch;
+}
+
+.ops-dashboard-deck.is-compact .overview-cards {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .overview-mini-card,
@@ -591,6 +700,27 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .overview-mini-card {
+  min-height: 112px;
+  padding: 14px;
+
+  span,
+  small,
+  em {
+    font-size: 9px;
+  }
+
+  strong {
+    margin-top: 18px;
+    font-size: 21px;
+  }
+
+  em {
+    left: 14px;
+    bottom: 12px;
+  }
+}
+
 .overview-mini-card__ornament {
   position: absolute;
   top: 14px;
@@ -614,6 +744,21 @@ const normalizedRhythmItems = computed(() => {
 
   &::after {
     inset: -18px 26px 26px -18px;
+  }
+}
+
+.ops-dashboard-deck.is-compact .overview-mini-card__ornament {
+  top: 10px;
+  right: 10px;
+  width: 66px;
+  height: 66px;
+
+  &::before {
+    inset: 8px;
+  }
+
+  &::after {
+    inset: -14px 18px 18px -14px;
   }
 }
 
@@ -644,6 +789,10 @@ const normalizedRhythmItems = computed(() => {
   box-shadow: 0 20px 30px rgba(35, 35, 38, 0.2);
 }
 
+.ops-dashboard-deck.is-compact .overview-shortcut {
+  min-height: 112px;
+}
+
 .overview-shortcut--data {
   padding: 16px 10px;
   gap: 8px;
@@ -672,6 +821,10 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .overview-shortcut--data strong {
+  font-size: 30px;
+}
+
 .spending-stage {
   flex: 1 1 auto;
   display: flex;
@@ -679,6 +832,11 @@ const normalizedRhythmItems = computed(() => {
   justify-content: space-between;
   gap: 14px;
   margin-top: 12px;
+}
+
+.ops-dashboard-deck.is-compact .spending-stage {
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .spending-badge {
@@ -691,12 +849,22 @@ const normalizedRhythmItems = computed(() => {
   font-weight: 700;
 }
 
+.ops-dashboard-deck.is-compact .spending-badge {
+  padding: 5px 10px;
+  font-size: 10px;
+}
+
 .spending-bars {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
   align-items: end;
   min-height: 120px;
+}
+
+.ops-dashboard-deck.is-compact .spending-bars {
+  gap: 6px;
+  min-height: 92px;
 }
 
 .spending-bars--quad {
@@ -707,6 +875,10 @@ const normalizedRhythmItems = computed(() => {
   display: grid;
   justify-items: center;
   gap: 10px;
+}
+
+.ops-dashboard-deck.is-compact .spending-bar {
+  gap: 7px;
 }
 
 .spending-bar__track {
@@ -729,16 +901,33 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .spending-bar__track {
+  width: 22px;
+  height: 78px;
+
+  span {
+    width: 14px;
+  }
+}
+
 .spending-bar.is-peak .spending-bar__track span {
   width: 20px;
   background: linear-gradient(180deg, #8fb3ff, #7d9ff3);
   box-shadow: 0 16px 26px rgba(126, 156, 241, 0.24);
 }
 
+.ops-dashboard-deck.is-compact .spending-bar.is-peak .spending-bar__track span {
+  width: 16px;
+}
+
 .spending-bar small {
   color: rgba(27, 39, 65, 0.72);
   font-size: 10px;
   font-weight: 600;
+}
+
+.ops-dashboard-deck.is-compact .spending-bar small {
+  font-size: 9px;
 }
 
 .transaction-list {
@@ -748,6 +937,10 @@ const normalizedRhythmItems = computed(() => {
   margin-top: 8px;
 }
 
+.ops-dashboard-deck.is-compact .transaction-list {
+  margin-top: 6px;
+}
+
 .transaction-item {
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr) auto;
@@ -755,6 +948,12 @@ const normalizedRhythmItems = computed(() => {
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid rgba(80, 115, 113, 0.12);
+}
+
+.ops-dashboard-deck.is-compact .transaction-item {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 8px 0;
 }
 
 .transaction-item:last-child {
@@ -781,6 +980,12 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .transaction-item__icon {
+  width: 42px;
+  height: 42px;
+  font-size: 11px;
+}
+
 .transaction-item__copy {
   min-width: 0;
 
@@ -802,10 +1007,25 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .transaction-item__copy {
+  strong {
+    font-size: 13px;
+  }
+
+  span {
+    margin-top: 2px;
+    font-size: 9px;
+  }
+}
+
 .transaction-item__amount {
   font-size: 14px;
   font-weight: 720;
   letter-spacing: -0.02em;
+}
+
+.ops-dashboard-deck.is-compact .transaction-item__amount {
+  font-size: 13px;
 }
 
 .transaction-item__amount.is-positive {
@@ -870,6 +1090,20 @@ const normalizedRhythmItems = computed(() => {
   }
 }
 
+.ops-dashboard-deck.is-compact .guide-hero {
+  gap: 4px;
+  margin-top: 10px;
+
+  strong {
+    font-size: 16px;
+  }
+
+  span {
+    font-size: 11px;
+    line-height: 1.52;
+  }
+}
+
 .guide-pulse {
   display: grid;
   gap: 4px;
@@ -879,6 +1113,12 @@ const normalizedRhythmItems = computed(() => {
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ops-dashboard-deck.is-compact .guide-pulse {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 18px;
 }
 
 .guide-pulse__label {
@@ -895,6 +1135,10 @@ const normalizedRhythmItems = computed(() => {
   letter-spacing: -0.05em;
 }
 
+.ops-dashboard-deck.is-compact .guide-pulse strong {
+  font-size: 22px;
+}
+
 .guide-pulse small {
   color: rgba(19, 32, 51, 0.62);
   font-size: 11px;
@@ -908,6 +1152,11 @@ const normalizedRhythmItems = computed(() => {
   margin-top: 14px;
 }
 
+.ops-dashboard-deck.is-compact .guide-list {
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .guide-item {
   display: grid;
   gap: 10px;
@@ -918,6 +1167,12 @@ const normalizedRhythmItems = computed(() => {
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.ops-dashboard-deck.is-compact .guide-item {
+  min-height: 82px;
+  gap: 8px;
+  padding: 10px 12px;
 }
 
 .guide-item__badge {

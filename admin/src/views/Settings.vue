@@ -10,8 +10,9 @@
 -->
 
 <template>
-  <div class="settings-page ops-page">
+  <div class="settings-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="控制台"
       title="系统偏好"
       :heading-chip="`${settingsScore} 分 ${settingsLabel}`"
@@ -48,7 +49,7 @@
       <div class="ops-soft-toolbar">
         <div class="settings-table-copy">
           <h3>高权限配置</h3>
-          <p>系统、智能回复、限流和广播统一收进一张工作台，校验和保存逻辑保持原样。</p>
+          <p>系统、智能回复、限流和广播统一在这里配置。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">{{ tabLabelMap[activeTab] || activeTab }}</span>
             <span class="ops-toolbar-meta__item">{{
@@ -652,16 +653,16 @@ const sendBroadcast = async () => {
   .settings-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 

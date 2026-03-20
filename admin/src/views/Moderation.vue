@@ -10,8 +10,9 @@
 -->
 
 <template>
-  <div class="moderation-page ops-page">
+  <div class="moderation-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="守护"
       title="温暖守护"
       :heading-chip="`${moderationScore} 分 ${moderationLabel}`"
@@ -50,7 +51,7 @@
       <div class="ops-soft-toolbar">
         <div class="moderation-table-copy">
           <h3>审核工作区</h3>
-          <p>待审核和审核历史共用同一张工作台，便于切换标准和回看人审决策。</p>
+          <p>待审与历史共用一张工作台，便于快速回看决策。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item"
               >待复核 {{ formatCount(Number(pagination.total || 0)) }} 条</span
@@ -595,21 +596,21 @@ onMounted(() => fetchPending())
   .moderation-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 
   .moderation-history-filter {
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
 
   .content-preview {
@@ -642,7 +643,7 @@ onMounted(() => fetchPending())
   }
 
   .pagination-wrapper {
-    margin-top: 20px;
+    margin-top: 10px;
     display: flex;
     justify-content: flex-end;
   }

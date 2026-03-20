@@ -9,8 +9,9 @@
 -->
 
 <template>
-  <div class="content-page ops-page">
+  <div class="content-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="内容"
       title="石头与纸船"
       :heading-chip="`${contentHealthScore} 分 ${contentHealthLabel}`"
@@ -49,7 +50,7 @@
       <div class="ops-soft-toolbar content-table-toolbar">
         <div class="content-table-copy">
           <h3>内容列表</h3>
-          <p>石头和纸船在同一张工作台上巡检，删除会强制要求理由并保留处置痕迹。</p>
+          <p>统一巡看内容、作者与状态，处置会保留痕迹。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">当前页 {{ contentList.length }} 条</span>
             <span class="ops-toolbar-meta__item">待确认 {{ contentPendingCount }} 条</span>
@@ -142,7 +143,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无内容数据" :image-size="120" />
+          <el-empty description="暂无内容数据" :image-size="88" />
         </template>
       </el-table>
 
@@ -687,7 +688,7 @@ onMounted(() => {
   }
 
   .content-table-toolbar {
-    align-items: flex-start;
+    align-items: flex-end;
   }
 
   .content-inline-filter {
@@ -710,16 +711,16 @@ onMounted(() => {
   .content-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 
@@ -752,7 +753,7 @@ onMounted(() => {
   }
 
   .pagination-wrapper {
-    margin-top: 20px;
+    margin-top: 10px;
     display: flex;
     justify-content: flex-end;
   }

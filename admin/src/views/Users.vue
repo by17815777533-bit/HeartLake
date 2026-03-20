@@ -9,8 +9,9 @@
 -->
 
 <template>
-  <div class="users-page ops-page">
+  <div class="users-page ops-page ops-page--compact">
     <OpsDashboardDeck
+      compact
       eyebrow="旅人"
       title="旅人关怀"
       :heading-chip="`${activeTravelerCount} 正常`"
@@ -45,10 +46,10 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
-      <div class="ops-soft-toolbar ops-soft-toolbar--stacked users-table-toolbar">
+      <div class="ops-soft-toolbar users-table-toolbar">
         <div class="users-table-copy">
           <h3>旅人列表</h3>
-          <p>把身份、活跃和互动产出收在同一张台面里，便于值守时快速判断该关注谁。</p>
+          <p>统一查看身份、活跃与产出，快速判断该先关注谁。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">当前页 {{ users.length }} 人</span>
             <span class="ops-toolbar-meta__item">活跃 {{ activeTravelerCount }} 人</span>
@@ -690,11 +691,12 @@ onMounted(() => {
   }
 
   .users-table-toolbar {
-    gap: 18px;
+    gap: 14px;
   }
 
   .users-inline-filter {
-    width: 100%;
+    width: auto;
+    flex: 1 1 560px;
     justify-content: stretch;
 
     :deep(.el-form-item:nth-child(1)),
@@ -708,16 +710,16 @@ onMounted(() => {
   .users-table-copy {
     h3 {
       color: var(--hl-ink);
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.03em;
     }
 
     p {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--hl-ink-soft);
-      font-size: 13px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.55;
     }
   }
 
