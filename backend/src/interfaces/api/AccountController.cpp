@@ -80,6 +80,16 @@ int extractWindowTotal(const drogon::orm::Result &result) {
   }
   return result[0]["total_count"].as<int>();
 }
+
+int resolveWindowTotalOrFallbackCount(
+    const drogon::orm::DbClientPtr &dbClient, const drogon::orm::Result &result,
+    int page, const std::string &countSql, const std::string &userId) {
+  const int total = extractWindowTotal(result);
+  if (!result.empty() || page <= 1) {
+    return total;
+  }
+  return safeCount(dbClient->execSqlSync(countSql, userId));
+}
 } // namespace
 
 // ==================== 个人信息管理 ====================
@@ -447,14 +457,11 @@ void AccountController::getLoginDevices(
       devices.append(device);
     }
 
-    int total = extractWindowTotal(result);
-    if (result.empty() && page > 1) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*) AS total FROM user_sessions "
-          "WHERE user_id = $1 AND is_active = true",
-          userId);
-      total = safeCount(countResult);
-    }
+    const int total = resolveWindowTotalOrFallbackCount(
+        dbClient, result, page,
+        "SELECT COUNT(*) AS total FROM user_sessions "
+        "WHERE user_id = $1 AND is_active = true",
+        userId);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "devices", devices, total, page, pageSize)));
@@ -511,7 +518,7 @@ void AccountController::getLoginLogs(
     const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
-        "SELECT log_id, login_time, ip_address, device_type, location, success "
+        "SELECT log_id, login_time, ip_address, device_type, location, success, "
         "COUNT(*) OVER() AS total_count "
         "FROM login_logs WHERE user_id = $1 "
         "ORDER BY login_time DESC LIMIT $2 OFFSET $3",
@@ -533,12 +540,9 @@ void AccountController::getLoginLogs(
       logs.append(log);
     }
 
-    int total = extractWindowTotal(result);
-    if (result.empty() && page > 1) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*) AS total FROM login_logs WHERE user_id = $1", userId);
-      total = safeCount(countResult);
-    }
+    const int total = resolveWindowTotalOrFallbackCount(
+        dbClient, result, page,
+        "SELECT COUNT(*) AS total FROM login_logs WHERE user_id = $1", userId);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "logs", logs, total, page, pageSize)));
@@ -584,13 +588,10 @@ void AccountController::getSecurityEvents(
       events.append(event);
     }
 
-    int total = extractWindowTotal(result);
-    if (result.empty() && page > 1) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*) AS total FROM security_events WHERE user_id = $1",
-          userId);
-      total = safeCount(countResult);
-    }
+    const int total = resolveWindowTotalOrFallbackCount(
+        dbClient, result, page,
+        "SELECT COUNT(*) AS total FROM security_events WHERE user_id = $1",
+        userId);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "events", events, total, page, pageSize)));
@@ -720,15 +721,10 @@ void AccountController::getBlockedUsers(
       users.append(user);
     }
 
-    int total = 0;
-    if (!result.empty() && !result[0]["total_count"].isNull()) {
-      total = result[0]["total_count"].as<int>();
-    } else if (page > 1) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1",
-          userId);
-      total = safeCount(countResult);
-    }
+    const int total = resolveWindowTotalOrFallbackCount(
+        dbClient, result, page,
+        "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1",
+        userId);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "blocked_users", users, total, page, pageSize)));
