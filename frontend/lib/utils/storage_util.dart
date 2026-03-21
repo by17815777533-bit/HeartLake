@@ -19,6 +19,7 @@ class StorageUtil {
   static const String _tokenKey = 'user_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const String _userIdKey = 'user_id';
+  static const String _sessionIdKey = 'session_id';
   static const String _deviceIdKey = 'device_id';
   static const String _usernameKey = 'username';
   static const String _nicknameKey = 'nickname';
@@ -29,6 +30,7 @@ class StorageUtil {
   static String? _runtimeToken;
   static String? _runtimeRefreshToken;
   static String? _runtimeUserId;
+  static String? _runtimeSessionId;
 
   static bool? _readBoolCompat(SharedPreferences prefs, String key) {
     final value = prefs.get(key);
@@ -53,18 +55,21 @@ class StorageUtil {
     if (key == _tokenKey) _runtimeToken = value;
     if (key == _refreshTokenKey) _runtimeRefreshToken = value;
     if (key == _userIdKey) _runtimeUserId = value;
+    if (key == _sessionIdKey) _runtimeSessionId = value;
   }
 
   static void _clearRuntimeByKey(String key) {
     if (key == _tokenKey) _runtimeToken = null;
     if (key == _refreshTokenKey) _runtimeRefreshToken = null;
     if (key == _userIdKey) _runtimeUserId = null;
+    if (key == _sessionIdKey) _runtimeSessionId = null;
   }
 
   static String? _runtimeByKey(String key) {
     if (key == _tokenKey) return _runtimeToken;
     if (key == _refreshTokenKey) return _runtimeRefreshToken;
     if (key == _userIdKey) return _runtimeUserId;
+    if (key == _sessionIdKey) return _runtimeSessionId;
     return null;
   }
 
@@ -217,6 +222,21 @@ class StorageUtil {
     return await _secureRead(_userIdKey);
   }
 
+  // 保存会话ID (安全存储)
+  static Future<void> saveSessionId(String sessionId) async {
+    await _secureWrite(_sessionIdKey, sessionId);
+  }
+
+  // 获取会话ID (安全存储)
+  static Future<String?> getSessionId() async {
+    return await _secureRead(_sessionIdKey);
+  }
+
+  // 清除会话ID (安全存储)
+  static Future<void> clearSessionId() async {
+    await _secureDelete(_sessionIdKey);
+  }
+
   // 保存用户名
   static Future<void> saveUsername(String username) async {
     final prefs = await _instance;
@@ -279,8 +299,7 @@ class StorageUtil {
     try {
       await _secureStorage.deleteAll();
     } catch (e) {
-      await _repairWebSecureStorageIfNeeded(
-          operation: 'deleteAll', error: e);
+      await _repairWebSecureStorageIfNeeded(operation: 'deleteAll', error: e);
       if (kDebugMode) {
         debugPrint('clear secure storage failed: $e');
       }
@@ -294,6 +313,7 @@ class StorageUtil {
     _runtimeToken = null;
     _runtimeRefreshToken = null;
     _runtimeUserId = null;
+    _runtimeSessionId = null;
   }
 
   // 通用字符串保存方法
@@ -362,6 +382,7 @@ class StorageUtil {
 
   static Future<void> setCodeSentTime(String type) async {
     final prefs = await _instance;
-    await prefs.setInt('code_sent_$type', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+        'code_sent_$type', DateTime.now().millisecondsSinceEpoch);
   }
 }

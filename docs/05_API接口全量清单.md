@@ -46,7 +46,7 @@
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
 | GET | `/api/users/my/emotion-calendar` | Bearer | 情绪日历 |
 | GET | `/api/users/my/emotion-heatmap` | Bearer | 情绪热力图 |
-| GET | `/api/users/my/boats` | Bearer | 我发出的纸船 |
+| GET | `/api/users/my/boats` | Bearer | 我收到的纸船（来自我发布的石头） |
 | GET | `/api/users/my/received-boats` | Bearer | 收到的纸船 |
 
 POST `/api/auth/anonymous`
@@ -89,8 +89,8 @@ POST `/api/auth/anonymous`
 | GET | `/api/account/stats` | 账号统计（石头数 / 好友数 / 涟漪数） |
 | GET | `/api/account/devices` | 登录设备列表 |
 | DELETE | `/api/account/devices/{sessionId}` | 移除登录设备 |
-| GET | `/api/account/login-logs` | 最近 50 条登录日志 |
-| GET | `/api/account/security-events` | 最近 50 条安全事件 |
+| GET | `/api/account/login-logs` | 分页登录日志 |
+| GET | `/api/account/security-events` | 分页安全事件 |
 | GET | `/api/account/privacy` | 隐私设置 |
 | PUT | `/api/account/privacy` | 更新隐私设置 |
 | GET | `/api/account/blocked-users` | 拉黑用户列表 |
@@ -122,7 +122,7 @@ POST `/api/account/delete-permanent` 请求体：
 兼容说明：
 
 - `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则兼容 `DEACTIVATE` / `DELETE`
-- `POST /api/account/delete-permanent` 允许空请求体；如提供 `confirmation`，则兼容 `DELETE`
+- `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 
 ---
 

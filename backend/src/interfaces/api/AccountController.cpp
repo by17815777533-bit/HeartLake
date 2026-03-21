@@ -43,9 +43,10 @@ std::string normalizeUpperToken(const std::string &raw) {
 }
 
 bool hasCompatibleConfirmation(const Json::Value *json,
-                               std::initializer_list<const char *> accepted) {
+                               std::initializer_list<const char *> accepted,
+                               bool allowMissing = true) {
   if (json == nullptr || !json->isMember("confirmation")) {
-    return true;
+    return allowMissing;
   }
   if (!(*json)["confirmation"].isString()) {
     return false;
@@ -967,8 +968,8 @@ void AccountController::deleteAccountPermanently(
     }
     auto userId = *userIdOpt;
     auto json = req->getJsonObject();
-    if (!hasCompatibleConfirmation(json.get(), {"DELETE"})) {
-      callback(ResponseUtil::badRequest("confirmation 仅支持 'DELETE'"));
+    if (!hasCompatibleConfirmation(json.get(), {"DELETE"}, false)) {
+      callback(ResponseUtil::badRequest("confirmation 必须为 'DELETE'"));
       return;
     }
 

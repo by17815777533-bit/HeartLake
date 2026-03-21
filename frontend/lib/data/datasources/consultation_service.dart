@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'base_service.dart';
 import '../../utils/e2e_encryption.dart';
 import '../../utils/input_validator.dart';
+import 'social_payload_normalizer.dart';
 
 class _ConsultationCryptoContext {
   _ConsultationCryptoContext({
@@ -155,15 +156,15 @@ class ConsultationService extends BaseService {
         : <String, dynamic>{
             'messages': rawData is List ? rawData : const <dynamic>[],
           };
-    final List<dynamic> messages = (envelope['messages'] ??
-            envelope['items'] ??
-            envelope['list']) as List? ??
-        [];
+    final messages = extractNormalizedList(
+      envelope,
+      itemNormalizer: (item) => item,
+      listKeys: const ['messages'],
+    );
     final context = _contextOf(sessionId);
 
     final normalizedMessages = await Future.wait(
       messages.map((item) async {
-        if (item is! Map) return <String, dynamic>{};
         final msg = Map<String, dynamic>.from(item);
         final encryptedField = msg['encrypted'];
         try {

@@ -295,7 +295,7 @@ class ApiClient {
   ///
   /// 登录成功后由 AuthService 调用，同时重置未授权标记。
   Future<void> setToken(String token,
-      {String? refreshToken, String? userId}) async {
+      {String? refreshToken, String? userId, String? sessionId}) async {
     _token = token;
     _hasTriggeredUnauthorized = false;
     await StorageUtil.saveToken(token);
@@ -306,6 +306,9 @@ class ApiClient {
     if (userId != null) {
       _userId = userId;
       await StorageUtil.saveUserId(userId);
+    }
+    if (sessionId != null) {
+      await StorageUtil.saveSessionId(sessionId);
     }
   }
 

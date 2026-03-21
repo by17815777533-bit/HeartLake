@@ -8,6 +8,7 @@
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
+import 'social_payload_normalizer.dart';
 
 /// 账号管理服务
 ///
@@ -34,6 +35,69 @@ class AccountService extends BaseService {
       normalized['data'] = data;
     }
     return normalized;
+  }
+
+  Map<String, dynamic> _normalizeDevicePayload(Map raw) {
+    final item = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+    final sessionId = item['session_id'] ?? item['sessionId'] ?? item['id'];
+    if (sessionId != null) {
+      item['session_id'] = sessionId.toString();
+      item['sessionId'] = sessionId.toString();
+      item['id'] = sessionId.toString();
+    }
+
+    final createdAt = item['created_at'] ?? item['createdAt'];
+    if (createdAt != null) {
+      item['created_at'] = createdAt;
+      item['createdAt'] = createdAt;
+    }
+
+    final lastActiveAt = item['last_active_at'] ?? item['lastActiveAt'];
+    if (lastActiveAt != null) {
+      item['last_active_at'] = lastActiveAt;
+      item['lastActiveAt'] = lastActiveAt;
+    }
+
+    return item;
+  }
+
+  Map<String, dynamic> _normalizeLoginLogPayload(Map raw) {
+    final item = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+    final logId = item['log_id'] ?? item['logId'] ?? item['id'];
+    if (logId != null) {
+      item['log_id'] = logId.toString();
+      item['logId'] = logId.toString();
+      item['id'] = logId.toString();
+    }
+
+    final loginTime =
+        item['login_time'] ?? item['loginTime'] ?? item['created_at'];
+    if (loginTime != null) {
+      item['login_time'] = loginTime;
+      item['loginTime'] = loginTime;
+      item['created_at'] = item['created_at'] ?? loginTime;
+      item['createdAt'] = item['createdAt'] ?? loginTime;
+    }
+
+    return item;
+  }
+
+  Map<String, dynamic> _normalizeSecurityEventPayload(Map raw) {
+    final item = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+    final eventId = item['event_id'] ?? item['eventId'] ?? item['id'];
+    if (eventId != null) {
+      item['event_id'] = eventId.toString();
+      item['eventId'] = eventId.toString();
+      item['id'] = eventId.toString();
+    }
+
+    final createdAt = item['created_at'] ?? item['createdAt'];
+    if (createdAt != null) {
+      item['created_at'] = createdAt;
+      item['createdAt'] = createdAt;
+    }
+
+    return item;
   }
 
   /// 隐私设置白名单，只有这些 key 才会被提交到后端
@@ -87,9 +151,30 @@ class AccountService extends BaseService {
   /// 获取登录设备列表
   ///
   /// 返回当前账号的所有登录设备信息。
-  Future<Map<String, dynamic>> getDevices() async {
-    final response = await get('/account/devices');
-    return toMap(response);
+  Future<Map<String, dynamic>> getDevices(
+      {int page = 1, int pageSize = 20}) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
+    final response = await get('/account/devices', queryParameters: {
+      'page': page,
+      'page_size': pageSize,
+    });
+    if (!response.success) return toMap(response);
+
+    final devices = extractNormalizedList(
+      response.data,
+      itemNormalizer: _normalizeDevicePayload,
+      listKeys: const ['devices'],
+    );
+
+    return {
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'devices',
+        items: devices,
+      ),
+    };
   }
 
   /// 获取登录日志
@@ -106,7 +191,22 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final logs = extractNormalizedList(
+      response.data,
+      itemNormalizer: _normalizeLoginLogPayload,
+      listKeys: const ['logs'],
+    );
+
+    return {
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'logs',
+        items: logs,
+      ),
+    };
   }
 
   /// 获取隐私设置
@@ -141,7 +241,24 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    return _normalizePayload(toMap(response));
+    if (!response.success) {
+      return _normalizePayload(toMap(response));
+    }
+
+    final blockedUsers = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeFriendPayload,
+      listKeys: const ['blocked_users'],
+    );
+
+    return {
+      ..._normalizePayload(toMap(response)),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'blocked_users',
+        items: blockedUsers,
+      ),
+    };
   }
 
   /// 拉黑用户
@@ -182,9 +299,30 @@ class AccountService extends BaseService {
   /// 获取安全事件
   ///
   /// 返回账号的安全事件记录。
-  Future<Map<String, dynamic>> getSecurityEvents() async {
-    final response = await get('/account/security-events');
-    return toMap(response);
+  Future<Map<String, dynamic>> getSecurityEvents(
+      {int page = 1, int pageSize = 20}) async {
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
+    final response = await get('/account/security-events', queryParameters: {
+      'page': page,
+      'page_size': pageSize,
+    });
+    if (!response.success) return toMap(response);
+
+    final events = extractNormalizedList(
+      response.data,
+      itemNormalizer: _normalizeSecurityEventPayload,
+      listKeys: const ['events'],
+    );
+
+    return {
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'events',
+        items: events,
+      ),
+    };
   }
 
   /// 获取数据导出状态
@@ -257,7 +395,9 @@ class AccountService extends BaseService {
   ///
   /// 永久删除账号及所有数据，不可恢复。
   Future<Map<String, dynamic>> deleteAccountPermanently() async {
-    final response = await post('/account/delete-permanent');
+    final response = await post('/account/delete-permanent', data: {
+      'confirmation': 'DELETE',
+    });
     return toMap(response);
   }
 }

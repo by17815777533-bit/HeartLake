@@ -14,11 +14,13 @@ import '../../utils/storage_util.dart';
 class StoredAuthSession {
   final String userId;
   final String token;
+  final String? sessionId;
   final String? nickname;
 
   const StoredAuthSession({
     required this.userId,
     required this.token,
+    this.sessionId,
     this.nickname,
   });
 }
@@ -62,6 +64,7 @@ class AuthService extends BaseService implements AuthDataSource {
     required String token,
     required String userId,
     String? refreshToken,
+    String? sessionId,
     String? nickname,
   }) async {
     await Future.wait([
@@ -69,6 +72,7 @@ class AuthService extends BaseService implements AuthDataSource {
         token,
         refreshToken: refreshToken,
         userId: userId,
+        sessionId: sessionId,
       ),
       if (nickname != null) StorageUtil.saveNickname(nickname),
     ]);
@@ -76,6 +80,7 @@ class AuthService extends BaseService implements AuthDataSource {
       StoredAuthSession(
         userId: userId,
         token: token,
+        sessionId: sessionId,
         nickname: nickname,
       ),
     );
@@ -113,6 +118,7 @@ class AuthService extends BaseService implements AuthDataSource {
       token: token,
       userId: userId,
       refreshToken: data['refresh_token'],
+      sessionId: data['session_id'],
       nickname: data['nickname'],
     );
     return {
@@ -120,6 +126,7 @@ class AuthService extends BaseService implements AuthDataSource {
       'user_id': userId,
       'nickname': data['nickname'],
       'recovery_key': data['recovery_key'],
+      'session_id': data['session_id'],
       'refresh_token': data['refresh_token'],
       'refresh_expires_at': data['refresh_expires_at'],
       'is_new_user': data['is_new_user'] == true,
@@ -155,12 +162,14 @@ class AuthService extends BaseService implements AuthDataSource {
       token: token,
       userId: userId,
       refreshToken: data['refresh_token'],
+      sessionId: data['session_id'],
       nickname: data['nickname'],
     );
     return {
       'success': true,
       'user_id': userId,
       'nickname': data['nickname'],
+      'session_id': data['session_id'],
       'refresh_token': data['refresh_token'],
       'refresh_expires_at': data['refresh_expires_at'],
       'is_new_user': data['is_new_user'] == true,
@@ -249,6 +258,7 @@ class AuthService extends BaseService implements AuthDataSource {
         token: data['token'],
         userId: resolvedUserId,
         refreshToken: data['refresh_token'] ?? refreshTk,
+        sessionId: data['session_id'] as String?,
       );
     }
     return {
@@ -257,6 +267,7 @@ class AuthService extends BaseService implements AuthDataSource {
       'refresh_token': data?['refresh_token'] ?? refreshTk,
       'refresh_expires_at': data?['refresh_expires_at'],
       'user_id': data?['user_id'],
+      'session_id': data?['session_id'],
       'expires_at': data?['expires_at'],
     };
   }
@@ -296,6 +307,7 @@ class AuthService extends BaseService implements AuthDataSource {
     return StoredAuthSession(
       userId: userId,
       token: token,
+      sessionId: await StorageUtil.getSessionId(),
       nickname: await StorageUtil.getNickname(),
     );
   }

@@ -35,6 +35,39 @@ int? _toInt(dynamic value) {
   return null;
 }
 
+bool? _toBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+  }
+  return null;
+}
+
+List<dynamic>? _extractNestedList(dynamic value) {
+  if (value is List) {
+    return value;
+  }
+  if (value is! Map) {
+    return null;
+  }
+
+  final source = _asMap(value);
+  for (final key in const ['items', 'list', 'results', 'data']) {
+    final nested = _extractNestedList(source[key]);
+    if (nested != null) {
+      return nested;
+    }
+  }
+  return null;
+}
+
 List<Map<String, dynamic>> extractNormalizedList(
   dynamic raw, {
   required Map<String, dynamic> Function(Map<String, dynamic>) itemNormalizer,
@@ -50,8 +83,8 @@ List<Map<String, dynamic>> extractNormalizedList(
     final mergedKeys = _mergeListKeys(listKeys);
     for (final data in _candidateMaps(raw)) {
       for (final key in mergedKeys) {
-        final value = data[key];
-        if (value is! List) continue;
+        final value = _extractNestedList(data[key]);
+        if (value == null) continue;
         return value
             .whereType<Map>()
             .map((item) => itemNormalizer(_asMap(item)))
@@ -72,7 +105,7 @@ Map<String, dynamic> extractPaginationPayload(
 
   Map<String, dynamic> pagination = <String, dynamic>{};
   for (final candidate in sources) {
-    final value = candidate['pagination'];
+    final value = candidate['pagination'] ?? candidate['meta'];
     if (value is Map) {
       pagination = _asMap(value);
       break;
@@ -87,12 +120,16 @@ Map<String, dynamic> extractPaginationPayload(
     return _firstValue(pagination, keys);
   }
 
-  final total = _toInt(read(const ['total'])) ?? itemCount;
-  final page = _toInt(read(const ['page'])) ?? 1;
-  final pageSize = _toInt(read(const ['page_size', 'pageSize'])) ?? itemCount;
-  final totalPages = _toInt(read(const ['total_pages', 'totalPages'])) ??
-      (pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0);
-  final hasMore = read(const ['has_more']) == true ||
+  final total =
+      _toInt(read(const ['total', 'count', 'total_count'])) ?? itemCount;
+  final page = _toInt(read(const ['page', 'page_index'])) ?? 1;
+  final pageSize =
+      _toInt(read(const ['page_size', 'pageSize', 'per_page', 'limit'])) ??
+          itemCount;
+  final totalPages =
+      _toInt(read(const ['total_pages', 'totalPages', 'page_count'])) ??
+          (pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0);
+  final hasMore = _toBool(read(const ['has_more', 'hasMore'])) == true ||
       (pageSize > 0 && page * pageSize < total);
 
   return {

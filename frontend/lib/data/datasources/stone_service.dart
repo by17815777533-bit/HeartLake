@@ -41,15 +41,12 @@ class StoneService extends BaseService implements StoneDataSource {
   );
   final CacheService _cache = CacheService();
 
-  List<dynamic> _extractStoneItems(dynamic data) {
-    if (data is List) return data;
-    if (data is! Map) return const [];
-
-    final source = Map<String, dynamic>.from(data.cast<String, dynamic>());
-    final items = source['stones'] as List? ??
-        source['items'] as List? ??
-        source['list'] as List?;
-    return items ?? const [];
+  List<Map<String, dynamic>> _extractStoneItems(dynamic data) {
+    return extractNormalizedList(
+      data,
+      itemNormalizer: (item) => item,
+      listKeys: const ['stones', 'results'],
+    );
   }
 
   Map<String, dynamic> _buildStoneCollection(dynamic data) {

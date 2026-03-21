@@ -1,5 +1,6 @@
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
+import 'social_payload_normalizer.dart';
 
 /// 内容举报服务，支持对石头、漂流瓶、用户、消息、评论的举报提交和查询
 class ReportService extends BaseService {
@@ -13,9 +14,16 @@ class ReportService extends BaseService {
     required String reason,
     String? description,
   }) async {
-    InputValidator.requireInList(targetType, const [
-      'stone', 'boat', 'user', 'message', 'comment',
-    ], '举报目标类型');
+    InputValidator.requireInList(
+        targetType,
+        const [
+          'stone',
+          'boat',
+          'user',
+          'message',
+          'comment',
+        ],
+        '举报目标类型');
     InputValidator.requireNonEmpty(targetId, '举报目标ID');
     InputValidator.requireLength(reason, '举报原因', min: 2, max: 200);
     if (description != null) {
@@ -50,10 +58,19 @@ class ReportService extends BaseService {
 
     if (!response.success) return toMap(response);
 
+    final reports = extractNormalizedList(
+      response.data,
+      itemNormalizer: (item) => item,
+      listKeys: const ['reports', 'results'],
+    );
+
     return {
       ...toMap(response),
-      'reports': response.data?['reports'],
-      'total': response.data?['total'],
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'reports',
+        items: reports,
+      ),
     };
   }
 }

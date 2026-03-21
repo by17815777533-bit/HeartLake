@@ -125,11 +125,12 @@ class NotificationService extends BaseService
     if (!response.success) return toMap(response);
 
     final data = response.data;
-    int unreadCount = 0;
-    if (data is Map) {
-      unreadCount = data['unread_count'] ?? 0;
-    }
-    return {...toMap(response), 'unread_count': unreadCount};
+    final unreadCount = extractUnreadCount(data);
+    return {
+      ...toMap(response),
+      'unread_count': unreadCount,
+      'unreadCount': unreadCount,
+    };
   }
 
   /// 标记单条通知为已读

@@ -63,11 +63,20 @@ class NotificationProvider with ChangeNotifier {
     if (_wsListenerRegistered) return;
     _onNewNotification = (data) {
       final normalized = normalizePayloadContract(data);
-      final notificationId = _notificationIdOf(normalized);
-      final authoritativeUnread = normalized['unread_count'] as int?;
+      final nestedData = normalized['data'];
+      final mergedPayload = nestedData is Map
+          ? {
+              ...normalized,
+              ...normalizePayloadContract(
+                Map<String, dynamic>.from(nestedData.cast<String, dynamic>()),
+              ),
+            }
+          : normalized;
+      final notificationId = _notificationIdOf(mergedPayload);
+      final authoritativeUnread = mergedPayload['unread_count'] as int?;
 
       if (notificationId != null &&
-          _upsertNotification(normalized, insertAtHead: true)) {
+          _upsertNotification(mergedPayload, insertAtHead: true)) {
         _unreadCount = authoritativeUnread ?? (_unreadCount + 1);
       } else if (authoritativeUnread != null) {
         _unreadCount = authoritativeUnread;

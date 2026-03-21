@@ -213,10 +213,20 @@ class UserService extends BaseService {
   ///
   /// 关键词经过 sanitize 处理后提交，长度限制 1~50 字符。
   /// 返回 `{success, users, total}`。
-  Future<Map<String, dynamic>> searchUsers(String query) async {
+  Future<Map<String, dynamic>> searchUsers(
+    String query, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     InputValidator.requireLength(query, '想找的人', min: 1, max: 50);
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
     query = InputValidator.sanitizeText(query);
-    final response = await get('/users/search', queryParameters: {'q': query});
+    final response = await get('/users/search', queryParameters: {
+      'q': query,
+      'page': page,
+      'page_size': pageSize,
+    });
 
     if (!response.success) return toMap(response);
 
@@ -228,6 +238,12 @@ class UserService extends BaseService {
       'data': {
         'users': collection['users'],
         'total': collection['total'],
+        'items': collection['items'],
+        'list': collection['list'],
+        'page': collection['page'],
+        'page_size': collection['page_size'],
+        'has_more': collection['has_more'],
+        'pagination': collection['pagination'],
       },
     };
   }
@@ -290,7 +306,21 @@ class UserService extends BaseService {
     final response = await get('/users/my/boats',
         queryParameters: {'page': page, 'page_size': pageSize});
     if (!response.success) return toMap(response);
-    return {'success': true, 'data': response.data};
+
+    final boats = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeBoatPayload,
+      listKeys: const ['boats', 'items'],
+    );
+
+    return {
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'boats',
+        items: boats,
+      ),
+    };
   }
 
   /// 上传文件（头像、音频、视频等）

@@ -198,12 +198,17 @@ String? extractRippleEntityId(Map<String, dynamic> payload) {
 String? extractNotificationEntityId(Map<String, dynamic> payload) {
   final normalized = normalizePayloadContract(payload);
   final notification = normalized['notification'];
+  final nestedData = normalized['data'];
   final notificationMap =
       notification is Map ? normalizePayloadContract(notification) : null;
+  final dataMap =
+      nestedData is Map ? normalizePayloadContract(nestedData) : null;
   return _firstNonEmptyString([
     normalized['notification_id'],
     normalized['id'],
     notificationMap?['notification_id'],
     notificationMap?['id'],
+    dataMap?['notification_id'],
+    dataMap?['id'],
   ]);
 }

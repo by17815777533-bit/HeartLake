@@ -86,13 +86,17 @@ class InteractionService extends BaseService implements InteractionDataSource {
       return _friendlyStoneNotFound(toMap(response), stoneId);
     }
 
-    final payload = response.data is Map<String, dynamic>
-        ? response.data as Map<String, dynamic>
+    final payload = response.data is Map
+        ? normalizeRipplePayload(
+            Map<String, dynamic>.from(
+              (response.data as Map).cast<String, dynamic>(),
+            ),
+          )
         : <String, dynamic>{};
 
     return {
       'success': true,
-      'data': response.data,
+      'data': payload,
       'message': response.message,
       'ripple_id': payload['ripple_id'],
       'ripple_count': payload['ripple_count'],
@@ -129,10 +133,18 @@ class InteractionService extends BaseService implements InteractionDataSource {
       return _friendlyStoneNotFound(toMap(response), stoneId);
     }
 
+    final payload = response.data is Map
+        ? normalizeBoatPayload(
+            Map<String, dynamic>.from(
+              (response.data as Map).cast<String, dynamic>(),
+            ),
+          )
+        : <String, dynamic>{};
+
     return {
       'success': true,
-      'data': response.data,
-      'boat_id': response.data?['boat_id'],
+      'data': payload,
+      'boat_id': payload['boat_id'],
     };
   }
 
@@ -207,9 +219,19 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 获取会话消息列表
   ///
   /// 返回指定连接下的所有聊天消息，兼容后端返回 List 或 Map 两种格式。
-  Future<Map<String, dynamic>> getMessages(String connectionId) async {
+  Future<Map<String, dynamic>> getMessages(
+    String connectionId, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     InputValidator.validateUUID(connectionId, '连接ID');
-    final response = await get('/connections/$connectionId/messages');
+    InputValidator.requirePage(page);
+    InputValidator.requirePageSize(pageSize);
+    final response =
+        await get('/connections/$connectionId/messages', queryParameters: {
+      'page': page,
+      'page_size': pageSize,
+    });
     if (!response.success) return toMap(response);
 
     final messages = extractNormalizedList(
