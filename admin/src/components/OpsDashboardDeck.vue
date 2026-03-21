@@ -135,18 +135,19 @@
         <span>{{ guideCopy }}</span>
       </div>
 
-      <div class="guide-pulse">
-        <span class="guide-pulse__label">{{ guidePulseLabel }}</span>
-        <strong>{{ guidePulseValue }}</strong>
-        <small>{{ guidePulseNote }}</small>
+      <div class="guide-summary">
+        <div class="guide-summary__metric">
+          <span class="guide-summary__label">{{ guidePulseLabel }}</span>
+          <strong>{{ guidePulseValue }}</strong>
+          <small>{{ guidePulseNote }}</small>
+        </div>
+        <span class="guide-summary__chip">{{ guideChip }}</span>
       </div>
 
-      <div v-if="resolvedGuideItems.length" class="guide-list" :class="{ 'is-hidden': compact }">
-        <article v-for="item in resolvedGuideItems" :key="item.label" class="guide-item">
-          <div class="guide-item__badge">{{ item.value }}</div>
-          <div class="guide-item__copy">
-            <strong>{{ item.label }}</strong>
-          </div>
+      <div v-if="resolvedGuideItems.length" class="guide-flags">
+        <article v-for="item in resolvedGuideItems" :key="item.label" class="guide-flag">
+          <small>{{ item.label }}</small>
+          <strong>{{ item.value }}</strong>
         </article>
       </div>
     </article>
@@ -272,7 +273,7 @@ const normalizedRhythmItems = computed(() => {
 
 const isMetricNumeric = computed(() => /^[\d.,+-]+$/.test(props.metricValue.trim()))
 const isFocusNumeric = computed(() => /^[\d.,+\-/%]+$/.test(props.focusCard.value.trim()))
-const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slice(0, 2) : props.guideItems))
+const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 </script>
 
 <style scoped lang="scss">
@@ -294,9 +295,9 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
   --deck-gap: 14px;
   --deck-radius: 24px;
 
-  grid-template-columns: minmax(0, 1.42fr) minmax(0, 0.8fr) minmax(0, 0.9fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.66fr);
-  height: clamp(360px, 38vh, 410px);
+  grid-template-columns: minmax(0, 1.48fr) minmax(0, 0.82fr) minmax(0, 0.94fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  height: clamp(436px, 45vh, 476px);
   margin-bottom: 12px;
 }
 
@@ -316,7 +317,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 }
 
 .ops-dashboard-deck.is-compact .ops-dashboard-card {
-  padding: 20px;
+  padding: 22px;
 }
 
 .ops-dashboard-card--overview {
@@ -372,11 +373,11 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 
   h2,
   h3 {
-    font-size: 18px;
+    font-size: 19px;
   }
 
   h3 {
-    font-size: 16px;
+    font-size: 17px;
   }
 }
 
@@ -1161,15 +1162,15 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
 
 .ops-dashboard-deck.is-compact .guide-hero {
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 8px;
 
   strong {
-    font-size: 15px;
-    -webkit-line-clamp: 3;
+    font-size: 16px;
+    -webkit-line-clamp: 2;
   }
 
   span {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.45;
     display: -webkit-box;
     overflow: hidden;
@@ -1178,109 +1179,118 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
   }
 }
 
-.guide-pulse {
-  display: grid;
-  gap: 4px;
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 22px;
+.guide-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 18px;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.ops-dashboard-deck.is-compact .guide-pulse {
-  display: none;
+.guide-summary__metric {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
-.guide-pulse__label {
+.guide-summary__label {
   color: rgba(19, 32, 51, 0.62);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
-.guide-pulse strong {
+.guide-summary__metric strong {
   color: #132033;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 780;
   letter-spacing: -0.05em;
+  line-height: 1.04;
 }
 
-.guide-pulse small {
+.guide-summary__metric small {
   color: rgba(19, 32, 51, 0.62);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
-.guide-list {
+.guide-summary__chip {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #20314d;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.guide-flags {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.ops-dashboard-deck.is-compact .guide-list {
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
-.ops-dashboard-deck.is-compact .guide-list.is-hidden {
-  display: none;
-}
-
-.guide-item {
+.guide-flag {
   display: grid;
-  gap: 10px;
-  align-content: space-between;
-  min-height: 92px;
-  padding: 12px 14px;
-  border-radius: 20px;
+  gap: 4px;
+  min-height: 50px;
+  padding: 8px 10px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  min-width: 0;
+
+  small,
+  strong {
+    display: block;
+    min-width: 0;
+  }
+
+  small {
+    color: rgba(19, 32, 51, 0.62);
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  strong {
+    color: #132033;
+    font-size: 12px;
+    font-weight: 720;
+    line-height: 1.26;
+    overflow-wrap: anywhere;
+  }
 }
 
-.ops-dashboard-deck.is-compact .guide-item {
-  min-height: 58px;
-  gap: 5px;
-  padding: 8px 9px;
+.ops-dashboard-deck.is-compact .guide-summary {
+  margin-top: 8px;
+  padding: 10px 12px;
 }
 
-.ops-dashboard-deck.is-compact .guide-item__badge {
-  min-width: 34px;
-  min-height: 22px;
-  padding: 0 6px;
-  font-size: 9px;
+.ops-dashboard-deck.is-compact .guide-summary__metric strong {
+  font-size: 18px;
 }
 
-.ops-dashboard-deck.is-compact .guide-item__copy strong {
-  font-size: 10px;
-  line-height: 1.28;
+.ops-dashboard-deck.is-compact .guide-flags {
+  margin-top: 8px;
 }
 
-.guide-item__badge {
-  width: fit-content;
-  min-width: 44px;
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(231, 241, 255, 0.92);
-  color: #3b5e9f;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.ops-dashboard-deck.is-compact .guide-flag {
+  min-height: 42px;
+  padding: 7px 9px;
 }
 
-.guide-item__copy strong {
-  display: block;
-  color: #132033;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.45;
+.ops-dashboard-deck.is-compact .guide-flag strong {
+  font-size: 11px;
 }
 
 @media (max-width: 1180px) and (min-width: 961px) {
@@ -1488,18 +1498,27 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
     }
   }
 
-  .guide-pulse {
+  .guide-summary {
     margin-top: 10px;
     padding: 12px;
     border-radius: 18px;
   }
 
-  .guide-pulse strong {
-    font-size: 22px;
+  .guide-summary__metric strong {
+    font-size: 18px;
   }
 
-  .guide-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .guide-flags {
+    margin-top: 10px;
+  }
+
+  .guide-flag {
+    min-height: 44px;
+    padding: 8px 9px;
+  }
+
+  .guide-flag strong {
+    font-size: 11px;
   }
 }
 
@@ -1550,7 +1569,7 @@ const resolvedGuideItems = computed(() => (props.compact ? props.guideItems.slic
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .guide-list {
+  .guide-flags {
     grid-template-columns: 1fr;
   }
 }

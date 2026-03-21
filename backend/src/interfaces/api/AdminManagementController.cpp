@@ -8,6 +8,7 @@
  */
 #include "interfaces/api/AdminManagementController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/BusinessRules.h"
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/AdminConfigStore.h"
@@ -22,20 +23,6 @@ using namespace heartlake::utils;
 using namespace heartlake::controllers;
 
 namespace {
-std::string escapeLike(const std::string &value) {
-    std::string result;
-    result.reserve(value.size() * 2);
-    for (char c : value) {
-        if (c == '%' || c == '_' || c == '\\') {
-            result += '\\';
-            result += c;
-        } else {
-            result += c;
-        }
-    }
-    return result;
-}
-
 bool isValidUserStatus(const std::string &s) {
     return s == "active" || s == "banned" || s == "deleted";
 }
@@ -96,33 +83,10 @@ HttpResponsePtr collectionResponse(const Json::Value& items,
                                    int total,
                                    int page,
                                    int pageSize) {
-    Json::Value data(Json::objectValue);
-    if (semanticKey != nullptr && *semanticKey != '\0') {
-        data[semanticKey] = items;
-    }
-    data["list"] = items;
-    data["items"] = items;
-    data["total"] = total;
-    data["page"] = page;
-    data["page_size"] = pageSize;
-    data["pageSize"] = pageSize;
-
-    const int totalPages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0;
-    const bool hasMore = pageSize > 0 && page * pageSize < total;
-    Json::Value pagination(Json::objectValue);
-    pagination["total"] = total;
-    pagination["page"] = page;
-    pagination["page_size"] = pageSize;
-    pagination["pageSize"] = pageSize;
-    pagination["total_pages"] = totalPages;
-    pagination["totalPages"] = totalPages;
-    pagination["has_more"] = hasMore;
-
-    data["total_pages"] = totalPages;
-    data["totalPages"] = totalPages;
-    data["has_more"] = hasMore;
-    data["pagination"] = pagination;
-    return ResponseUtil::success(data);
+    const std::string primaryKey =
+        (semanticKey != nullptr && *semanticKey != '\0') ? semanticKey : "items";
+    return ResponseUtil::success(
+        ResponseUtil::buildCollectionPayload(primaryKey, items, total, page, pageSize));
 }
 }
 

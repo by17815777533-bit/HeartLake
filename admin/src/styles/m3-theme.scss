@@ -989,15 +989,15 @@ html.dark {
 }
 
 .ops-page--compact {
-  height: min(756px, calc(100vh - 146px));
-  min-height: 0;
+  height: auto;
+  min-height: min(756px, calc(100vh - 146px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
 }
 
 .ops-page--compact .ops-table-card {
-  height: 100%;
+  height: auto;
   min-height: 0;
 }
 
@@ -1005,10 +1005,10 @@ html.dark {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
+  height: auto;
   min-height: 0;
   padding: 16px 18px !important;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ops-page--compact .ops-soft-toolbar {
@@ -1093,7 +1093,7 @@ html.dark {
   flex: 1 1 auto;
   min-height: 0;
   padding-top: 4px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .ops-page--compact .el-table__empty-block {

@@ -132,23 +132,21 @@
           <span>{{ guideCopy }}</span>
         </div>
 
-        <div class="guide-pulse">
-          <span class="guide-pulse__label">当前巡看节奏</span>
-          <strong>{{ guidePulseValue }}</strong>
-          <small>{{ guidePulseNote }}</small>
+        <div class="guide-summary">
+          <div class="guide-summary__metric">
+            <span class="guide-summary__label">当前巡看节奏</span>
+            <strong>{{ guidePulseValue }}</strong>
+            <small>{{ guidePulseNote }}</small>
+          </div>
+          <span class="guide-summary__chip">{{ guideChip }}</span>
         </div>
 
-        <div class="guide-list">
-          <article v-for="item in guideSignals" :key="item.label" class="guide-item">
-            <div class="guide-item__badge">{{ item.badge }}</div>
-            <div class="guide-item__copy">
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.note }}</span>
-            </div>
+        <div class="guide-flags">
+          <article v-for="item in guideSignals" :key="item.label" class="guide-flag">
+            <small>{{ item.label }}</small>
+            <strong>{{ item.badge }}</strong>
           </article>
         </div>
-
-        <button type="button" class="guide-button" @click="jumpToAssist">前往智能辅助</button>
       </article>
 
       <article class="dashboard-card dashboard-card--chart">
@@ -1094,89 +1092,95 @@ onUnmounted(() => {
   }
 }
 
-.guide-pulse {
-  display: grid;
-  gap: 4px;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border-radius: 22px;
+.guide-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 18px;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.guide-pulse__label {
+.guide-summary__metric {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.guide-summary__label {
   color: rgba(19, 32, 51, 0.62);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
-.guide-pulse strong {
+.guide-summary__metric strong {
   color: #132033;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 780;
   letter-spacing: -0.05em;
+  line-height: 1.04;
 }
 
-.guide-pulse small {
+.guide-summary__metric small {
   color: rgba(19, 32, 51, 0.62);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
-.guide-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
+.guide-summary__chip {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #20314d;
+  font-size: 10px;
+  font-weight: 700;
 }
 
-.guide-item {
+.guide-flags {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  padding: 12px 14px;
-  border-radius: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.guide-flag {
+  display: grid;
+  gap: 4px;
+  min-height: 50px;
+  padding: 8px 10px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(143, 166, 228, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-}
-
-.guide-item__badge {
-  min-width: 56px;
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(231, 241, 255, 0.92);
-  color: #3b5e9f;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.guide-item__copy {
   min-width: 0;
 
-  strong,
-  span {
+  small,
+  strong {
     display: block;
+    min-width: 0;
+  }
+
+  small {
+    color: rgba(19, 32, 51, 0.62);
+    font-size: 9px;
+    line-height: 1.25;
   }
 
   strong {
     color: #132033;
     font-size: 12px;
-    font-weight: 700;
-  }
-
-  span {
-    margin-top: 4px;
-    color: rgba(19, 32, 51, 0.62);
-    font-size: 11px;
-    line-height: 1.55;
+    font-weight: 720;
+    line-height: 1.26;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1505,40 +1509,29 @@ onUnmounted(() => {
     }
   }
 
-  .guide-pulse {
+  .guide-summary {
     margin-top: 10px;
     padding: 12px;
     border-radius: 18px;
   }
 
-  .guide-pulse strong {
-    font-size: 22px;
+  .guide-summary__metric strong {
+    font-size: 18px;
   }
 
-  .guide-list {
+  .guide-flags {
     gap: 8px;
     margin-top: 10px;
   }
 
-  .guide-item {
-    padding: 10px 12px;
+  .guide-flag {
+    min-height: 46px;
+    padding: 8px 9px;
     border-radius: 18px;
   }
 
-  .guide-item__badge {
-    min-width: 48px;
-    min-height: 30px;
-    font-size: 10px;
-  }
-
-  .guide-item__copy {
-    strong {
-      font-size: 11px;
-    }
-
-    span {
-      font-size: 10px;
-    }
+  .guide-flag strong {
+    font-size: 11px;
   }
 
   .guide-button,
@@ -1854,16 +1847,16 @@ onUnmounted(() => {
     }
   }
 
-  .guide-pulse {
-    padding: 13px 14px;
+  .guide-summary {
+    padding: 12px 14px;
   }
 
-  .guide-pulse strong {
-    font-size: 24px;
+  .guide-summary__metric strong {
+    font-size: 19px;
   }
 
-  .guide-item__copy span {
-    line-height: 1.5;
+  .guide-summary__metric small {
+    line-height: 1.4;
   }
 
   .chart-summary {
@@ -2078,10 +2071,10 @@ onUnmounted(() => {
   }
 
   .guide-hero span,
-  .guide-pulse__label,
-  .guide-pulse small,
-  .guide-item__badge,
-  .guide-item__copy span {
+  .guide-summary__label,
+  .guide-summary__metric small,
+  .guide-summary__chip,
+  .guide-flag small {
     font-size: 9px;
   }
 
@@ -2164,22 +2157,17 @@ onUnmounted(() => {
     }
   }
 
-  .guide-pulse {
+  .guide-summary {
     margin-top: 10px;
     padding: 12px;
   }
 
-  .guide-list {
+  .guide-flags {
     margin-top: 10px;
   }
 
-  .guide-item {
+  .guide-flags {
     grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .guide-item__badge {
-    justify-self: flex-start;
   }
 
   .guide-button,

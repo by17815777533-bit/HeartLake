@@ -11,10 +11,12 @@
 #include "utils/ResponseUtil.h"
 #include "utils/SecurityAuditScore.h"
 #include "utils/PasetoUtil.h"
+#include "utils/BusinessRules.h"
 #include "utils/PasswordUtil.h"
 #include "utils/SecurityLogger.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
+#include <algorithm>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -34,19 +36,16 @@ static void writeAdminOperationLog(const std::string& adminId,
     }
 }
 
-/**
- * 时间恒定字符串比较，防止时序攻击
- * 无论字符串是否匹配，比较时间恒定
- */
-static bool constantTimeCompare(const std::string& a, const std::string& b) {
-    volatile unsigned char result = a.size() ^ b.size();
-    size_t len = std::max(a.size(), b.size());
-    for (size_t i = 0; i < len; ++i) {
-        unsigned char ca = i < a.size() ? static_cast<unsigned char>(a[i]) : 0;
-        unsigned char cb = i < b.size() ? static_cast<unsigned char>(b[i]) : 0;
-        result |= ca ^ cb;
-    }
-    return result == 0;
+static HttpResponsePtr collectionSuccess(const char* semanticKey,
+                                         const Json::Value& items,
+                                         int total,
+                                         int page = 1,
+                                         int pageSize = 0) {
+    const std::string primaryKey =
+        (semanticKey != nullptr && *semanticKey != '\0') ? semanticKey : "items";
+    const int resolvedPageSize = pageSize > 0 ? pageSize : std::max(total, 1);
+    return ResponseUtil::success(
+        ResponseUtil::buildCollectionPayload(primaryKey, items, total, page, resolvedPageSize));
 }
 
 void AdminController::login(const HttpRequestPtr &req,
@@ -90,7 +89,7 @@ void AdminController::login(const HttpRequestPtr &req,
         std::string admin_username = env_admin_user;
 
         // 时间恒定比较用户名，防止时序攻击泄露用户名是否正确
-        bool usernameMatch = constantTimeCompare(username, admin_username);
+        bool usernameMatch = constantTimeEqual(username, admin_username);
 
         // VUL-11: 使用 PBKDF2 哈希验证密码，而非明文比对
         bool passwordMatch = false;
@@ -139,7 +138,7 @@ void AdminController::login(const HttpRequestPtr &req,
             Json::Value data;
             data["token"] = token;
             data["user"]["user_id"] = "admin_001";
-            data["user"]["username"] = username;
+            data["user"]["username"] = admin_username;
             data["user"]["role"] = adminRole;
 
             callback(ResponseUtil::success(data, "登录成功"));
@@ -190,11 +189,11 @@ void AdminController::getTrendingTopics([[maybe_unused]] const HttpRequestPtr &r
             data.append(item);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("topics", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getTrendingTopics: " << e.what();
         Json::Value data(Json::arrayValue);
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("topics", data, 0));
     }
 }
 
@@ -332,11 +331,11 @@ void AdminController::getUserGrowthStats(const HttpRequestPtr &req,
             data.append(item);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("stats", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getUserGrowthStats: " << e.what();
         Json::Value data(Json::arrayValue);
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("stats", data, 0));
     }
 }
 
@@ -361,11 +360,11 @@ void AdminController::getMoodDistribution([[maybe_unused]] const HttpRequestPtr 
             data.append(item);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("moods", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getMoodDistribution: " << e.what();
         Json::Value data(Json::arrayValue);
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("moods", data, 0));
     }
 }
 
@@ -402,11 +401,11 @@ void AdminController::getMoodTrend(const HttpRequestPtr &req,
             data.append(item);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("trends", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getMoodTrend: " << e.what();
         Json::Value data(Json::arrayValue);
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("trends", data, 0));
     }
 }
 
@@ -439,11 +438,11 @@ void AdminController::getActiveTimeStats([[maybe_unused]] const HttpRequestPtr &
             data.append(item);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("hours", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getActiveTimeStats: " << e.what();
         Json::Value data(Json::arrayValue);
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("hours", data, 0));
     }
 }
 
@@ -487,7 +486,7 @@ void AdminController::getHighRiskUsers([[maybe_unused]] const HttpRequestPtr &re
             data.append(user);
         }
 
-        callback(ResponseUtil::success(data));
+        callback(collectionSuccess("users", data, static_cast<int>(data.size())));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getHighRiskUsers: " << e.what();
         callback(ResponseUtil::internalError("获取高风险用户列表失败"));
@@ -568,10 +567,10 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
             }
         }();
         int total = safeCount(countResult);
+        const int page = limit > 0 ? (offset / limit) + 1 : 1;
 
-        Json::Value response;
-        response["events"] = data;
-        response["total"] = total;
+        Json::Value response = ResponseUtil::buildCollectionPayload(
+            "events", data, total, page, limit > 0 ? limit : std::max(total, 1));
         response["limit"] = limit;
         response["offset"] = offset;
 
