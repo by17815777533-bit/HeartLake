@@ -50,15 +50,6 @@ int extractTotalCount(const drogon::orm::Result &result) {
   return result[0]["total_count"].as<int>();
 }
 
-template <typename F>
-int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
-                                 F &&fallbackQuery) {
-  if (!result.empty() || page <= 1) {
-    return extractTotalCount(result);
-  }
-  return fallbackQuery();
-}
-
 Json::Value buildUserPayload(const std::string &userId,
                              const std::string &username,
                              const std::string &nickname,
@@ -1098,18 +1089,31 @@ InteractionApplicationService::getNotifications(const std::string &userId,
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
 
     auto result = dbClient->execSqlSync(
-        "SELECT notification_id, type, content, related_id, related_type, "
-        "is_read, created_at, "
-        "COUNT(*) OVER() AS total_count, "
-        "COUNT(*) FILTER (WHERE is_read = false) OVER() AS unread_count "
-        "FROM notifications "
-        "WHERE user_id = $1 "
-        "ORDER BY created_at DESC "
-        "LIMIT $2 OFFSET $3",
+        "WITH notification_totals AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count, "
+        "         COUNT(*) FILTER (WHERE is_read = false)::INTEGER AS unread_count "
+        "  FROM notifications "
+        "  WHERE user_id = $1"
+        ") "
+        "SELECT paged.notification_id, paged.type, paged.content, "
+        "       paged.related_id, paged.related_type, paged.is_read, "
+        "       paged.created_at, totals.total_count, totals.unread_count "
+        "FROM notification_totals totals "
+        "LEFT JOIN LATERAL ("
+        "  SELECT notification_id, type, content, related_id, related_type, "
+        "         is_read, created_at "
+        "  FROM notifications "
+        "  WHERE user_id = $1 "
+        "  ORDER BY created_at DESC "
+        "  LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
         userId, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
 
     Json::Value notifications(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["notification_id"].isNull()) {
+        continue;
+      }
       Json::Value notification;
       const auto notificationId = safeStringColumn(row, "notification_id");
       notification["notification_id"] = notificationId;
@@ -1129,23 +1133,11 @@ InteractionApplicationService::getNotifications(const std::string &userId,
       notifications.append(notification);
     }
 
-    int total = extractTotalCount(result);
-    int unreadCount =
+    const int total = extractTotalCount(result);
+    const int unreadCount =
         result.empty() || result[0]["unread_count"].isNull()
             ? 0
             : result[0]["unread_count"].as<int>();
-    if (result.empty() && page > 1) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count, "
-          "COUNT(*) FILTER (WHERE is_read = false)::INTEGER AS unread_count "
-          "FROM notifications WHERE user_id = $1",
-          userId);
-      total = extractTotalCount(countResult);
-      unreadCount =
-          countResult.empty() || countResult[0]["unread_count"].isNull()
-              ? 0
-              : countResult[0]["unread_count"].as<int>();
-    }
 
     auto response = ResponseUtil::buildCollectionPayload(
         "notifications", notifications, total, page, pageSize);
