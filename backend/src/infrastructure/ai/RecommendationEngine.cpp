@@ -30,6 +30,175 @@
 namespace heartlake {
 namespace ai {
 
+namespace {
+
+using DbClientPtr = RecommendationEngine::DbClientPtr;
+
+RecommendationCandidate buildStoneCandidate(
+    const drogon::orm::Row& row,
+    double score,
+    const char* reason,
+    const char* algorithm
+) {
+    RecommendationCandidate cand;
+    cand.itemId = row["stone_id"].as<std::string>();
+    cand.itemType = "stone";
+    cand.score = score;
+    cand.reason = reason;
+    cand.algorithm = algorithm;
+    cand.metadata["content"] = row["content"].as<std::string>();
+    cand.metadata["mood_type"] = row["mood_type"].isNull()
+        ? "neutral"
+        : row["mood_type"].as<std::string>();
+    cand.metadata["emotion_score"] = row["emotion_score"].isNull()
+        ? 0.0
+        : row["emotion_score"].as<double>();
+    cand.metadata["author_name"] = row["nickname"].isNull()
+        ? ""
+        : row["nickname"].as<std::string>();
+    cand.metadata["author_id"] = row["author_id"].isNull()
+        ? ""
+        : row["author_id"].as<std::string>();
+    cand.metadata["ripple_count"] = row["ripple_count"].isNull()
+        ? 0
+        : row["ripple_count"].as<int>();
+    cand.metadata["created_at"] = row["created_at"].isNull()
+        ? ""
+        : row["created_at"].as<std::string>();
+    cand.metadata["hours_old"] = row["hours_old"].isNull()
+        ? 72.0
+        : row["hours_old"].as<double>();
+    return cand;
+}
+
+std::vector<RecommendationCandidate> queryUserBasedCFCandidates(
+    const DbClientPtr& dbClient,
+    const std::string& userId,
+    int topK
+) {
+    auto rows = dbClient->execSqlSync(
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
+        "AVG(us.similarity_score) as avg_sim "
+        "FROM stones s "
+        "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
+        "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1 "
+        "JOIN users u ON s.user_id = u.user_id "
+        "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
+        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
+        "u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
+        userId, static_cast<int64_t>(topK)
+    );
+
+    std::vector<RecommendationCandidate> results;
+    results.reserve(rows.size());
+    for (const auto& row : rows) {
+        const double score = row["avg_sim"].isNull() ? 0.5 : row["avg_sim"].as<double>();
+        results.push_back(buildStoneCandidate(
+            row,
+            score,
+            "和你有相似感受的人也喜欢",
+            "user_cf"));
+    }
+    return results;
+}
+
+std::vector<RecommendationCandidate> queryItemBasedCFCandidates(
+    const DbClientPtr& dbClient,
+    const std::string& userId,
+    int topK
+) {
+    auto rows = dbClient->execSqlSync(
+        "WITH user_items AS ("
+        "  SELECT stone_id FROM user_interaction_history "
+        "  WHERE user_id = $1 AND interaction_weight >= 1.0 "
+        "  ORDER BY created_at DESC LIMIT 10"
+        ") "
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
+        "COUNT(*) as co_occur "
+        "FROM stones s "
+        "JOIN users u ON s.user_id = u.user_id "
+        "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
+        "WHERE uih.user_id IN ("
+        "  SELECT DISTINCT user_id FROM user_interaction_history "
+        "  WHERE stone_id IN (SELECT stone_id FROM user_items)"
+        ") "
+        "AND NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.stone_id = s.stone_id) "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
+        "AND s.status = 'published' AND s.deleted_at IS NULL "
+        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
+        "u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
+        userId, static_cast<int64_t>(topK)
+    );
+
+    std::vector<RecommendationCandidate> results;
+    results.reserve(rows.size());
+    for (const auto& row : rows) {
+        const double score = std::min(1.0, row["co_occur"].as<int>() / 10.0);
+        results.push_back(buildStoneCandidate(
+            row,
+            score,
+            "喜欢类似内容的人也看过",
+            "item_cf"));
+    }
+    return results;
+}
+
+std::vector<RecommendationCandidate> queryContentBasedCandidates(
+    const DbClientPtr& dbClient,
+    const std::string& userId,
+    const std::string& userMood,
+    const std::function<double(const std::string&, const std::string&)>& scoreResolver,
+    int topK
+) {
+    auto rows = dbClient->execSqlSync(
+        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "u.nickname, u.user_id AS author_id, "
+        "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
+        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
+        "FROM stones s "
+        "JOIN users u ON s.user_id = u.user_id "
+        "LEFT JOIN emotion_compatibility ec ON "
+        "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
+        "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
+        "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
+        "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
+        "LIMIT $3",
+        userId, userMood, static_cast<int64_t>(topK)
+    );
+
+    std::vector<RecommendationCandidate> results;
+    results.reserve(rows.size());
+    for (const auto& row : rows) {
+        const std::string itemMood = row["mood_type"].isNull()
+            ? "neutral"
+            : row["mood_type"].as<std::string>();
+        results.push_back(buildStoneCandidate(
+            row,
+            scoreResolver(userMood, itemMood),
+            "与你当前心情契合",
+            "content_emotion"));
+    }
+    return results;
+}
+
+}  // namespace
+
 RecommendationEngine& RecommendationEngine::getInstance() {
     static RecommendationEngine instance;
     return instance;
@@ -402,166 +571,44 @@ void RecommendationEngine::getRecommendations(
 /// User-based CF：找相似用户喜欢但当前用户未交互的石头
 std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
-    std::vector<RecommendationCandidate> results;
     if (!dbClientProvider_) { LOG_ERROR << "userBasedCF: no DB provider"; return {}; }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "userBasedCF: failed to get db client";
         return {};
     }
-
-    // 找相似用户喜欢但当前用户未交互的物品
-    auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-        "u.nickname, u.user_id AS author_id, "
-        "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
-        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
-        "AVG(us.similarity_score) as avg_sim "
-        "FROM stones s "
-        "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
-        "JOIN user_similarity us ON uih.user_id = us.user2_id AND us.user1_id = $1 "
-        "JOIN users u ON s.user_id = u.user_id "
-        "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
-        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
-        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "u.nickname, u.user_id, s.ripple_count, s.created_at "
-        "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
-        userId, static_cast<int64_t>(topK)
-    );
-
-    for (const auto& row : rows) {
-        RecommendationCandidate cand;
-        cand.itemId = row["stone_id"].as<std::string>();
-        cand.itemType = "stone";
-        cand.score = row["avg_sim"].isNull() ? 0.5 : row["avg_sim"].as<double>();
-        cand.reason = "和你有相似感受的人也喜欢";
-        cand.algorithm = "user_cf";
-        cand.metadata["content"] = row["content"].as<std::string>();
-        cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
-        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
-        cand.metadata["author_name"] = row["nickname"].as<std::string>();
-        cand.metadata["author_id"] = row["author_id"].as<std::string>();
-        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
-        cand.metadata["created_at"] = row["created_at"].as<std::string>();
-        cand.metadata["hours_old"] = row["hours_old"].as<double>();
-        results.push_back(cand);
-    }
-    return results;
+    return queryUserBasedCFCandidates(dbClient, userId, topK);
 }
 
 /// Item-based CF：基于用户最近交互的 10 个石头，通过共现关系推荐相似内容
 std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
-    std::vector<RecommendationCandidate> results;
     if (!dbClientProvider_) { LOG_ERROR << "itemBasedCF: no DB provider"; return {}; }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "itemBasedCF: failed to get db client";
         return {};
     }
-
-    // 基于用户历史交互物品找相似物品
-    auto rows = dbClient->execSqlSync(
-        "WITH user_items AS ("
-        "  SELECT stone_id FROM user_interaction_history "
-        "  WHERE user_id = $1 AND interaction_weight >= 1.0 "
-        "  ORDER BY created_at DESC LIMIT 10"
-        ") "
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-        "u.nickname, u.user_id AS author_id, "
-        "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
-        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
-        "COUNT(*) as co_occur "
-        "FROM stones s "
-        "JOIN users u ON s.user_id = u.user_id "
-        "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
-        "WHERE uih.user_id IN ("
-        "  SELECT DISTINCT user_id FROM user_interaction_history "
-        "  WHERE stone_id IN (SELECT stone_id FROM user_items)"
-        ") "
-        "AND NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.stone_id = s.stone_id) "
-        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
-        "AND s.status = 'published' AND s.deleted_at IS NULL "
-        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "u.nickname, u.user_id, s.ripple_count, s.created_at "
-        "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
-        userId, static_cast<int64_t>(topK)
-    );
-
-    for (const auto& row : rows) {
-        RecommendationCandidate cand;
-        cand.itemId = row["stone_id"].as<std::string>();
-        cand.itemType = "stone";
-        cand.score = std::min(1.0, row["co_occur"].as<int>() / 10.0);
-        cand.reason = "喜欢类似内容的人也看过";
-        cand.algorithm = "item_cf";
-        cand.metadata["content"] = row["content"].as<std::string>();
-        cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
-        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
-        cand.metadata["author_name"] = row["nickname"].as<std::string>();
-        cand.metadata["author_id"] = row["author_id"].as<std::string>();
-        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
-        cand.metadata["created_at"] = row["created_at"].as<std::string>();
-        cand.metadata["hours_old"] = row["hours_old"].as<double>();
-        results.push_back(cand);
-    }
-    return results;
+    return queryItemBasedCFCandidates(dbClient, userId, topK);
 }
 
 /// 基于情绪兼容性的内容推荐：用户当前心情 → 情绪矩阵 → 匹配石头
 std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend(
     const std::string& userId, const std::string& userMood, int topK) {
-    std::vector<RecommendationCandidate> results;
     if (!dbClientProvider_) { LOG_ERROR << "contentBasedRecommend: no DB provider"; return {}; }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "contentBasedRecommend: failed to get db client";
         return {};
     }
-
-    // 基于情绪向量的内容推荐
-    auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-        "u.nickname, u.user_id AS author_id, "
-        "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
-        "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
-        "FROM stones s "
-        "JOIN users u ON s.user_id = u.user_id "
-        "LEFT JOIN emotion_compatibility ec ON "
-        "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
-        "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
-        "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
-        "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
-        "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
-        "LIMIT $3",
-        userId, userMood, static_cast<int64_t>(topK)
-    );
-
-    for (const auto& row : rows) {
-        RecommendationCandidate cand;
-        cand.itemId = row["stone_id"].as<std::string>();
-        cand.itemType = "stone";
-        std::string itemMood = row["mood_type"].isNull() ? "neutral" : row["mood_type"].as<std::string>();
-        cand.score = emotionCompatibilityScore(userMood, itemMood);
-        cand.reason = "与你当前心情契合";
-        cand.algorithm = "content_emotion";
-        cand.metadata["content"] = row["content"].as<std::string>();
-        cand.metadata["mood_type"] = itemMood;
-        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
-        cand.metadata["author_name"] = row["nickname"].as<std::string>();
-        cand.metadata["author_id"] = row["author_id"].as<std::string>();
-        cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
-        cand.metadata["created_at"] = row["created_at"].as<std::string>();
-        cand.metadata["hours_old"] = row["hours_old"].as<double>();
-        results.push_back(cand);
-    }
-    return results;
+    return queryContentBasedCandidates(
+        dbClient,
+        userId,
+        userMood,
+        [this](const std::string& moodA, const std::string& moodB) {
+            return emotionCompatibilityScore(moodA, moodB);
+        },
+        topK);
 }
 
 /**
@@ -596,30 +643,41 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     int contentCount = std::max(2, static_cast<int>(topK * contentWeight * 2));
 
     std::vector<RecommendationCandidate> userCFResults, itemCFResults, contentResults;
-    try { userCFResults = userBasedCF(userId, cfCount / 2); }
+    try { userCFResults = queryUserBasedCFCandidates(dbClient, userId, cfCount / 2); }
     catch (const std::exception& e) { LOG_WARN << "userBasedCF failed: " << e.what(); }
-    try { itemCFResults = itemBasedCF(userId, cfCount / 2); }
+    try { itemCFResults = queryItemBasedCFCandidates(dbClient, userId, cfCount / 2); }
     catch (const std::exception& e) { LOG_WARN << "itemBasedCF failed: " << e.what(); }
-    try { contentResults = contentBasedRecommend(userId, userMood, contentCount); }
+    try {
+        contentResults = queryContentBasedCandidates(
+            dbClient,
+            userId,
+            userMood,
+            [this](const std::string& moodA, const std::string& moodB) {
+                return emotionCompatibilityScore(moodA, moodB);
+            },
+            contentCount);
+    }
     catch (const std::exception& e) { LOG_WARN << "contentBasedRecommend failed: " << e.what(); }
 
     // 合并并加权
     std::unordered_map<std::string, RecommendationCandidate> merged;
+    merged.reserve(userCFResults.size() + itemCFResults.size() + contentResults.size());
 
-    for (auto& c : userCFResults) {
-        c.score *= cfWeight;
-        merged[c.itemId] = c;
-    }
-    for (auto& c : itemCFResults) {
-        c.score *= cfWeight;
-        if (merged.count(c.itemId)) merged[c.itemId].score += c.score;
-        else merged[c.itemId] = c;
-    }
-    for (auto& c : contentResults) {
-        c.score *= contentWeight;
-        if (merged.count(c.itemId)) merged[c.itemId].score += c.score;
-        else merged[c.itemId] = c;
-    }
+    auto mergeWeighted = [&merged](std::vector<RecommendationCandidate>& candidates, double weight) {
+        for (auto& cand : candidates) {
+            cand.score *= weight;
+            auto it = merged.find(cand.itemId);
+            if (it == merged.end()) {
+                merged.emplace(cand.itemId, std::move(cand));
+            } else {
+                it->second.score += cand.score;
+            }
+        }
+    };
+
+    mergeWeighted(userCFResults, cfWeight);
+    mergeWeighted(itemCFResults, cfWeight);
+    mergeWeighted(contentResults, contentWeight);
 
     // 后处理：结合时效与热门抑制，降低“热门枢纽内容”垄断，提升长尾质量。
     auto calibrateCandidateScore = [](RecommendationCandidate& cand) {
@@ -634,7 +692,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
 
     // 转为vector并排序
     std::vector<RecommendationCandidate> results;
-    results.reserve(merged.size());
+    results.reserve(merged.size() + std::max(0, static_cast<int>(topK * exploreWeight)));
     for (auto& [id, cand] : merged) {
         calibrateCandidateScore(cand);
         results.push_back(std::move(cand));
@@ -688,20 +746,12 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             if (existingIds.find(stoneId) != existingIds.end()) {
                 continue;
             }
-            RecommendationCandidate cand;
-            cand.itemId = stoneId;
-            cand.itemType = "stone";
-            cand.score = exploreWeight * thompsonSample(1, 1);
-            cand.reason = "为你发现的新内容";
-            cand.algorithm = "exploration";
-            cand.metadata["content"] = row["content"].as<std::string>();
-            cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
-            cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
-            cand.metadata["author_name"] = row["nickname"].as<std::string>();
-            cand.metadata["author_id"] = row["author_id"].as<std::string>();
-            cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
-            cand.metadata["created_at"] = row["created_at"].as<std::string>();
-            cand.metadata["hours_old"] = row["hours_old"].as<double>();
+            const double exploreScore = exploreWeight * thompsonSample(1, 1);
+            RecommendationCandidate cand = buildStoneCandidate(
+                row,
+                exploreScore,
+                "为你发现的新内容",
+                "exploration");
             calibrateCandidateScore(cand);
             results.push_back(cand);
             existingIds.insert(stoneId);
