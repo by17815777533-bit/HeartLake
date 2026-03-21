@@ -608,12 +608,34 @@ Json::Value InteractionApplicationService::sendBoat(
     // 1. 生成纸船 ID
     std::string boatId = utils::IdGenerator::generateBoatId();
 
-    // 2. 插入数据库
-    dbClient->execSqlSync("INSERT INTO paper_boats (boat_id, stone_id, "
-                          "sender_id, receiver_id, content, "
-                          "is_anonymous, status, created_at) VALUES ($1, $2, "
-                          "$3, $4, $5, true, 'active', NOW())",
-                          boatId, stoneId, senderId, receiverId, message);
+    // 2. 入库并同步石头 boat_count，避免旁路写入导致计数漂移
+    auto writeResult = dbClient->execSqlSync(
+        "WITH target AS ("
+        "  SELECT stone_id "
+        "  FROM stones "
+        "  WHERE stone_id = $2 AND deleted_at IS NULL"
+        "), updated AS ("
+        "  UPDATE stones "
+        "  SET boat_count = boat_count + 1, updated_at = NOW() "
+        "  WHERE stone_id IN (SELECT stone_id FROM target) "
+        "  RETURNING stone_id, boat_count"
+        "), inserted AS ("
+        "  INSERT INTO paper_boats (boat_id, stone_id, sender_id, receiver_id, "
+        "                           content, is_anonymous, status, created_at) "
+        "  SELECT $1, $2, $3, $4, $5, true, 'active', NOW() "
+        "  FROM target "
+        "  RETURNING boat_id, stone_id, sender_id, receiver_id, content, status"
+        ") "
+        "SELECT i.boat_id, i.stone_id, i.sender_id, i.receiver_id, i.content, "
+        "       i.status, COALESCE(u.boat_count, 1) AS boat_count "
+        "FROM inserted i "
+        "LEFT JOIN updated u ON u.stone_id = i.stone_id",
+        boatId, stoneId, senderId, receiverId, message);
+    if (writeResult.empty()) {
+      throw std::runtime_error("石头不存在");
+    }
+
+    invalidateStoneReadCaches(cacheManager_, stoneId);
 
     // 3. 发布事件
     core::events::BoatSentEvent event;
@@ -635,6 +657,8 @@ Json::Value InteractionApplicationService::sendBoat(
     result["content"] = message;
     result["message"] = message;
     result["status"] = "sent";
+    result["boat_count"] =
+        writeResult[0]["boat_count"].isNull() ? 1 : writeResult[0]["boat_count"].as<int>();
 
     LOG_INFO << "Boat sent: " << boatId;
 

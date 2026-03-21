@@ -692,11 +692,23 @@ void AdminManagementController::deleteBoat(const HttpRequestPtr &req,
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
         auto result = dbClient->execSqlSync(
-            "UPDATE paper_boats SET status = 'deleted', deleted_at = NOW() "
-            "WHERE boat_id = $1 RETURNING boat_id",
+            "WITH updated_boat AS ("
+            "  UPDATE paper_boats "
+            "  SET status = 'deleted', deleted_at = NOW() "
+            "  WHERE boat_id = $1 AND COALESCE(status, 'active') <> 'deleted' "
+            "  RETURNING boat_id, stone_id"
+            "), updated_stone AS ("
+            "  UPDATE stones "
+            "  SET boat_count = GREATEST(boat_count - 1, 0), updated_at = NOW() "
+            "  WHERE stone_id IN (SELECT stone_id FROM updated_boat WHERE stone_id IS NOT NULL) "
+            "  RETURNING stone_id, boat_count"
+            ") "
+            "SELECT ub.boat_id, ub.stone_id, COALESCE(us.boat_count, 0) AS boat_count "
+            "FROM updated_boat ub "
+            "LEFT JOIN updated_stone us ON us.stone_id = ub.stone_id",
             boatId);
         if (result.empty()) {
-            callback(ResponseUtil::notFound("纸船不存在"));
+            callback(ResponseUtil::notFound("纸船不存在或已删除"));
             return;
         }
         writeOperationLog(req, adminId, "delete_content", "boat", boatId, reason);
