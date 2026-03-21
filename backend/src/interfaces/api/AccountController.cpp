@@ -786,11 +786,12 @@ void AccountController::exportData(
                           "status) VALUES ($1, $2, 'pending')",
                           taskId, userId);
 
-    // 异步执行导出任务
-    std::thread([taskId, userId]() {
+    // 使用 Drogon 异步调度，避免每个导出请求都创建裸线程。
+    drogon::async_run([taskId, userId]() -> drogon::Task<void> {
       heartlake::infrastructure::DataExportService::getInstance()
           .processExportTask(taskId, userId);
-    }).detach();
+      co_return;
+    });
 
     Json::Value data;
     data["task_id"] = taskId;
@@ -924,11 +925,9 @@ void AccountController::deleteAccountPermanently(
     trans->execSqlSync(
         "DELETE FROM user_interaction_history WHERE user_id = $1", userId);
     trans->execSqlSync(
-        "DELETE FROM consultation_messages WHERE session_id IN (SELECT "
-        "id FROM consultation_sessions WHERE user_id = $1)",
+        "DELETE FROM consultation_sessions "
+        "WHERE user_id = $1 OR counselor_id = $1",
         userId);
-    trans->execSqlSync("DELETE FROM consultation_sessions WHERE user_id = $1",
-                       userId);
     trans->execSqlSync("DELETE FROM connection_messages WHERE connection_id IN "
                        "(SELECT connection_id FROM connections WHERE user_id "
                        "= $1 OR target_user_id = $1)",
