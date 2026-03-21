@@ -3,6 +3,8 @@
 // 提供匿名登录和账号恢复功能，支持设备ID绑定和恢复密钥机制。
 // 所有认证数据会同步到本地存储和内存缓存。
 
+import 'dart:async';
+
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'api_client.dart';
@@ -22,6 +24,7 @@ class StoredAuthSession {
 }
 
 abstract class AuthDataSource {
+  Stream<StoredAuthSession?> get authStateChanges;
   Future<Map<String, dynamic>> anonymousLogin();
   Future<StoredAuthSession?> getStoredSession();
   Future<Map<String, dynamic>> getUserProfile(String userId);
@@ -38,8 +41,15 @@ abstract class AuthDataSource {
 ///
 /// 提供匿名登录和账号恢复功能。
 class AuthService extends BaseService implements AuthDataSource {
+  final StreamController<StoredAuthSession?> _authStateController =
+      StreamController<StoredAuthSession?>.broadcast();
+
   @override
   String get serviceName => 'AuthService';
+
+  @override
+  Stream<StoredAuthSession?> get authStateChanges =>
+      _authStateController.stream;
 
   /// 保存认证数据
   ///
@@ -62,6 +72,13 @@ class AuthService extends BaseService implements AuthDataSource {
       ),
       if (nickname != null) StorageUtil.saveNickname(nickname),
     ]);
+    _authStateController.add(
+      StoredAuthSession(
+        userId: userId,
+        token: token,
+        nickname: nickname,
+      ),
+    );
   }
 
   /// 匿名登录
@@ -163,10 +180,11 @@ class AuthService extends BaseService implements AuthDataSource {
   /// 清除所有本地凭证并标记为主动退出，下次启动进入登录页。
   @override
   Future<void> logout() async {
-    ApiClient().clearToken();
+    await ApiClient().clearToken();
     await StorageUtil.clearAll();
     // 标记主动退出，下次启动进入登录页而非自动匿名登录
     await StorageUtil.saveString('manual_logout', 'true');
+    _authStateController.add(null);
   }
 
   /// 更新用户个人资料

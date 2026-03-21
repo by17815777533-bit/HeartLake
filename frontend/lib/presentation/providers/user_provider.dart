@@ -19,6 +19,7 @@ import '../../di/service_locator.dart';
 class UserProvider with ChangeNotifier {
   final AuthDataSource _authService;
   final RealtimeClient _wsManager;
+  StreamSubscription<StoredAuthSession?>? _authStateSubscription;
 
   User? _user;
   bool _isLoading = false;
@@ -37,11 +38,46 @@ class UserProvider with ChangeNotifier {
     AuthDataSource? authService,
     RealtimeClient? wsManager,
   })  : _authService = authService ?? sl<AuthService>(),
-        _wsManager = wsManager ?? WebSocketManager();
+        _wsManager = wsManager ?? WebSocketManager() {
+    _authStateSubscription = _authService.authStateChanges.listen(
+      (session) {
+        if (session == null) {
+          _clearLocalSession();
+          return;
+        }
+        _applyStoredSession(session, refreshProfileAfter: true);
+      },
+    );
+  }
+
+  void _applyStoredSession(
+    StoredAuthSession session, {
+    bool refreshProfileAfter = false,
+  }) {
+    _user = User(
+      userId: session.userId,
+      nickname: session.nickname ?? '用户',
+      isAnonymous: true,
+    );
+    _isAnonymous = true;
+    notifyListeners();
+    unawaited(_wsManager.connect());
+    if (refreshProfileAfter) {
+      unawaited(refreshProfile());
+    }
+  }
+
+  void _clearLocalSession() {
+    _wsManager.disconnect();
+    _user = null;
+    _isAnonymous = false;
+    notifyListeners();
+  }
 
   /// 释放资源，断开WebSocket连接
   @override
   void dispose() {
+    _authStateSubscription?.cancel();
     _wsManager.disconnect();
     super.dispose();
   }
@@ -55,17 +91,7 @@ class UserProvider with ChangeNotifier {
 
     try {
       final result = await _authService.anonymousLogin();
-      if (result['success'] == true) {
-        _user = User(
-          userId: result['user_id'],
-          nickname: result['nickname'] ?? '用户',
-          isAnonymous: true,
-        );
-        _isAnonymous = true;
-        unawaited(_wsManager.connect());
-        return true;
-      }
-      return false;
+      return result['success'] == true;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('匿名登录失败: $e');
@@ -84,21 +110,7 @@ class UserProvider with ChangeNotifier {
     final session = await _authService.getStoredSession();
     if (session == null) return false;
 
-    // 先临时标记为匿名，refreshProfile 成功后根据实际数据更新
-    _user = User(
-      userId: session.userId,
-      nickname: session.nickname ?? '用户',
-      isAnonymous: true,
-    );
-    _isAnonymous = true;
-    notifyListeners();
-    unawaited(_wsManager.connect());
-    await refreshProfile();
-    // refreshProfile 成功后，根据实际用户数据判断是否匿名
-    if (_user != null) {
-      _isAnonymous = _user!.isAnonymous;
-      notifyListeners();
-    }
+    _applyStoredSession(session, refreshProfileAfter: true);
     return true;
   }
 
@@ -111,6 +123,7 @@ class UserProvider with ChangeNotifier {
       final result = await _authService.getUserProfile(_user!.userId);
       if (result['success'] == true && result['user'] is Map<String, dynamic>) {
         _user = User.fromJson(result['user'] as Map<String, dynamic>);
+        _isAnonymous = _user?.isAnonymous ?? false;
         notifyListeners();
       }
     } catch (e) {
@@ -181,10 +194,6 @@ class UserProvider with ChangeNotifier {
   ///
   /// 断开WebSocket连接，清除本地凭证和用户状态。
   Future<void> logout() async {
-    _wsManager.disconnect();
     await _authService.logout();
-    _user = null;
-    _isAnonymous = false;
-    notifyListeners();
   }
 }

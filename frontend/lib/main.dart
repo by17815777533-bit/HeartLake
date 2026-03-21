@@ -123,7 +123,13 @@ class _HeartLakeAppState extends State<HeartLakeApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = UserProvider();
+            unawaited(provider.restoreUser());
+            return provider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => StoneProvider()),
         ChangeNotifierProvider(create: (_) => FriendProvider()),
