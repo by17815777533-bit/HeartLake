@@ -325,12 +325,23 @@ void UserController::getUserInfo(
   try {
     auto dbClient = drogon::app().getDbClient("default");
 
-    auto result =
-        dbClient->execSqlSync("SELECT user_id, username, nickname, "
-                              "is_anonymous, created_at, avatar_url, bio "
-                              "FROM users "
-                              "WHERE user_id = $1 AND status = 'active'",
-                              userId);
+    auto result = dbClient->execSqlSync(
+        "SELECT u.user_id, u.username, u.nickname, "
+        "u.is_anonymous, u.created_at, u.avatar_url, u.bio, "
+        "COALESCE(st.stones_count, 0) AS stones_count, "
+        "COALESCE(st.ripples_received, 0) AS ripples_received, "
+        "COALESCE(st.boats_received, 0) AS boats_received "
+        "FROM users u "
+        "LEFT JOIN LATERAL ("
+        "  SELECT "
+        "    COUNT(*) FILTER (WHERE s.status = 'published') AS stones_count, "
+        "    COALESCE(SUM(CASE WHEN s.status = 'published' THEN s.ripple_count ELSE 0 END), 0) AS ripples_received, "
+        "    COALESCE(SUM(CASE WHEN s.status = 'published' THEN s.boat_count ELSE 0 END), 0) AS boats_received "
+        "  FROM stones s "
+        "  WHERE s.user_id = u.user_id AND s.deleted_at IS NULL"
+        ") st ON TRUE "
+        "WHERE u.user_id = $1 AND u.status = 'active'",
+        userId);
 
     if (result.empty()) {
       callback(ResponseUtil::notFound("用户不存在"));
@@ -347,22 +358,13 @@ void UserController::getUserInfo(
     user["avatar_url"] =
         row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
     user["bio"] = row["bio"].isNull() ? "" : row["bio"].as<std::string>();
-
-    auto statsResult =
-        dbClient->execSqlSync("SELECT "
-                              "  (SELECT COUNT(*) FROM stones WHERE user_id = "
-                              "$1 AND status = 'published') as stones_count,"
-                              "  (SELECT COALESCE(SUM(ripple_count), 0) FROM "
-                              "stones WHERE user_id = $1) as ripples_received,"
-                              "  (SELECT COALESCE(SUM(boat_count), 0) FROM "
-                              "stones WHERE user_id = $1) as boats_received",
-                              userId);
-
-    if (!statsResult.empty()) {
-      user["stones_count"] = statsResult[0]["stones_count"].as<int>();
-      user["ripples_received"] = statsResult[0]["ripples_received"].as<int>();
-      user["boats_received"] = statsResult[0]["boats_received"].as<int>();
-    }
+    user["stones_count"] =
+        row["stones_count"].isNull() ? 0 : row["stones_count"].as<int>();
+    user["ripples_received"] = row["ripples_received"].isNull()
+                                   ? 0
+                                   : row["ripples_received"].as<int>();
+    user["boats_received"] =
+        row["boats_received"].isNull() ? 0 : row["boats_received"].as<int>();
 
     callback(ResponseUtil::success(user));
 

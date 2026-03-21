@@ -721,7 +721,8 @@ void RecommendationController::searchRecommendations(
             "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
             "s.created_at, u.nickname as author_name, u.user_id as author_id, "
             "COALESCE(s.ripple_count, 0) AS ripple_count, "
-            "COALESCE(s.boat_count, 0) AS boat_count "
+            "COALESCE(s.boat_count, 0) AS boat_count, "
+            "COUNT(*) OVER() AS total_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.status = 'published' "
@@ -741,8 +742,12 @@ void RecommendationController::searchRecommendations(
         auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, pageSize, offset);
 
         Json::Value results(Json::arrayValue);
+        int total = 0;
         for (size_t i = 0; i < searchResult.size(); ++i) {
             auto row = searchResult[i];
+            if (total == 0 && !row["total_count"].isNull()) {
+                total = row["total_count"].as<int>();
+            }
             Json::Value stone;
             stone["stone_id"] = row["stone_id"].as<std::string>();
             stone["content"] = row["content"].as<std::string>();
@@ -758,16 +763,16 @@ void RecommendationController::searchRecommendations(
             results.append(stone);
         }
 
-        // 获取总数
-        std::string countSql =
-            "SELECT COUNT(*) as total FROM stones s "
-            "WHERE s.status = 'published' "
-            "AND s.deleted_at IS NULL "
-            "AND s.user_id != $1 "
-            "AND s.content ILIKE $2 ESCAPE '\\'";
-
-        auto countResult = dbClient->execSqlSync(countSql, userId, searchPattern);
-        int total = safeCount(countResult);
+        if (total == 0 && page > 1) {
+            auto countResult = dbClient->execSqlSync(
+                "SELECT COUNT(*) as total FROM stones s "
+                "WHERE s.status = 'published' "
+                "AND s.deleted_at IS NULL "
+                "AND s.user_id != $1 "
+                "AND s.content ILIKE $2 ESCAPE '\\'",
+                userId, searchPattern);
+            total = safeCount(countResult);
+        }
 
         callback(ResponseUtil::success(
             ResponseUtil::buildCollectionPayload("results", results, total,
