@@ -1,3 +1,5 @@
+import 'social_payload_normalizer.dart';
+
 const List<String> recommendationResponseKeys = <String>[
   'trending_stones',
   'results',
@@ -17,18 +19,10 @@ class RecommendationResponseParser {
     dynamic data, {
     List<String> keys = recommendationResponseKeys,
   }) {
-    if (data is List) {
-      return data.whereType<Map<String, dynamic>>().toList();
-    }
-
-    if (data is Map<String, dynamic>) {
-      for (final key in keys) {
-        if (data[key] is List) {
-          return (data[key] as List).whereType<Map<String, dynamic>>().toList();
-        }
-      }
-    }
-
-    return [];
+    return extractNormalizedList(
+      data,
+      itemNormalizer: (item) => Map<String, dynamic>.from(item),
+      listKeys: keys,
+    );
   }
 }

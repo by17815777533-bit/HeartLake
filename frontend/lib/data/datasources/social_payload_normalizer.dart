@@ -133,21 +133,37 @@ Map<String, dynamic> buildCollectionEnvelope<T>(
   dynamic raw, {
   required String primaryKey,
   required List<T> items,
+  int? totalOverride,
   Map<String, dynamic> extra = const <String, dynamic>{},
 }) {
-  final pagination = extractPaginationPayload(raw, itemCount: items.length);
+  final basePagination = extractPaginationPayload(raw, itemCount: items.length);
+  final total = totalOverride ?? basePagination['total'] as int;
+  final page = basePagination['page'] as int;
+  final pageSize = basePagination['page_size'] as int;
+  final totalPages = pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0;
+  final hasMore = pageSize > 0 && page * pageSize < total;
+  final pagination = {
+    ...basePagination,
+    'total': total,
+    'page': page,
+    'page_size': pageSize,
+    'pageSize': pageSize,
+    'total_pages': totalPages,
+    'totalPages': totalPages,
+    'has_more': hasMore,
+  };
   return {
     'success': true,
     primaryKey: items,
     'items': items,
     'list': items,
-    'total': pagination['total'],
-    'page': pagination['page'],
-    'page_size': pagination['page_size'],
-    'pageSize': pagination['pageSize'],
-    'total_pages': pagination['total_pages'],
-    'totalPages': pagination['totalPages'],
-    'has_more': pagination['has_more'],
+    'total': total,
+    'page': page,
+    'page_size': pageSize,
+    'pageSize': pageSize,
+    'total_pages': totalPages,
+    'totalPages': totalPages,
+    'has_more': hasMore,
     'pagination': pagination,
     ...extra,
   };

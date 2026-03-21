@@ -2,6 +2,7 @@
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import 'social_payload_normalizer.dart';
 
 /// 用户相关响应归一化器。
 ///
@@ -64,43 +65,36 @@ class UserPayloadNormalizer {
   }
 
   static List<Map<String, dynamic>> extractUserList(dynamic payload) {
-    if (payload is List) {
-      return payload
-          .map(normalizeUser)
-          .whereType<Map<String, dynamic>>()
-          .toList();
-    }
-
-    final source = asMap(payload);
-    if (source == null) return const [];
-
-    for (final key in const ['users', 'items', 'list', 'results', 'data']) {
-      final candidate = source[key];
-      if (candidate is List) {
-        return candidate
-            .map(normalizeUser)
-            .whereType<Map<String, dynamic>>()
-            .toList();
-      }
-    }
-
-    return const [];
+    return extractNormalizedList(
+      payload,
+      itemNormalizer: (item) => normalizeUser(item) ?? <String, dynamic>{},
+      listKeys: const ['users', 'results'],
+    ).where((item) => item.isNotEmpty).toList();
   }
 
   static int extractTotal(dynamic payload, {int fallback = 0}) {
-    final source = asMap(payload);
-    if (source == null) return fallback;
-
-    final direct = _toInt(source['total']) ??
-        _toInt(source['count']) ??
-        _toInt(source['total_count']) ??
-        _toInt(asMap(source['pagination'])?['total']) ??
-        _toInt(asMap(source['meta'])?['total']);
-
-    if (direct != null) return direct;
+    for (final source in _candidateSources(payload)) {
+      final direct = _toInt(source['total']) ??
+          _toInt(source['count']) ??
+          _toInt(source['total_count']) ??
+          _toInt(asMap(source['pagination'])?['total']) ??
+          _toInt(asMap(source['meta'])?['total']);
+      if (direct != null) return direct;
+    }
 
     final users = extractUserList(payload);
     return users.isEmpty ? fallback : users.length;
+  }
+
+  static Map<String, dynamic> buildUserCollection(dynamic payload) {
+    final users = extractUserList(payload);
+    final total = extractTotal(payload, fallback: users.length);
+    return buildCollectionEnvelope(
+      payload,
+      primaryKey: 'users',
+      items: users,
+      totalOverride: total,
+    );
   }
 
   static Map<String, dynamic>? normalizeUploadedFile(dynamic payload) {
@@ -116,15 +110,52 @@ class UserPayloadNormalizer {
   }
 
   static Map<String, dynamic>? _extractUserMap(dynamic payload) {
+    Map<String, dynamic>? fallback;
+    for (final source in _candidateSources(payload)) {
+      fallback ??= source;
+      if (_looksLikeUserPayload(source)) {
+        return source;
+      }
+    }
+    return fallback;
+  }
+
+  static Iterable<Map<String, dynamic>> _candidateSources(
+      dynamic payload) sync* {
     final source = asMap(payload);
-    if (source == null) return null;
+    if (source == null) return;
+
+    yield source;
 
     for (final key in const ['user', 'profile', 'data']) {
-      final nested = asMap(source[key]);
-      if (nested != null) return nested;
+      final nested = source[key];
+      if (nested is Map) {
+        yield* _candidateSources(nested);
+      }
     }
+  }
 
-    return source;
+  static bool _looksLikeUserPayload(Map<String, dynamic> source) {
+    for (final key in const [
+      'user_id',
+      'userId',
+      'id',
+      'nickname',
+      'display_name',
+      'displayName',
+      'name',
+      'avatar_url',
+      'avatarUrl',
+      'avatar',
+      'bio',
+      'signature',
+      'intro',
+    ]) {
+      if (source[key] != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static void _applyAlias(
@@ -189,17 +220,14 @@ class UserService extends BaseService {
 
     if (!response.success) return toMap(response);
 
-    final users = UserPayloadNormalizer.extractUserList(response.data);
-    final total = UserPayloadNormalizer.extractTotal(response.data,
-        fallback: users.length);
+    final collection = UserPayloadNormalizer.buildUserCollection(response.data);
 
     return {
-      'success': true,
-      'users': users,
-      'total': total,
+      ...toMap(response),
+      ...collection,
       'data': {
-        'users': users,
-        'total': total,
+        'users': collection['users'],
+        'total': collection['total'],
       },
     };
   }
