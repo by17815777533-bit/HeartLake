@@ -68,6 +68,15 @@ class InteractionService extends BaseService implements InteractionDataSource {
     return raw;
   }
 
+  Map<String, dynamic> _normalizeConnectionResponse(dynamic raw) {
+    if (raw is! Map) {
+      return const <String, dynamic>{};
+    }
+    return normalizeConnectionPayload(
+      Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+    );
+  }
+
   /// 创建涟漪（点赞）
   ///
   /// [stoneId] 目标石头ID，示例石头会被拒绝操作
@@ -192,7 +201,15 @@ class InteractionService extends BaseService implements InteractionDataSource {
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/connections');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeConnectionResponse(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      'connection_id': payload['connection_id'],
+      'connectionId': payload['connectionId'],
+    };
   }
 
   /// 发起临时连接（直接向目标用户发起聊天邀请）
@@ -203,7 +220,15 @@ class InteractionService extends BaseService implements InteractionDataSource {
     final response = await post('/connections', data: {
       'target_user_id': targetUserId,
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeConnectionResponse(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      'connection_id': payload['connection_id'],
+      'connectionId': payload['connectionId'],
+    };
   }
 
   /// 将限时连接升级为正式好友关系
@@ -213,7 +238,17 @@ class InteractionService extends BaseService implements InteractionDataSource {
       String connectionId) async {
     InputValidator.validateUUID(connectionId, '连接ID');
     final response = await post('/connections/$connectionId/friend');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeConnectionResponse(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      'friendship_id': payload['friendship_id'],
+      'friendshipId': payload['friendshipId'],
+      'friend_id': payload['friend_id'],
+      'friendId': payload['friendId'],
+    };
   }
 
   /// 获取会话消息列表

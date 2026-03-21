@@ -253,6 +253,70 @@ Map<String, dynamic> normalizeFriendPayload(Map raw) {
   return item;
 }
 
+Map<String, dynamic> normalizeConnectionPayload(Map raw) {
+  final item = _asMap(raw);
+
+  final connectionId =
+      _firstValue(item, const ['connection_id', 'connectionId', 'id']);
+  if (connectionId != null) {
+    final normalizedId = connectionId.toString();
+    item['connection_id'] = normalizedId;
+    item['connectionId'] = normalizedId;
+    item['id'] = normalizedId;
+  }
+
+  final userId = _firstValue(item, const ['user_id', 'userId']);
+  if (userId != null) {
+    final normalizedUserId = userId.toString();
+    item['user_id'] = normalizedUserId;
+    item['userId'] = normalizedUserId;
+  }
+
+  final targetUserId =
+      _firstValue(item, const ['target_user_id', 'targetUserId']);
+  if (targetUserId != null) {
+    final normalizedTargetUserId = targetUserId.toString();
+    item['target_user_id'] = normalizedTargetUserId;
+    item['targetUserId'] = normalizedTargetUserId;
+  }
+
+  final stoneId = _firstValue(item, const ['stone_id', 'stoneId']);
+  if (stoneId != null) {
+    final normalizedStoneId = stoneId.toString();
+    item['stone_id'] = normalizedStoneId;
+    item['stoneId'] = normalizedStoneId;
+  }
+
+  final friendshipId =
+      _firstValue(item, const ['friendship_id', 'friendshipId']);
+  if (friendshipId != null) {
+    final normalizedFriendshipId = friendshipId.toString();
+    item['friendship_id'] = normalizedFriendshipId;
+    item['friendshipId'] = normalizedFriendshipId;
+  }
+
+  final friendId = _firstValue(item, const ['friend_id', 'friendId']);
+  if (friendId != null) {
+    final normalizedFriendId = friendId.toString();
+    item['friend_id'] = normalizedFriendId;
+    item['friendId'] = normalizedFriendId;
+  }
+
+  final createdAt = _firstValue(item, const ['created_at', 'createdAt']);
+  if (createdAt != null) {
+    item['created_at'] = createdAt;
+    item['createdAt'] = createdAt;
+  }
+
+  final expiresAt = _firstValue(item, const ['expires_at', 'expiresAt']);
+  if (expiresAt != null) {
+    item['expires_at'] = expiresAt;
+    item['expiresAt'] = expiresAt;
+  }
+
+  return item;
+}
+
 Map<String, dynamic> normalizeBoatPayload(Map raw) {
   final item = _asMap(raw);
 
