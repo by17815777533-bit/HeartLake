@@ -49,6 +49,15 @@ int extractTotalCount(const drogon::orm::Result &result) {
   return result[0]["total_count"].as<int>();
 }
 
+template <typename F>
+int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
+                                 F &&fallbackQuery) {
+  if (!result.empty() || page <= 1) {
+    return extractTotalCount(result);
+  }
+  return fallbackQuery();
+}
+
 Json::Value buildUserPayload(const std::string &userId,
                              const std::string &username,
                              const std::string &nickname,
@@ -521,8 +530,15 @@ InteractionApplicationService::getRipples(const std::string &stoneId, int page,
       ripples.append(ripple);
     }
 
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count FROM ripples WHERE stone_id = $1",
+          stoneId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "ripples", ripples, extractTotalCount(result), page, pageSize);
+        "ripples", ripples, total, page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get ripples: " << e.base().what();
@@ -694,8 +710,17 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
       boats.append(boat);
     }
 
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM paper_boats "
+          "WHERE receiver_id = $1 AND COALESCE(status, 'active') != 'deleted'",
+          userId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, extractTotalCount(result), page, pageSize);
+        "boats", boats, total, page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get received boats: " << e.base().what();
@@ -777,8 +802,26 @@ InteractionApplicationService::getSentBoats(const std::string &userId, int page,
       boats.append(boat);
     }
 
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      if (hasStatusFilter) {
+        auto countResult = dbClient->execSqlSync(
+            "SELECT COUNT(*)::INTEGER AS total_count "
+            "FROM paper_boats "
+            "WHERE sender_id = $1 AND status = $2",
+            userId, normalizedStatus);
+        return extractTotalCount(countResult);
+      }
+
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM paper_boats "
+          "WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'",
+          userId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, extractTotalCount(result), page, pageSize);
+        "boats", boats, total, page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get sent boats: " << e.base().what();
@@ -1011,13 +1054,27 @@ InteractionApplicationService::getNotifications(const std::string &userId,
       notifications.append(notification);
     }
 
-    auto response = ResponseUtil::buildCollectionPayload(
-        "notifications", notifications, extractTotalCount(result), page,
-        pageSize);
-    response["unread_count"] =
+    int total = extractTotalCount(result);
+    int unreadCount =
         result.empty() || result[0]["unread_count"].isNull()
             ? 0
             : result[0]["unread_count"].as<int>();
+    if (result.empty() && page > 1) {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count, "
+          "COUNT(*) FILTER (WHERE is_read = false)::INTEGER AS unread_count "
+          "FROM notifications WHERE user_id = $1",
+          userId);
+      total = extractTotalCount(countResult);
+      unreadCount =
+          countResult.empty() || countResult[0]["unread_count"].isNull()
+              ? 0
+              : countResult[0]["unread_count"].as<int>();
+    }
+
+    auto response = ResponseUtil::buildCollectionPayload(
+        "notifications", notifications, total, page, pageSize);
+    response["unread_count"] = unreadCount;
     response["unreadCount"] = response["unread_count"];
     return response;
 
@@ -1238,8 +1295,15 @@ InteractionApplicationService::getMyRipples(const std::string &userId, int page,
       ripples.append(ripple);
     }
 
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count FROM ripples WHERE user_id = $1",
+          userId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "ripples", ripples, extractTotalCount(result), page, pageSize);
+        "ripples", ripples, total, page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my ripples: " << e.base().what();
@@ -1298,8 +1362,17 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
       boats.append(boat);
     }
 
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM paper_boats "
+          "WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'",
+          userId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, extractTotalCount(result), page, pageSize);
+        "boats", boats, total, page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my boats: " << e.base().what();
@@ -1349,8 +1422,17 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
       boat["sender"] = author;
       boats.append(boat);
     }
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM paper_boats "
+          "WHERE stone_id = $1 AND COALESCE(status, 'active') != 'deleted'",
+          stoneId);
+      return extractTotalCount(countResult);
+    });
+
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, extractTotalCount(result), page, pageSize);
+        "boats", boats, total, page, pageSize);
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get boats: " << e.base().what();
     throw std::runtime_error("获取纸船列表失败");
