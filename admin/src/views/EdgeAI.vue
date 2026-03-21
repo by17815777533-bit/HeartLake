@@ -153,7 +153,7 @@ import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { normalizePayloadRecord } from '@/utils/collectionPayload'
+import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
 import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { createSoftBaseline } from '@/utils/chartSignals'
@@ -164,6 +164,8 @@ const edgeTimeFormat = 'MM月DD日 HH:mm'
 const currentTime = ref(dayjs().format(edgeTimeFormat))
 
 const normalizeEdgePayload = (payload: unknown) => normalizePayloadRecord(payload)
+const normalizeVectorSearchResults = (payload: unknown) =>
+  normalizeCollectionResponse<Record<string, unknown>>(payload, ['results', 'matches', 'documents']).items
 let edgeMetricsRequest: Promise<Record<string, unknown>> | null = null
 let edgeMetricsSnapshot: { at: number; data: Record<string, unknown> } | null = null
 
@@ -829,8 +831,7 @@ async function doVectorSearch() {
       query: vectorSearch.query,
       topK: 10,
     })
-    const result = normalizeEdgePayload(data)
-    const raw = Array.isArray(result) ? result : (result.results ?? [])
+    const raw = normalizeVectorSearchResults(data)
     vectorSearch.results = raw.map((item: any) => ({
       ...item,
       score: Number(item.score ?? item.similarity ?? 0),

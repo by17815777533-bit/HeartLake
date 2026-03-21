@@ -210,11 +210,35 @@ const getStatusLabel = (status: string) => {
 
 const formatCount = (value: number) => value.toLocaleString()
 
-const summaryItems = computed(() => {
-  const pendingCount = reportList.value.filter((item) => item.status === 'pending').length
-  const handledCount = reportList.value.filter((item) => item.status === 'handled').length
-  const ignoredCount = reportList.value.filter((item) => item.status === 'ignored').length
+const reportPageStats = computed(() => {
+  let pendingCount = 0
+  let handledCount = 0
+  let ignoredCount = 0
+  let latestItem: Report | null = null
+  let latestTimestamp = 0
 
+  reportList.value.forEach((item) => {
+    if (item.status === 'pending') pendingCount += 1
+    if (item.status === 'handled') handledCount += 1
+    if (item.status === 'ignored') ignoredCount += 1
+
+    const timestamp = new Date(item.created_at).getTime()
+    if (Number.isFinite(timestamp) && timestamp >= latestTimestamp) {
+      latestTimestamp = timestamp
+      latestItem = item
+    }
+  })
+
+  return {
+    pendingCount,
+    handledCount,
+    ignoredCount,
+    totalCount: reportList.value.length,
+    latestItem,
+  }
+})
+
+const summaryItems = computed(() => {
   return [
     {
       label: '求助总数',
@@ -224,34 +248,28 @@ const summaryItems = computed(() => {
     },
     {
       label: '待优先处理',
-      value: formatCount(pendingCount),
+      value: formatCount(reportPageStats.value.pendingCount),
       note: '当前页仍需人工判断的记录',
       tone: 'rose' as const,
     },
     {
       label: '已完成处理',
-      value: formatCount(handledCount),
+      value: formatCount(reportPageStats.value.handledCount),
       note: '当前页已给出处置结果',
       tone: 'sage' as const,
     },
     {
       label: '已忽略',
-      value: formatCount(ignoredCount),
+      value: formatCount(reportPageStats.value.ignoredCount),
       note: '当前页不进入进一步处理的记录',
       tone: 'amber' as const,
     },
   ]
 })
 
-const reportPendingCount = computed(
-  () => reportList.value.filter((item) => item.status === 'pending').length,
-)
-const reportHandledCount = computed(
-  () => reportList.value.filter((item) => item.status === 'handled').length,
-)
-const reportIgnoredCount = computed(
-  () => reportList.value.filter((item) => item.status === 'ignored').length,
-)
+const reportPendingCount = computed(() => reportPageStats.value.pendingCount)
+const reportHandledCount = computed(() => reportPageStats.value.handledCount)
+const reportIgnoredCount = computed(() => reportPageStats.value.ignoredCount)
 
 const reportVizBars = computed(() => [
   {
@@ -269,11 +287,15 @@ const reportVizBars = computed(() => [
     value: reportIgnoredCount.value,
     display: formatCount(reportIgnoredCount.value),
   },
-  { label: '总量', value: reportList.value.length, display: formatCount(reportList.value.length) },
+  {
+    label: '总量',
+    value: reportPageStats.value.totalCount,
+    display: formatCount(reportPageStats.value.totalCount),
+  },
 ])
 
 const reportResolutionScore = computed(() => {
-  const total = Math.max(reportList.value.length, 1)
+  const total = Math.max(reportPageStats.value.totalCount, 1)
   return Math.max(
     24,
     Math.min(96, Math.round(((reportHandledCount.value + reportIgnoredCount.value) / total) * 100)),
@@ -296,12 +318,7 @@ const getReportTimeNote = (value?: string) => {
 }
 
 const latestReportMeta = computed(() => {
-  const latestItem = reportList.value.reduce<Report | null>((latest, item) => {
-    if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
-      ? item
-      : latest
-  }, null)
+  const latestItem = reportPageStats.value.latestItem
 
   if (!latestItem) {
     return {
@@ -317,7 +334,7 @@ const latestReportMeta = computed(() => {
 })
 
 const reportSignals = computed(() => {
-  const total = reportList.value.length
+  const total = reportPageStats.value.totalCount
   const pendingRatio = total ? Math.round((reportPendingCount.value / total) * 100) : 0
   const filterMode =
     filters.status || filters.type
@@ -395,7 +412,7 @@ const reportRhythmItems = computed(() => createDeckRhythmItems(reportVizBars.val
 const reportActivityRows = computed(() => createDeckActivityRows(reportSignals.value))
 const reportsGuidePulseNote = computed(
   () =>
-    `待处理占比 ${reportList.value.length ? Math.round((reportPendingCount.value / reportList.value.length) * 100) : 0}% · ${reportResolutionLabel.value}`,
+    `待处理占比 ${reportPageStats.value.totalCount ? Math.round((reportPendingCount.value / reportPageStats.value.totalCount) * 100) : 0}% · ${reportResolutionLabel.value}`,
 )
 const reportGuideItems = computed(() =>
   createDeckGuideItems([

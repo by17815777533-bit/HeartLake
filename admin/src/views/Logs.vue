@@ -262,15 +262,37 @@ const getTimeNote = (value?: string) => {
   return `${Math.floor(diffMinutes / (24 * 60))} 天前`
 }
 
-const loginCount = computed(() => logList.value.filter((item) => item.action === 'login').length)
-const contentActionCount = computed(
-  () =>
-    logList.value.filter((item) => ['delete_content', 'approve', 'reject'].includes(item.action))
-      .length,
-)
-const configActionCount = computed(
-  () => logList.value.filter((item) => item.action === 'config').length,
-)
+const logPageStats = computed(() => {
+  let loginCount = 0
+  let contentActionCount = 0
+  let configActionCount = 0
+  let latestItem: OperationLog | null = null
+  let latestTimestamp = 0
+
+  logList.value.forEach((item) => {
+    if (item.action === 'login') loginCount += 1
+    if (['delete_content', 'approve', 'reject'].includes(item.action)) contentActionCount += 1
+    if (item.action === 'config') configActionCount += 1
+
+    const timestamp = new Date(item.created_at).getTime()
+    if (Number.isFinite(timestamp) && timestamp >= latestTimestamp) {
+      latestTimestamp = timestamp
+      latestItem = item
+    }
+  })
+
+  return {
+    loginCount,
+    contentActionCount,
+    configActionCount,
+    totalCount: logList.value.length,
+    latestItem,
+  }
+})
+
+const loginCount = computed(() => logPageStats.value.loginCount)
+const contentActionCount = computed(() => logPageStats.value.contentActionCount)
+const configActionCount = computed(() => logPageStats.value.configActionCount)
 
 const summaryItems = computed(() => {
   const contentActions = contentActionCount.value
@@ -312,11 +334,15 @@ const logVizBars = computed(() => [
     display: formatCount(contentActionCount.value),
   },
   { label: '配置', value: configActionCount.value, display: formatCount(configActionCount.value) },
-  { label: '总量', value: logList.value.length, display: formatCount(logList.value.length) },
+  {
+    label: '总量',
+    value: logPageStats.value.totalCount,
+    display: formatCount(logPageStats.value.totalCount),
+  },
 ])
 
 const auditScore = computed(() => {
-  const total = Math.max(logList.value.length, 1)
+  const total = Math.max(logPageStats.value.totalCount, 1)
   const structured = loginCount.value + contentActionCount.value + configActionCount.value
   return Math.max(32, Math.min(96, Math.round((structured / total) * 100)))
 })
@@ -328,12 +354,7 @@ const auditLabel = computed(() => {
 })
 
 const latestLogMeta = computed(() => {
-  const latestItem = logList.value.reduce<OperationLog | null>((latest, item) => {
-    if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
-      ? item
-      : latest
-  }, null)
+  const latestItem = logPageStats.value.latestItem
 
   if (!latestItem) {
     return {
@@ -362,7 +383,7 @@ const logSignals = computed(() => {
         filters.dateRange?.length === 2
           ? `已限定 ${filters.dateRange[0]} 至 ${filters.dateRange[1]}`
           : '默认查看当前条件下的全部审计写入。',
-      badge: `${formatCount(logList.value.length)} 条`,
+      badge: `${formatCount(logPageStats.value.totalCount)} 条`,
     },
     {
       label: '最近动作',
@@ -451,6 +472,9 @@ async function fetchLogs() {
   try {
     const { dateRange, ...rest } = { ...filters }
     const extra: Record<string, unknown> = { ...rest }
+    if (typeof filters.operator === 'string' && filters.operator.trim() !== '') {
+      extra.admin_id = filters.operator
+    }
     if (dateRange?.length === 2) {
       extra.start_date = dateRange[0]
       extra.end_date = dateRange[1]

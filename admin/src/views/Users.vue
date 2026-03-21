@@ -254,12 +254,38 @@ const filters = reactive({ ...defaultFilters })
 
 const formatCount = (value: number) => value.toLocaleString()
 
-const summaryItems = computed(() => {
-  const activeCount = users.value.filter((item) => item.status === 'active').length
-  const bannedCount = users.value.filter((item) => item.status === 'banned').length
-  const stonesCount = users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0)
-  const boatsCount = users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0)
+const userPageStats = computed(() => {
+  let activeCount = 0
+  let bannedCount = 0
+  let stonesCount = 0
+  let boatsCount = 0
+  let latestUser: User | null = null
+  let latestTimestamp = 0
 
+  users.value.forEach((item) => {
+    if (item.status === 'active') activeCount += 1
+    if (item.status === 'banned') bannedCount += 1
+    stonesCount += Number(item.stones_count || 0)
+    boatsCount += Number(item.boat_count || 0)
+
+    const timestamp = formatRecentTime(item.last_active_at).timestamp
+    if (timestamp >= latestTimestamp) {
+      latestTimestamp = timestamp
+      latestUser = item
+    }
+  })
+
+  return {
+    activeCount,
+    bannedCount,
+    stonesCount,
+    boatsCount,
+    totalOutput: stonesCount + boatsCount,
+    latestUser,
+  }
+})
+
+const summaryItems = computed(() => {
   return [
     {
       label: '旅人总数',
@@ -269,37 +295,29 @@ const summaryItems = computed(() => {
     },
     {
       label: '正常状态',
-      value: formatCount(activeCount),
+      value: formatCount(userPageStats.value.activeCount),
       note: '当前页可直接服务的账号',
       tone: 'sage' as const,
     },
     {
       label: '封禁处置',
-      value: formatCount(bannedCount),
+      value: formatCount(userPageStats.value.bannedCount),
       note: '当前页仍处于限制中的账号',
       tone: 'rose' as const,
     },
     {
       label: '互动产出',
-      value: formatCount(stonesCount + boatsCount),
-      note: `投石 ${formatCount(stonesCount)} · 纸船 ${formatCount(boatsCount)}`,
+      value: formatCount(userPageStats.value.totalOutput),
+      note: `投石 ${formatCount(userPageStats.value.stonesCount)} · 纸船 ${formatCount(userPageStats.value.boatsCount)}`,
       tone: 'amber' as const,
     },
   ]
 })
 
-const activeTravelerCount = computed(
-  () => users.value.filter((item) => item.status === 'active').length,
-)
-const bannedTravelerCount = computed(
-  () => users.value.filter((item) => item.status === 'banned').length,
-)
-const totalStones = computed(() =>
-  users.value.reduce((sum, item) => sum + Number(item.stones_count || 0), 0),
-)
-const totalBoats = computed(() =>
-  users.value.reduce((sum, item) => sum + Number(item.boat_count || 0), 0),
-)
+const activeTravelerCount = computed(() => userPageStats.value.activeCount)
+const bannedTravelerCount = computed(() => userPageStats.value.bannedCount)
+const totalStones = computed(() => userPageStats.value.stonesCount)
+const totalBoats = computed(() => userPageStats.value.boatsCount)
 
 const usersVizBars = computed(() => [
   {
@@ -363,13 +381,7 @@ const getTravelerInitial = (user: User) => {
 }
 
 const latestActiveMeta = computed(() => {
-  const latestUser = users.value.reduce<User | null>((latest, item) => {
-    if (!latest) return item
-    return formatRecentTime(item.last_active_at).timestamp >
-      formatRecentTime(latest.last_active_at).timestamp
-      ? item
-      : latest
-  }, null)
+  const latestUser = userPageStats.value.latestUser
 
   if (!latestUser) {
     return {
@@ -385,11 +397,8 @@ const latestActiveMeta = computed(() => {
 })
 
 const travelerSignals = computed(() => {
-  const activeCount = users.value.filter((item) => item.status === 'active').length
-  const outputCount = users.value.reduce(
-    (sum, item) => sum + Number(item.stones_count || 0) + Number(item.boat_count || 0),
-    0,
-  )
+  const activeCount = userPageStats.value.activeCount
+  const outputCount = userPageStats.value.totalOutput
   const averageOutput = users.value.length ? (outputCount / users.value.length).toFixed(1) : '0.0'
   const filterFocus =
     filters.status === 'banned'

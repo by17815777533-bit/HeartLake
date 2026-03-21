@@ -241,11 +241,35 @@ const filters = reactive({
 
 const formatCount = (value: number) => value.toLocaleString()
 
-const summaryItems = computed(() => {
-  const stoneCount = contentList.value.filter((item) => item.type === 'stone').length
-  const boatCount = contentList.value.filter((item) => item.type === 'boat').length
-  const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
+const contentPageStats = computed(() => {
+  let stoneCount = 0
+  let boatCount = 0
+  let pendingCount = 0
+  let latestItem: ContentItem | null = null
+  let latestTimestamp = 0
 
+  contentList.value.forEach((item) => {
+    if (item.type === 'stone') stoneCount += 1
+    if (item.type === 'boat') boatCount += 1
+    if (item.status === 'pending') pendingCount += 1
+
+    const timestamp = new Date(item.created_at).getTime()
+    if (Number.isFinite(timestamp) && timestamp >= latestTimestamp) {
+      latestTimestamp = timestamp
+      latestItem = item
+    }
+  })
+
+  return {
+    stoneCount,
+    boatCount,
+    pendingCount,
+    totalCount: contentList.value.length,
+    latestItem,
+  }
+})
+
+const summaryItems = computed(() => {
   return [
     {
       label: '内容总量',
@@ -255,34 +279,28 @@ const summaryItems = computed(() => {
     },
     {
       label: '当前页石头',
-      value: formatCount(stoneCount),
+      value: formatCount(contentPageStats.value.stoneCount),
       note: '公开心声内容',
       tone: 'amber' as const,
     },
     {
       label: '当前页纸船',
-      value: formatCount(boatCount),
+      value: formatCount(contentPageStats.value.boatCount),
       note: '一对一漂流内容',
       tone: 'sage' as const,
     },
     {
       label: '待确认内容',
-      value: formatCount(pendingCount),
+      value: formatCount(contentPageStats.value.pendingCount),
       note: '当前页需要继续观察的条目',
       tone: 'rose' as const,
     },
   ]
 })
 
-const contentStoneCount = computed(
-  () => contentList.value.filter((item) => item.type === 'stone').length,
-)
-const contentBoatCount = computed(
-  () => contentList.value.filter((item) => item.type === 'boat').length,
-)
-const contentPendingCount = computed(
-  () => contentList.value.filter((item) => item.status === 'pending').length,
-)
+const contentStoneCount = computed(() => contentPageStats.value.stoneCount)
+const contentBoatCount = computed(() => contentPageStats.value.boatCount)
+const contentPendingCount = computed(() => contentPageStats.value.pendingCount)
 
 const contentVizBars = computed(() => [
   { label: '石头', value: contentStoneCount.value, display: formatCount(contentStoneCount.value) },
@@ -294,13 +312,13 @@ const contentVizBars = computed(() => [
   },
   {
     label: '总量',
-    value: contentList.value.length,
-    display: formatCount(contentList.value.length),
+    value: contentPageStats.value.totalCount,
+    display: formatCount(contentPageStats.value.totalCount),
   },
 ])
 
 const contentFlowScore = computed(() => {
-  const total = Math.max(contentList.value.length, 1)
+  const total = Math.max(contentPageStats.value.totalCount, 1)
   return Math.round((contentPendingCount.value / total) * 100)
 })
 
@@ -321,12 +339,7 @@ const getTimelineNote = (value?: string) => {
 }
 
 const latestContentMeta = computed(() => {
-  const latestItem = contentList.value.reduce<ContentItem | null>((latest, item) => {
-    if (!latest) return item
-    return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
-      ? item
-      : latest
-  }, null)
+  const latestItem = contentPageStats.value.latestItem
 
   if (!latestItem) {
     return {
@@ -342,9 +355,9 @@ const latestContentMeta = computed(() => {
 })
 
 const contentSignals = computed(() => {
-  const totalCount = contentList.value.length
-  const pendingCount = contentList.value.filter((item) => item.status === 'pending').length
-  const boatCount = contentList.value.filter((item) => item.type === 'boat').length
+  const totalCount = contentPageStats.value.totalCount
+  const pendingCount = contentPageStats.value.pendingCount
+  const boatCount = contentPageStats.value.boatCount
   const watchMode =
     filters.type === 'stone' ? '石头巡检' : filters.type === 'boat' ? '纸船巡检' : '混合巡检'
 
@@ -405,7 +418,7 @@ const contentGuideMetrics = computed(() => [
   { label: '待确认', value: `${formatCount(contentPendingCount.value)} 条` },
   {
     label: '纸船占比',
-    value: `${contentList.value.length ? Math.round((contentBoatCount.value / contentList.value.length) * 100) : 0}%`,
+    value: `${contentPageStats.value.totalCount ? Math.round((contentBoatCount.value / contentPageStats.value.totalCount) * 100) : 0}%`,
   },
   { label: '巡检评分', value: `${contentHealthScore.value} 分` },
 ])
@@ -451,7 +464,7 @@ const contentGuideItems = computed(() =>
     },
     {
       label: '纸船占比',
-      value: `${contentList.value.length ? Math.round((contentBoatCount.value / contentList.value.length) * 100) : 0}%`,
+      value: `${contentPageStats.value.totalCount ? Math.round((contentBoatCount.value / contentPageStats.value.totalCount) * 100) : 0}%`,
       note: '纸船比例更高时，需要更关注私密表达边界。',
     },
     {
@@ -504,12 +517,15 @@ const getStatusLabel = (status: string) => {
 async function fetchContent() {
   loading.value = true
   try {
-    const params = buildParams(filters)
-    const currentPage = Number(params.page || 1)
-    const pageSize = Number(params.page_size || 20)
+    const params = buildParams({
+      type: filters.type,
+      status: filters.status,
+      keyword: filters.keyword,
+    })
 
     if (filters.type === 'boat') {
-      const res = await api.getBoats(params)
+      const { type: _type, ...boatParams } = params
+      const res = await api.getBoats(boatParams)
       const { items, total } = normalizeContentCollection(res.data, 'boat', ['boats'])
       contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
@@ -517,14 +533,15 @@ async function fetchContent() {
     }
 
     if (filters.type === 'stone') {
-      const res = await api.getStones(params)
+      const { type: _type, ...stoneParams } = params
+      const res = await api.getStones(stoneParams)
       const { items, total } = normalizeContentCollection(res.data, 'stone', ['stones'])
       contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
       return
     }
 
-    const res = await api.getContents({ page: currentPage, page_size: pageSize, status: filters.status, keyword: filters.keyword })
+    const res = await api.getContents(params)
     const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
     contentList.value = sortByCreatedAtDesc(items)
     pagination.total = total

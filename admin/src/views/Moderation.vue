@@ -253,14 +253,6 @@ const {
 })
 
 const summaryItems = computed(() => {
-  const highRiskCount = pendingList.value.filter((item) => Number(item.ai_score || 0) >= 0.7).length
-  const approvedCount = historyList.value.filter(
-    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
-  ).length
-  const rejectedCount = historyList.value.filter(
-    (item) => (item as ModerationItem & { result?: string }).result === 'rejected',
-  ).length
-
   return [
     {
       label: '待复核队列',
@@ -270,19 +262,19 @@ const summaryItems = computed(() => {
     },
     {
       label: '高风险提示',
-      value: formatCount(highRiskCount),
+      value: formatCount(pendingPageStats.value.highRiskCount),
       note: '当前页风险分较高的条目',
       tone: 'amber' as const,
     },
     {
       label: '历史通过',
-      value: formatCount(approvedCount),
+      value: formatCount(historyPageStats.value.approvedCount),
       note: '当前页审核历史中的通过条目',
       tone: 'sage' as const,
     },
     {
       label: '历史拒绝',
-      value: formatCount(rejectedCount),
+      value: formatCount(historyPageStats.value.rejectedCount),
       note: '当前页审核历史中的拦截条目',
       tone: 'lake' as const,
     },
@@ -308,19 +300,55 @@ const getRiskColor = (score?: number) => {
   return '#49735a'
 }
 
-const highRiskPendingCount = computed(
-  () => pendingList.value.filter((item) => getRiskPercent(item.ai_score) >= 85).length,
-)
-const mediumRiskPendingCount = computed(
-  () =>
-    pendingList.value.filter((item) => {
-      const percent = getRiskPercent(item.ai_score)
-      return percent >= 60 && percent < 85
-    }).length,
-)
-const lowRiskPendingCount = computed(
-  () => pendingList.value.filter((item) => getRiskPercent(item.ai_score) < 60).length,
-)
+const pendingPageStats = computed(() => {
+  let highRiskCount = 0
+  let mediumRiskCount = 0
+  let lowRiskCount = 0
+  const reasonCounter = new Map<string, number>()
+
+  pendingList.value.forEach((item) => {
+    const percent = getRiskPercent(item.ai_score)
+    if (percent >= 85) highRiskCount += 1
+    else if (percent >= 60) mediumRiskCount += 1
+    else lowRiskCount += 1
+
+    const reason = item.ai_reason || '系统识别'
+    reasonCounter.set(reason, (reasonCounter.get(reason) || 0) + 1)
+  })
+
+  let dominantReason = '系统识别'
+  let dominantReasonCount = 0
+  reasonCounter.forEach((count, reason) => {
+    if (count >= dominantReasonCount) {
+      dominantReason = reason
+      dominantReasonCount = count
+    }
+  })
+
+  return {
+    highRiskCount,
+    mediumRiskCount,
+    lowRiskCount,
+    dominantReason,
+    dominantReasonCount,
+  }
+})
+
+const historyPageStats = computed(() => {
+  let approvedCount = 0
+  let rejectedCount = 0
+
+  historyList.value.forEach((item) => {
+    if ((item as ModerationItem & { result?: string }).result === 'approved') approvedCount += 1
+    if ((item as ModerationItem & { result?: string }).result === 'rejected') rejectedCount += 1
+  })
+
+  return { approvedCount, rejectedCount }
+})
+
+const highRiskPendingCount = computed(() => pendingPageStats.value.highRiskCount)
+const mediumRiskPendingCount = computed(() => pendingPageStats.value.mediumRiskCount)
+const lowRiskPendingCount = computed(() => pendingPageStats.value.lowRiskCount)
 
 const moderationVizBars = computed(() => [
   {
@@ -347,10 +375,7 @@ const moderationVizBars = computed(() => [
 
 const moderationScore = computed(() => {
   const reviewedCount = historyList.value.length
-  const approvedCount = historyList.value.filter(
-    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
-  ).length
-  const approvalRate = reviewedCount ? approvedCount / reviewedCount : 0
+  const approvalRate = reviewedCount ? historyPageStats.value.approvedCount / reviewedCount : 0
   return Math.max(
     28,
     Math.min(96, Math.round(68 + approvalRate * 22 - highRiskPendingCount.value * 4)),
@@ -364,24 +389,16 @@ const moderationLabel = computed(() => {
 })
 
 const dominantReason = computed(() => {
-  const counter = new Map<string, number>()
-  pendingList.value.forEach((item) => {
-    const reason = item.ai_reason || '系统识别'
-    counter.set(reason, (counter.get(reason) || 0) + 1)
-  })
-
-  const [reason, count] = [...counter.entries()].sort((a, b) => b[1] - a[1])[0] || ['系统识别', 0]
-  return { reason, count }
+  return {
+    reason: pendingPageStats.value.dominantReason,
+    count: pendingPageStats.value.dominantReasonCount,
+  }
 })
 
 const moderationSignals = computed(() => {
-  const highRiskCount = pendingList.value.filter(
-    (item) => getRiskPercent(item.ai_score) >= 85,
-  ).length
+  const highRiskCount = pendingPageStats.value.highRiskCount
   const reviewedCount = historyList.value.length
-  const approvedCount = historyList.value.filter(
-    (item) => (item as ModerationItem & { result?: string }).result === 'approved',
-  ).length
+  const approvedCount = historyPageStats.value.approvedCount
   const approvalRate = reviewedCount
     ? `${Math.round((approvedCount / reviewedCount) * 100)}%`
     : '0%'
