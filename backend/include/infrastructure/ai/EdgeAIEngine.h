@@ -311,6 +311,7 @@ private:
     int maxPulseHistoryConfig_ = 100;
     int sentimentCacheTTLConfig_ = 300;
     size_t sentimentCacheMaxConfig_ = 4096;
+    bool lowResourceDefaultsApplied_ = false;
 
     // 八大子系统实例
     std::unique_ptr<SentimentAnalyzer> sentiment_;        ///< 子系统1: 情感分析

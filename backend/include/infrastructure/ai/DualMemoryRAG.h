@@ -53,6 +53,7 @@ struct EmotionMemory {
         int consecutiveNegativeDays = 0;       ///< 连续负面情绪天数（用于风险预警）
         std::string lastActiveDate;            ///< 最后活跃日期
         double lastRefreshTime = 0.0;          ///< 最近一次从 DB 刷新画像的时间
+        bool refreshInFlight = false;          ///< 是否已有线程在刷新长期画像
     };
     LongTermProfile longTerm;  ///< 长期情绪画像
 };
@@ -142,6 +143,27 @@ private:
     EmotionMemory& getOrCreateMemory(const std::string& userId);
 
     /**
+     * @brief 获取用户记忆快照，昂贵计算在锁外进行
+     */
+    EmotionMemory getMemorySnapshot(const std::string& userId);
+
+    /**
+     * @brief 刷新长期画像（可选按刷新间隔节流）
+     */
+    void refreshLongTermMemoryImpl(const std::string& userId, bool forceRefresh, double nowEpoch);
+
+    /**
+     * @brief 将当前对话写入短期记忆，并复用已生成 embedding
+     */
+    void updateShortTermMemoryInternal(
+        const std::string& userId,
+        const std::string& content,
+        const std::string& emotion,
+        float score,
+        const std::vector<float>& contentEmbedding
+    );
+
+    /**
      * @brief 根据情绪分数序列计算趋势方向
      * @return "rising" / "falling" / "stable"
      */
@@ -176,7 +198,8 @@ private:
     void evictLeastRelevant(
         std::vector<EmotionMemory::ShortTermEntry>& entries,
         const std::string& currentContent,
-        const std::string& currentEmotion
+        const std::string& currentEmotion,
+        const std::vector<float>* currentEmbedding = nullptr
     );
 };
 

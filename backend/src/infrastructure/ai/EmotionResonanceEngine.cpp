@@ -20,6 +20,7 @@
 #include <cctype>
 #include <cmath>
 #include <chrono>
+#include <deque>
 #include <sstream>
 #include <limits>
 #include <unordered_map>
@@ -65,6 +66,78 @@ std::vector<float> parsePgFloatArray(const std::string& raw) {
     return values;
 }
 
+struct EnvelopeBounds {
+    std::vector<float> lower;
+    std::vector<float> upper;
+};
+
+EnvelopeBounds buildEnvelopeBounds(const std::vector<float>& series, int bandWidth) {
+    EnvelopeBounds bounds;
+    if (series.empty()) {
+        return bounds;
+    }
+
+    const size_t n = series.size();
+    const size_t radius = static_cast<size_t>(std::max(0, bandWidth));
+    bounds.lower.resize(n);
+    bounds.upper.resize(n);
+
+    std::deque<size_t> minDeque;
+    std::deque<size_t> maxDeque;
+    size_t nextIndex = 0;
+
+    auto pushIndex = [&](size_t idx) {
+        while (!minDeque.empty() && series[minDeque.back()] >= series[idx]) {
+            minDeque.pop_back();
+        }
+        minDeque.push_back(idx);
+
+        while (!maxDeque.empty() && series[maxDeque.back()] <= series[idx]) {
+            maxDeque.pop_back();
+        }
+        maxDeque.push_back(idx);
+    };
+
+    for (size_t i = 0; i < n; ++i) {
+        const size_t lo = (i > radius) ? (i - radius) : 0;
+        const size_t hi = std::min(i + radius, n - 1);
+
+        while (nextIndex <= hi) {
+            pushIndex(nextIndex++);
+        }
+
+        while (!minDeque.empty() && minDeque.front() < lo) {
+            minDeque.pop_front();
+        }
+        while (!maxDeque.empty() && maxDeque.front() < lo) {
+            maxDeque.pop_front();
+        }
+
+        bounds.lower[i] = series[minDeque.front()];
+        bounds.upper[i] = series[maxDeque.front()];
+    }
+
+    return bounds;
+}
+
+float lbKeoghFromBounds(
+    const std::vector<float>& query,
+    const EnvelopeBounds& bounds
+) {
+    const size_t len = std::min(query.size(), bounds.lower.size());
+    float sumSq = 0.0f;
+    for (size_t i = 0; i < len; ++i) {
+        if (query[i] > bounds.upper[i]) {
+            const float d = query[i] - bounds.upper[i];
+            sumSq += d * d;
+        } else if (query[i] < bounds.lower[i]) {
+            const float d = bounds.lower[i] - query[i];
+            sumSq += d * d;
+        }
+    }
+    return std::sqrt(sumSq);
+}
+
 }  // namespace
 
 EmotionResonanceEngine& EmotionResonanceEngine::getInstance() {
@@ -87,33 +160,7 @@ float EmotionResonanceEngine::lbKeogh(
     const size_t m = candidate.size();
     if (n == 0 || m == 0) return 0.0f;
 
-    const size_t len = std::min(n, m);
-    float sumSq = 0.0f;
-
-    for (size_t i = 0; i < len; ++i) {
-        // 包络线范围: [i - bandWidth, i + bandWidth] 在 candidate 上
-        size_t lo = (i > static_cast<size_t>(bandWidth)) ? (i - static_cast<size_t>(bandWidth)) : 0;
-        size_t hi = std::min(i + static_cast<size_t>(bandWidth), m - 1);
-
-        // 找包络线的 min/max
-        float envMin = candidate[lo];
-        float envMax = candidate[lo];
-        for (size_t j = lo + 1; j <= hi; ++j) {
-            if (candidate[j] < envMin) envMin = candidate[j];
-            if (candidate[j] > envMax) envMax = candidate[j];
-        }
-
-        // query[i] 超出包络的部分
-        if (query[i] > envMax) {
-            float d = query[i] - envMax;
-            sumSq += d * d;
-        } else if (query[i] < envMin) {
-            float d = envMin - query[i];
-            sumSq += d * d;
-        }
-    }
-
-    return std::sqrt(sumSq);
+    return lbKeoghFromBounds(query, buildEnvelopeBounds(candidate, bandWidth));
 }
 
 float EmotionResonanceEngine::lbImproved(
@@ -130,30 +177,18 @@ float EmotionResonanceEngine::lbImproved(
     if (n == 0 || m == 0) return 0.0f;
 
     const size_t len = std::min(n, m);
+    const auto candidateBounds = buildEnvelopeBounds(candidate, bandWidth);
 
     // Pass 1: 正向 LB_Keogh(query, candidate_envelope)
     // 同时构建投影序列 projected — query 超出 candidate 包络的位置被钳位到包络边界
-    float fwdSumSq = 0.0f;
     std::vector<float> projected(len);
 
     for (size_t i = 0; i < len; ++i) {
-        size_t lo = (i > static_cast<size_t>(bandWidth)) ? (i - static_cast<size_t>(bandWidth)) : 0;
-        size_t hi = std::min(i + static_cast<size_t>(bandWidth), m - 1);
-
-        float envMin = candidate[lo];
-        float envMax = candidate[lo];
-        for (size_t j = lo + 1; j <= hi; ++j) {
-            if (candidate[j] < envMin) envMin = candidate[j];
-            if (candidate[j] > envMax) envMax = candidate[j];
-        }
-
+        const float envMin = candidateBounds.lower[i];
+        const float envMax = candidateBounds.upper[i];
         if (query[i] > envMax) {
-            float d = query[i] - envMax;
-            fwdSumSq += d * d;
             projected[i] = envMax;  // 钳位到上包络
         } else if (query[i] < envMin) {
-            float d = envMin - query[i];
-            fwdSumSq += d * d;
             projected[i] = envMin;  // 钳位到下包络
         } else {
             projected[i] = query[i]; // 在包络内，保持原值
@@ -162,31 +197,12 @@ float EmotionResonanceEngine::lbImproved(
 
     // Pass 2: 反向 LB_Keogh(candidate, projected_envelope)
     // 用投影后的 query 构建包络，计算 candidate 超出该包络的距离
-    float revSumSq = 0.0f;
-    const size_t pLen = projected.size();
-
-    for (size_t i = 0; i < std::min(m, pLen); ++i) {
-        size_t lo = (i > static_cast<size_t>(bandWidth)) ? (i - static_cast<size_t>(bandWidth)) : 0;
-        size_t hi = std::min(i + static_cast<size_t>(bandWidth), pLen - 1);
-
-        float pEnvMin = projected[lo];
-        float pEnvMax = projected[lo];
-        for (size_t j = lo + 1; j <= hi; ++j) {
-            if (projected[j] < pEnvMin) pEnvMin = projected[j];
-            if (projected[j] > pEnvMax) pEnvMax = projected[j];
-        }
-
-        if (candidate[i] > pEnvMax) {
-            float d = candidate[i] - pEnvMax;
-            revSumSq += d * d;
-        } else if (candidate[i] < pEnvMin) {
-            float d = pEnvMin - candidate[i];
-            revSumSq += d * d;
-        }
-    }
+    const auto projectedBounds = buildEnvelopeBounds(projected, bandWidth);
+    const float fwdLb = lbKeoghFromBounds(query, candidateBounds);
+    const float revLb = lbKeoghFromBounds(candidate, projectedBounds);
 
     // 取两个方向的最大值 — 更紧的下界
-    return std::max(std::sqrt(fwdSumSq), std::sqrt(revSumSq));
+    return std::max(fwdLb, revLb);
 }
 
 float EmotionResonanceEngine::trajectorySimDTW(
@@ -267,7 +283,10 @@ float EmotionResonanceEngine::trajectorySimDTW_EA(
     // sim = exp(-d^2 / 2) => d = sqrt(-2 * ln(sim))
     double abandonThreshold = INF;
     if (bestSoFar > 1e-6f && bestSoFar < 0.999999f) {
-        abandonThreshold = std::sqrt(-2.0 * std::log(static_cast<double>(bestSoFar)));
+        const double normalizedDistThreshold =
+            std::sqrt(-2.0 * std::log(static_cast<double>(bestSoFar)));
+        abandonThreshold =
+            normalizedDistThreshold * static_cast<double>(std::max(n, m));
     }
 
     thread_local std::vector<double> prev_buf_ea, curr_buf_ea;
@@ -299,6 +318,12 @@ float EmotionResonanceEngine::trajectorySimDTW_EA(
         }
 
         std::swap(prev_buf_ea, curr_buf_ea);
+    }
+
+    constexpr size_t SHRINK_THRESHOLD = 2048;
+    if (prev_buf_ea.capacity() > SHRINK_THRESHOLD) {
+        prev_buf_ea.shrink_to_fit();
+        curr_buf_ea.shrink_to_fit();
     }
 
     const double normalizedDist = prev_buf_ea[m] / static_cast<double>(std::max(n, m));
@@ -511,7 +536,8 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             "         COALESCE(s.mood_type, 'neutral') AS mood_type, "
             "         COALESCE(s.emotion_score, 0.0) AS emotion_score, "
             "         COALESCE(s.ripple_count, 0) AS ripple_count, "
-            "         s.created_at "
+            "         s.created_at, "
+            "         EXP(-0.1 * EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0) AS temporal_score "
             "  FROM stones s "
             "  WHERE s.stone_id != $1 AND s.user_id != $2 "
             "    AND s.status = 'published' "
@@ -543,6 +569,7 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             ") "
             "SELECT cs.stone_id, cs.user_id, cs.content, cs.mood_type, "
             "       cs.emotion_score, cs.ripple_count, cs.created_at, "
+            "       cs.temporal_score, "
             "       u.nickname AS author_name, "
             "       COALESCE(ts.scores::text, '{}') AS trajectory_scores, "
             "       COALESCE(lm.current_mood, 'neutral') AS current_mood, "
@@ -556,9 +583,12 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
         );
         // 已推荐的情绪列表（用于多样性计算）
         std::vector<std::string> recommendedMoods;
+        recommendedMoods.reserve(candidates.size());
+        results.reserve(std::min(candidates.size(), static_cast<size_t>(limit)));
         float bestTrajectoryScore = 0.0f;
         std::unordered_map<std::string, EmotionTrajectory> trajectoryCache;
         trajectoryCache.reserve(candidates.size());
+        const auto weights = getWeights();
 
         // 5. 对每个候选计算四维共鸣分数
         for (const auto& row : candidates) {
@@ -604,9 +634,7 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             }
             const auto& candTraj = trajIt->second;
             if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
-                const float lbK = lbKeogh(userTraj.scores, candTraj.scores);
-                const float lbI = lbImproved(userTraj.scores, candTraj.scores);
-                const float lbDist = std::max(lbK, lbI);
+                const float lbDist = lbImproved(userTraj.scores, candTraj.scores);
                 // 将下界距离转换为相似度（与 DTW 输出同尺度高斯核映射）
                 const float lbSim = std::exp(-lbDist * lbDist / 2.0f);
                 if (lbSim < 0.1f) {
@@ -626,16 +654,16 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             }
 
             // 维度3: 时间衰减
-            res.temporalScore = temporalDecay(candTimestamp);
+            res.temporalScore = row["temporal_score"].isNull()
+                ? temporalDecay(candTimestamp)
+                : row["temporal_score"].as<float>();
 
             // 维度4: 多样性奖励
             res.diversityScore = diversityBonus(sourceMood, candMood, recommendedMoods);
-            // 加权总分 — 一次性拿到一致的权重快照，杜绝 torn-read
-            const auto w = getWeights();
-            res.totalScore = w.a * res.semanticScore
-                           + w.b * res.trajectoryScore
-                           + w.g * res.temporalScore
-                           + w.d * res.diversityScore;
+            res.totalScore = weights.a * res.semanticScore
+                           + weights.b * res.trajectoryScore
+                           + weights.g * res.temporalScore
+                           + weights.d * res.diversityScore;
 
             // 生成共鸣原因
             res.resonanceReason = generateResonanceReason(res, sourceMood, candMood);

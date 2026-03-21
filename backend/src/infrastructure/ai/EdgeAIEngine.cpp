@@ -8,8 +8,10 @@
 
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include <trantor/utils/Logger.h>
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <thread>
 
 namespace heartlake {
 namespace ai {
@@ -111,6 +113,22 @@ int parsePositiveIntEnv(const char* rawValue, int fallback) {
     return static_cast<int>(value);
 }
 
+bool shouldApplyLowResourceDefaults() {
+    if (const char* raw = std::getenv("HEARTLAKE_LOW_RESOURCE_MODE")) {
+        bool enabled = false;
+        if (parseBoolLiteral(raw, enabled)) {
+            return enabled;
+        }
+    }
+
+    const unsigned int hw = std::thread::hardware_concurrency();
+    return hw > 0 && hw <= 2;
+}
+
+int defaultOnnxThreadsForRuntime(bool lowResource) {
+    return lowResource ? 1 : 2;
+}
+
 } // namespace
 
 // ============================================================================
@@ -136,6 +154,14 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
 
 void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     LOG_INFO << "[EdgeAI] Initializing Edge AI Engine...";
+
+    lowResourceDefaultsApplied_ = shouldApplyLowResourceDefaults();
+    if (lowResourceDefaultsApplied_) {
+        hnswEfConstructionConfig_ = std::min(hnswEfConstructionConfig_, 128);
+        hnswEfSearchConfig_ = std::min(hnswEfSearchConfig_, 32);
+        sentimentCacheMaxConfig_ = std::min<size_t>(sentimentCacheMaxConfig_, 2048);
+        LOG_INFO << "[EdgeAI] Applying low-resource defaults for 2c2g-class runtime";
+    }
 
     // 创建子系统
     sentiment_ = std::make_unique<SentimentAnalyzer>();
@@ -189,7 +215,9 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     if (modelExists && (!hasExplicitOnnxSwitch || onnxWanted)) {
         try {
             onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
-            const int onnxThreads = parsePositiveIntEnv(std::getenv("EDGE_AI_ONNX_THREADS"), 2);
+            const int onnxThreads = parsePositiveIntEnv(
+                std::getenv("EDGE_AI_ONNX_THREADS"),
+                defaultOnnxThreadsForRuntime(lowResourceDefaultsApplied_));
             onnxEngine_->initialize(
                 resolvedModelPath.string(),
                 resolvedVocabPath.string(),
@@ -489,6 +517,11 @@ Json::Value EdgeAIEngine::getEngineStats() const {
     Json::Value stats;
     stats["enabled"] = enabled_.load(std::memory_order_acquire);
     stats["initialized"] = initialized_.load(std::memory_order_acquire);
+    stats["low_resource_defaults_applied"] = lowResourceDefaultsApplied_;
+    stats["sentiment_cache_ttl_seconds"] = sentimentCacheTTLConfig_;
+    stats["sentiment_cache_max_entries"] = static_cast<Json::UInt64>(sentimentCacheMaxConfig_);
+    stats["hnsw_ef_construction"] = hnswEfConstructionConfig_;
+    stats["hnsw_ef_search"] = hnswEfSearchConfig_;
 
     if (sentiment_) {
         stats["total_sentiment_calls"] = static_cast<Json::UInt64>(sentiment_->getTotalCalls());

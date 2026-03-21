@@ -27,7 +27,9 @@
 #include <vector>
 #include <cctype>
 #include <cstdlib>
+#include <ctime>
 #include <memory>
+#include <stdexcept>
 
 using heartlake::utils::safeRow;
 
@@ -69,20 +71,26 @@ double lexicalHint(const std::string& current, const std::string& history) {
 std::vector<size_t> selectRelevantShortTermEntries(
     const std::vector<EmotionMemory::ShortTermEntry>& entries,
     const std::string& currentContent,
-    const std::string& currentEmotion
+    const std::string& currentEmotion,
+    const std::vector<float>* currentEmbeddingHint = nullptr
 ) {
     if (entries.empty()) {
         return {};
     }
 
     std::vector<float> currentEmbedding;
-    bool embeddingReady = false;
-    try {
-        currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
-        embeddingReady = !currentEmbedding.empty();
-    } catch (const std::exception& e) {
-        LOG_WARN << "Embedding generation failed: " << e.what();
-        embeddingReady = false;
+    const std::vector<float>* currentEmbeddingPtr = currentEmbeddingHint;
+    bool embeddingReady = currentEmbeddingPtr && !currentEmbeddingPtr->empty();
+    if (!embeddingReady) {
+        try {
+            currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
+            embeddingReady = !currentEmbedding.empty();
+            currentEmbeddingPtr = embeddingReady ? &currentEmbedding : nullptr;
+        } catch (const std::exception& e) {
+            LOG_WARN << "Embedding generation failed: " << e.what();
+            embeddingReady = false;
+            currentEmbeddingPtr = nullptr;
+        }
     }
 
     struct ScoredEntry {
@@ -114,13 +122,15 @@ std::vector<size_t> selectRelevantShortTermEntries(
         // 语义相关度加权（0~1.2）
         if (embeddingReady) {
             try {
-                std::vector<float> histEmbedding;
-                if (!entry.embedding.empty() && entry.embedding.size() == currentEmbedding.size()) {
-                    histEmbedding = entry.embedding;
+                const std::vector<float>* histEmbedding = nullptr;
+                std::vector<float> generatedEmbedding;
+                if (!entry.embedding.empty() && entry.embedding.size() == currentEmbeddingPtr->size()) {
+                    histEmbedding = &entry.embedding;
                 } else {
-                    histEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(entry.content);
+                    generatedEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(entry.content);
+                    histEmbedding = &generatedEmbedding;
                 }
-                const float semantic = cosineSimilarity(currentEmbedding, histEmbedding);
+                const float semantic = cosineSimilarity(*currentEmbeddingPtr, *histEmbedding);
                 if (semantic > 0.0f) {
                     total += static_cast<double>(semantic) * 1.2;
                 }
@@ -237,6 +247,37 @@ double currentEpochSeconds() {
             std::chrono::system_clock::now().time_since_epoch()).count());
 }
 
+std::string formatLocalTimestamp(std::time_t timeValue) {
+    std::tm tm{};
+#if defined(_WIN32)
+    localtime_s(&tm, &timeValue);
+#else
+    localtime_r(&timeValue, &tm);
+#endif
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    return oss.str();
+}
+
+const std::string& stoneScoreSql() {
+    static const std::string kSql =
+        "COALESCE(emotion_score, sentiment_score, "
+        "  CASE COALESCE(mood_type, 'neutral') "
+        "    WHEN 'happy' THEN 0.70 "
+        "    WHEN 'calm' THEN 0.35 "
+        "    WHEN 'grateful' THEN 0.60 "
+        "    WHEN 'hopeful' THEN 0.45 "
+        "    WHEN 'neutral' THEN 0.0 "
+        "    WHEN 'confused' THEN -0.10 "
+        "    WHEN 'anxious' THEN -0.45 "
+        "    WHEN 'sad' THEN -0.65 "
+        "    WHEN 'angry' THEN -0.55 "
+        "    WHEN 'lonely' THEN -0.50 "
+        "    ELSE 0.0 END"
+        ")";
+    return kSql;
+}
+
 std::string buildLocalCompanionReply(
     const EmotionMemory::LongTermProfile& profile,
     const std::string& userId,
@@ -335,6 +376,18 @@ EmotionMemory& DualMemoryRAG::getOrCreateMemory(const std::string& userId) {
     return it->second;
 }
 
+EmotionMemory DualMemoryRAG::getMemorySnapshot(const std::string& userId) {
+    std::shared_lock<std::shared_mutex> readLock(mutex_);
+    auto it = memories_.find(userId);
+    if (it != memories_.end()) {
+        return it->second;
+    }
+
+    readLock.unlock();
+    std::unique_lock<std::shared_mutex> writeLock(mutex_);
+    return getOrCreateMemory(userId);
+}
+
 void DualMemoryRAG::updateShortTermMemory(
     const std::string& userId,
     const std::string& content,
@@ -350,20 +403,28 @@ void DualMemoryRAG::updateShortTermMemory(
         }
     }
 
+    updateShortTermMemoryInternal(userId, content, emotion, score, contentEmbedding);
+}
+
+void DualMemoryRAG::updateShortTermMemoryInternal(
+    const std::string& userId,
+    const std::string& content,
+    const std::string& emotion,
+    float score,
+    const std::vector<float>& contentEmbedding
+) {
     std::unique_lock<std::shared_mutex> lock(mutex_);
     auto& memory = getOrCreateMemory(userId);
 
     // 生成时间戳
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    std::ostringstream oss;
-    oss << std::put_time(std::localtime(&time_t_now), "%Y-%m-%d %H:%M:%S");
     EmotionMemory::ShortTermEntry entry;
     entry.content = content;
     entry.emotion = emotion;
     entry.score = score;
-    entry.timestamp = oss.str();
-    entry.embedding = std::move(contentEmbedding);
+    entry.timestamp = formatLocalTimestamp(time_t_now);
+    entry.embedding = contentEmbedding;
     entry.accessCount = 0;
     entry.lastAccessTime = currentEpochSeconds();
 
@@ -371,14 +432,15 @@ void DualMemoryRAG::updateShortTermMemory(
 
     // 基于相关性淘汰：保留与当前对话最相关的记忆
     if (static_cast<int>(memory.shortTerm.size()) > MAX_SHORT_TERM) {
-        evictLeastRelevant(memory.shortTerm, content, emotion);
+        evictLeastRelevant(memory.shortTerm, content, emotion, &contentEmbedding);
     }
 }
 
 void DualMemoryRAG::evictLeastRelevant(
     std::vector<EmotionMemory::ShortTermEntry>& entries,
     const std::string& currentContent,
-    const std::string& currentEmotion
+    const std::string& currentEmotion,
+    const std::vector<float>* currentEmbeddingHint
 ) {
     if (entries.size() <= static_cast<size_t>(MAX_SHORT_TERM)) {
         return;
@@ -389,13 +451,18 @@ void DualMemoryRAG::evictLeastRelevant(
 
     // 尝试获取当前内容的嵌入
     std::vector<float> currentEmbedding;
-    bool embeddingReady = false;
-    try {
-        currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
-        embeddingReady = !currentEmbedding.empty();
-    } catch (const std::exception& e) {
-        LOG_WARN << "Embedding generation failed: " << e.what();
-        embeddingReady = false;
+    const std::vector<float>* currentEmbeddingPtr = currentEmbeddingHint;
+    bool embeddingReady = currentEmbeddingPtr && !currentEmbeddingPtr->empty();
+    if (!embeddingReady) {
+        try {
+            currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
+            embeddingReady = !currentEmbedding.empty();
+            currentEmbeddingPtr = embeddingReady ? &currentEmbedding : nullptr;
+        } catch (const std::exception& e) {
+            LOG_WARN << "Embedding generation failed: " << e.what();
+            embeddingReady = false;
+            currentEmbeddingPtr = nullptr;
+        }
     }
 
     auto now = std::chrono::system_clock::now();
@@ -418,13 +485,15 @@ void DualMemoryRAG::evictLeastRelevant(
         // 语义相关度
         if (embeddingReady) {
             try {
-                std::vector<float> emb;
-                if (!e.embedding.empty() && e.embedding.size() == currentEmbedding.size()) {
-                    emb = e.embedding;
+                const std::vector<float>* emb = nullptr;
+                std::vector<float> generatedEmbedding;
+                if (!e.embedding.empty() && e.embedding.size() == currentEmbeddingPtr->size()) {
+                    emb = &e.embedding;
                 } else {
-                    emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
+                    generatedEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
+                    emb = &generatedEmbedding;
                 }
-                float sim = cosineSimilarity(currentEmbedding, emb);
+                float sim = cosineSimilarity(*currentEmbeddingPtr, *emb);
                 retainScore += alpha * std::max(0.0f, sim);
             } catch (const std::exception& ex) {
                 LOG_WARN << "Embedding similarity failed: " << ex.what();
@@ -454,17 +523,6 @@ void DualMemoryRAG::evictLeastRelevant(
     entries.erase(entries.begin() + static_cast<ptrdiff_t>(worstIdx));
 }
 
-bool DualMemoryRAG::shouldRefreshLongTermMemory(const std::string& userId, double nowEpoch) const {
-    std::shared_lock<std::shared_mutex> lock(mutex_);
-    auto it = memories_.find(userId);
-    if (it == memories_.end()) {
-        return true;
-    }
-
-    return it->second.longTerm.lastRefreshTime <= 0.0 ||
-        (nowEpoch - it->second.longTerm.lastRefreshTime) >= LONG_TERM_REFRESH_INTERVAL_SECONDS;
-}
-
 void DualMemoryRAG::markShortTermEntriesAccessed(
     const std::string& userId,
     const std::vector<size_t>& indices
@@ -492,155 +550,142 @@ void DualMemoryRAG::markShortTermEntriesAccessed(
 }
 
 void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
+    refreshLongTermMemoryImpl(userId, true, currentEpochSeconds());
+}
+
+void DualMemoryRAG::refreshLongTermMemoryImpl(
+    const std::string& userId,
+    bool forceRefresh,
+    double nowEpoch
+) {
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
+        auto& memory = getOrCreateMemory(userId);
+        auto& longTerm = memory.longTerm;
+        if (longTerm.refreshInFlight) {
+            return;
+        }
+        if (!forceRefresh &&
+            longTerm.lastRefreshTime > 0.0 &&
+            (nowEpoch - longTerm.lastRefreshTime) < LONG_TERM_REFRESH_INTERVAL_SECONDS) {
+            return;
+        }
+        longTerm.refreshInFlight = true;
+    }
+
     EmotionMemory::LongTermProfile refreshedProfile;
+    bool refreshSucceeded = false;
 
     try {
         auto db = drogon::app().getDbClient("default");
         if (!db) {
-            return;
+            throw std::runtime_error("default db client unavailable");
         }
-        // CTE 提取情绪分数，避免重复 CASE 表达式；同时计算 Ebbinghaus 指数衰减加权分
-        auto result = db->execSqlSync(
-            "WITH scored AS ("
-            "  SELECT "
-            "    COALESCE(emotion_score, sentiment_score, "
-            "      CASE COALESCE(mood_type, 'neutral') "
-            "        WHEN 'happy' THEN 0.70 "
-            "        WHEN 'calm' THEN 0.35 "
-            "        WHEN 'grateful' THEN 0.60 "
-            "        WHEN 'hopeful' THEN 0.45 "
-            "        WHEN 'neutral' THEN 0.0 "
-            "        WHEN 'confused' THEN -0.10 "
-            "        WHEN 'anxious' THEN -0.45 "
-            "        WHEN 'sad' THEN -0.65 "
-            "        WHEN 'angry' THEN -0.55 "
-            "        WHEN 'lonely' THEN -0.50 "
-            "        ELSE 0.0 END"
-            "    ) as score, "
-            "    created_at "
-            "  FROM stones WHERE user_id = $1 "
-            "  AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
-            "  AND deleted_at IS NULL"
-            ") "
-            "SELECT COUNT(*) as total_posts, "
-            "AVG(score) as avg_score, "
-            "STDDEV(score) as score_stddev, "
-            "MAX(created_at)::text as last_active, "
-            "SUM(score * EXP(-" + std::to_string(DECAY_LAMBDA) + " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)) / "
-            "  NULLIF(SUM(EXP(-" + std::to_string(DECAY_LAMBDA) + " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)), 0) as decay_score "
-            "FROM scored",
-            userId
-        );
+
+        std::ostringstream sql;
+        sql
+            << "WITH scored AS ("
+            << "  SELECT " << stoneScoreSql() << " AS score, "
+            << "         COALESCE(mood_type, 'neutral') AS mood_type, "
+            << "         created_at, "
+            << "         DATE(created_at) AS day_bucket "
+            << "  FROM stones "
+            << "  WHERE user_id = $1 "
+            << "    AND created_at > NOW() - INTERVAL '" << LONG_TERM_RETENTION_DAYS << " days' "
+            << "    AND deleted_at IS NULL"
+            << "), aggregate_stats AS ("
+            << "  SELECT COUNT(*) AS total_posts, "
+            << "         AVG(score) AS avg_score, "
+            << "         STDDEV(score) AS score_stddev, "
+            << "         MAX(created_at)::text AS last_active, "
+            << "         SUM(score * EXP(-" << DECAY_LAMBDA
+            << " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)) / "
+            << "           NULLIF(SUM(EXP(-" << DECAY_LAMBDA
+            << " * EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0)), 0) AS decay_score "
+            << "  FROM scored"
+            << "), dominant_mood AS ("
+            << "  SELECT mood_type "
+            << "  FROM scored "
+            << "  GROUP BY mood_type "
+            << "  ORDER BY COUNT(*) DESC, mood_type ASC "
+            << "  LIMIT 1"
+            << "), trend_stats AS ("
+            << "  SELECT AVG(score) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') AS recent_avg, "
+            << "         AVG(score) FILTER ("
+            << "             WHERE created_at <= NOW() - INTERVAL '7 days' "
+            << "               AND created_at > NOW() - INTERVAL '14 days'"
+            << "         ) AS prev_avg "
+            << "  FROM scored "
+            << "  WHERE created_at > NOW() - INTERVAL '14 days'"
+            << "), daily_scores AS ("
+            << "  SELECT day_bucket, AVG(score) AS day_avg "
+            << "  FROM scored "
+            << "  WHERE created_at > NOW() - INTERVAL '14 days' "
+            << "  GROUP BY day_bucket"
+            << "), ordered_days AS ("
+            << "  SELECT day_bucket, day_avg, "
+            << "         SUM(CASE WHEN day_avg < -0.2 THEN 0 ELSE 1 END) OVER ("
+            << "             ORDER BY day_bucket DESC "
+            << "             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
+            << "         ) AS non_negative_seen "
+            << "  FROM daily_scores"
+            << "), negative_streak AS ("
+            << "  SELECT COUNT(*) AS consecutive_negative_days "
+            << "  FROM ordered_days "
+            << "  WHERE day_avg < -0.2 AND non_negative_seen = 0"
+            << ") "
+            << "SELECT COALESCE(a.total_posts, 0) AS total_posts, "
+            << "       a.avg_score, "
+            << "       a.score_stddev, "
+            << "       a.last_active, "
+            << "       a.decay_score, "
+            << "       COALESCE(d.mood_type, 'neutral') AS dominant_mood, "
+            << "       t.recent_avg, "
+            << "       t.prev_avg, "
+            << "       COALESCE(n.consecutive_negative_days, 0) AS consecutive_negative_days "
+            << "FROM aggregate_stats a "
+            << "LEFT JOIN dominant_mood d ON TRUE "
+            << "LEFT JOIN trend_stats t ON TRUE "
+            << "LEFT JOIN negative_streak n ON TRUE";
+
+        auto result = db->execSqlSync(sql.str(), userId);
 
         if (auto rowOpt = safeRow(result)) {
             auto& row = *rowOpt;
-            if (!row["total_posts"].isNull()) {
-                refreshedProfile.totalPosts = row["total_posts"].as<int>();
-                refreshedProfile.avgEmotionScore = row["avg_score"].isNull() ? 0.0f : row["avg_score"].as<float>();
-                refreshedProfile.decayWeightedScore = row["decay_score"].isNull() ? 0.0f : row["decay_score"].as<float>();
-                refreshedProfile.emotionVolatility = row["score_stddev"].isNull() ? 0.0f : row["score_stddev"].as<float>();
-                refreshedProfile.lastActiveDate = row["last_active"].isNull() ? "" : row["last_active"].as<std::string>();
-            }
-        }
+            refreshedProfile.totalPosts = row["total_posts"].as<int>();
+            refreshedProfile.avgEmotionScore = row["avg_score"].isNull() ? 0.0f : row["avg_score"].as<float>();
+            refreshedProfile.decayWeightedScore = row["decay_score"].isNull() ? 0.0f : row["decay_score"].as<float>();
+            refreshedProfile.emotionVolatility = row["score_stddev"].isNull() ? 0.0f : row["score_stddev"].as<float>();
+            refreshedProfile.lastActiveDate = row["last_active"].isNull() ? "" : row["last_active"].as<std::string>();
+            refreshedProfile.dominantMood = row["dominant_mood"].isNull()
+                ? "neutral"
+                : row["dominant_mood"].as<std::string>();
 
-        // 获取主导情绪
-        auto moodResult = db->execSqlSync(
-            "SELECT mood_type, COUNT(*) as cnt FROM stones "
-            "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '" + std::to_string(LONG_TERM_RETENTION_DAYS) + " days' "
-            "AND deleted_at IS NULL AND mood_type IS NOT NULL "
-            "GROUP BY mood_type ORDER BY cnt DESC LIMIT 1",
-            userId
-        );
-        if (!moodResult.empty()) {
-            refreshedProfile.dominantMood = moodResult[0]["mood_type"].as<std::string>();
-        }
-
-        // 计算情绪趋势：对比最近7天 vs 前7-14天
-        auto trendResult = db->execSqlSync(
-            "SELECT "
-            "AVG(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN "
-            "  COALESCE(emotion_score, sentiment_score, "
-            "    CASE COALESCE(mood_type, 'neutral') "
-            "      WHEN 'happy' THEN 0.70 "
-            "      WHEN 'calm' THEN 0.35 "
-            "      WHEN 'grateful' THEN 0.60 "
-            "      WHEN 'hopeful' THEN 0.45 "
-            "      WHEN 'neutral' THEN 0.0 "
-            "      WHEN 'confused' THEN -0.10 "
-            "      WHEN 'anxious' THEN -0.45 "
-            "      WHEN 'sad' THEN -0.65 "
-            "      WHEN 'angry' THEN -0.55 "
-            "      WHEN 'lonely' THEN -0.50 "
-            "      ELSE 0.0 END) "
-            "END) as recent_avg, "
-            "AVG(CASE WHEN created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days' THEN "
-            "  COALESCE(emotion_score, sentiment_score, "
-            "    CASE COALESCE(mood_type, 'neutral') "
-            "      WHEN 'happy' THEN 0.70 "
-            "      WHEN 'calm' THEN 0.35 "
-            "      WHEN 'grateful' THEN 0.60 "
-            "      WHEN 'hopeful' THEN 0.45 "
-            "      WHEN 'neutral' THEN 0.0 "
-            "      WHEN 'confused' THEN -0.10 "
-            "      WHEN 'anxious' THEN -0.45 "
-            "      WHEN 'sad' THEN -0.65 "
-            "      WHEN 'angry' THEN -0.55 "
-            "      WHEN 'lonely' THEN -0.50 "
-            "      ELSE 0.0 END) "
-            "END) as prev_avg "
-            "FROM stones WHERE user_id = $1 "
-            "AND created_at > NOW() - INTERVAL '14 days' AND deleted_at IS NULL",
-            userId
-        );
-        if (!trendResult.empty()) {
-            float recentAvg = trendResult[0]["recent_avg"].isNull() ? 0.0f : trendResult[0]["recent_avg"].as<float>();
-            float prevAvg = trendResult[0]["prev_avg"].isNull() ? 0.0f : trendResult[0]["prev_avg"].as<float>();
+            const float recentAvg = row["recent_avg"].isNull() ? 0.0f : row["recent_avg"].as<float>();
+            const float prevAvg = row["prev_avg"].isNull() ? 0.0f : row["prev_avg"].as<float>();
             float diff = recentAvg - prevAvg;
             if (diff > 0.15f) refreshedProfile.emotionTrend = "rising";
             else if (diff < -0.15f) refreshedProfile.emotionTrend = "falling";
             else refreshedProfile.emotionTrend = "stable";
+            refreshedProfile.consecutiveNegativeDays = row["consecutive_negative_days"].isNull()
+                ? 0
+                : row["consecutive_negative_days"].as<int>();
         }
-
-        // 连续负面天数
-        auto negResult = db->execSqlSync(
-            "SELECT DATE(created_at) as d, "
-            "AVG(COALESCE(emotion_score, sentiment_score, "
-            "CASE COALESCE(mood_type, 'neutral') "
-            "  WHEN 'happy' THEN 0.70 "
-            "  WHEN 'calm' THEN 0.35 "
-            "  WHEN 'grateful' THEN 0.60 "
-            "  WHEN 'hopeful' THEN 0.45 "
-            "  WHEN 'neutral' THEN 0.0 "
-            "  WHEN 'confused' THEN -0.10 "
-            "  WHEN 'anxious' THEN -0.45 "
-            "  WHEN 'sad' THEN -0.65 "
-            "  WHEN 'angry' THEN -0.55 "
-            "  WHEN 'lonely' THEN -0.50 "
-            "  ELSE 0.0 END"
-            ")) as day_avg "
-            "FROM stones WHERE user_id = $1 "
-            "AND created_at > NOW() - INTERVAL '14 days' AND deleted_at IS NULL "
-            "GROUP BY DATE(created_at) ORDER BY d DESC",
-            userId
-        );
-        int consecutiveNeg = 0;
-        for (const auto& row : negResult) {
-            float dayAvg = row["day_avg"].isNull() ? 0.0f : row["day_avg"].as<float>();
-            if (dayAvg < -0.2f) {
-                consecutiveNeg++;
-            } else {
-                break;
-            }
-        }
-        refreshedProfile.consecutiveNegativeDays = consecutiveNeg;
         refreshedProfile.lastRefreshTime = currentEpochSeconds();
-
-        std::unique_lock<std::shared_mutex> lock(mutex_);
-        auto& memory = getOrCreateMemory(userId);
-        memory.longTerm = std::move(refreshedProfile);
-
+        refreshSucceeded = true;
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "DualMemoryRAG::refreshLongTermMemory failed: " << e.base().what();
+    } catch (const std::exception& e) {
+        LOG_ERROR << "DualMemoryRAG::refreshLongTermMemory failed: " << e.what();
+    }
+
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    auto& memory = getOrCreateMemory(userId);
+    if (refreshSucceeded) {
+        refreshedProfile.refreshInFlight = false;
+        memory.longTerm = std::move(refreshedProfile);
+    } else {
+        memory.longTerm.refreshInFlight = false;
     }
 }
 
@@ -728,30 +773,26 @@ std::string DualMemoryRAG::generateResponse(
     float emotionScore
 ) {
     // 1. 节流刷新长期记忆，避免每次请求都刷库
-    const double nowEpoch = currentEpochSeconds();
-    if (shouldRefreshLongTermMemory(userId, nowEpoch)) {
-        refreshLongTermMemory(userId);
+    refreshLongTermMemoryImpl(userId, false, currentEpochSeconds());
+
+    std::vector<float> currentEmbedding;
+    if (!currentContent.empty()) {
+        try {
+            currentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(currentContent);
+        } catch (const std::exception& e) {
+            LOG_WARN << "DualMemoryRAG current embedding generation failed: " << e.what();
+        }
     }
 
     // 2. 更新短期记忆
-    updateShortTermMemory(userId, currentContent, currentEmotion, emotionScore);
+    updateShortTermMemoryInternal(
+        userId, currentContent, currentEmotion, emotionScore, currentEmbedding);
 
     // 3. 构建RAG提示词
-    EmotionMemory memoryCopy;
-    {
-        // 读多写少：先用 shared_lock 查找，仅在用户首次出现时升级为 unique_lock
-        std::shared_lock<std::shared_mutex> rlock(mutex_);
-        auto it = memories_.find(userId);
-        if (it != memories_.end()) {
-            memoryCopy = it->second;
-        } else {
-            rlock.unlock();
-            std::unique_lock<std::shared_mutex> wlock(mutex_);
-            memoryCopy = getOrCreateMemory(userId);
-        }
-    }
+    EmotionMemory memoryCopy = getMemorySnapshot(userId);
     const auto pickedShortTerm =
-        selectRelevantShortTermEntries(memoryCopy.shortTerm, currentContent, currentEmotion);
+        selectRelevantShortTermEntries(
+            memoryCopy.shortTerm, currentContent, currentEmotion, &currentEmbedding);
     markShortTermEntriesAccessed(userId, pickedShortTerm);
     std::string ragPrompt =
         buildRAGPrompt(memoryCopy, currentContent, currentEmotion, &pickedShortTerm);
@@ -826,24 +867,9 @@ std::string DualMemoryRAG::generateResponse(
 
 Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
     // 节流刷新长期记忆，避免 insights 频繁打 DB
-    const double nowEpoch = currentEpochSeconds();
-    if (shouldRefreshLongTermMemory(userId, nowEpoch)) {
-        refreshLongTermMemory(userId);
-    }
+    refreshLongTermMemoryImpl(userId, false, currentEpochSeconds());
 
-    EmotionMemory memoryCopy;
-    {
-        // 读多写少：先用 shared_lock 查找，仅在用户首次出现时升级为 unique_lock
-        std::shared_lock<std::shared_mutex> rlock(mutex_);
-        auto it = memories_.find(userId);
-        if (it != memories_.end()) {
-            memoryCopy = it->second;
-        } else {
-            rlock.unlock();
-            std::unique_lock<std::shared_mutex> wlock(mutex_);
-            memoryCopy = getOrCreateMemory(userId);
-        }
-    }
+    EmotionMemory memoryCopy = getMemorySnapshot(userId);
 
     Json::Value insights;
     insights["user_id"] = userId;
