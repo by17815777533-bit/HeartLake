@@ -43,6 +43,7 @@ public:
     ADD_METHOD_TO(AdminManagementController::unbanUser, "/api/admin/users/{1}/unban", Post, Options, "heartlake::filters::AdminAuthFilter");
 
     // ---- 内容管理（石头 + 纸船） ----
+    ADD_METHOD_TO(AdminManagementController::getContents, "/api/admin/content", Get, Options, "heartlake::filters::AdminAuthFilter");
     ADD_METHOD_TO(AdminManagementController::getStones, "/api/admin/stones", Get, Options, "heartlake::filters::AdminAuthFilter");
     ADD_METHOD_TO(AdminManagementController::getStoneDetail, "/api/admin/stones/{1}", Get, Options, "heartlake::filters::AdminAuthFilter");
     ADD_METHOD_TO(AdminManagementController::deleteStone, "/api/admin/stones/{1}", Delete, Options, "heartlake::filters::AdminAuthFilter");
@@ -103,6 +104,9 @@ public:
     void unbanUser(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, const std::string &userId);
 
     // ==================== 内容管理 ====================
+
+    /// GET /api/admin/content?page=1&page_size=20 — 统一内容列表（石头 + 纸船）
+    void getContents(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);
 
     /// GET /api/admin/stones?page=1&page_size=20 — 石头列表
     void getStones(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);

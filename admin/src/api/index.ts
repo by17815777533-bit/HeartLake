@@ -320,7 +320,7 @@ export default {
   banUser: (id: string, data: BanUserParams) => http.post(`/admin/users/${id}/ban`, data),
   unbanUser: (id: string) => http.post(`/admin/users/${id}/unban`),
   // Content
-  getContents: (params?: Params) => http.get('/admin/stones', { params }),
+  getContents: (params?: Params) => http.get('/admin/content', { params }),
   deleteContent: (id: string, reason: string) => http.delete(`/admin/stones/${id}`, { data: { reason } }),
   getStones: (params?: Params) => http.get('/admin/stones', { params }),
   getBoats: (params?: Params) => http.get('/admin/boats', { params }),

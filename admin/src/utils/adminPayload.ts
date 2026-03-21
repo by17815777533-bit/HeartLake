@@ -160,7 +160,7 @@ export function normalizeContentItem(payload: unknown, typeHint?: ContentType): 
 
 export function normalizeContentCollection(
   payload: unknown,
-  type: ContentType,
+  type: ContentType | undefined,
   semanticKeys: readonly string[],
 ): { items: ContentItem[]; total: number } {
   const { items, total } = normalizeCollectionResponse<AdminRecord>(payload, semanticKeys)

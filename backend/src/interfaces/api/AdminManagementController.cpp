@@ -388,6 +388,99 @@ void AdminManagementController::unbanUser(const HttpRequestPtr &req,
     }
 }
 
+void AdminManagementController::getContents(const HttpRequestPtr &req,
+                                            std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        auto [page, pageSize] = safePagination(req);
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
+        const auto status = req->getParameter("status");
+        const auto keyword = req->getParameter("keyword");
+
+        auto dbClient = app().getDbClient("default");
+        std::string querySql =
+            "SELECT content_id, content_type, content, mood_type, is_anonymous, "
+            "status, created_at, author_nickname, ripple_count, boat_count, "
+            "COUNT(*) OVER() AS total_count "
+            "FROM ("
+            "  SELECT s.stone_id AS content_id, 'stone' AS content_type, "
+            "         s.content, s.mood_type, s.is_anonymous, "
+            "         COALESCE(s.status, 'published') AS status, "
+            "         s.created_at, COALESCE(u.nickname, '匿名') AS author_nickname, "
+            "         COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "         COALESCE(s.boat_count, 0) AS boat_count "
+            "  FROM stones s "
+            "  LEFT JOIN users u ON s.user_id = u.user_id "
+            "  UNION ALL "
+            "  SELECT b.boat_id AS content_id, 'boat' AS content_type, "
+            "         b.content, '' AS mood_type, b.is_anonymous, "
+            "         CASE WHEN COALESCE(b.status, 'active') = 'active' "
+            "              THEN 'published' ELSE COALESCE(b.status, 'active') END AS status, "
+            "         b.created_at, COALESCE(u.nickname, '匿名') AS author_nickname, "
+            "         0 AS ripple_count, 0 AS boat_count "
+            "  FROM paper_boats b "
+            "  LEFT JOIN users u ON b.sender_id = u.user_id"
+            ") content_feed "
+            "WHERE 1=1";
+        std::vector<std::string> params;
+        int paramIdx = 1;
+
+        if (!status.empty() && isValidStoneStatus(status)) {
+            querySql += " AND status = $" + std::to_string(paramIdx);
+            params.push_back(status);
+            ++paramIdx;
+        }
+
+        if (!keyword.empty()) {
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            querySql += " AND (content ILIKE " + placeholder +
+                " ESCAPE '\\' OR author_nickname ILIKE " + placeholder +
+                " ESCAPE '\\')";
+            params.push_back("%" + escapeLike(keyword) + "%");
+            ++paramIdx;
+        }
+
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY created_at DESC LIMIT $" + std::to_string(limitParam) +
+            " OFFSET $" + std::to_string(offsetParam);
+
+        auto result = execSqlWithStringParamsAndPagination(
+            dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
+        const int total = extractWindowTotal(result);
+
+        Json::Value list(Json::arrayValue);
+        for (const auto &row : result) {
+            Json::Value item;
+            const auto contentType = row["content_type"].as<std::string>();
+            const auto contentId = row["content_id"].isNull()
+                ? ""
+                : row["content_id"].as<std::string>();
+            item["id"] = contentId;
+            item["content_type"] = contentType;
+            item["type"] = contentType;
+            if (contentType == "boat") {
+                item["boat_id"] = contentId;
+            } else {
+                item["stone_id"] = contentId;
+            }
+            item["content"] = row["content"].isNull() ? "" : row["content"].as<std::string>();
+            item["mood_type"] = row["mood_type"].isNull() ? "" : row["mood_type"].as<std::string>();
+            item["is_anonymous"] = row["is_anonymous"].isNull() ? false : row["is_anonymous"].as<bool>();
+            item["status"] = row["status"].isNull() ? "published" : row["status"].as<std::string>();
+            item["created_at"] = row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+            item["author_nickname"] = row["author_nickname"].isNull() ? "匿名" : row["author_nickname"].as<std::string>();
+            item["ripple_count"] = row["ripple_count"].isNull() ? 0 : row["ripple_count"].as<int>();
+            item["boat_count"] = row["boat_count"].isNull() ? 0 : row["boat_count"].as<int>();
+            list.append(item);
+        }
+
+        callback(collectionResponse(list, "contents", total, page, pageSize));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "Admin getContents error: " << e.what();
+        callback(ResponseUtil::internalError("获取内容列表失败"));
+    }
+}
+
 void AdminManagementController::getStones(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {

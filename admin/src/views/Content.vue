@@ -524,25 +524,10 @@ async function fetchContent() {
       return
     }
 
-    // 后端当前未提供统一 contents 路由，默认页在前端合并石头和纸船。
-    const mergedPageSize = currentPage * pageSize
-    const sharedFilters = {
-      status: filters.status,
-      keyword: filters.keyword,
-    }
-    const [stonesRes, boatsRes] = await Promise.all([
-      api.getStones({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
-      api.getBoats({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
-    ])
-    const stonesCollection = normalizeContentCollection(stonesRes.data, 'stone', ['stones'])
-    const boatsCollection = normalizeContentCollection(boatsRes.data, 'boat', ['boats'])
-    const mergedList = sortByCreatedAtDesc([
-      ...stonesCollection.items,
-      ...boatsCollection.items,
-    ])
-    const start = (currentPage - 1) * pageSize
-    contentList.value = mergedList.slice(start, start + pageSize)
-    pagination.total = stonesCollection.total + boatsCollection.total
+    const res = await api.getContents({ page: currentPage, page_size: pageSize, status: filters.status, keyword: filters.keyword })
+    const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
+    contentList.value = sortByCreatedAtDesc(items)
+    pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取内容列表失败:', e)

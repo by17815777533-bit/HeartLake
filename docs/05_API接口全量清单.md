@@ -374,6 +374,7 @@ POST `/api/edge-ai/analyze` 请求体：
 | PUT | `/api/admin/users/{id}/status` | 更新用户状态 |
 | POST | `/api/admin/users/{id}/ban` | 封禁用户 |
 | POST | `/api/admin/users/{id}/unban` | 解封用户 |
+| GET | `/api/admin/content` | 统一内容列表（石头 + 纸船，数据库统一分页） |
 | GET | `/api/admin/stones` | 石头列表 |
 | GET | `/api/admin/stones/{id}` | 石头详情 |
 | DELETE | `/api/admin/stones/{id}` | 删除石头 |
