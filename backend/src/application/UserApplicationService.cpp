@@ -28,6 +28,17 @@ namespace application {
 
 namespace {
 
+constexpr int kUserProfileCacheTtlSeconds = 300;
+constexpr int kUserSummaryCacheTtlSeconds = 300;
+
+std::string buildUserProfileCacheKey(const std::string &userId) {
+  return "user:" + userId;
+}
+
+std::string buildUserSummaryCacheKey(const std::string &userId) {
+  return "user:summary:" + userId;
+}
+
 drogon::orm::Result
 execSqlSyncWithStringParams(const drogon::orm::DbClientPtr &dbClient,
                             const std::string &sql,
@@ -112,6 +123,10 @@ Json::Value buildProfileUserJson(const drogon::orm::Row &row) {
       row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
   user["created_at"] =
       row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+  user["stone_count"] =
+      row["stone_count"].isNull() ? 0 : row["stone_count"].as<int>();
+  user["friend_count"] =
+      row["friend_count"].isNull() ? 0 : row["friend_count"].as<int>();
   return user;
 }
 
@@ -121,12 +136,28 @@ Json::Value buildPaginatedUsersResponse(const Json::Value &users, int total,
                                               pageSize);
 }
 
+void cacheUserSummary(const std::shared_ptr<heartlake::core::cache::CacheManager>
+                          &cacheManager,
+                      const Json::Value &userSummary) {
+  if (!cacheManager || !userSummary.isMember("user_id")) {
+    return;
+  }
+
+  const auto userId = userSummary["user_id"].asString();
+  if (userId.empty()) {
+    return;
+  }
+
+  cacheManager->setJson(buildUserSummaryCacheKey(userId), userSummary,
+                        kUserSummaryCacheTtlSeconds);
+}
+
 } // namespace
 
 /// 获取用户资料，优先走缓存
 Json::Value UserApplicationService::getUserProfile(const std::string &userId) {
   // 尝试从缓存获取
-  std::string cacheKey = "user:" + userId;
+  const std::string cacheKey = buildUserProfileCacheKey(userId);
   if (cacheManager_) {
     auto cached = cacheManager_->getJson(cacheKey);
     if (cached) {
@@ -139,9 +170,24 @@ Json::Value UserApplicationService::getUserProfile(const std::string &userId) {
 
   try {
     auto result = dbClient->execSqlSync(
-        "SELECT user_id, username, nickname, avatar_url, bio, gender, "
-        "birthday, location, is_anonymous, created_at "
-        "FROM users WHERE user_id = $1",
+        "SELECT u.user_id, u.username, u.nickname, u.avatar_url, u.bio, "
+        "u.gender, "
+        "       u.birthday, u.location, u.is_anonymous, u.created_at, "
+        "       COALESCE(stone_stats.stone_count, 0) AS stone_count, "
+        "       COALESCE(friend_stats.friend_count, 0) AS friend_count "
+        "FROM users u "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) AS stone_count FROM stones s "
+        "  WHERE s.user_id = u.user_id "
+        "    AND s.status = 'published' "
+        "    AND s.deleted_at IS NULL"
+        ") AS stone_stats ON TRUE "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) AS friend_count FROM friends f "
+        "  WHERE (f.user_id = u.user_id OR f.friend_id = u.user_id) "
+        "    AND f.status = 'accepted'"
+        ") AS friend_stats ON TRUE "
+        "WHERE u.user_id = $1 AND u.status = 'active'",
         userId);
 
     if (result.empty()) {
@@ -153,7 +199,8 @@ Json::Value UserApplicationService::getUserProfile(const std::string &userId) {
 
     // 缓存结果
     if (cacheManager_) {
-      cacheManager_->setJson(cacheKey, user, 300);
+      cacheManager_->setJson(cacheKey, user, kUserProfileCacheTtlSeconds);
+      cacheUserSummary(cacheManager_, buildBasicUserJson(row, false));
     }
 
     return user;
@@ -220,7 +267,8 @@ void UserApplicationService::updateUserProfile(const std::string &userId,
 
     // 使缓存失效
     if (cacheManager_) {
-      cacheManager_->invalidate("user:" + userId);
+      cacheManager_->invalidate(buildUserProfileCacheKey(userId));
+      cacheManager_->invalidate(buildUserSummaryCacheKey(userId));
     }
 
     LOG_INFO << "User profile updated: " << userId;
@@ -281,7 +329,7 @@ UserApplicationService::getUsersBatch(const std::vector<std::string> &userIds) {
     uniqueUserIds.reserve(userIds.size());
     std::unordered_set<std::string> seen;
     for (const auto &requestedId : userIds) {
-      if (seen.insert(requestedId).second) {
+      if (!requestedId.empty() && seen.insert(requestedId).second) {
         uniqueUserIds.push_back(requestedId);
       }
     }
@@ -289,22 +337,40 @@ UserApplicationService::getUsersBatch(const std::vector<std::string> &userIds) {
     constexpr size_t kUserBatchSize = 100;
     std::unordered_map<std::string, Json::Value> userById;
     userById.reserve(uniqueUserIds.size());
+    std::vector<std::string> missedUserIds;
+    missedUserIds.reserve(uniqueUserIds.size());
 
-    for (size_t i = 0; i < uniqueUserIds.size(); i += kUserBatchSize) {
-      std::vector<std::string> batch(uniqueUserIds.begin() + i,
-                                     uniqueUserIds.begin() +
+    if (cacheManager_) {
+      for (const auto &uniqueUserId : uniqueUserIds) {
+        auto cached =
+            cacheManager_->getJson(buildUserSummaryCacheKey(uniqueUserId));
+        if (cached) {
+          userById.emplace(uniqueUserId, *cached);
+        } else {
+          missedUserIds.push_back(uniqueUserId);
+        }
+      }
+    } else {
+      missedUserIds = uniqueUserIds;
+    }
+
+    for (size_t i = 0; i < missedUserIds.size(); i += kUserBatchSize) {
+      std::vector<std::string> batch(missedUserIds.begin() + i,
+                                     missedUserIds.begin() +
                                          std::min(i + kUserBatchSize,
-                                                  uniqueUserIds.size()));
+                                                  missedUserIds.size()));
 
       auto dbResult = dbClient->execSqlSync(
           "SELECT user_id, username, nickname, avatar_url "
-          "FROM users WHERE user_id = ANY($1::text[])",
+          "FROM users WHERE user_id = ANY($1::text[]) AND status = 'active'",
           toPgTextArrayLiteral(batch));
       for (const auto &row : dbResult) {
         const std::string rowUserId =
             row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();
         if (!rowUserId.empty()) {
-          userById[rowUserId] = buildBasicUserJson(row, false);
+          Json::Value userSummary = buildBasicUserJson(row, false);
+          userById[rowUserId] = userSummary;
+          cacheUserSummary(cacheManager_, userSummary);
         }
       }
     }

@@ -429,31 +429,52 @@ void RecommendationController::getEmotionTrends(
         auto& userId = *userIdOpt;
         auto dbClient = drogon::app().getDbClient("default");
 
-        // 获取最近30天情绪数据（优先 emotion_score，缺失时按 mood_type 回退估算）
+        // 获取最近30天按“天”聚合的情绪数据，避免同一天返回多条趋势点。
         auto trendsResult = dbClient->execSqlSync(
-            "SELECT DATE(created_at) as date, "
-            "COALESCE(mood_type, 'neutral') as mood_type, "
-            "AVG(COALESCE(emotion_score, "
-            "CASE COALESCE(mood_type, 'neutral') "
-            "WHEN 'happy' THEN 0.75 "
-            "WHEN 'calm' THEN 0.35 "
-            "WHEN 'neutral' THEN 0.0 "
-            "WHEN 'hopeful' THEN 0.55 "
-            "WHEN 'grateful' THEN 0.65 "
-            "WHEN 'sad' THEN -0.75 "
-            "WHEN 'anxious' THEN -0.45 "
-            "WHEN 'angry' THEN -0.65 "
-            "WHEN 'lonely' THEN -0.55 "
-            "WHEN 'confused' THEN -0.1 "
-            "ELSE 0.0 END)) as avg_emotion_score, "
-            "COUNT(*) as stone_count "
-            "FROM stones "
-            "WHERE user_id = $1 "
-            "AND status = 'published' "
-            "AND deleted_at IS NULL "
-            "AND created_at >= CURRENT_DATE - INTERVAL '30 days' "
-            "GROUP BY DATE(created_at), COALESCE(mood_type, 'neutral') "
-            "ORDER BY date ASC",
+            "WITH scored_stones AS ("
+            "  SELECT DATE(created_at) AS date, "
+            "         COALESCE(mood_type, 'neutral') AS mood_type, "
+            "         COALESCE(emotion_score, "
+            "           CASE COALESCE(mood_type, 'neutral') "
+            "             WHEN 'happy' THEN 0.75 "
+            "             WHEN 'calm' THEN 0.35 "
+            "             WHEN 'neutral' THEN 0.0 "
+            "             WHEN 'hopeful' THEN 0.55 "
+            "             WHEN 'grateful' THEN 0.65 "
+            "             WHEN 'sad' THEN -0.75 "
+            "             WHEN 'anxious' THEN -0.45 "
+            "             WHEN 'angry' THEN -0.65 "
+            "             WHEN 'lonely' THEN -0.55 "
+            "             WHEN 'confused' THEN -0.1 "
+            "             ELSE 0.0 "
+            "           END"
+            "         ) AS normalized_score "
+            "  FROM stones "
+            "  WHERE user_id = $1 "
+            "    AND status = 'published' "
+            "    AND deleted_at IS NULL "
+            "    AND created_at >= CURRENT_DATE - INTERVAL '30 days'"
+            "), daily_scores AS ("
+            "  SELECT date, AVG(normalized_score) AS avg_emotion_score, COUNT(*) AS stone_count "
+            "  FROM scored_stones "
+            "  GROUP BY date"
+            "), ranked_moods AS ("
+            "  SELECT date, mood_type, mood_count, avg_score, "
+            "         ROW_NUMBER() OVER ("
+            "           PARTITION BY date "
+            "           ORDER BY mood_count DESC, ABS(avg_score) DESC, mood_type ASC"
+            "         ) AS rn "
+            "  FROM ("
+            "    SELECT date, mood_type, COUNT(*) AS mood_count, AVG(normalized_score) AS avg_score "
+            "    FROM scored_stones "
+            "    GROUP BY date, mood_type"
+            "  ) mood_stats"
+            ") "
+            "SELECT ds.date, ds.avg_emotion_score, ds.stone_count, "
+            "       COALESCE(rm.mood_type, 'neutral') AS mood_type "
+            "FROM daily_scores ds "
+            "LEFT JOIN ranked_moods rm ON rm.date = ds.date AND rm.rn = 1 "
+            "ORDER BY ds.date ASC",
             userId
         );
 
@@ -929,35 +950,6 @@ void RecommendationController::getAdvancedRecommendations(
                     auto& resonanceEngine = heartlake::ai::EmotionResonanceEngine::getInstance();
                     auto resonanceResults = resonanceEngine.findResonance(userId, stoneId, limit / 2);
 
-                    // 批量查询共鸣石头的基本信息
-                    std::map<std::string, Json::Value> stoneInfoMap;
-                    if (!resonanceResults.empty()) {
-                        try {
-                            auto dbClient = drogon::app().getDbClient("default");
-                            for (const auto& res : resonanceResults) {
-                                auto rows = dbClient->execSqlSync(
-                                    "SELECT s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-                                    "COALESCE(s.emotion_score, 0.0) AS emotion_score, s.created_at, "
-                                    "u.nickname as author_name, "
-                                    "COALESCE(s.ripple_count, 0) as ripple_count "
-                                    "FROM stones s JOIN users u ON s.user_id = u.user_id "
-                                    "WHERE s.stone_id = $1 AND s.status = 'published' AND s.deleted_at IS NULL LIMIT 1", res.stoneId);
-                                if (!rows.empty()) {
-                                    Json::Value info;
-                                    info["content"] = rows[0]["content"].as<std::string>();
-                                    info["mood_type"] = rows[0]["mood_type"].as<std::string>();
-                                    info["emotion_score"] = rows[0]["emotion_score"].as<double>();
-                                    info["author_name"] = rows[0]["author_name"].as<std::string>();
-                                    info["ripple_count"] = rows[0]["ripple_count"].as<int>();
-                                    info["created_at"] = rows[0]["created_at"].as<std::string>();
-                                    stoneInfoMap[res.stoneId] = info;
-                                }
-                            }
-                        } catch (const std::exception& e) {
-                            LOG_WARN << "查询共鸣石头信息失败: " << e.what();
-                        }
-                    }
-
                     for (const auto& res : resonanceResults) {
                         Json::Value item;
                         item["stone_id"] = res.stoneId;
@@ -968,16 +960,13 @@ void RecommendationController::getAdvancedRecommendations(
                         item["trajectory_score"] = res.trajectoryScore;
                         item["temporal_score"] = res.temporalScore;
                         item["diversity_score"] = res.diversityScore;
-                        // 补充石头基本信息
-                        auto it = stoneInfoMap.find(res.stoneId);
-                        if (it != stoneInfoMap.end()) {
-                            item["content"] = it->second["content"];
-                            item["mood_type"] = it->second["mood_type"];
-                            item["emotion_score"] = it->second["emotion_score"];
-                            item["author_name"] = it->second["author_name"];
-                            item["ripple_count"] = it->second["ripple_count"];
-                            item["created_at"] = it->second["created_at"];
-                        }
+                        item["content"] = res.content;
+                        item["mood_type"] = res.moodType;
+                        item["emotion_score"] = res.emotionScore;
+                        item["author_id"] = res.userId;
+                        item["author_name"] = res.authorName;
+                        item["ripple_count"] = res.rippleCount;
+                        item["created_at"] = res.createdAt;
                         recommendations.append(item);
                         addedIds.insert(res.stoneId);
                     }
@@ -995,8 +984,11 @@ void RecommendationController::getAdvancedRecommendations(
                     item["algorithm"] = cand.algorithm;
                     item["content"] = cand.metadata.get("content", "").asString();
                     item["mood_type"] = cand.metadata.get("mood_type", "").asString();
+                    item["emotion_score"] = cand.metadata.get("emotion_score", 0.0).asDouble();
+                    item["author_id"] = cand.metadata.get("author_id", "").asString();
                     item["author_name"] = cand.metadata.get("author_name", "").asString();
                     item["ripple_count"] = cand.metadata.get("ripple_count", 0).asInt();
+                    item["created_at"] = cand.metadata.get("created_at", "").asString();
                     recommendations.append(item);
                 }
 

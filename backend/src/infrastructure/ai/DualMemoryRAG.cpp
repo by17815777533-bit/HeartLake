@@ -114,7 +114,12 @@ std::vector<size_t> selectRelevantShortTermEntries(
         // 语义相关度加权（0~1.2）
         if (embeddingReady) {
             try {
-                auto histEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(entry.content);
+                std::vector<float> histEmbedding;
+                if (!entry.embedding.empty() && entry.embedding.size() == currentEmbedding.size()) {
+                    histEmbedding = entry.embedding;
+                } else {
+                    histEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(entry.content);
+                }
                 const float semantic = cosineSimilarity(currentEmbedding, histEmbedding);
                 if (semantic > 0.0f) {
                     total += static_cast<double>(semantic) * 1.2;
@@ -226,6 +231,12 @@ int ragResponseTimeoutSeconds() {
     return timeoutSec;
 }
 
+double currentEpochSeconds() {
+    return static_cast<double>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+}
+
 std::string buildLocalCompanionReply(
     const EmotionMemory::LongTermProfile& profile,
     const std::string& userId,
@@ -330,6 +341,15 @@ void DualMemoryRAG::updateShortTermMemory(
     const std::string& emotion,
     float score
 ) {
+    std::vector<float> contentEmbedding;
+    if (!content.empty()) {
+        try {
+            contentEmbedding = AdvancedEmbeddingEngine::getInstance().generateEmbedding(content);
+        } catch (const std::exception& e) {
+            LOG_WARN << "Short-term embedding generation failed: " << e.what();
+        }
+    }
+
     std::unique_lock<std::shared_mutex> lock(mutex_);
     auto& memory = getOrCreateMemory(userId);
 
@@ -343,9 +363,9 @@ void DualMemoryRAG::updateShortTermMemory(
     entry.emotion = emotion;
     entry.score = score;
     entry.timestamp = oss.str();
+    entry.embedding = std::move(contentEmbedding);
     entry.accessCount = 0;
-    entry.lastAccessTime = static_cast<double>(
-        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+    entry.lastAccessTime = currentEpochSeconds();
 
     memory.shortTerm.push_back(std::move(entry));
 
@@ -398,7 +418,12 @@ void DualMemoryRAG::evictLeastRelevant(
         // 语义相关度
         if (embeddingReady) {
             try {
-                auto emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
+                std::vector<float> emb;
+                if (!e.embedding.empty() && e.embedding.size() == currentEmbedding.size()) {
+                    emb = e.embedding;
+                } else {
+                    emb = AdvancedEmbeddingEngine::getInstance().generateEmbedding(e.content);
+                }
                 float sim = cosineSimilarity(currentEmbedding, emb);
                 retainScore += alpha * std::max(0.0f, sim);
             } catch (const std::exception& ex) {
@@ -429,9 +454,45 @@ void DualMemoryRAG::evictLeastRelevant(
     entries.erase(entries.begin() + static_cast<ptrdiff_t>(worstIdx));
 }
 
-void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
+bool DualMemoryRAG::shouldRefreshLongTermMemory(const std::string& userId, double nowEpoch) const {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    auto it = memories_.find(userId);
+    if (it == memories_.end()) {
+        return true;
+    }
+
+    return it->second.longTerm.lastRefreshTime <= 0.0 ||
+        (nowEpoch - it->second.longTerm.lastRefreshTime) >= LONG_TERM_REFRESH_INTERVAL_SECONDS;
+}
+
+void DualMemoryRAG::markShortTermEntriesAccessed(
+    const std::string& userId,
+    const std::vector<size_t>& indices
+) {
+    if (indices.empty()) {
+        return;
+    }
+
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    auto& memory = getOrCreateMemory(userId);
+    auto it = memories_.find(userId);
+    if (it == memories_.end()) {
+        return;
+    }
+
+    auto& entries = it->second.shortTerm;
+    const double nowEpoch = currentEpochSeconds();
+    for (size_t index : indices) {
+        if (index >= entries.size()) {
+            continue;
+        }
+        auto& entry = entries[index];
+        entry.accessCount += 1;
+        entry.lastAccessTime = nowEpoch;
+    }
+}
+
+void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
+    EmotionMemory::LongTermProfile refreshedProfile;
 
     try {
         auto db = drogon::app().getDbClient("default");
@@ -474,11 +535,11 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
         if (auto rowOpt = safeRow(result)) {
             auto& row = *rowOpt;
             if (!row["total_posts"].isNull()) {
-                auto& lt = memory.longTerm;
-                lt.totalPosts = row["total_posts"].as<int>();
-                lt.avgEmotionScore = row["avg_score"].isNull() ? 0.0f : row["avg_score"].as<float>();
-                lt.emotionVolatility = row["score_stddev"].isNull() ? 0.0f : row["score_stddev"].as<float>();
-                lt.lastActiveDate = row["last_active"].isNull() ? "" : row["last_active"].as<std::string>();
+                refreshedProfile.totalPosts = row["total_posts"].as<int>();
+                refreshedProfile.avgEmotionScore = row["avg_score"].isNull() ? 0.0f : row["avg_score"].as<float>();
+                refreshedProfile.decayWeightedScore = row["decay_score"].isNull() ? 0.0f : row["decay_score"].as<float>();
+                refreshedProfile.emotionVolatility = row["score_stddev"].isNull() ? 0.0f : row["score_stddev"].as<float>();
+                refreshedProfile.lastActiveDate = row["last_active"].isNull() ? "" : row["last_active"].as<std::string>();
             }
         }
 
@@ -491,7 +552,7 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
             userId
         );
         if (!moodResult.empty()) {
-            memory.longTerm.dominantMood = moodResult[0]["mood_type"].as<std::string>();
+            refreshedProfile.dominantMood = moodResult[0]["mood_type"].as<std::string>();
         }
 
         // 计算情绪趋势：对比最近7天 vs 前7-14天
@@ -535,9 +596,9 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
             float recentAvg = trendResult[0]["recent_avg"].isNull() ? 0.0f : trendResult[0]["recent_avg"].as<float>();
             float prevAvg = trendResult[0]["prev_avg"].isNull() ? 0.0f : trendResult[0]["prev_avg"].as<float>();
             float diff = recentAvg - prevAvg;
-            if (diff > 0.15f) memory.longTerm.emotionTrend = "rising";
-            else if (diff < -0.15f) memory.longTerm.emotionTrend = "falling";
-            else memory.longTerm.emotionTrend = "stable";
+            if (diff > 0.15f) refreshedProfile.emotionTrend = "rising";
+            else if (diff < -0.15f) refreshedProfile.emotionTrend = "falling";
+            else refreshedProfile.emotionTrend = "stable";
         }
 
         // 连续负面天数
@@ -571,7 +632,12 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
                 break;
             }
         }
-        memory.longTerm.consecutiveNegativeDays = consecutiveNeg;
+        refreshedProfile.consecutiveNegativeDays = consecutiveNeg;
+        refreshedProfile.lastRefreshTime = currentEpochSeconds();
+
+        std::unique_lock<std::shared_mutex> lock(mutex_);
+        auto& memory = getOrCreateMemory(userId);
+        memory.longTerm = std::move(refreshedProfile);
 
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "DualMemoryRAG::refreshLongTermMemory failed: " << e.base().what();
@@ -581,7 +647,8 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string& userId) {
 std::string DualMemoryRAG::buildRAGPrompt(
     const EmotionMemory& memory,
     const std::string& currentContent,
-    const std::string& currentEmotion
+    const std::string& currentEmotion,
+    const std::vector<size_t>* selectedShortTerm
 ) {
     std::ostringstream prompt;
 
@@ -606,8 +673,13 @@ std::string DualMemoryRAG::buildRAGPrompt(
 
     // === 短期记忆上下文 ===
     prompt << "\n【近期交互 - 短期记忆(相关检索)】\n";
-    const auto pickedShortTerm =
-        selectRelevantShortTermEntries(memory.shortTerm, currentContent, currentEmotion);
+    std::vector<size_t> computedShortTerm;
+    if (!selectedShortTerm) {
+        computedShortTerm =
+            selectRelevantShortTermEntries(memory.shortTerm, currentContent, currentEmotion);
+        selectedShortTerm = &computedShortTerm;
+    }
+    const auto& pickedShortTerm = *selectedShortTerm;
     if (pickedShortTerm.empty()) {
         prompt << "- 暂无可复用的高相关历史\n";
     } else {
@@ -655,8 +727,11 @@ std::string DualMemoryRAG::generateResponse(
     const std::string& currentEmotion,
     float emotionScore
 ) {
-    // 1. 刷新长期记忆
-    refreshLongTermMemory(userId);
+    // 1. 节流刷新长期记忆，避免每次请求都刷库
+    const double nowEpoch = currentEpochSeconds();
+    if (shouldRefreshLongTermMemory(userId, nowEpoch)) {
+        refreshLongTermMemory(userId);
+    }
 
     // 2. 更新短期记忆
     updateShortTermMemory(userId, currentContent, currentEmotion, emotionScore);
@@ -675,7 +750,11 @@ std::string DualMemoryRAG::generateResponse(
             memoryCopy = getOrCreateMemory(userId);
         }
     }
-    std::string ragPrompt = buildRAGPrompt(memoryCopy, currentContent, currentEmotion);
+    const auto pickedShortTerm =
+        selectRelevantShortTermEntries(memoryCopy.shortTerm, currentContent, currentEmotion);
+    markShortTermEntriesAccessed(userId, pickedShortTerm);
+    std::string ragPrompt =
+        buildRAGPrompt(memoryCopy, currentContent, currentEmotion, &pickedShortTerm);
 
     // 4. 调用AIService生成回复（同步等待）
     struct ReplyWaitState {
@@ -746,8 +825,11 @@ std::string DualMemoryRAG::generateResponse(
 }
 
 Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
-    // 刷新长期记忆以获取最新数据
-    refreshLongTermMemory(userId);
+    // 节流刷新长期记忆，避免 insights 频繁打 DB
+    const double nowEpoch = currentEpochSeconds();
+    if (shouldRefreshLongTermMemory(userId, nowEpoch)) {
+        refreshLongTermMemory(userId);
+    }
 
     EmotionMemory memoryCopy;
     {
@@ -770,6 +852,7 @@ Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {
     // 情绪画像
     Json::Value profile;
     profile["avg_emotion_score"] = lt.avgEmotionScore;
+    profile["decay_weighted_score"] = lt.decayWeightedScore;
     profile["total_posts_30d"] = lt.totalPosts;
     profile["dominant_mood"] = lt.dominantMood;
     profile["emotion_volatility"] = lt.emotionVolatility;
@@ -849,6 +932,7 @@ Json::Value DualMemoryRAG::getStats() const {
     stats["active_users"] = static_cast<int>(memories_.size());
     stats["max_short_term_entries"] = MAX_SHORT_TERM;
     stats["long_term_retention_days"] = LONG_TERM_RETENTION_DAYS;
+    stats["long_term_refresh_interval_seconds"] = LONG_TERM_REFRESH_INTERVAL_SECONDS;
 
     int totalShortTermEntries = 0;
     int usersWithLongTerm = 0;

@@ -26,6 +26,8 @@ using namespace heartlake::utils;
 
 namespace {
 
+constexpr int kStoneRippleStateCacheTtlSeconds = 60;
+
 std::string safeStringColumn(const drogon::orm::Row &row, const char *column,
                              const std::string &fallback = "") {
   return row[column].isNull() ? fallback : row[column].as<std::string>();
@@ -100,6 +102,26 @@ Json::Value buildConnectionPayload(const drogon::orm::Row &row) {
   return result;
 }
 
+std::string buildStoneDetailCacheKey(const std::string &stoneId) {
+  return "stone:" + stoneId;
+}
+
+std::string buildStoneRippleStateCacheKey(const std::string &userId,
+                                          const std::string &stoneId) {
+  return "stone:rippled:" + userId + ":" + stoneId;
+}
+
+void invalidateStoneReadCaches(
+    const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
+    const std::string &stoneId) {
+  if (!cacheManager) {
+    return;
+  }
+
+  cacheManager->invalidate(buildStoneDetailCacheKey(stoneId));
+  cacheManager->invalidatePattern("stone_list:*");
+}
+
 } // namespace
 
 namespace heartlake {
@@ -150,8 +172,10 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     const auto &row = writeResult[0];
 
     // 清除石头缓存，确保计数器实时更新
+    invalidateStoneReadCaches(cacheManager_, stoneId);
     if (cacheManager_) {
-      cacheManager_->invalidate("stone:" + stoneId);
+      cacheManager_->set(buildStoneRippleStateCacheKey(userId, stoneId), "1",
+                         kStoneRippleStateCacheTtlSeconds);
     }
 
     // 发布事件
@@ -202,6 +226,10 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
               ? 0
               : currentState[0]["ripple_count"].as<int>();
       result["already_rippled"] = true;
+      if (cacheManager_) {
+        cacheManager_->set(buildStoneRippleStateCacheKey(userId, stoneId), "1",
+                           kStoneRippleStateCacheTtlSeconds);
+      }
 
       LOG_INFO << "Ripple already exists for stone " << stoneId << " user "
                << userId;
@@ -268,9 +296,20 @@ void InteractionApplicationService::deleteRipple(const std::string &rippleId,
   try {
     auto trans = dbClient->newTransaction();
 
-    // 获取石头ID并验证权限
     auto result = trans->execSqlSync(
-        "SELECT stone_id FROM ripples WHERE ripple_id = $1 AND user_id = $2",
+        "WITH deleted AS ("
+        "  DELETE FROM ripples "
+        "  WHERE ripple_id = $1 AND user_id = $2 "
+        "  RETURNING stone_id"
+        "), updated AS ("
+        "  UPDATE stones "
+        "  SET ripple_count = GREATEST(ripple_count - 1, 0) "
+        "  WHERE stone_id IN (SELECT stone_id FROM deleted) "
+        "  RETURNING stone_id"
+        ") "
+        "SELECT d.stone_id "
+        "FROM deleted d "
+        "LEFT JOIN updated u ON u.stone_id = d.stone_id",
         rippleId, userId);
 
     if (result.empty()) {
@@ -280,15 +319,10 @@ void InteractionApplicationService::deleteRipple(const std::string &rippleId,
     auto row = *safeRow(result);
     std::string stoneId = row["stone_id"].as<std::string>();
 
-    // 删除涟漪并更新计数器
-    trans->execSqlSync("DELETE FROM ripples WHERE ripple_id = $1", rippleId);
-    trans->execSqlSync("UPDATE stones SET ripple_count = GREATEST(ripple_count "
-                       "- 1, 0) WHERE stone_id = $1",
-                       stoneId);
-
-    // 清除石头缓存
+    invalidateStoneReadCaches(cacheManager_, stoneId);
     if (cacheManager_) {
-      cacheManager_->invalidate("stone:" + stoneId);
+      cacheManager_->set(buildStoneRippleStateCacheKey(userId, stoneId), "0",
+                         kStoneRippleStateCacheTtlSeconds);
     }
 
     LOG_INFO << "Ripple deleted: " << rippleId;
@@ -523,9 +557,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     const auto &row = writeResult[0];
 
     // 2.6 清除石头缓存，确保计数器实时更新
-    if (cacheManager_) {
-      cacheManager_->invalidate("stone:" + stoneId);
-    }
+    invalidateStoneReadCaches(cacheManager_, stoneId);
 
     // 温暖纸船激励：用本地情绪模型估算暖意分，按比例发放积分
     auto &edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -566,39 +598,42 @@ InteractionApplicationService::deleteBoat(const std::string &boatId,
   try {
     auto trans = dbClient->newTransaction();
 
-    // 查出 stone_id 用于后续更新计数
-    auto boatInfo = trans->execSqlSync("SELECT stone_id FROM paper_boats WHERE "
-                                       "boat_id = $1 AND sender_id = $2",
-                                       boatId, userId);
+    auto deleteResult = trans->execSqlSync(
+        "WITH deleted AS ("
+        "  DELETE FROM paper_boats "
+        "  WHERE boat_id = $1 AND sender_id = $2 "
+        "  RETURNING stone_id"
+        "), updated AS ("
+        "  UPDATE stones "
+        "  SET boat_count = GREATEST(boat_count - 1, 0) "
+        "  WHERE stone_id IN (SELECT stone_id FROM deleted WHERE stone_id IS NOT NULL) "
+        "  RETURNING stone_id, boat_count"
+        ") "
+        "SELECT d.stone_id, COALESCE(u.boat_count, 0) AS boat_count "
+        "FROM deleted d "
+        "LEFT JOIN updated u ON u.stone_id = d.stone_id",
+        boatId, userId);
 
-    if (boatInfo.empty()) {
+    if (deleteResult.empty()) {
       throw std::runtime_error("纸船不存在或无权删除");
     }
 
-    std::string stoneId = boatInfo[0]["stone_id"].as<std::string>();
+    const auto &row = deleteResult[0];
+    std::string stoneId =
+        row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();
+    const int boatCount =
+        row["boat_count"].isNull() ? 0 : row["boat_count"].as<int>();
 
-    // 删除纸船
-    trans->execSqlSync("DELETE FROM paper_boats WHERE boat_id = $1", boatId);
-
-    // 在事务内递减计数并返回最新值
-    auto countResult =
-        trans->execSqlSync("UPDATE stones SET boat_count = GREATEST(boat_count "
-                           "- 1, 0) WHERE stone_id = $1 RETURNING boat_count",
-                           stoneId);
-    int boatCount =
-        countResult.empty() ? 0 : countResult[0]["boat_count"].as<int>();
-
-    // 清除石头缓存
-    if (cacheManager_) {
-      cacheManager_->invalidate("stone:" + stoneId);
+    if (!stoneId.empty()) {
+      invalidateStoneReadCaches(cacheManager_, stoneId);
     }
 
-    Json::Value result;
-    result["stone_id"] = stoneId;
-    result["boat_count"] = boatCount;
+    Json::Value response;
+    response["stone_id"] = stoneId;
+    response["boat_count"] = boatCount;
 
     LOG_INFO << "Boat deleted: " << boatId;
-    return result;
+    return response;
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to delete boat: " << e.base().what();

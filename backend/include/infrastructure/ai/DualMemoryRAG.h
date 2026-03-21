@@ -34,6 +34,7 @@ struct EmotionMemory {
         std::string emotion;           ///< 情绪类型标签
         float score;                   ///< 情绪分数 [-1.0, 1.0]
         std::string timestamp;         ///< ISO 8601 时间戳
+        std::vector<float> embedding;  ///< 预计算 embedding，避免检索时重复生成
         int accessCount = 0;           ///< 被 RAG 检索命中的次数（用于相关性淘汰）
         double lastAccessTime = 0;     ///< 最近被检索的时间（epoch seconds）
     };
@@ -51,6 +52,7 @@ struct EmotionMemory {
         std::string emotionTrend = "stable";   ///< 情绪趋势: rising / falling / stable
         int consecutiveNegativeDays = 0;       ///< 连续负面情绪天数（用于风险预警）
         std::string lastActiveDate;            ///< 最后活跃日期
+        double lastRefreshTime = 0.0;          ///< 最近一次从 DB 刷新画像的时间
     };
     LongTermProfile longTerm;  ///< 长期情绪画像
 };
@@ -108,7 +110,8 @@ public:
     std::string buildRAGPrompt(
         const EmotionMemory& memory,
         const std::string& currentContent,
-        const std::string& currentEmotion
+        const std::string& currentEmotion,
+        const std::vector<size_t>* selectedShortTerm = nullptr
     );
 
     /**
@@ -128,6 +131,7 @@ private:
 
     static constexpr int MAX_SHORT_TERM = 5;              ///< 短期记忆最大保留条数
     static constexpr int LONG_TERM_RETENTION_DAYS = 30;   ///< 长期记忆聚合回溯天数
+    static constexpr int LONG_TERM_REFRESH_INTERVAL_SECONDS = 180;  ///< 长期画像最小刷新间隔
     static constexpr float DECAY_LAMBDA = 0.05f;          ///< Ebbinghaus 指数衰减系数
 
     /**
@@ -147,6 +151,19 @@ private:
      * @brief 计算情绪波动度（标准差）
      */
     float calculateVolatility(const std::vector<float>& scores);
+
+    /**
+     * @brief 判断当前用户长期画像是否需要刷新
+     */
+    bool shouldRefreshLongTermMemory(const std::string& userId, double nowEpoch) const;
+
+    /**
+     * @brief 记录被命中的短期记忆访问统计
+     */
+    void markShortTermEntriesAccessed(
+        const std::string& userId,
+        const std::vector<size_t>& indices
+    );
 
     /**
      * @brief 基于相关性的短期记忆淘汰

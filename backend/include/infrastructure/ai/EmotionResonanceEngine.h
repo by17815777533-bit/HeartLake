@@ -51,6 +51,12 @@ struct ResonanceResult {
     float temporalScore;                   ///< 时间衰减分量
     float diversityScore;                  ///< 多样性奖励分量
     std::string resonanceReason;           ///< 人类可读的共鸣原因描述
+    std::string content;                   ///< 石头内容
+    std::string moodType;                  ///< 石头情绪类型
+    float emotionScore = 0.0f;             ///< 石头情绪分数
+    std::string authorName;                ///< 作者昵称
+    int rippleCount = 0;                   ///< 涟漪数
+    std::string createdAt;                 ///< 创建时间
 };
 
 /**

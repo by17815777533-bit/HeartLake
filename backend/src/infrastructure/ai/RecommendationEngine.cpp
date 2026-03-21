@@ -400,8 +400,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     // 找相似用户喜欢但当前用户未交互的物品
     auto rows = dbClient->execSqlSync(
         "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "AVG(us.similarity_score) as avg_sim "
         "FROM stones s "
@@ -410,7 +412,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         "JOIN users u ON s.user_id = u.user_id "
         "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
-        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
+        "u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
         userId, static_cast<int64_t>(topK)
     );
@@ -424,9 +427,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
         cand.algorithm = "user_cf";
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
+        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
         cand.metadata["author_id"] = row["author_id"].as<std::string>();
         cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["created_at"] = row["created_at"].as<std::string>();
         cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
@@ -452,8 +457,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "  ORDER BY created_at DESC LIMIT 10"
         ") "
         "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "COUNT(*) as co_occur "
         "FROM stones s "
@@ -466,7 +473,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         "AND NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.stone_id = s.stone_id) "
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "AND s.status = 'published' AND s.deleted_at IS NULL "
-        "GROUP BY s.stone_id, s.content, s.mood_type, u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
+        "u.nickname, u.user_id, s.ripple_count, s.created_at "
         "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
         userId, static_cast<int64_t>(topK)
     );
@@ -480,9 +488,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
         cand.algorithm = "item_cf";
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
+        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
         cand.metadata["author_id"] = row["author_id"].as<std::string>();
         cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["created_at"] = row["created_at"].as<std::string>();
         cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
@@ -506,6 +516,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
+        "s.created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
         "FROM stones s "
         "JOIN users u ON s.user_id = u.user_id "
@@ -529,9 +540,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend
         cand.algorithm = "content_emotion";
         cand.metadata["content"] = row["content"].as<std::string>();
         cand.metadata["mood_type"] = itemMood;
+        cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
         cand.metadata["author_name"] = row["nickname"].as<std::string>();
         cand.metadata["author_id"] = row["author_id"].as<std::string>();
         cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+        cand.metadata["created_at"] = row["created_at"].as<std::string>();
         cand.metadata["hours_old"] = row["hours_old"].as<double>();
         results.push_back(cand);
     }
@@ -631,8 +644,10 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
         const int exploreCandidateWindow = std::max(exploreCount * 8, 80);
         auto exploreRows = dbClient->execSqlSync(
             "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
             "u.nickname, u.user_id AS author_id, "
             "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "s.created_at, "
             "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
             "FROM stones s JOIN users u ON s.user_id = u.user_id "
             "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
@@ -668,9 +683,11 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
             cand.algorithm = "exploration";
             cand.metadata["content"] = row["content"].as<std::string>();
             cand.metadata["mood_type"] = row["mood_type"].as<std::string>();
+            cand.metadata["emotion_score"] = row["emotion_score"].as<double>();
             cand.metadata["author_name"] = row["nickname"].as<std::string>();
             cand.metadata["author_id"] = row["author_id"].as<std::string>();
             cand.metadata["ripple_count"] = row["ripple_count"].as<int>();
+            cand.metadata["created_at"] = row["created_at"].as<std::string>();
             cand.metadata["hours_old"] = row["hours_old"].as<double>();
             calibrateCandidateScore(cand);
             results.push_back(cand);

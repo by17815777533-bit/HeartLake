@@ -425,3 +425,8 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 - 写后失效：写操作成功后按前缀主动失效相关缓存（`invalidatePattern`）
 - 事件驱动刷新：WebSocket 事件到达后客户端主动刷新数据
 - TTL 兜底：短 TTL 确保即使事件丢失，数据也能在窗口期内恢复一致
+
+2026-03 补充的热路径缓存规则：
+- 石头列表改成共享基础结果缓存：`stone_list:v2:*` 不再绑定 `currentUserId`，跨用户复用同一页结果
+- 用户-石头的互动状态改成独立短 TTL 缓存：`stone:rippled:{userId}:{stoneId}`
+- 石头详情、石头列表、用户主页在发布石头、删除石头、创建/删除涟漪、创建/删除纸船、好友关系变化后统一失效，避免三端看到不一致计数

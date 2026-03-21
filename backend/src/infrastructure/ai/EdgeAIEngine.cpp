@@ -123,19 +123,19 @@ EdgeAIEngine& EdgeAIEngine::getInstance() {
 }
 
 void EdgeAIEngine::initialize(const Json::Value& config) {
-    std::call_once(initFlag_, [this, &config]() {
+    bool didInitialize = false;
+    std::call_once(initFlag_, [this, &config, &didInitialize]() {
+        didInitialize = true;
         initializeImpl(config);
     });
+
+    if (!didInitialize && initialized_.load(std::memory_order_acquire)) {
+        applyRuntimeConfig(config);
+    }
 }
 
 void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     LOG_INFO << "[EdgeAI] Initializing Edge AI Engine...";
-
-    enabled_.store(config.get("enabled", true).asBool(), std::memory_order_release);
-    if (!enabled_.load(std::memory_order_acquire)) {
-        LOG_WARN << "[EdgeAI] Edge AI Engine is disabled by configuration";
-        return;
-    }
 
     // 创建子系统
     sentiment_ = std::make_unique<SentimentAnalyzer>();
@@ -147,40 +147,22 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     quantizer_ = std::make_unique<ModelQuantizer>();
     monitor_ = std::make_unique<EdgeNodeMonitor>();
 
-    // HNSW参数配置
-    hnsw_->configure(
-        config.get("hnsw_m", 16).asInt(),
-        config.get("hnsw_mmax0", 32).asInt(),
-        config.get("hnsw_ef_construction", 200).asInt(),
-        config.get("hnsw_ef_search", 50).asInt()
-    );
-
-    // 差分隐私配置
-    DPConfig dpConfig;
-    dpConfig.epsilon = config.get("dp_epsilon", 1.0f).asFloat();
-    dpConfig.delta = config.get("dp_delta", 1e-5f).asFloat();
-    dpConfig.sensitivity = config.get("dp_sensitivity", 1.0f).asFloat();
-    dpConfig.maxEpsilonBudget = config.get("dp_max_budget", 10.0f).asFloat();
-    dpConfig.maxDeltaBudget = config.get("dp_max_delta_budget", 1e-3f).asFloat();
-    dp_->configure(dpConfig);
-
-    // 情绪脉搏配置
-    pulse_->configure(
-        config.get("pulse_window_seconds", 300).asInt(),
-        config.get("max_pulse_history", 100).asInt()
-    );
-
-    // 情感分析配置
-    int cacheTTL = parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_TTL"), 300);
-    int cacheMax = parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_MAX"), 4096);
-    sentiment_->configure(cacheTTL, static_cast<size_t>(cacheMax));
-    sentiment_->loadLexicon();
-
     // 内容审核
     moderator_->buildModerationAC();
 
+    sentimentCacheTTLConfig_ = parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_TTL"), sentimentCacheTTLConfig_);
+    sentimentCacheMaxConfig_ = static_cast<size_t>(
+        parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_MAX"), static_cast<int>(sentimentCacheMaxConfig_)));
+    sentiment_->loadLexicon();
+
+    applyRuntimeConfig(config);
+
     initialized_.store(true, std::memory_order_release);
     LOG_INFO << "[EdgeAI] Edge AI Engine initialized successfully (facade mode)";
+
+    if (!enabled_.load(std::memory_order_acquire)) {
+        return;
+    }
 
 #ifdef HEARTLAKE_USE_ONNX
     onnxEngine_.reset();
@@ -225,6 +207,59 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
         }
     }
 #endif
+}
+
+void EdgeAIEngine::applyRuntimeConfig(const Json::Value& config) {
+    if (config.isObject()) {
+        if (config.isMember("enabled")) {
+            enabled_.store(config.get("enabled", true).asBool(), std::memory_order_release);
+        } else if (!initialized_.load(std::memory_order_relaxed)) {
+            enabled_.store(true, std::memory_order_release);
+        }
+
+        hnswMConfig_ = config.get("hnsw_m", hnswMConfig_).asInt();
+        hnswMMax0Config_ = config.get("hnsw_mmax0", hnswMMax0Config_).asInt();
+        hnswEfConstructionConfig_ = config.get("hnsw_ef_construction", hnswEfConstructionConfig_).asInt();
+        hnswEfSearchConfig_ = config.get("hnsw_ef_search", hnswEfSearchConfig_).asInt();
+
+        dpEpsilonConfig_ = config.get("dp_epsilon", dpEpsilonConfig_).asFloat();
+        dpDeltaConfig_ = config.get("dp_delta", dpDeltaConfig_).asFloat();
+        dpSensitivityConfig_ = config.get("dp_sensitivity", dpSensitivityConfig_).asFloat();
+        dpMaxBudgetConfig_ = config.get("dp_max_budget", dpMaxBudgetConfig_).asFloat();
+        dpMaxDeltaBudgetConfig_ = config.get("dp_max_delta_budget", dpMaxDeltaBudgetConfig_).asFloat();
+
+        pulseWindowSecondsConfig_ = config.get("pulse_window_seconds", pulseWindowSecondsConfig_).asInt();
+        maxPulseHistoryConfig_ = config.get("max_pulse_history", maxPulseHistoryConfig_).asInt();
+    } else if (!initialized_.load(std::memory_order_relaxed)) {
+        enabled_.store(true, std::memory_order_release);
+    }
+
+    if (hnsw_) {
+        hnsw_->configure(hnswMConfig_, hnswMMax0Config_,
+                         hnswEfConstructionConfig_, hnswEfSearchConfig_);
+    }
+
+    if (dp_) {
+        DPConfig dpConfig;
+        dpConfig.epsilon = dpEpsilonConfig_;
+        dpConfig.delta = dpDeltaConfig_;
+        dpConfig.sensitivity = dpSensitivityConfig_;
+        dpConfig.maxEpsilonBudget = dpMaxBudgetConfig_;
+        dpConfig.maxDeltaBudget = dpMaxDeltaBudgetConfig_;
+        dp_->configure(dpConfig);
+    }
+
+    if (pulse_) {
+        pulse_->configure(pulseWindowSecondsConfig_, maxPulseHistoryConfig_);
+    }
+
+    if (sentiment_) {
+        sentiment_->configure(sentimentCacheTTLConfig_, sentimentCacheMaxConfig_);
+    }
+
+    if (!enabled_.load(std::memory_order_acquire)) {
+        LOG_WARN << "[EdgeAI] Edge AI Engine disabled by configuration";
+    }
 }
 
 bool EdgeAIEngine::isEnabled() const {

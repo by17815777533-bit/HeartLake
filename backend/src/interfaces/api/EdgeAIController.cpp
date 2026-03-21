@@ -553,6 +553,7 @@ void EdgeAIController::vectorSearch(
         } else if (static_cast<int>(results.size()) > topK) {
             results.resize(static_cast<size_t>(topK));
         }
+        const int returnedCandidates = static_cast<int>(results.size());
 
         Json::Value data;
         Json::Value resultArray(Json::arrayValue);
@@ -569,7 +570,8 @@ void EdgeAIController::vectorSearch(
         data["total"] = static_cast<int>(resultArray.size());
         data["query_length"] = static_cast<int>(query.size());
         data["retrieval_mode"] = enableSecondStage ? "two_stage_ann_rerank" : "single_stage_ann";
-        data["candidate_count"] = candidateK;
+        data["candidate_count"] = enableSecondStage ? candidateK : returnedCandidates;
+        data["returned_candidates"] = returnedCandidates;
 
         callback(ResponseUtil::success(data, "向量搜索完成"));
     } catch (const std::exception &e) {
@@ -895,6 +897,7 @@ void EdgeAIController::vectorInsert(
             return;
         }
 
+        engine.hnswRemove(id);
         engine.hnswInsert(id, vec);
 
         Json::Value data;

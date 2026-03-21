@@ -162,6 +162,11 @@ drogon::Task<Json::Value> FriendApplicationService::acceptFriendRequestAsync(
         resolved->friendId,
         86400);
 
+    if (cacheManager_) {
+        cacheManager_->invalidate("user:" + userId);
+        cacheManager_->invalidate("user:" + resolved->friendId);
+    }
+
     Json::Value result;
     result["success"] = true;
     result["friendship_id"] = resolved->friendshipId;
@@ -207,6 +212,11 @@ drogon::Task<Json::Value> FriendApplicationService::removeFriendAsync(
         co_return err;
     }
     co_await friendService_->removeFriendAsync(userId, friendId);
+
+    if (cacheManager_) {
+        cacheManager_->invalidate("user:" + userId);
+        cacheManager_->invalidate("user:" + friendId);
+    }
 
     Json::Value result;
     result["success"] = true;

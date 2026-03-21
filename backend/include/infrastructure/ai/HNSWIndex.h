@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <limits>
 #include <random>
 #include <shared_mutex>
 #include <string>
@@ -40,6 +41,7 @@ struct VectorSearchResult {
     std::string id;       ///< 节点标识
     float distance;       ///< 距离（越小越相似）
     float similarity;     ///< 相似度 [0, 1]
+    size_t nodeIndex{std::numeric_limits<size_t>::max()};  ///< 索引内部节点位置
 };
 
 /**
@@ -159,6 +161,8 @@ private:
         const std::vector<float>& query, size_t entryPoint, int ef, int level) const;
     void connectNeighbors(size_t nodeIdx, const std::vector<size_t>& neighbors,
                           int level, int maxM);
+    bool isNodeActive(size_t nodeIdx) const;
+    void rebuildEntryPointLocked();
 
     /// RND 邻居多样性选择：在距离排序基础上引入角度多样性剪枝
     /// 参考: Vamana (Subramanya et al., NeurIPS 2019) + 最新评估

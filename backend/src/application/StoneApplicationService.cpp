@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <drogon/drogon.h>
 #include <json/json.h>
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -43,6 +44,10 @@ namespace heartlake {
 namespace application {
 
 namespace {
+
+constexpr int kStoneDetailCacheTtlSeconds = 300;
+constexpr int kStoneListCacheTtlSeconds = 60;
+constexpr int kStoneRippleStateCacheTtlSeconds = 60;
 
 std::string normalizeMoodType(std::string mood) {
   std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
@@ -83,6 +88,153 @@ int safeInt(const drogon::orm::Row &row, const char *column, int fallback = 0) {
 bool safeBool(const drogon::orm::Row &row, const char *column,
               bool fallback = false) {
   return row[column].isNull() ? fallback : row[column].as<bool>();
+}
+
+std::string buildStoneDetailCacheKey(const std::string &stoneId) {
+  return "stone:" + stoneId;
+}
+
+std::string buildStoneListCacheKey(int page, int pageSize,
+                                   const std::string &sortBy,
+                                   const std::string &filterMood,
+                                   const std::string &userId) {
+  std::ostringstream key;
+  key << "stone_list:v2:p=" << page << ":ps=" << pageSize << ":sort=" << sortBy
+      << ":mood=" << filterMood << ":user=" << userId;
+  return key.str();
+}
+
+std::string buildStoneRippleStateCacheKey(const std::string &userId,
+                                          const std::string &stoneId) {
+  return "stone:rippled:" + userId + ":" + stoneId;
+}
+
+std::string normalizeStoneSort(const std::string &sortBy) {
+  if (sortBy == "view_count" || sortBy == "boat_count" ||
+      sortBy == "ripple_count") {
+    return sortBy;
+  }
+  return "created_at";
+}
+
+std::vector<std::string> collectStoneIds(const Json::Value &stones) {
+  std::vector<std::string> stoneIds;
+  if (!stones.isArray()) {
+    return stoneIds;
+  }
+
+  stoneIds.reserve(stones.size());
+  for (const auto &stone : stones) {
+    if (!stone.isMember("stone_id")) {
+      continue;
+    }
+
+    const auto stoneId = stone["stone_id"].asString();
+    if (!stoneId.empty()) {
+      stoneIds.push_back(stoneId);
+    }
+  }
+  return stoneIds;
+}
+
+void syncStoneCollectionAliases(Json::Value &response) {
+  if (!response.isMember("stones")) {
+    return;
+  }
+  response["items"] = response["stones"];
+  response["list"] = response["stones"];
+}
+
+std::unordered_map<std::string, bool>
+loadRippleStates(const std::shared_ptr<heartlake::core::cache::CacheManager>
+                     &cacheManager,
+                 const std::string &currentUserId,
+                 const std::vector<std::string> &stoneIds) {
+  std::unordered_map<std::string, bool> states;
+  if (stoneIds.empty()) {
+    return states;
+  }
+
+  std::vector<std::string> uniqueStoneIds;
+  uniqueStoneIds.reserve(stoneIds.size());
+  std::unordered_set<std::string> seen;
+  for (const auto &stoneId : stoneIds) {
+    if (!stoneId.empty() && seen.insert(stoneId).second) {
+      uniqueStoneIds.push_back(stoneId);
+    }
+  }
+
+  if (currentUserId.empty()) {
+    for (const auto &stoneId : uniqueStoneIds) {
+      states.emplace(stoneId, false);
+    }
+    return states;
+  }
+
+  std::vector<std::string> misses;
+  misses.reserve(uniqueStoneIds.size());
+  if (cacheManager) {
+    for (const auto &stoneId : uniqueStoneIds) {
+      auto cached = cacheManager->get(
+          buildStoneRippleStateCacheKey(currentUserId, stoneId));
+      if (cached) {
+        states.emplace(stoneId, *cached == "1");
+      } else {
+        misses.push_back(stoneId);
+      }
+    }
+  } else {
+    misses = uniqueStoneIds;
+  }
+
+  if (!misses.empty()) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto rippleResult = dbClient->execSqlSync(
+        "SELECT stone_id FROM ripples "
+        "WHERE user_id = $1 AND stone_id = ANY($2::text[])",
+        currentUserId, toPgTextArrayLiteral(misses));
+
+    std::unordered_set<std::string> hitStoneIds;
+    hitStoneIds.reserve(rippleResult.size());
+    for (const auto &row : rippleResult) {
+      if (!row["stone_id"].isNull()) {
+        hitStoneIds.insert(row["stone_id"].as<std::string>());
+      }
+    }
+
+    for (const auto &stoneId : misses) {
+      const bool hasRippled = hitStoneIds.find(stoneId) != hitStoneIds.end();
+      states.emplace(stoneId, hasRippled);
+      if (cacheManager) {
+        cacheManager->set(buildStoneRippleStateCacheKey(currentUserId, stoneId),
+                          hasRippled ? "1" : "0",
+                          kStoneRippleStateCacheTtlSeconds);
+      }
+    }
+  }
+
+  return states;
+}
+
+void applyRippleStates(Json::Value &stones,
+                       const std::unordered_map<std::string, bool> &states) {
+  if (!stones.isArray()) {
+    return;
+  }
+
+  for (auto &stone : stones) {
+    const auto stoneId =
+        stone.isMember("stone_id") ? stone["stone_id"].asString() : "";
+    auto it = states.find(stoneId);
+    stone["has_rippled"] = it != states.end() ? it->second : false;
+  }
+}
+
+void invalidateStoneListCaches(
+    const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager) {
+  if (cacheManager) {
+    cacheManager->invalidatePattern("stone_list:*");
+  }
 }
 
 std::string serializeRiskFactors(
@@ -236,7 +388,8 @@ Json::Value StoneApplicationService::publishStone(
 
     // 清除缓存
     if (cacheManager_) {
-      cacheManager_->invalidatePattern("stone_list:*");
+      cacheManager_->invalidate("user:" + userId);
+      invalidateStoneListCaches(cacheManager_);
     }
 
     return stone;
@@ -281,7 +434,7 @@ StoneApplicationService::getStoneDetail(const std::string &stoneId,
   };
 
   // 尝试从缓存获取
-  std::string cacheKey = "stone:" + stoneId;
+  const std::string cacheKey = buildStoneDetailCacheKey(stoneId);
   Json::Value result;
   bool fromCache = false;
   if (cacheManager_) {
@@ -298,23 +451,17 @@ StoneApplicationService::getStoneDetail(const std::string &stoneId,
 
     // 缓存结果
     if (cacheManager_) {
-      cacheManager_->setJson(cacheKey, result, 300);
+      cacheManager_->setJson(cacheKey, result, kStoneDetailCacheTtlSeconds);
     }
   }
 
-  // has_rippled 是用户相关的，不能缓存，每次单独查询
-  if (!currentUserId.empty()) {
-    try {
-      auto dbClient = drogon::app().getDbClient("default");
-      auto rippleResult = dbClient->execSqlSync(
-          "SELECT 1 FROM ripples WHERE stone_id = $1 AND user_id = $2 LIMIT 1",
-          stoneId, currentUserId);
-      result["has_rippled"] = !rippleResult.empty();
-    } catch (const std::exception &e) {
-      LOG_WARN << "Check has_rippled failed: " << e.what();
-      result["has_rippled"] = false;
-    }
-  } else {
+  try {
+    const auto states =
+        loadRippleStates(cacheManager_, currentUserId, std::vector<std::string>{stoneId});
+    auto it = states.find(stoneId);
+    result["has_rippled"] = it != states.end() ? it->second : false;
+  } catch (const std::exception &e) {
+    LOG_WARN << "Check has_rippled failed: " << e.what();
     result["has_rippled"] = false;
   }
 
@@ -329,81 +476,92 @@ Json::Value StoneApplicationService::getStoneList(
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    int offset = (page - 1) * pageSize;
+    const int offset = (page - 1) * pageSize;
+    const std::string normalizedSort = normalizeStoneSort(sortBy);
+    const std::string cacheKey =
+        buildStoneListCacheKey(page, pageSize, normalizedSort, filterMood, userId);
+    Json::Value response;
 
-    // 构建查询
-    int paramIndex = 1;
-    const int currentUserParamIndex = paramIndex++;
-
-    std::string sql =
-        "SELECT s.stone_id, s.user_id, s.content, s.stone_type, s.stone_color, "
-        "s.mood_type, s.is_anonymous, s.created_at, s.view_count, "
-        "s.ripple_count, s.boat_count, "
-        "u.username, u.nickname, u.avatar_url, COUNT(*) OVER() AS total_count, "
-        "CASE WHEN $" +
-        std::to_string(currentUserParamIndex) +
-        " = '' THEN FALSE "
-        "ELSE self_r.ripple_id IS NOT NULL END AS has_rippled "
-        "FROM stones s "
-        "LEFT JOIN users u ON s.user_id = u.user_id "
-        "LEFT JOIN ripples self_r ON self_r.stone_id = s.stone_id "
-        "  AND self_r.user_id = $" +
-        std::to_string(currentUserParamIndex) +
-        " "
-        "WHERE s.deleted_at IS NULL ";
-
-    // 用户ID过滤
-    if (!userId.empty()) {
-      sql += "AND s.user_id = $" + std::to_string(paramIndex++) + " ";
-    }
-
-    if (!filterMood.empty()) {
-      sql += "AND s.mood_type = $" + std::to_string(paramIndex++) + " ";
-    }
-
-    sql += "ORDER BY ";
-    if (sortBy == "view_count") {
-      sql += "s.view_count DESC ";
-    } else if (sortBy == "boat_count") {
-      sql += "s.boat_count DESC ";
-    } else if (sortBy == "ripple_count") {
-      sql += "s.ripple_count DESC ";
-    } else {
-      sql += "s.created_at DESC ";
-    }
-
-    sql += "LIMIT $" + std::to_string(paramIndex++) + " ";
-    sql += "OFFSET $" + std::to_string(paramIndex);
-    auto result = [&]() -> drogon::orm::Result {
-      if (!userId.empty() && !filterMood.empty()) {
-        return dbClient->execSqlSync(
-            sql, currentUserId, userId, filterMood,
-            static_cast<int64_t>(pageSize), offset);
+    if (cacheManager_) {
+      auto cached = cacheManager_->getJson(cacheKey);
+      if (cached) {
+        response = *cached;
       }
+    }
+
+    if (response.isNull()) {
+      int paramIndex = 1;
+      std::string sql =
+          "SELECT s.stone_id, s.user_id, s.content, s.stone_type, "
+          "s.stone_color, "
+          "s.mood_type, s.is_anonymous, s.created_at, s.view_count, "
+          "s.ripple_count, s.boat_count, "
+          "u.username, u.nickname, u.avatar_url, COUNT(*) OVER() AS total_count "
+          "FROM stones s "
+          "LEFT JOIN users u ON s.user_id = u.user_id "
+          "WHERE s.deleted_at IS NULL AND s.status = 'published' ";
+
       if (!userId.empty()) {
-        return dbClient->execSqlSync(
-            sql, currentUserId, userId, static_cast<int64_t>(pageSize),
-            offset);
+        sql += "AND s.user_id = $" + std::to_string(paramIndex++) + " ";
       }
-      if (!filterMood.empty()) {
-        return dbClient->execSqlSync(
-            sql, currentUserId, filterMood, static_cast<int64_t>(pageSize),
-            offset);
-      }
-      return dbClient->execSqlSync(sql, currentUserId,
-                                   static_cast<int64_t>(pageSize), offset);
-    }();
 
-    Json::Value stones(Json::arrayValue);
-    int total = 0;
-    for (const auto &row : result) {
-      if (total == 0 && !row["total_count"].isNull()) {
-        total = row["total_count"].as<int>();
+      if (!filterMood.empty()) {
+        sql += "AND s.mood_type = $" + std::to_string(paramIndex++) + " ";
       }
-      stones.append(buildStoneJson(row, true));
+
+      sql += "ORDER BY ";
+      if (normalizedSort == "view_count") {
+        sql += "s.view_count DESC ";
+      } else if (normalizedSort == "boat_count") {
+        sql += "s.boat_count DESC ";
+      } else if (normalizedSort == "ripple_count") {
+        sql += "s.ripple_count DESC ";
+      } else {
+        sql += "s.created_at DESC ";
+      }
+
+      sql += "LIMIT $" + std::to_string(paramIndex++) + " ";
+      sql += "OFFSET $" + std::to_string(paramIndex);
+      auto result = [&]() -> drogon::orm::Result {
+        if (!userId.empty() && !filterMood.empty()) {
+          return dbClient->execSqlSync(sql, userId, filterMood,
+                                       static_cast<int64_t>(pageSize), offset);
+        }
+        if (!userId.empty()) {
+          return dbClient->execSqlSync(sql, userId, static_cast<int64_t>(pageSize),
+                                       offset);
+        }
+        if (!filterMood.empty()) {
+          return dbClient->execSqlSync(sql, filterMood,
+                                       static_cast<int64_t>(pageSize), offset);
+        }
+        return dbClient->execSqlSync(
+            sql, static_cast<int64_t>(pageSize), offset);
+      }();
+
+      Json::Value stones(Json::arrayValue);
+      int total = 0;
+      for (const auto &row : result) {
+        if (total == 0 && !row["total_count"].isNull()) {
+          total = row["total_count"].as<int>();
+        }
+        stones.append(buildStoneJson(row));
+      }
+      response = ResponseUtil::buildCollectionPayload("stones", stones, total, page,
+                                                      pageSize);
+
+      if (cacheManager_) {
+        cacheManager_->setJson(cacheKey, response, kStoneListCacheTtlSeconds);
+      }
     }
-    return ResponseUtil::buildCollectionPayload("stones", stones, total, page,
-                                                pageSize);
+
+    auto stones = response["stones"];
+    const auto states =
+        loadRippleStates(cacheManager_, currentUserId, collectStoneIds(stones));
+    applyRippleStates(stones, states);
+    response["stones"] = stones;
+    syncStoneCollectionAliases(response);
+    return response;
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get stone list: " << e.base().what();
@@ -429,8 +587,9 @@ void StoneApplicationService::deleteStone(const std::string &stoneId,
 
     // 清除缓存
     if (cacheManager_) {
-      cacheManager_->invalidate("stone:" + stoneId);
-      cacheManager_->invalidatePattern("stone_list:*");
+      cacheManager_->invalidate(buildStoneDetailCacheKey(stoneId));
+      cacheManager_->invalidate("user:" + userId);
+      invalidateStoneListCaches(cacheManager_);
     }
 
   } catch (const drogon::orm::DrogonDbException &e) {
@@ -443,24 +602,35 @@ void StoneApplicationService::deleteStone(const std::string &stoneId,
 void StoneApplicationService::incrementViewCount(const std::string &stoneId) {
   // 使用Redis聚合浏览量，带持久化保障
   auto &redis = cache::RedisCache::getInstance();
-  std::string viewKey = "view_count:" + stoneId;
+  const std::string viewKey = "view_count:" + stoneId;
+  auto cacheManagerCopy = cacheManager_;
 
   if (!redis.isConnected()) {
     // Redis不可用时直接写数据库
     auto dbClient = drogon::app().getDbClient("default");
     dbClient->execSqlAsync(
         "UPDATE stones SET view_count = view_count + 1 WHERE stone_id = $1",
-        [](const drogon::orm::Result &) {},
+        [stoneId, cacheManagerCopy](const drogon::orm::Result &) {
+          if (cacheManagerCopy) {
+            cacheManagerCopy->invalidate(buildStoneDetailCacheKey(stoneId));
+            invalidateStoneListCaches(cacheManagerCopy);
+          }
+        },
         [](const drogon::orm::DrogonDbException &) {}, stoneId);
     return;
   }
 
-  redis.incr(viewKey, [stoneId](int64_t count) {
+  redis.incr(viewKey, [stoneId, cacheManagerCopy](int64_t count) {
     if (count > 0 && count % 10 == 0) {
       auto dbClient = drogon::app().getDbClient("default");
       dbClient->execSqlAsync(
           "UPDATE stones SET view_count = view_count + 10 WHERE stone_id = $1",
-          [](const drogon::orm::Result &) {},
+          [stoneId, cacheManagerCopy](const drogon::orm::Result &) {
+            if (cacheManagerCopy) {
+              cacheManagerCopy->invalidate(buildStoneDetailCacheKey(stoneId));
+              invalidateStoneListCaches(cacheManagerCopy);
+            }
+          },
           [](const drogon::orm::DrogonDbException &e) {
             LOG_ERROR << "Failed to batch update view count: "
                       << e.base().what();
@@ -484,7 +654,8 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
   auto &aiService = heartlake::ai::AIService::getInstance();
 
   // 1. 情感分析 + 风险评估 + 通知
-  aiService.analyzeSentiment(content, [stoneId, userId, content](
+  auto cacheManagerCopy = cacheManager_;
+  aiService.analyzeSentiment(content, [stoneId, userId, content, cacheManagerCopy](
                                           float score, const std::string &mood,
                                           const std::string &error) {
     if (!error.empty()) {
@@ -497,7 +668,12 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
     db->execSqlAsync(
         "UPDATE stones SET emotion_score = $1, mood_type = $2, updated_at = "
         "NOW() WHERE stone_id = $3",
-        [](const drogon::orm::Result &) {},
+        [stoneId, cacheManagerCopy](const drogon::orm::Result &) {
+          if (cacheManagerCopy) {
+            cacheManagerCopy->invalidate(buildStoneDetailCacheKey(stoneId));
+            invalidateStoneListCaches(cacheManagerCopy);
+          }
+        },
         [stoneId](const drogon::orm::DrogonDbException &e) {
           LOG_ERROR << "Failed to update emotion for stone " << stoneId << ": "
                     << e.base().what();
@@ -675,9 +851,9 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
 
   // 4. AI暖心评论（基于双记忆RAG）
   // 使用DualMemoryRAG生成个性化回复，融合用户长期情绪画像和近期交互上下文
-  auto cacheManagerCopy = cacheManager_;
+  auto asyncCacheManager = cacheManager_;
   drogon::async_run([stoneId, userId, content, moodType,
-                     cacheManagerCopy]() -> drogon::Task<void> {
+                     asyncCacheManager]() -> drogon::Task<void> {
     try {
       auto &dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
       std::string comment = dualMemory.generateResponse(
@@ -703,8 +879,9 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
       int newBoatsCount =
           updateResult.empty() ? 1 : updateResult[0]["boat_count"].as<int>();
 
-      if (cacheManagerCopy) {
-        cacheManagerCopy->invalidate("stone:" + stoneId);
+      if (asyncCacheManager) {
+        asyncCacheManager->invalidate(buildStoneDetailCacheKey(stoneId));
+        invalidateStoneListCaches(asyncCacheManager);
       }
 
       Json::Value broadcastMsg;

@@ -293,9 +293,24 @@ private:
     EdgeAIEngine() = default;
     /** @brief 实际初始化逻辑，由 call_once 保证只执行一次 */
     void initializeImpl(const Json::Value& config);
+    void applyRuntimeConfig(const Json::Value& config);
     std::once_flag initFlag_;               ///< 保证 initialize() 只执行一次
     std::atomic<bool> enabled_{false};      ///< 引擎启用标记，acquire/release 语义
     std::atomic<bool> initialized_{false};  ///< 初始化完成标记，acquire/release 语义
+
+    int hnswMConfig_ = 16;
+    int hnswMMax0Config_ = 32;
+    int hnswEfConstructionConfig_ = 200;
+    int hnswEfSearchConfig_ = 50;
+    float dpEpsilonConfig_ = 1.0f;
+    float dpDeltaConfig_ = 1e-5f;
+    float dpSensitivityConfig_ = 1.0f;
+    float dpMaxBudgetConfig_ = 10.0f;
+    float dpMaxDeltaBudgetConfig_ = 1e-3f;
+    int pulseWindowSecondsConfig_ = 300;
+    int maxPulseHistoryConfig_ = 100;
+    int sentimentCacheTTLConfig_ = 300;
+    size_t sentimentCacheMaxConfig_ = 4096;
 
     // 八大子系统实例
     std::unique_ptr<SentimentAnalyzer> sentiment_;        ///< 子系统1: 情感分析

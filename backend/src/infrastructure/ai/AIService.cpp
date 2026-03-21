@@ -294,12 +294,14 @@ void AIService::initialize(const Json::Value& config) {
     ollamaClient_ = HttpClient::newHttpClient(baseUrl_);
     ollamaClient_->setUserAgent("HeartLake/2.0");
 
-    const bool ollamaForceGpu = heartlake::utils::parseBoolEnv(
-        std::getenv("AI_OLLAMA_FORCE_GPU"), true);
-    const int ollamaNumGpu = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", 999);
-    const int ollamaMainGpu = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", 0);
-    const int ollamaNumThread = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", 0);
-    const int ollamaNumCtx = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", 0);
+    ollamaForceGpu_ = heartlake::utils::parseBoolEnv(
+        std::getenv("AI_OLLAMA_FORCE_GPU"), ollamaForceGpu_);
+    ollamaLowVram_ = heartlake::utils::parseBoolEnv(
+        std::getenv("AI_OLLAMA_LOW_VRAM"), ollamaLowVram_);
+    ollamaNumGpu_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", ollamaNumGpu_);
+    ollamaMainGpu_ = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", ollamaMainGpu_);
+    ollamaNumThread_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", ollamaNumThread_);
+    ollamaNumCtx_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", ollamaNumCtx_);
 
     LOG_INFO << "AIService initialized with provider: " << provider_
              << ", max_retries=" << maxRetries_
@@ -313,11 +315,11 @@ void AIService::initialize(const Json::Value& config) {
              << ", semantic_cache_threshold=" << semanticCacheThreshold
              << ", semantic_cache_max_size=" << semanticCacheMaxSize
              << ", semantic_cache_ttl_sec=" << semanticCacheTTLSeconds
-             << ", ollama_force_gpu=" << (ollamaForceGpu ? "true" : "false")
-             << ", ollama_num_gpu=" << ollamaNumGpu
-             << ", ollama_main_gpu=" << ollamaMainGpu
-             << ", ollama_num_thread=" << ollamaNumThread
-             << ", ollama_num_ctx=" << ollamaNumCtx;
+             << ", ollama_force_gpu=" << (ollamaForceGpu_ ? "true" : "false")
+             << ", ollama_num_gpu=" << ollamaNumGpu_
+             << ", ollama_main_gpu=" << ollamaMainGpu_
+             << ", ollama_num_thread=" << ollamaNumThread_
+             << ", ollama_num_ctx=" << ollamaNumCtx_;
 }
 
 AIService::LocalModerationResult AIService::localModerate(const std::string& text) {
@@ -816,23 +818,18 @@ void AIService::callAIAPI(
         }
 
         // 默认强制走 GPU，若机器不支持由 Ollama 自动报错并可回退
-        const bool forceGpu = heartlake::utils::parseBoolEnv(
-            std::getenv("AI_OLLAMA_FORCE_GPU"), true);
-        if (forceGpu) {
-            ollamaPayload["options"]["num_gpu"] = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", 999);
-            ollamaPayload["options"]["main_gpu"] = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", 0);
-            ollamaPayload["options"]["low_vram"] = heartlake::utils::parseBoolEnv(
-                std::getenv("AI_OLLAMA_LOW_VRAM"), false);
+        if (ollamaForceGpu_) {
+            ollamaPayload["options"]["num_gpu"] = ollamaNumGpu_;
+            ollamaPayload["options"]["main_gpu"] = ollamaMainGpu_;
+            ollamaPayload["options"]["low_vram"] = ollamaLowVram_;
         }
 
-        const int numThread = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", 0);
-        if (numThread > 0) {
-            ollamaPayload["options"]["num_thread"] = numThread;
+        if (ollamaNumThread_ > 0) {
+            ollamaPayload["options"]["num_thread"] = ollamaNumThread_;
         }
 
-        const int numCtx = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", 0);
-        if (numCtx > 0) {
-            ollamaPayload["options"]["num_ctx"] = numCtx;
+        if (ollamaNumCtx_ > 0) {
+            ollamaPayload["options"]["num_ctx"] = ollamaNumCtx_;
         }
 
         if (payload.isMember("response_format")) {

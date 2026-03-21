@@ -3,6 +3,7 @@
  */
 #include "interfaces/api/VectorSearchController.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "infrastructure/ai/EdgeAIEngine.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -20,6 +21,7 @@ namespace {
 
 std::vector<float> parseLegacyEmbedding(const std::string& raw) {
     std::vector<float> result;
+    result.reserve(128);
     std::string normalized = raw;
     normalized.erase(std::remove(normalized.begin(), normalized.end(), '['), normalized.end());
     normalized.erase(std::remove(normalized.begin(), normalized.end(), ']'), normalized.end());
@@ -37,15 +39,47 @@ std::vector<float> parseLegacyEmbedding(const std::string& raw) {
     return result;
 }
 
+std::string serializeLegacyEmbedding(const std::vector<float>& embedding) {
+    std::string vectorStr;
+    vectorStr.reserve(embedding.size() * 16 + 2);
+    vectorStr.push_back('[');
+    for (size_t i = 0; i < embedding.size(); ++i) {
+        if (i > 0) {
+            vectorStr.push_back(',');
+        }
+        vectorStr += std::to_string(embedding[i]);
+    }
+    vectorStr.push_back(']');
+    return vectorStr;
+}
+
+void syncEmbeddingToEdgeIndex(const std::string& stoneId,
+                              const std::vector<float>& embedding) {
+    auto& edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
+    if (!edgeEngine.isEnabled() || embedding.empty()) {
+        return;
+    }
+
+    edgeEngine.hnswRemove(stoneId);
+    edgeEngine.hnswInsert(stoneId, embedding);
+}
+
 void respondWithLegacySimilarityFallback(
     const drogon::orm::DbClientPtr& dbClient,
     const std::string& stoneId,
     const std::string& content,
+    const std::string& sourceLegacyEmbedding,
     std::function<void(const HttpResponsePtr &)>&& callback,
     const std::string& fallbackReason
 ) {
-    auto& embeddingEngine = heartlake::ai::AdvancedEmbeddingEngine::getInstance();
-    const auto queryEmbedding = embeddingEngine.generateEmbedding(content);
+    std::vector<float> queryEmbedding;
+    if (!sourceLegacyEmbedding.empty()) {
+        queryEmbedding = parseLegacyEmbedding(sourceLegacyEmbedding);
+    }
+    if (queryEmbedding.empty()) {
+        auto& embeddingEngine = heartlake::ai::AdvancedEmbeddingEngine::getInstance();
+        queryEmbedding = embeddingEngine.generateEmbedding(content);
+    }
     if (queryEmbedding.empty()) {
         callback(ResponseUtil::internalError("向量计算失败"));
         return;
@@ -58,14 +92,16 @@ void respondWithLegacySimilarityFallback(
         "JOIN stones s ON s.stone_id = se.stone_id "
         "LEFT JOIN users u ON s.user_id = u.user_id "
         "WHERE s.status = 'published' AND s.deleted_at IS NULL AND s.stone_id != $1",
-        [callback = std::move(callback), queryEmbedding, fallbackReason](const drogon::orm::Result& res) mutable {
+        [callback = std::move(callback), queryEmbedding = std::move(queryEmbedding), fallbackReason](
+            const drogon::orm::Result& res) mutable {
             struct Candidate {
                 Json::Value stone;
                 float similarity = 0.0f;
             };
 
+            constexpr size_t kResultLimit = 10;
             std::vector<Candidate> candidates;
-            candidates.reserve(res.size());
+            candidates.reserve(kResultLimit);
 
             for (const auto& dbRow : res) {
                 if (dbRow["embedding"].isNull()) continue;
@@ -85,7 +121,19 @@ void respondWithLegacySimilarityFallback(
                 stone["nickname"] = dbRow["nickname"].isNull() ? "" : dbRow["nickname"].as<std::string>();
                 stone["similarity"] = similarity;
 
-                candidates.push_back({stone, similarity});
+                if (candidates.size() < kResultLimit) {
+                    candidates.push_back({std::move(stone), similarity});
+                    continue;
+                }
+
+                auto minIt = std::min_element(
+                    candidates.begin(), candidates.end(),
+                    [](const Candidate& lhs, const Candidate& rhs) {
+                        return lhs.similarity < rhs.similarity;
+                    });
+                if (minIt != candidates.end() && similarity > minIt->similarity) {
+                    *minIt = {std::move(stone), similarity};
+                }
             }
 
             std::sort(candidates.begin(), candidates.end(), [](const Candidate& lhs, const Candidate& rhs) {
@@ -98,9 +146,8 @@ void respondWithLegacySimilarityFallback(
 
             Json::Value data;
             Json::Value stones = Json::arrayValue;
-            const size_t limit = std::min<size_t>(10, candidates.size());
-            for (size_t i = 0; i < limit; ++i) {
-                stones.append(candidates[i].stone);
+            for (const auto& candidate : candidates) {
+                stones.append(candidate.stone);
             }
 
             data["stones"] = stones;
@@ -157,7 +204,10 @@ void VectorSearchController::getSimilarStones(
     
     // 先只读取基础内容，避免在缺失 pgvector 列时直接查询失败。
     dbClient->execSqlAsync(
-        "SELECT stone_id, content FROM stones WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL",
+        "SELECT s.stone_id, s.content, se.embedding AS legacy_embedding "
+        "FROM stones s "
+        "LEFT JOIN stone_embeddings se ON se.stone_id = s.stone_id "
+        "WHERE s.stone_id = $1 AND s.status = 'published' AND s.deleted_at IS NULL",
         [callback, dbClient, stoneId](const drogon::orm::Result &r) {
             if (r.empty()) {
                 Json::Value resp;
@@ -170,6 +220,9 @@ void VectorSearchController::getSimilarStones(
             }
 
             const std::string content = r[0]["content"].as<std::string>();
+            const std::string sourceLegacyEmbedding = r[0]["legacy_embedding"].isNull()
+                ? std::string()
+                : r[0]["legacy_embedding"].as<std::string>();
 
             // 使用向量搜索查找相似石头
             dbClient->execSqlAsync(
@@ -217,10 +270,12 @@ void VectorSearchController::getSimilarStones(
                     auto httpResp = HttpResponse::newHttpJsonResponse(resp);
                     callback(httpResp);
                 },
-                [callback, dbClient, stoneId, content](const drogon::orm::DrogonDbException &e) mutable {
+                [callback, dbClient, stoneId, content, sourceLegacyEmbedding](
+                    const drogon::orm::DrogonDbException &e) mutable {
                     LOG_WARN << "Vector search unavailable, fallback to legacy embeddings: " << e.base().what();
                     respondWithLegacySimilarityFallback(
-                        dbClient, stoneId, content, std::move(callback), e.base().what());
+                        dbClient, stoneId, content, sourceLegacyEmbedding,
+                        std::move(callback), e.base().what());
                 },
                 stoneId
             );
@@ -338,24 +393,28 @@ void VectorSearchController::updateStoneEmbedding(
                 callback(httpResp);
                 return;
             }
-            
+
             std::string content = r[0]["content"].as<std::string>();
 
             // 使用本地高性能嵌入向量引擎（避免API调用成本）
             auto& embeddingEngine = heartlake::ai::AdvancedEmbeddingEngine::getInstance();
             auto embedding = embeddingEngine.generateEmbedding(content);
-
-            // 将向量转换为PostgreSQL vector格式的字符串
-            std::string vectorStr = "[";
-            for (size_t i = 0; i < embedding.size(); i++) {
-                if (i > 0) vectorStr += ",";
-                vectorStr += std::to_string(embedding[i]);
+            if (embedding.empty()) {
+                Json::Value resp;
+                resp["code"] = 500;
+                resp["message"] = "向量生成失败";
+                auto httpResp = HttpResponse::newHttpJsonResponse(resp);
+                httpResp->setStatusCode(k500InternalServerError);
+                callback(httpResp);
+                return;
             }
-            vectorStr += "]";
+
+            const std::string vectorStr = serializeLegacyEmbedding(embedding);
 
             persistLegacyEmbedding(
                 dbClient, stoneId, vectorStr,
-                [callback, dbClient, vectorStr, stoneId](bool ok, const std::string& error) {
+                [callback, dbClient, vectorStr, stoneId, embedding = std::move(embedding)](
+                    bool ok, const std::string& error) mutable {
                     if (!ok) {
                         LOG_ERROR << "Error updating legacy embedding: " << error;
                         Json::Value resp;
@@ -369,7 +428,8 @@ void VectorSearchController::updateStoneEmbedding(
 
                     dbClient->execSqlAsync(
                         "UPDATE stones SET embedding = $1::vector WHERE stone_id = $2",
-                        [callback](const drogon::orm::Result &) {
+                        [callback, stoneId, embedding](const drogon::orm::Result &) {
+                            syncEmbeddingToEdgeIndex(stoneId, embedding);
                             Json::Value resp;
                             resp["code"] = 0;
                             resp["message"] = "向量嵌入更新成功";
@@ -378,9 +438,10 @@ void VectorSearchController::updateStoneEmbedding(
                             resp["data"] = data;
                             callback(HttpResponse::newHttpJsonResponse(resp));
                         },
-                        [callback](const drogon::orm::DrogonDbException &e) {
+                        [callback, stoneId, embedding](const drogon::orm::DrogonDbException &e) {
                             LOG_WARN << "pgvector column unavailable, legacy embedding persisted only: "
                                      << e.base().what();
+                            syncEmbeddingToEdgeIndex(stoneId, embedding);
                             Json::Value resp;
                             resp["code"] = 0;
                             resp["message"] = "向量嵌入更新成功";

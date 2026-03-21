@@ -277,6 +277,12 @@ private:
     int circuitCooldownSeconds_ = 20;
     float localSentimentConfidenceThreshold_ = 0.72f;
     drogon::HttpClientPtr ollamaClient_;  // 复用连接
+    bool ollamaForceGpu_ = true;
+    bool ollamaLowVram_ = false;
+    int ollamaNumGpu_ = 999;
+    int ollamaMainGpu_ = 0;
+    int ollamaNumThread_ = 0;
+    int ollamaNumCtx_ = 0;
     std::mutex circuitMutex_;
     bool circuitOpen_ = false;
     int consecutiveFailures_ = 0;

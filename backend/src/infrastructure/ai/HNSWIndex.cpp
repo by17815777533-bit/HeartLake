@@ -369,6 +369,30 @@ void HNSWIndex::connectNeighbors(size_t nodeIdx,
     }
 }
 
+bool HNSWIndex::isNodeActive(size_t nodeIdx) const {
+    return nodeIdx < nodes_.size() &&
+        !nodes_[nodeIdx].id.empty() &&
+        !nodes_[nodeIdx].vector.empty();
+}
+
+void HNSWIndex::rebuildEntryPointLocked() {
+    entryPoint_ = 0;
+    maxLevel_ = 0;
+
+    bool foundActive = false;
+    for (size_t idx = 0; idx < nodes_.size(); ++idx) {
+        if (!isNodeActive(idx)) {
+            continue;
+        }
+
+        if (!foundActive || nodes_[idx].maxLevel > maxLevel_) {
+            entryPoint_ = idx;
+            maxLevel_ = nodes_[idx].maxLevel;
+            foundActive = true;
+        }
+    }
+}
+
 // ============================================================================
 // 公开接口
 // ============================================================================
@@ -448,12 +472,17 @@ std::vector<VectorSearchResult> HNSWIndex::searchKNN(
     const std::vector<float>& query, int k) {
     if (query.empty()) return {};
 
-    totalSearches_.fetch_add(1);
+    totalSearches_.fetch_add(1, std::memory_order_relaxed);
 
     std::shared_lock lock(mutex_);
 
-    if (nodes_.empty()) return {};
-    const size_t expectedDim = nodes_.front().vector.size();
+    if (idMap_.empty() || nodes_.empty()) return {};
+
+    if (!isNodeActive(entryPoint_)) {
+        return {};
+    }
+
+    const size_t expectedDim = nodes_[entryPoint_].vector.size();
     if (expectedDim == 0 || query.size() != expectedDim) {
         LOG_WARN << "[HNSW] Search dimension mismatch: expected="
                  << expectedDim << ", got=" << query.size();
@@ -553,10 +582,14 @@ std::vector<VectorSearchResult> HNSWIndex::searchKNN(
 
     const float dim = std::max(1.0f, static_cast<float>(query.size()));
     for (const auto& [dist, idx] : candidates) {
+        if (!isNodeActive(idx)) {
+            continue;
+        }
         VectorSearchResult r;
         r.id = nodes_[idx].id;
         r.distance = std::sqrt(dist);
         r.similarity = std::exp(-dist / (2.0f * dim));
+        r.nodeIndex = idx;
         results.push_back(std::move(r));
     }
 
@@ -589,9 +622,14 @@ bool HNSWIndex::removeVector(const std::string& id) {
     nodes_[idx].id.clear();
     idMap_.erase(it);
 
-    // 如果删除的是入口点，选择新的入口点
-    if (idx == entryPoint_ && !idMap_.empty()) {
-        entryPoint_ = idMap_.begin()->second;
+    if (idMap_.empty()) {
+        entryPoint_ = 0;
+        maxLevel_ = 0;
+        return true;
+    }
+
+    if (idx == entryPoint_ || nodes_[idx].maxLevel >= maxLevel_) {
+        rebuildEntryPointLocked();
     }
 
     return true;
@@ -654,10 +692,18 @@ std::vector<VectorSearchResult> HNSWIndex::rerankCandidates(
     entries.reserve(candidates.size());
 
     for (size_t ci = 0; ci < candidates.size(); ++ci) {
-        auto idIt = idMap_.find(candidates[ci].id);
-        if (idIt == idMap_.end()) continue;
-        size_t nodeIdx = idIt->second;
-        if (nodes_[nodeIdx].vector.empty()) continue;
+        size_t nodeIdx = candidates[ci].nodeIndex;
+        if (nodeIdx >= nodes_.size() || !isNodeActive(nodeIdx) ||
+            nodes_[nodeIdx].id != candidates[ci].id) {
+            auto idIt = idMap_.find(candidates[ci].id);
+            if (idIt == idMap_.end()) {
+                continue;
+            }
+            nodeIdx = idIt->second;
+            if (!isNodeActive(nodeIdx)) {
+                continue;
+            }
+        }
 
         float fullCos = 0.0f, coarseCos = 0.0f;
         cosinePrefixFused(query, nodes_[nodeIdx].vector,
@@ -693,6 +739,7 @@ Json::Value HNSWIndex::getHNSWStats() const {
     Json::Value stats;
     stats["total_vectors"] = static_cast<Json::UInt64>(nodes_.size());
     stats["active_vectors"] = static_cast<Json::UInt64>(idMap_.size());
+    stats["deleted_vectors"] = static_cast<Json::UInt64>(nodes_.size() - idMap_.size());
     stats["max_level"] = maxLevel_;
     stats["m"] = m_;
     stats["m_max0"] = mMax0_;

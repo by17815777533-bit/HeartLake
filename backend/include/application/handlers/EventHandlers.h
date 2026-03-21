@@ -85,6 +85,7 @@ public:
     void handle(const core::events::EmotionAnalyzedEvent& event) override {
         if (cache_) {
             cache_->invalidate("stone:" + event.stoneId);
+            cache_->invalidatePattern("stone_list:*");
         }
     }
 
@@ -105,6 +106,7 @@ public:
     void handle(const core::events::RippleCreatedEvent& event) override {
         if (cache_) {
             cache_->invalidate("stone:" + event.stoneId);
+            cache_->invalidatePattern("stone_list:*");
         }
     }
 

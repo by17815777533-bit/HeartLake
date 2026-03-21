@@ -17,14 +17,55 @@
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include <drogon/drogon.h>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <chrono>
 #include <sstream>
 #include <limits>
+#include <unordered_map>
 
 using namespace drogon;
 
 namespace heartlake::ai {
+
+namespace {
+
+std::vector<float> parsePgFloatArray(const std::string& raw) {
+    std::vector<float> values;
+    if (raw.size() < 2 || raw.front() != '{' || raw.back() != '}') {
+        return values;
+    }
+
+    std::string token;
+    token.reserve(raw.size());
+    for (size_t i = 1; i + 1 < raw.size(); ++i) {
+        const char ch = raw[i];
+        if (ch == ',') {
+            if (!token.empty() && token != "NULL") {
+                try {
+                    values.push_back(std::stof(token));
+                } catch (const std::exception&) {
+                }
+            }
+            token.clear();
+            continue;
+        }
+        if (!std::isspace(static_cast<unsigned char>(ch))) {
+            token.push_back(ch);
+        }
+    }
+
+    if (!token.empty() && token != "NULL") {
+        try {
+            values.push_back(std::stof(token));
+        } catch (const std::exception&) {
+        }
+    }
+
+    return values;
+}
+
+}  // namespace
 
 EmotionResonanceEngine& EmotionResonanceEngine::getInstance() {
     static EmotionResonanceEngine instance;
@@ -407,13 +448,19 @@ EmotionTrajectory EmotionResonanceEngine::loadTrajectory(const std::string& user
             userId, days
         );
 
+        float latestProfileScore = 0.0f;
         for (const auto& row : moodResult) {
             traj.moods.push_back(row["mood_type"].as<std::string>());
+            latestProfileScore = row["avg_emotion_score"].isNull()
+                ? latestProfileScore
+                : row["avg_emotion_score"].as<float>();
         }
 
         // 设置当前情绪
         if (!traj.scores.empty()) {
             traj.currentScore = traj.scores.back();
+        } else if (!moodResult.empty()) {
+            traj.currentScore = latestProfileScore;
         }
         if (!traj.moods.empty()) {
             traj.currentMood = traj.moods.back();
@@ -433,6 +480,7 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
     int limit
 ) {
     std::vector<ResonanceResult> results;
+    limit = std::max(1, limit);
 
     try {
         auto db = app().getDbClient("default");
@@ -440,7 +488,7 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
         // 1. 获取源石头信息
         auto stoneRow = db->execSqlSync(
             "SELECT content, mood_type, emotion_score, created_at FROM stones "
-            "WHERE stone_id = $1 AND status = 'published'",
+            "WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL",
             stoneId
         );
         if (stoneRow.empty()) return results;
@@ -456,33 +504,79 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
         auto& embEngine = AdvancedEmbeddingEngine::getInstance();
         auto sourceEmb = embEngine.generateEmbedding(sourceContent);
 
-        // 4. 获取候选石头（排除自己的、已交互的）
+        // 4. 获取候选石头，并批量带出作者近 7 天轨迹，避免按候选逐条查库。
         auto candidates = db->execSqlSync(
-            "SELECT s.stone_id, s.user_id, s.content, s.mood_type, "
-            "s.emotion_score, s.created_at "
-            "FROM stones s "
-            "WHERE s.stone_id != $1 AND s.user_id != $2 "
-            "AND s.status = 'published' "
-            "AND s.created_at > NOW() - INTERVAL '30 days' "
-            "ORDER BY s.created_at DESC LIMIT $3",
+            "WITH candidate_stones AS ("
+            "  SELECT s.stone_id, s.user_id, s.content, "
+            "         COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "         COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "         COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "         s.created_at "
+            "  FROM stones s "
+            "  WHERE s.stone_id != $1 AND s.user_id != $2 "
+            "    AND s.status = 'published' "
+            "    AND s.deleted_at IS NULL "
+            "    AND s.created_at > NOW() - INTERVAL '30 days' "
+            "    AND NOT EXISTS ("
+            "      SELECT 1 FROM user_interaction_history h "
+            "      WHERE h.user_id = $2 AND h.stone_id = s.stone_id"
+            "    ) "
+            "  ORDER BY s.created_at DESC "
+            "  LIMIT $3"
+            "), candidate_users AS ("
+            "  SELECT DISTINCT user_id FROM candidate_stones"
+            "), trajectory_scores AS ("
+            "  SELECT et.user_id, ARRAY_AGG(et.score ORDER BY et.created_at ASC) AS scores "
+            "  FROM emotion_tracking et "
+            "  JOIN candidate_users cu ON cu.user_id = et.user_id "
+            "  WHERE et.created_at > NOW() - INTERVAL '7 days' "
+            "  GROUP BY et.user_id"
+            "), latest_moods AS ("
+            "  SELECT DISTINCT ON (uep.user_id) "
+            "         uep.user_id, "
+            "         COALESCE(uep.mood_type, 'neutral') AS current_mood, "
+            "         COALESCE(uep.avg_emotion_score, 0.0) AS current_score "
+            "  FROM user_emotion_profile uep "
+            "  JOIN candidate_users cu ON cu.user_id = uep.user_id "
+            "  WHERE uep.date >= CURRENT_DATE - INTERVAL '7 days' "
+            "  ORDER BY uep.user_id, uep.date DESC"
+            ") "
+            "SELECT cs.stone_id, cs.user_id, cs.content, cs.mood_type, "
+            "       cs.emotion_score, cs.ripple_count, cs.created_at, "
+            "       u.nickname AS author_name, "
+            "       COALESCE(ts.scores::text, '{}') AS trajectory_scores, "
+            "       COALESCE(lm.current_mood, 'neutral') AS current_mood, "
+            "       COALESCE(lm.current_score, 0.0) AS current_score "
+            "FROM candidate_stones cs "
+            "JOIN users u ON u.user_id = cs.user_id "
+            "LEFT JOIN trajectory_scores ts ON ts.user_id = cs.user_id "
+            "LEFT JOIN latest_moods lm ON lm.user_id = cs.user_id "
+            "ORDER BY cs.created_at DESC",
             stoneId, userId, limit * 5
         );
         // 已推荐的情绪列表（用于多样性计算）
         std::vector<std::string> recommendedMoods;
         float bestTrajectoryScore = 0.0f;
+        std::unordered_map<std::string, EmotionTrajectory> trajectoryCache;
+        trajectoryCache.reserve(candidates.size());
 
         // 5. 对每个候选计算四维共鸣分数
         for (const auto& row : candidates) {
             std::string candStoneId = row["stone_id"].as<std::string>();
             std::string candUserId = row["user_id"].as<std::string>();
             std::string candContent = row["content"].as<std::string>();
-            std::string candMood = row["mood_type"].isNull()
-                ? "neutral" : row["mood_type"].as<std::string>();
+            std::string candMood = row["mood_type"].as<std::string>();
             std::string candTimestamp = row["created_at"].as<std::string>();
 
             ResonanceResult res;
             res.stoneId = candStoneId;
             res.userId = candUserId;
+            res.content = candContent;
+            res.moodType = candMood;
+            res.emotionScore = row["emotion_score"].as<float>();
+            res.authorName = row["author_name"].as<std::string>();
+            res.rippleCount = row["ripple_count"].as<int>();
+            res.createdAt = candTimestamp;
 
             // 维度1: 语义相似度
             auto candEmb = embEngine.generateEmbedding(candContent);
@@ -499,7 +593,16 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             // DTW 复杂度 O(n*w)，LB_Keogh 下界仅 O(n)
             // 先用下界快速排除差异过大的轨迹，减少不必要的完整 DTW 计算
             // 参考: Keogh 2005 "Exact indexing of dynamic time warping"
-            auto candTraj = loadTrajectory(candUserId);
+            auto trajIt = trajectoryCache.find(candUserId);
+            if (trajIt == trajectoryCache.end()) {
+                EmotionTrajectory candTraj;
+                candTraj.userId = candUserId;
+                candTraj.scores = parsePgFloatArray(row["trajectory_scores"].as<std::string>());
+                candTraj.currentMood = row["current_mood"].as<std::string>();
+                candTraj.currentScore = row["current_score"].as<float>();
+                trajIt = trajectoryCache.emplace(candUserId, std::move(candTraj)).first;
+            }
+            const auto& candTraj = trajIt->second;
             if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
                 const float lbK = lbKeogh(userTraj.scores, candTraj.scores);
                 const float lbI = lbImproved(userTraj.scores, candTraj.scores);
