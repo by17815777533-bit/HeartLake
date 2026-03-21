@@ -5,6 +5,7 @@
 #include "infrastructure/services/NotificationPushService.h"
 #include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <drogon/HttpResponse.h>
 #include <drogon/utils/Utilities.h>
@@ -217,10 +218,6 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
         
         auto result = dbClient->execSqlSync(querySql, currentUserId);
         
-        Json::Value ret;
-        ret["code"] = 0;
-        ret["message"] = "获取成功";
-        
         Json::Value friends(Json::arrayValue);
         for (const auto &row : result) {
             Json::Value friend_;
@@ -240,14 +237,12 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             
             friends.append(friend_);
         }
-        
-        ret["data"]["items"] = friends;
-        ret["data"]["friends"] = friends;
-        ret["data"]["temp_friends"] = friends;
-        ret["data"]["total"] = static_cast<int>(result.size());
-        
-        auto resp = HttpResponse::newHttpJsonResponse(ret);
-        callback(resp);
+
+        const int total = static_cast<int>(result.size());
+        Json::Value data = ResponseUtil::buildCollectionPayload(
+            "temp_friends", friends, total, 1, total > 0 ? total : 1);
+        data["friends"] = friends;
+        callback(ResponseUtil::success(data, "获取成功"));
         
     } catch (const std::exception &e) {
         LOG_ERROR << "获取临时好友列表异常: " << e.what();
