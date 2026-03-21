@@ -525,12 +525,10 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
         int offset = (page - 1) * pageSize;
 
         auto dbClient = app().getDbClient("default");
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports WHERE status = 'pending'");
-        int total = safeCount(countResult);
-
         auto result = dbClient->execSqlSync(
             "SELECT r.report_id, r.target_type, r.target_id, r.reason, r.created_at, "
-            "s.content as stone_content, b.content as boat_content "
+            "s.content as stone_content, b.content as boat_content, "
+            "COUNT(*) OVER() AS total_count "
             "FROM reports r "
             "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
             "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
@@ -538,6 +536,12 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            auto countResult = dbClient->execSqlSync(
+                "SELECT COUNT(*) as total FROM reports WHERE status = 'pending'");
+            total = safeCount(countResult);
+        }
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -622,10 +626,10 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
         const auto resultFilter = req->getParameter("result");
 
         auto dbClient = app().getDbClient("default");
-        std::string countSql = "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1";
         std::string querySql =
             "SELECT ml.log_id, ml.action, ml.reason, ml.operator_id, ml.created_at, ml.target_type, ml.target_id, "
-            "COALESCE(s.content, b.content, u.nickname, ml.target_id) as target_preview "
+            "COALESCE(s.content, b.content, u.nickname, ml.target_id) as target_preview, "
+            "COUNT(*) OVER() AS total_count "
             "FROM moderation_logs ml "
             "LEFT JOIN stones s ON ml.target_type = 'stone' AND ml.target_id = s.stone_id "
             "LEFT JOIN paper_boats b ON ml.target_type = 'boat' AND ml.target_id = b.boat_id "
@@ -634,7 +638,6 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
         std::vector<std::string> params;
 
         if ((resultFilter == "approved" || resultFilter == "rejected")) {
-            countSql += " AND ml.action = $1";
             querySql += " AND ml.action = $1";
             params.push_back(resultFilter);
         }
@@ -649,9 +652,17 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
             return dbClient->execSqlSync(sql, params[0]);
         };
 
-        auto countResult = execWithParams(countSql);
         auto result = execWithParams(querySql);
-        int total = safeCount(countResult);
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            auto countResult = params.empty()
+                ? dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1")
+                : dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1 AND ml.action = $1",
+                    params[0]);
+            total = safeCount(countResult);
+        }
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -684,62 +695,68 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
         const auto reason = req->getParameter("type");
 
         auto dbClient = app().getDbClient("default");
-        std::optional<orm::Result> countResult, result;
+        std::string querySql =
+            "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
+            "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname, "
+            "COUNT(*) OVER() AS total_count "
+            "FROM reports r "
+            "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
+            "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
+            "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
+            "WHERE 1=1";
+        std::vector<std::string> params;
+        int paramIdx = 1;
 
-        // 使用参数化查询防止SQL注入
-        if (!status.empty() && isValidReportStatus(status) && !reason.empty()) {
-            countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1 AND r.reason = $2",
-                status, reason);
-            result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
-                "FROM reports r "
-                "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
-                "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
-                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
-                "WHERE r.status = $1 AND r.reason = $2 ORDER BY r.created_at DESC LIMIT $3 OFFSET $4",
-                status, reason, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-        } else if (!status.empty() && isValidReportStatus(status)) {
-            countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1", status);
-            result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
-                "FROM reports r "
-                "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
-                "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
-                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
-                "WHERE r.status = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
-                status, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-        } else if (!reason.empty()) {
-            countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM reports r WHERE r.reason = $1", reason);
-            result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
-                "FROM reports r "
-                "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
-                "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
-                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
-                "WHERE r.reason = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
-                reason, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-        } else {
-            countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports r");
-            result = dbClient->execSqlSync(
-                "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
-                "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname "
-                "FROM reports r "
-                "LEFT JOIN stones s ON r.target_type = 'stone' AND r.target_id = s.stone_id "
-                "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
-                "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
-                "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
-                static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
+        if (!status.empty() && isValidReportStatus(status)) {
+            querySql += " AND r.status = $" + std::to_string(paramIdx);
+            params.push_back(status);
+            paramIdx++;
         }
-        int total = (!countResult || countResult->empty()) ? 0 : safeCount(*countResult);
+        if (!reason.empty()) {
+            querySql += " AND r.reason = $" + std::to_string(paramIdx);
+            params.push_back(reason);
+            paramIdx++;
+        }
+
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY r.created_at DESC LIMIT $" + std::to_string(limitParam) +
+                    " OFFSET $" + std::to_string(offsetParam);
+
+        auto execWithParams = [&]() {
+            switch (params.size()) {
+                case 0: return dbClient->execSqlSync(
+                    querySql, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
+                case 1: return dbClient->execSqlSync(
+                    querySql, params[0], static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
+                case 2: return dbClient->execSqlSync(
+                    querySql, params[0], params[1], static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
+                default: throw std::invalid_argument("SQL 参数数量超出支持范围");
+            }
+        };
+
+        auto result = execWithParams();
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            if (params.size() == 2) {
+                total = safeCount(dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1 AND r.reason = $2",
+                    params[0], params[1]));
+            } else if (params.size() == 1 && !status.empty() && isValidReportStatus(status)) {
+                total = safeCount(dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1",
+                    params[0]));
+            } else if (params.size() == 1) {
+                total = safeCount(dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM reports r WHERE r.reason = $1",
+                    params[0]));
+            } else {
+                total = safeCount(dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports r"));
+            }
+        }
 
         Json::Value list(Json::arrayValue);
-        for (const auto &row : *result) {
+        for (const auto &row : result) {
             Json::Value item;
             item["id"] = row["report_id"].as<std::string>();
             item["reporter_id"] = row["reporter_id"].isNull() ? "" : row["reporter_id"].as<std::string>();
@@ -853,7 +870,6 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
             }
         }
 
-        const std::string countSql = "SELECT COUNT(*) as total FROM sensitive_words" + whereClause;
         const std::string querySql =
             "SELECT id, word, category, "
             "CASE "
@@ -862,7 +878,8 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
             "  ELSE 'low' "
             "END as level, "
             "CASE WHEN is_active THEN 'block' ELSE 'allow' END as action, "
-            "created_at "
+            "created_at, "
+            "COUNT(*) OVER() AS total_count "
             "FROM sensitive_words" + whereClause +
             " ORDER BY created_at DESC LIMIT " + std::to_string(pageSize) +
             " OFFSET " + std::to_string(offset);
@@ -875,9 +892,13 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
             }
         };
 
-        auto countResult = execWithParams(countSql);
         auto result = execWithParams(querySql);
-        int total = safeCount(countResult);
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            const std::string countSql = "SELECT COUNT(*) as total FROM sensitive_words" + whereClause;
+            auto countResult = execWithParams(countSql);
+            total = safeCount(countResult);
+        }
 
         Json::Value words(Json::arrayValue);
         for (const auto &row : result) {
@@ -1048,13 +1069,17 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
         auto [page, pageSize] = safePagination(req);
 
-        auto countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM broadcast_messages");
-        int total = safeCount(countResult);
-
         auto result = dbClient->execSqlSync(
-            "SELECT * FROM broadcast_messages ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-            pageSize, (page - 1) * pageSize
+            "SELECT *, COUNT(*) OVER() AS total_count "
+            "FROM broadcast_messages ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            static_cast<int64_t>(pageSize), static_cast<int64_t>((page - 1) * pageSize)
         );
+        int total = extractWindowTotal(result);
+        if (result.empty() && page > 1) {
+            auto countResult = dbClient->execSqlSync(
+                "SELECT COUNT(*) as total FROM broadcast_messages");
+            total = safeCount(countResult);
+        }
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1081,9 +1106,9 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         auto [page, pageSize] = safePagination(req);
         int offset = (page - 1) * pageSize;
 
-        std::string countSql = "SELECT COUNT(*) as total FROM operation_logs WHERE 1=1";
         std::string querySql =
-            "SELECT id, admin_id, action, target_type, target_id, detail as details, created_at "
+            "SELECT id, admin_id, action, target_type, target_id, detail as details, created_at, "
+            "COUNT(*) OVER() AS total_count "
             "FROM operation_logs WHERE 1=1";
         std::vector<std::string> params;
         int paramIdx = 1;
@@ -1094,28 +1119,24 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         const auto endDate = req->getParameter("end_date");
 
         if (!adminId.empty()) {
-            countSql += " AND admin_id = $" + std::to_string(paramIdx);
             querySql += " AND admin_id = $" + std::to_string(paramIdx);
             params.push_back(adminId);
             paramIdx++;
         }
 
         if (!action.empty()) {
-            countSql += " AND action = $" + std::to_string(paramIdx);
             querySql += " AND action = $" + std::to_string(paramIdx);
             params.push_back(action);
             paramIdx++;
         }
 
         if (!startDate.empty()) {
-            countSql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
             querySql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
             params.push_back(startDate);
             paramIdx++;
         }
 
         if (!endDate.empty()) {
-            countSql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
             querySql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
             params.push_back(endDate);
             paramIdx++;
@@ -1134,9 +1155,26 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
             }
         };
 
-        auto countResult = execWithParams(countSql);
         auto result = execWithParams(querySql);
-        int total = safeCount(countResult);
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            std::string countSql = "SELECT COUNT(*) as total FROM operation_logs WHERE 1=1";
+            int countParamIdx = 1;
+            if (!adminId.empty()) {
+                countSql += " AND admin_id = $" + std::to_string(countParamIdx++);
+            }
+            if (!action.empty()) {
+                countSql += " AND action = $" + std::to_string(countParamIdx++);
+            }
+            if (!startDate.empty()) {
+                countSql += " AND created_at >= $" + std::to_string(countParamIdx++) + "::date";
+            }
+            if (!endDate.empty()) {
+                countSql += " AND created_at < ($" + std::to_string(countParamIdx) + "::date + INTERVAL '1 day')";
+            }
+            auto countResult = execWithParams(countSql);
+            total = safeCount(countResult);
+        }
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
