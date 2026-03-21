@@ -500,6 +500,7 @@ async function fetchPending() {
     console.error('获取待审核列表失败:', e)
     ElMessage.error(getErrorMessage(e, '获取待审核列表失败'))
     pendingList.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
@@ -517,6 +518,7 @@ async function fetchHistory() {
     console.error('获取审核历史失败:', e)
     ElMessage.error(getErrorMessage(e, '获取审核历史失败'))
     historyList.value = []
+    historyPagination.total = 0
   } finally {
     historyLoading.value = false
   }

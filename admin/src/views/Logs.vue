@@ -465,6 +465,7 @@ async function fetchLogs() {
     console.error('获取操作日志失败:', e)
     ElMessage.error(getErrorMessage(e, '获取操作日志失败'))
     logList.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }

@@ -206,25 +206,30 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         filteredUsersSql +=
             " ORDER BY u.created_at DESC LIMIT $" + std::to_string(limitParam) +
             " OFFSET $" + std::to_string(offsetParam) +
+            "), filtered_user_ids AS ("
+            "  SELECT fu.user_id "
+            "  FROM filtered_users fu"
+            "), stone_counts AS ("
+            "  SELECT s.user_id, COUNT(*) AS stones_count "
+            "  FROM stones s "
+            "  JOIN filtered_user_ids fui ON fui.user_id = s.user_id "
+            "  WHERE s.deleted_at IS NULL "
+            "    AND COALESCE(s.status, 'published') <> 'deleted' "
+            "  GROUP BY s.user_id"
+            "), boat_counts AS ("
+            "  SELECT pb.sender_id AS user_id, COUNT(*) AS boat_count "
+            "  FROM paper_boats pb "
+            "  JOIN filtered_user_ids fui ON fui.user_id = pb.sender_id "
+            "  WHERE COALESCE(pb.status, 'active') <> 'deleted' "
+            "  GROUP BY pb.sender_id"
             ") "
             "SELECT fu.user_id, fu.username, fu.nickname, fu.status, fu.created_at, fu.last_active_at, "
-            "COALESCE(st.stones_count, 0) as stones_count, "
-            "COALESCE(pb.boat_count, 0) as boat_count, "
+            "COALESCE(sc.stones_count, 0) as stones_count, "
+            "COALESCE(bc.boat_count, 0) as boat_count, "
             "fu.total_count "
             "FROM filtered_users fu "
-            "LEFT JOIN LATERAL ("
-            "  SELECT COUNT(*) as stones_count "
-            "  FROM stones s "
-            "  WHERE s.user_id = fu.user_id "
-            "    AND s.deleted_at IS NULL "
-            "    AND COALESCE(s.status, 'published') <> 'deleted'"
-            ") st ON TRUE "
-            "LEFT JOIN LATERAL ("
-            "  SELECT COUNT(*) as boat_count "
-            "  FROM paper_boats pb "
-            "  WHERE pb.sender_id = fu.user_id "
-            "    AND COALESCE(pb.status, 'active') <> 'deleted'"
-            ") pb ON TRUE "
+            "LEFT JOIN stone_counts sc ON sc.user_id = fu.user_id "
+            "LEFT JOIN boat_counts bc ON bc.user_id = fu.user_id "
             "ORDER BY fu.created_at DESC";
 
         auto execWithParams = [&]() {
@@ -1346,15 +1351,18 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         std::vector<std::string> params;
         int paramIdx = 1;
 
-        const auto adminId = req->getParameter("operator");
+        const auto adminId = !req->getParameter("operator").empty()
+            ? req->getParameter("operator")
+            : req->getParameter("admin_id");
         const auto action = req->getParameter("action");
         const auto startDate = req->getParameter("start_date");
         const auto endDate = req->getParameter("end_date");
 
         if (!adminId.empty()) {
-            countSql += " AND admin_id = $" + std::to_string(paramIdx);
-            querySql += " AND admin_id = $" + std::to_string(paramIdx);
-            params.push_back(adminId);
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            countSql += " AND admin_id ILIKE " + placeholder + " ESCAPE '\\'";
+            querySql += " AND admin_id ILIKE " + placeholder + " ESCAPE '\\'";
+            params.push_back("%" + escapeLike(adminId) + "%");
             paramIdx++;
         }
 
