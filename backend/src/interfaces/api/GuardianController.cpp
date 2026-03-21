@@ -64,7 +64,11 @@ void GuardianController::transferLamp(const HttpRequestPtr& req, std::function<v
         bool success = GuardianIncentiveService::getInstance().transferLamp(*userId, toUserId);
 
         if (success) {
-            callback(ResponseUtil::success("灯火转赠成功"));
+            Json::Value data;
+            data["to_user_id"] = toUserId;
+            data["target_user_id"] = toUserId;
+            data["status"] = "transferred";
+            callback(ResponseUtil::success(data, "灯火转赠成功"));
         } else {
             callback(ResponseUtil::error(400, "转赠失败，请检查守护者/点灯人资格"));
         }

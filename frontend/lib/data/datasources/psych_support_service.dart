@@ -176,7 +176,20 @@ class PsychSupportService extends BaseService {
     InputValidator.validateUUID(resourceId, '资源ID');
     final response =
         await post('/safe-harbor/access', data: {'resource_id': resourceId});
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = response.data is Map
+        ? _normalizeSupportItem(response.data as Map)
+        : <String, dynamic>{
+            'resource_id': resourceId,
+            'resourceId': resourceId,
+            'status': 'recorded',
+          };
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 获取访问历史

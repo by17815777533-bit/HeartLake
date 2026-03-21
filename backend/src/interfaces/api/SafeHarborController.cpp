@@ -169,7 +169,10 @@ void SafeHarborController::recordAccess(
     try {
         auto& service = heartlake::infrastructure::SafeHarborService::getInstance();
         service.recordUserAccess(*userId, (*json)["resource_id"].asString());
-        callback(ResponseUtil::success("访问已记录"));
+        Json::Value data;
+        data["resource_id"] = (*json)["resource_id"].asString();
+        data["status"] = "recorded";
+        callback(ResponseUtil::success(data, "访问已记录"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Failed to record access: " << e.what();
         callback(ResponseUtil::internalError("记录访问失败"));

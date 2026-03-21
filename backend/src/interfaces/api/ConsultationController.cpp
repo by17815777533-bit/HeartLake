@@ -222,13 +222,23 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
         "INSERT INTO consultation_messages (session_id, sender_shadow_id, ciphertext, iv, tag, created_at) "
         "SELECT $1, $2, $3, $4, $5, NOW() "
         "FROM consultation_sessions "
-        "WHERE id = $1 AND status = 'active' AND (user_id = $6 OR counselor_id = $6)",
-        [callback](const orm::Result& result) {
+        "WHERE id = $1 AND status = 'active' AND (user_id = $6 OR counselor_id = $6) "
+        "RETURNING id, created_at",
+        [callback, sessionId](const orm::Result& result) {
             if (result.affectedRows() == 0) {
                 callback(ResponseUtil::forbidden("无权在此会话中发送消息"));
                 return;
             }
-            callback(ResponseUtil::success("消息已发送"));
+            Json::Value data;
+            if (!result.empty()) {
+                data["message_id"] = result[0]["id"].as<int>();
+                data["id"] = result[0]["id"].as<int>();
+                data["created_at"] = result[0]["created_at"].as<std::string>();
+            }
+            data["session_id"] = sessionId;
+            data["encrypted"] = true;
+            data["status"] = "sent";
+            callback(ResponseUtil::success(data, "消息已发送"));
         },
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "发送失败"));

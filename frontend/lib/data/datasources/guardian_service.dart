@@ -48,7 +48,20 @@ class GuardianService extends BaseService {
     final response = await post('/guardian/transfer-lamp', data: {
       'to_user_id': toUserId,
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeGuardianPayload(response.data);
+    if (payload['target_user_id'] == null) {
+      payload['target_user_id'] = toUserId;
+      payload['targetUserId'] = toUserId;
+      payload['to_user_id'] = toUserId;
+      payload['toUserId'] = toUserId;
+    }
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 获取情绪洞察

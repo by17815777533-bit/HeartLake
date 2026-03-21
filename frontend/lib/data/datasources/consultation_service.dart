@@ -144,10 +144,16 @@ class ConsultationService extends BaseService {
             ? normalizeMessagePayload(
                 Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
               )
-            : <String, dynamic>{};
+            : <String, dynamic>{
+                'session_id': sessionId,
+                'content': content,
+                'status': 'sent',
+                'encrypted': true,
+              };
         return {
           ...toMap(resp),
           'data': payload,
+          'message_id': payload['message_id'] ?? payload['messageId'],
           'message': payload.isNotEmpty ? payload : resp.message,
         };
       } catch (e) {
