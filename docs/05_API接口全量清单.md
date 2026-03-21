@@ -201,6 +201,9 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 | GET | `/api/temp-friends` | Bearer | 临时好友列表 |
 | DELETE | `/api/temp-friends/{id}` | Bearer | 断开临时连接 |
 
+说明：
+- 临时连接过期后，以及连接已升级为正式好友后，对应 connection 的消息读取和发送入口都会返回拒绝访问
+
 ---
 
 ## RecommendationController — 推荐

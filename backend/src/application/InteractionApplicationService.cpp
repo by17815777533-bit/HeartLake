@@ -1089,7 +1089,9 @@ Json::Value InteractionApplicationService::createConnectionMessage(
         "WITH authorized AS ("
         "  SELECT connection_id FROM connections "
         "  WHERE connection_id = $1 "
-        "    AND (user_id = $2 OR target_user_id = $2)"
+        "    AND (user_id = $2 OR target_user_id = $2) "
+        "    AND status IN ('pending', 'active') "
+        "    AND (expires_at IS NULL OR expires_at > NOW())"
         "), inserted AS ("
         "  INSERT INTO connection_messages "
         "  (connection_id, sender_id, content, created_at) "
@@ -1101,7 +1103,7 @@ Json::Value InteractionApplicationService::createConnectionMessage(
         connectionId, userId, content);
 
     if (insertResult.empty()) {
-      throw std::runtime_error("无权操作此连接");
+      throw std::runtime_error("连接不存在、已过期或无权操作");
     }
 
     auto row = *safeRow(insertResult);
@@ -1314,7 +1316,9 @@ Json::Value InteractionApplicationService::getConnectionMessages(
         "WITH authorized AS ("
         "  SELECT connection_id FROM connections "
         "  WHERE connection_id = $1 "
-        "    AND (user_id = $2 OR target_user_id = $2)"
+        "    AND (user_id = $2 OR target_user_id = $2) "
+        "    AND status IN ('pending', 'active') "
+        "    AND (expires_at IS NULL OR expires_at > NOW())"
         "), totals AS ("
         "  SELECT COUNT(*)::INTEGER AS total_count "
         "  FROM connection_messages cm "
@@ -1336,7 +1340,7 @@ Json::Value InteractionApplicationService::getConnectionMessages(
         ") paged ON TRUE",
         connectionId, userId, static_cast<int64_t>(pageSize), offset);
     if (result.empty()) {
-      throw std::runtime_error("无权访问此连接");
+      throw std::runtime_error("连接不存在、已过期或无权访问");
     }
 
     Json::Value messages(Json::arrayValue);
