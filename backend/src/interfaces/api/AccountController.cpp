@@ -408,14 +408,30 @@ void AccountController::getAccountStats(
 
     Json::Value data;
 
-    // 合并 3 个 COUNT 查询为 1 个子查询，消除 N+1 问题
     auto statsResult = dbClient->execSqlSync(
         "SELECT "
-        "(SELECT COUNT(*) FROM stones WHERE user_id = $1) AS stone_count, "
-        "(SELECT COUNT(*) FROM friends WHERE (user_id = $1 OR friend_id = $1) "
-        "AND status = 'accepted') AS friend_count, "
-        "(SELECT COUNT(*) FROM ripples r JOIN stones s ON r.stone_id = "
-        "s.stone_id WHERE s.user_id = $1) AS ripple_received",
+        "COALESCE(st.stone_count, 0) AS stone_count, "
+        "COALESCE(fr.friend_count, 0) AS friend_count, "
+        "COALESCE(rp.ripple_received, 0) AS ripple_received "
+        "FROM users u "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) FILTER (WHERE s.deleted_at IS NULL) AS stone_count "
+        "  FROM stones s "
+        "  WHERE s.user_id = u.user_id"
+        ") st ON TRUE "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) AS friend_count "
+        "  FROM friends f "
+        "  WHERE (f.user_id = u.user_id OR f.friend_id = u.user_id) "
+        "    AND f.status = 'accepted'"
+        ") fr ON TRUE "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) AS ripple_received "
+        "  FROM ripples r "
+        "  JOIN stones s ON r.stone_id = s.stone_id "
+        "  WHERE s.user_id = u.user_id AND s.deleted_at IS NULL"
+        ") rp ON TRUE "
+        "WHERE u.user_id = $1",
         userId);
     data["stone_count"] = statsResult[0]["stone_count"].as<int>();
     data["friend_count"] = statsResult[0]["friend_count"].as<int>();
