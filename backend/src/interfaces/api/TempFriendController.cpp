@@ -110,6 +110,9 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             "         WHERE ((user_id = $2 AND friend_id = $1) "
             "             OR (user_id = $1 AND friend_id = $2)) "
             "           AND status = 'accepted') AS already_friend, "
+            "  EXISTS(SELECT 1 FROM user_blocks "
+            "         WHERE (user_id = $2 AND blocked_user_id = $1) "
+            "            OR (user_id = $1 AND blocked_user_id = $2)) AS is_blocked, "
             "  EXISTS(SELECT 1 FROM temp_friends "
             "         WHERE status = 'active' "
             "           AND expires_at >= NOW() "
@@ -135,6 +138,16 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             ret["code"] = 400;
             ret["message"] = "已经是永久好友";
             auto resp = HttpResponse::newHttpJsonResponse(ret);
+            callback(resp);
+            return;
+        }
+
+        if (relationRow["is_blocked"].as<bool>()) {
+            Json::Value ret;
+            ret["code"] = 403;
+            ret["message"] = "你与对方存在拉黑关系";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k403Forbidden);
             callback(resp);
             return;
         }

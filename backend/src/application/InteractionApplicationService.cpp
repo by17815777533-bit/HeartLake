@@ -102,6 +102,7 @@ struct ConnectionTargetPolicy {
   bool targetExists = false;
   bool isFriend = false;
   bool allowStrangerMessage = false;
+  bool isBlocked = false;
 };
 
 ConnectionTargetPolicy loadConnectionTargetPolicy(
@@ -115,6 +116,10 @@ ConnectionTargetPolicy loadConnectionTargetPolicy(
       "         WHERE ((user_id = $1 AND friend_id = $2) "
       "             OR (user_id = $2 AND friend_id = $1)) "
       "           AND status = 'accepted') AS is_friend, "
+      "  EXISTS(SELECT 1 FROM user_blocks "
+      "         WHERE (user_id = $1 AND blocked_user_id = $2) "
+      "            OR (user_id = $2 AND blocked_user_id = $1)) "
+      "    AS is_blocked, "
       "  COALESCE((SELECT allow_message_from_stranger "
       "            FROM user_privacy_settings "
       "            WHERE user_id = $2), false) AS allow_message_from_stranger",
@@ -128,6 +133,7 @@ ConnectionTargetPolicy loadConnectionTargetPolicy(
   ConnectionTargetPolicy policy;
   policy.targetExists = safeBoolColumn(row, "target_exists");
   policy.isFriend = safeBoolColumn(row, "is_friend");
+  policy.isBlocked = safeBoolColumn(row, "is_blocked");
   policy.allowStrangerMessage =
       safeBoolColumn(row, "allow_message_from_stranger");
   return policy;
@@ -140,6 +146,9 @@ void ensureTargetUserAvailable(const drogon::orm::DbClientPtr &dbClient,
   if (!policy.targetExists) {
     throw std::runtime_error("目标用户不存在或不可用");
   }
+  if (policy.isBlocked) {
+    throw std::runtime_error("你与对方存在拉黑关系，无法建立连接");
+  }
 }
 
 void ensureDirectConnectionTargetAllowed(
@@ -148,6 +157,9 @@ void ensureDirectConnectionTargetAllowed(
   const auto policy = loadConnectionTargetPolicy(dbClient, userId, targetUserId);
   if (!policy.targetExists) {
     throw std::runtime_error("目标用户不存在或不可用");
+  }
+  if (policy.isBlocked) {
+    throw std::runtime_error("你与对方存在拉黑关系，无法建立连接");
   }
   if (!policy.isFriend && !policy.allowStrangerMessage) {
     throw std::runtime_error("对方未开启陌生人消息");
@@ -158,11 +170,15 @@ Json::Value buildConnectionPayload(const drogon::orm::Row &row) {
   Json::Value result(Json::objectValue);
   const auto connectionId = safeStringColumn(row, "connection_id");
   result["connection_id"] = connectionId;
+  result["connectionId"] = connectionId;
   result["id"] = connectionId;
   result["user_id"] = safeStringColumn(row, "user_id");
+  result["userId"] = result["user_id"];
   result["target_user_id"] = safeStringColumn(row, "target_user_id");
+  result["targetUserId"] = result["target_user_id"];
   if (!row["stone_id"].isNull()) {
     result["stone_id"] = row["stone_id"].as<std::string>();
+    result["stoneId"] = result["stone_id"];
   }
   result["status"] = safeStringColumn(row, "status", "active");
   result["created_at"] = safeStringColumn(row, "created_at");
@@ -501,19 +517,32 @@ InteractionApplicationService::getRipples(const std::string &stoneId, int page,
   try {
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
 
-    auto result =
-        dbClient->execSqlSync("SELECT r.ripple_id, r.user_id, r.created_at, "
-                              "u.username, u.nickname, u.avatar_url, "
-                              "COUNT(*) OVER() AS total_count "
-                              "FROM ripples r "
-                              "LEFT JOIN users u ON r.user_id = u.user_id "
-                              "WHERE r.stone_id = $1 "
-                              "ORDER BY r.created_at DESC "
-                              "LIMIT $2 OFFSET $3",
-                              stoneId, static_cast<int64_t>(pageSize), offset);
+    auto result = dbClient->execSqlSync(
+        "WITH total_ripples AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM ripples "
+        "  WHERE stone_id = $1"
+        ") "
+        "SELECT paged.ripple_id, paged.user_id, paged.created_at, "
+        "       paged.username, paged.nickname, paged.avatar_url, "
+        "       tr.total_count "
+        "FROM total_ripples tr "
+        "LEFT JOIN LATERAL ("
+        "  SELECT r.ripple_id, r.user_id, r.created_at, "
+        "         u.username, u.nickname, u.avatar_url "
+        "  FROM ripples r "
+        "  LEFT JOIN users u ON r.user_id = u.user_id "
+        "  WHERE r.stone_id = $1 "
+        "  ORDER BY r.created_at DESC "
+        "  LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
+        stoneId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value ripples(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["ripple_id"].isNull()) {
+        continue;
+      }
       Json::Value ripple;
       const auto rippleId = safeStringColumn(row, "ripple_id");
       const auto userId = safeStringColumn(row, "user_id");
@@ -533,15 +562,8 @@ InteractionApplicationService::getRipples(const std::string &stoneId, int page,
       ripples.append(ripple);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count FROM ripples WHERE stone_id = $1",
-          stoneId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "ripples", ripples, total, page, pageSize);
+        "ripples", ripples, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get ripples: " << e.base().what();
@@ -690,24 +712,39 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
 
     auto result = dbClient->execSqlSync(
-        "SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.receiver_id, "
-        "pb.content, "
-        "pb.status, pb.created_at, pb.boat_style AS boat_color, "
-        "pb.is_anonymous, "
-        "u.username, u.nickname, u.avatar_url, "
-        "s.content as stone_content, s.mood_type AS stone_mood_type, "
-        "COUNT(*) OVER() AS total_count "
-        "FROM paper_boats pb "
-        "LEFT JOIN users u ON pb.sender_id = u.user_id "
-        "LEFT JOIN stones s ON pb.stone_id = s.stone_id "
-        "WHERE pb.receiver_id = $1 AND COALESCE(pb.status, 'active') != "
-        "'deleted' "
-        "ORDER BY pb.created_at DESC "
-        "LIMIT $2 OFFSET $3",
+        "WITH total_boats AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM paper_boats "
+        "  WHERE receiver_id = $1 "
+        "    AND COALESCE(status, 'active') != 'deleted'"
+        ") "
+        "SELECT paged.boat_id, paged.stone_id, paged.sender_id, paged.receiver_id, "
+        "       paged.content, paged.status, paged.created_at, "
+        "       paged.boat_color, paged.is_anonymous, paged.username, "
+        "       paged.nickname, paged.avatar_url, paged.stone_content, "
+        "       paged.stone_mood_type, tb.total_count "
+        "FROM total_boats tb "
+        "LEFT JOIN LATERAL ("
+        "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.receiver_id, "
+        "         pb.content, pb.status, pb.created_at, "
+        "         pb.boat_style AS boat_color, pb.is_anonymous, "
+        "         u.username, u.nickname, u.avatar_url, "
+        "         s.content as stone_content, s.mood_type AS stone_mood_type "
+        "  FROM paper_boats pb "
+        "  LEFT JOIN users u ON pb.sender_id = u.user_id "
+        "  LEFT JOIN stones s ON pb.stone_id = s.stone_id "
+        "  WHERE pb.receiver_id = $1 AND COALESCE(pb.status, 'active') != "
+        "        'deleted' "
+        "  ORDER BY pb.created_at DESC "
+        "  LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
         userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["boat_id"].isNull()) {
+        continue;
+      }
       Json::Value boat;
       const auto boatId = safeStringColumn(row, "boat_id");
       const auto senderId = safeStringColumn(row, "sender_id");
@@ -745,17 +782,8 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
       boats.append(boat);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count "
-          "FROM paper_boats "
-          "WHERE receiver_id = $1 AND COALESCE(status, 'active') != 'deleted'",
-          userId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, total, page, pageSize);
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get received boats: " << e.base().what();
@@ -781,36 +809,61 @@ InteractionApplicationService::getSentBoats(const std::string &userId, int page,
     auto result = [&]() -> drogon::orm::Result {
       if (hasStatusFilter) {
         return dbClient->execSqlSync(
-            "SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
-            "pb.content, pb.status, pb.created_at, "
-            "pb.boat_style AS boat_color, pb.is_anonymous, "
-            "u.username, u.nickname, u.avatar_url, "
-            "COUNT(*) OVER() AS total_count "
-            "FROM paper_boats pb "
-            "LEFT JOIN users u ON pb.receiver_id = u.user_id "
-            "WHERE pb.sender_id = $1 AND pb.status = $2 "
-            "ORDER BY pb.created_at DESC "
-            "LIMIT $3 OFFSET $4",
+            "WITH total_boats AS ("
+            "  SELECT COUNT(*)::INTEGER AS total_count "
+            "  FROM paper_boats "
+            "  WHERE sender_id = $1 AND status = $2"
+            ") "
+            "SELECT paged.boat_id, paged.stone_id, paged.receiver_id, "
+            "       paged.content, paged.status, paged.created_at, "
+            "       paged.boat_color, paged.is_anonymous, paged.username, "
+            "       paged.nickname, paged.avatar_url, tb.total_count "
+            "FROM total_boats tb "
+            "LEFT JOIN LATERAL ("
+            "  SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
+            "         pb.content, pb.status, pb.created_at, "
+            "         pb.boat_style AS boat_color, pb.is_anonymous, "
+            "         u.username, u.nickname, u.avatar_url "
+            "  FROM paper_boats pb "
+            "  LEFT JOIN users u ON pb.receiver_id = u.user_id "
+            "  WHERE pb.sender_id = $1 AND pb.status = $2 "
+            "  ORDER BY pb.created_at DESC "
+            "  LIMIT $3 OFFSET $4"
+            ") paged ON TRUE",
             userId, normalizedStatus, static_cast<int64_t>(pageSize), offset);
       }
 
       return dbClient->execSqlSync(
-          "SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
-          "pb.content, pb.status, pb.created_at, "
-          "pb.boat_style AS boat_color, pb.is_anonymous, "
-          "u.username, u.nickname, u.avatar_url, "
-          "COUNT(*) OVER() AS total_count "
-          "FROM paper_boats pb "
-          "LEFT JOIN users u ON pb.receiver_id = u.user_id "
-          "WHERE pb.sender_id = $1 AND COALESCE(pb.status, 'active') != "
-          "'deleted' "
-          "ORDER BY pb.created_at DESC "
-          "LIMIT $2 OFFSET $3",
+          "WITH total_boats AS ("
+          "  SELECT COUNT(*)::INTEGER AS total_count "
+          "  FROM paper_boats "
+          "  WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'"
+          ") "
+          "SELECT paged.boat_id, paged.stone_id, paged.receiver_id, "
+          "       paged.content, paged.status, paged.created_at, "
+          "       paged.boat_color, paged.is_anonymous, paged.username, "
+          "       paged.nickname, paged.avatar_url, tb.total_count "
+          "FROM total_boats tb "
+          "LEFT JOIN LATERAL ("
+          "  SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
+          "         pb.content, pb.status, pb.created_at, "
+          "         pb.boat_style AS boat_color, pb.is_anonymous, "
+          "         u.username, u.nickname, u.avatar_url "
+          "  FROM paper_boats pb "
+          "  LEFT JOIN users u ON pb.receiver_id = u.user_id "
+          "  WHERE pb.sender_id = $1 AND COALESCE(pb.status, 'active') != "
+          "        'deleted' "
+          "  ORDER BY pb.created_at DESC "
+          "  LIMIT $2 OFFSET $3"
+          ") paged ON TRUE",
           userId, static_cast<int64_t>(pageSize), offset);
     }();
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["boat_id"].isNull()) {
+        continue;
+      }
       Json::Value boat;
       const auto boatId = safeStringColumn(row, "boat_id");
       const auto receiverId = safeStringColumn(row, "receiver_id");
@@ -837,26 +890,8 @@ InteractionApplicationService::getSentBoats(const std::string &userId, int page,
       boats.append(boat);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      if (hasStatusFilter) {
-        auto countResult = dbClient->execSqlSync(
-            "SELECT COUNT(*)::INTEGER AS total_count "
-            "FROM paper_boats "
-            "WHERE sender_id = $1 AND status = $2",
-            userId, normalizedStatus);
-        return extractTotalCount(countResult);
-      }
-
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count "
-          "FROM paper_boats "
-          "WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'",
-          userId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, total, page, pageSize);
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get sent boats: " << e.base().what();
@@ -1239,6 +1274,11 @@ Json::Value InteractionApplicationService::createConnectionMessage(
         "    AND (c.user_id = $2 OR c.target_user_id = $2) "
         "    AND status IN ('pending', 'active') "
         "    AND (expires_at IS NULL OR expires_at > NOW()) "
+        "    AND NOT EXISTS(SELECT 1 FROM user_blocks ub "
+        "                   WHERE (ub.user_id = c.user_id "
+        "                          AND ub.blocked_user_id = c.target_user_id) "
+        "                      OR (ub.user_id = c.target_user_id "
+        "                          AND ub.blocked_user_id = c.user_id)) "
         "    AND ("
         "      c.stone_id IS NOT NULL "
         "      OR EXISTS(SELECT 1 FROM friends f "
@@ -1298,20 +1338,34 @@ InteractionApplicationService::getMyRipples(const std::string &userId, int page,
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
 
     auto result = dbClient->execSqlSync(
-        "SELECT r.ripple_id, r.stone_id, r.created_at, "
-        "s.content as stone_content, s.mood_type AS stone_mood_type, "
-        "s.user_id AS stone_user_id, s.status AS stone_status, "
-        "s.ripple_count, s.boat_count, "
-        "COUNT(*) OVER() AS total_count "
-        "FROM ripples r "
-        "LEFT JOIN stones s ON r.stone_id = s.stone_id "
-        "WHERE r.user_id = $1 "
-        "ORDER BY r.created_at DESC "
-        "LIMIT $2 OFFSET $3",
+        "WITH total_ripples AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM ripples "
+        "  WHERE user_id = $1"
+        ") "
+        "SELECT paged.ripple_id, paged.stone_id, paged.created_at, "
+        "       paged.stone_content, paged.stone_mood_type, paged.stone_user_id, "
+        "       paged.stone_status, paged.ripple_count, paged.boat_count, "
+        "       tr.total_count "
+        "FROM total_ripples tr "
+        "LEFT JOIN LATERAL ("
+        "  SELECT r.ripple_id, r.stone_id, r.created_at, "
+        "         s.content as stone_content, s.mood_type AS stone_mood_type, "
+        "         s.user_id AS stone_user_id, s.status AS stone_status, "
+        "         s.ripple_count, s.boat_count "
+        "  FROM ripples r "
+        "  LEFT JOIN stones s ON r.stone_id = s.stone_id "
+        "  WHERE r.user_id = $1 "
+        "  ORDER BY r.created_at DESC "
+        "  LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
         userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value ripples(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["ripple_id"].isNull()) {
+        continue;
+      }
       Json::Value ripple;
       const auto rippleId = safeStringColumn(row, "ripple_id");
       ripple["ripple_id"] = rippleId;
@@ -1346,15 +1400,8 @@ InteractionApplicationService::getMyRipples(const std::string &userId, int page,
       ripples.append(ripple);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count FROM ripples WHERE user_id = $1",
-          userId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "ripples", ripples, total, page, pageSize);
+        "ripples", ripples, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my ripples: " << e.base().what();
@@ -1370,20 +1417,34 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
 
     auto result = dbClient->execSqlSync(
-        "SELECT pb.boat_id, pb.stone_id, pb.content, pb.status, pb.created_at, "
-        "pb.boat_style AS boat_color, pb.is_anonymous, "
-        "s.content as stone_content, s.mood_type AS stone_mood_type, "
-        "s.user_id AS stone_user_id, s.status AS stone_status, "
-        "COUNT(*) OVER() AS total_count "
-        "FROM paper_boats pb "
-        "LEFT JOIN stones s ON pb.stone_id = s.stone_id "
-        "WHERE pb.sender_id = $1 AND COALESCE(pb.status, 'active') != "
-        "'deleted' "
-        "ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3",
+        "WITH total_boats AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM paper_boats "
+        "  WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'"
+        ") "
+        "SELECT paged.boat_id, paged.stone_id, paged.content, paged.status, "
+        "       paged.created_at, paged.boat_color, paged.is_anonymous, "
+        "       paged.stone_content, paged.stone_mood_type, "
+        "       paged.stone_user_id, paged.stone_status, tb.total_count "
+        "FROM total_boats tb "
+        "LEFT JOIN LATERAL ("
+        "  SELECT pb.boat_id, pb.stone_id, pb.content, pb.status, pb.created_at, "
+        "         pb.boat_style AS boat_color, pb.is_anonymous, "
+        "         s.content as stone_content, s.mood_type AS stone_mood_type, "
+        "         s.user_id AS stone_user_id, s.status AS stone_status "
+        "  FROM paper_boats pb "
+        "  LEFT JOIN stones s ON pb.stone_id = s.stone_id "
+        "  WHERE pb.sender_id = $1 AND COALESCE(pb.status, 'active') != "
+        "        'deleted' "
+        "  ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
         userId, pageSize, offset);
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["boat_id"].isNull()) {
+        continue;
+      }
       Json::Value boat;
       const auto boatId = safeStringColumn(row, "boat_id");
       boat["boat_id"] = boatId;
@@ -1413,17 +1474,8 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
       boats.append(boat);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count "
-          "FROM paper_boats "
-          "WHERE sender_id = $1 AND COALESCE(status, 'active') != 'deleted'",
-          userId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, total, page, pageSize);
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my boats: " << e.base().what();
@@ -1437,18 +1489,33 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
   try {
     int64_t offset = (page - 1) * pageSize;
     auto result = dbClient->execSqlSync(
-        "SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.content, "
-        "pb.created_at, "
-        "pb.status, pb.boat_style AS boat_color, pb.is_anonymous, "
-        "u.username, u.nickname as sender_nickname, u.avatar_url, "
-        "COUNT(*) OVER() AS total_count "
-        "FROM paper_boats pb "
-        "LEFT JOIN users u ON pb.sender_id = u.user_id "
-        "WHERE pb.stone_id = $1 AND COALESCE(pb.status, 'active') != 'deleted' "
-        "ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3",
+        "WITH total_boats AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM paper_boats "
+        "  WHERE stone_id = $1 AND COALESCE(status, 'active') != 'deleted'"
+        ") "
+        "SELECT paged.boat_id, paged.stone_id, paged.sender_id, paged.content, "
+        "       paged.created_at, paged.status, paged.boat_color, "
+        "       paged.is_anonymous, paged.username, paged.sender_nickname, "
+        "       paged.avatar_url, tb.total_count "
+        "FROM total_boats tb "
+        "LEFT JOIN LATERAL ("
+        "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.content, "
+        "         pb.created_at, pb.status, pb.boat_style AS boat_color, "
+        "         pb.is_anonymous, u.username, "
+        "         u.nickname as sender_nickname, u.avatar_url "
+        "  FROM paper_boats pb "
+        "  LEFT JOIN users u ON pb.sender_id = u.user_id "
+        "  WHERE pb.stone_id = $1 AND COALESCE(pb.status, 'active') != "
+        "        'deleted' "
+        "  ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3"
+        ") paged ON TRUE",
         stoneId, static_cast<int64_t>(pageSize), offset);
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["boat_id"].isNull()) {
+        continue;
+      }
       Json::Value boat;
       const auto boatId = safeStringColumn(row, "boat_id");
       const auto senderId = safeStringColumn(row, "sender_id");
@@ -1473,17 +1540,8 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
       boat["sender"] = author;
       boats.append(boat);
     }
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count "
-          "FROM paper_boats "
-          "WHERE stone_id = $1 AND COALESCE(status, 'active') != 'deleted'",
-          stoneId);
-      return extractTotalCount(countResult);
-    });
-
     return ResponseUtil::buildCollectionPayload(
-        "boats", boats, total, page, pageSize);
+        "boats", boats, extractTotalCount(result), page, pageSize);
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get boats: " << e.base().what();
     throw std::runtime_error("获取纸船列表失败");
@@ -1503,6 +1561,11 @@ Json::Value InteractionApplicationService::getConnectionMessages(
         "    AND (c.user_id = $2 OR c.target_user_id = $2) "
         "    AND status IN ('pending', 'active') "
         "    AND (expires_at IS NULL OR expires_at > NOW()) "
+        "    AND NOT EXISTS(SELECT 1 FROM user_blocks ub "
+        "                   WHERE (ub.user_id = c.user_id "
+        "                          AND ub.blocked_user_id = c.target_user_id) "
+        "                      OR (ub.user_id = c.target_user_id "
+        "                          AND ub.blocked_user_id = c.user_id)) "
         "    AND ("
         "      c.stone_id IS NOT NULL "
         "      OR EXISTS(SELECT 1 FROM friends f "
@@ -1584,6 +1647,11 @@ Json::Value InteractionApplicationService::upgradeConnectionToFriend(
         "WHERE connection_id = $1 "
         "AND (user_id = $2 OR target_user_id = $2) "
         "AND status IN ('pending', 'active') "
+        "AND NOT EXISTS(SELECT 1 FROM user_blocks ub "
+        "               WHERE (ub.user_id = connections.user_id "
+        "                      AND ub.blocked_user_id = connections.target_user_id) "
+        "                  OR (ub.user_id = connections.target_user_id "
+        "                      AND ub.blocked_user_id = connections.user_id)) "
         "AND (expires_at IS NULL OR expires_at > NOW())",
         connectionId, userId);
     if (connResult.empty()) {
