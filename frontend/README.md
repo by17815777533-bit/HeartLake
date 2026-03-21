@@ -129,7 +129,6 @@ lib/
     ├── mood_colors.dart                   # 情绪色彩映射
     ├── error_handler.dart                 # 错误处理 (Result<T> monad)
     ├── storage_util.dart                  # 本地存储
-    ├── media_picker.dart                  # 媒体选择器
     └── animation_utils.dart               # 动画工具
 ```
 
