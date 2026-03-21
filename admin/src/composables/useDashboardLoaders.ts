@@ -250,7 +250,8 @@ export function useDashboardLoaders({
       resonanceStats.todayMatches = d.today_matches ?? d.sample_count ?? 0
       resonanceStats.avgScore = d.avg_score ?? d.avgScore ?? 0
       resonanceStats.topMood = d.top_mood ?? d.dominant_mood ?? ''
-      resonanceStats.successRate = d.success_rate ?? 0
+      resonanceStats.successRate =
+        d.top_mood_share_percent ?? d.success_rate ?? 0
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       console.warn('加载共鸣统计失败:', (e as Error).message)

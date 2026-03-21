@@ -651,6 +651,10 @@ void EdgeAIController::getEmotionPulse(
         data["avg_score"] = pulse.avgScore;
         const auto normalizedScore =
             std::clamp((pulse.avgScore + 1.0f) / 2.0f, 0.0f, 1.0f);
+        int topMoodCount = 0;
+        for (const auto& [_, count] : pulse.moodDistribution) {
+            topMoodCount = std::max(topMoodCount, count);
+        }
         data["normalized_score"] = normalizedScore;
         data["temperature"] =
             static_cast<int>(std::round(normalizedScore * 100.0));
@@ -659,6 +663,10 @@ void EdgeAIController::getEmotionPulse(
         data["top_mood"] = pulse.dominantMood;
         data["sample_count"] = pulse.sampleCount;
         data["today_matches"] = pulse.sampleCount;
+        data["top_mood_share_percent"] = pulse.sampleCount > 0
+            ? (static_cast<double>(topMoodCount) /
+               static_cast<double>(pulse.sampleCount)) * 100.0
+            : 0.0;
         data["trend_slope"] = pulse.trendSlope;
         if (pulse.trendSlope > 0.01f) {
             data["trend"] = "rising";

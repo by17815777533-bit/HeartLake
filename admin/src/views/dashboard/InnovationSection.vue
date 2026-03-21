@@ -47,8 +47,8 @@
             />
           </div>
           <div class="innovation-stat">
-            <span>受保护用户</span>
-            <strong>{{ formatNumber(privacyStats.protectedUsers) }}</strong>
+            <span>剩余预算 ε</span>
+            <strong>{{ ((privacyStats.epsilonTotal ?? 0) - (privacyStats.epsilonUsed ?? 0)).toFixed(2) }}</strong>
           </div>
         </div>
       </el-card>
@@ -90,7 +90,7 @@
             </article>
           </div>
           <div class="innovation-stat">
-            <span>回应完成率</span>
+            <span>主导情绪占比</span>
             <strong>{{ (resonanceStats.successRate ?? 0).toFixed(1) }}%</strong>
           </div>
         </div>
