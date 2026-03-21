@@ -153,6 +153,7 @@ import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { normalizePayloadRecord } from '@/utils/collectionPayload'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
 import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { createSoftBaseline } from '@/utils/chartSignals'
@@ -161,6 +162,8 @@ const loading = ref(false)
 const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
 const edgeTimeFormat = 'MM月DD日 HH:mm'
 const currentTime = ref(dayjs().format(edgeTimeFormat))
+
+const normalizeEdgePayload = (payload: unknown) => normalizePayloadRecord(payload)
 
 const techBadges = [
   { icon: '建议', label: '内容建议' },
@@ -594,7 +597,7 @@ const edgeHealthLabel = computed(() => {
 async function loadStatus() {
   try {
     const { data } = await api.getEdgeAIStatus()
-    const s = data.data || data
+    const s = normalizeEdgePayload(data)
     Object.assign(engineStatus, {
       enabled: s.enabled ?? s.status === 'running',
       modulesLoaded: s.modulesLoaded ?? s.modules_loaded ?? 0,
@@ -614,7 +617,7 @@ async function loadStatus() {
 async function loadMetrics() {
   try {
     const { data } = await api.getEdgeAIMetrics()
-    const m = data.data || data
+    const m = normalizeEdgePayload(data)
     if (m.avgLatency != null || m.avg_latency != null)
       engineStatus.avgLatency = Number(m.avgLatency ?? m.avg_latency) || 0
     if (m.cacheHitRate != null || m.cache_hit_rate != null)
@@ -636,7 +639,7 @@ async function loadMetrics() {
 async function loadEmotionPulse() {
   try {
     const { data } = await api.getEmotionPulse()
-    const ep = data.data || data
+    const ep = normalizeEdgePayload(data)
     const avgScore = ep.avg_score ?? ep.avgScore ?? ep.temperature ?? ep.value ?? 0
     const normalizedTemp =
       avgScore <= 1 && avgScore >= -1 ? Math.round((avgScore + 1) * 50) : Math.round(avgScore)
@@ -660,7 +663,7 @@ async function loadEmotionPulse() {
 async function loadFederatedStatus() {
   try {
     const { data } = await api.getEdgeAIMetrics()
-    const m = data.data || data
+    const m = normalizeEdgePayload(data)
     if (m.federated) {
       Object.assign(federated, {
         status: m.federated.status ?? 'idle',
@@ -680,7 +683,7 @@ async function loadFederatedStatus() {
 async function loadPrivacyBudget() {
   try {
     const { data } = await api.getPrivacyBudget()
-    const p = data.data || data
+    const p = normalizeEdgePayload(data)
     const epsilonTotal = Number(p.epsilonTotal ?? p.epsilon_total ?? p.total_budget ?? 10) || 10
     const epsilonUsed = Number(p.epsilonUsed ?? p.epsilon_used ?? p.consumed ?? 0) || 0
     const epsilonPercentRaw = p.epsilonPercent ?? p.epsilon_percent ?? p.utilization_percent
@@ -716,7 +719,7 @@ async function loadConfig() {
   configLoading.value = true
   try {
     const { data } = await api.getEdgeAIConfig()
-    const c = data.data || data
+    const c = normalizeEdgePayload(data)
     Object.assign(edgeConfig, {
       inferenceEngine: c.inferenceEngine ?? c.inference_engine ?? edgeConfig.inferenceEngine,
       cacheStrategy: c.cacheStrategy ?? c.cache_strategy ?? edgeConfig.cacheStrategy,
@@ -764,7 +767,7 @@ async function doSentimentAnalysis() {
   sentimentTool.result = null
   try {
     const { data } = await api.analyzeText(sentimentTool.text)
-    const result = data.data || data
+    const result = normalizeEdgePayload(data)
     sentimentTool.result = {
       score: result.score ?? result.sentiment_score ?? 0,
       sentiment: result.emotion ?? result.sentiment ?? 'neutral',
@@ -784,7 +787,7 @@ async function doContentModeration() {
   moderationTool.result = null
   try {
     const { data } = await api.moderateText(moderationTool.text)
-    const result = data.data || data
+    const result = normalizeEdgePayload(data)
     moderationTool.result = {
       pass: result.pass ?? result.passed ?? result.approved ?? true,
       risk: result.risk ?? result.risk_level ?? 'low',
@@ -806,7 +809,7 @@ async function doVectorSearch() {
       query: vectorSearch.query,
       topK: 10,
     })
-    const result = data.data || data
+    const result = normalizeEdgePayload(data)
     const raw = Array.isArray(result) ? result : (result.results ?? [])
     vectorSearch.results = raw.map((item: any) => ({
       ...item,
