@@ -98,7 +98,7 @@ POST `/api/auth/anonymous`
 | DELETE | `/api/account/unblock/{targetUserId}` | 取消拉黑 |
 | POST | `/api/account/export` | 创建数据导出任务（GDPR） |
 | GET | `/api/account/export/{taskId}` | 查询导出任务状态 |
-| POST | `/api/account/deactivate` | 注销账号（30 天内可恢复） |
+| POST | `/api/account/deactivate` | 停用账号（30 天内可恢复） |
 | POST | `/api/account/delete-permanent` | 永久删除账号及全部数据 |
 | POST | `/api/auth/delete-account` | 兼容旧客户端的账号停用别名（30 天内可恢复） |
 

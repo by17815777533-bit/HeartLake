@@ -131,7 +131,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 | DELETE | `/api/account/unblock/{id}` | Bearer | 取消拉黑 |
 | POST | `/api/account/export` | Bearer | 创建数据导出任务（GDPR） |
 | GET | `/api/account/export/{taskId}` | Bearer | 查询导出任务状态 |
-| POST | `/api/account/deactivate` | Bearer | 注销账号（30 天内可恢复） |
+| POST | `/api/account/deactivate` | Bearer | 停用账号（30 天内可恢复） |
 | POST | `/api/account/delete-permanent` | Bearer | 永久删除账号及全部数据 |
 
 说明：

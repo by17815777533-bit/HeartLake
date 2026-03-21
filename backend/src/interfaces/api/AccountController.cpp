@@ -944,9 +944,12 @@ void AccountController::deactivateAccount(
 
     SecurityLogger::logEventFromRequest(
         req, userId, SecurityEventType::ACCOUNT_DELETED, SecuritySeverity::HIGH,
-        "用户注销账号（30天内可恢复）");
+        "用户停用账号（30天内可恢复）");
 
-    callback(ResponseUtil::success(Json::Value(), "账号已注销，30天内可恢复"));
+    Json::Value data;
+    data["status"] = "deactivated";
+    data["recovery_window_days"] = 30;
+    callback(ResponseUtil::success(data, "账号已停用，30天内可恢复"));
   } catch (const std::exception &e) {
     LOG_ERROR << "deactivateAccount error: " << e.what();
     callback(ResponseUtil::internalError());

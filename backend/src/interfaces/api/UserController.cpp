@@ -364,8 +364,13 @@ void UserController::deleteAccount(
 
     SecurityLogger::logEventFromRequest(
         req, user_id, SecurityEventType::ACCOUNT_DELETED,
-        SecuritySeverity::HIGH, "兼容路由注销账号（30天内可恢复）");
-    callback(ResponseUtil::success(Json::Value(), "账号已注销，30天内可恢复"));
+        SecuritySeverity::HIGH, "兼容路由停用账号（30天内可恢复）");
+
+    Json::Value data;
+    data["status"] = "deactivated";
+    data["legacy_route"] = true;
+    data["recovery_window_days"] = 30;
+    callback(ResponseUtil::success(data, "账号已停用，30天内可恢复"));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in deleteAccount: " << e.base().what();
