@@ -18,6 +18,7 @@
 #include "utils/Validator.h"
 #include <algorithm>
 #include <array>
+#include <memory>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -54,6 +55,31 @@ static int extractWindowTotal(const drogon::orm::Result& result,
     return result.empty() || result[0][column].isNull()
         ? 0
         : result[0][column].as<int>();
+}
+
+static Json::Value parseJsonColumn(const drogon::orm::Row &row,
+                                   const char *column,
+                                   Json::ValueType expectedType) {
+    Json::Value fallback(expectedType);
+    if (column == nullptr || *column == '\0' || row[column].isNull()) {
+        return fallback;
+    }
+
+    const auto raw = row[column].as<std::string>();
+    if (raw.empty()) {
+        return fallback;
+    }
+
+    Json::CharReaderBuilder builder;
+    std::string errors;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    Json::Value parsed;
+    if (!reader->parse(raw.data(), raw.data() + raw.size(), &parsed, &errors)) {
+        LOG_WARN << "AdminController parseJsonColumn failed for " << column
+                 << ": " << errors;
+        return fallback;
+    }
+    return parsed.type() == expectedType ? parsed : fallback;
 }
 
 void AdminController::login(const HttpRequestPtr &req,
@@ -667,69 +693,76 @@ void AdminController::getUserRiskHistory([[maybe_unused]] const HttpRequestPtr &
     try {
         auto dbClient = drogon::app().getDbClient("default");
 
-        // 获取用户的风险评估历史
-        auto assessments = dbClient->execSqlSync(
-            "SELECT * FROM psychological_assessments "
-            "WHERE user_id = $1 "
-            "ORDER BY created_at DESC "
-            "LIMIT 100",
+        auto result = dbClient->execSqlSync(
+            "SELECT "
+            "  COALESCE(("
+            "    SELECT json_agg("
+            "      json_build_object("
+            "        'assessment_id', pa.assessment_id, "
+            "        'content_id', COALESCE(pa.content_id, ''), "
+            "        'content_type', COALESCE(pa.content_type, ''), "
+            "        'risk_level', pa.risk_level, "
+            "        'risk_score', pa.risk_score, "
+            "        'primary_concern', COALESCE(pa.primary_concern, ''), "
+            "        'needs_immediate_attention', pa.needs_immediate_attention, "
+            "        'created_at', pa.created_at"
+            "      ) "
+            "      ORDER BY pa.created_at DESC"
+            "    ) "
+            "    FROM ("
+            "      SELECT assessment_id, content_id, content_type, risk_level, "
+            "             risk_score, primary_concern, needs_immediate_attention, created_at "
+            "      FROM psychological_assessments "
+            "      WHERE user_id = $1 "
+            "      ORDER BY created_at DESC "
+            "      LIMIT 100"
+            "    ) pa"
+            "  ), '[]'::json) AS assessments, "
+            "  COALESCE(("
+            "    SELECT json_agg("
+            "      json_build_object("
+            "        'date', eta.date, "
+            "        'avg_sentiment', eta.avg_sentiment, "
+            "        'min_sentiment', eta.min_sentiment, "
+            "        'max_sentiment', eta.max_sentiment, "
+            "        'entry_count', eta.entry_count, "
+            "        'negative_count', eta.negative_count"
+            "      ) "
+            "      ORDER BY eta.date DESC"
+            "    ) "
+            "    FROM ("
+            "      SELECT date, avg_sentiment, min_sentiment, max_sentiment, "
+            "             entry_count, negative_count "
+            "      FROM emotion_trend_analysis "
+            "      WHERE user_id = $1 "
+            "      ORDER BY date DESC "
+            "      LIMIT 30"
+            "    ) eta"
+            "  ), '[]'::json) AS emotion_trend, "
+            "  COALESCE(("
+            "    SELECT row_to_json(ubp_row) "
+            "    FROM ("
+            "      SELECT analysis_date, negative_post_frequency, engagement_decline, "
+            "             social_isolation_score, consecutive_negative_days "
+            "      FROM user_behavior_patterns "
+            "      WHERE user_id = $1 "
+            "      ORDER BY analysis_date DESC "
+            "      LIMIT 1"
+            "    ) ubp_row"
+            "  ), '{}'::json) AS behavior_pattern",
             user_id
         );
 
         Json::Value assessmentList(Json::arrayValue);
-        for (const auto& row : assessments) {
-            Json::Value assessment;
-            assessment["assessment_id"] = row["assessment_id"].as<int>();
-            assessment["content_id"] = row["content_id"].isNull() ? "" : row["content_id"].as<std::string>();
-            assessment["content_type"] = row["content_type"].isNull() ? "" : row["content_type"].as<std::string>();
-            assessment["risk_level"] = row["risk_level"].as<int>();
-            assessment["risk_score"] = row["risk_score"].as<float>();
-            assessment["primary_concern"] = row["primary_concern"].isNull() ? "" : row["primary_concern"].as<std::string>();
-            assessment["needs_immediate_attention"] = row["needs_immediate_attention"].as<bool>();
-            assessment["created_at"] = row["created_at"].as<std::string>();
-
-            assessmentList.append(assessment);
-        }
-
-        // 获取情绪趋势
-        auto emotionTrend = dbClient->execSqlSync(
-            "SELECT * FROM emotion_trend_analysis "
-            "WHERE user_id = $1 "
-            "ORDER BY date DESC "
-            "LIMIT 30",
-            user_id
-        );
-
         Json::Value trendList(Json::arrayValue);
-        for (const auto& row : emotionTrend) {
-            Json::Value trend;
-            trend["date"] = row["date"].as<std::string>();
-            trend["avg_sentiment"] = row["avg_sentiment"].as<float>();
-            trend["min_sentiment"] = row["min_sentiment"].as<float>();
-            trend["max_sentiment"] = row["max_sentiment"].as<float>();
-            trend["entry_count"] = row["entry_count"].as<int>();
-            trend["negative_count"] = row["negative_count"].as<int>();
-
-            trendList.append(trend);
-        }
-
-        // 获取行为模式
-        auto behaviorPattern = dbClient->execSqlSync(
-            "SELECT * FROM user_behavior_patterns "
-            "WHERE user_id = $1 "
-            "ORDER BY analysis_date DESC "
-            "LIMIT 1",
-            user_id
-        );
-
-        Json::Value behavior;
-        if (!behaviorPattern.empty()) {
-            auto row = behaviorPattern[0];
-            behavior["analysis_date"] = row["analysis_date"].as<std::string>();
-            behavior["negative_post_frequency"] = row["negative_post_frequency"].as<float>();
-            behavior["engagement_decline"] = row["engagement_decline"].as<float>();
-            behavior["social_isolation_score"] = row["social_isolation_score"].as<float>();
-            behavior["consecutive_negative_days"] = row["consecutive_negative_days"].as<int>();
+        Json::Value behavior(Json::objectValue);
+        if (const auto row = safeRow(result)) {
+            assessmentList =
+                parseJsonColumn(*row, "assessments", Json::arrayValue);
+            trendList =
+                parseJsonColumn(*row, "emotion_trend", Json::arrayValue);
+            behavior =
+                parseJsonColumn(*row, "behavior_pattern", Json::objectValue);
         }
 
         Json::Value response;
