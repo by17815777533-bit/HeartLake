@@ -429,13 +429,6 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
                          kStoneRippleStateCacheTtlSeconds);
     }
 
-    // 发布事件
-    core::events::RippleCreatedEvent event;
-    event.rippleId = rippleId;
-    event.stoneId = stoneId;
-    event.userId = userId;
-    eventBus_->publish(event);
-
     // 共鸣激励：记录优质涟漪积分
     heartlake::infrastructure::GuardianIncentiveService::getInstance()
         .recordQualityRipple(userId, stoneId);

@@ -43,20 +43,6 @@ struct StonePublishedEvent : DomainEvent {
     std::string moodType;
 };
 
-/// 情绪分析完成事件：AI 引擎完成情感分析后触发
-struct EmotionAnalyzedEvent : DomainEvent {
-    std::string stoneId;
-    float emotionScore;       ///< 情感分数 [-1, 1]
-    std::string detectedMood; ///< 检测到的情绪类型
-};
-
-/// 涟漪创建事件：用户对石头产生共鸣时触发
-struct RippleCreatedEvent : DomainEvent {
-    std::string rippleId;
-    std::string stoneId;
-    std::string userId;
-};
-
 /// 纸船发送事件：用户向石头发送纸船回复时触发
 struct BoatSentEvent : DomainEvent {
     std::string boatId;

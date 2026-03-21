@@ -78,6 +78,15 @@ int extractWindowTotal(const drogon::orm::Result &result,
              : result[0][column].as<int>();
 }
 
+template <typename F>
+int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
+                                 F &&fallbackQuery) {
+  if (!result.empty() || page <= 1) {
+    return extractWindowTotal(result);
+  }
+  return fallbackQuery();
+}
+
 int64_t paginationOffset(int page, int pageSize) {
   return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
 }
@@ -816,7 +825,15 @@ void UserController::getMyBoats(
         "WHERE s.user_id = $1 AND b.sender_id <> $1 "
         "ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
         user_id, static_cast<int64_t>(page_size), offset);
-    const int total = extractWindowTotal(result);
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM paper_boats b "
+          "INNER JOIN stones s ON b.stone_id = s.stone_id "
+          "WHERE s.user_id = $1 AND b.sender_id <> $1",
+          user_id);
+      return extractWindowTotal(countResult);
+    });
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {

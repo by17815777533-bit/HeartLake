@@ -163,7 +163,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 石头发布后触发的领域事件链：
 
 ```
-StonePublishedEvent → AI 情感分析 → EmotionAnalyzedEvent → 缓存更新 + 情绪追踪 → 心理风险评估 → [CRITICAL] SafeHarbor 触发
+StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 → [CRITICAL] SafeHarbor 触发
 ```
 
 查询参数说明：
