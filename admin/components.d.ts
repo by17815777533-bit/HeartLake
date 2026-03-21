@@ -38,12 +38,7 @@ declare module 'vue' {
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     OpsDashboardDeck: typeof import('./src/components/OpsDashboardDeck.vue')['default']
     OpsGaugeMeter: typeof import('./src/components/OpsGaugeMeter.vue')['default']
-    OpsMetricStrip: typeof import('./src/components/OpsMetricStrip.vue')['default']
     OpsMiniBars: typeof import('./src/components/OpsMiniBars.vue')['default']
-    OpsPageHero: typeof import('./src/components/OpsPageHero.vue')['default']
-    OpsSignalDeck: typeof import('./src/components/OpsSignalDeck.vue')['default']
-    OpsSurfaceCard: typeof import('./src/components/OpsSurfaceCard.vue')['default']
-    OpsWorkbench: typeof import('./src/components/OpsWorkbench.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
