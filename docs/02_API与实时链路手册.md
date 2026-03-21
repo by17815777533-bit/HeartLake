@@ -213,6 +213,7 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 - 重新发送好友请求可恢复关系
 - 已删除好友间发送消息返回 403
 - 临时连接一旦过期或升级为正式好友，对应的 connection 历史读取与发消息入口都会拒绝访问
+- 任一方建立拉黑关系后，手动临时连接、石头派生 connection、纸船派生 connection 的后续建连、历史读取、发消息和升级好友都会统一返回 403
 - `/api/temp-friends/connect` 创建的是手动陌生人直连，服务端会规范化为 `source = chat`，并受 `allow_message_from_stranger` 开关约束
 - 石头回复链和纸船链派生的临时连接会保留业务来源（如 `stone` / `boat`），不受陌生人直连开关阻断
 - 手动直连产生的 connection 历史读取与发消息同样受 `allow_message_from_stranger` 约束；石头/纸船派生 connection 不受该开关影响
