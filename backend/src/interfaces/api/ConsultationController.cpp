@@ -15,6 +15,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
+#include <algorithm>
 #include <drogon/drogon.h>
 #include <openssl/rand.h>
 #include <sstream>
@@ -210,7 +211,15 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
                         msg["time"] = row["created_at"].as<std::string>();
                         messages.append(msg);
                     }
-                    callback(ResponseUtil::success(messages));
+                    callback(ResponseUtil::success(
+                        ResponseUtil::buildCollectionPayload(
+                            "messages",
+                            messages,
+                            static_cast<int>(dbResult.size()),
+                            1,
+                            std::max(1, static_cast<int>(dbResult.size()))
+                        )
+                    ));
                 },
                 [callback](const orm::DrogonDbException&) {
                     callback(ResponseUtil::error(500, "获取消息失败"));
@@ -248,9 +257,13 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
                 s["created_at"] = row["created_at"].as<std::string>();
                 sessions.append(s);
             }
-            Json::Value data;
-            data["sessions"] = sessions;
-            data["total"] = static_cast<int>(r.size());
+            Json::Value data = ResponseUtil::buildCollectionPayload(
+                "sessions",
+                sessions,
+                static_cast<int>(r.size()),
+                1,
+                std::max(1, static_cast<int>(r.size()))
+            );
             callback(ResponseUtil::success(data));
         },
         [callback](const orm::DrogonDbException&) {

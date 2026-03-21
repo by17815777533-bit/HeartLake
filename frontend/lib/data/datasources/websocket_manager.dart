@@ -21,6 +21,11 @@ abstract class RealtimeClient extends WebSocketClient {
   void disconnect();
 }
 
+abstract class RoomSubscriptionClient extends RealtimeClient {
+  void joinRoom(String room);
+  void leaveRoom(String room);
+}
+
 /// WebSocket 广播管理器（单例），负责实时消息推送
 ///
 /// 核心机制：
@@ -28,7 +33,7 @@ abstract class RealtimeClient extends WebSocketClient {
 /// - 房间采用引用计数，多页面订阅同一房间不会互相误退
 /// - 断线后指数退避自动重连，离线期间消息暂存队列
 /// - 心跳检测由后端驱动（30s ping），客户端回 pong 并监测半开连接
-class WebSocketManager implements RealtimeClient {
+class WebSocketManager implements RoomSubscriptionClient {
   static final WebSocketManager _instance = WebSocketManager._internal();
   factory WebSocketManager() => _instance;
   WebSocketManager._internal();
@@ -150,6 +155,7 @@ class WebSocketManager implements RealtimeClient {
   }
 
   /// 加入指定房间，首次订阅时发送 join 指令，后续仅增加引用计数
+  @override
   void joinRoom(String room) {
     final normalizedRoom = room.trim();
     if (normalizedRoom.isEmpty) return;
@@ -166,6 +172,7 @@ class WebSocketManager implements RealtimeClient {
   }
 
   /// 离开指定房间，引用计数归零时才真正发送 leave 指令
+  @override
   void leaveRoom(String room) {
     final normalizedRoom = room.trim();
     if (normalizedRoom.isEmpty) return;

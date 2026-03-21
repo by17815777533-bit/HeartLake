@@ -2,7 +2,7 @@
 //
 // 统一管理石头列表、投石、分页、缓存与 WebSocket 实时更新。
 // 通过 WebSocket 监听新石头、涟漪、纸船、删除等事件自动同步列表数据。
-// 依赖 [StoneDataSource]、[CacheStore] 和 [WebSocketClient] 完成交互。
+// 依赖 [StoneDataSource]、[CacheStore] 和 [RoomSubscriptionClient] 完成交互。
 
 library;
 
@@ -25,16 +25,18 @@ import '../../utils/payload_contract.dart';
 class StoneProvider with ChangeNotifier {
   final StoneDataSource _stoneService;
   final CacheStore _cache;
-  final WebSocketClient _wsManager;
+  final RoomSubscriptionClient _wsManager;
 
   // 石头列表状态
   List<Stone> _stones = [];
   final Map<String, int> _stoneIndexById = {};
+  Map<String, dynamic>? _weather;
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _currentPage = 1;
   String? _errorMessage;
+  int _lakeSubscribers = 0;
 
   // WebSocket 监听器引用，dispose 时逐个移除
   bool _wsRegistered = false;
@@ -48,6 +50,8 @@ class StoneProvider with ChangeNotifier {
 
   // Getter（只读访问器）
   List<Stone> get stones => List.unmodifiable(_stones);
+  Map<String, dynamic>? get weather =>
+      _weather == null ? null : Map<String, dynamic>.unmodifiable(_weather!);
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
@@ -60,7 +64,7 @@ class StoneProvider with ChangeNotifier {
   StoneProvider({
     StoneDataSource? stoneService,
     CacheStore? cache,
-    WebSocketClient? wsManager,
+    RoomSubscriptionClient? wsManager,
   })  : _stoneService = stoneService ?? sl<StoneService>(),
         _cache = cache ?? CacheService(),
         _wsManager = wsManager ?? WebSocketManager() {
@@ -290,6 +294,67 @@ class StoneProvider with ChangeNotifier {
 
   // ==================== 数据加载 ====================
 
+  Future<void> activateLakeRealtime() async {
+    _lakeSubscribers++;
+    if (_lakeSubscribers > 1) {
+      return;
+    }
+    await _wsManager.connect();
+    _wsManager.joinRoom('lake');
+  }
+
+  void deactivateLakeRealtime() {
+    if (_lakeSubscribers == 0) {
+      return;
+    }
+    _lakeSubscribers--;
+    if (_lakeSubscribers == 0) {
+      _wsManager.leaveRoom('lake');
+    }
+  }
+
+  Future<void> loadLakeWeather({bool force = false}) async {
+    if (!force && _weather != null) {
+      return;
+    }
+
+    try {
+      final result = await _stoneService.getLakeWeather();
+      if (result['success'] == true) {
+        _weather = Map<String, dynamic>.from(
+          (result['weather'] as Map?)?.cast<String, dynamic>() ?? const {},
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[StoneProvider] 加载湖面气象失败: $e');
+      }
+    }
+  }
+
+  Future<void> ensureLakeFeedLoaded({bool includeWeather = true}) async {
+    final futures = <Future<void>>[];
+    if (_stones.isEmpty && !_isLoading) {
+      futures.add(loadStones());
+    }
+    if (includeWeather && _weather == null) {
+      futures.add(loadLakeWeather());
+    }
+    if (futures.isEmpty) {
+      return;
+    }
+    await Future.wait(futures);
+  }
+
+  Future<void> refreshFeed({bool includeWeather = true}) async {
+    final futures = <Future<void>>[loadStones(refresh: true)];
+    if (includeWeather) {
+      futures.add(loadLakeWeather(force: true));
+    }
+    await Future.wait(futures);
+  }
+
   /// 加载石头列表
   ///
   /// [refresh] 为 true 时从第一页重新加载，否则加载当前页。
@@ -467,6 +532,22 @@ class StoneProvider with ChangeNotifier {
     }
   }
 
+  void applyRippleSuccess(String stoneId) {
+    if (_updateStoneById(stoneId, (stone) {
+      return stone.copyWith(rippleCount: stone.rippleCount + 1);
+    })) {
+      _invalidateCache();
+      notifyListeners();
+    }
+  }
+
+  void removeStoneLocally(String stoneId) {
+    if (_removeStoneById(stoneId)) {
+      _invalidateCache();
+      notifyListeners();
+    }
+  }
+
   /// 获取石头详情
   Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
     return _stoneService.getStoneDetail(stoneId);
@@ -483,6 +564,7 @@ class StoneProvider with ChangeNotifier {
   void clear() {
     _stones = [];
     _stoneIndexById.clear();
+    _weather = null;
     _currentPage = 1;
     _hasMore = true;
     _errorMessage = null;
@@ -494,6 +576,9 @@ class StoneProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    while (_lakeSubscribers > 0) {
+      deactivateLakeRealtime();
+    }
     _wsManager.off('new_stone', _onNewStone);
     _wsManager.off('boat_update', _onBoatUpdate);
     _wsManager.off('new_boat', _onBoatUpdate);

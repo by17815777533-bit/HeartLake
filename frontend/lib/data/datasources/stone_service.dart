@@ -23,6 +23,7 @@ abstract class StoneDataSource {
   });
   Future<Map<String, dynamic>> deleteStone(String stoneId);
   Future<Map<String, dynamic>> getStoneDetail(String stoneId);
+  Future<Map<String, dynamic>> getLakeWeather();
 }
 
 /// 石头（帖子）服务，负责石头的发布、列表查询、详情获取和删除
@@ -186,6 +187,7 @@ class StoneService extends BaseService implements StoneDataSource {
   }
 
   /// 获取湖面实时气象数据，熔断时降级到缓存
+  @override
   Future<Map<String, dynamic>> getLakeWeather() async {
     const cacheKey = 'lake_weather';
     try {

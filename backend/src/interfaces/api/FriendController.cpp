@@ -303,13 +303,14 @@ void FriendController::getFriends(
             friends.append(item);
         }
 
-        Json::Value data;
+        Json::Value data = ResponseUtil::buildCollectionPayload(
+            "friends",
+            friends,
+            static_cast<int>(friends.size()),
+            1,
+            std::max(1, static_cast<int>(friends.size()))
+        );
         data["mode"] = "intimacy_auto";
-        data["friends"] = friends;
-        data["items"] = friends;
-        data["list"] = friends;
-        data["total"] = static_cast<int>(friends.size());
-
         callback(ResponseUtil::success(data, "好友关系已由亲密分自动生成"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in getFriends(intimacy mode): " << e.what();
@@ -328,12 +329,14 @@ void FriendController::getPendingRequests(
     }
     const auto userId = *userIdOpt;
 
-    Json::Value data;
+    Json::Value data = ResponseUtil::buildCollectionPayload(
+        "requests",
+        Json::Value(Json::arrayValue),
+        0,
+        1,
+        1
+    );
     data["mode"] = "intimacy_auto";
-    data["requests"] = Json::arrayValue;
-    data["items"] = Json::arrayValue;
-    data["list"] = Json::arrayValue;
-    data["total"] = 0;
     callback(ResponseUtil::success(data, "手动好友申请已下线，关系由互动亲密分自动判定"));
 }
 
@@ -445,7 +448,15 @@ void FriendController::getMessages(
                 msg["created_at"] = row["created_at"].as<std::string>();
                 messages.append(msg);
             }
-            callback(ResponseUtil::success(messages));
+            callback(ResponseUtil::success(
+                ResponseUtil::buildCollectionPayload(
+                    "messages",
+                    messages,
+                    static_cast<int>(messages.size()),
+                    1,
+                    std::max(1, static_cast<int>(messages.size()))
+                )
+            ));
         } catch (const std::exception& e) {
             LOG_ERROR << "Error in getMessages: " << e.what();
             callback(ResponseUtil::internalError("获取消息失败"));
