@@ -71,9 +71,20 @@ GuardianStats GuardianIncentiveService::getGuardianStats(const std::string& user
     auto db = drogon::app().getDbClient("default");
     try {
         auto result = db->execSqlSync(
-            "SELECT COALESCE(resonance_total, 0) as total, "
-            "COALESCE(is_guardian, false) as guardian "
-            "FROM users WHERE user_id = $1",
+            "SELECT "
+            "  COALESCE(u.resonance_total, 0) AS total, "
+            "  COALESCE(u.is_guardian, false) AS guardian, "
+            "  COALESCE(rp.quality_ripples, 0) AS ripples, "
+            "  COALESCE(rp.warm_boats, 0) AS boats "
+            "FROM users u "
+            "LEFT JOIN LATERAL ("
+            "  SELECT "
+            "    COUNT(*) FILTER (WHERE reason LIKE 'quality_ripple%')::INTEGER AS quality_ripples, "
+            "    COUNT(*) FILTER (WHERE reason LIKE 'warm_boat%')::INTEGER AS warm_boats "
+            "  FROM resonance_points "
+            "  WHERE user_id = u.user_id"
+            ") rp ON TRUE "
+            "WHERE u.user_id = $1",
             userId
         );
 
@@ -81,21 +92,9 @@ GuardianStats GuardianIncentiveService::getGuardianStats(const std::string& user
             auto& row = *rowOpt;
             stats.totalResonancePoints = row["total"].as<int>();
             stats.isGuardian = row["guardian"].as<bool>();
+            stats.qualityRipples = row["ripples"].isNull() ? 0 : row["ripples"].as<int>();
+            stats.warmBoats = row["boats"].isNull() ? 0 : row["boats"].as<int>();
             stats.canTransferLamp = stats.isGuardian && stats.totalResonancePoints >= GUARDIAN_THRESHOLD * 2;
-        }
-
-        auto countResult = db->execSqlSync(
-            "SELECT "
-            "SUM(CASE WHEN reason LIKE 'quality_ripple%' THEN 1 ELSE 0 END) as ripples, "
-            "SUM(CASE WHEN reason LIKE 'warm_boat%' THEN 1 ELSE 0 END) as boats "
-            "FROM resonance_points WHERE user_id = $1",
-            userId
-        );
-
-        if (auto countRowOpt = safeRow(countResult)) {
-            auto& countRow = *countRowOpt;
-            stats.qualityRipples = countRow["ripples"].isNull() ? 0 : countRow["ripples"].as<int>();
-            stats.warmBoats = countRow["boats"].isNull() ? 0 : countRow["boats"].as<int>();
         }
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "getGuardianStats failed: " << e.base().what();

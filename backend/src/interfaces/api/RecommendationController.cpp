@@ -9,6 +9,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <atomic>
+#include <memory>
 #include <random>
 #include <sstream>
 #include <ctime>
@@ -24,6 +25,30 @@ Json::Value buildStaticCollectionPayload(const std::string &primaryKey,
     const auto total = static_cast<int>(items.size());
     return ResponseUtil::buildCollectionPayload(primaryKey, items, total, 1,
                                                 std::max(1, total));
+}
+
+Json::Value parseJsonArrayColumn(const drogon::orm::Row &row,
+                                 const char *columnName) {
+    Json::Value parsed(Json::arrayValue);
+    if (columnName == nullptr || *columnName == '\0' || row[columnName].isNull()) {
+        return parsed;
+    }
+
+    const auto raw = row[columnName].as<std::string>();
+    if (raw.empty()) {
+        return parsed;
+    }
+
+    Json::CharReaderBuilder builder;
+    std::string errors;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    Json::Value value;
+    if (!reader->parse(raw.data(), raw.data() + raw.size(), &value, &errors) ||
+        !value.isArray()) {
+        LOG_WARN << "parseJsonArrayColumn failed for " << columnName << ": " << errors;
+        return parsed;
+    }
+    return value;
 }
 
 } // namespace
@@ -613,58 +638,64 @@ void RecommendationController::calculateTrendingContent(
     try {
         auto dbClient = drogon::app().getDbClient("default");
 
-        // 获取最近24小时的热门石头
-        auto trendingStonesResult = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname AS author_name, "
-            "COALESCE(s.ripple_count, 0) AS ripple_count "
-            "FROM stones s "
-            "JOIN users u ON s.user_id = u.user_id "
-            "WHERE s.status = 'published' "
-            "AND s.deleted_at IS NULL "
-            "AND s.created_at >= NOW() - INTERVAL '24 hours' "
-            "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
-            "LIMIT 10"
-        );
+        auto result = dbClient->execSqlSync(
+            "WITH recent_stones AS ("
+            "  SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
+            "         COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "         s.created_at, u.nickname AS author_name, "
+            "         COALESCE(s.ripple_count, 0) AS ripple_count "
+            "  FROM stones s "
+            "  JOIN users u ON s.user_id = u.user_id "
+            "  WHERE s.status = 'published' "
+            "    AND s.deleted_at IS NULL "
+            "    AND s.created_at >= NOW() - INTERVAL '24 hours'"
+            "), top_stones AS ("
+            "  SELECT * FROM recent_stones "
+            "  ORDER BY ripple_count DESC, created_at DESC "
+            "  LIMIT 10"
+            "), top_moods AS ("
+            "  SELECT mood_type, COUNT(*)::INTEGER AS count "
+            "  FROM recent_stones "
+            "  GROUP BY mood_type "
+            "  ORDER BY count DESC, mood_type ASC "
+            "  LIMIT 5"
+            ") "
+            "SELECT "
+            "  COALESCE(("
+            "    SELECT json_agg("
+            "      json_build_object("
+            "        'stone_id', stone_id, "
+            "        'content', content, "
+            "        'mood_type', mood_type, "
+            "        'emotion_score', emotion_score, "
+            "        'author_name', author_name, "
+            "        'ripple_count', ripple_count, "
+            "        'created_at', created_at"
+            "      ) "
+            "      ORDER BY ripple_count DESC, created_at DESC"
+            "    ) "
+            "    FROM top_stones"
+            "  ), '[]'::json) AS trending_stones, "
+            "  COALESCE(("
+            "    SELECT json_agg("
+            "      json_build_object("
+            "        'mood_type', mood_type, "
+            "        'count', count"
+            "      ) "
+            "      ORDER BY count DESC, mood_type ASC"
+            "    ) "
+            "    FROM top_moods"
+            "  ), '[]'::json) AS trending_moods");
 
         Json::Value trendingStones(Json::arrayValue);
-        for (size_t i = 0; i < trendingStonesResult.size(); ++i) {
-            auto row = trendingStonesResult[i];
-            Json::Value stone;
-            stone["stone_id"] = row["stone_id"].as<std::string>();
-            stone["content"] = row["content"].as<std::string>();
-            stone["mood_type"] = row["mood_type"].as<std::string>();
-            stone["emotion_score"] = row["emotion_score"].as<double>();
-            stone["author_name"] = row["author_name"].as<std::string>();
-            stone["ripple_count"] = row["ripple_count"].as<int>();
-            stone["created_at"] = row["created_at"].as<std::string>();
-            trendingStones.append(stone);
-        }
-
-        // 获取热门情绪
-        auto trendingMoodsResult = dbClient->execSqlSync(
-            "SELECT mood_type, COUNT(*) as count "
-            "FROM stones "
-            "WHERE status = 'published' "
-            "AND deleted_at IS NULL "
-            "AND created_at >= NOW() - INTERVAL '24 hours' "
-            "GROUP BY mood_type "
-            "ORDER BY count DESC "
-            "LIMIT 5"
-        );
-
         Json::Value trendingMoods(Json::arrayValue);
-        for (size_t i = 0; i < trendingMoodsResult.size(); ++i) {
-            auto row = trendingMoodsResult[i];
-            Json::Value mood;
-            mood["mood_type"] = row["mood_type"].as<std::string>();
-            mood["count"] = row["count"].as<int>();
-            trendingMoods.append(mood);
+        if (auto rowOpt = safeRow(result)) {
+            trendingStones = parseJsonArrayColumn(*rowOpt, "trending_stones");
+            trendingMoods = parseJsonArrayColumn(*rowOpt, "trending_moods");
         }
 
-        Json::Value responseData =
-            buildStaticCollectionPayload("trending_stones", trendingStones);
+        Json::Value responseData = buildStaticCollectionPayload(
+            "trending_stones", trendingStones);
         responseData["trending_moods"] = trendingMoods;
 
         // 缓存结果（3分钟）
