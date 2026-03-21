@@ -1,8 +1,8 @@
-/// 好友状态管理
-///
-/// 统一管理正式好友、临时好友和好友请求三类列表的状态。
-/// 通过 WebSocket 监听好友上下线、请求、接受、删除、临时好友过期等实时事件。
-/// 依赖 [FriendService] 和 [TempFriendService] 完成后端交互。
+// 好友状态管理
+//
+// 统一管理正式好友、临时好友和好友请求三类列表的状态。
+// 通过 WebSocket 监听好友上下线、请求、接受、删除、临时好友过期等实时事件。
+// 依赖 [FriendDataSource]、[TempFriendDataSource] 和 [WebSocketClient] 完成交互。
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/friend_service.dart';
@@ -16,9 +16,9 @@ import '../../di/service_locator.dart';
 /// 维护三类列表：正式好友、临时好友（纸船互动产生的 24h 限时好友）、待处理好友请求。
 /// 通过 WebSocket 监听 6 种实时事件自动同步列表，无需手动刷新。
 class FriendProvider with ChangeNotifier {
-  final FriendService _friendService = sl<FriendService>();
-  final TempFriendService _tempFriendService = sl<TempFriendService>();
-  final WebSocketManager _wsManager = WebSocketManager();
+  final FriendDataSource _friendService;
+  final TempFriendDataSource _tempFriendService;
+  final WebSocketClient _wsManager;
 
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _tempFriends = [];
@@ -45,7 +45,13 @@ class FriendProvider with ChangeNotifier {
   int get pendingCount => _pendingRequests.length;
   int get friendCount => _friends.length;
 
-  FriendProvider() {
+  FriendProvider({
+    FriendDataSource? friendService,
+    TempFriendDataSource? tempFriendService,
+    WebSocketClient? wsManager,
+  })  : _friendService = friendService ?? sl<FriendService>(),
+        _tempFriendService = tempFriendService ?? sl<TempFriendService>(),
+        _wsManager = wsManager ?? WebSocketManager() {
     _setupWebSocket();
   }
 
@@ -72,7 +78,7 @@ class FriendProvider with ChangeNotifier {
       item['temp_friend_id']?.toString();
 
   void _rebuildFriendIndex() {
-    _friendIndexByUserId..clear();
+    _friendIndexByUserId.clear();
     for (var i = 0; i < _friends.length; i++) {
       final userId = _friendUserId(_friends[i]);
       if (userId != null && userId.isNotEmpty) {
@@ -82,7 +88,7 @@ class FriendProvider with ChangeNotifier {
   }
 
   void _rebuildTempFriendIndex() {
-    _tempFriendIndexById..clear();
+    _tempFriendIndexById.clear();
     for (var i = 0; i < _tempFriends.length; i++) {
       final tempFriendId = _tempFriendId(_tempFriends[i]);
       if (tempFriendId != null && tempFriendId.isNotEmpty) {
@@ -92,7 +98,7 @@ class FriendProvider with ChangeNotifier {
   }
 
   void _rebuildPendingIndex() {
-    _pendingIndexByUserId..clear();
+    _pendingIndexByUserId.clear();
     for (var i = 0; i < _pendingRequests.length; i++) {
       final userId = _friendUserId(_pendingRequests[i]);
       if (userId != null && userId.isNotEmpty) {

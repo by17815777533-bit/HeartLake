@@ -2,7 +2,7 @@
 //
 // 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
 // 实时通知事件和纸船事件更新未读角标。
-// 依赖 [NotificationService] 完成后端交互，依赖 [WebSocketManager] 接收推送。
+// 依赖 [NotificationDataSource] 完成后端交互，依赖 [WebSocketClient] 接收推送。
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
@@ -16,8 +16,8 @@ import '../../utils/payload_contract.dart';
 /// 通过 WebSocket 监听 `new_notification` 和 `boat_update` 事件实时递增未读数。
 /// 未读计数有节流保护，[refreshInterval] 秒内不会重复请求后端。
 class NotificationProvider with ChangeNotifier {
-  final NotificationService _notificationService = sl<NotificationService>();
-  final WebSocketManager _wsManager = WebSocketManager();
+  final NotificationDataSource _notificationService;
+  final WebSocketClient _wsManager;
   int _unreadCount = 0;
   bool _isLoading = false;
 
@@ -48,7 +48,11 @@ class NotificationProvider with ChangeNotifier {
   bool get isLoadingNotifications => _isLoadingNotifications;
   bool get hasMore => _hasMore;
 
-  NotificationProvider() {
+  NotificationProvider({
+    NotificationDataSource? notificationService,
+    WebSocketClient? wsManager,
+  })  : _notificationService = notificationService ?? sl<NotificationService>(),
+        _wsManager = wsManager ?? WebSocketManager() {
     _setupWebSocketListener();
   }
 

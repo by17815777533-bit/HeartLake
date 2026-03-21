@@ -1,15 +1,29 @@
-/// 好友关系管理服务
-///
-/// 处理好友请求的发送、接受、拒绝以及聊天消息收发。
+// 好友关系管理服务
+//
+// 处理好友请求的发送、接受、拒绝以及聊天消息收发。
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'social_payload_normalizer.dart';
 
+abstract class FriendDataSource {
+  Future<Map<String, dynamic>> sendFriendRequest({
+    required String userId,
+    String? message,
+  });
+  Future<Map<String, dynamic>> acceptFriendRequest(String userId);
+  Future<Map<String, dynamic>> rejectFriendRequest(String userId);
+  Future<Map<String, dynamic>> removeFriend(String friendId);
+  Future<Map<String, dynamic>> getFriends();
+  Future<Map<String, dynamic>> getPendingRequests();
+  Future<Map<String, dynamic>> getMessages(String friendId);
+  Future<Map<String, dynamic>> sendMessage(String friendId, String content);
+}
+
 /// 好友关系管理服务
 ///
 /// 提供好友关系管理和聊天功能。
-class FriendService extends BaseService {
+class FriendService extends BaseService implements FriendDataSource {
   @override
   String get serviceName => 'FriendService';
 
@@ -19,6 +33,7 @@ class FriendService extends BaseService {
   ///
   /// [userId] 目标用户ID
   /// [message] 附言，最长200字符
+  @override
   Future<Map<String, dynamic>> sendFriendRequest({
     required String userId,
     String? message,
@@ -50,6 +65,7 @@ class FriendService extends BaseService {
   /// 接受好友请求
   ///
   /// [userId] 发送请求的用户ID
+  @override
   Future<Map<String, dynamic>> acceptFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/accept/$userId');
@@ -59,6 +75,7 @@ class FriendService extends BaseService {
   /// 拒绝好友请求
   ///
   /// [userId] 发送请求的用户ID
+  @override
   Future<Map<String, dynamic>> rejectFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/reject/$userId');
@@ -68,6 +85,7 @@ class FriendService extends BaseService {
   /// 删除好友
   ///
   /// [friendId] 好友ID
+  @override
   Future<Map<String, dynamic>> removeFriend(String friendId) async {
     InputValidator.validateUUID(friendId, '好友ID');
     final response = await delete('/friends/$friendId');
@@ -77,6 +95,7 @@ class FriendService extends BaseService {
   /// 获取好友列表
   ///
   /// 返回当前用户的好友列表和总数。
+  @override
   Future<Map<String, dynamic>> getFriends() async {
     final response = await get('/friends');
 
@@ -101,6 +120,7 @@ class FriendService extends BaseService {
   /// 获取待处理的好友请求
   ///
   /// 返回尚未处理的好友请求列表。
+  @override
   Future<Map<String, dynamic>> getPendingRequests() async {
     final response = await get('/friends/requests/pending');
 
@@ -127,6 +147,7 @@ class FriendService extends BaseService {
   /// 获取与指定好友的聊天记录，兼容多种返回格式。
   ///
   /// [friendId] 好友ID
+  @override
   Future<Map<String, dynamic>> getMessages(String friendId) async {
     InputValidator.validateUUID(friendId, '好友ID');
     final response = await get('/friends/$friendId/messages');
@@ -154,6 +175,7 @@ class FriendService extends BaseService {
   ///
   /// [friendId] 好友ID
   /// [content] 消息内容，1-2000字符
+  @override
   Future<Map<String, dynamic>> sendMessage(
       String friendId, String content) async {
     InputValidator.validateUUID(friendId, '好友ID');

@@ -1,3 +1,5 @@
+// WebSocket 管理器
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -9,6 +11,11 @@ import '../../utils/payload_contract.dart';
 import 'cache_service.dart';
 import 'api_client.dart';
 
+abstract class WebSocketClient {
+  void on(String eventType, void Function(Map<String, dynamic>) listener);
+  void off(String eventType, [void Function(Map<String, dynamic>)? listener]);
+}
+
 /// WebSocket 广播管理器（单例），负责实时消息推送
 ///
 /// 核心机制：
@@ -16,7 +23,7 @@ import 'api_client.dart';
 /// - 房间采用引用计数，多页面订阅同一房间不会互相误退
 /// - 断线后指数退避自动重连，离线期间消息暂存队列
 /// - 心跳检测由后端驱动（30s ping），客户端回 pong 并监测半开连接
-class WebSocketManager {
+class WebSocketManager implements WebSocketClient {
   static final WebSocketManager _instance = WebSocketManager._internal();
   factory WebSocketManager() => _instance;
   WebSocketManager._internal();
@@ -24,6 +31,7 @@ class WebSocketManager {
   WebSocketChannel? _channel;
   final Map<String, List<void Function(Map<String, dynamic>)>> _listeners = {};
   final List<String> _offlineQueue = [];
+
   /// 房间引用计数，防止多页面订阅同一房间时互相误退
   final Map<String, int> _roomRefCounts = <String, int>{};
   Timer? _heartbeatTimer;
@@ -167,12 +175,14 @@ class WebSocketManager {
   }
 
   /// 注册事件监听器
+  @override
   void on(String eventType, void Function(Map<String, dynamic>) listener) {
     _listeners[eventType] ??= [];
     _listeners[eventType]!.add(listener);
   }
 
   /// 移除事件监听器，不传 listener 则移除该事件的全部监听
+  @override
   void off(String eventType, [void Function(Map<String, dynamic>)? listener]) {
     if (listener == null) {
       _listeners.remove(eventType);

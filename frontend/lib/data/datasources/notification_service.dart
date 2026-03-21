@@ -3,10 +3,19 @@ import '../../utils/input_validator.dart';
 import '../../utils/payload_contract.dart';
 import 'social_payload_normalizer.dart';
 
+abstract class NotificationDataSource {
+  Future<Map<String, dynamic>> getNotifications(
+      {int page = 1, int pageSize = 20});
+  Future<Map<String, dynamic>> getUnreadCount();
+  Future<Map<String, dynamic>> markAsRead(String notificationId);
+  Future<Map<String, dynamic>> markAllAsRead();
+}
+
 /// 通知服务，负责通知列表查询、未读计数和已读标记
 ///
 /// 兼容后端多种返回格式：纯数组和带 notifications/items/list 键的对象。
-class NotificationService extends BaseService {
+class NotificationService extends BaseService
+    implements NotificationDataSource {
   @override
   String get serviceName => 'NotificationService';
 
@@ -37,6 +46,7 @@ class NotificationService extends BaseService {
   }
 
   /// 分页获取通知列表，同时返回未读数
+  @override
   Future<Map<String, dynamic>> getNotifications(
       {int page = 1, int pageSize = 20}) async {
     InputValidator.requirePage(page);
@@ -109,6 +119,7 @@ class NotificationService extends BaseService {
   }
 
   /// 获取未读通知数量
+  @override
   Future<Map<String, dynamic>> getUnreadCount() async {
     final response = await get('/notifications/unread-count');
     if (!response.success) return toMap(response);
@@ -122,6 +133,7 @@ class NotificationService extends BaseService {
   }
 
   /// 标记单条通知为已读
+  @override
   Future<Map<String, dynamic>> markAsRead(String notificationId) async {
     InputValidator.validateUUID(notificationId, '通知ID');
     final response = await post('/notifications/$notificationId/read');
@@ -136,6 +148,7 @@ class NotificationService extends BaseService {
   }
 
   /// 标记所有通知为已读
+  @override
   Future<Map<String, dynamic>> markAllAsRead() async {
     final response = await post('/notifications/read-all');
     return toMap(response);
