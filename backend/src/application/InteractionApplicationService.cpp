@@ -131,26 +131,28 @@ std::string serializeRiskFactors(
   return Json::writeString(writer, payload);
 }
 
-void createBoatNotificationAsync(const std::string &stoneOwnerId,
-                                 const std::string &senderId,
-                                 const std::string &boatId) {
-  if (stoneOwnerId.empty() || stoneOwnerId == senderId) {
-    return;
+std::string createInteractionNotificationAsync(
+    const std::string &recipientId, const std::string &actorUserId,
+    const std::string &type, const std::string &content,
+    const std::string &relatedId, const std::string &relatedType) {
+  if (recipientId.empty() || recipientId == actorUserId) {
+    return "";
   }
 
   auto dbClient = drogon::app().getDbClient("default");
-  const auto notificationId = heartlake::utils::IdGenerator::generateNotificationId();
+  const auto notificationId =
+      heartlake::utils::IdGenerator::generateNotificationId();
   dbClient->execSqlAsync(
       "INSERT INTO notifications (notification_id, user_id, type, content, "
       "related_id, related_type, is_read, created_at) "
-      "VALUES ($1, $2, 'boat', '有人给你的石头回了一封纸船', $3, 'boat', "
-      "false, NOW())",
+      "VALUES ($1, $2, $3, $4, $5, $6, false, NOW())",
       [](const drogon::orm::Result &) {},
-      [stoneOwnerId](const drogon::orm::DrogonDbException &e) {
-        LOG_ERROR << "Failed to create boat notification for user "
-                  << stoneOwnerId << ": " << e.base().what();
+      [recipientId, type](const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Failed to create " << type << " notification for user "
+                  << recipientId << ": " << e.base().what();
       },
-      notificationId, stoneOwnerId, boatId);
+      notificationId, recipientId, type, content, relatedId, relatedType);
+  return notificationId;
 }
 
 void refreshBoatTempFriendshipAsync(const std::string &userId,
@@ -375,10 +377,14 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     result["ripple_id"] = safeStringColumn(row, "ripple_id", rippleId);
     result["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
     result["user_id"] = safeStringColumn(row, "user_id", userId);
-    result["stone_owner_id"] = safeStringColumn(row, "stone_owner_id");
+    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
+    result["stone_owner_id"] = stoneOwnerId;
     result["ripple_count"] = row["ripple_count"].isNull()
                                  ? 1
                                  : row["ripple_count"].as<int>();
+    result["notification_id"] = createInteractionNotificationAsync(
+        stoneOwnerId, userId, "ripple", "有人给你的石头点了涟漪", stoneId,
+        "stone");
 
     LOG_INFO << "Ripple created: " << rippleId;
     return result;
@@ -798,7 +804,9 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     event.content = content;
     eventBus_->publish(event);
 
-    createBoatNotificationAsync(stoneOwnerId, userId, boatId);
+    const auto notificationId = createInteractionNotificationAsync(
+        stoneOwnerId, userId, "boat", "有人给你的石头回了一封纸船", boatId,
+        "boat");
     refreshBoatTempFriendshipAsync(userId, stoneOwnerId, boatId);
     assessBoatPsychologicalRiskAsync(userId, boatId, content);
 
@@ -814,6 +822,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     result["stone_owner_id"] = stoneOwnerId;
     result["boat_count"] =
         row["boat_count"].isNull() ? 1 : row["boat_count"].as<int>();
+    result["notification_id"] = notificationId;
 
     LOG_INFO << "Boat created: " << boatId;
 

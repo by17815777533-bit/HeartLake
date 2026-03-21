@@ -396,6 +396,21 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 }
 ```
 
+通知推送：
+
+```json
+{
+  "type": "new_notification",
+  "notification_id": "notif_xxx",
+  "notification_type": "boat",
+  "content": "有人给你的石头回了一封纸船",
+  "related_id": "boat_xxx",
+  "related_type": "boat",
+  "is_read": false,
+  "timestamp": 1700000000
+}
+```
+
 好友消息：
 
 ```json

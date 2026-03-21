@@ -54,9 +54,17 @@ void InteractionController::createRipple(
       const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
       if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
         Json::Value notifyMsg;
+        const auto notificationId =
+            result.get("notification_id", "").asString();
         notifyMsg["type"] = "new_notification";
+        notifyMsg["notification_id"] = notificationId;
+        notifyMsg["id"] = notificationId;
         notifyMsg["notification_type"] = "ripple";
+        notifyMsg["content"] = "有人给你的石头点了涟漪";
         notifyMsg["stone_id"] = stoneId;
+        notifyMsg["related_id"] = stoneId;
+        notifyMsg["related_type"] = "stone";
+        notifyMsg["is_read"] = false;
         notifyMsg["from_user_id"] = userId;
         notifyMsg["ripple_count"] = rippleCount;
         notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
@@ -201,10 +209,18 @@ void InteractionController::createBoat(
       const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
       if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
         Json::Value notifyMsg;
+        const auto notificationId =
+            result.get("notification_id", "").asString();
         notifyMsg["type"] = "new_notification";
+        notifyMsg["notification_id"] = notificationId;
+        notifyMsg["id"] = notificationId;
         notifyMsg["notification_type"] = "boat";
+        notifyMsg["content"] = "有人给你的石头回了一封纸船";
         notifyMsg["stone_id"] = stoneId;
         notifyMsg["boat_id"] = result["boat_id"].asString();
+        notifyMsg["related_id"] = result["boat_id"].asString();
+        notifyMsg["related_type"] = "boat";
+        notifyMsg["is_read"] = false;
         notifyMsg["from_user_id"] = userId;
         notifyMsg["boat_count"] = boatCount;
         notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
