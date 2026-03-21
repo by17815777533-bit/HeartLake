@@ -1,6 +1,7 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
 import '../../utils/mood_colors.dart';
+import 'social_payload_normalizer.dart';
 
 /// 湖神对话服务，对接 EdgeAI 的湖神聊天端点
 ///
@@ -27,12 +28,43 @@ class LakeGodService extends BaseService {
       if (emotion != null) 'emotion': emotion,
       if (emotionScore != null) 'emotion_score': emotionScore,
     });
-    return toMap(resp);
+    if (!resp.success) return toMap(resp);
+
+    final payload = resp.data is Map
+        ? Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>())
+        : <String, dynamic>{};
+    final reply = payload['reply'] ?? payload['response'] ?? payload['content'];
+    if (reply != null) {
+      payload['reply'] = reply;
+      payload['response'] = reply;
+      payload['content'] = reply;
+    }
+
+    return {
+      ...toMap(resp),
+      'data': payload,
+      'reply': payload['reply'],
+      'response': payload['response'],
+    };
   }
 
   /// 获取与湖神的历史对话记录
   Future<Map<String, dynamic>> getMessages() async {
     final resp = await get('/lake-god/history');
-    return toMap(resp);
+    if (!resp.success) return toMap(resp);
+
+    final messages = extractNormalizedList(
+      resp.data,
+      itemNormalizer: normalizeMessagePayload,
+      listKeys: const ['messages'],
+    );
+    return {
+      ...toMap(resp),
+      ...buildCollectionEnvelope(
+        resp.data,
+        primaryKey: 'messages',
+        items: messages,
+      ),
+    };
   }
 }
