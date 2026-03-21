@@ -237,11 +237,22 @@ type Params = Record<string, unknown>
 
 type VectorSearchPayload = VectorSearchParams & { topK?: number }
 
+type AliasPair = readonly [camelKey: string, snakeKey: string]
+
 function camelToSnakeKey(key: string): string {
   return key.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`)
 }
 
-function buildEdgeAIConfigPayload(data: Params): Params {
+function mirrorAliasPair(payload: Params, [camelKey, snakeKey]: AliasPair): void {
+  if (payload[snakeKey] == null && payload[camelKey] != null) {
+    payload[snakeKey] = payload[camelKey]
+  }
+  if (payload[camelKey] == null && payload[snakeKey] != null) {
+    payload[camelKey] = payload[snakeKey]
+  }
+}
+
+function buildSnakeMirroredPayload(data: Params, aliasPairs: readonly AliasPair[] = []): Params {
   const payload: Params = { ...data }
   Object.entries(data).forEach(([key, value]) => {
     const snakeKey = camelToSnakeKey(key)
@@ -249,18 +260,16 @@ function buildEdgeAIConfigPayload(data: Params): Params {
       payload[snakeKey] = value
     }
   })
+  aliasPairs.forEach((pair) => mirrorAliasPair(payload, pair))
   return payload
 }
 
+function buildEdgeAIConfigPayload(data: Params): Params {
+  return buildSnakeMirroredPayload(data)
+}
+
 function buildVectorSearchPayload(data: VectorSearchPayload): Params {
-  const payload: Params = { ...data }
-  if (payload.top_k == null && payload.topK != null) {
-    payload.top_k = payload.topK
-  }
-  if (payload.topK == null && payload.top_k != null) {
-    payload.topK = payload.top_k
-  }
-  return payload
+  return buildSnakeMirroredPayload(data, [['topK', 'top_k']])
 }
 
 /** 
