@@ -89,6 +89,43 @@ export function useDashboardLoaders({
     semanticKeys: readonly string[],
   ) => normalizeCollectionResponse<T>(payload, semanticKeys).items
   const normalizeDashboardRecord = (payload: unknown) => normalizePayloadRecord(payload)
+  const moodTrendRequests = new Map<number, Promise<MoodTrendItem[]>>()
+  let emotionPulseRequest: Promise<Record<string, unknown>> | null = null
+  let emotionPulseSnapshot: { at: number; data: Record<string, unknown> } | null = null
+
+  const fetchMoodTrendList = async (days: number) => {
+    const cached = moodTrendRequests.get(days)
+    if (cached) return cached
+
+    const request = Promise.resolve(api.getMoodTrend?.(String(days)) ?? { data: null }).then((res) =>
+      normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends']),
+    ).finally(() => {
+      moodTrendRequests.delete(days)
+    })
+
+    moodTrendRequests.set(days, request)
+    return request
+  }
+
+  const fetchEmotionPulseRecord = async () => {
+    const now = Date.now()
+    if (emotionPulseSnapshot && now - emotionPulseSnapshot.at < 1000) {
+      return emotionPulseSnapshot.data
+    }
+    if (emotionPulseRequest) {
+      return emotionPulseRequest
+    }
+
+    emotionPulseRequest = api.getEmotionPulse().then((res) => {
+      const normalized = normalizeDashboardRecord(res.data)
+      emotionPulseSnapshot = { at: Date.now(), data: normalized }
+      return normalized
+    }).finally(() => {
+      emotionPulseRequest = null
+    })
+
+    return emotionPulseRequest
+  }
 
   /** 读取核心统计信息。 */
   const loadStats = async () => {
@@ -170,8 +207,7 @@ export function useDashboardLoaders({
   /** 读取情绪趋势。 */
   const loadMoodTrend = async () => {
     try {
-      const res = await api.getMoodTrend?.(String(moodTrendRange.value)) || { data: null }
-      const trendList = normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends'])
+      const trendList = await fetchMoodTrendList(moodTrendRange.value)
       if (trendList.length) {
         const dates = [...new Set(trendList.map(item => item.date))].sort()
         moodTrendOption.value.xAxis.data = dates
@@ -245,8 +281,7 @@ export function useDashboardLoaders({
   const loadResonanceStats = async () => {
     resonanceLoading.value = true
     try {
-      const res = await api.getEmotionPulse()
-      const d = normalizeDashboardRecord(res.data)
+      const d = await fetchEmotionPulseRecord()
       resonanceStats.todayMatches = d.today_matches ?? d.sample_count ?? 0
       resonanceStats.avgScore = d.avg_score ?? d.avgScore ?? 0
       resonanceStats.topMood = d.top_mood ?? d.dominant_mood ?? ''
@@ -263,8 +298,7 @@ export function useDashboardLoaders({
   /** 读取情绪温度。 */
   const loadEmotionPulse = async () => {
     try {
-      const res = await api.getEmotionPulse()
-      const d = normalizeDashboardRecord(res.data)
+      const d = await fetchEmotionPulseRecord()
       const temp =
         d.temperature ??
         (d.normalized_score != null ? Number(d.normalized_score) * 100 : 50)
@@ -278,8 +312,7 @@ export function useDashboardLoaders({
   /** 读取情绪趋势折线。 */
   const loadEmotionTrends = async () => {
     try {
-      const res = await api.getMoodTrend(String(moodTrendRange.value))
-      const list = normalizeDashboardCollection<EmotionTrendItem>(res.data, ['trends'])
+      const list = await fetchMoodTrendList(moodTrendRange.value)
       if (list.length) {
         const dates = [...new Set(list.map((item: EmotionTrendItem) => item.date || item.day))].sort()
         const bucket = new Map<string, { positive: number; neutral: number; negative: number }>()
@@ -315,16 +348,15 @@ export function useDashboardLoaders({
   /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
-      const res = await api.getStones({ page: 1, page_size: 6 })
+      const res = await api.getTrendingContent()
       const list = normalizeDashboardCollection<{
         stone_id?: string
         content?: string
         mood_type?: string
         ripple_count?: number
-        boat_count?: number
-      }>(res.data, ['stones'])
-      const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number; boat_count?: number }) =>
-        Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
+      }>(res.data, ['trending_stones'])
+      const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number }) =>
+        Number(item.ripple_count ?? 0)
       ))
 
       aiTrendingContent.value = list.slice(0, 6).map((item: {
@@ -332,9 +364,8 @@ export function useDashboardLoaders({
         content?: string
         mood_type?: string
         ripple_count?: number
-        boat_count?: number
       }) => {
-        const score = Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
+        const score = Number(item.ripple_count ?? 0)
         return {
           id: item.stone_id,
           content: item.content,
