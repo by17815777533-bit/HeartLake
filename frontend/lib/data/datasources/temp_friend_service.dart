@@ -18,11 +18,46 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
 
   Map<String, dynamic> _normalizeTempFriend(Map raw) {
     final item = normalizeFriendPayload(raw);
+    final tempFriendId =
+        item['temp_friend_id'] ?? item['tempFriendId'] ?? item['id'];
+    if (tempFriendId != null) {
+      item['temp_friend_id'] = tempFriendId.toString();
+      item['tempFriendId'] = tempFriendId.toString();
+      item['id'] = tempFriendId.toString();
+    }
+
     final friendId = item['friend_id'] ?? item['friend_user_id'];
     if (friendId != null) {
       item['friend_id'] = friendId;
+      item['friendId'] = friendId;
       item['friend_user_id'] = friendId;
+      item['friendUserId'] = friendId;
     }
+
+    final expiresAt = item['expires_at'] ?? item['expiresAt'];
+    if (expiresAt != null) {
+      item['expires_at'] = expiresAt;
+      item['expiresAt'] = expiresAt;
+    }
+
+    final createdAt = item['created_at'] ?? item['createdAt'];
+    if (createdAt != null) {
+      item['created_at'] = createdAt;
+      item['createdAt'] = createdAt;
+    }
+
+    final friendshipId = item['friendship_id'] ?? item['friendshipId'];
+    if (friendshipId != null) {
+      item['friendship_id'] = friendshipId.toString();
+      item['friendshipId'] = friendshipId.toString();
+    }
+
+    final upgradedToFriend = item['upgraded_to_friend'] ?? item['upgradedToFriend'];
+    if (upgradedToFriend != null) {
+      item['upgraded_to_friend'] = upgradedToFriend;
+      item['upgradedToFriend'] = upgradedToFriend;
+    }
+
     return item;
   }
 
@@ -61,6 +96,7 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
 
     return {
       ...toMap(response),
+      'data': detail,
       'temp_friend': detail,
     };
   }
@@ -72,9 +108,16 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
     final response = await post('/temp-friends/$tempFriendId/upgrade');
     if (!response.success) return toMap(response);
 
+    final payload = response.data is Map
+        ? _normalizeTempFriend(
+            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+          )
+        : const <String, dynamic>{};
     return {
       ...toMap(response),
-      'friendship_id': response.data?['friendship_id'],
+      'data': payload,
+      'friendship_id': payload['friendship_id'],
+      'friendshipId': payload['friendshipId'],
     };
   }
 
@@ -92,7 +135,19 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
     final response = await post('/temp-friends', data: {
       'target_user_id': userId,
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = response.data is Map
+        ? _normalizeTempFriend(
+            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+          )
+        : const <String, dynamic>{};
+    return {
+      ...toMap(response),
+      'data': payload,
+      'temp_friend_id': payload['temp_friend_id'],
+      'tempFriendId': payload['tempFriendId'],
+    };
   }
 
   /// 检查临时好友状态
@@ -100,6 +155,19 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
   Future<Map<String, dynamic>> checkTempFriendStatus(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await get('/temp-friends/check/$userId');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = response.data is Map
+        ? _normalizeTempFriend(
+            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+          )
+        : const <String, dynamic>{};
+    return {
+      ...toMap(response),
+      'data': payload,
+      'is_temp_friend': payload['is_temp_friend'],
+      'temp_friend_id': payload['temp_friend_id'],
+      'tempFriendId': payload['tempFriendId'],
+    };
   }
 }

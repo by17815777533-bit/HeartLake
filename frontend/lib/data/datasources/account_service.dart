@@ -100,6 +100,36 @@ class AccountService extends BaseService {
     return item;
   }
 
+  Map<String, dynamic> _normalizeExportTaskPayload(Map raw) {
+    final item = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+    final taskId = item['task_id'] ?? item['taskId'] ?? item['id'];
+    if (taskId != null) {
+      item['task_id'] = taskId.toString();
+      item['taskId'] = taskId.toString();
+      item['id'] = taskId.toString();
+    }
+
+    final createdAt = item['created_at'] ?? item['createdAt'];
+    if (createdAt != null) {
+      item['created_at'] = createdAt;
+      item['createdAt'] = createdAt;
+    }
+
+    final completedAt = item['completed_at'] ?? item['completedAt'];
+    if (completedAt != null) {
+      item['completed_at'] = completedAt;
+      item['completedAt'] = completedAt;
+    }
+
+    final downloadUrl = item['download_url'] ?? item['downloadUrl'];
+    if (downloadUrl != null) {
+      item['download_url'] = downloadUrl;
+      item['downloadUrl'] = downloadUrl;
+    }
+
+    return item;
+  }
+
   /// 隐私设置白名单，只有这些 key 才会被提交到后端
   static const _allowedPrivacyKeys = [
     // 后端当前生效字段
@@ -284,7 +314,19 @@ class AccountService extends BaseService {
   /// 创建数据导出任务，返回任务ID用于查询导出状态。
   Future<Map<String, dynamic>> exportData() async {
     final response = await post('/account/export');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = response.data is Map
+        ? _normalizeExportTaskPayload(
+            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+          )
+        : const <String, dynamic>{};
+    return {
+      ...toMap(response),
+      'data': payload,
+      'task_id': payload['task_id'],
+      'taskId': payload['taskId'],
+    };
   }
 
   /// 移除登录设备
@@ -331,7 +373,22 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> getExportStatus(String taskId) async {
     InputValidator.validateUUID(taskId, '任务ID');
     final response = await get('/account/export/$taskId');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = response.data is Map
+        ? _normalizeExportTaskPayload(
+            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+          )
+        : const <String, dynamic>{};
+    return {
+      ...toMap(response),
+      'data': payload,
+      'task_id': payload['task_id'],
+      'taskId': payload['taskId'],
+      'status': payload['status'],
+      'download_url': payload['download_url'],
+      'downloadUrl': payload['downloadUrl'],
+    };
   }
 
   /// 上传头像
