@@ -169,15 +169,15 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
 
         if (!userId.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
-            filteredUsersSql += " AND u.user_id LIKE " + placeholder + " ESCAPE '\\'";
-            countSql += " AND u.user_id LIKE " + placeholder + " ESCAPE '\\'";
+            filteredUsersSql += " AND u.user_id ILIKE " + placeholder + " ESCAPE '\\'";
+            countSql += " AND u.user_id ILIKE " + placeholder + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(userId) + "%");
             paramIdx++;
         }
         if (!nickname.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
-            filteredUsersSql += " AND u.nickname LIKE " + placeholder + " ESCAPE '\\'";
-            countSql += " AND u.nickname LIKE " + placeholder + " ESCAPE '\\'";
+            filteredUsersSql += " AND u.nickname ILIKE " + placeholder + " ESCAPE '\\'";
+            countSql += " AND u.nickname ILIKE " + placeholder + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(nickname) + "%");
             paramIdx++;
         }
@@ -192,8 +192,9 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
             const auto placeholder = "$" + std::to_string(paramIdx);
             const std::string searchCondition =
                 " AND (u.username ILIKE " + placeholder +
-                " OR u.nickname ILIKE " + placeholder +
-                " OR u.user_id ILIKE " + placeholder + ")";
+                " ESCAPE '\\' OR u.nickname ILIKE " + placeholder +
+                " ESCAPE '\\' OR u.user_id ILIKE " + placeholder +
+                " ESCAPE '\\')";
             filteredUsersSql += searchCondition;
             countSql += searchCondition;
             params.push_back("%" + escapeLike(search) + "%");
