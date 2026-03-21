@@ -23,8 +23,18 @@ abstract class InteractionDataSource {
     int page = 1,
     int pageSize = 20,
   });
+  Future<Map<String, dynamic>> getMyRipples({
+    int page = 1,
+    int pageSize = 20,
+  });
+  Future<Map<String, dynamic>> getMyBoatsComments({
+    int page = 1,
+    int pageSize = 20,
+  });
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId);
   Future<Map<String, dynamic>> deleteStone(String stoneId);
+  Future<Map<String, dynamic>> deleteBoat(String boatId);
+  Future<Map<String, dynamic>> deleteRipple(String rippleId);
 }
 
 /// 互动服务
@@ -258,6 +268,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 获取当前用户的涟漪列表
   ///
   /// 返回用户产生过涟漪的石头信息，兼容后端返回 List 或 Map 两种格式。
+  @override
   Future<Map<String, dynamic>> getMyRipples({
     int page = 1,
     int pageSize = 20,
@@ -288,6 +299,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 获取当前用户发送的纸船（评论）列表
   ///
   /// 返回用户发出的所有纸船及其关联石头信息。
+  @override
   Future<Map<String, dynamic>> getMyBoatsComments({
     int page = 1,
     int pageSize = 20,
@@ -325,6 +337,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 删除纸船（评论）
   ///
   /// [boatId] 纸船ID
+  @override
   Future<Map<String, dynamic>> deleteBoat(String boatId) async {
     InputValidator.validateUUID(boatId, '纸船ID');
     final response = await delete('/boats/$boatId');
@@ -334,6 +347,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 取消涟漪
   ///
   /// [rippleId] 涟漪ID
+  @override
   Future<Map<String, dynamic>> deleteRipple(String rippleId) async {
     InputValidator.validateUUID(rippleId, '涟漪ID');
     final response = await delete('/ripples/$rippleId');

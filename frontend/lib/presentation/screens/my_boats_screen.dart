@@ -18,7 +18,14 @@ import 'stone_detail_screen.dart';
 /// 展示当前用户发出的所有纸船记录，点击可跳转到对应石头详情。
 /// 支持左滑删除、长按删除，通过 WebSocket 实时同步纸船和石头的删除事件。
 class MyBoatsScreen extends StatefulWidget {
-  const MyBoatsScreen({super.key});
+  final InteractionDataSource? interactionService;
+  final WebSocketClient? wsClient;
+
+  const MyBoatsScreen({
+    super.key,
+    this.interactionService,
+    this.wsClient,
+  });
 
   @override
   State<MyBoatsScreen> createState() => _MyBoatsScreenState();
@@ -32,8 +39,8 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   final Map<String, int> _boatIndexById = {};
   final Map<String, Set<String>> _boatIdsByStoneId = {};
   bool _isLoading = false;
-  final InteractionService _interactionService = sl<InteractionService>();
-  late final WebSocketManager _wsManager;
+  late final InteractionDataSource _interactionService;
+  late final WebSocketClient _wsClient;
 
   // WebSocket 监听器引用，dispose 时精确移除
   late void Function(Map<String, dynamic>) _boatDeletedListener;
@@ -42,15 +49,16 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
   @override
   void initState() {
     super.initState();
-    _wsManager = WebSocketManager();
+    _interactionService = widget.interactionService ?? sl<InteractionService>();
+    _wsClient = widget.wsClient ?? WebSocketManager();
     _loadMyBoats();
     _initWebSocket();
   }
 
   @override
   void dispose() {
-    _wsManager.off('boat_deleted', _boatDeletedListener);
-    _wsManager.off('stone_deleted', _stoneDeletedListener);
+    _wsClient.off('boat_deleted', _boatDeletedListener);
+    _wsClient.off('stone_deleted', _stoneDeletedListener);
     super.dispose();
   }
 
@@ -65,7 +73,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         _removeBoatById(boatId);
       });
     };
-    _wsManager.on('boat_deleted', _boatDeletedListener);
+    _wsClient.on('boat_deleted', _boatDeletedListener);
 
     // 监听石头删除（石头没了，评论也该没了）
     _stoneDeletedListener = (data) {
@@ -76,7 +84,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
         _removeBoatsByStoneId(stoneId);
       });
     };
-    _wsManager.on('stone_deleted', _stoneDeletedListener);
+    _wsClient.on('stone_deleted', _stoneDeletedListener);
   }
 
   void _rebuildBoatIndices() {
@@ -337,13 +345,32 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                               ),
                             );
                           },
-                          onDismissed: (direction) {
-                            _interactionService.deleteBoat(boatId);
+                          onDismissed: (direction) async {
+                            final removedBoat = boat;
+                            final removedIndex = index;
                             setState(() {
                               _boats.removeAt(index);
+                              _rebuildBoatIndices();
+                            });
+                            final result =
+                                await _interactionService.deleteBoat(boatId);
+                            if (!context.mounted) return;
+
+                            if (result['success'] == true) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已轻轻放下')),
+                              );
+                              return;
+                            }
+
+                            setState(() {
+                              _boats.insert(removedIndex, removedBoat);
+                              _rebuildBoatIndices();
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已轻轻放下')),
+                              SnackBar(
+                                content: Text(result['message'] ?? '删除失败'),
+                              ),
                             );
                           },
                           child: Card(

@@ -1,8 +1,8 @@
-/// 我的涟漪列表界面
-///
-/// 展示当前用户产生过涟漪（共鸣/点赞）的所有石头，支持下拉刷新和左滑取消涟漪。
-/// 通过 WebSocket 监听涟漪删除、石头删除、涟漪计数更新事件实时同步列表。
-/// 依赖 [InteractionService] 加载数据和执行删除，依赖 [WebSocketManager] 接收推送。
+// 我的涟漪列表界面
+//
+// 展示当前用户产生过涟漪（共鸣/点赞）的所有石头，支持下拉刷新和左滑取消涟漪。
+// 通过 WebSocket 监听涟漪删除、石头删除、涟漪计数更新事件实时同步列表。
+// 依赖 [InteractionDataSource] 加载数据和执行删除，依赖 [WebSocketClient] 接收推送。
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
@@ -19,7 +19,14 @@ import '../../utils/payload_contract.dart';
 /// 展示当前用户产生过涟漪的所有石头，支持下拉刷新和左滑取消。
 /// 通过 WebSocket 监听涟漪删除、石头删除、涟漪计数更新 3 种事件。
 class MyRipplesScreen extends StatefulWidget {
-  const MyRipplesScreen({super.key});
+  final InteractionDataSource? interactionService;
+  final WebSocketClient? wsClient;
+
+  const MyRipplesScreen({
+    super.key,
+    this.interactionService,
+    this.wsClient,
+  });
 
   @override
   State<MyRipplesScreen> createState() => _MyRipplesScreenState();
@@ -34,8 +41,8 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
   final Map<String, int> _rippleIndexById = {};
   final Map<String, Set<String>> _rippleIdsByStoneId = {};
   bool _isLoading = false;
-  final InteractionService _interactionService = sl<InteractionService>();
-  final WebSocketManager _wsManager = WebSocketManager();
+  late final InteractionDataSource _interactionService;
+  late final WebSocketClient _wsClient;
 
   // WebSocket 事件监听器引用
   late void Function(Map<String, dynamic>) _rippleDeletedListener;
@@ -45,6 +52,8 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
   @override
   void initState() {
     super.initState();
+    _interactionService = widget.interactionService ?? sl<InteractionService>();
+    _wsClient = widget.wsClient ?? WebSocketManager();
     _loadMyRipples();
     _initWebSocket();
   }
@@ -52,9 +61,9 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
   @override
   void dispose() {
     // 移除WebSocket监听器
-    _wsManager.off('ripple_deleted', _rippleDeletedListener);
-    _wsManager.off('stone_deleted', _stoneDeletedListener);
-    _wsManager.off('ripple_update', _rippleUpdateListener);
+    _wsClient.off('ripple_deleted', _rippleDeletedListener);
+    _wsClient.off('stone_deleted', _stoneDeletedListener);
+    _wsClient.off('ripple_update', _rippleUpdateListener);
     super.dispose();
   }
 
@@ -69,7 +78,7 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
         _removeRippleById(rippleId);
       });
     };
-    _wsManager.on('ripple_deleted', _rippleDeletedListener);
+    _wsClient.on('ripple_deleted', _rippleDeletedListener);
 
     // 监听石头删除 - 移除该石头相关的涟漪
     _stoneDeletedListener = (data) {
@@ -80,19 +89,19 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
         _removeRipplesByStoneId(stoneId);
       });
     };
-    _wsManager.on('stone_deleted', _stoneDeletedListener);
+    _wsClient.on('stone_deleted', _stoneDeletedListener);
 
     // 监听涟漪更新 - 更新石头的涟漪计数
     _rippleUpdateListener = (data) {
       if (!mounted) return;
       final stoneId = extractStoneEntityId(data);
-      final rippleCount = data['ripple_count'];
+      final rippleCount = extractRippleCount(data);
       if (stoneId == null || rippleCount is! int) return;
       setState(() {
         _updateRippleCountByStoneId(stoneId, rippleCount);
       });
     };
-    _wsManager.on('ripple_update', _rippleUpdateListener);
+    _wsClient.on('ripple_update', _rippleUpdateListener);
   }
 
   void _rebuildRippleIndices() {
@@ -315,8 +324,14 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                               _rebuildRippleIndices();
                             });
                             try {
-                              await _interactionService.deleteRipple(rippleId);
+                              final result =
+                                  await _interactionService.deleteRipple(
+                                rippleId,
+                              );
                               if (!context.mounted) return;
+                              if (result['success'] != true) {
+                                throw Exception(result['message'] ?? '删除失败');
+                              }
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('涟漪已取消')),
                               );
