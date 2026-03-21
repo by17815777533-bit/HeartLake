@@ -423,6 +423,7 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
             "  FROM reports"
             ") "
             "SELECT "
+            "  us.total_users, "
             "  us.today_new_users, "
             "  ss.today_active_users, "
             "  ss.today_stones, "
