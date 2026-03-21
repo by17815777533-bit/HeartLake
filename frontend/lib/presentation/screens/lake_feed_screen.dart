@@ -21,31 +21,31 @@ class LakeFeedScreen extends StatefulWidget {
 
 class _LakeFeedScreenState extends State<LakeFeedScreen> {
   final ScrollController _scrollController = ScrollController();
+  late final StoneProvider _stoneProvider;
 
   @override
   void initState() {
     super.initState();
+    _stoneProvider = context.read<StoneProvider>();
     _scrollController.addListener(_onScroll);
     Future.microtask(() async {
       if (!mounted) return;
-      final provider = context.read<StoneProvider>();
-      await provider.activateLakeRealtime();
-      await provider.ensureLakeFeedLoaded(includeWeather: true);
+      await _stoneProvider.activateLakeRealtime();
+      await _stoneProvider.ensureLakeFeedLoaded(includeWeather: true);
     });
   }
 
   /// 并行加载湖面气象和石头列表
   Future<void> _loadData() async {
-    await context.read<StoneProvider>().refreshFeed(includeWeather: true);
+    await _stoneProvider.refreshFeed(includeWeather: true);
   }
 
   /// 滚动监听回调，距离底部 200px 时自动加载下一页
   void _onScroll() {
-    final provider = context.read<StoneProvider>();
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      if (provider.hasMore && !provider.isLoadingMore) {
-        unawaited(provider.loadMore());
+      if (_stoneProvider.hasMore && !_stoneProvider.isLoadingMore) {
+        unawaited(_stoneProvider.loadMore());
       }
     }
   }
@@ -53,7 +53,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
-    context.read<StoneProvider>().deactivateLakeRealtime();
+    _stoneProvider.deactivateLakeRealtime();
     super.dispose();
   }
 
@@ -164,14 +164,14 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                               child: StoneCard(
                                 stone: stone,
                                 onRippleSuccess: () {
-                                  context
-                                      .read<StoneProvider>()
-                                      .applyRippleSuccess(stone.stoneId);
+                                  _stoneProvider.applyRippleSuccess(
+                                    stone.stoneId,
+                                  );
                                 },
                                 onDeleted: () {
-                                  context
-                                      .read<StoneProvider>()
-                                      .removeStoneLocally(stone.stoneId);
+                                  _stoneProvider.removeStoneLocally(
+                                    stone.stoneId,
+                                  );
                                 },
                               ),
                             );
