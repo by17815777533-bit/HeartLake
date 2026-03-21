@@ -218,7 +218,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/vector/search` | Bearer | 语义向量搜索 |
+| POST | `/api/vector/search` | Bearer | 语义向量搜索（返回相似度，并尽量回填 stone 内容预览） |
 | GET | `/api/vector/stats` | Bearer | 向量索引统计 |
 
 ---

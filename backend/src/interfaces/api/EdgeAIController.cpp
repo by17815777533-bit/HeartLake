@@ -317,6 +317,31 @@ std::string joinStrings(const std::vector<std::string>& values,
     return joined;
 }
 
+std::string buildPgTextArrayLiteral(const std::vector<std::string>& values) {
+    std::string literal = "{";
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            literal += ",";
+        }
+        literal += "\"";
+        for (const char ch : values[i]) {
+            if (ch == '\\' || ch == '"') {
+                literal += '\\';
+            }
+            literal += ch;
+        }
+        literal += "\"";
+    }
+    literal += "}";
+    return literal;
+}
+
+struct StoneVectorMetadata {
+    std::string content;
+    std::string moodType;
+    std::string createdAt;
+};
+
 struct ConfidenceCalibration {
     float calibratedConfidence{0.0f};
     float uncertainty{1.0f};
@@ -853,6 +878,39 @@ void EdgeAIController::vectorSearch(
             results.resize(static_cast<size_t>(topK));
         }
         const int returnedCandidates = static_cast<int>(results.size());
+        std::vector<std::string> matchedStoneIds;
+        matchedStoneIds.reserve(results.size());
+        for (const auto &r : results) {
+            if (r.similarity >= threshold && !r.id.empty()) {
+                matchedStoneIds.push_back(r.id);
+            }
+        }
+
+        std::unordered_map<std::string, StoneVectorMetadata> stoneMetadataById;
+        if (!matchedStoneIds.empty()) {
+            try {
+                auto dbClient = drogon::app().getDbClient("default");
+                auto rows = dbClient->execSqlSync(
+                    "SELECT stone_id, content, mood_type, created_at "
+                    "FROM stones "
+                    "WHERE stone_id = ANY($1::text[])",
+                    buildPgTextArrayLiteral(matchedStoneIds));
+                for (const auto& row : rows) {
+                    StoneVectorMetadata metadata;
+                    metadata.content =
+                        row["content"].isNull() ? "" : row["content"].as<std::string>();
+                    metadata.moodType =
+                        row["mood_type"].isNull() ? "" : row["mood_type"].as<std::string>();
+                    metadata.createdAt =
+                        row["created_at"].isNull() ? "" : row["created_at"].as<std::string>();
+                    stoneMetadataById.emplace(row["stone_id"].as<std::string>(),
+                                              std::move(metadata));
+                }
+            } catch (const std::exception& e) {
+                LOG_WARN << "EdgeAI vectorSearch metadata lookup failed: "
+                         << e.what();
+            }
+        }
 
         Json::Value data;
         Json::Value resultArray(Json::arrayValue);
@@ -860,6 +918,14 @@ void EdgeAIController::vectorSearch(
             if (r.similarity >= threshold) {
                 Json::Value item;
                 item["id"] = r.id;
+                const auto metadataIt = stoneMetadataById.find(r.id);
+                if (metadataIt != stoneMetadataById.end()) {
+                    item["content"] = metadataIt->second.content;
+                    item["text"] = metadataIt->second.content;
+                    item["mood_type"] = metadataIt->second.moodType;
+                    item["created_at"] = metadataIt->second.createdAt;
+                    item["content_type"] = "stone";
+                }
                 item["similarity"] = r.similarity;
                 item["distance"] = r.distance;
                 resultArray.append(item);
