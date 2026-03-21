@@ -164,6 +164,28 @@ const edgeTimeFormat = 'MM月DD日 HH:mm'
 const currentTime = ref(dayjs().format(edgeTimeFormat))
 
 const normalizeEdgePayload = (payload: unknown) => normalizePayloadRecord(payload)
+let edgeMetricsRequest: Promise<Record<string, unknown>> | null = null
+let edgeMetricsSnapshot: { at: number; data: Record<string, unknown> } | null = null
+
+const fetchEdgeMetricsPayload = async () => {
+  const now = Date.now()
+  if (edgeMetricsSnapshot && now - edgeMetricsSnapshot.at < 1000) {
+    return edgeMetricsSnapshot.data
+  }
+  if (edgeMetricsRequest) {
+    return edgeMetricsRequest
+  }
+
+  edgeMetricsRequest = api.getEdgeAIMetrics().then(({ data }) => {
+    const normalized = normalizeEdgePayload(data)
+    edgeMetricsSnapshot = { at: Date.now(), data: normalized }
+    return normalized
+  }).finally(() => {
+    edgeMetricsRequest = null
+  })
+
+  return edgeMetricsRequest
+}
 
 const techBadges = [
   { icon: '建议', label: '内容建议' },
@@ -616,8 +638,7 @@ async function loadStatus() {
 
 async function loadMetrics() {
   try {
-    const { data } = await api.getEdgeAIMetrics()
-    const m = normalizeEdgePayload(data)
+    const m = await fetchEdgeMetricsPayload()
     if (m.avgLatency != null || m.avg_latency != null)
       engineStatus.avgLatency = Number(m.avgLatency ?? m.avg_latency) || 0
     if (m.cacheHitRate != null || m.cache_hit_rate != null)
@@ -662,8 +683,7 @@ async function loadEmotionPulse() {
 
 async function loadFederatedStatus() {
   try {
-    const { data } = await api.getEdgeAIMetrics()
-    const m = normalizeEdgePayload(data)
+    const m = await fetchEdgeMetricsPayload()
     if (m.federated) {
       Object.assign(federated, {
         status: m.federated.status ?? 'idle',
