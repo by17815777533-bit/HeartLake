@@ -12,7 +12,7 @@ HeartLake 匿名情感社交平台的后端服务，基于 C++20 + Drogon 异步
 | Drogon | 1.9.11+ (异步 HTTP/WebSocket 框架) |
 | PostgreSQL | 16 |
 | Redis | 7 |
-| ONNX Runtime | 1.22.0（内置 CPU/GPU 包，默认优先 GPU） |
+| ONNX Runtime | 1.22.0（支持 CPU/GPU；2c2g 默认优先低资源 CPU 配置） |
 | 认证 | PASETO v4 |
 | 加密 | X25519 / AES-256-GCM 端到端加密 |
 | 构建 | CMake 3.16+ |
@@ -108,6 +108,7 @@ cp ../.env.example ../.env
 # 编辑 .env 填入实际配置
 
 # ONNX 小模型（可选）
+# - EDGE_AI_ENABLED 控制 EdgeAI 总开关；若后台管理端已保存 ai 配置，启动时会优先读取持久化值
 # - EDGE_AI_ONNX_ENABLED=true/false 时为显式开关
 # - 不设置 EDGE_AI_ONNX_ENABLED 时，服务会自动探测模型与词表是否存在，存在即启用
 # - EDGE_AI_MODEL_PATH 可写目录（例如 ./models）或模型文件路径
@@ -155,10 +156,12 @@ cd backend/build
 ```
 
 `start.sh` 运行时说明（与当前代码一致）：
+- 启动期会先读取 `backend/data/admin-config.json` 中持久化的 `ai` 配置；`EDGE_AI_*` 环境变量作为默认值与兜底值参与合成最终启动配置。
 - 自动优先使用 `backend/third_party/onnxruntime-linux-x64-gpu-1.22.0`。
 - 若 GPU 包不存在，自动回退到 `onnxruntime-linux-x64-1.22.0`（CPU）。
 - 自动拼接 `LD_LIBRARY_PATH`（ONNX + Ollama CUDA 库路径）。
 - 若机器缺少 `libcurand.so.10` / `libcufft.so.11` / `libnvrtc.so.12`，ONNX 会记录日志并回退 CPU，不影响服务可用性。
+- 当 `edge_ai_enabled=false` 时，EdgeAI 会保持禁用态启动，并延迟初始化子系统；适合 2c2g 机器按需开启本地 AI 能力链。
 
 ### Docker 构建
 
