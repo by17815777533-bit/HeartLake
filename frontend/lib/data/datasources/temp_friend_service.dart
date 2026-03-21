@@ -30,12 +30,11 @@ class TempFriendService extends BaseService {
 
     return {
       ...toMap(response),
-      'items': tempFriends,
-      'list': tempFriends,
-      'temp_friends': tempFriends,
-      'total': response.data is Map
-          ? (response.data as Map)['total'] ?? tempFriends.length
-          : tempFriends.length,
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'temp_friends',
+        items: tempFriends,
+      ),
     };
   }
 

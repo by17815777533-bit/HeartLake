@@ -134,21 +134,13 @@ class InteractionService extends BaseService {
       itemNormalizer: normalizeBoatPayload,
       listKeys: const ['boats', 'items'],
     );
-    final pagination =
-        extractPaginationPayload(response.data, itemCount: boats.length);
     return {
-      'success': true,
-      'boats': boats,
-      'items': boats,
-      'list': boats,
-      'total': pagination['total'],
-      'page': pagination['page'],
-      'page_size': pagination['page_size'],
-      'pageSize': pagination['pageSize'],
-      'total_pages': pagination['total_pages'],
-      'totalPages': pagination['totalPages'],
-      'has_more': pagination['has_more'],
-      'pagination': pagination,
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'boats',
+        items: boats,
+      ),
     };
   }
 
@@ -195,21 +187,13 @@ class InteractionService extends BaseService {
       itemNormalizer: normalizeMessagePayload,
       listKeys: const ['items', 'messages'],
     );
-    final pagination =
-        extractPaginationPayload(response.data, itemCount: messages.length);
     return {
-      'success': true,
-      'messages': messages,
-      'items': messages,
-      'list': messages,
-      'total': pagination['total'],
-      'page': pagination['page'],
-      'page_size': pagination['page_size'],
-      'pageSize': pagination['pageSize'],
-      'total_pages': pagination['total_pages'],
-      'totalPages': pagination['totalPages'],
-      'has_more': pagination['has_more'],
-      'pagination': pagination,
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'messages',
+        items: messages,
+      ),
     };
   }
 
@@ -271,21 +255,13 @@ class InteractionService extends BaseService {
       itemNormalizer: normalizeRipplePayload,
       listKeys: const ['items', 'ripples'],
     );
-    final pagination =
-        extractPaginationPayload(response.data, itemCount: ripples.length);
     return {
-      'success': true,
-      'ripples': ripples,
-      'items': ripples,
-      'list': ripples,
-      'total': pagination['total'],
-      'page': pagination['page'],
-      'page_size': pagination['page_size'],
-      'pageSize': pagination['pageSize'],
-      'total_pages': pagination['total_pages'],
-      'totalPages': pagination['totalPages'],
-      'has_more': pagination['has_more'],
-      'pagination': pagination,
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'ripples',
+        items: ripples,
+      ),
     };
   }
 
@@ -309,21 +285,13 @@ class InteractionService extends BaseService {
       itemNormalizer: normalizeBoatPayload,
       listKeys: const ['boats', 'items'],
     );
-    final pagination =
-        extractPaginationPayload(response.data, itemCount: myBoats.length);
     return {
-      'success': true,
-      'boats': myBoats,
-      'items': myBoats,
-      'list': myBoats,
-      'total': pagination['total'],
-      'page': pagination['page'],
-      'page_size': pagination['page_size'],
-      'pageSize': pagination['pageSize'],
-      'total_pages': pagination['total_pages'],
-      'totalPages': pagination['totalPages'],
-      'has_more': pagination['has_more'],
-      'pagination': pagination,
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'boats',
+        items: myBoats,
+      ),
     };
   }
 

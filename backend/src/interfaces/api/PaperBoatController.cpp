@@ -66,8 +66,8 @@ std::string buildPgTextArrayLiteral(const std::vector<std::string> &values) {
   return result;
 }
 
-std::string serializeRiskFactors(
-    const std::vector<heartlake::utils::RiskFactor> &factors) {
+std::string
+serializeRiskFactors(const std::vector<heartlake::utils::RiskFactor> &factors) {
   Json::Value payload(Json::arrayValue);
   for (const auto &factor : factors) {
     Json::Value item(Json::objectValue);
@@ -82,33 +82,6 @@ std::string serializeRiskFactors(
   Json::StreamWriterBuilder writer;
   writer["indentation"] = "";
   return Json::writeString(writer, payload);
-}
-
-Json::Value buildPagedBoatsPayload(const Json::Value &boats, int total,
-                                   int page, int pageSize) {
-  Json::Value data(Json::objectValue);
-  const int totalPages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0;
-  const bool hasMore = pageSize > 0 && page * pageSize < total;
-  data["boats"] = boats;
-  data["items"] = boats;
-  data["total"] = total;
-  data["page"] = page;
-  data["page_size"] = pageSize;
-  data["pageSize"] = pageSize;
-  data["total_pages"] = totalPages;
-  data["totalPages"] = totalPages;
-  data["has_more"] = hasMore;
-
-  Json::Value pagination(Json::objectValue);
-  pagination["total"] = total;
-  pagination["page"] = page;
-  pagination["page_size"] = pageSize;
-  pagination["pageSize"] = pageSize;
-  pagination["total_pages"] = totalPages;
-  pagination["totalPages"] = totalPages;
-  pagination["has_more"] = hasMore;
-  data["pagination"] = pagination;
-  return data;
 }
 
 } // namespace
@@ -247,7 +220,8 @@ void PaperBoatController::replyToStone(
 
         try {
           auto db = drogon::app().getDbClient("default");
-          const auto keywordsLiteral = buildPgTextArrayLiteral(riskResult.keywords);
+          const auto keywordsLiteral =
+              buildPgTextArrayLiteral(riskResult.keywords);
           const auto factorsJson = serializeRiskFactors(riskResult.factors);
           auto trans = db->newTransaction();
           auto assessmentResult = trans->execSqlSync(
@@ -264,7 +238,9 @@ void PaperBoatController::replyToStone(
               riskResult.supportMessage);
 
           const auto assessmentId =
-              assessmentResult.empty() ? 0 : assessmentResult[0]["assessment_id"].as<int64_t>();
+              assessmentResult.empty()
+                  ? 0
+                  : assessmentResult[0]["assessment_id"].as<int64_t>();
 
           if (static_cast<int>(riskResult.riskLevel) >=
               static_cast<int>(heartlake::utils::RiskLevel::HIGH)) {
@@ -273,15 +249,18 @@ void PaperBoatController::replyToStone(
                   "INSERT INTO high_risk_events "
                   "(user_id, content_id, content_type, risk_level, risk_score, "
                   "intervention_sent, admin_notified, status, created_at) "
-                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', NOW())",
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', "
+                  "NOW())",
                   user_id, boat_id, static_cast<int>(riskResult.riskLevel),
                   riskResult.overallScore, !riskResult.supportMessage.empty());
             } else {
               trans->execSqlSync(
                   "INSERT INTO high_risk_events "
                   "(user_id, content_id, content_type, risk_level, risk_score, "
-                  "intervention_sent, admin_notified, status, assessment_id, created_at) "
-                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', $6, NOW())",
+                  "intervention_sent, admin_notified, status, assessment_id, "
+                  "created_at) "
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', $6, "
+                  "NOW())",
                   user_id, boat_id, static_cast<int>(riskResult.riskLevel),
                   riskResult.overallScore, !riskResult.supportMessage.empty(),
                   assessmentId);
@@ -492,8 +471,8 @@ void PaperBoatController::getMySentBoats(
       boats.append(boat);
     }
 
-    callback(ResponseUtil::success(
-        buildPagedBoatsPayload(boats, total, page, page_size)));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "boats", boats, total, page, page_size)));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in getMySentBoats: " << e.base().what();
@@ -570,8 +549,8 @@ void PaperBoatController::getMyReceivedBoats(
       boats.append(boat);
     }
 
-    callback(ResponseUtil::success(
-        buildPagedBoatsPayload(boats, total, page, page_size)));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "boats", boats, total, page, page_size)));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in getMyReceivedBoats: " << e.base().what();

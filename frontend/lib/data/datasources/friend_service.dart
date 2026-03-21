@@ -90,12 +90,11 @@ class FriendService extends BaseService {
 
     return {
       ...toMap(response),
-      'friends': friends,
-      'items': friends,
-      'list': friends,
-      'total': response.data is Map
-          ? (response.data as Map)['total'] ?? friends.length
-          : friends.length,
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'friends',
+        items: friends,
+      ),
     };
   }
 
@@ -115,12 +114,11 @@ class FriendService extends BaseService {
 
     return {
       ...toMap(response),
-      'requests': requests,
-      'items': requests,
-      'list': requests,
-      'total': response.data is Map
-          ? (response.data as Map)['total'] ?? requests.length
-          : requests.length,
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'requests',
+        items: requests,
+      ),
     };
   }
 
@@ -143,10 +141,12 @@ class FriendService extends BaseService {
     );
 
     return {
-      'success': true,
-      'messages': messages,
-      'items': messages,
-      'list': messages,
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'messages',
+        items: messages,
+      ),
     };
   }
 

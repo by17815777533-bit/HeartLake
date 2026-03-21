@@ -18,6 +18,7 @@
 #include "infrastructure/services/GuardianIncentiveService.h"
 #include "utils/IdGenerator.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include <algorithm>
 #include <drogon/drogon.h>
 
@@ -40,38 +41,6 @@ int extractTotalCount(const drogon::orm::Result &result) {
     return 0;
   }
   return result[0]["total_count"].as<int>();
-}
-
-Json::Value buildPaginationPayload(int total, int page, int pageSize) {
-  Json::Value pagination(Json::objectValue);
-  const int totalPages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0;
-  const bool hasMore = pageSize > 0 && page * pageSize < total;
-  pagination["total"] = total;
-  pagination["page"] = page;
-  pagination["page_size"] = pageSize;
-  pagination["pageSize"] = pageSize;
-  pagination["total_pages"] = totalPages;
-  pagination["totalPages"] = totalPages;
-  pagination["has_more"] = hasMore;
-  return pagination;
-}
-
-Json::Value buildPaginatedResponse(const char *primaryKey,
-                                   const Json::Value &items, int total,
-                                   int page, int pageSize) {
-  Json::Value data(Json::objectValue);
-  const auto pagination = buildPaginationPayload(total, page, pageSize);
-  data[primaryKey] = items;
-  data["items"] = items;
-  data["total"] = total;
-  data["page"] = page;
-  data["page_size"] = pageSize;
-  data["pageSize"] = pageSize;
-  data["total_pages"] = pagination["total_pages"];
-  data["totalPages"] = pagination["totalPages"];
-  data["has_more"] = pagination["has_more"];
-  data["pagination"] = pagination;
-  return data;
 }
 
 Json::Value buildUserPayload(const std::string &userId,
@@ -278,8 +247,8 @@ InteractionApplicationService::getRipples(const std::string &stoneId, int page,
       ripples.append(ripple);
     }
 
-    return buildPaginatedResponse("ripples", ripples, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "ripples", ripples, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get ripples: " << e.base().what();
@@ -439,8 +408,8 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
       boats.append(boat);
     }
 
-    return buildPaginatedResponse("boats", boats, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get received boats: " << e.base().what();
@@ -498,8 +467,8 @@ InteractionApplicationService::getSentBoats(const std::string &userId, int page,
       boats.append(boat);
     }
 
-    return buildPaginatedResponse("boats", boats, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get sent boats: " << e.base().what();
@@ -703,9 +672,9 @@ InteractionApplicationService::getNotifications(const std::string &userId,
       notifications.append(notification);
     }
 
-    auto response =
-        buildPaginatedResponse("notifications", notifications,
-                               extractTotalCount(result), page, pageSize);
+    auto response = ResponseUtil::buildCollectionPayload(
+        "notifications", notifications, extractTotalCount(result), page,
+        pageSize);
     response["unread_count"] =
         result.empty() || result[0]["unread_count"].isNull()
             ? 0
@@ -921,8 +890,8 @@ InteractionApplicationService::getMyRipples(const std::string &userId, int page,
       ripples.append(ripple);
     }
 
-    return buildPaginatedResponse("ripples", ripples, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "ripples", ripples, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my ripples: " << e.base().what();
@@ -981,8 +950,8 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
       boats.append(boat);
     }
 
-    return buildPaginatedResponse("boats", boats, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "boats", boats, extractTotalCount(result), page, pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get my boats: " << e.base().what();
@@ -1032,8 +1001,8 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
       boat["sender"] = author;
       boats.append(boat);
     }
-    return buildPaginatedResponse("boats", boats, extractTotalCount(result),
-                                  page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "boats", boats, extractTotalCount(result), page, pageSize);
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get boats: " << e.base().what();
     throw std::runtime_error("获取纸船列表失败");
@@ -1083,8 +1052,8 @@ Json::Value InteractionApplicationService::getConnectionMessages(
                            safeStringColumn(row, "avatar_url"));
       messages.append(msg);
     }
-    return buildPaginatedResponse("messages", messages,
-                                  extractTotalCount(result), page, pageSize);
+    return ResponseUtil::buildCollectionPayload(
+        "messages", messages, extractTotalCount(result), page, pageSize);
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get connection messages: " << e.base().what();
     throw std::runtime_error("获取连接消息失败");
@@ -1116,13 +1085,13 @@ Json::Value InteractionApplicationService::upgradeConnectionToFriend(
     const std::string otherUserId =
         ownerUserId == userId ? targetUserId : ownerUserId;
 
-    auto existingFriendship = trans->execSqlSync(
-        "SELECT friendship_id FROM friends "
-        "WHERE ((user_id = $1 AND friend_id = $2) "
-        "   OR (user_id = $2 AND friend_id = $1)) "
-        "AND status = 'accepted' "
-        "LIMIT 1",
-        userId, otherUserId);
+    auto existingFriendship =
+        trans->execSqlSync("SELECT friendship_id FROM friends "
+                           "WHERE ((user_id = $1 AND friend_id = $2) "
+                           "   OR (user_id = $2 AND friend_id = $1)) "
+                           "AND status = 'accepted' "
+                           "LIMIT 1",
+                           userId, otherUserId);
 
     std::string friendshipId;
     if (!existingFriendship.empty()) {

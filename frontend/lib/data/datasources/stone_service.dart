@@ -43,22 +43,7 @@ class StoneService extends BaseService {
         if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
       }
     }
-
-    final pagination = extractPaginationPayload(data, itemCount: stones.length);
-    return {
-      'success': true,
-      'stones': stones,
-      'items': stones,
-      'list': stones,
-      'total': pagination['total'],
-      'page': pagination['page'],
-      'page_size': pagination['page_size'],
-      'pageSize': pagination['pageSize'],
-      'total_pages': pagination['total_pages'],
-      'totalPages': pagination['totalPages'],
-      'has_more': pagination['has_more'],
-      'pagination': pagination,
-    };
+    return buildCollectionEnvelope(data, primaryKey: 'stones', items: stones);
   }
 
   /// 发布一颗石头，内容经过 XSS 过滤和长度校验

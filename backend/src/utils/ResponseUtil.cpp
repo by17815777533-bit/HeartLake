@@ -34,21 +34,11 @@ drogon::HttpResponsePtr ResponseUtil::error(int httpStatus,
                         httpStatus, message, data);
 }
 
-drogon::HttpResponsePtr ResponseUtil::paged(const Json::Value &items, int total,
-                                            int page, int pageSize) {
-  Json::Value data(Json::objectValue);
+Json::Value ResponseUtil::buildPaginationPayload(int total, int page,
+                                                 int pageSize) {
+  Json::Value pagination(Json::objectValue);
   const int totalPages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0;
   const bool hasMore = pageSize > 0 && page * pageSize < total;
-  data["items"] = items;
-  data["total"] = total;
-  data["page"] = page;
-  data["page_size"] = pageSize;
-  data["pageSize"] = pageSize;
-  data["total_pages"] = totalPages;
-  data["totalPages"] = totalPages;
-  data["has_more"] = hasMore;
-
-  Json::Value pagination(Json::objectValue);
   pagination["total"] = total;
   pagination["page"] = page;
   pagination["page_size"] = pageSize;
@@ -56,7 +46,32 @@ drogon::HttpResponsePtr ResponseUtil::paged(const Json::Value &items, int total,
   pagination["total_pages"] = totalPages;
   pagination["totalPages"] = totalPages;
   pagination["has_more"] = hasMore;
+  return pagination;
+}
+
+Json::Value ResponseUtil::buildCollectionPayload(const std::string &primaryKey,
+                                                 const Json::Value &items,
+                                                 int total, int page,
+                                                 int pageSize) {
+  Json::Value data(Json::objectValue);
+  const auto pagination = buildPaginationPayload(total, page, pageSize);
+  data[primaryKey] = items;
+  data["items"] = items;
+  data["list"] = items;
+  data["total"] = total;
+  data["page"] = page;
+  data["page_size"] = pageSize;
+  data["pageSize"] = pageSize;
+  data["total_pages"] = pagination["total_pages"];
+  data["totalPages"] = pagination["totalPages"];
+  data["has_more"] = pagination["has_more"];
   data["pagination"] = pagination;
+  return data;
+}
+
+drogon::HttpResponsePtr ResponseUtil::paged(const Json::Value &items, int total,
+                                            int page, int pageSize) {
+  auto data = buildCollectionPayload("items", items, total, page, pageSize);
   return success(data);
 }
 

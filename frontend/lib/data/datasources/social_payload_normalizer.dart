@@ -106,6 +106,53 @@ Map<String, dynamic> extractPaginationPayload(
   };
 }
 
+int extractUnreadCount(
+  dynamic raw, {
+  List<Map<String, dynamic>> items = const <Map<String, dynamic>>[],
+}) {
+  if (raw is List) {
+    return items.where((item) => item['is_read'] != true).length;
+  }
+
+  if (raw is Map) {
+    for (final candidate in _candidateMaps(raw)) {
+      final unread = _toInt(_firstValue(candidate, const [
+        'unread_count',
+        'unreadCount',
+      ]));
+      if (unread != null) {
+        return unread;
+      }
+    }
+  }
+
+  return items.where((item) => item['is_read'] != true).length;
+}
+
+Map<String, dynamic> buildCollectionEnvelope<T>(
+  dynamic raw, {
+  required String primaryKey,
+  required List<T> items,
+  Map<String, dynamic> extra = const <String, dynamic>{},
+}) {
+  final pagination = extractPaginationPayload(raw, itemCount: items.length);
+  return {
+    'success': true,
+    primaryKey: items,
+    'items': items,
+    'list': items,
+    'total': pagination['total'],
+    'page': pagination['page'],
+    'page_size': pagination['page_size'],
+    'pageSize': pagination['pageSize'],
+    'total_pages': pagination['total_pages'],
+    'totalPages': pagination['totalPages'],
+    'has_more': pagination['has_more'],
+    'pagination': pagination,
+    ...extra,
+  };
+}
+
 Map<String, dynamic> normalizeFriendPayload(Map raw) {
   final item = _asMap(raw);
 

@@ -51,23 +51,18 @@ class NotificationService extends BaseService {
     // 兼容后端纯数组和对象两种返回格式
     if (data is List) {
       final items = _normalizeNotifications(data);
-      final unread = items.where((n) => n['is_read'] != true).length;
-      final pagination =
-          extractPaginationPayload(data, itemCount: items.length);
+      final unreadCount = extractUnreadCount(data, items: items);
       return {
-        'success': true,
-        'notifications': items,
-        'items': items,
-        'list': items,
-        'unread_count': unread,
-        'total': pagination['total'],
-        'page': pagination['page'],
-        'page_size': pagination['page_size'],
-        'pageSize': pagination['pageSize'],
-        'total_pages': pagination['total_pages'],
-        'totalPages': pagination['totalPages'],
-        'has_more': pagination['has_more'],
-        'pagination': pagination,
+        ...toMap(response),
+        ...buildCollectionEnvelope(
+          data,
+          primaryKey: 'notifications',
+          items: items,
+          extra: {
+            'unread_count': unreadCount,
+            'unreadCount': unreadCount,
+          },
+        ),
       };
     }
     if (data is Map<String, dynamic>) {
@@ -85,39 +80,31 @@ class NotificationService extends BaseService {
       }
 
       final items = _normalizeNotifications(rawItems);
-      final nestedData = data['data'];
-      final nestedMap = nestedData is Map<String, dynamic> ? nestedData : null;
-      final pagination =
-          extractPaginationPayload(data, itemCount: items.length);
-      final unreadCount = data['unread_count'] as int? ??
-          data['unreadCount'] as int? ??
-          nestedMap?['unread_count'] as int? ??
-          nestedMap?['unreadCount'] as int? ??
-          items.where((n) => n['is_read'] != true).length;
+      final unreadCount = extractUnreadCount(data, items: items);
       return {
-        'success': true,
-        'notifications': items,
-        'items': items,
-        'list': items,
-        'unread_count': unreadCount,
-        'total': pagination['total'],
-        'page': pagination['page'],
-        'page_size': pagination['page_size'],
-        'pageSize': pagination['pageSize'],
-        'total_pages': pagination['total_pages'],
-        'totalPages': pagination['totalPages'],
-        'has_more': pagination['has_more'],
-        'pagination': pagination,
+        ...toMap(response),
+        ...buildCollectionEnvelope(
+          data,
+          primaryKey: 'notifications',
+          items: items,
+          extra: {
+            'unread_count': unreadCount,
+            'unreadCount': unreadCount,
+          },
+        ),
       };
     }
     return {
-      'success': true,
-      'notifications': [],
-      'items': const [],
-      'list': const [],
-      'unread_count': 0,
-      'total': 0,
-      'pagination': extractPaginationPayload(const [], itemCount: 0),
+      ...toMap(response),
+      ...buildCollectionEnvelope(
+        const [],
+        primaryKey: 'notifications',
+        items: const <Map<String, dynamic>>[],
+        extra: const {
+          'unread_count': 0,
+          'unreadCount': 0,
+        },
+      ),
     };
   }
 
