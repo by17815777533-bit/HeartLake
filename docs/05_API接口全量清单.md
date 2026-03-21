@@ -340,35 +340,49 @@ POST `/api/edge-ai/analyze` 请求体：
 |------|------|------|
 | POST | `/api/admin/login` | 管理员登录 |
 | POST | `/api/admin/logout` | 管理员登出 |
-| GET | `/api/admin/dashboard/stats` | 仪表盘统计 |
-| GET | `/api/admin/realtime-stats` | 实时统计 |
-| GET | `/api/admin/dashboard/user-growth` | 用户增长趋势 |
-| GET | `/api/admin/dashboard/mood-distribution` | 情绪分布 |
-| GET | `/api/admin/dashboard/mood-trend` | 情绪趋势 |
-| GET | `/api/admin/dashboard/trending-topics` | 热门话题 |
-| GET | `/api/admin/dashboard/active-time` | 活跃时段统计 |
+| GET | `/api/admin/info` | 当前管理员信息 |
+| GET | `/api/admin/stats/dashboard` | 仪表盘综合统计 |
+| GET | `/api/admin/stats/realtime` | 实时统计 |
+| GET | `/api/admin/stats/user-growth` | 用户增长趋势 |
+| GET | `/api/admin/stats/mood-distribution` | 情绪分布 |
+| GET | `/api/admin/stats/mood-trend` | 情绪趋势 |
+| GET | `/api/admin/stats/trending-topics` | 热门话题 |
+| GET | `/api/admin/stats/active-time` | 活跃时段统计 |
+| GET | `/api/admin/risk/high-risk-users` | 高风险用户列表 |
+| GET | `/api/admin/risk/events` | 风险事件列表 |
+| GET | `/api/admin/risk/user/{user_id}/history` | 用户风险历史 |
+| POST | `/api/admin/risk/event/{event_id}/handle` | 处置风险事件 |
+| GET | `/api/admin/security/audit` | 安全审计日志 |
 
 ### AdminManagementController — 管理操作
+
+分页型后台接口当前统一向集合响应契约收敛：推荐从 `data` 节点中的语义键、`items`、`list` 读取列表，并使用 `pagination` 或顶层分页字段读取页码信息。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/admin/users` | 用户列表（分页 / 搜索） |
 | GET | `/api/admin/users/{id}` | 用户详情 |
+| PUT | `/api/admin/users/{id}/status` | 更新用户状态 |
 | POST | `/api/admin/users/{id}/ban` | 封禁用户 |
 | POST | `/api/admin/users/{id}/unban` | 解封用户 |
-| GET | `/api/admin/contents` | 内容列表 |
-| DELETE | `/api/admin/contents/{id}` | 删除内容 |
+| GET | `/api/admin/stones` | 石头列表 |
+| GET | `/api/admin/stones/{id}` | 石头详情 |
+| DELETE | `/api/admin/stones/{id}` | 删除石头 |
+| GET | `/api/admin/boats` | 纸船列表 |
+| DELETE | `/api/admin/boats/{id}` | 删除纸船 |
 | GET | `/api/admin/moderation/pending` | 待审核队列 |
+| GET | `/api/admin/moderation/history` | 审核历史 |
 | POST | `/api/admin/moderation/{id}/approve` | 审核通过 |
 | POST | `/api/admin/moderation/{id}/reject` | 审核拒绝 |
 | GET | `/api/admin/sensitive-words` | 敏感词列表 |
 | POST | `/api/admin/sensitive-words` | 添加敏感词 |
+| PUT | `/api/admin/sensitive-words/{id}` | 更新敏感词 |
 | DELETE | `/api/admin/sensitive-words/{id}` | 删除敏感词 |
-| POST | `/api/admin/sensitive-words/import` | 批量导入敏感词 |
 | GET | `/api/admin/reports` | 举报列表 |
+| GET | `/api/admin/reports/{id}` | 举报详情 |
 | POST | `/api/admin/reports/{id}/handle` | 处理举报 |
+| GET | `/api/admin/config` | 系统配置 |
+| PUT | `/api/admin/config` | 更新系统配置 |
+| POST | `/api/admin/broadcast` | 发送全站广播 |
+| GET | `/api/admin/broadcast/history` | 广播历史 |
 | GET | `/api/admin/logs` | 操作日志 |
-| GET | `/api/admin/settings` | 系统配置 |
-| PUT | `/api/admin/settings` | 更新系统配置 |
-| GET | `/api/admin/edge-ai/status` | AI 引擎状态 |
-| GET | `/api/admin/edge-ai/subsystems` | AI 子系统详情 |
