@@ -310,6 +310,7 @@ POST `/api/edge-ai/analyze` 请求体：
 - 响应体返回稳定的 `server_public_key + salt + status`，客户端据此派生会话密钥
 - `POST /api/consultation/message` 请求体使用 `encrypted = { ciphertext, iv, tag }`
 - 消息与会话列表均返回标准分页集合载荷，客户端不应丢弃 `total/page/page_size/has_more`
+- `GET /api/consultation/sessions` 同时返回 `counselor_name/counselor_avatar_url/last_message/updated_at/counterpart_id`，列表排序基于最新消息时间而不是会话创建时间
 
 ---
 

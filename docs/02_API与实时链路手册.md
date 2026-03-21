@@ -286,6 +286,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 - `key-exchange` 发送 `client_public_key`，服务端返回 `server_public_key + salt`
 - `message` 发送结构化 AES-GCM envelope：`encrypted.ciphertext / encrypted.iv / encrypted.tag`
 - `messages` / `sessions` 都保留标准分页字段，客户端按集合载荷解析
+- `sessions` 额外返回 `counselor_name/counselor_avatar_url/last_message/updated_at`，并补齐 `counterpart_id` 兼容用户端与咨询师端同一套会话列表
 
 ### 4.9 其他
 

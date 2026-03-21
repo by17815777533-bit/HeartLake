@@ -55,11 +55,12 @@ bool isValidEncryptedPayload(const Json::Value &payload, std::string &ciphertext
          ciphertext.size() <= 65536 && iv.size() <= 32 && tag.size() <= 64;
 }
 
-int extractWindowTotal(const orm::Result &result) {
-  if (result.empty() || result[0]["total_count"].isNull()) {
+int extractWindowTotal(const orm::Result &result,
+                       const std::string &column = "total_count") {
+  if (result.empty() || result[0][column].isNull()) {
     return 0;
   }
-  return result[0]["total_count"].as<int>();
+  return result[0][column].as<int>();
 }
 
 Json::Value buildMessageCollectionPayload(const orm::Result &result,
@@ -260,46 +261,32 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
         "  SELECT 1 AS allowed "
         "  FROM consultation_sessions "
         "  WHERE id = $1 AND (user_id = $2 OR counselor_id = $2)"
-        "), paged_messages AS ("
-        "  SELECT m.sender_shadow_id, m.ciphertext, m.iv, m.tag, m.created_at, "
-        "         COUNT(*) OVER() AS total_count "
+        "), total_messages AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
         "  FROM consultation_messages m "
         "  JOIN authorized_session auth ON TRUE "
+        "  WHERE m.session_id = $1"
+        ") "
+        "SELECT pm.sender_shadow_id, pm.ciphertext, pm.iv, pm.tag, "
+        "       pm.created_at, tm.total_count "
+        "FROM authorized_session auth "
+        "CROSS JOIN total_messages tm "
+        "LEFT JOIN LATERAL ("
+        "  SELECT m.sender_shadow_id, m.ciphertext, m.iv, m.tag, m.created_at "
+        "  FROM consultation_messages m "
         "  WHERE m.session_id = $1 "
         "  ORDER BY m.created_at ASC "
         "  LIMIT $3 OFFSET $4"
-        ") "
-        "SELECT pm.sender_shadow_id, pm.ciphertext, pm.iv, pm.tag, "
-        "       pm.created_at, pm.total_count "
-        "FROM authorized_session auth "
-        "LEFT JOIN paged_messages pm ON TRUE",
-        [callback, currentUserShadowId, page, pageSize, db, sessionId](
-            const orm::Result& result) {
+        ") pm ON TRUE",
+        [callback, currentUserShadowId, page, pageSize](const orm::Result& result) {
             if (result.empty()) {
                 callback(ResponseUtil::forbidden("无权访问此会话消息"));
                 return;
             }
 
-            const bool hasMessages = !result[0]["sender_shadow_id"].isNull();
-            if (hasMessages || page == 1) {
-                const int total = hasMessages ? extractWindowTotal(result) : 0;
-                callback(ResponseUtil::success(buildMessageCollectionPayload(
-                    result, currentUserShadowId, total, page, pageSize)));
-                return;
-            }
-
-            db->execSqlAsync(
-                "SELECT COUNT(*) AS total FROM consultation_messages WHERE session_id = $1",
-                [callback, currentUserShadowId, page, pageSize, result](
-                    const orm::Result& countResult) {
-                    callback(ResponseUtil::success(buildMessageCollectionPayload(
-                        result, currentUserShadowId, safeCount(countResult), page,
-                        pageSize)));
-                },
-                [callback](const orm::DrogonDbException&) {
-                    callback(ResponseUtil::error(500, "获取消息总数失败"));
-                },
-                sessionId);
+            callback(ResponseUtil::success(buildMessageCollectionPayload(
+                result, currentUserShadowId, extractWindowTotal(result), page,
+                pageSize)));
         },
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "获取消息失败"));
@@ -321,42 +308,87 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
 
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "SELECT id, counselor_id, status, created_at, COUNT(*) OVER() AS total_count "
-        "FROM consultation_sessions "
-        "WHERE user_id = $1 OR counselor_id = $1 "
-        "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
-        [callback, page, pageSize, userId, db](const orm::Result& r) {
+        "WITH scoped_sessions AS ("
+        "  SELECT cs.id, cs.user_id, cs.counselor_id, cs.status, cs.created_at, "
+        "         CASE "
+        "           WHEN cs.user_id = $1 THEN cs.counselor_id "
+        "           ELSE cs.user_id "
+        "         END AS counterpart_id, "
+        "         CASE "
+        "           WHEN cs.user_id = $1 "
+        "             THEN COALESCE(c.nickname, c.username, cs.counselor_id) "
+        "           ELSE COALESCE(u.nickname, u.username, cs.user_id) "
+        "         END AS counselor_name, "
+        "         CASE "
+        "           WHEN cs.user_id = $1 THEN c.avatar_url "
+        "           ELSE u.avatar_url "
+        "         END AS counselor_avatar_url, "
+        "         CASE "
+        "           WHEN last_message.created_at IS NULL THEN '暂无消息' "
+        "           ELSE '加密消息' "
+        "         END AS last_message, "
+        "         COALESCE(last_message.created_at, cs.created_at) AS updated_at "
+        "  FROM consultation_sessions cs "
+        "  LEFT JOIN users u ON u.user_id = cs.user_id "
+        "  LEFT JOIN users c ON c.user_id = cs.counselor_id "
+        "  LEFT JOIN LATERAL ("
+        "    SELECT created_at "
+        "    FROM consultation_messages "
+        "    WHERE session_id = cs.id "
+        "    ORDER BY created_at DESC "
+        "    LIMIT 1"
+        "  ) AS last_message ON TRUE "
+        "  WHERE cs.user_id = $1 OR cs.counselor_id = $1"
+        "), total_sessions AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM scoped_sessions"
+        ") "
+        "SELECT ss.id, ss.user_id, ss.counselor_id, ss.status, ss.created_at, "
+        "       ss.counterpart_id, ss.counselor_name, ss.counselor_avatar_url, "
+        "       ss.last_message, ss.updated_at, "
+        "       ts.total_count "
+        "FROM total_sessions ts "
+        "LEFT JOIN LATERAL ("
+        "  SELECT id, user_id, counselor_id, status, created_at, "
+        "         counterpart_id, counselor_name, counselor_avatar_url, "
+        "         last_message, updated_at "
+        "  FROM scoped_sessions "
+        "  ORDER BY updated_at DESC LIMIT $2 OFFSET $3"
+        ") ss ON TRUE",
+        [callback, page, pageSize](const orm::Result& r) {
             Json::Value sessions(Json::arrayValue);
             for (const auto& row : r) {
+                if (row["id"].isNull()) {
+                    continue;
+                }
                 Json::Value s;
                 s["session_id"] = row["id"].as<std::string>();
+                s["user_id"] = row["user_id"].as<std::string>();
                 s["counselor_id"] = row["counselor_id"].as<std::string>();
+                s["counterpart_id"] = row["counterpart_id"].as<std::string>();
+                s["counterpartId"] = s["counterpart_id"];
+                s["participant_id"] = s["counterpart_id"];
+                s["participantId"] = s["participant_id"];
                 s["status"] = row["status"].as<std::string>();
                 s["created_at"] = row["created_at"].as<std::string>();
+                s["createdAt"] = s["created_at"];
+                s["updated_at"] = row["updated_at"].as<std::string>();
+                s["updatedAt"] = s["updated_at"];
+                s["counselor_name"] = row["counselor_name"].as<std::string>();
+                s["counselorName"] = s["counselor_name"];
+                if (!row["counselor_avatar_url"].isNull()) {
+                    s["counselor_avatar_url"] =
+                        row["counselor_avatar_url"].as<std::string>();
+                    s["counselorAvatarUrl"] = s["counselor_avatar_url"];
+                }
+                s["last_message"] = row["last_message"].as<std::string>();
+                s["lastMessage"] = s["last_message"];
                 sessions.append(s);
             }
 
-            if (!r.empty() || page == 1) {
-                const int total = r.empty() ? 0 : extractWindowTotal(r);
-                Json::Value data = ResponseUtil::buildCollectionPayload(
-                    "sessions", sessions, total, page, pageSize);
-                callback(ResponseUtil::success(data));
-                return;
-            }
-
-            db->execSqlAsync(
-                "SELECT COUNT(*) AS total "
-                "FROM consultation_sessions "
-                "WHERE user_id = $1 OR counselor_id = $1",
-                [callback, sessions, page, pageSize](const orm::Result& countResult) {
-                    Json::Value data = ResponseUtil::buildCollectionPayload(
-                        "sessions", sessions, safeCount(countResult), page, pageSize);
-                    callback(ResponseUtil::success(data));
-                },
-                [callback](const orm::DrogonDbException&) {
-                    callback(ResponseUtil::error(500, "获取会话总数失败"));
-                },
-                *userId);
+            Json::Value data = ResponseUtil::buildCollectionPayload(
+                "sessions", sessions, extractWindowTotal(r), page, pageSize);
+            callback(ResponseUtil::success(data));
         },
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "获取会话列表失败"));
