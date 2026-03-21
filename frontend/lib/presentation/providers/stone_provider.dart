@@ -6,6 +6,8 @@
 
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/stone_service.dart';
@@ -182,7 +184,9 @@ class StoneProvider with ChangeNotifier {
       if (kDebugMode) {
         debugPrint('[StoneProvider] WebSocket重连，刷新石头列表');
       }
-      loadStones(refresh: true);
+      if (_lakeSubscribers == 0) return;
+      _wsManager.joinRoom('lake');
+      unawaited(refreshFeed(includeWeather: _weather != null));
     };
 
     _wsManager.on('new_stone', _onNewStone);

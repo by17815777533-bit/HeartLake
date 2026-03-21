@@ -11,11 +11,27 @@ import 'base_service.dart';
 import 'social_payload_normalizer.dart';
 import 'stone_service.dart';
 
+abstract class InteractionDataSource {
+  Future<Map<String, dynamic>> createRipple(String stoneId);
+  Future<Map<String, dynamic>> createBoat({
+    required String stoneId,
+    required String content,
+    bool isAnonymous = true,
+  });
+  Future<Map<String, dynamic>> getBoats(
+    String stoneId, {
+    int page = 1,
+    int pageSize = 20,
+  });
+  Future<Map<String, dynamic>> createConnectionByStone(String stoneId);
+  Future<Map<String, dynamic>> deleteStone(String stoneId);
+}
+
 /// 互动服务
 ///
 /// 封装涟漪、纸船、限时会话等社交互动接口。
 /// 所有写操作会先校验输入参数，并对示例石头做只读拦截。
-class InteractionService extends BaseService {
+class InteractionService extends BaseService implements InteractionDataSource {
   @override
   String get serviceName => 'InteractionService';
 
@@ -45,6 +61,7 @@ class InteractionService extends BaseService {
   /// 创建涟漪（点赞）
   ///
   /// [stoneId] 目标石头ID，示例石头会被拒绝操作
+  @override
   Future<Map<String, dynamic>> createRipple(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     if (_isReadonlyShowcaseStone(stoneId)) {
@@ -78,6 +95,7 @@ class InteractionService extends BaseService {
   /// [stoneId] 目标石头ID
   /// [content] 纸船内容，1-2000字符
   /// [isAnonymous] 是否匿名发送，默认true
+  @override
   Future<Map<String, dynamic>> createBoat({
     required String stoneId,
     required String content,
@@ -113,6 +131,7 @@ class InteractionService extends BaseService {
   /// [stoneId] 目标石头ID
   /// [page] 页码，从1开始
   /// [pageSize] 每页数量，默认20条
+  @override
   Future<Map<String, dynamic>> getBoats(
     String stoneId, {
     int page = 1,
@@ -147,6 +166,7 @@ class InteractionService extends BaseService {
   /// 发起限时会话（基于石头作者建立临时连接）
   ///
   /// 用户通过石头发起与作者的限时聊天，后端会创建一个有过期时间的 connection。
+  @override
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await post('/stones/$stoneId/connections');
@@ -296,6 +316,7 @@ class InteractionService extends BaseService {
   }
 
   /// 删除石头（代理到 [StoneService]）
+  @override
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     return await _stoneService.deleteStone(stoneId);

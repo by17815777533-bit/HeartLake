@@ -12,8 +12,9 @@ import '../../../utils/storage_util.dart';
 class StoneCardController {
   final Stone stone;
   final VoidCallback? onStateChanged;
-
-  final InteractionService _interactionService = sl<InteractionService>();
+  final InteractionDataSource _interactionService;
+  final WebSocketClient _wsClient;
+  final Future<String?> Function() _loadCurrentUserId;
 
   bool hasRippled = false;
   int localRipplesCount = 0;
@@ -25,21 +26,27 @@ class StoneCardController {
   late Function(Map<String, dynamic>) _boatDeletedListener;
   late Function(Map<String, dynamic>) _rippleDeletedListener;
 
-  StoneCardController({required this.stone, this.onStateChanged}) {
+  StoneCardController({
+    required this.stone,
+    this.onStateChanged,
+    InteractionDataSource? interactionService,
+    WebSocketClient? wsClient,
+    Future<String?> Function()? loadCurrentUserId,
+  })  : _interactionService = interactionService ?? sl<InteractionService>(),
+        _wsClient = wsClient ?? WebSocketManager(),
+        _loadCurrentUserId = loadCurrentUserId ?? StorageUtil.getUserId {
     localRipplesCount = stone.rippleCount;
     localBoatsCount = stone.boatCount;
     hasRippled = stone.hasRippled;
   }
 
   Future<void> init() async {
-    currentUserId = await StorageUtil.getUserId();
+    currentUserId = await _loadCurrentUserId();
     _setupWebSocketListeners();
     onStateChanged?.call();
   }
 
   void _setupWebSocketListeners() {
-    final ws = WebSocketManager();
-
     _rippleUpdateListener = (data) {
       final stoneId = extractStoneEntityId(data);
       if (stoneId == stone.stoneId) {
@@ -51,7 +58,7 @@ class StoneCardController {
         }
       }
     };
-    ws.on('ripple_update', _rippleUpdateListener);
+    _wsClient.on('ripple_update', _rippleUpdateListener);
 
     _boatUpdateListener = (data) {
       final stoneId = extractStoneEntityId(data);
@@ -64,7 +71,7 @@ class StoneCardController {
         }
       }
     };
-    ws.on('boat_update', _boatUpdateListener);
+    _wsClient.on('boat_update', _boatUpdateListener);
 
     _boatDeletedListener = (data) {
       final stoneId = extractStoneEntityId(data);
@@ -77,7 +84,7 @@ class StoneCardController {
         }
       }
     };
-    ws.on('boat_deleted', _boatDeletedListener);
+    _wsClient.on('boat_deleted', _boatDeletedListener);
 
     _rippleDeletedListener = (data) {
       final stoneId = extractStoneEntityId(data);
@@ -90,15 +97,14 @@ class StoneCardController {
         }
       }
     };
-    ws.on('ripple_deleted', _rippleDeletedListener);
+    _wsClient.on('ripple_deleted', _rippleDeletedListener);
   }
 
   void dispose() {
-    final ws = WebSocketManager();
-    ws.off('ripple_update', _rippleUpdateListener);
-    ws.off('boat_update', _boatUpdateListener);
-    ws.off('boat_deleted', _boatDeletedListener);
-    ws.off('ripple_deleted', _rippleDeletedListener);
+    _wsClient.off('ripple_update', _rippleUpdateListener);
+    _wsClient.off('boat_update', _boatUpdateListener);
+    _wsClient.off('boat_deleted', _boatDeletedListener);
+    _wsClient.off('ripple_deleted', _rippleDeletedListener);
   }
 
   Future<Map<String, dynamic>> createRipple() async {
