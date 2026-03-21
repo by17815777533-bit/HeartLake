@@ -73,6 +73,13 @@ std::string parseVisibilityCompat(const Json::Value &json) {
   }
   return visibility;
 }
+
+int extractWindowTotal(const drogon::orm::Result &result) {
+  if (result.empty() || result[0]["total_count"].isNull()) {
+    return 0;
+  }
+  return result[0]["total_count"].as<int>();
+}
 } // namespace
 
 // ==================== 个人信息管理 ====================
@@ -411,13 +418,16 @@ void AccountController::getLoginDevices(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    const auto [page, pageSize] = safePagination(req);
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
         "SELECT session_id, device_type, device_name, ip_address, "
-        "last_active_at, created_at "
+        "last_active_at, created_at, COUNT(*) OVER() AS total_count "
         "FROM user_sessions WHERE user_id = $1 AND is_active = true "
-        "ORDER BY created_at DESC",
-        userId);
+        "ORDER BY COALESCE(last_active_at, created_at) DESC "
+        "LIMIT $2 OFFSET $3",
+        userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value devices(Json::arrayValue);
     for (const auto &row : result) {
@@ -436,9 +446,18 @@ void AccountController::getLoginDevices(
                                      : row["last_active_at"].as<std::string>();
       devices.append(device);
     }
-    const int pageSize = std::max(1, static_cast<int>(result.size()));
+
+    int total = extractWindowTotal(result);
+    if (result.empty() && page > 1) {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*) AS total FROM user_sessions "
+          "WHERE user_id = $1 AND is_active = true",
+          userId);
+      total = safeCount(countResult);
+    }
+
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
-        "devices", devices, static_cast<int>(result.size()), 1, pageSize)));
+        "devices", devices, total, page, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getLoginDevices error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -459,7 +478,7 @@ void AccountController::removeDevice(
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
 
-    // BUG-FIX: user_sessions 表没有 is_active 列，改用 DELETE 删除会话记录
+    // 直接删除会话记录，避免移除设备后仍出现在设备列表中
     auto result =
         dbClient->execSqlSync("DELETE FROM user_sessions "
                               "WHERE session_id = $1 AND user_id = $2",
@@ -488,11 +507,15 @@ void AccountController::getLoginLogs(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    const auto [page, pageSize] = safePagination(req);
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
         "SELECT log_id, login_time, ip_address, device_type, location, success "
-        "FROM login_logs WHERE user_id = $1 ORDER BY login_time DESC LIMIT 50",
-        userId);
+        "COUNT(*) OVER() AS total_count "
+        "FROM login_logs WHERE user_id = $1 "
+        "ORDER BY login_time DESC LIMIT $2 OFFSET $3",
+        userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value logs(Json::arrayValue);
     for (const auto &row : result) {
@@ -509,8 +532,16 @@ void AccountController::getLoginLogs(
       log["success"] = row["success"].as<bool>();
       logs.append(log);
     }
+
+    int total = extractWindowTotal(result);
+    if (result.empty() && page > 1) {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*) AS total FROM login_logs WHERE user_id = $1", userId);
+      total = safeCount(countResult);
+    }
+
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
-        "logs", logs, static_cast<int>(result.size()), 1, 50)));
+        "logs", logs, total, page, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getLoginLogs error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -529,12 +560,15 @@ void AccountController::getSecurityEvents(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
+    const auto [page, pageSize] = safePagination(req);
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
-        "SELECT event_id, event_type, description, ip_address, created_at "
-        "FROM security_events WHERE user_id = $1 ORDER BY created_at DESC "
-        "LIMIT 50",
-        userId);
+        "SELECT event_id, event_type, description, ip_address, created_at, "
+        "COUNT(*) OVER() AS total_count "
+        "FROM security_events WHERE user_id = $1 "
+        "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value events(Json::arrayValue);
     for (const auto &row : result) {
@@ -549,8 +583,17 @@ void AccountController::getSecurityEvents(
       event["created_at"] = row["created_at"].as<std::string>();
       events.append(event);
     }
+
+    int total = extractWindowTotal(result);
+    if (result.empty() && page > 1) {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*) AS total FROM security_events WHERE user_id = $1",
+          userId);
+      total = safeCount(countResult);
+    }
+
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
-        "events", events, static_cast<int>(result.size()), 1, 50)));
+        "events", events, total, page, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getSecurityEvents error: " << e.what();
     callback(ResponseUtil::internalError());
