@@ -5,11 +5,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/payload_contract.dart';
-import '../../data/datasources/friend_service.dart';
-import '../../data/datasources/websocket_manager.dart';
-import '../../di/service_locator.dart';
+import '../providers/friend_provider.dart';
 import '../widgets/water_background.dart';
 import 'temp_friends_screen.dart';
 import 'friend_chat_screen.dart';
@@ -32,22 +31,15 @@ class FriendsScreen extends StatefulWidget {
 
 /// 好友列表页面的状态管理
 ///
-/// 通过 [FriendService] 加载好友数据，使用 [WebSocketManager] 监听好友变动。
+/// 复用 [FriendProvider] 作为单一状态源，避免页面再维护第二套好友状态。
 /// 维护两个动画控制器：列表交错淡入动画和漂浮小船装饰动画。
 class _FriendsScreenState extends State<FriendsScreen>
     with TickerProviderStateMixin {
-  final FriendService _friendService = sl<FriendService>();
-  List<Map<String, dynamic>> _friends = [];
-  bool _isLoading = true;
-
   /// 列表项交错淡入动画控制器
   late AnimationController _listAnimController;
 
   /// 右下角漂浮小船循环动画控制器
   late AnimationController _boatAnimController;
-
-  // 保存监听器引用以便正确移除
-  late final void Function(Map<String, dynamic>) _onFriendRemoved;
 
   @override
   void initState() {
@@ -60,42 +52,18 @@ class _FriendsScreenState extends State<FriendsScreen>
       duration: const Duration(seconds: 5),
       vsync: this,
     )..repeat();
-    _initListeners();
-    _loadFriends();
-    _setupWebSocketListeners();
-  }
-
-  /// 初始化 WebSocket 事件回调闭包，统一在此处创建以便 dispose 时精确移除
-  void _initListeners() {
-    _onFriendRemoved = (data) {
-      if (mounted) _loadFriends();
-    };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadFriends();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _removeWebSocketListeners();
     _listAnimController.dispose();
     _boatAnimController.dispose();
     super.dispose();
-  }
-
-  /// 注册 WebSocket 监听器，监听好友删除和好友请求被接受事件
-  void _setupWebSocketListeners() {
-    final wsManager = WebSocketManager();
-    if (!wsManager.isConnected) {
-      wsManager.connect();
-    }
-    wsManager.on('friend_removed', _onFriendRemoved);
-    // 监听好友请求被接受事件，刷新好友列表
-    wsManager.on('friend_accepted', _onFriendRemoved);
-  }
-
-  /// 移除所有已注册的 WebSocket 监听器，防止内存泄漏
-  void _removeWebSocketListeners() {
-    final wsManager = WebSocketManager();
-    wsManager.off('friend_removed', _onFriendRemoved);
-    wsManager.off('friend_accepted', _onFriendRemoved);
   }
 
   /// 从好友数据中提取用户ID
@@ -104,44 +72,24 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   /// 加载好友列表，加载完成后触发列表交错淡入动画
   Future<void> _loadFriends() async {
-    if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
+    final result = await context.read<FriendProvider>().fetchFriends();
+    if (!mounted) return;
 
-    try {
-      final result = await _friendService.getFriends();
+    if (result['success'] == true) {
+      _listAnimController.forward();
+      return;
+    }
 
-      if (result['success'] && mounted) {
-        final rawFriends =
-            result['friends'] ?? result['items'] ?? result['list'];
-        final friends = rawFriends is List
-            ? rawFriends
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .toList()
-            : <Map<String, dynamic>>[];
-        setState(() {
-          _friends = friends;
-          _isLoading = false;
-        });
-        _listAnimController.forward();
-      } else {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          final message = result['message']?.toString();
-          if (message != null && message.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载好友列表失败')),
-        );
-      }
+    final message = result['message']?.toString();
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('加载好友列表失败')),
+      );
     }
   }
 
@@ -149,6 +97,9 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final friendProvider = context.watch<FriendProvider>();
+    final friends = friendProvider.friends;
+    final isLoading = friendProvider.isLoading;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -186,9 +137,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
           // 内容区域
           RefreshIndicator(
-            onRefresh: () async {
-              await _loadFriends();
-            },
+            onRefresh: _loadFriends,
             color: Colors.blue[900],
             backgroundColor: isDark ? const Color(0xFF16213E) : Colors.white,
             child: ListView(
@@ -229,7 +178,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 const SizedBox(height: 16),
 
                 // 好友列表
-                if (_isLoading)
+                if (isLoading)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
@@ -242,7 +191,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                       ]),
                     ),
                   )
-                else if (_friends.isEmpty)
+                else if (friends.isEmpty)
                   Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -268,7 +217,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                     ),
                   )
                 else
-                  ..._friends.asMap().entries.map((entry) {
+                  ...friends.asMap().entries.map((entry) {
                     final index = entry.key;
                     final friend = entry.value;
                     return AnimatedBuilder(
@@ -335,7 +284,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                               );
                               return;
                             }
-                            // 点击好友进入聊天界面
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -367,8 +315,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                             onSelected: (value) {
                               final friendId = _extractFriendId(friend);
                               if (value == 'copy_id') {
-                                if (friendId == null || friendId.isEmpty)
+                                if (friendId == null || friendId.isEmpty) {
                                   return;
+                                }
                                 Clipboard.setData(
                                     ClipboardData(text: friendId));
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -432,12 +381,12 @@ class _FriendsScreenState extends State<FriendsScreen>
             onPressed: () async {
               Navigator.pop(dialogContext);
 
-              final result =
-                  await _friendService.removeFriend(resolvedFriendId);
+              final result = await context
+                  .read<FriendProvider>()
+                  .removeFriend(resolvedFriendId);
 
               if (mounted) {
                 if (result['success']) {
-                  _loadFriends();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('已轻轻放下')),
                   );

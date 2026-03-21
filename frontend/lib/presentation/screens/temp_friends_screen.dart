@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
 import '../../utils/app_theme.dart';
-import '../../data/datasources/temp_friend_service.dart';
-import '../../di/service_locator.dart';
+import '../providers/friend_provider.dart';
 import '../widgets/water_background.dart';
 import 'friend_chat_screen.dart';
 
@@ -26,12 +26,9 @@ class TempFriendsScreen extends StatefulWidget {
 
 /// 临时好友列表页面状态管理
 ///
-/// 使用 Timer.periodic 每分钟刷新列表以更新倒计时显示，
-/// 列表加载完成后播放交错淡入动画。
+/// 复用 [FriendProvider] 中的临时好友状态，只在页面维护展示级倒计时和动画。
 class _TempFriendsScreenState extends State<TempFriendsScreen>
     with SingleTickerProviderStateMixin {
-  final TempFriendService _tempFriendService = sl<TempFriendService>();
-  List<Map<String, dynamic>> _tempFriends = [];
   bool _isLoading = true;
   Timer? _expiryTimer;
   late AnimationController _listAnimController;
@@ -43,7 +40,11 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _loadTempFriends();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadTempFriends();
+      }
+    });
     _expiryTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) _loadTempFriends();
     });
@@ -61,33 +62,18 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
 
-    try {
-      final result = await _tempFriendService.getMyTempFriends();
+    final result = await context.read<FriendProvider>().fetchTempFriends();
+    if (!mounted) return;
 
-      if (result['success'] && mounted) {
-        final rawTempFriends = result['temp_friends'];
-        final tempFriends = rawTempFriends is List
-            ? rawTempFriends
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .toList()
-            : <Map<String, dynamic>>[];
-        setState(() {
-          _tempFriends = tempFriends;
-          _isLoading = false;
-        });
-        _listAnimController.forward();
-      } else {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载失败，请下拉重试')),
-        );
-      }
+    setState(() => _isLoading = false);
+    if (result['success'] == true) {
+      _listAnimController.forward();
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result['message']?.toString() ?? '加载失败，请下拉重试')),
+    );
   }
 
   /// 计算距过期时间的剩余时长，格式化为"N小时N分钟"
@@ -155,24 +141,26 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
     if (confirm == true && mounted) {
       try {
-        final result = await _tempFriendService.upgradeToPermanent(tempFriendId);
+        final result = await context
+            .read<FriendProvider>()
+            .upgradeToPermanent(tempFriendId);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['success'] ? '升级成功！' : result['message']),
-              backgroundColor: result['success'] ? AppTheme.successColor : AppTheme.errorColor,
+              backgroundColor: result['success']
+                  ? AppTheme.successColor
+                  : AppTheme.errorColor,
             ),
           );
-
-          if (result['success']) {
-            _loadTempFriends();
-          }
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: AppTheme.errorColor),
+            const SnackBar(
+                content: Text('操作失败，请稍后再试'),
+                backgroundColor: AppTheme.errorColor),
           );
         }
       }
@@ -202,24 +190,25 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
     if (confirm == true && mounted) {
       try {
-        final result = await _tempFriendService.deleteTempFriend(tempFriendId);
+        final result =
+            await context.read<FriendProvider>().deleteTempFriend(tempFriendId);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result['success'] ? '删除成功' : result['message']),
-              backgroundColor: result['success'] ? AppTheme.successColor : AppTheme.errorColor,
+              backgroundColor: result['success']
+                  ? AppTheme.successColor
+                  : AppTheme.errorColor,
             ),
           );
-
-          if (result['success']) {
-            _loadTempFriends();
-          }
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('操作失败，请稍后再试'), backgroundColor: AppTheme.errorColor),
+            const SnackBar(
+                content: Text('操作失败，请稍后再试'),
+                backgroundColor: AppTheme.errorColor),
           );
         }
       }
@@ -229,6 +218,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tempFriends = context.watch<FriendProvider>().tempFriends;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -282,14 +272,18 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                 left: 16,
                 right: 16,
               ),
-              itemCount: _isLoading ? 2 : (_tempFriends.isEmpty ? 2 : _tempFriends.length + 1),
+              itemCount: _isLoading
+                  ? 2
+                  : (tempFriends.isEmpty ? 2 : tempFriends.length + 1),
               itemBuilder: (context, index) {
                 // 第一项：提示卡片
                 if (index == 0) {
                   return Column(
                     children: [
                       Card(
-                        color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+                        color: isDark
+                            ? const Color(0xFF1B2838).withValues(alpha: 0.95)
+                            : Colors.white.withValues(alpha: 0.95),
                         elevation: 4,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -301,7 +295,8 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.skyBlue.withValues(alpha: 0.1),
+                                  color:
+                                      AppTheme.skyBlue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Icon(
@@ -320,7 +315,9 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.darkBlue,
+                                        color: isDark
+                                            ? AppTheme.darkTextPrimary
+                                            : AppTheme.darkBlue,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -328,7 +325,9 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                       '通过互动自动建立，24小时有效期',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textTertiary,
+                                        color: isDark
+                                            ? AppTheme.darkTextSecondary
+                                            : AppTheme.textTertiary,
                                       ),
                                     ),
                                   ],
@@ -354,7 +353,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                 }
 
                 // 空状态
-                if (_tempFriends.isEmpty) {
+                if (tempFriends.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -388,13 +387,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
 
                 // 好友列表项
                 final friendIndex = index - 1;
-                final tempFriend = _tempFriends[friendIndex];
+                final tempFriend = tempFriends[friendIndex];
                 final status = tempFriend['status'] ?? 'active';
                 final expiresAt = tempFriend['expires_at'] ?? '';
                 final isExpired = status == 'expired';
                 final isUpgraded = tempFriend['upgraded_to_friend'] == true;
 
-                return _buildFriendCard(friendIndex, tempFriend, isExpired, isUpgraded, expiresAt, isDark);
+                return _buildFriendCard(friendIndex, tempFriend, isExpired,
+                    isUpgraded, expiresAt, isDark);
               },
             ),
           ),
@@ -404,7 +404,8 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
   }
 
   /// 构建单个好友卡片，带交错淡入动画和过期/已升级状态标记
-  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired, bool isUpgraded, String expiresAt, bool isDark) {
+  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired,
+      bool isUpgraded, String expiresAt, bool isDark) {
     return AnimatedBuilder(
       animation: _listAnimController,
       builder: (context, child) {
@@ -413,7 +414,8 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
         final anim = Tween<double>(begin: 0.0, end: 1.0).animate(
           CurvedAnimation(
             parent: _listAnimController,
-            curve: Interval(start, (start + 0.3).clamp(0.0, 1.0), curve: Curves.easeOut),
+            curve: Interval(start, (start + 0.3).clamp(0.0, 1.0),
+                curve: Curves.easeOut),
           ),
         );
         return Opacity(
@@ -426,12 +428,16 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        color: isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.95),
+        color: isDark
+            ? const Color(0xFF1B2838).withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.95),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: isExpired ? AppTheme.textTertiary.withValues(alpha: 0.3) : AppTheme.skyBlue.withValues(alpha: 0.3),
+            color: isExpired
+                ? AppTheme.textTertiary.withValues(alpha: 0.3)
+                : AppTheme.skyBlue.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -441,10 +447,18 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: isExpired ? AppTheme.textTertiary.withValues(alpha: 0.2) : AppTheme.skyBlue.withValues(alpha: 0.2),
+                backgroundColor: isExpired
+                    ? AppTheme.textTertiary.withValues(alpha: 0.2)
+                    : AppTheme.skyBlue.withValues(alpha: 0.2),
                 child: Text(
-                  (tempFriend['friend_nickname']?.isNotEmpty == true) ? tempFriend['friend_nickname'].substring(0, 1) : '?',
-                  style: TextStyle(color: isExpired ? AppTheme.textTertiary : AppTheme.skyBlue, fontWeight: FontWeight.bold, fontSize: 20),
+                  (tempFriend['friend_nickname']?.isNotEmpty == true)
+                      ? tempFriend['friend_nickname'].substring(0, 1)
+                      : '?',
+                  style: TextStyle(
+                      color:
+                          isExpired ? AppTheme.textTertiary : AppTheme.skyBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20),
                 ),
               ),
               if (!isExpired && !isUpgraded)
@@ -453,20 +467,39 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                   bottom: 0,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: _getExpiryColor(expiresAt), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                    child: const Icon(Icons.access_time, color: Colors.white, size: 12),
+                    decoration: BoxDecoration(
+                        color: _getExpiryColor(expiresAt),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2)),
+                    child: const Icon(Icons.access_time,
+                        color: Colors.white, size: 12),
                   ),
                 ),
             ],
           ),
           title: Row(
             children: [
-              Expanded(child: Text(tempFriend['friend_nickname'] ?? '未知', style: TextStyle(fontWeight: FontWeight.bold, color: isExpired ? AppTheme.textTertiary : (isDark ? AppTheme.darkTextPrimary : AppTheme.darkBlue)))),
+              Expanded(
+                  child: Text(tempFriend['friend_nickname'] ?? '未知',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isExpired
+                              ? AppTheme.textTertiary
+                              : (isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.darkBlue)))),
               if (isUpgraded)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: AppTheme.successColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: const Text('已升级', style: TextStyle(fontSize: 11, color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: const Text('已升级',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.successColor,
+                          fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -474,13 +507,23 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              Text('来源: ${_getSourceText(tempFriend['source'])}', style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF9AA0A6) : Colors.grey[600])),
+              Text('来源: ${_getSourceText(tempFriend['source'])}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          isDark ? const Color(0xFF9AA0A6) : Colors.grey[600])),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.timer_outlined, size: 14, color: _getExpiryColor(expiresAt)),
+                  Icon(Icons.timer_outlined,
+                      size: 14, color: _getExpiryColor(expiresAt)),
                   const SizedBox(width: 4),
-                  Text(isExpired ? '已过期' : '剩余: ${_getTimeRemaining(expiresAt)}', style: TextStyle(fontSize: 12, color: _getExpiryColor(expiresAt), fontWeight: FontWeight.w500)),
+                  Text(
+                      isExpired ? '已过期' : '剩余: ${_getTimeRemaining(expiresAt)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: _getExpiryColor(expiresAt),
+                          fontWeight: FontWeight.w500)),
                 ],
               ),
             ],
@@ -489,27 +532,62 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               ? PopupMenuButton(
                   icon: const Icon(Icons.more_vert),
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'chat', child: Row(children: [Icon(Icons.chat, size: 20), SizedBox(width: 8), Text('私聊')])),
-                    const PopupMenuItem(value: 'upgrade', child: Row(children: [Icon(Icons.upgrade, color: AppTheme.successColor, size: 20), SizedBox(width: 8), Text('升级为永久好友', style: TextStyle(color: AppTheme.successColor))])),
-                    const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: AppTheme.errorColor, size: 20), SizedBox(width: 8), Text('删除', style: TextStyle(color: AppTheme.errorColor))])),
+                    const PopupMenuItem(
+                        value: 'chat',
+                        child: Row(children: [
+                          Icon(Icons.chat, size: 20),
+                          SizedBox(width: 8),
+                          Text('私聊')
+                        ])),
+                    const PopupMenuItem(
+                        value: 'upgrade',
+                        child: Row(children: [
+                          Icon(Icons.upgrade,
+                              color: AppTheme.successColor, size: 20),
+                          SizedBox(width: 8),
+                          Text('升级为永久好友',
+                              style: TextStyle(color: AppTheme.successColor))
+                        ])),
+                    const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(children: [
+                          Icon(Icons.delete,
+                              color: AppTheme.errorColor, size: 20),
+                          SizedBox(width: 8),
+                          Text('删除',
+                              style: TextStyle(color: AppTheme.errorColor))
+                        ])),
                   ],
                   onSelected: (value) {
                     switch (value) {
                       case 'chat':
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => FriendChatScreen(friendId: tempFriend['friend_id'], friendName: tempFriend['friend_nickname'] ?? '未知')));
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => FriendChatScreen(
+                                    friendId: tempFriend['friend_id'],
+                                    friendName: tempFriend['friend_nickname'] ??
+                                        '未知')));
                         break;
                       case 'upgrade':
-                        _upgradeToPermanent(tempFriend['temp_friend_id'], tempFriend['friend_nickname'] ?? '未知');
+                        _upgradeToPermanent(tempFriend['temp_friend_id'],
+                            tempFriend['friend_nickname'] ?? '未知');
                         break;
                       case 'delete':
-                        _deleteTempFriend(tempFriend['temp_friend_id'], tempFriend['friend_nickname'] ?? '未知');
+                        _deleteTempFriend(tempFriend['temp_friend_id'],
+                            tempFriend['friend_nickname'] ?? '未知');
                         break;
                     }
                   },
                 )
               : null,
           onTap: !isExpired && !isUpgraded
-              ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => FriendChatScreen(friendId: tempFriend['friend_id'], friendName: tempFriend['friend_nickname'] ?? '未知')))
+              ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => FriendChatScreen(
+                          friendId: tempFriend['friend_id'],
+                          friendName: tempFriend['friend_nickname'] ?? '未知')))
               : null,
         ),
       ),

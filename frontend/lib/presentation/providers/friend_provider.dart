@@ -219,7 +219,7 @@ class FriendProvider with ChangeNotifier {
   // ==================== 好友列表 ====================
 
   /// 从后端拉取正式好友列表
-  Future<void> fetchFriends() async {
+  Future<Map<String, dynamic>> fetchFriends() async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -230,8 +230,10 @@ class FriendProvider with ChangeNotifier {
         );
         _rebuildFriendIndex();
       }
+      return result;
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 获取好友列表失败: $e');
+      return {'success': false, 'message': '获取好友列表失败'};
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -241,7 +243,7 @@ class FriendProvider with ChangeNotifier {
   // ==================== 临时好友 ====================
 
   /// 从后端拉取临时好友列表（纸船互动产生的 24h 限时好友）
-  Future<void> fetchTempFriends() async {
+  Future<Map<String, dynamic>> fetchTempFriends() async {
     try {
       final result = await _tempFriendService.getMyTempFriends();
       if (result['success'] == true) {
@@ -255,15 +257,17 @@ class FriendProvider with ChangeNotifier {
         _rebuildTempFriendIndex();
         notifyListeners();
       }
+      return result;
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 获取临时好友失败: $e');
+      return {'success': false, 'message': '获取临时好友失败'};
     }
   }
 
   // ==================== 好友请求 ====================
 
   /// 拉取待处理的好友请求列表
-  Future<void> fetchPendingRequests() async {
+  Future<Map<String, dynamic>> fetchPendingRequests() async {
     try {
       final result = await _friendService.getPendingRequests();
       if (result['success'] == true) {
@@ -273,8 +277,10 @@ class FriendProvider with ChangeNotifier {
         _rebuildPendingIndex();
         notifyListeners();
       }
+      return result;
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 获取好友请求失败: $e');
+      return {'success': false, 'message': '获取好友请求失败'};
     }
   }
 
@@ -350,6 +356,21 @@ class FriendProvider with ChangeNotifier {
       return result;
     } catch (e) {
       if (kDebugMode) debugPrint('[FriendProvider] 升级好友失败: $e');
+      return {'success': false, 'message': '操作失败'};
+    }
+  }
+
+  /// 删除临时好友关系
+  Future<Map<String, dynamic>> deleteTempFriend(String tempFriendId) async {
+    try {
+      final result = await _tempFriendService.deleteTempFriend(tempFriendId);
+      if (result['success'] == true) {
+        _removeTempFriendById(tempFriendId);
+        notifyListeners();
+      }
+      return result;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FriendProvider] 删除临时好友失败: $e');
       return {'success': false, 'message': '操作失败'};
     }
   }
