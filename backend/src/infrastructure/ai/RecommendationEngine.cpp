@@ -145,12 +145,25 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
 
     auto& embEngine = AdvancedEmbeddingEngine::getInstance();
 
-    // 预计算所有embedding，避免重复生成
+    // 预计算并去重候选 embedding，避免同一 stone / content 在同轮重排里反复编码
     std::vector<std::vector<float>> embeddings;
     embeddings.reserve(pool.size());
+    std::unordered_map<std::string, size_t> embeddingIndexByKey;
+    std::vector<size_t> candidateEmbeddingIndices;
+    candidateEmbeddingIndices.reserve(pool.size());
     for (const auto& cand : pool) {
-        embeddings.push_back(embEngine.generateEmbedding(
-            cand.metadata.get("content", "").asString()));
+        const std::string content = cand.metadata.get("content", "").asString();
+        const std::string cacheKey = !cand.itemId.empty() ? cand.itemId : content;
+        auto it = embeddingIndexByKey.find(cacheKey);
+        if (it == embeddingIndexByKey.end()) {
+            const size_t embeddingIndex = embeddings.size();
+            embeddings.push_back(
+                content.empty() ? std::vector<float>{} : embEngine.generateEmbedding(content));
+            embeddingIndexByKey.emplace(cacheKey, embeddingIndex);
+            candidateEmbeddingIndices.push_back(embeddingIndex);
+        } else {
+            candidateEmbeddingIndices.push_back(it->second);
+        }
     }
 
     std::vector<RecommendationCandidate> result;
@@ -172,8 +185,8 @@ std::vector<RecommendationCandidate> RecommendationEngine::mmrRerank(
             // embeddings 已 L2 归一化，cosine similarity = dot product
             // 直接点积省去两次 norm 计算
             for (size_t selIdx : selectedIndices) {
-                const auto& a = embeddings[i];
-                const auto& b = embeddings[selIdx];
+                const auto& a = embeddings[candidateEmbeddingIndices[i]];
+                const auto& b = embeddings[candidateEmbeddingIndices[selIdx]];
                 double dot = 0.0;
                 size_t dim = std::min(a.size(), b.size());
                 size_t d = 0;

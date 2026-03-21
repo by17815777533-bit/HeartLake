@@ -119,7 +119,8 @@ EDGE_AI_SENTIMENT_LEXICON_PATH=./models/sentiment_domain_lexicon.tsv
 # 双路策略已内置固定路由与背压，不再暴露路由/过载阈值开关
 # Ollama 自动拉起（默认关闭；仅 AI_PROVIDER=ollama 且设为 true 时触发）
 AI_OLLAMA_AUTOSTART=false
-# GPU 相关参数按需开启；低配 CPU 机器建议保持关闭
+# GPU 相关参数按需开启；代码默认已改成 CPU 优先（未显式配置时走 2 线程 / 1536 ctx）
+# 低配 CPU 机器建议保持关闭，只有明确有 GPU 时再打开
 AI_OLLAMA_FORCE_GPU=false
 AI_OLLAMA_NUM_GPU=0
 AI_OLLAMA_MAIN_GPU=0

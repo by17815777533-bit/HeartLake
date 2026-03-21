@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <thread>
 #include <unordered_set>
 #include <cctype>
 #include <cstdlib>
@@ -246,6 +247,14 @@ float parseFloatEnv(const char* envName, float defaultValue, float minValue, flo
     return std::clamp(parsed, minValue, maxValue);
 }
 
+int detectOllamaDefaultThreads() {
+    const unsigned int hw = std::thread::hardware_concurrency();
+    if (hw == 0) {
+        return 2;
+    }
+    return std::clamp<int>(static_cast<int>(hw), 1, 4);
+}
+
 }  // namespace
 
 AIService& AIService::getInstance() {
@@ -300,8 +309,15 @@ void AIService::initialize(const Json::Value& config) {
         std::getenv("AI_OLLAMA_LOW_VRAM"), ollamaLowVram_);
     ollamaNumGpu_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_GPU", ollamaNumGpu_);
     ollamaMainGpu_ = parseNonNegativeIntEnv("AI_OLLAMA_MAIN_GPU", ollamaMainGpu_);
-    ollamaNumThread_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_THREAD", ollamaNumThread_);
+    ollamaNumThread_ = parseNonNegativeIntEnv(
+        "AI_OLLAMA_NUM_THREAD", detectOllamaDefaultThreads());
     ollamaNumCtx_ = parseNonNegativeIntEnv("AI_OLLAMA_NUM_CTX", ollamaNumCtx_);
+    if (!ollamaForceGpu_) {
+        ollamaNumGpu_ = 0;
+        ollamaMainGpu_ = 0;
+    } else if (ollamaNumGpu_ <= 0) {
+        ollamaNumGpu_ = 1;
+    }
 
     LOG_INFO << "AIService initialized with provider: " << provider_
              << ", max_retries=" << maxRetries_
