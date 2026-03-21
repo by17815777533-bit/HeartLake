@@ -36,7 +36,6 @@ void PaperBoatController::replyToStone(
 
     std::string stone_id = (*json).get("stone_id", "").asString();
     std::string content = (*json).get("content", "").asString();
-    [[maybe_unused]] std::string mood = (*json).get("mood", "").asString();
 
     if (stone_id.empty() || content.empty()) {
       callback(ResponseUtil::badRequest("stone_id 和 content 不能为空"));

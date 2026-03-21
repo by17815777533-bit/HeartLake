@@ -3,7 +3,7 @@
  * @brief 应用服务工厂 —— 统一注册所有 Application Service 到 DI 容器
  *
  * 启动阶段由 ArchitectureBootstrap 调用 initialize()，
- * 将 Stone / User / Interaction / Friend 四个应用服务以 Singleton 方式
+ * 将 Stone / User / Interaction 三个应用服务以 Singleton 方式
  * 注册到 ServiceLocator，后续 Controller 层通过 DI 获取实例。
  *
  * 基础设施依赖（CacheManager、EventBus）使用空删除器包装为 shared_ptr，
@@ -14,7 +14,6 @@
 #include "application/StoneApplicationService.h"
 #include "application/UserApplicationService.h"
 #include "application/InteractionApplicationService.h"
-#include "application/FriendApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include <memory>
 
@@ -52,14 +51,6 @@ void ApplicationServiceFactory::initialize() {
         return std::make_shared<InteractionApplicationService>(cachePtr, eventPtr);
     });
 
-    // Friend 服务：依赖好友领域服务 + 仓储 + 缓存 + 事件总线
-    di.registerSingleton<FriendApplicationService>([&di, cachePtr, eventPtr]() {
-        return std::make_shared<FriendApplicationService>(
-            di.resolve<domain::friend_domain::FriendService>(),
-            di.resolve<domain::friend_domain::IFriendRepository>(),
-            cachePtr, eventPtr
-        );
-    });
 }
 
 } // namespace application

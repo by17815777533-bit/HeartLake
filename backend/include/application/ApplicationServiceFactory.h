@@ -26,7 +26,6 @@ public:
      *   1. StoneApplicationService（依赖 StoneService + StoneRepository）
      *   2. UserApplicationService（依赖 UserRepository）
      *   3. InteractionApplicationService（依赖 CacheManager + EventBus）
-     *   4. FriendApplicationService（依赖 FriendService + FriendRepository）
      *
      * @note 必须在 Drogon app().run() 之前调用，否则控制器无法解析服务依赖
      */

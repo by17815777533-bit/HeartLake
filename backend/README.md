@@ -318,7 +318,7 @@ Infrastructure (基础设施层)
 ```
 
 - **Interfaces**：20 个控制器负责 HTTP/WebSocket 请求路由、参数校验、响应序列化
-- **Application**：应用服务编排业务流程，包含 `FriendApplicationService`、`InteractionApplicationService`、`StoneApplicationService`、`UserApplicationService` 及事件处理器
+- **Application**：应用服务编排业务流程，包含 `InteractionApplicationService`、`StoneApplicationService`、`UserApplicationService` 及事件处理器
 - **Domain**：纯业务逻辑，划分为 `user`、`stone`、`friend` 三个子域，每个子域包含 entities、repositories（接口）、services
 - **Infrastructure**：技术实现层，提供 AI、缓存、事件总线、过滤器、隐私、实时通信、向量索引等基础能力
 

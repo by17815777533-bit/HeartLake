@@ -269,16 +269,7 @@ int main(int argc, char *argv[]) {
         auto& app = drogon::app();
 
         // 从环境变量读取配置
-        const char* db_host = std::getenv("DB_HOST");
-        const char* db_port_str = std::getenv("DB_PORT");
-        const char* db_name = std::getenv("DB_NAME");
-        const char* db_user = std::getenv("DB_USER");
         const char* db_password = std::getenv("DB_PASSWORD");
-        const char* db_pool_size_str = std::getenv("DB_CONNECTION_POOL_SIZE");
-        if (!db_pool_size_str || *db_pool_size_str == '\0') {
-            db_pool_size_str = std::getenv("DB_POOL_SIZE");
-        }
-        const char* db_timeout_str = std::getenv("DB_TIMEOUT");
 
         const char* server_host = std::getenv("SERVER_HOST");
         const char* server_port_str = std::getenv("SERVER_PORT");
@@ -294,18 +285,10 @@ int main(int argc, char *argv[]) {
         }
         LOG_INFO << "PASETO_KEY validation passed";
 
-        // 使用默认值或环境变量
-        [[maybe_unused]] std::string dbHost = db_host ? db_host : "127.0.0.1";
-        [[maybe_unused]] int dbPort = db_port_str ? std::atoi(db_port_str) : 5432;
-        [[maybe_unused]] std::string dbName = db_name ? db_name : "heartlake";
-        [[maybe_unused]] std::string dbUser = db_user ? db_user : "postgres";
         if (!db_password) {
             LOG_ERROR << "DB_PASSWORD environment variable is required";
             return 1;
         }
-        [[maybe_unused]] std::string dbPassword = db_password;
-        [[maybe_unused]] int dbPoolSize = db_pool_size_str ? std::atoi(db_pool_size_str) : 50;
-        [[maybe_unused]] double dbTimeout = db_timeout_str ? std::atof(db_timeout_str) : 30.0;
 
         std::string serverHost = server_host ? server_host : "0.0.0.0";
         int serverPort = server_port_str ? std::atoi(server_port_str) : 8080;
