@@ -54,13 +54,37 @@ class ConsultationService extends BaseService {
 
   /// 创建咨询会话
   Future<Map<String, dynamic>> createSession({String? counselorId}) async {
-    if (counselorId != null) {
-      InputValidator.validateUUID(counselorId, '咨询师ID');
-    }
+    final normalizedCounselorId =
+        InputValidator.validateUUID(
+          InputValidator.requireNonEmpty(counselorId, '咨询师ID'),
+          '咨询师ID',
+        );
     final resp = await post('/consultation/session', data: {
-      if (counselorId != null) 'counselor_id': counselorId,
+      'counselor_id': normalizedCounselorId,
     });
-    return toMap(resp);
+    if (!resp.success) return toMap(resp);
+
+    final payload = resp.data is Map
+        ? normalizeConsultationSessionPayload(
+            Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
+          )
+        : <String, dynamic>{};
+    final sessionId = payload['session_id'] ??
+        (resp.data is Map ? (resp.data as Map)['session_id'] : null);
+    final serverPublicKey = payload['server_public_key'] ??
+        (resp.data is Map ? (resp.data as Map)['server_public_key'] : null);
+
+    return {
+      ...toMap(resp),
+      'data': {
+        ...payload,
+        if (sessionId != null) 'session_id': sessionId,
+        if (sessionId != null) 'sessionId': sessionId,
+        if (serverPublicKey != null) 'server_public_key': serverPublicKey,
+      },
+      'session_id': sessionId,
+      'sessionId': sessionId,
+    };
   }
 
   /// 初始化 E2E 加密通道
@@ -114,7 +138,18 @@ class ConsultationService extends BaseService {
           'session_id': sessionId,
           'encrypted': encrypted,
         });
-        return toMap(resp);
+        if (!resp.success) return toMap(resp);
+
+        final payload = resp.data is Map
+            ? normalizeMessagePayload(
+                Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
+              )
+            : <String, dynamic>{};
+        return {
+          ...toMap(resp),
+          'data': payload,
+          'message': payload.isNotEmpty ? payload : resp.message,
+        };
       } catch (e) {
         if (kDebugMode) debugPrint('[ConsultationService] 加密失败，拒绝发送明文: $e');
         return {'success': false, 'message': '消息加密失败，请检查网络后重试'};
@@ -206,14 +241,22 @@ class ConsultationService extends BaseService {
       }),
     );
 
-    result['data'] = {
+    final envelopeWithMessages = {
       ...envelope,
       'messages': normalizedMessages,
       'items': normalizedMessages,
       'list': normalizedMessages,
     };
+    result['data'] = envelopeWithMessages;
 
-    return result;
+    return {
+      ...result,
+      ...buildCollectionEnvelope(
+        envelopeWithMessages,
+        primaryKey: 'messages',
+        items: normalizedMessages,
+      ),
+    };
   }
 
   /// 获取咨询历史会话列表
@@ -231,7 +274,22 @@ class ConsultationService extends BaseService {
       },
       useCache: false,
     );
-    return toMap(resp);
+    if (!resp.success) return toMap(resp);
+
+    final sessions = extractNormalizedList(
+      resp.data,
+      itemNormalizer: normalizeConsultationSessionPayload,
+      listKeys: const ['sessions'],
+    );
+
+    return {
+      ...toMap(resp),
+      ...buildCollectionEnvelope(
+        resp.data,
+        primaryKey: 'sessions',
+        items: sessions,
+      ),
+    };
   }
 
   /// 密钥交换
@@ -247,7 +305,17 @@ class ConsultationService extends BaseService {
       'session_id': sessionId,
       'client_public_key': clientPublicKey,
     });
-    return toMap(resp);
+    if (!resp.success) return toMap(resp);
+    final payload = resp.data is Map
+        ? Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>())
+        : <String, dynamic>{};
+    if (payload['server_public_key'] != null) {
+      payload['serverPublicKey'] = payload['server_public_key'];
+    }
+    return {
+      ...toMap(resp),
+      'data': payload,
+    };
   }
 
   /// E2E 加密通道是否已就绪

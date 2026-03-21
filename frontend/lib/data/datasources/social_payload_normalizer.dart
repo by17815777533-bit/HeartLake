@@ -473,3 +473,61 @@ Map<String, dynamic> normalizeMessagePayload(Map raw) {
 
   return item;
 }
+
+Map<String, dynamic> normalizeConsultationSessionPayload(Map raw) {
+  final item = _asMap(raw);
+
+  final sessionId = _firstValue(item, const ['session_id', 'sessionId', 'id']);
+  if (sessionId != null) {
+    final normalizedSessionId = sessionId.toString();
+    item['session_id'] = normalizedSessionId;
+    item['sessionId'] = normalizedSessionId;
+    item['id'] = normalizedSessionId;
+  }
+
+  final counterpartId = _firstValue(
+    item,
+    const ['counterpart_id', 'counterpartId', 'participant_id', 'participantId'],
+  );
+  if (counterpartId != null) {
+    final normalizedCounterpartId = counterpartId.toString();
+    item['counterpart_id'] = normalizedCounterpartId;
+    item['counterpartId'] = normalizedCounterpartId;
+    item['participant_id'] = normalizedCounterpartId;
+    item['participantId'] = normalizedCounterpartId;
+    item['counselor_id'] = item['counselor_id'] ?? normalizedCounterpartId;
+    item['counselorId'] = item['counselorId'] ?? normalizedCounterpartId;
+  }
+
+  final updatedAt = _firstValue(item, const ['updated_at', 'updatedAt']);
+  if (updatedAt != null) {
+    item['updated_at'] = updatedAt;
+    item['updatedAt'] = updatedAt;
+  }
+
+  final lastMessage = _firstValue(item, const ['last_message', 'lastMessage']);
+  if (lastMessage != null) {
+    item['last_message'] = lastMessage;
+    item['lastMessage'] = lastMessage;
+  }
+
+  final counselorName =
+      _firstValue(item, const ['counselor_name', 'counselorName']);
+  if (counselorName != null) {
+    item['counselor_name'] = counselorName;
+    item['counselorName'] = counselorName;
+  }
+
+  final counselorAvatar = _firstValue(
+    item,
+    const ['counselor_avatar_url', 'counselorAvatarUrl', 'avatar_url', 'avatarUrl'],
+  );
+  if (counselorAvatar != null) {
+    item['counselor_avatar_url'] = counselorAvatar;
+    item['counselorAvatarUrl'] = counselorAvatar;
+    item['avatar_url'] = counselorAvatar;
+    item['avatarUrl'] = counselorAvatar;
+  }
+
+  return item;
+}
