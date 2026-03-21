@@ -1,7 +1,7 @@
-/// 认证服务
-///
-/// 提供匿名登录和账号恢复功能，支持设备ID绑定和恢复密钥机制。
-/// 所有认证数据会同步到本地存储和内存缓存。
+// 认证服务
+//
+// 提供匿名登录和账号恢复功能，支持设备ID绑定和恢复密钥机制。
+// 所有认证数据会同步到本地存储和内存缓存。
 
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
@@ -9,10 +9,35 @@ import 'api_client.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/storage_util.dart';
 
+class StoredAuthSession {
+  final String userId;
+  final String token;
+  final String? nickname;
+
+  const StoredAuthSession({
+    required this.userId,
+    required this.token,
+    this.nickname,
+  });
+}
+
+abstract class AuthDataSource {
+  Future<Map<String, dynamic>> anonymousLogin();
+  Future<StoredAuthSession?> getStoredSession();
+  Future<Map<String, dynamic>> getUserProfile(String userId);
+  Future<Map<String, dynamic>> updateProfile({
+    String? avatarUrl,
+    String? bio,
+    String? nickname,
+  });
+  Future<void> logout();
+  Future<Map<String, dynamic>> updateNickname(String nickname);
+}
+
 /// 认证服务
 ///
 /// 提供匿名登录和账号恢复功能。
-class AuthService extends BaseService {
+class AuthService extends BaseService implements AuthDataSource {
   @override
   String get serviceName => 'AuthService';
 
@@ -47,6 +72,7 @@ class AuthService extends BaseService {
   /// - nickname: 用户昵称
   /// - recovery_key: 恢复密钥
   /// - is_new_user: 是否新用户
+  @override
   Future<Map<String, dynamic>> anonymousLogin() async {
     String? deviceId = await StorageUtil.getDeviceId();
     if (deviceId == null) {
@@ -116,6 +142,7 @@ class AuthService extends BaseService {
   /// 退出登录
   ///
   /// 清除所有本地凭证并标记为主动退出，下次启动进入登录页。
+  @override
   Future<void> logout() async {
     ApiClient().clearToken();
     await StorageUtil.clearAll();
@@ -130,6 +157,7 @@ class AuthService extends BaseService {
   /// [avatarUrl] 头像URL，最长500字符
   /// [bio] 个人简介，最长200字符
   /// [nickname] 昵称，2-20字符
+  @override
   Future<Map<String, dynamic>> updateProfile(
       {String? avatarUrl, String? bio, String? nickname}) async {
     final Map<String, dynamic> data = {};
@@ -189,6 +217,7 @@ class AuthService extends BaseService {
   /// 快捷方法，仅更新昵称。
   ///
   /// [nickname] 新昵称
+  @override
   Future<Map<String, dynamic>> updateNickname(String nickname) async {
     final result = await updateProfile(nickname: nickname);
     if (result['success'] != true) {
@@ -197,6 +226,37 @@ class AuthService extends BaseService {
     return {
       'success': true,
       'nickname': result['nickname'],
+    };
+  }
+
+  @override
+  Future<StoredAuthSession?> getStoredSession() async {
+    final userId = await StorageUtil.getUserId();
+    final token = await StorageUtil.getToken();
+    if (userId == null || token == null) {
+      return null;
+    }
+    return StoredAuthSession(
+      userId: userId,
+      token: token,
+      nickname: await StorageUtil.getNickname(),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    InputValidator.validateUUID(userId, '用户ID');
+    final response = await get('/users/$userId');
+    if (!response.success) {
+      return toMap(response);
+    }
+    final user = response.data;
+    if (user is! Map<String, dynamic>) {
+      return {'success': false, 'message': '服务器返回数据不完整'};
+    }
+    return {
+      'success': true,
+      'user': user,
     };
   }
 }

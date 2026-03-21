@@ -10,6 +10,12 @@ import 'package:flutter/foundation.dart';
 import '../../utils/app_config.dart';
 import '../../utils/app_logger.dart';
 
+abstract class CacheStore {
+  T? get<T>(String key);
+  void set<T>(String key, T data, {Duration? ttl});
+  void removeByPrefix(String prefix);
+}
+
 /// 缓存条目
 ///
 /// 内部类，存储缓存数据、时间戳和有效期。
@@ -38,7 +44,7 @@ class _CacheEntry<T> {
 /// 缓存服务
 ///
 /// 使用最旧优先淘汰策略的内存缓存管理器。
-class CacheService {
+class CacheService implements CacheStore {
   static final CacheService _instance = CacheService._internal();
   factory CacheService() => _instance;
   CacheService._internal();
@@ -66,6 +72,7 @@ class CacheService {
   /// [key] 缓存键
   /// [data] 缓存数据
   /// [ttl] 有效期，默认使用配置的石头缓存时长
+  @override
   void set<T>(String key, T data, {Duration? ttl}) {
     // 检查缓存大小限制
     if (_cache.length >= appConfig.maxCacheEntries) {
@@ -91,6 +98,7 @@ class CacheService {
   /// 返回缓存数据，如果不存在或已过期返回null。
   ///
   /// [key] 缓存键
+  @override
   T? get<T>(String key) {
     final entry = _cache[key];
 
@@ -128,13 +136,16 @@ class CacheService {
   /// 删除指定前缀的所有缓存
   ///
   /// [prefix] 缓存键前缀
+  @override
   void removeByPrefix(String prefix) {
-    final keysToRemove = _cache.keys.where((key) => key.startsWith(prefix)).toList();
+    final keysToRemove =
+        _cache.keys.where((key) => key.startsWith(prefix)).toList();
     for (final key in keysToRemove) {
       _cache.remove(key);
     }
     if (keysToRemove.isNotEmpty) {
-      logger.debug('已删除${keysToRemove.length}个前缀为"$prefix"的缓存', category: LogCategory.system);
+      logger.debug('已删除${keysToRemove.length}个前缀为"$prefix"的缓存',
+          category: LogCategory.system);
     }
   }
 

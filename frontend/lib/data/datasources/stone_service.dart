@@ -7,10 +7,28 @@ import 'base_service.dart';
 import 'cache_service.dart';
 import 'social_payload_normalizer.dart';
 
+abstract class StoneDataSource {
+  Future<Map<String, dynamic>> createStone({
+    required String content,
+    required String stoneType,
+    required String stoneColor,
+    String? moodType,
+    bool isAnonymous = true,
+    List<String>? tags,
+  });
+  Future<Map<String, dynamic>> getStones({
+    int page = 1,
+    int pageSize = 20,
+    String sort = 'latest',
+  });
+  Future<Map<String, dynamic>> deleteStone(String stoneId);
+  Future<Map<String, dynamic>> getStoneDetail(String stoneId);
+}
+
 /// 石头（帖子）服务，负责石头的发布、列表查询、详情获取和删除
 ///
 /// 列表接口通过 [CircuitBreaker] 做熔断保护，熔断时降级到本地缓存。
-class StoneService extends BaseService {
+class StoneService extends BaseService implements StoneDataSource {
   @override
   String get serviceName => 'StoneService';
 
@@ -49,6 +67,7 @@ class StoneService extends BaseService {
   /// 发布一颗石头，内容经过 XSS 过滤和长度校验
   ///
   /// 后端返回 403 表示高危内容被拦截，此时返回 high_risk 标记。
+  @override
   Future<Map<String, dynamic>> createStone({
     required String content,
     required String stoneType,
@@ -111,6 +130,7 @@ class StoneService extends BaseService {
   /// 获取湖面石头列表，支持分页和排序
   ///
   /// 通过熔断器保护，失败时降级到本地缓存数据。
+  @override
   Future<Map<String, dynamic>> getStones({
     int page = 1,
     int pageSize = 20,
@@ -184,6 +204,7 @@ class StoneService extends BaseService {
   }
 
   /// 删除指定石头
+  @override
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await delete('/stones/$stoneId');
@@ -191,6 +212,7 @@ class StoneService extends BaseService {
   }
 
   /// 获取单颗石头的详细信息
+  @override
   Future<Map<String, dynamic>> getStoneDetail(String stoneId) async {
     InputValidator.validateUUID(stoneId, '石头ID');
     final response = await get('/stones/$stoneId');

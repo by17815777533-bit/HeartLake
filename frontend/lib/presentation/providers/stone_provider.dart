@@ -1,8 +1,8 @@
-/// 石头状态管理
-///
-/// 统一管理石头列表、投石、分页、缓存与 WebSocket 实时更新。
-/// 通过 WebSocket 监听新石头、涟漪、纸船、删除等事件自动同步列表数据。
-/// 依赖 [StoneService] 完成后端交互，依赖 [CacheService] 做分页缓存兜底。
+// 石头状态管理
+//
+// 统一管理石头列表、投石、分页、缓存与 WebSocket 实时更新。
+// 通过 WebSocket 监听新石头、涟漪、纸船、删除等事件自动同步列表数据。
+// 依赖 [StoneDataSource]、[CacheStore] 和 [WebSocketClient] 完成交互。
 
 library;
 
@@ -23,9 +23,9 @@ import '../../utils/payload_contract.dart';
 ///   自动同步列表数据，无需手动刷新
 /// - 本地缓存兜底，网络异常时展示上次成功数据
 class StoneProvider with ChangeNotifier {
-  final StoneService _stoneService = sl<StoneService>();
-  final CacheService _cache = CacheService();
-  final WebSocketManager _wsManager = WebSocketManager();
+  final StoneDataSource _stoneService;
+  final CacheStore _cache;
+  final WebSocketClient _wsManager;
 
   // 石头列表状态
   List<Stone> _stones = [];
@@ -57,8 +57,44 @@ class StoneProvider with ChangeNotifier {
   /// 缓存 key 前缀，按分页存储
   static const String _cachePrefix = 'stones_';
 
-  StoneProvider() {
+  StoneProvider({
+    StoneDataSource? stoneService,
+    CacheStore? cache,
+    WebSocketClient? wsManager,
+  })  : _stoneService = stoneService ?? sl<StoneService>(),
+        _cache = cache ?? CacheService(),
+        _wsManager = wsManager ?? WebSocketManager() {
     _initWebSocketListeners();
+  }
+
+  bool _resolveHasMore(
+    Map<String, dynamic> result, {
+    required int page,
+    required int itemCount,
+  }) {
+    final pagination = result['pagination'];
+    if (pagination is Map<String, dynamic>) {
+      final hasMore = pagination['has_more'] ?? pagination['hasMore'];
+      if (hasMore is bool) {
+        return hasMore;
+      }
+      final totalPages = pagination['total_pages'] ?? pagination['totalPages'];
+      if (totalPages is num) {
+        return page < totalPages.toInt();
+      }
+      final total = pagination['total'];
+      final pageSize = pagination['page_size'] ?? pagination['pageSize'];
+      if (total is num && pageSize is num && pageSize.toInt() > 0) {
+        return page * pageSize.toInt() < total.toInt();
+      }
+    }
+
+    final hasMore = result['has_more'] ?? result['hasMore'];
+    if (hasMore is bool) {
+      return hasMore;
+    }
+
+    return itemCount > 0;
   }
 
   void _rebuildStoneIndex() {
@@ -270,13 +306,26 @@ class StoneProvider with ChangeNotifier {
 
     try {
       final page = refresh ? 1 : _currentPage;
+      final cacheKey = '${_cachePrefix}page_$page';
 
       // 尝试读取缓存
       if (!refresh) {
-        final cached = _cache.get<List<Stone>>('${_cachePrefix}page_$page');
-        if (cached != null) {
-          _stones.addAll(cached);
+        final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+        final cachedStones = (cached?['stones'] as List?)?.cast<Stone>();
+        if (cached != null && cachedStones != null) {
+          if (page == 1) {
+            _stones = List<Stone>.from(cachedStones);
+          } else {
+            _stones.addAll(cachedStones);
+          }
           _rebuildStoneIndex();
+          _currentPage = page;
+          _hasMore = _resolveHasMore(
+            cached,
+            page: page,
+            itemCount: cachedStones.length,
+          );
+          _errorMessage = null;
           _isLoading = false;
           notifyListeners();
           return;
@@ -288,21 +337,25 @@ class StoneProvider with ChangeNotifier {
       if (result['success'] == true) {
         final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
 
-        if (refresh) {
+        if (refresh || page == 1) {
           _stones = newStones;
-          _currentPage = 1;
         } else {
           _stones.addAll(newStones);
         }
+        _currentPage = page;
         _rebuildStoneIndex();
-        _hasMore = newStones.isNotEmpty;
+        _hasMore = _resolveHasMore(
+          result,
+          page: page,
+          itemCount: newStones.length,
+        );
         _errorMessage = null;
 
         // 写入缓存
-        _cache.set<List<Stone>>(
-          '${_cachePrefix}page_${refresh ? 1 : page}',
-          newStones,
-        );
+        _cache.set<Map<String, dynamic>>(cacheKey, {
+          ...result,
+          'stones': newStones,
+        });
       } else {
         throw Exception(result['message'] ?? '加载失败');
       }
@@ -332,15 +385,21 @@ class StoneProvider with ChangeNotifier {
 
       if (result['success'] == true) {
         final newStones = (result['stones'] as List?)?.cast<Stone>() ?? [];
+        _hasMore = _resolveHasMore(
+          result,
+          page: page,
+          itemCount: newStones.length,
+        );
 
-        if (newStones.isEmpty) {
-          _hasMore = false;
-        } else {
+        if (newStones.isNotEmpty) {
           _stones.addAll(newStones);
           _currentPage = page;
           _rebuildStoneIndex();
 
-          _cache.set<List<Stone>>('${_cachePrefix}page_$page', newStones);
+          _cache.set<Map<String, dynamic>>('${_cachePrefix}page_$page', {
+            ...result,
+            'stones': newStones,
+          });
         }
       }
     } catch (e) {

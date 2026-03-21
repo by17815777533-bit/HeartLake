@@ -16,6 +16,11 @@ abstract class WebSocketClient {
   void off(String eventType, [void Function(Map<String, dynamic>)? listener]);
 }
 
+abstract class RealtimeClient extends WebSocketClient {
+  Future<bool> connect();
+  void disconnect();
+}
+
 /// WebSocket 广播管理器（单例），负责实时消息推送
 ///
 /// 核心机制：
@@ -23,7 +28,7 @@ abstract class WebSocketClient {
 /// - 房间采用引用计数，多页面订阅同一房间不会互相误退
 /// - 断线后指数退避自动重连，离线期间消息暂存队列
 /// - 心跳检测由后端驱动（30s ping），客户端回 pong 并监测半开连接
-class WebSocketManager implements WebSocketClient {
+class WebSocketManager implements RealtimeClient {
   static final WebSocketManager _instance = WebSocketManager._internal();
   factory WebSocketManager() => _instance;
   WebSocketManager._internal();
@@ -62,6 +67,7 @@ class WebSocketManager implements WebSocketClient {
 
   /// 连接 WebSocket
   /// 后端在握手阶段要求 URL query 带 token，否则会立即断开连接
+  @override
   Future<bool> connect() async {
     if (_isConnected) return true;
 
@@ -124,6 +130,7 @@ class WebSocketManager implements WebSocketClient {
   }
 
   /// 断开连接
+  @override
   void disconnect() {
     _isConnected = false;
     _lastPongTime = null;

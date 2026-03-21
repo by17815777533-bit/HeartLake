@@ -1,15 +1,15 @@
-/// 用户状态管理
-///
-/// 管理匿名登录、本地会话恢复、用户信息加载与更新等认证流程。
-/// 登录成功后自动建立 WebSocket 连接，登出时断开并清理本地存储。
-/// 依赖 [AuthService] 完成认证交互，依赖 [StorageUtil] 做本地持久化。
+// 用户状态管理
+//
+// 管理匿名登录、本地会话恢复、用户信息加载与更新等认证流程。
+// 登录成功后自动建立 WebSocket 连接，登出时断开并清理本地存储。
+// 依赖 [AuthDataSource] 与 [RealtimeClient] 完成会话交互。
+
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
-import '../../data/datasources/api_client.dart';
-import '../../utils/storage_util.dart';
 import '../../di/service_locator.dart';
 
 /// 用户认证与会话状态管理器
@@ -17,9 +17,8 @@ import '../../di/service_locator.dart';
 /// 维护当前登录用户的完整生命周期：匿名登录 -> 会话恢复 -> 资料更新 -> 登出。
 /// 登录成功后自动建立 WebSocket 连接，登出时断开并清理本地存储。
 class UserProvider with ChangeNotifier {
-  final AuthService _authService = sl<AuthService>();
-  final WebSocketManager _wsManager = WebSocketManager();
-  final ApiClient _apiClient = ApiClient();
+  final AuthDataSource _authService;
+  final RealtimeClient _wsManager;
 
   User? _user;
   bool _isLoading = false;
@@ -33,6 +32,12 @@ class UserProvider with ChangeNotifier {
   bool get isVIP => _user?.isVIP ?? false;
   String? get userId => _user?.userId;
   String? get nickname => _user?.nickname;
+
+  UserProvider({
+    AuthDataSource? authService,
+    RealtimeClient? wsManager,
+  })  : _authService = authService ?? sl<AuthService>(),
+        _wsManager = wsManager ?? WebSocketManager();
 
   /// 释放资源，断开WebSocket连接
   @override
@@ -51,14 +56,20 @@ class UserProvider with ChangeNotifier {
     try {
       final result = await _authService.anonymousLogin();
       if (result['success'] == true) {
-        _user = User(userId: result['user_id'], nickname: result['nickname'], isAnonymous: true);
+        _user = User(
+          userId: result['user_id'],
+          nickname: result['nickname'] ?? '用户',
+          isAnonymous: true,
+        );
         _isAnonymous = true;
-        _wsManager.connect();
+        unawaited(_wsManager.connect());
         return true;
       }
       return false;
     } catch (e) {
-      if (kDebugMode) { debugPrint('匿名登录失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('匿名登录失败: $e');
+      }
       return false;
     } finally {
       _isLoading = false;
@@ -70,25 +81,25 @@ class UserProvider with ChangeNotifier {
   ///
   /// 先用本地缓存构建临时User，再通过refreshProfile获取最新数据。
   Future<bool> restoreUser() async {
-    final userId = await StorageUtil.getUserId();
-    final nickname = await StorageUtil.getNickname();
-    final token = await StorageUtil.getToken();
+    final session = await _authService.getStoredSession();
+    if (session == null) return false;
 
-    if (userId != null && token != null) {
-      // 先临时标记为匿名，refreshProfile 成功后根据实际数据更新
-      _user = User(userId: userId, nickname: nickname ?? '用户', isAnonymous: true);
-      _isAnonymous = true;
+    // 先临时标记为匿名，refreshProfile 成功后根据实际数据更新
+    _user = User(
+      userId: session.userId,
+      nickname: session.nickname ?? '用户',
+      isAnonymous: true,
+    );
+    _isAnonymous = true;
+    notifyListeners();
+    unawaited(_wsManager.connect());
+    await refreshProfile();
+    // refreshProfile 成功后，根据实际用户数据判断是否匿名
+    if (_user != null) {
+      _isAnonymous = _user!.isAnonymous;
       notifyListeners();
-      _wsManager.connect();
-      await refreshProfile();
-      // refreshProfile 成功后，根据实际用户数据判断是否匿名
-      if (_user != null) {
-        _isAnonymous = _user!.isAnonymous;
-        notifyListeners();
-      }
-      return true;
     }
-    return false;
+    return true;
   }
 
   /// 刷新用户资料
@@ -97,14 +108,15 @@ class UserProvider with ChangeNotifier {
   Future<void> refreshProfile() async {
     if (_user == null) return;
     try {
-      final response = await _apiClient.get('/users/${_user!.userId}');
-      if (response.statusCode == 200 && response.data['code'] == 0) {
-        final data = response.data['data'];
-        _user = User.fromJson(data);
+      final result = await _authService.getUserProfile(_user!.userId);
+      if (result['success'] == true && result['user'] is Map<String, dynamic>) {
+        _user = User.fromJson(result['user'] as Map<String, dynamic>);
         notifyListeners();
       }
     } catch (e) {
-      if (kDebugMode) { debugPrint('刷新资料失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('刷新资料失败: $e');
+      }
     }
   }
 
@@ -116,13 +128,14 @@ class UserProvider with ChangeNotifier {
       final result = await _authService.updateNickname(nickname);
       if (result['success'] == true && _user != null) {
         _user = _user!.copyWith(nickname: nickname);
-        await StorageUtil.saveNickname(nickname);
         notifyListeners();
         return true;
       }
       return false;
     } catch (e) {
-      if (kDebugMode) { debugPrint('更新昵称失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('更新昵称失败: $e');
+      }
       return false;
     }
   }
@@ -132,18 +145,22 @@ class UserProvider with ChangeNotifier {
   /// [nickname] 昵称
   /// [avatarUrl] 头像URL
   /// [bio] 个人简介
-  Future<bool> updateProfile({String? nickname, String? avatarUrl, String? bio}) async {
+  Future<bool> updateProfile(
+      {String? nickname, String? avatarUrl, String? bio}) async {
     try {
-      final result = await _authService.updateProfile(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+      final result = await _authService.updateProfile(
+          nickname: nickname, avatarUrl: avatarUrl, bio: bio);
       if (result['success'] == true && _user != null) {
-        _user = _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
-        if (nickname != null) await StorageUtil.saveNickname(nickname);
+        _user =
+            _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
         notifyListeners();
         return true;
       }
       return false;
     } catch (e) {
-      if (kDebugMode) { debugPrint('更新资料失败: $e'); }
+      if (kDebugMode) {
+        debugPrint('更新资料失败: $e');
+      }
       return false;
     }
   }
@@ -165,5 +182,4 @@ class UserProvider with ChangeNotifier {
     _isAnonymous = false;
     notifyListeners();
   }
-
 }
