@@ -74,6 +74,35 @@ static int resolveHighRiskTotal(const drogon::orm::DbClientPtr &dbClient,
                   "SELECT COUNT(*) as total FROM high_risk_events"));
 }
 
+static bool isValidHighRiskEventStatus(const std::string &status) {
+    return status == "pending" || status == "handled" ||
+           status == "dismissed" || status == "escalated";
+}
+
+static std::pair<int, int> parseLimitOffset(const HttpRequestPtr &req,
+                                            int defaultLimit = 50,
+                                            int maxLimit = 1000) {
+    int limit = defaultLimit;
+    int offset = 0;
+
+    const std::string limitStr = req->getParameter("limit");
+    const std::string offsetStr = req->getParameter("offset");
+    if (!limitStr.empty()) {
+        limit = safeInt(limitStr, defaultLimit);
+    }
+    if (!offsetStr.empty()) {
+        offset = safeInt(offsetStr, 0);
+    }
+
+    if (limit < 1 || limit > maxLimit) {
+        limit = defaultLimit;
+    }
+    if (offset < 0) {
+        offset = 0;
+    }
+    return {limit, offset};
+}
+
 static Json::Value parseJsonColumn(const drogon::orm::Row &row,
                                    const char *column,
                                    Json::ValueType expectedType) {
@@ -624,17 +653,12 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
         auto dbClient = drogon::app().getDbClient("default");
 
         // 获取查询参数
-        std::string status = req->getParameter("status");
-        int limit = 50;
-        int offset = 0;
-        {
-            std::string limitStr = req->getParameter("limit");
-            std::string offsetStr = req->getParameter("offset");
-            if (!limitStr.empty()) limit = safeInt(limitStr, 50);
-            if (!offsetStr.empty()) offset = safeInt(offsetStr, 0);
+        const std::string status = req->getParameter("status");
+        if (!status.empty() && !isValidHighRiskEventStatus(status)) {
+            callback(ResponseUtil::badRequest("无效的高风险事件状态"));
+            return;
         }
-        if (limit < 1 || limit > 1000) limit = 50;
-        if (offset < 0) offset = 0;
+        const auto [limit, offset] = parseLimitOffset(req);
 
         // 使用参数化查询防止SQL注入
         auto result = !status.empty()
