@@ -1,9 +1,10 @@
 /**
  * 咨询室控制器 - 端到端加密心理咨询通信
  *
- * 基于 E2EE（端到端加密）实现用户与咨询师之间的安全通信。
+ * 基于会话级 E2EE 参数协商实现用户与咨询师之间的安全通信。
  * 消息在客户端加密后传输，服务端仅存储密文，无法读取明文内容。
- * 密钥交换采用 X25519 ECDH 协议，确保前向安全性。
+ * 密钥交换对客户端暴露稳定的 `server_public_key + salt` 协商参数，
+ * 客户端据此派生会话密钥并发送结构化 AES-GCM 密文 envelope。
  *
  * 所有端点经 SecurityAuditFilter 进行 PASETO 令牌校验。
  */
@@ -51,8 +52,8 @@ public:
      * @brief X25519 密钥交换
      * @details POST /api/consultation/key-exchange
      *
-     * 双方各自提交公钥，服务端中转后双方可独立计算共享密钥。
-     * 请求体: { "session_id": "...", "public_key": "base64编码公钥" }
+     * 请求体: { "session_id": "...", "client_public_key": "base64编码公钥" }
+     * 兼容旧客户端的 `public_key` 字段。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -64,7 +65,10 @@ public:
      * @brief 发送加密消息
      * @details POST /api/consultation/message
      *
-     * 请求体: { "session_id": "...", "ciphertext": "base64密文", "nonce": "..." }
+     * 请求体: {
+     *   "session_id": "...",
+     *   "encrypted": { "ciphertext": "...", "iv": "...", "tag": "..." }
+     * }
      *
      * @param req HTTP 请求
      * @param callback 响应回调

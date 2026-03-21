@@ -2,9 +2,9 @@
  * @file ConsultationController.cpp
  * @brief 心理咨询室控制器 — E2EE 端到端加密会话管理
  *
- * 实现用户与咨询师之间的加密通信：createSession 生成会话并分配服务端密钥，
- * exchangeKey 完成 Diffie-Hellman 风格的密钥交换，sendMessage 存储
- * AES-GCM 密文（ciphertext + iv + tag），getMessages 按时序返回加密消息。
+ * 实现用户与咨询师之间的加密通信：createSession 生成会话并分配服务端会话种子，
+ * exchangeKey 稳定返回同一组协商参数，sendMessage 存储
+ * AES-GCM 密文（ciphertext + iv + tag），getMessages 按时序返回分页加密消息。
  * 所有操作均验证用户为会话参与方，使用 IdentityShadowMap 隐藏真实身份。
  * 会话 ID 由 OpenSSL RAND_bytes 生成，保证不可预测。
  */
@@ -143,13 +143,18 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
     }
 
     auto json = req->getJsonObject();
-    if (!json || !json->isMember("session_id") || !json->isMember("client_public_key")) {
+    const std::string clientKey =
+        json && json->isMember("client_public_key")
+            ? (*json)["client_public_key"].asString()
+            : (json && json->isMember("public_key")
+                   ? (*json)["public_key"].asString()
+                   : std::string{});
+    if (!json || !json->isMember("session_id") || clientKey.empty()) {
         callback(ResponseUtil::badRequest("参数不完整"));
         return;
     }
 
     std::string sessionId = (*json)["session_id"].asString();
-    std::string clientKey = (*json)["client_public_key"].asString();
     if (sessionId.empty() || sessionId.size() > 64 || clientKey.empty() ||
         clientKey.size() > 4096) {
         callback(ResponseUtil::badRequest("session_id或client_public_key无效"));
@@ -160,15 +165,20 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
     // 验证用户是会话参与者后才允许密钥交换
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "UPDATE consultation_sessions SET client_key = $1, key_salt = $2, status = 'active' "
-        "WHERE id = $3 AND (user_id = $4 OR counselor_id = $4)",
-        [callback, salt](const orm::Result& r) {
-            if (r.affectedRows() == 0) {
+        "UPDATE consultation_sessions "
+        "SET client_key = $1, "
+        "    key_salt = COALESCE(key_salt, $2), "
+        "    status = 'active' "
+        "WHERE id = $3 AND (user_id = $4 OR counselor_id = $4) "
+        "RETURNING server_key, key_salt",
+        [callback](const orm::Result& r) {
+            if (r.empty()) {
                 callback(ResponseUtil::forbidden("无权操作此会话"));
                 return;
             }
             Json::Value resp;
-            resp["salt"] = salt;
+            resp["server_public_key"] = r[0]["server_key"].as<std::string>();
+            resp["salt"] = r[0]["key_salt"].as<std::string>();
             resp["status"] = "key_exchanged";
             callback(ResponseUtil::success(resp));
         },

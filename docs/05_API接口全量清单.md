@@ -294,6 +294,13 @@ POST `/api/edge-ai/analyze` 请求体：
 | GET | `/api/consultation/messages/{sessionId}` | Bearer | 获取咨询消息列表 |
 | GET | `/api/consultation/sessions` | Bearer | 获取当前用户咨询会话列表 |
 
+咨询密钥交换与消息契约：
+
+- `POST /api/consultation/key-exchange` 请求体使用 `session_id + client_public_key`；兼容旧客户端 `public_key`
+- 响应体返回稳定的 `server_public_key + salt + status`，客户端据此派生会话密钥
+- `POST /api/consultation/message` 请求体使用 `encrypted = { ciphertext, iv, tag }`
+- 消息与会话列表均返回标准分页集合载荷，客户端不应丢弃 `total/page/page_size/has_more`
+
 ---
 
 ## ReportController — 举报

@@ -273,6 +273,12 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | GET | `/api/consultation/messages/{sessionId}` | Bearer | 咨询消息分页列表 |
 | GET | `/api/consultation/sessions` | Bearer | 当前用户咨询会话列表 |
 
+咨询链路约定：
+
+- `key-exchange` 发送 `client_public_key`，服务端返回 `server_public_key + salt`
+- `message` 发送结构化 AES-GCM envelope：`encrypted.ciphertext / encrypted.iv / encrypted.tag`
+- `messages` / `sessions` 都保留标准分页字段，客户端按集合载荷解析
+
 ### 4.9 其他
 
 | 方法 | 路径 | 认证 | 说明 |
