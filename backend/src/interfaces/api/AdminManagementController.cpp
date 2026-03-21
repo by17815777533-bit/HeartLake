@@ -95,6 +95,49 @@ int extractWindowTotal(const drogon::orm::Result& result,
         ? 0
         : result[0][column].as<int>();
 }
+
+drogon::orm::Result execSqlWithStringParams(
+    const drogon::orm::DbClientPtr &dbClient,
+    const std::string &sql,
+    const std::vector<std::string> &params) {
+    switch (params.size()) {
+        case 0: return dbClient->execSqlSync(sql);
+        case 1: return dbClient->execSqlSync(sql, params[0]);
+        case 2: return dbClient->execSqlSync(sql, params[0], params[1]);
+        case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
+        case 4: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3]);
+        default: throw std::invalid_argument("SQL 参数数量超出支持范围");
+    }
+}
+
+drogon::orm::Result execSqlWithStringParamsAndPagination(
+    const drogon::orm::DbClientPtr &dbClient,
+    const std::string &sql,
+    const std::vector<std::string> &params,
+    int64_t limit,
+    int64_t offset) {
+    switch (params.size()) {
+        case 0: return dbClient->execSqlSync(sql, limit, offset);
+        case 1: return dbClient->execSqlSync(sql, params[0], limit, offset);
+        case 2: return dbClient->execSqlSync(sql, params[0], params[1], limit, offset);
+        case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2], limit, offset);
+        case 4: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3], limit, offset);
+        default: throw std::invalid_argument("SQL 参数数量超出支持范围");
+    }
+}
+
+int resolveWindowTotalOrFallbackCount(
+    const drogon::orm::DbClientPtr &dbClient,
+    const drogon::orm::Result &result,
+    int64_t offset,
+    const std::string &countSql,
+    const std::vector<std::string> &params) {
+    const int total = extractWindowTotal(result);
+    if (!result.empty() || offset <= 0) {
+        return total;
+    }
+    return safeCount(execSqlWithStringParams(dbClient, countSql, params));
+}
 }
 
 void AdminManagementController::getUsers(const HttpRequestPtr &req,
@@ -622,10 +665,11 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
                                                      std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
         const auto resultFilter = req->getParameter("result");
 
         auto dbClient = app().getDbClient("default");
+        std::string countSql = "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1";
         std::string querySql =
             "SELECT ml.log_id, ml.action, ml.reason, ml.operator_id, ml.created_at, ml.target_type, ml.target_id, "
             "COALESCE(s.content, b.content, u.nickname, ml.target_id) as target_preview, "
@@ -638,31 +682,19 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
         std::vector<std::string> params;
 
         if ((resultFilter == "approved" || resultFilter == "rejected")) {
+            countSql += " AND ml.action = $1";
             querySql += " AND ml.action = $1";
             params.push_back(resultFilter);
         }
 
-        querySql += " ORDER BY ml.created_at DESC LIMIT " + std::to_string(pageSize) +
-            " OFFSET " + std::to_string(offset);
+        querySql += " ORDER BY ml.created_at DESC LIMIT $" +
+            std::to_string(params.size() + 1) +
+            " OFFSET $" + std::to_string(params.size() + 2);
 
-        auto execWithParams = [&](const std::string& sql) {
-            if (params.empty()) {
-                return dbClient->execSqlSync(sql);
-            }
-            return dbClient->execSqlSync(sql, params[0]);
-        };
-
-        auto result = execWithParams(querySql);
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            auto countResult = params.empty()
-                ? dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1")
-                : dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM moderation_logs ml WHERE 1=1 AND ml.action = $1",
-                    params[0]);
-            total = safeCount(countResult);
-        }
+        auto result = execSqlWithStringParamsAndPagination(
+            dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -689,12 +721,13 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                                            std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
         const auto status = req->getParameter("status");
         const auto reason = req->getParameter("type");
 
         auto dbClient = app().getDbClient("default");
+        std::string countSql = "SELECT COUNT(*) as total FROM reports r WHERE 1=1";
         std::string querySql =
             "SELECT r.report_id, r.reporter_id, r.target_type, r.target_id, r.reason, r.description, r.status, r.created_at, "
             "COALESCE(s.content, '') as stone_content, COALESCE(b.content, '') as boat_content, COALESCE(ut.nickname, '') as user_target_nickname, "
@@ -708,11 +741,13 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
         int paramIdx = 1;
 
         if (!status.empty() && isValidReportStatus(status)) {
+            countSql += " AND r.status = $" + std::to_string(paramIdx);
             querySql += " AND r.status = $" + std::to_string(paramIdx);
             params.push_back(status);
             paramIdx++;
         }
         if (!reason.empty()) {
+            countSql += " AND r.reason = $" + std::to_string(paramIdx);
             querySql += " AND r.reason = $" + std::to_string(paramIdx);
             params.push_back(reason);
             paramIdx++;
@@ -723,37 +758,10 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
         querySql += " ORDER BY r.created_at DESC LIMIT $" + std::to_string(limitParam) +
                     " OFFSET $" + std::to_string(offsetParam);
 
-        auto execWithParams = [&]() {
-            switch (params.size()) {
-                case 0: return dbClient->execSqlSync(
-                    querySql, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-                case 1: return dbClient->execSqlSync(
-                    querySql, params[0], static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-                case 2: return dbClient->execSqlSync(
-                    querySql, params[0], params[1], static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
-                default: throw std::invalid_argument("SQL 参数数量超出支持范围");
-            }
-        };
-
-        auto result = execWithParams();
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            if (params.size() == 2) {
-                total = safeCount(dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1 AND r.reason = $2",
-                    params[0], params[1]));
-            } else if (params.size() == 1 && !status.empty() && isValidReportStatus(status)) {
-                total = safeCount(dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1",
-                    params[0]));
-            } else if (params.size() == 1) {
-                total = safeCount(dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM reports r WHERE r.reason = $1",
-                    params[0]));
-            } else {
-                total = safeCount(dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports r"));
-            }
-        }
+        auto result = execSqlWithStringParamsAndPagination(
+            dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -843,7 +851,7 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
                                                   std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
         const auto keyword = req->getParameter("keyword");
         const auto level = req->getParameter("level");
 
@@ -881,24 +889,15 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
             "created_at, "
             "COUNT(*) OVER() AS total_count "
             "FROM sensitive_words" + whereClause +
-            " ORDER BY created_at DESC LIMIT " + std::to_string(pageSize) +
-            " OFFSET " + std::to_string(offset);
+            " ORDER BY created_at DESC LIMIT $" + std::to_string(params.size() + 1) +
+            " OFFSET $" + std::to_string(params.size() + 2);
+        const std::string countSql =
+            "SELECT COUNT(*) as total FROM sensitive_words" + whereClause;
 
-        auto execWithParams = [&](const std::string &sql) {
-            switch (params.size()) {
-                case 0: return dbClient->execSqlSync(sql);
-                case 1: return dbClient->execSqlSync(sql, params[0]);
-                default: return dbClient->execSqlSync(sql, params[0], params[1]);
-            }
-        };
-
-        auto result = execWithParams(querySql);
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            const std::string countSql = "SELECT COUNT(*) as total FROM sensitive_words" + whereClause;
-            auto countResult = execWithParams(countSql);
-            total = safeCount(countResult);
-        }
+        auto result = execSqlWithStringParamsAndPagination(
+            dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value words(Json::arrayValue);
         for (const auto &row : result) {
@@ -1104,8 +1103,9 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
     try {
         auto dbClient = app().getDbClient("default");
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
+        std::string countSql = "SELECT COUNT(*) as total FROM operation_logs WHERE 1=1";
         std::string querySql =
             "SELECT id, admin_id, action, target_type, target_id, detail as details, created_at, "
             "COUNT(*) OVER() AS total_count "
@@ -1119,62 +1119,42 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         const auto endDate = req->getParameter("end_date");
 
         if (!adminId.empty()) {
+            countSql += " AND admin_id = $" + std::to_string(paramIdx);
             querySql += " AND admin_id = $" + std::to_string(paramIdx);
             params.push_back(adminId);
             paramIdx++;
         }
 
         if (!action.empty()) {
+            countSql += " AND action = $" + std::to_string(paramIdx);
             querySql += " AND action = $" + std::to_string(paramIdx);
             params.push_back(action);
             paramIdx++;
         }
 
         if (!startDate.empty()) {
+            countSql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
             querySql += " AND created_at >= $" + std::to_string(paramIdx) + "::date";
             params.push_back(startDate);
             paramIdx++;
         }
 
         if (!endDate.empty()) {
+            countSql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
             querySql += " AND created_at < ($" + std::to_string(paramIdx) + "::date + INTERVAL '1 day')";
             params.push_back(endDate);
             paramIdx++;
         }
 
-        querySql += " ORDER BY created_at DESC LIMIT " + std::to_string(pageSize) +
-                    " OFFSET " + std::to_string(offset);
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY created_at DESC LIMIT $" + std::to_string(limitParam) +
+                    " OFFSET $" + std::to_string(offsetParam);
 
-        auto execWithParams = [&](const std::string &sql) {
-            switch (params.size()) {
-                case 0: return dbClient->execSqlSync(sql);
-                case 1: return dbClient->execSqlSync(sql, params[0]);
-                case 2: return dbClient->execSqlSync(sql, params[0], params[1]);
-                case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
-                default: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3]);
-            }
-        };
-
-        auto result = execWithParams(querySql);
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            std::string countSql = "SELECT COUNT(*) as total FROM operation_logs WHERE 1=1";
-            int countParamIdx = 1;
-            if (!adminId.empty()) {
-                countSql += " AND admin_id = $" + std::to_string(countParamIdx++);
-            }
-            if (!action.empty()) {
-                countSql += " AND action = $" + std::to_string(countParamIdx++);
-            }
-            if (!startDate.empty()) {
-                countSql += " AND created_at >= $" + std::to_string(countParamIdx++) + "::date";
-            }
-            if (!endDate.empty()) {
-                countSql += " AND created_at < ($" + std::to_string(countParamIdx) + "::date + INTERVAL '1 day')";
-            }
-            auto countResult = execWithParams(countSql);
-            total = safeCount(countResult);
-        }
+        auto result = execSqlWithStringParamsAndPagination(
+            dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
