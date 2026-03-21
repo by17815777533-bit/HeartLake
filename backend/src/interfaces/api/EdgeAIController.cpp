@@ -12,6 +12,8 @@
 #include "infrastructure/ai/SummaryService.h"
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/AdminConfigStore.h"
+#include "utils/EnvUtils.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 
@@ -89,6 +91,197 @@ std::string normalizeMoodInput(std::string moodRaw) {
 
 float clampUnit(float value) {
     return std::clamp(value, 0.0f, 1.0f);
+}
+
+bool parseJsonBoolValue(const Json::Value& value, bool fallback) {
+    if (value.isBool()) {
+        return value.asBool();
+    }
+    if (value.isIntegral()) {
+        return value.asInt() != 0;
+    }
+    if (value.isString()) {
+        return heartlake::utils::parseBoolEnv(value.asCString(), fallback);
+    }
+    return fallback;
+}
+
+int parseJsonIntValue(const Json::Value& value, int fallback) {
+    if (value.isInt()) {
+        return value.asInt();
+    }
+    if (value.isUInt()) {
+        return static_cast<int>(value.asUInt());
+    }
+    if (value.isString()) {
+        try {
+            return std::stoi(value.asString());
+        } catch (...) {
+            return fallback;
+        }
+    }
+    return fallback;
+}
+
+double parseJsonDoubleValue(const Json::Value& value, double fallback) {
+    if (value.isDouble() || value.isInt() || value.isUInt()) {
+        return value.asDouble();
+    }
+    if (value.isString()) {
+        try {
+            return std::stod(value.asString());
+        } catch (...) {
+            return fallback;
+        }
+    }
+    return fallback;
+}
+
+std::string parseJsonStringValue(const Json::Value& value,
+                                 const std::string& fallback = "") {
+    if (value.isString()) {
+        const auto normalized = trimAscii(value.asString());
+        return normalized.empty() ? fallback : normalized;
+    }
+    if (value.isBool()) {
+        return value.asBool() ? "true" : "false";
+    }
+    return fallback;
+}
+
+void setMirroredConfig(Json::Value& config,
+                       const std::string& snakeKey,
+                       const std::string& camelKey,
+                       const Json::Value& value) {
+    config[snakeKey] = value;
+    config[camelKey] = value;
+}
+
+Json::Value buildAdminEdgeAIConfigPayload(const Json::Value& aiConfig,
+                                          const Json::Value& engineStats,
+                                          bool engineEnabled) {
+    const bool edgeAiEnabled = aiConfig.isMember("edge_ai_enabled")
+        ? parseJsonBoolValue(aiConfig["edge_ai_enabled"],
+                             heartlake::utils::parseBoolEnv(
+                                 std::getenv("EDGE_AI_ENABLED"), true))
+        : heartlake::utils::parseBoolEnv(std::getenv("EDGE_AI_ENABLED"), true);
+    const std::string onnxEnabled = aiConfig.isMember("onnx_enabled")
+        ? parseJsonStringValue(aiConfig["onnx_enabled"], "auto")
+        : parseJsonStringValue(Json::Value(
+              std::getenv("EDGE_AI_ONNX_ENABLED")
+                  ? std::getenv("EDGE_AI_ONNX_ENABLED")
+                  : "auto"),
+              "auto");
+
+    Json::Value config;
+    setMirroredConfig(config, "edge_ai_enabled", "edgeAIEnabled", edgeAiEnabled);
+    config["enabled"] = edgeAiEnabled;
+    setMirroredConfig(config, "onnx_enabled", "onnxEnabled", onnxEnabled);
+    config["inferenceEngine"] =
+        onnxEnabled == "false" ? "builtin" : "onnx";
+    setMirroredConfig(
+        config,
+        "model_path",
+        "modelPath",
+        aiConfig.get("model_path",
+                     std::getenv("EDGE_AI_MODEL_PATH")
+                         ? std::getenv("EDGE_AI_MODEL_PATH")
+                         : "./models/sentiment_zh.onnx"));
+    setMirroredConfig(
+        config,
+        "vocab_path",
+        "vocabPath",
+        aiConfig.get("vocab_path",
+                     std::getenv("EDGE_AI_VOCAB_PATH")
+                         ? std::getenv("EDGE_AI_VOCAB_PATH")
+                         : ""));
+    setMirroredConfig(config, "onnx_threads", "onnxThreads",
+                      aiConfig.get("onnx_threads", 2));
+    setMirroredConfig(config, "hnsw_m", "hnswM",
+                      aiConfig.get("hnsw_m", engineStats.get("hnsw_m", 16)));
+    setMirroredConfig(config, "hnsw_ef_construction", "hnswEfConstruction",
+                      aiConfig.get("hnsw_ef_construction",
+                                   engineStats.get("hnsw_ef_construction", 200)));
+    setMirroredConfig(config, "hnsw_ef_search", "hnswEfSearch",
+                      aiConfig.get("hnsw_ef_search",
+                                   engineStats.get("hnsw_ef_search", 50)));
+    setMirroredConfig(config, "dp_epsilon", "dpEpsilon",
+                      aiConfig.get("dp_epsilon",
+                                   engineStats.get("dp_epsilon", 1.0)));
+    setMirroredConfig(config, "dp_delta", "dpDelta",
+                      aiConfig.get("dp_delta",
+                                   engineStats.get("dp_delta", 1e-5)));
+    setMirroredConfig(
+        config,
+        "pulse_window_seconds",
+        "pulseWindowSeconds",
+        aiConfig.get("pulse_window_seconds",
+                     engineStats.get("pulse_window_seconds", 300)));
+    setMirroredConfig(
+        config,
+        "sentiment_cache_ttl",
+        "cacheTTL",
+        aiConfig.get("sentiment_cache_ttl",
+                     engineStats.get("sentiment_cache_ttl_seconds", 300)));
+    setMirroredConfig(
+        config,
+        "sentiment_cache_max",
+        "sentimentCacheMax",
+        aiConfig.get("sentiment_cache_max",
+                     engineStats.get("sentiment_cache_max_entries",
+                                     Json::UInt64(4096))));
+    config["privacyEpsilon"] = config["dp_epsilon"];
+    config["maxEpsilon"] = config["dp_epsilon"];
+    setMirroredConfig(
+        config,
+        "cache_strategy",
+        "cacheStrategy",
+        aiConfig.get("cacheStrategy", aiConfig.get("cache_strategy", "lru")));
+    setMirroredConfig(
+        config,
+        "max_batch_size",
+        "maxBatchSize",
+        aiConfig.get("maxBatchSize", aiConfig.get("max_batch_size", 32)));
+    setMirroredConfig(
+        config,
+        "cache_size_mb",
+        "cacheSizeMB",
+        aiConfig.get("cacheSizeMB", aiConfig.get("cache_size_mb", 256)));
+    setMirroredConfig(
+        config,
+        "federated_interval",
+        "federatedInterval",
+        aiConfig.get("federatedInterval", aiConfig.get("federated_interval", 300)));
+    setMirroredConfig(
+        config,
+        "emotion_model",
+        "emotionModel",
+        aiConfig.get("emotionModel", aiConfig.get("emotion_model", "standard")));
+    setMirroredConfig(
+        config,
+        "vector_search_enabled",
+        "vectorSearchEnabled",
+        aiConfig.get("vectorSearchEnabled",
+                     aiConfig.get("vector_search_enabled", edgeAiEnabled)));
+    setMirroredConfig(
+        config,
+        "cache_enabled",
+        "cacheEnabled",
+        aiConfig.get("cacheEnabled", aiConfig.get("cache_enabled", true)));
+    setMirroredConfig(
+        config,
+        "federated_enabled",
+        "federatedEnabled",
+        aiConfig.get("federatedEnabled",
+                     aiConfig.get("federated_enabled", edgeAiEnabled)));
+    setMirroredConfig(
+        config,
+        "inference_timeout",
+        "inferenceTimeout",
+        aiConfig.get("inferenceTimeout", aiConfig.get("inference_timeout", 5000)));
+    config["quantization_bits"] = aiConfig.get("quantization_bits", 8);
+    config["engine_enabled"] = engineEnabled;
+    return config;
 }
 
 struct ConfidenceCalibration {
@@ -591,27 +784,19 @@ void EdgeAIController::getAdminConfig(
         LOG_INFO << "[trace:" << traceId << "] getAdminConfig called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
         auto stats = engine.getEngineStats();
+        const auto aiConfig = heartlake::utils::AdminConfigStore::load()["ai"];
+        const auto config =
+            buildAdminEdgeAIConfigPayload(aiConfig, stats, engine.isEnabled());
 
         Json::Value data;
-        data["enabled"] = engine.isEnabled();
+        data = config;
+        data["enabled"] = config.get("edge_ai_enabled", engine.isEnabled());
+        data["engine_enabled"] = engine.isEnabled();
         data["engine_stats"] = stats;
-
-        // 从环境变量读取配置
-        auto getEnvOr = [](const char* key, const char* def) -> std::string {
-            const char* val = std::getenv(key);
-            return val ? val : def;
-        };
-
-        Json::Value config;
-        config["edge_ai_enabled"] = getEnvOr("EDGE_AI_ENABLED", "false");
-        config["onnx_enabled"] = getEnvOr("EDGE_AI_ONNX_ENABLED", "auto");
-        config["model_path"] = getEnvOr("EDGE_AI_MODEL_PATH", "./models");
-        config["vocab_path"] = getEnvOr("EDGE_AI_VOCAB_PATH", "");
-        config["onnx_threads"] = getEnvOr("EDGE_AI_ONNX_THREADS", "2");
 #ifdef HEARTLAKE_USE_ONNX
-        config["onnx_compiled"] = true;
+        data["onnx_compiled"] = true;
 #else
-        config["onnx_compiled"] = false;
+        data["onnx_compiled"] = false;
 #endif
         data["config"] = config;
 
@@ -638,53 +823,135 @@ void EdgeAIController::updateAdminConfig(
         }
 
         const auto& body = *jsonPtr;
+        auto persisted = heartlake::utils::AdminConfigStore::load();
+        Json::Value persistedAiConfig = persisted["ai"];
 
         // 记录配置变更日志
         LOG_INFO << "Admin updating EdgeAI config: " << body.toStyledString();
 
-        // 允许的运行时配置键（对应 EdgeAIEngine::initialize 支持的参数）
-        static const std::vector<std::string> allowedKeys = {
-            "hnsw_m", "hnsw_ef_construction", "hnsw_ef_search",
-            "dp_epsilon", "dp_delta",
-            "pulse_window_seconds", "quantization_bits"
-        };
-
-        // 过滤并验证配置项
-        Json::Value engineConfig;
+        Json::Value runtimeConfig;
         Json::Value appliedKeys(Json::arrayValue);
+        Json::Value restartRequiredKeys(Json::arrayValue);
         Json::Value ignoredKeys(Json::arrayValue);
 
         for (const auto& key : body.getMemberNames()) {
-            bool allowed = false;
-            for (const auto& ak : allowedKeys) {
-                if (key == ak) { allowed = true; break; }
-            }
-            if (allowed) {
-                engineConfig[key] = body[key];
+            const auto& value = body[key];
+
+            if (key == "enabled" || key == "edge_ai_enabled" ||
+                key == "edgeAIEnabled") {
+                const bool enabled = parseJsonBoolValue(value, true);
+                persistedAiConfig["edge_ai_enabled"] = enabled;
+                runtimeConfig["enabled"] = enabled;
                 appliedKeys.append(key);
+            } else if (key == "hnsw_m" || key == "hnswM") {
+                const int parsed = parseJsonIntValue(value, 16);
+                persistedAiConfig["hnsw_m"] = parsed;
+                runtimeConfig["hnsw_m"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "hnsw_ef_construction" ||
+                       key == "hnswEfConstruction") {
+                const int parsed = parseJsonIntValue(value, 200);
+                persistedAiConfig["hnsw_ef_construction"] = parsed;
+                runtimeConfig["hnsw_ef_construction"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "hnsw_ef_search" || key == "hnswEfSearch") {
+                const int parsed = parseJsonIntValue(value, 50);
+                persistedAiConfig["hnsw_ef_search"] = parsed;
+                runtimeConfig["hnsw_ef_search"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "dp_epsilon" || key == "dpEpsilon" ||
+                       key == "maxEpsilon" || key == "privacyEpsilon" ||
+                       key == "max_epsilon" || key == "privacy_epsilon") {
+                const double parsed = parseJsonDoubleValue(value, 1.0);
+                persistedAiConfig["dp_epsilon"] = parsed;
+                runtimeConfig["dp_epsilon"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "dp_delta" || key == "dpDelta") {
+                const double parsed = parseJsonDoubleValue(value, 1e-5);
+                persistedAiConfig["dp_delta"] = parsed;
+                runtimeConfig["dp_delta"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "pulse_window_seconds" ||
+                       key == "pulseWindowSeconds") {
+                const int parsed = parseJsonIntValue(value, 300);
+                persistedAiConfig["pulse_window_seconds"] = parsed;
+                runtimeConfig["pulse_window_seconds"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "cacheTTL" || key == "cache_ttl" ||
+                       key == "sentiment_cache_ttl") {
+                const int parsed = parseJsonIntValue(value, 300);
+                persistedAiConfig["sentiment_cache_ttl"] = parsed;
+                runtimeConfig["sentiment_cache_ttl"] = parsed;
+                appliedKeys.append(key);
+            } else if (key == "onnx_enabled" || key == "onnxEnabled") {
+                persistedAiConfig["onnx_enabled"] =
+                    parseJsonStringValue(value, "auto");
+                restartRequiredKeys.append(key);
+            } else if (key == "inferenceEngine") {
+                const auto engineName = parseJsonStringValue(value, "onnx");
+                persistedAiConfig["onnx_enabled"] =
+                    engineName == "onnx" ? "true" : "false";
+                restartRequiredKeys.append(key);
+            } else if (key == "model_path" || key == "modelPath") {
+                persistedAiConfig["model_path"] = parseJsonStringValue(value);
+                restartRequiredKeys.append(key);
+            } else if (key == "vocab_path" || key == "vocabPath") {
+                persistedAiConfig["vocab_path"] = parseJsonStringValue(value);
+                restartRequiredKeys.append(key);
+            } else if (key == "onnx_threads" || key == "onnxThreads") {
+                persistedAiConfig["onnx_threads"] =
+                    parseJsonIntValue(value, 2);
+                restartRequiredKeys.append(key);
+            } else if (key == "cacheStrategy" || key == "cache_strategy" ||
+                       key == "maxBatchSize" || key == "max_batch_size" ||
+                       key == "cacheSizeMB" || key == "cache_size_mb" ||
+                       key == "federatedInterval" || key == "federated_interval" ||
+                       key == "emotionModel" || key == "emotion_model" ||
+                       key == "vectorSearchEnabled" || key == "vector_search_enabled" ||
+                       key == "inferenceTimeout" || key == "inference_timeout" ||
+                       key == "cacheEnabled" || key == "cache_enabled" ||
+                       key == "federatedEnabled" || key == "federated_enabled" ||
+                       key == "quantization_bits") {
+                persistedAiConfig[key] = value;
+                restartRequiredKeys.append(key);
             } else {
                 ignoredKeys.append(key);
             }
         }
 
-        if (appliedKeys.empty()) {
+        if (appliedKeys.empty() && restartRequiredKeys.empty()) {
             callback(ResponseUtil::badRequest(
-                "没有可应用的配置项，支持的键: hnsw_m, hnsw_ef_construction, "
-                "hnsw_ef_search, dp_epsilon, dp_delta, pulse_window_seconds, quantization_bits"));
+                "没有可应用的配置项"));
             return;
         }
 
-        // 应用配置到引擎（重新初始化受影响的子系统）
+        persisted["ai"] = persistedAiConfig;
+        if (!heartlake::utils::AdminConfigStore::save(persisted)) {
+            callback(ResponseUtil::internalError("配置持久化失败"));
+            return;
+        }
+
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
-        engine.initialize(engineConfig);
+        if (!runtimeConfig.empty()) {
+            engine.initialize(runtimeConfig);
+        }
+        const auto stats = engine.getEngineStats();
+        const auto config =
+            buildAdminEdgeAIConfigPayload(persistedAiConfig, stats, engine.isEnabled());
 
         Json::Value data;
         data["status"] = "config_updated";
-        data["applied_keys"] = appliedKeys;
+        if (!appliedKeys.empty()) {
+            data["applied_keys"] = appliedKeys;
+        }
+        if (!restartRequiredKeys.empty()) {
+            data["restart_required_keys"] = restartRequiredKeys;
+        }
         if (!ignoredKeys.empty()) {
             data["ignored_keys"] = ignoredKeys;
         }
         data["engine_enabled"] = engine.isEnabled();
+        data["config"] = config;
 
         callback(ResponseUtil::success(data, "边缘AI配置更新成功"));
     } catch (const std::exception &e) {

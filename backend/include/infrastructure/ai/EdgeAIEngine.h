@@ -293,8 +293,10 @@ private:
     EdgeAIEngine() = default;
     /** @brief 实际初始化逻辑，由 call_once 保证只执行一次 */
     void initializeImpl(const Json::Value& config);
+    void ensureSubsystemsReady();
     void applyRuntimeConfig(const Json::Value& config);
     std::once_flag initFlag_;               ///< 保证 initialize() 只执行一次
+    std::mutex subsystemInitMutex_;         ///< 禁用态延迟初始化时保护子系统构建
     std::atomic<bool> enabled_{false};      ///< 引擎启用标记，acquire/release 语义
     std::atomic<bool> initialized_{false};  ///< 初始化完成标记，acquire/release 语义
 

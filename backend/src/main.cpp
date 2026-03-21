@@ -646,7 +646,8 @@ int main(int argc, char *argv[]) {
 
         // 初始化AI服务
         LOG_INFO << "Initializing AI Service...";
-        Json::Value aiConfig = heartlake::utils::AdminConfigStore::load()["ai"];
+        Json::Value adminConfig = heartlake::utils::AdminConfigStore::load();
+        Json::Value aiConfig = adminConfig["ai"];
         if (!aiConfig.isObject()) {
             const char* ai_provider = std::getenv("AI_PROVIDER");
             const char* ai_key = std::getenv("AI_API_KEY");
@@ -674,19 +675,47 @@ int main(int argc, char *argv[]) {
         // 初始化边缘AI引擎（情感分析、内容审核、HNSW、联邦学习、差分隐私）
         LOG_INFO << "Initializing Edge AI Engine...";
         Json::Value edgeAIConfig;
-        edgeAIConfig["enabled"] = true;
-        edgeAIConfig["hnsw_m"] = 16;
-        edgeAIConfig["hnsw_ef_construction"] = 200;
-        edgeAIConfig["hnsw_ef_search"] = 50;
-        edgeAIConfig["dp_epsilon"] = 1.0;
-        edgeAIConfig["dp_delta"] = 1e-5;
-        edgeAIConfig["dp_max_budget"] = 10.0;
+        edgeAIConfig["enabled"] = aiConfig.get(
+            "edge_ai_enabled",
+            heartlake::utils::parseBoolEnv(std::getenv("EDGE_AI_ENABLED"), true));
+        edgeAIConfig["hnsw_m"] = aiConfig.get("hnsw_m", 16);
+        edgeAIConfig["hnsw_ef_construction"] =
+            aiConfig.get("hnsw_ef_construction", 200);
+        edgeAIConfig["hnsw_ef_search"] = aiConfig.get("hnsw_ef_search", 50);
+        edgeAIConfig["dp_epsilon"] = aiConfig.get("dp_epsilon", 1.0);
+        edgeAIConfig["dp_delta"] = aiConfig.get("dp_delta", 1e-5);
+        edgeAIConfig["dp_max_budget"] = aiConfig.get("dp_max_budget", 10.0);
+        edgeAIConfig["pulse_window_seconds"] =
+            aiConfig.get("pulse_window_seconds", 300);
+        edgeAIConfig["sentiment_cache_ttl"] =
+            aiConfig.get("sentiment_cache_ttl",
+                         heartlake::utils::parsePositiveIntEnv(
+                             "SENTIMENT_CACHE_TTL", 300));
+        edgeAIConfig["sentiment_cache_max"] =
+            aiConfig.get("sentiment_cache_max",
+                         heartlake::utils::parsePositiveIntEnv(
+                             "SENTIMENT_CACHE_MAX", 4096));
+        edgeAIConfig["onnx_threads"] = aiConfig.get(
+            "onnx_threads",
+            heartlake::utils::parsePositiveIntEnv("EDGE_AI_ONNX_THREADS", 2));
+        if (aiConfig.isMember("model_path") && aiConfig["model_path"].isString() &&
+            !aiConfig["model_path"].asString().empty()) {
+            edgeAIConfig["model_path"] = aiConfig["model_path"].asString();
+        }
+        if (aiConfig.isMember("vocab_path") && aiConfig["vocab_path"].isString() &&
+            !aiConfig["vocab_path"].asString().empty()) {
+            edgeAIConfig["vocab_path"] = aiConfig["vocab_path"].asString();
+        }
         if (const char* edgeModelPath = std::getenv("EDGE_AI_MODEL_PATH"); edgeModelPath && *edgeModelPath) {
             edgeAIConfig["model_path"] = edgeModelPath;
         }
         if (const char* edgeVocabPath = std::getenv("EDGE_AI_VOCAB_PATH"); edgeVocabPath && *edgeVocabPath) {
             edgeAIConfig["vocab_path"] = edgeVocabPath;
         }
+        if (aiConfig.isMember("onnx_enabled")) {
+            edgeAIConfig["onnx_enabled"] = aiConfig["onnx_enabled"];
+        }
+        LOG_INFO << "Edge AI enabled=" << edgeAIConfig["enabled"].asBool();
         heartlake::ai::EdgeAIEngine::getInstance().initialize(edgeAIConfig);
 
         // 预热情感共鸣引擎（单例懒加载）

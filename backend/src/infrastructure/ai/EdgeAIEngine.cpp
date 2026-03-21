@@ -7,6 +7,7 @@
  */
 
 #include "infrastructure/ai/EdgeAIEngine.h"
+#include "utils/EnvUtils.h"
 #include <trantor/utils/Logger.h>
 #include <algorithm>
 #include <cstdlib>
@@ -33,6 +34,7 @@ bool parseBoolLiteral(const std::string& raw, bool& value) {
     return false;
 }
 
+#ifdef HEARTLAKE_USE_ONNX
 std::string getConfigOrEnvPath(const Json::Value& config,
                                const char* configKey,
                                const char* envKey,
@@ -104,30 +106,13 @@ std::filesystem::path resolveVocabPath(const std::string& configuredPath,
     }
     return vocabPath;
 }
+#endif
 
-int parsePositiveIntEnv(const char* rawValue, int fallback) {
-    if (!rawValue) return fallback;
-    char* endPtr = nullptr;
-    long value = std::strtol(rawValue, &endPtr, 10);
-    if (endPtr == rawValue || *endPtr != '\0' || value <= 0) return fallback;
-    return static_cast<int>(value);
-}
-
-bool shouldApplyLowResourceDefaults() {
-    if (const char* raw = std::getenv("HEARTLAKE_LOW_RESOURCE_MODE")) {
-        bool enabled = false;
-        if (parseBoolLiteral(raw, enabled)) {
-            return enabled;
-        }
-    }
-
-    const unsigned int hw = std::thread::hardware_concurrency();
-    return hw > 0 && hw <= 2;
-}
-
+#ifdef HEARTLAKE_USE_ONNX
 int defaultOnnxThreadsForRuntime(bool lowResource) {
     return lowResource ? 1 : 2;
 }
+#endif
 
 } // namespace
 
@@ -155,31 +140,24 @@ void EdgeAIEngine::initialize(const Json::Value& config) {
 void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     LOG_INFO << "[EdgeAI] Initializing Edge AI Engine...";
 
-    lowResourceDefaultsApplied_ = shouldApplyLowResourceDefaults();
+    lowResourceDefaultsApplied_ = []() {
+        if (const char* raw = std::getenv("HEARTLAKE_LOW_RESOURCE_MODE");
+            raw && *raw != '\0') {
+            bool enabled = false;
+            if (parseBoolLiteral(raw, enabled)) {
+                return enabled;
+            }
+        }
+
+        const unsigned int hw = std::thread::hardware_concurrency();
+        return hw > 0 && hw <= 2;
+    }();
     if (lowResourceDefaultsApplied_) {
         hnswEfConstructionConfig_ = std::min(hnswEfConstructionConfig_, 128);
         hnswEfSearchConfig_ = std::min(hnswEfSearchConfig_, 32);
         sentimentCacheMaxConfig_ = std::min<size_t>(sentimentCacheMaxConfig_, 2048);
         LOG_INFO << "[EdgeAI] Applying low-resource defaults for 2c2g-class runtime";
     }
-
-    // 创建子系统
-    sentiment_ = std::make_unique<SentimentAnalyzer>();
-    moderator_ = std::make_unique<ContentModerator>();
-    pulse_ = std::make_unique<EmotionPulseDetector>();
-    federated_ = std::make_unique<FederatedLearner>();
-    dp_ = std::make_unique<EdgeDifferentialPrivacy>();
-    hnsw_ = std::make_unique<HNSWIndex>();
-    quantizer_ = std::make_unique<ModelQuantizer>();
-    monitor_ = std::make_unique<EdgeNodeMonitor>();
-
-    // 内容审核
-    moderator_->buildModerationAC();
-
-    sentimentCacheTTLConfig_ = parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_TTL"), sentimentCacheTTLConfig_);
-    sentimentCacheMaxConfig_ = static_cast<size_t>(
-        parsePositiveIntEnv(std::getenv("SENTIMENT_CACHE_MAX"), static_cast<int>(sentimentCacheMaxConfig_)));
-    sentiment_->loadLexicon();
 
     applyRuntimeConfig(config);
 
@@ -194,15 +172,38 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     onnxEngine_.reset();
     onnxEnabled_ = false;
 
-    const char* onnxEnabledEnv = std::getenv("EDGE_AI_ONNX_ENABLED");
-    bool onnxWanted = false;
-    const bool hasExplicitOnnxSwitch = (onnxEnabledEnv != nullptr);
-    if (hasExplicitOnnxSwitch) {
-        if (!parseBoolLiteral(onnxEnabledEnv, onnxWanted)) {
-            LOG_WARN << "[EdgeAI] Invalid EDGE_AI_ONNX_ENABLED=" << onnxEnabledEnv;
-            onnxWanted = false;
+    std::optional<bool> configuredOnnxEnabled;
+    if (config.isObject() && config.isMember("onnx_enabled")) {
+        const auto& configuredValue = config["onnx_enabled"];
+        if (configuredValue.isBool()) {
+            configuredOnnxEnabled = configuredValue.asBool();
+        } else if (configuredValue.isInt() || configuredValue.isUInt()) {
+            configuredOnnxEnabled = configuredValue.asInt() != 0;
+        } else if (configuredValue.isString()) {
+            const auto normalized = configuredValue.asString();
+            if (!normalized.empty() && normalized != "auto") {
+                bool parsed = false;
+                if (parseBoolLiteral(normalized, parsed)) {
+                    configuredOnnxEnabled = parsed;
+                } else {
+                    LOG_WARN << "[EdgeAI] Invalid onnx_enabled config=" << normalized;
+                }
+            }
         }
     }
+    if (!configuredOnnxEnabled.has_value()) {
+        if (const char* onnxEnabledEnv = std::getenv("EDGE_AI_ONNX_ENABLED");
+            onnxEnabledEnv && *onnxEnabledEnv != '\0') {
+            bool parsed = false;
+            if (parseBoolLiteral(onnxEnabledEnv, parsed)) {
+                configuredOnnxEnabled = parsed;
+            } else {
+                LOG_WARN << "[EdgeAI] Invalid EDGE_AI_ONNX_ENABLED=" << onnxEnabledEnv;
+            }
+        }
+    }
+    const bool allowOnnx = !configuredOnnxEnabled.has_value() ||
+                           configuredOnnxEnabled.value();
 
     const std::string modelPathSetting = getConfigOrEnvPath(
         config, "model_path", "EDGE_AI_MODEL_PATH", "./models/sentiment_zh.onnx");
@@ -212,12 +213,22 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
     const std::filesystem::path resolvedVocabPath = resolveVocabPath(vocabPathSetting, resolvedModelPath);
     const bool modelExists = isRegularFile(resolvedModelPath);
 
-    if (modelExists && (!hasExplicitOnnxSwitch || onnxWanted)) {
+    if (modelExists && allowOnnx) {
         try {
             onnxEngine_ = std::make_unique<OnnxSentimentEngine>();
-            const int onnxThreads = parsePositiveIntEnv(
-                std::getenv("EDGE_AI_ONNX_THREADS"),
-                defaultOnnxThreadsForRuntime(lowResourceDefaultsApplied_));
+            int onnxThreads = defaultOnnxThreadsForRuntime(lowResourceDefaultsApplied_);
+            if (config.isObject() && config.isMember("onnx_threads")) {
+                const auto& configuredThreads = config["onnx_threads"];
+                if (configuredThreads.isInt() || configuredThreads.isUInt()) {
+                    onnxThreads = std::max(1, configuredThreads.asInt());
+                } else if (configuredThreads.isString()) {
+                    onnxThreads = heartlake::utils::parsePositiveInt(
+                        configuredThreads.asCString(), onnxThreads);
+                }
+            } else {
+                onnxThreads = heartlake::utils::parsePositiveIntEnv(
+                    "EDGE_AI_ONNX_THREADS", onnxThreads);
+            }
             onnxEngine_->initialize(
                 resolvedModelPath.string(),
                 resolvedVocabPath.string(),
@@ -233,8 +244,56 @@ void EdgeAIEngine::initializeImpl(const Json::Value& config) {
             onnxEngine_.reset();
             onnxEnabled_ = false;
         }
+    } else if (!modelExists) {
+        LOG_WARN << "[EdgeAI] ONNX model file missing: " << resolvedModelPath.string();
     }
 #endif
+}
+
+void EdgeAIEngine::ensureSubsystemsReady() {
+    std::lock_guard<std::mutex> lock(subsystemInitMutex_);
+
+    const bool createSentiment = !sentiment_;
+    const bool createModerator = !moderator_;
+
+    if (createSentiment) {
+        sentiment_ = std::make_unique<SentimentAnalyzer>();
+    }
+    if (createModerator) {
+        moderator_ = std::make_unique<ContentModerator>();
+    }
+    if (!pulse_) {
+        pulse_ = std::make_unique<EmotionPulseDetector>();
+    }
+    if (!federated_) {
+        federated_ = std::make_unique<FederatedLearner>();
+    }
+    if (!dp_) {
+        dp_ = std::make_unique<EdgeDifferentialPrivacy>();
+    }
+    if (!hnsw_) {
+        hnsw_ = std::make_unique<HNSWIndex>();
+    }
+    if (!quantizer_) {
+        quantizer_ = std::make_unique<ModelQuantizer>();
+    }
+    if (!monitor_) {
+        monitor_ = std::make_unique<EdgeNodeMonitor>();
+    }
+
+    if (createModerator) {
+        moderator_->buildModerationAC();
+    }
+    if (createSentiment) {
+        sentimentCacheTTLConfig_ =
+            heartlake::utils::parsePositiveIntEnv("SENTIMENT_CACHE_TTL",
+                                                  sentimentCacheTTLConfig_);
+        sentimentCacheMaxConfig_ = static_cast<size_t>(
+            heartlake::utils::parsePositiveIntEnv(
+                "SENTIMENT_CACHE_MAX",
+                static_cast<int>(sentimentCacheMaxConfig_)));
+        sentiment_->loadLexicon();
+    }
 }
 
 void EdgeAIEngine::applyRuntimeConfig(const Json::Value& config) {
@@ -258,8 +317,20 @@ void EdgeAIEngine::applyRuntimeConfig(const Json::Value& config) {
 
         pulseWindowSecondsConfig_ = config.get("pulse_window_seconds", pulseWindowSecondsConfig_).asInt();
         maxPulseHistoryConfig_ = config.get("max_pulse_history", maxPulseHistoryConfig_).asInt();
+        sentimentCacheTTLConfig_ = config.get("sentiment_cache_ttl", sentimentCacheTTLConfig_).asInt();
+        const auto configuredSentimentCacheMax = config.get(
+            "sentiment_cache_max",
+            static_cast<Json::UInt64>(sentimentCacheMaxConfig_)).asLargestUInt();
+        sentimentCacheMaxConfig_ = static_cast<size_t>(
+            std::max<Json::Value::LargestUInt>(
+                static_cast<Json::Value::LargestUInt>(1),
+                configuredSentimentCacheMax));
     } else if (!initialized_.load(std::memory_order_relaxed)) {
         enabled_.store(true, std::memory_order_release);
+    }
+
+    if (enabled_.load(std::memory_order_acquire)) {
+        ensureSubsystemsReady();
     }
 
     if (hnsw_) {
@@ -518,10 +589,14 @@ Json::Value EdgeAIEngine::getEngineStats() const {
     stats["enabled"] = enabled_.load(std::memory_order_acquire);
     stats["initialized"] = initialized_.load(std::memory_order_acquire);
     stats["low_resource_defaults_applied"] = lowResourceDefaultsApplied_;
+    stats["hnsw_m"] = hnswMConfig_;
     stats["sentiment_cache_ttl_seconds"] = sentimentCacheTTLConfig_;
     stats["sentiment_cache_max_entries"] = static_cast<Json::UInt64>(sentimentCacheMaxConfig_);
     stats["hnsw_ef_construction"] = hnswEfConstructionConfig_;
     stats["hnsw_ef_search"] = hnswEfSearchConfig_;
+    stats["dp_epsilon"] = dpEpsilonConfig_;
+    stats["dp_delta"] = dpDeltaConfig_;
+    stats["pulse_window_seconds"] = pulseWindowSecondsConfig_;
 
     if (sentiment_) {
         stats["total_sentiment_calls"] = static_cast<Json::UInt64>(sentiment_->getTotalCalls());

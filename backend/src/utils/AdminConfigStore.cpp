@@ -2,6 +2,7 @@
  * AdminConfigStore 模块实现
  */
 #include "utils/AdminConfigStore.h"
+#include "utils/EnvUtils.h"
 #include <fstream>
 #include <filesystem>
 
@@ -38,6 +39,32 @@ Json::Value AdminConfigStore::defaultConfig() {
     ai["enableModeration"] = true;
     ai["enableAutoReply"] = true;
     ai["moderationThreshold"] = 0.7;
+    ai["edge_ai_enabled"] = parseBoolEnv(std::getenv("EDGE_AI_ENABLED"), true);
+    ai["onnx_enabled"] =
+        std::getenv("EDGE_AI_ONNX_ENABLED") ? std::getenv("EDGE_AI_ONNX_ENABLED") : "auto";
+    ai["model_path"] =
+        std::getenv("EDGE_AI_MODEL_PATH") ? std::getenv("EDGE_AI_MODEL_PATH") : "./models/sentiment_zh.onnx";
+    ai["vocab_path"] =
+        std::getenv("EDGE_AI_VOCAB_PATH") ? std::getenv("EDGE_AI_VOCAB_PATH") : "";
+    ai["onnx_threads"] = parsePositiveIntEnv("EDGE_AI_ONNX_THREADS", 2);
+    ai["hnsw_m"] = 16;
+    ai["hnsw_ef_construction"] = 200;
+    ai["hnsw_ef_search"] = 50;
+    ai["dp_epsilon"] = 1.0;
+    ai["dp_delta"] = 1e-5;
+    ai["pulse_window_seconds"] = 300;
+    ai["sentiment_cache_ttl"] = 300;
+    ai["sentiment_cache_max"] = 4096;
+    ai["cacheStrategy"] = "lru";
+    ai["maxBatchSize"] = 32;
+    ai["cacheSizeMB"] = 256;
+    ai["federatedInterval"] = 300;
+    ai["emotionModel"] = "standard";
+    ai["vectorSearchEnabled"] = true;
+    ai["inferenceTimeout"] = 5000;
+    ai["cacheEnabled"] = true;
+    ai["federatedEnabled"] = true;
+    ai["quantization_bits"] = 8;
 
     // 限流配置
     Json::Value rate;
