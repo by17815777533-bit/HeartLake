@@ -91,37 +91,29 @@ lib/
 │   │   │   ├── stone_card_content.dart    # 内容
 │   │   │   ├── stone_card_actions.dart    # 操作栏
 │   │   │   └── stone_card_controller.dart # 控制器
-│   │   ├── recommended_stone_card.dart    # 推荐心石卡片
 │   │   ├── similar_stones_section.dart    # 相似心石区块
 │   │   ├── ai_content_preview.dart        # AI 内容预览
 │   │   ├── emotion_heatmap.dart           # 情绪热力图组件
 │   │   ├── emotion_insights_card.dart     # 情绪洞察卡片
 │   │   ├── emotion_pulse_widget.dart      # 情绪脉搏组件
-│   │   ├── emotion_trend_chart.dart       # 情绪趋势图表
-│   │   ├── mood_selector.dart             # 心情选择器
 │   │   ├── atmospheric_background.dart    # 大气背景动效
 │   │   ├── water_background.dart          # 水面背景动效
 │   │   ├── deep_dive_layer.dart           # 深潜分层浏览
 │   │   ├── privacy_badge.dart             # 隐私保护徽章
-│   │   ├── search_filter_sheet.dart       # 搜索过滤面板
 │   │   ├── report_dialog.dart             # 举报对话框
 │   │   ├── psych_support_dialog.dart      # 心理支持对话框
-│   │   ├── ripple_notification.dart       # 涟漪通知
-│   │   ├── voice_message_player.dart      # 语音消息播放器
-│   │   ├── media_grid.dart                # 媒体网格
-│   │   ├── image_preview.dart             # 图片预览
 │   │   ├── shimmer_loading.dart           # 骨架屏加载
 │   │   ├── status_view.dart               # 状态视图
 │   │   └── animations/                    # 动画组件
-│   │       ├── breathing_glow.dart        # 呼吸光效
 │   │       ├── ripple_effect.dart         # 涟漪效果
 │   │       └── staggered_list.dart        # 交错列表动画
 │   └── providers/                         # 状态管理
-│       └── edge_ai_provider.dart          # 边缘 AI 状态
-├── providers/                             # 全局 Provider
-│   ├── theme_provider.dart                # 主题管理
-│   ├── user_provider.dart                 # 用户状态
-│   └── notification_provider.dart         # 通知状态
+│       ├── edge_ai_provider.dart          # 边缘 AI 状态
+│       ├── friend_provider.dart           # 好友关系状态
+│       ├── notification_provider.dart     # 通知状态
+│       ├── stone_provider.dart            # 心石流状态
+│       ├── theme_provider.dart            # 主题状态
+│       └── user_provider.dart             # 用户状态
 └── utils/                                 # 工具类
     ├── app_theme.dart                     # 主题配置
     ├── app_config.dart                    # 应用配置
