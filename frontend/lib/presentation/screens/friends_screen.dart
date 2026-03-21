@@ -1,6 +1,6 @@
-/// 好友列表界面
-///
-/// 展示正式好友和待处理好友请求列表。
+// 好友列表界面
+//
+// 展示正式好友和待处理好友请求列表。
 
 import 'dart:math';
 import 'package:flutter/material.dart';

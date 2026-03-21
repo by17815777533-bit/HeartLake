@@ -1,6 +1,6 @@
-/// 帮助页面
-///
-/// 展示常见问题和使用指南。
+// 帮助页面
+//
+// 展示常见问题和使用指南。
 
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';

@@ -1,6 +1,6 @@
-/// 情绪趋势可视化页面
-///
-/// 展示用户情绪变化的时序折线图。
+// 情绪趋势可视化页面
+//
+// 展示用户情绪变化的时序折线图。
 import 'dart:async';
 
 import 'package:flutter/material.dart';

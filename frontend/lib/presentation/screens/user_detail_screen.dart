@@ -1,6 +1,6 @@
-/// 用户详情界面
-///
-/// 展示其他用户的个人信息和统计数据。
+// 用户详情界面
+//
+// 展示其他用户的个人信息和统计数据。
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/user_service.dart';

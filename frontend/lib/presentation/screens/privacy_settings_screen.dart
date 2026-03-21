@@ -1,6 +1,6 @@
-/// 隐私与安全设置页面
-///
-/// 提供隐私开关、数据导出和账号注销等功能。
+// 隐私与安全设置页面
+//
+// 提供隐私开关、数据导出和账号注销等功能。
 
 import 'dart:async';
 import 'package:flutter/material.dart';

@@ -1,6 +1,6 @@
-/// 启动页面
-///
-/// 应用启动时的闪屏页，负责认证状态检查和路由跳转。
+// 启动页面
+//
+// 应用启动时的闪屏页，负责认证状态检查和路由跳转。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

@@ -1,6 +1,6 @@
-/// 依赖注入容器
-///
-/// 基于get_it统一管理Service实例，所有Service注册为惰性单例。
+// 依赖注入容器
+//
+// 基于get_it统一管理Service实例，所有Service注册为惰性单例。
 
 import 'package:get_it/get_it.dart';
 import '../data/datasources/auth_service.dart';

@@ -1,6 +1,6 @@
-/// 好友聊天界面
-///
-/// 与好友的实时消息收发页面。
+// 好友聊天界面
+//
+// 与好友的实时消息收发页面。
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';

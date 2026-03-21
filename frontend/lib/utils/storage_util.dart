@@ -1,11 +1,11 @@
-/// 本地持久化存储工具
-///
-/// 分层管理敏感数据和普通数据。敏感数据（token、userId）使用
-/// FlutterSecureStorage加密存储，普通数据（昵称、设备ID、偏好设置）
-/// 使用SharedPreferences。
-///
-/// Web平台下SecureStorage可能因浏览器限制失败，此时自动降级到
-/// SharedPreferences并在下次成功时迁移回安全存储。
+// 本地持久化存储工具
+//
+// 分层管理敏感数据和普通数据。敏感数据（token、userId）使用
+// FlutterSecureStorage加密存储，普通数据（昵称、设备ID、偏好设置）
+// 使用SharedPreferences。
+//
+// Web平台下SecureStorage可能因浏览器限制失败，此时自动降级到
+// SharedPreferences并在下次成功时迁移回安全存储。
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';

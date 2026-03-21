@@ -1,7 +1,7 @@
-/// 认证界面
-///
-/// 提供匿名登录和恢复密钥找回两种认证方式，
-/// 登录成功后弹出恢复密钥保存对话框。
+// 认证界面
+//
+// 提供匿名登录和恢复密钥找回两种认证方式，
+// 登录成功后弹出恢复密钥保存对话框。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

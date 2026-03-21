@@ -1,6 +1,6 @@
-/// 个性化推荐页面
-///
-/// 基于协同过滤和情绪匹配的个性化石头推荐。
+// 个性化推荐页面
+//
+// 基于协同过滤和情绪匹配的个性化石头推荐。
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';

@@ -1,6 +1,6 @@
-/// 心理咨询预约和会话页面
-///
-/// 支持E2E加密的咨询会话，包含预约咨询和实时消息收发。
+// 心理咨询预约和会话页面
+//
+// 支持E2E加密的咨询会话，包含预约咨询和实时消息收发。
 import 'package:flutter/material.dart';
 import '../../data/datasources/consultation_service.dart';
 import '../../di/service_locator.dart';

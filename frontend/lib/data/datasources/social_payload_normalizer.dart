@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 Map<String, dynamic> _asMap(Map raw) =>
     Map<String, dynamic>.from(raw.cast<String, dynamic>());
 
@@ -15,7 +13,7 @@ Iterable<Map<String, dynamic>> _candidateMaps(dynamic raw) sync* {
 }
 
 List<String> _mergeListKeys(List<String> listKeys) {
-  return LinkedHashSet<String>.from([...listKeys, 'items', 'list']).toList();
+  return {...listKeys, 'items', 'list'}.toList();
 }
 
 dynamic _firstValue(Map<String, dynamic> data, List<String> keys) {

@@ -1,8 +1,8 @@
-/// 主题状态管理
-///
-/// 持久化用户的亮/暗色偏好到 SharedPreferences，
-/// 初始化时自动恢复上次选择，切换后立即写入本地存储。
-/// 无外部依赖，仅依赖 [SharedPreferences] 做本地持久化。
+// 主题状态管理
+//
+// 持久化用户的亮/暗色偏好到 SharedPreferences，
+// 初始化时自动恢复上次选择，切换后立即写入本地存储。
+// 无外部依赖，仅依赖 [SharedPreferences] 做本地持久化。
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';

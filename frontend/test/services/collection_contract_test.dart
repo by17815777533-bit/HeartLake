@@ -134,7 +134,7 @@ void main() {
     });
 
     test('derives unread count from raw list when metadata is absent', () {
-      final items = const [
+      const items = [
         {'notification_id': 'n1', 'is_read': true},
         {'notification_id': 'n2', 'is_read': false},
         {'notification_id': 'n3'},

@@ -1,6 +1,6 @@
-/// 临时好友列表界面
-///
-/// 展示24小时限时好友列表，支持升级为永久好友。
+// 临时好友列表界面
+//
+// 展示24小时限时好友列表，支持升级为永久好友。
 
 import 'package:flutter/material.dart';
 import 'dart:async';

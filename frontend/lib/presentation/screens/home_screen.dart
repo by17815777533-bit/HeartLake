@@ -1,6 +1,6 @@
-/// 主页框架
-///
-/// 底部导航栏和页面切换容器，管理观湖、发现、个人中心等Tab页。
+// 主页框架
+//
+// 底部导航栏和页面切换容器，管理观湖、发现、个人中心等Tab页。
 
 import 'package:flutter/material.dart';
 import 'lake_screen.dart';

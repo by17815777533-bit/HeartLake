@@ -1,7 +1,7 @@
-/// 通用API响应模型
-///
-/// 后端统一返回{code, message, data}结构，code为0表示成功。
-/// 泛型参数T对应data字段的业务类型，通过fromJsonT反序列化。
+// 通用API响应模型
+//
+// 后端统一返回{code, message, data}结构，code为0表示成功。
+// 泛型参数T对应data字段的业务类型，通过fromJsonT反序列化。
 
 /// 通用API响应模型
 ///

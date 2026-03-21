@@ -1,6 +1,6 @@
-/// 湖神聊天界面
-///
-/// AI陪伴对话页面，集成EdgeAI情感分析与内容审核。
+// 湖神聊天界面
+//
+// AI陪伴对话页面，集成EdgeAI情感分析与内容审核。
 import 'package:flutter/material.dart';
 import '../../data/datasources/edge_ai_service.dart';
 import '../../data/datasources/lake_god_service.dart';

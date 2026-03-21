@@ -1,6 +1,6 @@
-/// 个人资料界面
-///
-/// 展示用户信息、统计数据和个人中心功能入口。
+// 个人资料界面
+//
+// 展示用户信息、统计数据和个人中心功能入口。
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

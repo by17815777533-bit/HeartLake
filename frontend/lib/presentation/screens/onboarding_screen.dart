@@ -1,6 +1,6 @@
-/// 新用户引导页面
-///
-/// 介绍心湖核心概念，引导新用户了解投石、涟漪、纸船等功能。
+// 新用户引导页面
+//
+// 介绍心湖核心概念，引导新用户了解投石、涟漪、纸船等功能。
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

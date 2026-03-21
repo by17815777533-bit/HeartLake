@@ -1,6 +1,6 @@
-/// 应用路由配置
-///
-/// 基于go_router实现声明式路由，支持路由守卫、深度链接和页面过渡动画。
+// 应用路由配置
+//
+// 基于go_router实现声明式路由，支持路由守卫、深度链接和页面过渡动画。
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

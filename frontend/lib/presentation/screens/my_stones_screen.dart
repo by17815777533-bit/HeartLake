@@ -1,8 +1,8 @@
-/// 我的石头列表界面
-///
-/// 展示当前用户发布的所有石头，支持下拉刷新和删除操作。
-/// 通过 WebSocket 监听石头删除、涟漪和纸船变更事件实时更新列表。
-/// 依赖 [StoneService] 加载数据，依赖 [WebSocketManager] 接收实时推送。
+// 我的石头列表界面
+//
+// 展示当前用户发布的所有石头，支持下拉刷新和删除操作。
+// 通过 WebSocket 监听石头删除、涟漪和纸船变更事件实时更新列表。
+// 依赖 [StoneService] 加载数据，依赖 [WebSocketManager] 接收实时推送。
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/stone.dart';
@@ -134,8 +134,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
   }
 
   void _rebuildStoneIndex() {
-    _stoneIndexById
-      ..clear();
+    _stoneIndexById.clear();
     for (var i = 0; i < _myStones.length; i++) {
       _stoneIndexById[_myStones[i].stoneId] = i;
     }
