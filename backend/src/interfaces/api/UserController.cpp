@@ -10,6 +10,7 @@
 #include "utils/RecoveryKeyGenerator.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/SecurityLogger.h"
 #include "utils/Validator.h"
 #include <algorithm>
 #include <cctype>
@@ -40,6 +41,32 @@ std::string trimAscii(const std::string &value) {
 
 std::string normalizeNickname(const std::string &raw) {
   return Validator::sanitizeHtml(trimAscii(raw));
+}
+
+std::string normalizeUpperToken(const std::string &raw) {
+  auto token = trimAscii(raw);
+  std::transform(token.begin(), token.end(), token.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+  return token;
+}
+
+bool hasCompatibleConfirmation(const Json::Value *json,
+                               std::initializer_list<const char *> accepted) {
+  if (json == nullptr || !json->isMember("confirmation")) {
+    return true;
+  }
+  if (!(*json)["confirmation"].isString()) {
+    return false;
+  }
+
+  const auto confirmation =
+      normalizeUpperToken((*json)["confirmation"].asString());
+  return std::any_of(accepted.begin(), accepted.end(),
+                     [&](const char *candidate) {
+                       return confirmation == candidate;
+                     });
 }
 
 int extractWindowTotal(const drogon::orm::Result &result,
@@ -79,8 +106,12 @@ void UserController::anonymousLogin(
     auto dbClient = drogon::app().getDbClient("default");
 
     auto result = dbClient->execSqlSync(
-        "SELECT user_id, nickname, is_anonymous FROM users WHERE device_id = "
-        "$1 AND status = 'active'",
+        "SELECT user_id, nickname, is_anonymous, status "
+        "FROM users "
+        "WHERE device_id = $1 AND status IN ('active', 'deactivated') "
+        "ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, "
+        "updated_at DESC NULLS LAST, created_at DESC "
+        "LIMIT 1",
         device_id);
 
     Json::Value responseData;
@@ -90,10 +121,19 @@ void UserController::anonymousLogin(
     if (auto rowOpt = safeRow(result)) {
       auto row = *rowOpt;
       user_id = row["user_id"].as<std::string>();
+      const auto status = row["status"].as<std::string>();
 
-      dbClient->execSqlSync(
-          "UPDATE users SET last_active_at = NOW() WHERE user_id = $1",
-          user_id);
+      if (status == "deactivated") {
+        dbClient->execSqlSync(
+            "UPDATE users SET status = 'active', updated_at = NOW(), "
+            "last_active_at = NOW() WHERE user_id = $1",
+            user_id);
+        responseData["reactivated"] = true;
+      } else {
+        dbClient->execSqlSync(
+            "UPDATE users SET last_active_at = NOW() WHERE user_id = $1",
+            user_id);
+      }
 
       responseData["user_id"] = user_id;
       responseData["nickname"] = row["nickname"].as<std::string>();
@@ -173,20 +213,27 @@ void UserController::recoverWithKey(
 
     auto dbClient = drogon::app().getDbClient("default");
 
-    // 加盐哈希无法通过SQL等值匹配，需在应用层逐条验证
-    // 优先用 device_id 缩小范围；无 device_id 时扫描全部持有恢复密钥的活跃用户
+    // 加盐哈希无法通过 SQL 等值匹配，需在应用层逐条验证。
+    // 若传入 device_id，仅作为排序优先级而非硬过滤条件，避免换机后无法恢复。
     auto result =
         !deviceId.empty()
             ? dbClient->execSqlSync(
-                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash "
+                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash, "
+                  "status, "
+                  "CASE WHEN device_id = $1 THEN 0 ELSE 1 END AS device_rank "
                   "FROM users "
-                  "WHERE device_id = $1 AND recovery_key_hash IS NOT NULL AND "
-                  "status = 'active'",
+                  "WHERE recovery_key_hash IS NOT NULL AND "
+                  "status IN ('active', 'deactivated') "
+                  "ORDER BY device_rank ASC, updated_at DESC NULLS LAST, "
+                  "created_at DESC",
                   deviceId)
             : dbClient->execSqlSync(
-                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash "
+                  "SELECT user_id, nickname, is_anonymous, recovery_key_hash, "
+                  "status "
                   "FROM users "
-                  "WHERE recovery_key_hash IS NOT NULL AND status = 'active'");
+                  "WHERE recovery_key_hash IS NOT NULL AND "
+                  "status IN ('active', 'deactivated') "
+                  "ORDER BY updated_at DESC NULLS LAST, created_at DESC");
 
     if (result.empty()) {
       callback(ResponseUtil::notFound("关键词无效，请检查后重试"));
@@ -212,9 +259,29 @@ void UserController::recoverWithKey(
 
     auto userId = result[matchIdx]["user_id"].as<std::string>();
     auto nickname = result[matchIdx]["nickname"].as<std::string>();
+    const auto status = result[matchIdx]["status"].as<std::string>();
 
-    dbClient->execSqlSync(
-        "UPDATE users SET last_active_at = NOW() WHERE user_id = $1", userId);
+    if (status == "deactivated") {
+      if (!deviceId.empty()) {
+        dbClient->execSqlSync(
+            "UPDATE users SET status = 'active', device_id = $2, "
+            "updated_at = NOW(), last_active_at = NOW() WHERE user_id = $1",
+            userId, deviceId);
+      } else {
+        dbClient->execSqlSync(
+            "UPDATE users SET status = 'active', updated_at = NOW(), "
+            "last_active_at = NOW() WHERE user_id = $1",
+            userId);
+      }
+    } else if (!deviceId.empty()) {
+      dbClient->execSqlSync(
+          "UPDATE users SET device_id = $2, last_active_at = NOW(), "
+          "updated_at = NOW() WHERE user_id = $1",
+          userId, deviceId);
+    } else {
+      dbClient->execSqlSync(
+          "UPDATE users SET last_active_at = NOW() WHERE user_id = $1", userId);
+    }
 
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(userId, key, 24);
@@ -224,6 +291,7 @@ void UserController::recoverWithKey(
     responseData["nickname"] = nickname;
     responseData["token"] = token;
     responseData["is_new_user"] = false;
+    responseData["reactivated"] = (status == "deactivated");
     responseData["expires_at"] =
         static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 
@@ -276,46 +344,28 @@ void UserController::deleteAccount(
     auto user_id = *userIdOpt;
 
     auto json = req->getJsonObject();
-    if (!json) {
-      callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
-      return;
-    }
-
-    std::string confirmation = (*json).get("confirmation", "").asString();
-    if (confirmation != "DELETE") {
-      callback(ResponseUtil::badRequest("请输入确认文本 'DELETE'"));
+    if (!hasCompatibleConfirmation(json.get(), {"DELETE", "DEACTIVATE"})) {
+      callback(ResponseUtil::badRequest(
+          "confirmation 仅支持 'DEACTIVATE' 或兼容旧值 'DELETE'"));
       return;
     }
 
     auto dbClient = drogon::app().getDbClient("default");
-    auto transPtr = dbClient->newTransaction();
-
-    try {
-      transPtr->execSqlSync("DELETE FROM stones WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM paper_boats WHERE sender_id = $1",
-                            user_id);
-      transPtr->execSqlSync("DELETE FROM ripples WHERE user_id = $1", user_id);
-      transPtr->execSqlSync("DELETE FROM friend_messages WHERE sender_id = $1 "
-                            "OR receiver_id = $1",
-                            user_id);
-      transPtr->execSqlSync(
-          "DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", user_id);
-      transPtr->execSqlSync(
-          "DELETE FROM temp_friends WHERE user1_id = $1 OR user2_id = $1",
-          user_id);
-      transPtr->execSqlSync("DELETE FROM notifications WHERE user_id = $1",
-                            user_id);
-      transPtr->execSqlSync("DELETE FROM lake_god_messages WHERE user_id = $1",
-                            user_id);
-      transPtr->execSqlSync("UPDATE users SET status = 'deleted', updated_at = "
-                            "NOW() WHERE user_id = $1",
-                            user_id);
-
-      callback(ResponseUtil::success(Json::Value(), "账号已注销"));
-    } catch (const std::exception &e) {
-      LOG_ERROR << "Transaction error in deleteAccount: " << e.what();
-      callback(ResponseUtil::internalError("注销失败"));
+    auto result = dbClient->execSqlSync(
+        "UPDATE users "
+        "SET status = 'deactivated', updated_at = NOW() "
+        "WHERE user_id = $1 AND status <> 'deleted' "
+        "RETURNING user_id",
+        user_id);
+    if (result.empty()) {
+      callback(ResponseUtil::notFound("用户不存在或已永久删除"));
+      return;
     }
+
+    SecurityLogger::logEventFromRequest(
+        req, user_id, SecurityEventType::ACCOUNT_DELETED,
+        SecuritySeverity::HIGH, "兼容路由注销账号（30天内可恢复）");
+    callback(ResponseUtil::success(Json::Value(), "账号已注销，30天内可恢复"));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in deleteAccount: " << e.base().what();

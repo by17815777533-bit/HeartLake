@@ -33,6 +33,31 @@ std::string normalizeNickname(const std::string &raw) {
   return Validator::sanitizeHtml(trimAscii(raw));
 }
 
+std::string normalizeUpperToken(const std::string &raw) {
+  auto token = trimAscii(raw);
+  std::transform(token.begin(), token.end(), token.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::toupper(c));
+                 });
+  return token;
+}
+
+bool hasCompatibleConfirmation(const Json::Value *json,
+                               std::initializer_list<const char *> accepted) {
+  if (json == nullptr || !json->isMember("confirmation")) {
+    return true;
+  }
+  if (!(*json)["confirmation"].isString()) {
+    return false;
+  }
+
+  const auto confirmation = normalizeUpperToken((*json)["confirmation"].asString());
+  return std::any_of(accepted.begin(), accepted.end(),
+                     [&](const char *candidate) {
+                       return confirmation == candidate;
+                     });
+}
+
 bool parseBoolCompat(const Json::Value &json, const char *key,
                      bool defaultValue) {
   if (!json.isMember(key)) return defaultValue;
@@ -899,19 +924,23 @@ void AccountController::deactivateAccount(
     auto userId = *userIdOpt;
 
     auto json = req->getJsonObject();
-    if (!json) {
-      callback(ResponseUtil::badRequest("请求体必须是 JSON 格式"));
-      return;
-    }
-    std::string confirmation = (*json).get("confirmation", "").asString();
-    if (confirmation != "DEACTIVATE") {
-      callback(ResponseUtil::badRequest("请输入确认文本 'DEACTIVATE'"));
+    if (!hasCompatibleConfirmation(json.get(), {"DEACTIVATE", "DELETE"})) {
+      callback(ResponseUtil::badRequest(
+          "confirmation 仅支持 'DEACTIVATE' 或兼容旧值 'DELETE'"));
       return;
     }
 
     auto dbClient = app().getDbClient("default");
-    dbClient->execSqlSync(
-        "UPDATE users SET status = 'deactivated' WHERE user_id = $1", userId);
+    auto result = dbClient->execSqlSync(
+        "UPDATE users "
+        "SET status = 'deactivated', updated_at = NOW() "
+        "WHERE user_id = $1 AND status <> 'deleted' "
+        "RETURNING user_id",
+        userId);
+    if (result.empty()) {
+      callback(ResponseUtil::notFound("用户不存在或已永久删除"));
+      return;
+    }
 
     SecurityLogger::logEventFromRequest(
         req, userId, SecurityEventType::ACCOUNT_DELETED, SecuritySeverity::HIGH,
@@ -935,14 +964,8 @@ void AccountController::deleteAccountPermanently(
     }
     auto userId = *userIdOpt;
     auto json = req->getJsonObject();
-    if (!json) {
-      callback(ResponseUtil::badRequest("请求体必须是JSON格式"));
-      return;
-    }
-
-    std::string confirmation = (*json).get("confirmation", "").asString();
-    if (confirmation != "DELETE") {
-      callback(ResponseUtil::badRequest("请输入确认文本 'DELETE'"));
+    if (!hasCompatibleConfirmation(json.get(), {"DELETE"})) {
+      callback(ResponseUtil::badRequest("confirmation 仅支持 'DELETE'"));
       return;
     }
 
@@ -1016,8 +1039,13 @@ void AccountController::deleteAccountPermanently(
     trans->execSqlSync(
         "DELETE FROM user_similarity WHERE user1_id = $1 OR user2_id = $1",
         userId);
-    // 最后删除用户记录
-    trans->execSqlSync("DELETE FROM users WHERE user_id = $1", userId);
+    // 最后删除用户记录，并对不存在目标返回明确错误而不是假成功
+    auto deletedUser = trans->execSqlSync(
+        "DELETE FROM users WHERE user_id = $1 RETURNING user_id", userId);
+    if (deletedUser.empty()) {
+      callback(ResponseUtil::notFound("用户不存在"));
+      return;
+    }
 
     callback(ResponseUtil::success(Json::Value(), "账号已永久删除"));
   } catch (const std::exception &e) {

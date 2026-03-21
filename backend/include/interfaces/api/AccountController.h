@@ -133,7 +133,7 @@ public:
   /**
    * POST /api/account/deactivate - 注销账号（30天内可恢复）
    *
-   * 请求体: { "confirmation": "DEACTIVATE" }
+   * 请求体可省略；如提供则兼容 `confirmation=DEACTIVATE/DELETE`。
    */
   void deactivateAccount(const HttpRequestPtr &req,
                          std::function<void(const HttpResponsePtr &)> &&callback);
@@ -141,7 +141,7 @@ public:
   /**
    * POST /api/account/delete-permanent - 永久删除账号及所有关联数据
    *
-   * 请求体: { "confirmation": "DELETE" }
+   * 请求体可省略；如提供则兼容 `confirmation=DELETE`。
    * 在事务中按依赖顺序级联删除主链路关联数据，不可恢复。
    */
   void deleteAccountPermanently(const HttpRequestPtr &req,

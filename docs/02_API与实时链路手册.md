@@ -118,6 +118,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 | POST | `/api/auth/anonymous` | 无 | 匿名登录 |
 | POST | `/api/auth/refresh` | Bearer | 刷新令牌 |
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
+| POST | `/api/auth/delete-account` | Bearer | 兼容旧客户端的账号停用别名（30 天内可恢复） |
 | GET | `/api/account/info` | Bearer | 获取个人资料 |
 | PUT | `/api/account/profile` | Bearer | 更新个人资料 |
 | POST | `/api/account/avatar` | Bearer | 更新头像 |
@@ -132,6 +133,11 @@ curl -X POST http://localhost:8080/api/admin/login \
 | GET | `/api/account/export/{taskId}` | Bearer | 查询导出任务状态 |
 | POST | `/api/account/deactivate` | Bearer | 注销账号（30 天内可恢复） |
 | POST | `/api/account/delete-permanent` | Bearer | 永久删除账号及全部数据 |
+
+说明：
+
+- `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则接受 `DEACTIVATE` 和历史值 `DELETE`
+- `POST /api/account/delete-permanent` 允许空请求体；如提供 `confirmation`，则接受 `DELETE`
 
 ### 4.2 石头（核心内容）
 

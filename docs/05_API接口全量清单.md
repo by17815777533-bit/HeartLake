@@ -100,6 +100,7 @@ POST `/api/auth/anonymous`
 | GET | `/api/account/export/{taskId}` | 查询导出任务状态 |
 | POST | `/api/account/deactivate` | 注销账号（30 天内可恢复） |
 | POST | `/api/account/delete-permanent` | 永久删除账号及全部数据 |
+| POST | `/api/auth/delete-account` | 兼容旧客户端的账号停用别名（30 天内可恢复） |
 
 PUT `/api/account/profile` 请求体（所有字段可选）：
 
@@ -117,6 +118,11 @@ POST `/api/account/delete-permanent` 请求体：
 ```json
 {"confirmation": "DELETE"}
 ```
+
+兼容说明：
+
+- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则兼容 `DEACTIVATE` / `DELETE`
+- `POST /api/account/delete-permanent` 允许空请求体；如提供 `confirmation`，则兼容 `DELETE`
 
 ---
 
