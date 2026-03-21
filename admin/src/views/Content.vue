@@ -200,7 +200,10 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
-import { normalizeCollectionResponse } from '@/utils/collectionPayload'
+import {
+  normalizeContentCollection,
+  sortByCreatedAtDesc,
+} from '@/utils/adminPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -507,30 +510,16 @@ async function fetchContent() {
 
     if (filters.type === 'boat') {
       const res = await api.getBoats(params)
-      const { items, total } = normalizeCollectionResponse<any>(res.data, ['boats'])
-      contentList.value = items.map((item) => ({
-        id: item.boat_id || item.id,
-        type: 'boat',
-        content: item.content,
-        user: { nickname: item.author_nickname || item.nickname },
-        status: item.status === 'active' ? 'published' : item.status,
-        created_at: item.created_at,
-      }))
+      const { items, total } = normalizeContentCollection(res.data, 'boat', ['boats'])
+      contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
       return
     }
 
     if (filters.type === 'stone') {
       const res = await api.getStones(params)
-      const { items, total } = normalizeCollectionResponse<any>(res.data, ['stones'])
-      contentList.value = items.map((item) => ({
-        id: item.stone_id || item.id,
-        type: 'stone',
-        content: item.content,
-        user: { nickname: item.author_nickname || item.nickname },
-        status: item.status,
-        created_at: item.created_at,
-      }))
+      const { items, total } = normalizeContentCollection(res.data, 'stone', ['stones'])
+      contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
       return
     }
@@ -545,28 +534,12 @@ async function fetchContent() {
       api.getStones({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
       api.getBoats({ page: 1, page_size: mergedPageSize, ...sharedFilters }),
     ])
-    const stonesCollection = normalizeCollectionResponse<any>(stonesRes.data, ['stones'])
-    const boatsCollection = normalizeCollectionResponse<any>(boatsRes.data, ['boats'])
-    const mergedList = [
-      ...stonesCollection.items.map((item) => ({
-        id: item.stone_id || item.id,
-        type: 'stone',
-        content: item.content,
-        user: { nickname: item.author_nickname || item.nickname },
-        status: item.status,
-        created_at: item.created_at,
-      })),
-      ...boatsCollection.items.map((item) => ({
-        id: item.boat_id || item.id,
-        type: 'boat',
-        content: item.content,
-        user: { nickname: item.author_nickname || item.nickname },
-        status: item.status === 'active' ? 'published' : item.status,
-        created_at: item.created_at,
-      })),
-    ]
-
-    mergedList.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    const stonesCollection = normalizeContentCollection(stonesRes.data, 'stone', ['stones'])
+    const boatsCollection = normalizeContentCollection(boatsRes.data, 'boat', ['boats'])
+    const mergedList = sortByCreatedAtDesc([
+      ...stonesCollection.items,
+      ...boatsCollection.items,
+    ])
     const start = (currentPage - 1) * pageSize
     contentList.value = mergedList.slice(start, start + pageSize)
     pagination.total = stonesCollection.total + boatsCollection.total
@@ -582,14 +555,7 @@ async function fetchContent() {
 }
 
 /** 打开内容详情弹窗 */
-const viewContent = (row: {
-  id: string
-  type: string
-  content: string
-  user?: { nickname: string }
-  status: string
-  created_at: string
-}) => {
+const viewContent = (row: ContentItem) => {
   currentContent.value = row
   detailVisible.value = true
 }

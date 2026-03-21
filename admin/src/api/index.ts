@@ -16,6 +16,7 @@ import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { useAppStore } from '@/stores'
 import { getBusinessMessage } from '@/utils/errorHelper'
+import { ADMIN_LOGIN_PATH } from '@/utils/adminRoutes'
 
 /**
  * @brief 自定义 Axios 顶级请求配置拓展
@@ -73,10 +74,10 @@ let isRedirectingToLogin = false
 function handleAuthFailure(msg?: string): void {
   const appStore = useAppStore()
   appStore.clearToken()
-  if (!isRedirectingToLogin && router.currentRoute.value.path !== '/login') {
+  if (!isRedirectingToLogin && router.currentRoute.value.path !== ADMIN_LOGIN_PATH) {
     isRedirectingToLogin = true
     ElMessage.error(msg || '登录已过期，请重新登录')
-    router.push('/login').finally(() => {
+    router.push(ADMIN_LOGIN_PATH).finally(() => {
       isRedirectingToLogin = false
     })
   }
@@ -234,6 +235,34 @@ http.interceptors.response.use(
  */
 type Params = Record<string, unknown>
 
+type VectorSearchPayload = VectorSearchParams & { topK?: number }
+
+function camelToSnakeKey(key: string): string {
+  return key.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`)
+}
+
+function buildEdgeAIConfigPayload(data: Params): Params {
+  const payload: Params = { ...data }
+  Object.entries(data).forEach(([key, value]) => {
+    const snakeKey = camelToSnakeKey(key)
+    if (snakeKey !== key && payload[snakeKey] === undefined) {
+      payload[snakeKey] = value
+    }
+  })
+  return payload
+}
+
+function buildVectorSearchPayload(data: VectorSearchPayload): Params {
+  const payload: Params = { ...data }
+  if (payload.top_k == null && payload.topK != null) {
+    payload.top_k = payload.topK
+  }
+  if (payload.topK == null && payload.top_k != null) {
+    payload.topK = payload.top_k
+  }
+  return payload
+}
+
 /** 
  * @brief 重量级事务强制截断常量
  */
@@ -315,9 +344,17 @@ export default {
   getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
   triggerFederatedAggregation: (data: FederatedAggregationParams) => http.post('/admin/edge-ai/federated/aggregate', data, { timeout: LONG_TIMEOUT }),
   getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
-  edgeAIVectorSearch: (data: VectorSearchParams) => http.post('/admin/edge-ai/vector-search', data, { timeout: LONG_TIMEOUT }),
+  edgeAIVectorSearch: (data: VectorSearchPayload) => http.post(
+    '/admin/edge-ai/vector-search',
+    buildVectorSearchPayload(data),
+    { timeout: LONG_TIMEOUT },
+  ),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
-  updateEdgeAIConfig: (data: Params) => http.put('/admin/edge-ai/config', data, { timeout: LONG_TIMEOUT }),
+  updateEdgeAIConfig: (data: Params) => http.put(
+    '/admin/edge-ai/config',
+    buildEdgeAIConfigPayload(data),
+    { timeout: LONG_TIMEOUT },
+  ),
   // AI Analysis
   analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
   moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
