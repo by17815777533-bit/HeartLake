@@ -8,7 +8,7 @@
  *   - updateUserProfile 写入后主动失效缓存
  *
  * 安全措施：
- *   - searchUsers 对 LIKE 通配符做转义，防止通配符注入
+ *   - searchUsers 对 ILIKE 通配符做转义，防止通配符注入
  *   - getUsersBatch 使用 PostgreSQL ANY(text[]) 批量查询，减少大批量场景的往返次数
  */
 
@@ -316,7 +316,7 @@ Json::Value UserApplicationService::updateUserProfile(const std::string &userId,
   }
 }
 
-/// 搜索用户：按 username/nickname 模糊匹配，LIKE 通配符已转义
+/// 搜索用户：按 username/nickname 模糊匹配，ILIKE 通配符已转义
 Json::Value UserApplicationService::searchUsers(const std::string &keyword,
                                                 int page, int pageSize,
                                                 const std::string &excludeUserId) {
@@ -332,7 +332,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
             "SELECT user_id, username, nickname, avatar_url, bio, "
             "is_anonymous, COUNT(*) OVER() AS total_count "
             "FROM users "
-            "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+            "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
             "'\\') "
             "AND status = 'active' "
             "AND user_id != $2 "
@@ -346,7 +346,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
           "SELECT user_id, username, nickname, avatar_url, bio, "
           "is_anonymous, COUNT(*) OVER() AS total_count "
           "FROM users "
-          "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+          "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
           "'\\') "
           "AND status = 'active' "
           "ORDER BY created_at DESC "
@@ -367,7 +367,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
         auto countResult = dbClient->execSqlSync(
             "SELECT COUNT(*)::INTEGER AS total_count "
             "FROM users "
-            "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+            "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
             "'\\') "
             "AND status = 'active' "
             "AND user_id != $2",
@@ -378,7 +378,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
       auto countResult = dbClient->execSqlSync(
           "SELECT COUNT(*)::INTEGER AS total_count "
           "FROM users "
-          "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+          "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
           "'\\') "
           "AND status = 'active'",
           searchPattern);
