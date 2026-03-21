@@ -132,9 +132,18 @@ ConnectionTargetPolicy loadConnectionTargetPolicy(
   return policy;
 }
 
-void ensureConnectionTargetAllowed(const drogon::orm::DbClientPtr &dbClient,
-                                   const std::string &userId,
-                                   const std::string &targetUserId) {
+void ensureTargetUserAvailable(const drogon::orm::DbClientPtr &dbClient,
+                               const std::string &userId,
+                               const std::string &targetUserId) {
+  const auto policy = loadConnectionTargetPolicy(dbClient, userId, targetUserId);
+  if (!policy.targetExists) {
+    throw std::runtime_error("目标用户不存在或不可用");
+  }
+}
+
+void ensureDirectConnectionTargetAllowed(
+    const drogon::orm::DbClientPtr &dbClient, const std::string &userId,
+    const std::string &targetUserId) {
   const auto policy = loadConnectionTargetPolicy(dbClient, userId, targetUserId);
   if (!policy.targetExists) {
     throw std::runtime_error("目标用户不存在或不可用");
@@ -226,9 +235,12 @@ void refreshBoatTempFriendshipAsync(const std::string &userId,
   auto dbClient = drogon::app().getDbClient("default");
   dbClient->execSqlAsync(
       "INSERT INTO temp_friends (temp_friend_id, user1_id, user2_id, "
-      "source, source_id, status, expires_at) "
-      "VALUES ($1, $2, $3, 'boat', $4, 'active', $5) "
+      "requester_id, source, source_id, status, expires_at) "
+      "VALUES ($1, $2, $3, $4, 'boat', $5, 'active', $6) "
       "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
+      "requester_id = EXCLUDED.requester_id, "
+      "source = 'boat', "
+      "source_id = EXCLUDED.source_id, "
       "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at), "
       "status = 'active'",
       [](const drogon::orm::Result &) {},
@@ -236,7 +248,7 @@ void refreshBoatTempFriendshipAsync(const std::string &userId,
         LOG_ERROR << "Failed to refresh boat temp friendship for boat " << boatId
                   << ": " << e.base().what();
       },
-      tempFriendId, uid1, uid2, boatId, expiresAt.toDbStringLocal());
+      tempFriendId, uid1, uid2, userId, boatId, expiresAt.toDbStringLocal());
 }
 
 void assessBoatPsychologicalRiskAsync(const std::string &userId,
@@ -1128,6 +1140,7 @@ Json::Value InteractionApplicationService::createConnectionForStone(
     if (targetUserId.empty() || targetUserId == userId) {
       throw std::runtime_error("不能和自己建立连接");
     }
+    ensureTargetUserAvailable(dbClient, userId, targetUserId);
 
     auto existing = dbClient->execSqlSync(
         "SELECT connection_id, user_id, target_user_id, stone_id, status, "
@@ -1143,8 +1156,6 @@ Json::Value InteractionApplicationService::createConnectionForStone(
     if (!existing.empty()) {
       return buildConnectionPayload(existing[0]);
     }
-
-    ensureConnectionTargetAllowed(dbClient, userId, targetUserId);
 
     const std::string connectionId = utils::IdGenerator::generateConnectionId();
     auto insertResult = dbClient->execSqlSync(
@@ -1175,6 +1186,8 @@ InteractionApplicationService::createConnection(const std::string &targetUserId,
       throw std::runtime_error("目标用户无效");
     }
 
+    ensureDirectConnectionTargetAllowed(dbClient, userId, targetUserId);
+
     auto existing = dbClient->execSqlSync(
         "SELECT connection_id, user_id, target_user_id, stone_id, status, "
         "created_at, expires_at "
@@ -1189,8 +1202,6 @@ InteractionApplicationService::createConnection(const std::string &targetUserId,
     if (!existing.empty()) {
       return buildConnectionPayload(existing[0]);
     }
-
-    ensureConnectionTargetAllowed(dbClient, userId, targetUserId);
 
     const std::string connectionId = utils::IdGenerator::generateConnectionId();
     auto insertResult = dbClient->execSqlSync(
@@ -1219,11 +1230,23 @@ Json::Value InteractionApplicationService::createConnectionMessage(
   try {
     auto insertResult = dbClient->execSqlSync(
         "WITH authorized AS ("
-        "  SELECT connection_id FROM connections "
+        "  SELECT connection_id FROM connections c "
         "  WHERE connection_id = $1 "
-        "    AND (user_id = $2 OR target_user_id = $2) "
+        "    AND (c.user_id = $2 OR c.target_user_id = $2) "
         "    AND status IN ('pending', 'active') "
-        "    AND (expires_at IS NULL OR expires_at > NOW())"
+        "    AND (expires_at IS NULL OR expires_at > NOW()) "
+        "    AND ("
+        "      c.stone_id IS NOT NULL "
+        "      OR EXISTS(SELECT 1 FROM friends f "
+        "                WHERE ((f.user_id = c.user_id AND f.friend_id = c.target_user_id) "
+        "                    OR (f.user_id = c.target_user_id AND f.friend_id = c.user_id)) "
+        "                  AND f.status = 'accepted') "
+        "      OR COALESCE((SELECT allow_message_from_stranger "
+        "                   FROM user_privacy_settings ups "
+        "                   WHERE ups.user_id = CASE "
+        "                     WHEN c.user_id = $2 THEN c.target_user_id "
+        "                     ELSE c.user_id END), false)"
+        "    )"
         "), inserted AS ("
         "  INSERT INTO connection_messages "
         "  (connection_id, sender_id, content, created_at) "
@@ -1471,11 +1494,23 @@ Json::Value InteractionApplicationService::getConnectionMessages(
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
     auto result = dbClient->execSqlSync(
         "WITH authorized AS ("
-        "  SELECT connection_id FROM connections "
+        "  SELECT connection_id FROM connections c "
         "  WHERE connection_id = $1 "
-        "    AND (user_id = $2 OR target_user_id = $2) "
+        "    AND (c.user_id = $2 OR c.target_user_id = $2) "
         "    AND status IN ('pending', 'active') "
-        "    AND (expires_at IS NULL OR expires_at > NOW())"
+        "    AND (expires_at IS NULL OR expires_at > NOW()) "
+        "    AND ("
+        "      c.stone_id IS NOT NULL "
+        "      OR EXISTS(SELECT 1 FROM friends f "
+        "                WHERE ((f.user_id = c.user_id AND f.friend_id = c.target_user_id) "
+        "                    OR (f.user_id = c.target_user_id AND f.friend_id = c.user_id)) "
+        "                  AND f.status = 'accepted') "
+        "      OR COALESCE((SELECT allow_message_from_stranger "
+        "                   FROM user_privacy_settings ups "
+        "                   WHERE ups.user_id = CASE "
+        "                     WHEN c.user_id = $2 THEN c.target_user_id "
+        "                     ELSE c.user_id END), false)"
+        "    )"
         "), totals AS ("
         "  SELECT COUNT(*)::INTEGER AS total_count "
         "  FROM connection_messages cm "

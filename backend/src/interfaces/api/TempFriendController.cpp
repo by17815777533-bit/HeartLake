@@ -32,6 +32,10 @@ std::pair<std::string, std::string> normalizeTempFriendPair(const std::string &l
     return {right, left};
 }
 
+std::string normalizeManualTempFriendSource(const std::string &) {
+    return "chat";
+}
+
 int readRemainingSeconds(const drogon::orm::Row &row) {
     return row["seconds_remaining"].isNull()
                ? 0
@@ -74,8 +78,9 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             return;
         }
         auto targetUserId = (*jsonPtr)["target_user_id"].asString();
-        auto source = jsonPtr->isMember("source") ? (*jsonPtr)["source"].asString() : std::string("");
-        auto sourceId = (*jsonPtr).get("source_id", "").asString();
+        auto source = normalizeManualTempFriendSource(
+            jsonPtr->isMember("source") ? (*jsonPtr)["source"].asString() : std::string(""));
+        const std::string sourceId;
         
         if (targetUserId.empty()) {
             Json::Value ret;
@@ -100,7 +105,7 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
         const auto [user1Id, user2Id] = normalizeTempFriendPair(currentUserId, targetUserId);
         auto relationState = dbClient->execSqlSync(
             "SELECT "
-            "  EXISTS(SELECT 1 FROM users WHERE user_id = $1) AS target_exists, "
+            "  EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND status = 'active') AS target_exists, "
             "  EXISTS(SELECT 1 FROM friends "
             "         WHERE ((user_id = $2 AND friend_id = $1) "
             "             OR (user_id = $1 AND friend_id = $2)) "
@@ -109,7 +114,10 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             "         WHERE status = 'active' "
             "           AND expires_at >= NOW() "
             "           AND ((user1_id = $2 AND user2_id = $1) "
-            "             OR (user1_id = $1 AND user2_id = $2))) AS already_temp_friend",
+            "             OR (user1_id = $1 AND user2_id = $2))) AS already_temp_friend, "
+            "  COALESCE((SELECT allow_message_from_stranger "
+            "            FROM user_privacy_settings "
+            "            WHERE user_id = $1), false) AS allow_message_from_stranger",
             targetUserId, currentUserId);
         const auto relationRow = *safeRow(relationState);
 
@@ -139,24 +147,41 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
+
+        if (!relationRow["allow_message_from_stranger"].as<bool>()) {
+            Json::Value ret;
+            ret["code"] = 403;
+            ret["message"] = "对方未开启陌生人消息";
+            auto resp = HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(k403Forbidden);
+            callback(resp);
+            return;
+        }
         
         // 创建临时好友关系
         auto tempFriendId = drogon::utils::getUuid();
         auto expiresAt = trantor::Date::date().after(24 * 3600); // 24小时后过期
         
         auto insertSql = "INSERT INTO temp_friends "
-                        "(temp_friend_id, user1_id, user2_id, source, source_id, status, upgraded_to_friend, expires_at) "
-                        "VALUES ($1, $2, $3, $4, $5, 'active', false, $6) "
+                        "(temp_friend_id, user1_id, user2_id, requester_id, source, source_id, status, upgraded_to_friend, expires_at) "
+                        "VALUES ($1, $2, $3, $4, $5, $6, 'active', false, $7) "
                         "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
-                        "source = EXCLUDED.source, "
-                        "source_id = EXCLUDED.source_id, "
+                        "requester_id = CASE "
+                        "  WHEN temp_friends.source = 'boat' THEN temp_friends.requester_id "
+                        "  ELSE EXCLUDED.requester_id END, "
+                        "source = CASE "
+                        "  WHEN temp_friends.source = 'boat' THEN temp_friends.source "
+                        "  ELSE EXCLUDED.source END, "
+                        "source_id = CASE "
+                        "  WHEN temp_friends.source = 'boat' THEN temp_friends.source_id "
+                        "  ELSE EXCLUDED.source_id END, "
                         "status = 'active', "
                         "upgraded_to_friend = false, "
                         "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at) "
                         "RETURNING temp_friend_id, expires_at";
         
         auto insertResult = dbClient->execSqlSync(insertSql, 
-            tempFriendId, user1Id, user2Id, 
+            tempFriendId, user1Id, user2Id, currentUserId,
             source, sourceId, expiresAt.toDbStringLocal());
         
         if (insertResult.size() > 0) {

@@ -203,7 +203,10 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 说明：
 - 临时连接过期后，以及连接已升级为正式好友后，对应 connection 的消息读取和发送入口都会返回拒绝访问
-- 若目标用户未开启 `allow_message_from_stranger`，陌生人不能新建临时连接；已是好友时不受该限制
+- `/api/temp-friends/connect` 仅用于手动陌生人直连，服务端会规范化为 `source = chat`
+- 若目标用户未开启 `allow_message_from_stranger`，陌生人不能新建手动临时连接；已是好友时不受该限制
+- 石头回复链和纸船链派生的临时连接保留原业务来源（如 `stone` / `boat`），不受陌生人直连开关阻断
+- 手动直连产生的 connection 历史读取和发送入口继续受 `allow_message_from_stranger` 约束；石头/纸船派生 connection 不受该开关影响
 
 ---
 
