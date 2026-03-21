@@ -75,7 +75,7 @@ include_directories(
 )
 
 # Collect all source files
-file(GLOB_RECURSE SOURCES "src/*.cpp")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(FILTER SOURCES EXCLUDE REGEX ".*main\\.cpp$")
 
 # 如果未启用 ONNX，排除 OnnxSentimentEngine.cpp

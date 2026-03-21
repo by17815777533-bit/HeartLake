@@ -196,10 +196,6 @@ void StoneController::createStone(
         // 异步处理AI任务（情感分析、向量嵌入、风险评估、通知推送、AI评论）
         service->processStoneAsync(stoneId, userId, content, moodType);
 
-        // 使缓存失效
-        auto& cacheManager = heartlake::core::cache::CacheManager::getInstance();
-        cacheManager.invalidatePattern("stone_list:*");
-
         // 广播新石头事件到 lake 房间，只有观湖页面的用户收到
         Json::Value broadcastMsg;
         broadcastMsg["type"] = "new_stone";

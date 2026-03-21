@@ -20,6 +20,7 @@
 #include "infrastructure/events/EventBus.h"
 #include "infrastructure/cache/CacheManager.h"
 #include "infrastructure/ai/AIService.h"
+#include "utils/StoneCacheKeys.h"
 #include <memory>
 
 namespace heartlake::application::handlers {
@@ -85,7 +86,7 @@ public:
     void handle(const core::events::EmotionAnalyzedEvent& event) override {
         if (cache_) {
             cache_->invalidate("stone:" + event.stoneId);
-            cache_->invalidatePattern("stone_list:*");
+            heartlake::utils::stone_cache::bumpStoneListNamespace();
         }
     }
 
@@ -106,7 +107,7 @@ public:
     void handle(const core::events::RippleCreatedEvent& event) override {
         if (cache_) {
             cache_->invalidate("stone:" + event.stoneId);
-            cache_->invalidatePattern("stone_list:*");
+            heartlake::utils::stone_cache::bumpStoneListNamespace();
         }
     }
 

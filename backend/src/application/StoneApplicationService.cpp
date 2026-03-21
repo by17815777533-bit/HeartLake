@@ -26,10 +26,10 @@
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/StoneCacheKeys.h"
 #include <algorithm>
 #include <drogon/drogon.h>
 #include <json/json.h>
-#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -90,24 +90,9 @@ bool safeBool(const drogon::orm::Row &row, const char *column,
   return row[column].isNull() ? fallback : row[column].as<bool>();
 }
 
-std::string buildStoneDetailCacheKey(const std::string &stoneId) {
-  return "stone:" + stoneId;
-}
-
-std::string buildStoneListCacheKey(int page, int pageSize,
-                                   const std::string &sortBy,
-                                   const std::string &filterMood,
-                                   const std::string &userId) {
-  std::ostringstream key;
-  key << "stone_list:v2:p=" << page << ":ps=" << pageSize << ":sort=" << sortBy
-      << ":mood=" << filterMood << ":user=" << userId;
-  return key.str();
-}
-
-std::string buildStoneRippleStateCacheKey(const std::string &userId,
-                                          const std::string &stoneId) {
-  return "stone:rippled:" + userId + ":" + stoneId;
-}
+using heartlake::utils::stone_cache::buildStoneDetailCacheKey;
+using heartlake::utils::stone_cache::buildStoneListCacheKey;
+using heartlake::utils::stone_cache::buildStoneRippleStateCacheKey;
 
 std::string normalizeStoneSort(const std::string &sortBy) {
   if (sortBy == "view_count" || sortBy == "boat_count" ||
@@ -231,10 +216,59 @@ void applyRippleStates(Json::Value &stones,
 }
 
 void invalidateStoneListCaches(
-    const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager) {
-  if (cacheManager) {
-    cacheManager->invalidatePattern("stone_list:*");
+    const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
+    const std::string &sortBy = "") {
+  if (!cacheManager) {
+    return;
   }
+  if (!sortBy.empty()) {
+    heartlake::utils::stone_cache::bumpStoneListSortNamespace(sortBy);
+    return;
+  }
+  heartlake::utils::stone_cache::bumpStoneListNamespace();
+}
+
+int resolveStoneListTotal(const drogon::orm::DbClientPtr &dbClient,
+                          const drogon::orm::Result &result, int page,
+                          const std::string &userId,
+                          const std::string &filterMood) {
+  if (!result.empty()) {
+    return result[0]["total_count"].isNull() ? 0
+                                             : result[0]["total_count"].as<int>();
+  }
+  if (page <= 1) {
+    return 0;
+  }
+
+  std::string countSql =
+      "SELECT COUNT(*)::INTEGER AS total_count "
+      "FROM stones s "
+      "WHERE s.deleted_at IS NULL AND s.status = 'published' ";
+  int paramIndex = 1;
+  if (!userId.empty()) {
+    countSql += "AND s.user_id = $" + std::to_string(paramIndex++) + " ";
+  }
+  if (!filterMood.empty()) {
+    countSql += "AND s.mood_type = $" + std::to_string(paramIndex++) + " ";
+  }
+
+  auto countResult = [&]() -> drogon::orm::Result {
+    if (!userId.empty() && !filterMood.empty()) {
+      return dbClient->execSqlSync(countSql, userId, filterMood);
+    }
+    if (!userId.empty()) {
+      return dbClient->execSqlSync(countSql, userId);
+    }
+    if (!filterMood.empty()) {
+      return dbClient->execSqlSync(countSql, filterMood);
+    }
+    return dbClient->execSqlSync(countSql);
+  }();
+
+  if (countResult.empty() || countResult[0]["total_count"].isNull()) {
+    return 0;
+  }
+  return countResult[0]["total_count"].as<int>();
 }
 
 std::string serializeRiskFactors(
@@ -547,6 +581,7 @@ Json::Value StoneApplicationService::getStoneList(
         }
         stones.append(buildStoneJson(row));
       }
+      total = resolveStoneListTotal(dbClient, result, page, userId, filterMood);
       response = ResponseUtil::buildCollectionPayload("stones", stones, total, page,
                                                       pageSize);
 
@@ -613,7 +648,7 @@ void StoneApplicationService::incrementViewCount(const std::string &stoneId) {
         [stoneId, cacheManagerCopy](const drogon::orm::Result &) {
           if (cacheManagerCopy) {
             cacheManagerCopy->invalidate(buildStoneDetailCacheKey(stoneId));
-            invalidateStoneListCaches(cacheManagerCopy);
+            invalidateStoneListCaches(cacheManagerCopy, "view_count");
           }
         },
         [](const drogon::orm::DrogonDbException &) {}, stoneId);
@@ -628,7 +663,7 @@ void StoneApplicationService::incrementViewCount(const std::string &stoneId) {
           [stoneId, cacheManagerCopy](const drogon::orm::Result &) {
             if (cacheManagerCopy) {
               cacheManagerCopy->invalidate(buildStoneDetailCacheKey(stoneId));
-              invalidateStoneListCaches(cacheManagerCopy);
+              invalidateStoneListCaches(cacheManagerCopy, "view_count");
             }
           },
           [](const drogon::orm::DrogonDbException &e) {

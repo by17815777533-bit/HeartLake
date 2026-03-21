@@ -22,6 +22,7 @@
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include "utils/StoneCacheKeys.h"
 #include <algorithm>
 #include <drogon/drogon.h>
 #include <set>
@@ -352,14 +353,8 @@ void assessBoatPsychologicalRiskAsync(const std::string &userId,
       });
 }
 
-std::string buildStoneDetailCacheKey(const std::string &stoneId) {
-  return "stone:" + stoneId;
-}
-
-std::string buildStoneRippleStateCacheKey(const std::string &userId,
-                                          const std::string &stoneId) {
-  return "stone:rippled:" + userId + ":" + stoneId;
-}
+using heartlake::utils::stone_cache::buildStoneDetailCacheKey;
+using heartlake::utils::stone_cache::buildStoneRippleStateCacheKey;
 
 void invalidateStoneReadCaches(
     const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
@@ -369,7 +364,7 @@ void invalidateStoneReadCaches(
   }
 
   cacheManager->invalidate(buildStoneDetailCacheKey(stoneId));
-  cacheManager->invalidatePattern("stone_list:*");
+  heartlake::utils::stone_cache::bumpStoneListNamespace();
 }
 
 } // namespace
