@@ -165,8 +165,9 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/boats` | Bearer | 发送纸船 |
-| GET | `/api/boats/my` | Bearer | 我发出的纸船 |
+| POST | `/api/boats/reply` | Bearer | 语义化纸船回复入口 |
+| POST | `/api/stones/{stoneId}/boats` | Bearer | 互动主链纸船回复入口 |
+| GET | `/api/boats/sent` | Bearer | 我发出的纸船 |
 | GET | `/api/boats/received` | Bearer | 收到的纸船 |
 | GET | `/api/boats/{boatId}` | Bearer | 纸船详情 |
 

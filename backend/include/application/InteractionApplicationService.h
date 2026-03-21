@@ -70,7 +70,7 @@ public:
      * @param rippleId 涟漪记录 ID
      * @param userId 操作者 ID（必须是涟漪创建者）
      */
-    void deleteRipple(
+    Json::Value deleteRipple(
         const std::string& rippleId,
         const std::string& userId
     );
@@ -118,7 +118,8 @@ public:
     Json::Value getSentBoats(
         const std::string& userId,
         int page,
-        int pageSize
+        int pageSize,
+        const std::string& statusFilter = ""
     );
 
     /**

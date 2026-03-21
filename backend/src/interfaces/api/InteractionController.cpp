@@ -6,6 +6,7 @@
 #include "application/InteractionApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/ContentFilter.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -50,28 +51,16 @@ void InteractionController::createRipple(
       broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
       BroadcastWebSocketController::broadcast(broadcastMsg);
 
-      // 定向通知石头主人（独立 try-catch，失败不影响主流程）
-      try {
-        auto dbClient = drogon::app().getDbClient("default");
-        auto stoneResult = dbClient->execSqlSync(
-            "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
-        if (!stoneResult.empty()) {
-          std::string stoneOwnerId =
-              stoneResult[0]["user_id"].as<std::string>();
-          if (stoneOwnerId != userId) { // 不通知自己
-            Json::Value notifyMsg;
-            notifyMsg["type"] = "new_notification";
-            notifyMsg["notification_type"] = "ripple";
-            notifyMsg["stone_id"] = stoneId;
-            notifyMsg["from_user_id"] = userId;
-            notifyMsg["ripple_count"] = rippleCount;
-            notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-            BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
-          }
-        }
-      } catch (const std::exception &ex) {
-        LOG_WARN << "Failed to notify stone owner for stone " << stoneId << ": "
-                 << ex.what();
+      const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
+      if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
+        Json::Value notifyMsg;
+        notifyMsg["type"] = "new_notification";
+        notifyMsg["notification_type"] = "ripple";
+        notifyMsg["stone_id"] = stoneId;
+        notifyMsg["from_user_id"] = userId;
+        notifyMsg["ripple_count"] = rippleCount;
+        notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
       }
     }
 
@@ -98,22 +87,13 @@ void InteractionController::deleteRipple(
   }
   auto userId = *userIdOpt;
   try {
-    // 先查出 stone_id 用于广播
-    auto dbClient = drogon::app().getDbClient("default");
-    auto rippleInfo = dbClient->execSqlSync(
-        "SELECT stone_id FROM ripples WHERE ripple_id = $1", rippleId);
-    std::string stoneId =
-        rippleInfo.empty() ? "" : rippleInfo[0]["stone_id"].as<std::string>();
-
     auto service = getInteractionService();
-    service->deleteRipple(rippleId, userId);
+    auto result = service->deleteRipple(rippleId, userId);
 
     // 广播涟漪删除事件
+    std::string stoneId = result.get("stone_id", "").asString();
     if (!stoneId.empty()) {
-      auto countResult = dbClient->execSqlSync(
-          "SELECT ripple_count FROM stones WHERE stone_id = $1", stoneId);
-      int rippleCount =
-          countResult.empty() ? 0 : countResult[0]["ripple_count"].as<int>();
+      const int rippleCount = result.get("ripple_count", 0).asInt();
 
       Json::Value broadcastMsg;
       broadcastMsg["type"] = "ripple_deleted";
@@ -191,6 +171,15 @@ void InteractionController::createBoat(
       return;
     }
 
+    const auto safetyLevel = ContentFilter::checkContentSafety(content);
+    if (safetyLevel == "high_risk") {
+      Json::Value warning;
+      warning["message"] = ContentFilter::getMentalHealthTip();
+      callback(
+          ResponseUtil::error(403, "检测到高危内容，请寻求专业帮助", warning));
+      return;
+    }
+
     auto service = getInteractionService();
     auto result = service->createBoat(stoneId, userId, content);
 
@@ -209,23 +198,17 @@ void InteractionController::createBoat(
                                                broadcastMsg);
       BroadcastWebSocketController::broadcast(broadcastMsg);
 
-      // 通知石头主人有新纸船评论
-      auto dbClient = drogon::app().getDbClient("default");
-      auto stoneResult = dbClient->execSqlSync(
-          "SELECT user_id FROM stones WHERE stone_id = $1", stoneId);
-      if (!stoneResult.empty()) {
-        std::string stoneOwnerId = stoneResult[0]["user_id"].as<std::string>();
-        if (stoneOwnerId != userId) {
-          Json::Value notifyMsg;
-          notifyMsg["type"] = "new_notification";
-          notifyMsg["notification_type"] = "boat";
-          notifyMsg["stone_id"] = stoneId;
-          notifyMsg["boat_id"] = result["boat_id"].asString();
-          notifyMsg["from_user_id"] = userId;
-          notifyMsg["boat_count"] = boatCount;
-          notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-          BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
-        }
+      const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
+      if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
+        Json::Value notifyMsg;
+        notifyMsg["type"] = "new_notification";
+        notifyMsg["notification_type"] = "boat";
+        notifyMsg["stone_id"] = stoneId;
+        notifyMsg["boat_id"] = result["boat_id"].asString();
+        notifyMsg["from_user_id"] = userId;
+        notifyMsg["boat_count"] = boatCount;
+        notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
       }
     }
 

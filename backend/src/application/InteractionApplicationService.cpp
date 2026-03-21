@@ -14,13 +14,17 @@
  */
 
 #include "application/InteractionApplicationService.h"
+#include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/services/GuardianIncentiveService.h"
+#include "infrastructure/services/NotificationPushService.h"
 #include "utils/IdGenerator.h"
+#include "utils/PsychologicalRiskAssessment.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include <algorithm>
 #include <drogon/drogon.h>
+#include <set>
 
 using namespace heartlake::utils;
 
@@ -102,6 +106,182 @@ Json::Value buildConnectionPayload(const drogon::orm::Row &row) {
   return result;
 }
 
+std::string normalizeBoatStatusFilter(const std::string &rawStatus) {
+  if (rawStatus == "published") {
+    return "active";
+  }
+  return rawStatus;
+}
+
+std::string serializeRiskFactors(
+    const std::vector<heartlake::utils::RiskFactor> &factors) {
+  Json::Value payload(Json::arrayValue);
+  for (const auto &factor : factors) {
+    Json::Value item(Json::objectValue);
+    item["category"] = factor.category;
+    item["name"] = factor.name;
+    item["score"] = factor.score;
+    item["weight"] = factor.weight;
+    item["description"] = factor.description;
+    payload.append(item);
+  }
+
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  return Json::writeString(writer, payload);
+}
+
+void createBoatNotificationAsync(const std::string &stoneOwnerId,
+                                 const std::string &senderId,
+                                 const std::string &boatId) {
+  if (stoneOwnerId.empty() || stoneOwnerId == senderId) {
+    return;
+  }
+
+  auto dbClient = drogon::app().getDbClient("default");
+  const auto notificationId = heartlake::utils::IdGenerator::generateNotificationId();
+  dbClient->execSqlAsync(
+      "INSERT INTO notifications (notification_id, user_id, type, content, "
+      "related_id, related_type, is_read, created_at) "
+      "VALUES ($1, $2, 'boat', '有人给你的石头回了一封纸船', $3, 'boat', "
+      "false, NOW())",
+      [](const drogon::orm::Result &) {},
+      [stoneOwnerId](const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Failed to create boat notification for user "
+                  << stoneOwnerId << ": " << e.base().what();
+      },
+      notificationId, stoneOwnerId, boatId);
+}
+
+void refreshBoatTempFriendshipAsync(const std::string &userId,
+                                    const std::string &stoneOwnerId,
+                                    const std::string &boatId) {
+  if (stoneOwnerId.empty() || stoneOwnerId == userId) {
+    return;
+  }
+
+  const auto tempFriendId = drogon::utils::getUuid();
+  const auto expiresAt = trantor::Date::date().after(24 * 3600);
+  const std::string uid1 = std::min(userId, stoneOwnerId);
+  const std::string uid2 = std::max(userId, stoneOwnerId);
+
+  auto dbClient = drogon::app().getDbClient("default");
+  dbClient->execSqlAsync(
+      "INSERT INTO temp_friends (temp_friend_id, user1_id, user2_id, "
+      "source, source_id, status, expires_at) "
+      "VALUES ($1, $2, $3, 'boat', $4, 'active', $5) "
+      "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
+      "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at), "
+      "status = 'active'",
+      [](const drogon::orm::Result &) {},
+      [boatId](const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Failed to refresh boat temp friendship for boat " << boatId
+                  << ": " << e.base().what();
+      },
+      tempFriendId, uid1, uid2, boatId, expiresAt.toDbStringLocal());
+}
+
+void assessBoatPsychologicalRiskAsync(const std::string &userId,
+                                      const std::string &boatId,
+                                      const std::string &content) {
+  auto &aiService = heartlake::ai::AIService::getInstance();
+  aiService.analyzeSentiment(
+      content, [userId, boatId, content](float score,
+                                         const std::string &detectedMood,
+                                         const std::string &error) {
+        if (!error.empty()) {
+          return;
+        }
+
+        auto &riskAssessment =
+            heartlake::utils::PsychologicalRiskAssessment::getInstance();
+        auto riskResult =
+            riskAssessment.assessRisk(content, userId, score, detectedMood);
+
+        if (!riskResult.needsImmediateAttention) {
+          return;
+        }
+
+        auto &pushService =
+            heartlake::services::NotificationPushService::getInstance();
+        pushService.pushSystemNotice(userId, "心理健康关怀",
+                                     riskResult.supportMessage);
+
+        try {
+          auto db = drogon::app().getDbClient("default");
+          auto trans = db->newTransaction();
+          const auto keywordsLiteral = toPgTextArrayLiteral(riskResult.keywords);
+          const auto factorsJson = serializeRiskFactors(riskResult.factors);
+          auto assessmentResult = trans->execSqlSync(
+              "INSERT INTO psychological_assessments "
+              "(user_id, content_id, content_type, risk_level, risk_score, "
+              "primary_concern, needs_immediate_attention, keywords, factors, "
+              "support_message, created_at) "
+              "VALUES ($1, $2, 'boat', $3, $4, $5, $6, "
+              "NULLIF($7, '{}')::text[], $8::jsonb, $9, NOW()) "
+              "RETURNING assessment_id",
+              userId, boatId, static_cast<int>(riskResult.riskLevel),
+              riskResult.overallScore, riskResult.primaryConcern,
+              riskResult.needsImmediateAttention, keywordsLiteral, factorsJson,
+              riskResult.supportMessage);
+
+          const auto assessmentId =
+              assessmentResult.empty()
+                  ? 0
+                  : assessmentResult[0]["assessment_id"].as<int64_t>();
+
+          if (static_cast<int>(riskResult.riskLevel) >=
+              static_cast<int>(heartlake::utils::RiskLevel::HIGH)) {
+            if (assessmentId == 0) {
+              trans->execSqlSync(
+                  "INSERT INTO high_risk_events "
+                  "(user_id, content_id, content_type, risk_level, risk_score, "
+                  "intervention_sent, admin_notified, status, created_at) "
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', NOW())",
+                  userId, boatId, static_cast<int>(riskResult.riskLevel),
+                  riskResult.overallScore, !riskResult.supportMessage.empty());
+            } else {
+              trans->execSqlSync(
+                  "INSERT INTO high_risk_events "
+                  "(user_id, content_id, content_type, risk_level, risk_score, "
+                  "intervention_sent, admin_notified, status, assessment_id, "
+                  "created_at) "
+                  "VALUES ($1, $2, 'boat', $3, $4, $5, false, 'pending', $6, "
+                  "NOW())",
+                  userId, boatId, static_cast<int>(riskResult.riskLevel),
+                  riskResult.overallScore, !riskResult.supportMessage.empty(),
+                  assessmentId);
+            }
+          }
+        } catch (const std::exception &e) {
+          LOG_ERROR << "Failed to persist psychological assessment for boat "
+                    << boatId << ": " << e.what();
+        }
+
+        if (riskResult.riskLevel == heartlake::utils::RiskLevel::CRITICAL) {
+          auto db = drogon::app().getDbClient("default");
+          db->execSqlAsync(
+              "SELECT id AS admin_id FROM admin_users "
+              "WHERE role IN ('admin', 'moderator', 'super_admin')",
+              [userId, boatId](const drogon::orm::Result &r) {
+                auto &pushSvc =
+                    heartlake::services::NotificationPushService::getInstance();
+                for (const auto &row : r) {
+                  const auto adminId = row["admin_id"].as<std::string>();
+                  const auto message =
+                      "用户 " + userId + " 回复的纸船（ID: " + boatId +
+                      "）检测到危机级别心理风险，请及时关注。";
+                  pushSvc.pushSystemNotice(adminId, "⚠️ 危机预警", message);
+                }
+              },
+              [](const drogon::orm::DrogonDbException &e) {
+                LOG_ERROR << "Failed to notify administrators: "
+                          << e.base().what();
+              });
+        }
+      });
+}
+
 std::string buildStoneDetailCacheKey(const std::string &stoneId) {
   return "stone:" + stoneId;
 }
@@ -148,8 +328,8 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     // 单条 CTE 合并石头校验、涟漪写入和计数更新，减少事务内往返
     auto writeResult = trans->execSqlSync(
         "WITH target AS ("
-        "  SELECT stone_id FROM stones "
-        "  WHERE stone_id = $2 AND status = 'published'"
+        "  SELECT stone_id, user_id AS stone_owner_id FROM stones "
+        "  WHERE stone_id = $2 AND status = 'published' AND deleted_at IS NULL"
         "), inserted AS ("
         "  INSERT INTO ripples (ripple_id, stone_id, user_id, created_at) "
         "  SELECT $1, stone_id, $3, NOW() FROM target "
@@ -160,8 +340,10 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
         "  RETURNING ripple_count"
         ") "
         "SELECT i.ripple_id, i.stone_id, i.user_id, "
+        "       t.stone_owner_id, "
         "       COALESCE(u.ripple_count, 0) AS ripple_count "
         "FROM inserted i "
+        "JOIN target t ON t.stone_id = i.stone_id "
         "LEFT JOIN updated u ON TRUE",
         rippleId, stoneId, userId);
 
@@ -193,6 +375,7 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     result["ripple_id"] = safeStringColumn(row, "ripple_id", rippleId);
     result["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
     result["user_id"] = safeStringColumn(row, "user_id", userId);
+    result["stone_owner_id"] = safeStringColumn(row, "stone_owner_id");
     result["ripple_count"] = row["ripple_count"].isNull()
                                  ? 1
                                  : row["ripple_count"].as<int>();
@@ -210,8 +393,9 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
           "  (SELECT ripple_id FROM ripples "
           "   WHERE stone_id = $1 AND user_id = $2 "
           "   ORDER BY created_at DESC LIMIT 1) AS ripple_id, "
+          "  s.user_id AS stone_owner_id, "
           "  s.ripple_count "
-          "FROM stones s WHERE s.stone_id = $1",
+          "FROM stones s WHERE s.stone_id = $1 AND s.deleted_at IS NULL",
           stoneId, userId);
 
       Json::Value result;
@@ -221,6 +405,10 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
               : currentState[0]["ripple_id"].as<std::string>();
       result["stone_id"] = stoneId;
       result["user_id"] = userId;
+      result["stone_owner_id"] =
+          currentState.empty() || currentState[0]["stone_owner_id"].isNull()
+              ? ""
+              : currentState[0]["stone_owner_id"].as<std::string>();
       result["ripple_count"] =
           currentState.empty() || currentState[0]["ripple_count"].isNull()
               ? 0
@@ -289,8 +477,8 @@ InteractionApplicationService::getRipples(const std::string &stoneId, int page,
   }
 }
 
-void InteractionApplicationService::deleteRipple(const std::string &rippleId,
-                                                 const std::string &userId) {
+Json::Value InteractionApplicationService::deleteRipple(
+    const std::string &rippleId, const std::string &userId) {
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
@@ -305,9 +493,9 @@ void InteractionApplicationService::deleteRipple(const std::string &rippleId,
         "  UPDATE stones "
         "  SET ripple_count = GREATEST(ripple_count - 1, 0) "
         "  WHERE stone_id IN (SELECT stone_id FROM deleted) "
-        "  RETURNING stone_id"
+        "  RETURNING stone_id, ripple_count"
         ") "
-        "SELECT d.stone_id "
+        "SELECT d.stone_id, COALESCE(u.ripple_count, 0) AS ripple_count "
         "FROM deleted d "
         "LEFT JOIN updated u ON u.stone_id = d.stone_id",
         rippleId, userId);
@@ -325,7 +513,13 @@ void InteractionApplicationService::deleteRipple(const std::string &rippleId,
                          kStoneRippleStateCacheTtlSeconds);
     }
 
+    Json::Value response;
+    response["stone_id"] = stoneId;
+    response["ripple_count"] =
+        row["ripple_count"].isNull() ? 0 : row["ripple_count"].as<int>();
+
     LOG_INFO << "Ripple deleted: " << rippleId;
+    return response;
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to delete ripple: " << e.base().what();
@@ -458,25 +652,49 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
 
 Json::Value
 InteractionApplicationService::getSentBoats(const std::string &userId, int page,
-                                            int pageSize) {
+                                            int pageSize,
+                                            const std::string &statusFilter) {
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
     const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
+    const std::string normalizedStatus = normalizeBoatStatusFilter(statusFilter);
+    static const std::set<std::string> validStatuses = {"active", "pending",
+                                                        "draft", "deleted"};
+    const bool hasStatusFilter = !normalizedStatus.empty() &&
+                                 normalizedStatus != "all" &&
+                                 validStatuses.count(normalizedStatus) > 0;
 
-    auto result =
-        dbClient->execSqlSync("SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
-                              "pb.content, pb.status, pb.created_at, "
-                              "pb.boat_style AS boat_color, pb.is_anonymous, "
-                              "u.username, u.nickname, u.avatar_url, "
-                              "COUNT(*) OVER() AS total_count "
-                              "FROM paper_boats pb "
-                              "LEFT JOIN users u ON pb.receiver_id = u.user_id "
-                              "WHERE pb.sender_id = $1 AND COALESCE(pb.status, "
-                              "'active') != 'deleted' "
-                              "ORDER BY pb.created_at DESC "
-                              "LIMIT $2 OFFSET $3",
-                              userId, static_cast<int64_t>(pageSize), offset);
+    auto result = [&]() -> drogon::orm::Result {
+      if (hasStatusFilter) {
+        return dbClient->execSqlSync(
+            "SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
+            "pb.content, pb.status, pb.created_at, "
+            "pb.boat_style AS boat_color, pb.is_anonymous, "
+            "u.username, u.nickname, u.avatar_url, "
+            "COUNT(*) OVER() AS total_count "
+            "FROM paper_boats pb "
+            "LEFT JOIN users u ON pb.receiver_id = u.user_id "
+            "WHERE pb.sender_id = $1 AND pb.status = $2 "
+            "ORDER BY pb.created_at DESC "
+            "LIMIT $3 OFFSET $4",
+            userId, normalizedStatus, static_cast<int64_t>(pageSize), offset);
+      }
+
+      return dbClient->execSqlSync(
+          "SELECT pb.boat_id, pb.stone_id, pb.receiver_id, "
+          "pb.content, pb.status, pb.created_at, "
+          "pb.boat_style AS boat_color, pb.is_anonymous, "
+          "u.username, u.nickname, u.avatar_url, "
+          "COUNT(*) OVER() AS total_count "
+          "FROM paper_boats pb "
+          "LEFT JOIN users u ON pb.receiver_id = u.user_id "
+          "WHERE pb.sender_id = $1 AND COALESCE(pb.status, 'active') != "
+          "'deleted' "
+          "ORDER BY pb.created_at DESC "
+          "LIMIT $2 OFFSET $3",
+          userId, static_cast<int64_t>(pageSize), offset);
+    }();
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
@@ -533,21 +751,26 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
 
     // 单条 CTE 合并石头计数更新与纸船写入，避免额外 count 查询
     auto writeResult = dbClient->execSqlSync(
-        "WITH updated AS ("
-        "  UPDATE stones SET boat_count = boat_count + 1 "
-        "  WHERE stone_id = $2 "
-        "  RETURNING boat_count"
+        "WITH target AS ("
+        "  SELECT stone_id, user_id AS stone_owner_id "
+        "  FROM stones "
+        "  WHERE stone_id = $2 AND status = 'published' AND deleted_at IS NULL"
+        "), updated AS ("
+        "  UPDATE stones SET boat_count = boat_count + 1, updated_at = NOW() "
+        "  WHERE stone_id IN (SELECT stone_id FROM target) "
+        "  RETURNING stone_id, boat_count"
         "), inserted AS ("
         "  INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, "
         "                           is_anonymous, status, created_at) "
         "  SELECT $1, $2, $3, $4, true, 'active', NOW() "
-        "  FROM updated "
+        "  FROM target "
         "  RETURNING boat_id, stone_id, sender_id, content"
         ") "
         "SELECT i.boat_id, i.stone_id, i.sender_id, i.content, "
-        "       u.boat_count "
+        "       t.stone_owner_id, u.boat_count "
         "FROM inserted i "
-        "JOIN updated u ON TRUE",
+        "JOIN target t ON t.stone_id = i.stone_id "
+        "JOIN updated u ON u.stone_id = i.stone_id",
         boatId, stoneId, userId, content);
 
     if (writeResult.empty()) {
@@ -555,6 +778,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     }
 
     const auto &row = writeResult[0];
+    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
 
     // 2.6 清除石头缓存，确保计数器实时更新
     invalidateStoneReadCaches(cacheManager_, stoneId);
@@ -567,6 +791,17 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     heartlake::infrastructure::GuardianIncentiveService::getInstance()
         .recordWarmBoat(userId, boatId, warmthScore);
 
+    core::events::BoatSentEvent event;
+    event.boatId = boatId;
+    event.stoneId = stoneId;
+    event.senderId = userId;
+    event.content = content;
+    eventBus_->publish(event);
+
+    createBoatNotificationAsync(stoneOwnerId, userId, boatId);
+    refreshBoatTempFriendshipAsync(userId, stoneOwnerId, boatId);
+    assessBoatPsychologicalRiskAsync(userId, boatId, content);
+
     // 3. 返回结果
     Json::Value result;
     result["boat_id"] = safeStringColumn(row, "boat_id", boatId);
@@ -576,6 +811,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     result["content"] = safeStringColumn(row, "content", content);
     result["message"] = result["content"];
     result["status"] = "sent";
+    result["stone_owner_id"] = stoneOwnerId;
     result["boat_count"] =
         row["boat_count"].isNull() ? 1 : row["boat_count"].as<int>();
 
