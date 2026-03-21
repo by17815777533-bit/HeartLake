@@ -373,6 +373,8 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 {"type": "leave", "room": "lake"}
 ```
 
+客户端向房间发消息时也必须先 `join`，服务端会校验私有房间参与者身份，并且只信任客户端提交的业务内容字段；`sender_id`、时间戳和消息类型由服务端统一盖章，避免伪造。
+
 ### 5.3 心跳保活
 
 服务端定期发送 `ping`，客户端须回复 `pong`。超时未回复则服务端断开连接并清理资源。

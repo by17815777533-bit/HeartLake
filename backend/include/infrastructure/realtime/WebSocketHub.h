@@ -271,6 +271,16 @@ public:
         return userConnections_.count(userId) > 0;
     }
 
+    /// 判断指定连接是否已加入某个房间
+    bool isInRoom(const drogon::WebSocketConnectionPtr& conn,
+                  const std::string& room) const {
+        std::shared_lock lock(mutex_);
+        if (auto it = connections_.find(conn); it != connections_.end()) {
+            return it->second.rooms.count(room) > 0;
+        }
+        return false;
+    }
+
 private:
     WebSocketHub() = default;
 

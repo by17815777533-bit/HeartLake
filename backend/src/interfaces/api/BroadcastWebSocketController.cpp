@@ -26,6 +26,34 @@ void sendAuthSuccess(const drogon::WebSocketConnectionPtr &conn,
     ok["timestamp"] = static_cast<Json::Int64>(time(nullptr));
     conn->send(Json::FastWriter().write(ok));
 }
+
+void sendWsError(const drogon::WebSocketConnectionPtr &conn,
+                 const std::string &message) {
+    Json::Value err;
+    err["type"] = "error";
+    err["message"] = message;
+    conn->send(Json::FastWriter().write(err));
+}
+
+bool isPrivateRoomAuthorized(const std::string &room,
+                             const std::string &userId) {
+    if (room.find("private:") != 0) {
+        return true;
+    }
+    if (userId.empty()) {
+        return false;
+    }
+
+    std::string roomBody = room.substr(8);
+    std::istringstream ss(roomBody);
+    std::string participant;
+    while (std::getline(ss, participant, '_')) {
+        if (participant == userId) {
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace
 
 void BroadcastWebSocketController::handleNewConnection(
@@ -150,50 +178,51 @@ void BroadcastWebSocketController::handleNewMessage(
 
     if (msgType == "join") {
         std::string room = json["room"].asString();
-        // 私有房间权限验证
-        if (room.find("private:") == 0) {
-            if (connUserId.empty()) {
-                Json::Value err;
-                err["type"] = "error";
-                err["message"] = "认证用户才能加入私有房间";
-                conn->send(Json::FastWriter().write(err));
-                return;
-            }
-            // 私有房间格式: private:{userId1}_{userId2}
-            // 验证当前用户是参与方之一
-            std::string roomBody = room.substr(8); // 去掉 "private:" 前缀
-            // 按 '_' 分割参与者ID，逐个精确匹配
-            bool authorized = false;
-            std::istringstream ss(roomBody);
-            std::string participant;
-            while (std::getline(ss, participant, '_')) {
-                if (participant == connUserId) {
-                    authorized = true;
-                    break;
-                }
-            }
-            if (!authorized) {
-                Json::Value err;
-                err["type"] = "error";
-                err["message"] = "无权加入此私有房间";
-                conn->send(Json::FastWriter().write(err));
-                return;
-            }
+        if (room.empty()) {
+            sendWsError(conn, "room 不能为空");
+            return;
+        }
+        if (!isPrivateRoomAuthorized(room, connUserId)) {
+            sendWsError(conn, "无权加入此私有房间");
+            return;
         }
         Hub::getInstance().joinRoom(conn, room);
     } else if (msgType == "leave") {
         Hub::getInstance().leaveRoom(conn, json["room"].asString());
     } else if (msgType == "room_message") {
         std::string room = json["room"].asString();
-        // VUL-02: 未认证用户不能在私有房间发送消息
-        if (room.find("private:") == 0 && connUserId.empty()) {
-            Json::Value err;
-            err["type"] = "error";
-            err["message"] = "认证用户才能在私有房间发送消息";
-            conn->send(Json::FastWriter().write(err));
+        if (room.empty()) {
+            sendWsError(conn, "room 不能为空");
             return;
         }
-        Hub::getInstance().sendToRoom(room, message, conn);
+        if (!isPrivateRoomAuthorized(room, connUserId)) {
+            sendWsError(conn, "无权在此私有房间发送消息");
+            return;
+        }
+        if (!Hub::getInstance().isInRoom(conn, room)) {
+            sendWsError(conn, "请先加入房间");
+            return;
+        }
+
+        Json::Value outbound;
+        outbound["type"] = "room_message";
+        outbound["room"] = room;
+        outbound["sender_id"] = connUserId;
+        outbound["senderId"] = connUserId;
+        outbound["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        if (json.isMember("content")) {
+            outbound["content"] = json["content"];
+        } else if (json.isMember("message")) {
+            outbound["content"] = json["message"];
+        }
+        if (json.isMember("payload")) {
+            outbound["payload"] = json["payload"];
+        }
+        if (json.isMember("client_message_id")) {
+            outbound["client_message_id"] = json["client_message_id"];
+        }
+
+        Hub::getInstance().sendToRoom(room, Json::FastWriter().write(outbound), conn);
     }
     } catch (const std::exception& e) {
         LOG_ERROR << "Error handling WebSocket message: " << e.what();
