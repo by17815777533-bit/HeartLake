@@ -156,71 +156,89 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
 
         // 使用参数化查询防止SQL注入
-        std::string querySql =
-            "SELECT u.user_id, u.username, u.nickname, u.status, u.created_at, u.last_active_at, "
-            "COALESCE(st.stones_count, 0) as stones_count, "
-            "COALESCE(pb.boat_count, 0) as boat_count, "
-            "COUNT(*) OVER() AS total_count "
-            "FROM users u "
-            "LEFT JOIN ("
-            "  SELECT user_id, COUNT(*) as stones_count "
-            "  FROM stones "
-            "  WHERE deleted_at IS NULL AND COALESCE(status, 'published') <> 'deleted' "
-            "  GROUP BY user_id"
-            ") st ON st.user_id = u.user_id "
-            "LEFT JOIN ("
-            "  SELECT sender_id as user_id, COUNT(*) as boat_count "
-            "  FROM paper_boats "
-            "  WHERE COALESCE(status, 'active') <> 'deleted' "
-            "  GROUP BY sender_id"
-            ") pb ON pb.user_id = u.user_id "
-            "WHERE 1=1";
+        std::string countSql = "SELECT COUNT(*) as total FROM users u WHERE 1=1";
+        std::string filteredUsersSql =
+            "WITH filtered_users AS ("
+            "  SELECT u.user_id, u.username, u.nickname, u.status, u.created_at, u.last_active_at, "
+            "  COUNT(*) OVER() AS total_count "
+            "  FROM users u "
+            "  WHERE 1=1";
 
         std::vector<std::string> params;
         int paramIdx = 1;
 
         if (!userId.empty()) {
-            querySql += " AND u.user_id LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            filteredUsersSql += " AND u.user_id LIKE " + placeholder + " ESCAPE '\\'";
+            countSql += " AND u.user_id LIKE " + placeholder + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(userId) + "%");
             paramIdx++;
         }
         if (!nickname.empty()) {
-            querySql += " AND u.nickname LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            filteredUsersSql += " AND u.nickname LIKE " + placeholder + " ESCAPE '\\'";
+            countSql += " AND u.nickname LIKE " + placeholder + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(nickname) + "%");
             paramIdx++;
         }
         if (!status.empty() && isValidUserStatus(status)) {
-            querySql += " AND u.status = $" + std::to_string(paramIdx);
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            filteredUsersSql += " AND u.status = " + placeholder;
+            countSql += " AND u.status = " + placeholder;
             params.push_back(status);
             paramIdx++;
         }
-        // BUG-2 修复：search 参数加入 SQL WHERE 条件，支持模糊搜索 username/nickname/user_id
         if (!search.empty()) {
-            std::string searchCondition = " AND (u.username ILIKE $" + std::to_string(paramIdx) +
-                " OR u.nickname ILIKE $" + std::to_string(paramIdx) +
-                " OR u.user_id ILIKE $" + std::to_string(paramIdx) + ")";
-            querySql += searchCondition;
+            const auto placeholder = "$" + std::to_string(paramIdx);
+            const std::string searchCondition =
+                " AND (u.username ILIKE " + placeholder +
+                " OR u.nickname ILIKE " + placeholder +
+                " OR u.user_id ILIKE " + placeholder + ")";
+            filteredUsersSql += searchCondition;
+            countSql += searchCondition;
             params.push_back("%" + escapeLike(search) + "%");
             paramIdx++;
         }
 
         const int limitParam = paramIdx++;
         const int offsetParam = paramIdx;
-        querySql += " ORDER BY u.created_at DESC LIMIT $" + std::to_string(limitParam) +
-                    " OFFSET $" + std::to_string(offsetParam);
+        filteredUsersSql +=
+            " ORDER BY u.created_at DESC LIMIT $" + std::to_string(limitParam) +
+            " OFFSET $" + std::to_string(offsetParam) +
+            ") "
+            "SELECT fu.user_id, fu.username, fu.nickname, fu.status, fu.created_at, fu.last_active_at, "
+            "COALESCE(st.stones_count, 0) as stones_count, "
+            "COALESCE(pb.boat_count, 0) as boat_count, "
+            "fu.total_count "
+            "FROM filtered_users fu "
+            "LEFT JOIN LATERAL ("
+            "  SELECT COUNT(*) as stones_count "
+            "  FROM stones s "
+            "  WHERE s.user_id = fu.user_id "
+            "    AND s.deleted_at IS NULL "
+            "    AND COALESCE(s.status, 'published') <> 'deleted'"
+            ") st ON TRUE "
+            "LEFT JOIN LATERAL ("
+            "  SELECT COUNT(*) as boat_count "
+            "  FROM paper_boats pb "
+            "  WHERE pb.sender_id = fu.user_id "
+            "    AND COALESCE(pb.status, 'active') <> 'deleted'"
+            ") pb ON TRUE "
+            "ORDER BY fu.created_at DESC";
 
         auto execWithParams = [&]() {
             switch (params.size()) {
-                case 0: return dbClient->execSqlSync(querySql, static_cast<int64_t>(pageSize), offset);
-                case 1: return dbClient->execSqlSync(querySql, params[0], static_cast<int64_t>(pageSize), offset);
-                case 2: return dbClient->execSqlSync(querySql, params[0], params[1], static_cast<int64_t>(pageSize), offset);
-                case 3: return dbClient->execSqlSync(querySql, params[0], params[1], params[2], static_cast<int64_t>(pageSize), offset);
-                case 4: return dbClient->execSqlSync(querySql, params[0], params[1], params[2], params[3], static_cast<int64_t>(pageSize), offset);
+                case 0: return dbClient->execSqlSync(filteredUsersSql, static_cast<int64_t>(pageSize), offset);
+                case 1: return dbClient->execSqlSync(filteredUsersSql, params[0], static_cast<int64_t>(pageSize), offset);
+                case 2: return dbClient->execSqlSync(filteredUsersSql, params[0], params[1], static_cast<int64_t>(pageSize), offset);
+                case 3: return dbClient->execSqlSync(filteredUsersSql, params[0], params[1], params[2], static_cast<int64_t>(pageSize), offset);
+                case 4: return dbClient->execSqlSync(filteredUsersSql, params[0], params[1], params[2], params[3], static_cast<int64_t>(pageSize), offset);
                 default: throw std::invalid_argument("SQL 参数数量超出支持范围");
             }
         };
         auto result = execWithParams();
-        int total = extractWindowTotal(result);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value users(Json::arrayValue);
         for (const auto &row : result) {
@@ -308,7 +326,14 @@ void AdminManagementController::updateUserStatus(const HttpRequestPtr &req,
         }
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE users SET status = $1, updated_at = NOW() WHERE user_id = $2", status, userId);
+        auto result = dbClient->execSqlSync(
+            "UPDATE users SET status = $1, updated_at = NOW() "
+            "WHERE user_id = $2 RETURNING user_id",
+            status, userId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("用户不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "user_status", "user", userId, "更新状态为 " + status);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -325,7 +350,14 @@ void AdminManagementController::banUser(const HttpRequestPtr &req,
         const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "";
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE users SET status = 'banned', updated_at = NOW() WHERE user_id = $1", userId);
+        auto result = dbClient->execSqlSync(
+            "UPDATE users SET status = 'banned', updated_at = NOW() "
+            "WHERE user_id = $1 RETURNING user_id",
+            userId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("用户不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "ban_user", "user", userId, reason.empty() ? "封禁用户" : reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -340,7 +372,14 @@ void AdminManagementController::unbanUser(const HttpRequestPtr &req,
     try {
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE users SET status = 'active', updated_at = NOW() WHERE user_id = $1", userId);
+        auto result = dbClient->execSqlSync(
+            "UPDATE users SET status = 'active', updated_at = NOW() "
+            "WHERE user_id = $1 RETURNING user_id",
+            userId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("用户不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "unban_user", "user", userId, "解除封禁");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -464,7 +503,14 @@ void AdminManagementController::deleteStone(const HttpRequestPtr &req,
         const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "后台删除石头";
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE stones SET status = 'deleted', deleted_at = NOW(), updated_at = NOW() WHERE stone_id = $1", stoneId);
+        auto result = dbClient->execSqlSync(
+            "UPDATE stones SET status = 'deleted', deleted_at = NOW(), updated_at = NOW() "
+            "WHERE stone_id = $1 RETURNING stone_id",
+            stoneId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("石头不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "delete_content", "stone", stoneId, reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -552,7 +598,14 @@ void AdminManagementController::deleteBoat(const HttpRequestPtr &req,
         const auto reason = json && json->isMember("reason") ? (*json)["reason"].asString() : "后台删除纸船";
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE paper_boats SET status = 'deleted', deleted_at = NOW() WHERE boat_id = $1", boatId);
+        auto result = dbClient->execSqlSync(
+            "UPDATE paper_boats SET status = 'deleted', deleted_at = NOW() "
+            "WHERE boat_id = $1 RETURNING boat_id",
+            boatId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("纸船不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "delete_content", "boat", boatId, reason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -615,14 +668,37 @@ void AdminManagementController::approveContent(const HttpRequestPtr &req,
     try {
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE reports SET status = 'handled', handled_by = $1, handled_at = NOW() WHERE report_id = $2", adminId, moderationId);
+        auto trans = dbClient->newTransaction();
+        auto reportResult = trans->execSqlSync(
+            "SELECT report_id, target_type, target_id, reason, status "
+            "FROM reports WHERE report_id = $1 FOR UPDATE",
+            moderationId);
+        if (reportResult.empty()) {
+            callback(ResponseUtil::notFound("举报不存在"));
+            return;
+        }
+
+        const auto report = *safeRow(reportResult);
+        const auto reportStatus = report["status"].as<std::string>();
+        if (reportStatus != "pending") {
+            callback(ResponseUtil::conflict("举报已处理"));
+            return;
+        }
+
+        trans->execSqlSync(
+            "UPDATE reports SET status = 'handled', handled_by = $1, handled_at = NOW() "
+            "WHERE report_id = $2",
+            adminId, moderationId);
 
         const std::string logId = "mod_" + IdGenerator::generateMessageId();
-        dbClient->execSqlSync(
+        trans->execSqlSync(
             "INSERT INTO moderation_logs (log_id, target_type, target_id, action, reason, operator_id, created_at) "
-            "SELECT $1, target_type, target_id, 'approved', reason, $2, NOW() FROM reports WHERE report_id = $3",
-            logId, adminId, moderationId
-        );
+            "VALUES ($1, $2, $3, 'approved', $4, $5, NOW())",
+            logId,
+            report["target_type"].as<std::string>(),
+            report["target_id"].as<std::string>(),
+            report["reason"].isNull() ? "" : report["reason"].as<std::string>(),
+            adminId);
 
         writeOperationLog(req, adminId, "approve", "report", moderationId, "审核通过");
         callback(ResponseUtil::success());
@@ -641,16 +717,40 @@ void AdminManagementController::rejectContent(const HttpRequestPtr &req,
     try {
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("UPDATE reports SET status = 'ignored', handled_by = $1, handled_at = NOW() WHERE report_id = $2", adminId, moderationId);
+        auto trans = dbClient->newTransaction();
+        auto reportResult = trans->execSqlSync(
+            "SELECT report_id, target_type, target_id, status "
+            "FROM reports WHERE report_id = $1 FOR UPDATE",
+            moderationId);
+        if (reportResult.empty()) {
+            callback(ResponseUtil::notFound("举报不存在"));
+            return;
+        }
+
+        const auto report = *safeRow(reportResult);
+        const auto reportStatus = report["status"].as<std::string>();
+        if (reportStatus != "pending") {
+            callback(ResponseUtil::conflict("举报已处理"));
+            return;
+        }
+
+        trans->execSqlSync(
+            "UPDATE reports SET status = 'ignored', handled_by = $1, handled_at = NOW() "
+            "WHERE report_id = $2",
+            adminId, moderationId);
 
         const std::string logId = "mod_" + IdGenerator::generateMessageId();
-        dbClient->execSqlSync(
+        const auto moderationReason = reason.empty() ? "审核拒绝" : reason;
+        trans->execSqlSync(
             "INSERT INTO moderation_logs (log_id, target_type, target_id, action, reason, operator_id, created_at) "
-            "SELECT $1, target_type, target_id, 'rejected', $2, $3, NOW() FROM reports WHERE report_id = $4",
-            logId, reason, adminId, moderationId
-        );
+            "VALUES ($1, $2, $3, 'rejected', $4, $5, NOW())",
+            logId,
+            report["target_type"].as<std::string>(),
+            report["target_id"].as<std::string>(),
+            moderationReason,
+            adminId);
 
-        writeOperationLog(req, adminId, "reject", "report", moderationId, reason.empty() ? "审核拒绝" : reason);
+        writeOperationLog(req, adminId, "reject", "report", moderationId, moderationReason);
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin rejectContent error: " << e.what();
@@ -831,10 +931,14 @@ void AdminManagementController::handleReport(const HttpRequestPtr &req,
     try {
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync(
-            "UPDATE reports SET status = $1, handled_by = $2, handled_at = NOW() WHERE report_id = $3",
-            action, adminId, reportId
-        );
+        auto result = dbClient->execSqlSync(
+            "UPDATE reports SET status = $1, handled_by = $2, handled_at = NOW() "
+            "WHERE report_id = $3 RETURNING report_id",
+            action, adminId, reportId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("举报不存在"));
+            return;
+        }
         const auto note = json && json->isMember("note") ? (*json)["note"].asString() : "";
         writeOperationLog(req, adminId, "handle_report", "report", reportId, note.empty() ? action : note);
         callback(ResponseUtil::success());
@@ -955,14 +1059,19 @@ void AdminManagementController::updateSensitiveWord(const HttpRequestPtr &req,
         int wordId = std::stoi(id);
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync(
-            "UPDATE sensitive_words SET word = $1, level = $2, category = $3, is_active = $4 WHERE id = $5",
+        auto result = dbClient->execSqlSync(
+            "UPDATE sensitive_words SET word = $1, level = $2, category = $3, is_active = $4 "
+            "WHERE id = $5 RETURNING id",
             (*json)["word"].asString(),
             toSensitiveLevel((*json).get("level", "medium").asString()),
             (*json).get("category", "general").asString(),
             (*json).get("action", "block").asString() != "allow",
             wordId
         );
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("敏感词不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "sensitive_update", "sensitive_word", id, (*json)["word"].asString());
         callback(ResponseUtil::success());
     } catch (const std::invalid_argument &) {
@@ -982,7 +1091,12 @@ void AdminManagementController::deleteSensitiveWord(const HttpRequestPtr &req,
         int wordId = std::stoi(id);
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto dbClient = app().getDbClient("default");
-        dbClient->execSqlSync("DELETE FROM sensitive_words WHERE id = $1", wordId);
+        auto result = dbClient->execSqlSync(
+            "DELETE FROM sensitive_words WHERE id = $1 RETURNING id", wordId);
+        if (result.empty()) {
+            callback(ResponseUtil::notFound("敏感词不存在"));
+            return;
+        }
         writeOperationLog(req, adminId, "sensitive_delete", "sensitive_word", id, "删除敏感词");
         callback(ResponseUtil::success());
     } catch (const std::invalid_argument &) {
