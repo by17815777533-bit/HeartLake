@@ -123,6 +123,7 @@ import { Bell, Moon, Search, Setting, Sunny } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
+import { normalizePayloadRecord } from '@/utils/collectionPayload'
 
 const router = useRouter()
 const route = useRoute()
@@ -195,7 +196,7 @@ const openFirstSearchResult = () => {
 const fetchAdminInfo = async () => {
   try {
     const res = await api.getAdminInfo()
-    const data = res.data?.data || res.data
+    const data = normalizePayloadRecord(res.data)
     if (data) {
       adminInfo.nickname = data.nickname || data.username || '管理员'
     }
@@ -208,7 +209,7 @@ const fetchAdminInfo = async () => {
 const fetchRealtimeStats = async () => {
   try {
     const res = await api.getRealtimeStats()
-    const data = res.data?.data || res.data
+    const data = normalizePayloadRecord(res.data)
     if (data) {
       realtimeStats.onlineCount = data.online_count || data.online_users || 0
       realtimeStats.todayStones = data.today_stones || 0

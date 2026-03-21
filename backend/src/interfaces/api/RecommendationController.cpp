@@ -17,6 +17,17 @@ using namespace heartlake::controllers;
 using namespace heartlake::cache;
 using namespace heartlake::utils;
 
+namespace {
+
+Json::Value buildStaticCollectionPayload(const std::string &primaryKey,
+                                         const Json::Value &items) {
+    const auto total = static_cast<int>(items.size());
+    return ResponseUtil::buildCollectionPayload(primaryKey, items, total, 1,
+                                                std::max(1, total));
+}
+
+} // namespace
+
 /**
  * 获取推荐的石头
  * 混合推荐算法：协同过滤 + 内容过滤 + 随机探索
@@ -461,8 +472,7 @@ void RecommendationController::getEmotionTrends(
             trends.append(trend);
         }
 
-        Json::Value responseData;
-        responseData["trends"] = trends;
+        Json::Value responseData = buildStaticCollectionPayload("trends", trends);
         responseData["period_days"] = 30;
 
         callback(ResponseUtil::success(responseData, "你的情绪旅程"));
@@ -522,10 +532,8 @@ void RecommendationController::discoverByMood(
             stones.append(stone);
         }
 
-        Json::Value responseData;
+        Json::Value responseData = buildStaticCollectionPayload("stones", stones);
         responseData["mood"] = mood;
-        responseData["stones"] = stones;
-        responseData["total"] = static_cast<int>(stones.size());
 
         callback(ResponseUtil::success(responseData, "发现同样感受的人"));
 
@@ -634,8 +642,8 @@ void RecommendationController::calculateTrendingContent(
             trendingMoods.append(mood);
         }
 
-        Json::Value responseData;
-        responseData["trending_stones"] = trendingStones;
+        Json::Value responseData =
+            buildStaticCollectionPayload("trending_stones", trendingStones);
         responseData["trending_moods"] = trendingMoods;
 
         // 缓存结果（3分钟）
@@ -992,8 +1000,8 @@ void RecommendationController::getAdvancedRecommendations(
                     recommendations.append(item);
                 }
 
-                Json::Value data;
-                data["recommendations"] = recommendations;
+                Json::Value data =
+                    buildStaticCollectionPayload("recommendations", recommendations);
                 data["count"] = static_cast<int>(recommendations.size());
                 data["algorithm"] = stoneId.empty()
                     ? "multi_armed_bandit_mmr"

@@ -31,6 +31,13 @@ namespace controllers {
 
 namespace {
 
+Json::Value buildStaticCollectionPayload(const std::string &primaryKey,
+                                         const Json::Value &items) {
+    const auto total = static_cast<int>(items.size());
+    return ResponseUtil::buildCollectionPayload(primaryKey, items, total, 1,
+                                                std::max(1, total));
+}
+
 std::string trimAscii(const std::string& input) {
     size_t start = 0;
     while (start < input.size() &&
@@ -983,8 +990,7 @@ void EdgeAIController::getPulseHistory(
             data.append(pulse.toJson());
         }
 
-        Json::Value result;
-        result["history"] = data;
+        Json::Value result = buildStaticCollectionPayload("history", data);
         result["count"] = static_cast<int>(history.size());
         callback(ResponseUtil::success(result, "情绪脉搏历史"));
     } catch (const std::exception &e) {

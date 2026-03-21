@@ -18,6 +18,7 @@ import type {
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 import { createSoftBaseline } from '@/utils/chartSignals'
+import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
 
 const POSITIVE_MOODS = new Set(['开心', 'positive', 'joy', 'happy'])
 const NEGATIVE_MOODS = new Set(['难过', '焦虑', 'negative', 'sad', 'anxious'])
@@ -83,6 +84,12 @@ export function useDashboardLoaders({
   userGrowthOption, moodDistributionOption, moodTrendOption,
   activeTimeOption, emotionPulseOption, emotionTrendsOption,
 }: LoaderDeps) {
+  const normalizeDashboardCollection = <T>(
+    payload: unknown,
+    semanticKeys: readonly string[],
+  ) => normalizeCollectionResponse<T>(payload, semanticKeys).items
+  const normalizeDashboardRecord = (payload: unknown) => normalizePayloadRecord(payload)
+
   /** 读取核心统计信息。 */
   const loadStats = async () => {
     try {
@@ -90,8 +97,8 @@ export function useDashboardLoaders({
         api.getDashboardStats().catch(() => ({ data: null })),
         api.getRealtimeStats().catch(() => ({ data: null }))
       ])
-      const d = dashRes.data?.data || dashRes.data || {}
-      const r = realtimeRes.data?.data || realtimeRes.data || {}
+      const d = normalizeDashboardRecord(dashRes.data)
+      const r = normalizeDashboardRecord(realtimeRes.data)
       stats.totalUsers = r.total_users ?? d.total_users ?? 0
       stats.todayStones = d.today_stones ?? r.today_stones ?? 0
       stats.onlineCount = r.online_users ?? 0
@@ -107,8 +114,7 @@ export function useDashboardLoaders({
   const loadGrowthData = async () => {
     try {
       const res = await api.getUserGrowthStats(String(chartRange.value))
-      const raw = res.data?.data || res.data
-      const list = Array.isArray(raw) ? raw : (raw?.list || [])
+      const list = normalizeDashboardCollection<GrowthDataItem>(res.data, ['stats'])
       if (list.length) {
         const counts = list.map((item: GrowthDataItem) => item.count)
         const dates = list.map((item: GrowthDataItem) => item.date)
@@ -138,8 +144,7 @@ export function useDashboardLoaders({
   const loadMoodDistribution = async () => {
     try {
       const res = await api.getMoodDistribution()
-      const raw = res.data?.data || res.data
-      const list = Array.isArray(raw) ? raw : (raw?.list || [])
+      const list = normalizeDashboardCollection<MoodDistributionItem>(res.data, ['moods'])
       if (list.length) {
         moodDistributionOption.value.series[0].data = list.map((item: MoodDistributionItem, i: number) => ({
           name: item.mood_type || item.mood,
@@ -166,8 +171,7 @@ export function useDashboardLoaders({
   const loadMoodTrend = async () => {
     try {
       const res = await api.getMoodTrend?.(String(moodTrendRange.value)) || { data: null }
-      const trendData = res.data?.data || res.data
-      const trendList: MoodTrendItem[] = trendData?.list || (Array.isArray(trendData) ? trendData : [])
+      const trendList = normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends'])
       if (trendList.length) {
         const dates = [...new Set(trendList.map(item => item.date))].sort()
         moodTrendOption.value.xAxis.data = dates
@@ -190,8 +194,10 @@ export function useDashboardLoaders({
   const loadTrendingTopics = async () => {
     try {
       const res = await api.getTrendingTopics?.() || { data: null }
-      const raw = res.data?.data || res.data
-      const sourceList = Array.isArray(raw) ? raw : (raw?.list || [])
+      const sourceList = normalizeDashboardCollection<TrendingTopic & { topic?: string; keyword?: string }>(
+        res.data,
+        ['topics'],
+      )
       trendingTopics.value = sourceList.slice(0, 10).map((item: TrendingTopic & { topic?: string; keyword?: string }) => ({
         ...item,
         keyword: item.keyword || item.topic || '',
@@ -206,10 +212,9 @@ export function useDashboardLoaders({
   const loadActiveTimeStats = async () => {
     try {
       const res = await api.getActiveTimeStats?.() || { data: null }
-      const timeData = res.data?.data || res.data
-      if (timeData) {
-        activeTimeOption.value.series[0].data = (Array.isArray(timeData)
-          ? timeData : timeData.list || []).map((item: ActiveTimeItem) => item.count)
+      const list = normalizeDashboardCollection<ActiveTimeItem>(res.data, ['hours'])
+      if (list.length) {
+        activeTimeOption.value.series[0].data = list.map((item: ActiveTimeItem) => item.count)
       }
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -223,7 +228,7 @@ export function useDashboardLoaders({
     privacyLoading.value = true
     try {
       const res = await api.getPrivacyBudget()
-      const d = res.data?.data || res.data || {}
+      const d = normalizeDashboardRecord(res.data)
       privacyStats.queryCount = d.query_count ?? 0
       privacyStats.epsilonUsed = d.epsilon_used ?? 0
       privacyStats.epsilonTotal = d.epsilon_total ?? 1.0
@@ -241,7 +246,7 @@ export function useDashboardLoaders({
     resonanceLoading.value = true
     try {
       const res = await api.getEmotionPulse()
-      const d = res.data?.data || res.data || {}
+      const d = normalizeDashboardRecord(res.data)
       resonanceStats.todayMatches = d.today_matches ?? 0
       resonanceStats.avgScore = d.avg_score ?? 0
       resonanceStats.topMood = d.top_mood ?? ''
@@ -258,7 +263,7 @@ export function useDashboardLoaders({
   const loadEmotionPulse = async () => {
     try {
       const res = await api.getEmotionPulse()
-      const d = res.data?.data || res.data || {}
+      const d = normalizeDashboardRecord(res.data)
       const temp = d.temperature ?? 50
       emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
     } catch (e: unknown) {
@@ -271,8 +276,7 @@ export function useDashboardLoaders({
   const loadEmotionTrends = async () => {
     try {
       const res = await api.getMoodTrend(String(moodTrendRange.value))
-      const raw = res.data?.data || res.data
-      const list = Array.isArray(raw) ? raw : (raw?.list || [])
+      const list = normalizeDashboardCollection<EmotionTrendItem>(res.data, ['trends'])
       if (list.length) {
         const dates = [...new Set(list.map((item: EmotionTrendItem) => item.date || item.day))].sort()
         const bucket = new Map<string, { positive: number; neutral: number; negative: number }>()
@@ -309,8 +313,13 @@ export function useDashboardLoaders({
   const loadAITrendingContent = async () => {
     try {
       const res = await api.getStones({ page: 1, page_size: 6 })
-      const d = res.data?.data || res.data || {}
-      const list = Array.isArray(d) ? d : (d?.list || [])
+      const list = normalizeDashboardCollection<{
+        stone_id?: string
+        content?: string
+        mood_type?: string
+        ripple_count?: number
+        boat_count?: number
+      }>(res.data, ['stones'])
       const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number; boat_count?: number }) =>
         Number(item.ripple_count ?? 0) + Number(item.boat_count ?? 0)
       ))

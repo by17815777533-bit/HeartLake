@@ -213,6 +213,7 @@ import type { FormInstance } from 'element-plus'
 import { View, Hide } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
+import { normalizePayloadRecord } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import {
   createDeckActivityRows,
@@ -499,7 +500,7 @@ const settingsGuideItems = computed(() =>
 const loadConfig = async () => {
   try {
     const res = await api.getSystemConfig()
-    const data = res.data?.data || res.data
+    const data = normalizePayloadRecord(res.data)
     if (data) {
       const sys = data.system || {}
       systemConfig.name = sys.name ?? sys.site_name ?? '心湖'

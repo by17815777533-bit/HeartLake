@@ -536,7 +536,7 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
             "WHERE r.status = 'pending' "
             "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
-            std::to_string(pageSize), std::to_string(offset)
+            static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
 
         Json::Value list(Json::arrayValue);
@@ -699,7 +699,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
                 "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.status = $1 AND r.reason = $2 ORDER BY r.created_at DESC LIMIT $3 OFFSET $4",
-                status, reason, std::to_string(pageSize), std::to_string(offset));
+                status, reason, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
         } else if (!status.empty() && isValidReportStatus(status)) {
             countResult = dbClient->execSqlSync(
                 "SELECT COUNT(*) as total FROM reports r WHERE r.status = $1", status);
@@ -711,7 +711,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
                 "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.status = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
-                status, std::to_string(pageSize), std::to_string(offset));
+                status, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
         } else if (!reason.empty()) {
             countResult = dbClient->execSqlSync(
                 "SELECT COUNT(*) as total FROM reports r WHERE r.reason = $1", reason);
@@ -723,7 +723,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
                 "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "WHERE r.reason = $1 ORDER BY r.created_at DESC LIMIT $2 OFFSET $3",
-                reason, std::to_string(pageSize), std::to_string(offset));
+                reason, static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
         } else {
             countResult = dbClient->execSqlSync("SELECT COUNT(*) as total FROM reports r");
             result = dbClient->execSqlSync(
@@ -734,7 +734,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
                 "LEFT JOIN paper_boats b ON r.target_type = 'boat' AND r.target_id = b.boat_id "
                 "LEFT JOIN users ut ON r.target_type = 'user' AND r.target_id = ut.user_id "
                 "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
-                std::to_string(pageSize), std::to_string(offset));
+                static_cast<int64_t>(pageSize), static_cast<int64_t>(offset));
         }
         int total = (!countResult || countResult->empty()) ? 0 : safeCount(*countResult);
 

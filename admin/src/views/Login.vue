@@ -125,6 +125,7 @@ import { ElMessage } from 'element-plus'
 import api from '@/api'
 import { useAppStore } from '@/stores'
 import { getErrorMessage } from '@/utils/errorHelper'
+import { normalizePayloadRecord } from '@/utils/collectionPayload'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -170,7 +171,7 @@ const handleLogin = async () => {
   loading.value = true
   try {
     const res = await api.login(form)
-    const resData = res?.data?.data || res?.data || {}
+    const resData = normalizePayloadRecord(res?.data)
     const token = resData.token || res?.token
     if (!token) {
       throw new Error('登录返回缺少token')

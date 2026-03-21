@@ -130,7 +130,7 @@ export interface OperationLog {
 
 // ── Dashboard ──
 
-/** Dashboard 核心统计，来自 GET /admin/dashboard/stats */
+/** Dashboard 核心统计，来自 GET /api/admin/stats/dashboard */
 export interface DashboardStats {
   total_users: number
   today_stones: number

@@ -135,11 +135,13 @@ void AdminController::login(const HttpRequestPtr &req,
             auto token = PasetoUtil::generateAdminToken("admin_001", adminRole, adminKey);
             writeAdminOperationLog("admin_001", "login", "管理员登录成功");
 
-            Json::Value data;
-            data["token"] = token;
-            data["user"]["user_id"] = "admin_001";
-            data["user"]["username"] = admin_username;
-            data["user"]["role"] = adminRole;
+        Json::Value data;
+        data["token"] = token;
+        data["admin_username"] = admin_username;
+        data["role"] = adminRole;
+        data["user"]["user_id"] = "admin_001";
+        data["user"]["username"] = admin_username;
+        data["user"]["role"] = adminRole;
 
             callback(ResponseUtil::success(data, "登录成功"));
         } else {
@@ -200,12 +202,33 @@ void AdminController::getTrendingTopics([[maybe_unused]] const HttpRequestPtr &r
 void AdminController::getInfo([[maybe_unused]] const HttpRequestPtr &req,
                              std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        Json::Value data;
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
         auto adminRole = req->getAttributes()->get<std::string>("admin_role");
+        if (adminId.empty()) {
+            callback(ResponseUtil::unauthorized("未授权的管理员操作"));
+            return;
+        }
+
+        auto dbClient = drogon::app().getDbClient("default");
+        auto result = dbClient->execSqlSync(
+            "SELECT username, role FROM admin_users WHERE id = $1 LIMIT 1",
+            adminId
+        );
+
+        Json::Value data;
         data["user_id"] = adminId;
         data["username"] = adminId;
         data["role"] = adminRole;
+        if (const auto row = safeRow(result)) {
+            if (!(*row)["username"].isNull()) {
+                data["username"] = (*row)["username"].as<std::string>();
+                data["nickname"] = (*row)["username"].as<std::string>();
+                data["admin_username"] = (*row)["username"].as<std::string>();
+            }
+            if (!(*row)["role"].isNull()) {
+                data["role"] = (*row)["role"].as<std::string>();
+            }
+        }
         data["permissions"] = Json::arrayValue;
         data["permissions"].append("all");
 
@@ -221,31 +244,34 @@ void AdminController::getRealtimeStats([[maybe_unused]] const HttpRequestPtr &re
     try {
         auto dbClient = drogon::app().getDbClient("default");
 
-        // 查询各种统计数据
-        auto userCount = dbClient->execSqlSync("SELECT COUNT(*) as count FROM users");
-        auto stoneCount = dbClient->execSqlSync("SELECT COUNT(*) as count FROM stones WHERE status = 'published' AND deleted_at IS NULL");
-        auto todayStones = dbClient->execSqlSync(
-            "SELECT COUNT(*) as count FROM stones WHERE DATE(created_at) = CURRENT_DATE"
-        );
-        auto onlineUsers = dbClient->execSqlSync(
-            "SELECT GREATEST("
-            "  COALESCE((SELECT COUNT(DISTINCT user_id) FROM user_sessions WHERE created_at > NOW() - INTERVAL '5 minutes'), 0), "
-            "  COALESCE((SELECT COUNT(*) FROM users WHERE last_active_at > NOW() - INTERVAL '5 minutes' AND status = 'active'), 0)"
-            ") as count"
-        );
+        auto result = dbClient->execSqlSync(
+            "SELECT "
+            "  (SELECT COUNT(*) FROM users) AS total_users, "
+            "  (SELECT COUNT(*) FROM stones "
+            "     WHERE status = 'published' AND deleted_at IS NULL) AS total_stones, "
+            "  (SELECT COUNT(*) FROM stones "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_stones, "
+            "  GREATEST( "
+            "    COALESCE((SELECT COUNT(DISTINCT user_id) FROM user_sessions "
+            "                WHERE created_at > NOW() - INTERVAL '5 minutes'), 0), "
+            "    COALESCE((SELECT COUNT(*) FROM users "
+            "                WHERE last_active_at > NOW() - INTERVAL '5 minutes' "
+            "                  AND status = 'active'), 0) "
+            "  ) AS online_users");
 
-        // 验证数据库查询结果
-        if (userCount.empty() || stoneCount.empty() || todayStones.empty()) {
+        if (result.empty()) {
             LOG_ERROR << "Database query returned empty results in getRealtimeStats";
             callback(ResponseUtil::internalError("Failed to fetch statistics"));
             return;
         }
 
+        const auto row = *safeRow(result);
         Json::Value data;
-        data["total_users"] = userCount[0]["count"].as<int>();
-        data["total_stones"] = stoneCount[0]["count"].as<int>();
-        data["today_stones"] = todayStones[0]["count"].as<int>();
-        data["online_users"] = onlineUsers.empty() ? 0 : onlineUsers[0]["count"].as<int>();
+        data["total_users"] = row["total_users"].as<int>();
+        data["total_stones"] = row["total_stones"].as<int>();
+        data["today_stones"] = row["today_stones"].as<int>();
+        data["online_users"] = row["online_users"].as<int>();
 
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
@@ -259,38 +285,40 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
                                        std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto dbClient = drogon::app().getDbClient("default");
+        auto result = dbClient->execSqlSync(
+            "SELECT "
+            "  (SELECT COUNT(*) FROM users "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_new_users, "
+            "  (SELECT COUNT(DISTINCT user_id) FROM stones "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_active_users, "
+            "  (SELECT COUNT(*) FROM stones "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day' "
+            "       AND status = 'published' AND deleted_at IS NULL) AS today_stones, "
+            "  (SELECT COUNT(*) FROM ripples "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') + "
+            "  (SELECT COUNT(*) FROM paper_boats "
+            "     WHERE created_at >= CURRENT_DATE "
+            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') "
+            "    AS today_interactions, "
+            "  (SELECT COUNT(*) FROM reports WHERE status = 'pending') AS pending_reports");
 
+        if (result.empty()) {
+            LOG_ERROR << "Database query returned empty results in getDashboardStats";
+            callback(ResponseUtil::internalError("获取仪表盘统计失败"));
+            return;
+        }
+
+        const auto row = *safeRow(result);
         Json::Value data;
-        
-        // 今日新增用户
-        auto todayUsers = dbClient->execSqlSync(
-            "SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = CURRENT_DATE"
-        );
-        data["today_new_users"] = todayUsers[0]["count"].as<int>();
-
-        // 今日活跃用户（BUG修复：traveler_id 不存在，应为 user_id）
-        auto activeUsers = dbClient->execSqlSync(
-            "SELECT COUNT(DISTINCT user_id) as count FROM stones WHERE DATE(created_at) = CURRENT_DATE"
-        );
-        data["today_active_users"] = activeUsers[0]["count"].as<int>();
-
-        // 今日发布石头数
-        auto todayStones = dbClient->execSqlSync(
-            "SELECT COUNT(*) as count FROM stones WHERE DATE(created_at) = CURRENT_DATE AND status = 'published' AND deleted_at IS NULL"
-        );
-        data["today_stones"] = todayStones[0]["count"].as<int>();
-
-        // 今日互动数
-        auto todayInteractions = dbClient->execSqlSync(
-            "SELECT (SELECT COUNT(*) FROM ripples WHERE DATE(created_at) = CURRENT_DATE) + "
-            "(SELECT COUNT(*) FROM paper_boats WHERE DATE(created_at) = CURRENT_DATE) as count"
-        );
-        data["today_interactions"] = todayInteractions[0]["count"].as<int>();
-
-        auto pendingReports = dbClient->execSqlSync(
-            "SELECT COUNT(*) as count FROM reports WHERE status = 'pending'"
-        );
-        data["pending_reports"] = pendingReports.empty() ? 0 : pendingReports[0]["count"].as<int>();
+        data["today_new_users"] = row["today_new_users"].as<int>();
+        data["today_active_users"] = row["today_active_users"].as<int>();
+        data["today_stones"] = row["today_stones"].as<int>();
+        data["today_interactions"] = row["today_interactions"].as<int>();
+        data["pending_reports"] = row["pending_reports"].as<int>();
 
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
@@ -519,13 +547,13 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
                 "JOIN users u ON hre.user_id = u.user_id "
                 "WHERE hre.status = $1 "
                 "ORDER BY hre.created_at DESC "
-                "LIMIT $2 OFFSET $3", status, std::to_string(limit), std::to_string(offset))
+                "LIMIT $2 OFFSET $3", status, static_cast<int64_t>(limit), static_cast<int64_t>(offset))
             : dbClient->execSqlSync(
                 "SELECT hre.*, u.nickname, u.email "
                 "FROM high_risk_events hre "
                 "JOIN users u ON hre.user_id = u.user_id "
                 "ORDER BY hre.created_at DESC "
-                "LIMIT $1 OFFSET $2", std::to_string(limit), std::to_string(offset));
+                "LIMIT $1 OFFSET $2", static_cast<int64_t>(limit), static_cast<int64_t>(offset));
 
         Json::Value data(Json::arrayValue);
         for (const auto& row : result) {
