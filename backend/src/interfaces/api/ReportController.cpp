@@ -126,13 +126,8 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
             reports.append(report);
         }
         
-        Json::Value responseData;
-        responseData["reports"] = reports;
-        responseData["total"] = total;
-        responseData["page"] = page;
-        responseData["page_size"] = page_size;
-        
-        callback(ResponseUtil::success(responseData));
+        callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+            "reports", reports, total, page, page_size)));
         
     } catch (const drogon::orm::DrogonDbException &e) {
         LOG_ERROR << "Database error in getMyReports: " << e.base().what();

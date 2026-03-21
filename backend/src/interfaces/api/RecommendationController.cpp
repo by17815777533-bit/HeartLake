@@ -740,14 +740,10 @@ void RecommendationController::searchRecommendations(
         auto countResult = dbClient->execSqlSync(countSql, userId, searchPattern);
         int total = safeCount(countResult);
 
-        Json::Value responseData;
-        responseData["results"] = results;
-        responseData["total"] = total;
-        responseData["page"] = page;
-        responseData["page_size"] = pageSize;
-        responseData["has_more"] = (page * pageSize) < total;
-
-        callback(ResponseUtil::success(responseData, "搜索结果"));
+        callback(ResponseUtil::success(
+            ResponseUtil::buildCollectionPayload("results", results, total,
+                                                 page, pageSize),
+            "搜索结果"));
 
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in searchRecommendations: " << e.what();

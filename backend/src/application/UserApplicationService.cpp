@@ -15,6 +15,7 @@
 #include "application/UserApplicationService.h"
 #include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include <drogon/drogon.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -115,17 +116,8 @@ Json::Value buildProfileUserJson(const drogon::orm::Row &row) {
 
 Json::Value buildPaginatedUsersResponse(const Json::Value &users, int total,
                                         int page, int pageSize) {
-  Json::Value response;
-  response["users"] = users;
-  response["items"] = users;
-  response["total"] = total;
-  response["page"] = page;
-  response["page_size"] = pageSize;
-  response["pageSize"] = pageSize;
-  response["total_pages"] = (total + pageSize - 1) / pageSize;
-  response["totalPages"] = response["total_pages"];
-  response["has_more"] = page < response["total_pages"].asInt();
-  return response;
+  return ResponseUtil::buildCollectionPayload("users", users, total, page,
+                                              pageSize);
 }
 
 } // namespace

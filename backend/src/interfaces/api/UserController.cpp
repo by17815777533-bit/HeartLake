@@ -468,18 +468,9 @@ void UserController::searchUsers(
       }
     }
 
-    Json::Value data;
-    data["users"] = users;
-    data["items"] = users;
-    data["total"] = total;
-    data["page"] = page;
-    data["page_size"] = pageSize;
-    data["pageSize"] = pageSize;
-    data["total_pages"] = (total + pageSize - 1) / pageSize;
-    data["totalPages"] = data["total_pages"];
-    data["has_more"] = page < data["total_pages"].asInt();
-
-    callback(ResponseUtil::success(data));
+    callback(ResponseUtil::success(
+        ResponseUtil::buildCollectionPayload("users", users, total, page,
+                                             pageSize)));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in searchUsers: " << e.base().what();
@@ -548,16 +539,8 @@ void UserController::getMyBoats(
       boats.append(boat);
     }
 
-    Json::Value data;
-    data["items"] = boats; // 前端兼容字段
-    data["boats"] = boats;
-    data["total"] = total;
-    data["page"] = page;
-    data["page_size"] = page_size;
-    data["pageSize"] = page_size;
-    data["totalPages"] = (total + page_size - 1) / page_size;
-
-    callback(ResponseUtil::success(data));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "boats", boats, total, page, page_size)));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in getMyBoats: " << e.base().what();

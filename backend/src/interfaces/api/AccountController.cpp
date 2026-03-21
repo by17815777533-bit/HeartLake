@@ -735,13 +735,8 @@ void AccountController::getBlockedUsers(
       users.append(user);
     }
 
-    Json::Value data;
-    data["items"] = users;
-    data["blocked_users"] = users;
-    data["total"] = safeCount(countResult);
-    data["page"] = page;
-    data["page_size"] = pageSize;
-    callback(ResponseUtil::success(data));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "blocked_users", users, safeCount(countResult), page, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getBlockedUsers error: " << e.what();
     callback(ResponseUtil::internalError());

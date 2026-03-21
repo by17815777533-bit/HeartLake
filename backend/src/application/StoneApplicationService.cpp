@@ -25,6 +25,7 @@
 #include "utils/IdGenerator.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/RequestHelper.h"
+#include "utils/ResponseUtil.h"
 #include <algorithm>
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -437,20 +438,8 @@ Json::Value StoneApplicationService::getStoneList(
       }
       stones.append(buildStoneJson(row, true));
     }
-    int totalPages = (total + pageSize - 1) / pageSize;
-
-    Json::Value response;
-    response["stones"] = stones;
-    response["items"] = stones;
-    response["total"] = total;
-    response["page"] = page;
-    response["page_size"] = pageSize;
-    response["pageSize"] = pageSize;
-    response["total_pages"] = totalPages;
-    response["totalPages"] = totalPages;
-    response["has_more"] = page < totalPages;
-
-    return response;
+    return ResponseUtil::buildCollectionPayload("stones", stones, total, page,
+                                                pageSize);
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to get stone list: " << e.base().what();

@@ -307,6 +307,7 @@ void FriendController::getFriends(
         data["mode"] = "intimacy_auto";
         data["friends"] = friends;
         data["items"] = friends;
+        data["list"] = friends;
         data["total"] = static_cast<int>(friends.size());
 
         callback(ResponseUtil::success(data, "好友关系已由亲密分自动生成"));
@@ -331,6 +332,7 @@ void FriendController::getPendingRequests(
     data["mode"] = "intimacy_auto";
     data["requests"] = Json::arrayValue;
     data["items"] = Json::arrayValue;
+    data["list"] = Json::arrayValue;
     data["total"] = 0;
     callback(ResponseUtil::success(data, "手动好友申请已下线，关系由互动亲密分自动判定"));
 }
