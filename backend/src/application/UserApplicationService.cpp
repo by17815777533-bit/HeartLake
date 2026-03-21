@@ -318,7 +318,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
             "FROM users "
             "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
             "'\\') "
-            "AND is_anonymous = false AND status = 'active' "
+            "AND status = 'active' "
             "AND user_id != $2 "
             "ORDER BY created_at DESC "
             "LIMIT $3 OFFSET $4",
@@ -332,7 +332,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
           "FROM users "
           "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
           "'\\') "
-          "AND is_anonymous = false AND status = 'active' "
+          "AND status = 'active' "
           "ORDER BY created_at DESC "
           "LIMIT $2 OFFSET $3",
           searchPattern, static_cast<int64_t>(pageSize), offset);
@@ -344,7 +344,10 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
       if (total == 0 && !row["total_count"].isNull()) {
         total = row["total_count"].as<int>();
       }
-      users.append(buildBasicUserJson(row, true));
+      Json::Value user = buildBasicUserJson(row, true);
+      user["is_anonymous"] =
+          row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
+      users.append(user);
     }
 
     return buildPaginatedUsersResponse(users, total, page, pageSize);
