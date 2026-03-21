@@ -202,6 +202,9 @@ void SafeHarborController::recommendResources(
     try {
         auto userId = Validator::getUserId(req);
         std::string emotion = req->getParameter("emotion");
+        if (emotion.empty()) {
+            emotion = req->getParameter("mood");
+        }
         if (emotion.empty()) emotion = "neutral";
         auto& service = heartlake::infrastructure::SafeHarborService::getInstance();
         callback(ResponseUtil::success(service.recommendByEmotion(userId ? *userId : "", emotion)));

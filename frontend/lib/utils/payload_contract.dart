@@ -60,6 +60,8 @@ Map<String, dynamic> normalizePayloadContract(Map raw) {
   _mirrorAlias(normalized, 'connection_id', const ['connectionId']);
   _mirrorAlias(normalized, 'friendship_id', const ['friendshipId']);
   _mirrorAlias(normalized, 'notification_id', const ['notificationId', 'id']);
+  _mirrorAlias(normalized, 'resource_id', const ['resourceId']);
+  _mirrorAlias(normalized, 'appointment_id', const ['appointmentId']);
   _mirrorAlias(normalized, 'avatar_url', const ['avatarUrl']);
   _mirrorAlias(normalized, 'friend_id', const ['friendId']);
   _mirrorAlias(normalized, 'friend_user_id', const ['friendUserId']);
@@ -83,6 +85,23 @@ Map<String, dynamic> normalizePayloadContract(Map raw) {
   _mirrorAlias(normalized, 'is_anonymous', const ['isAnonymous']);
   _mirrorAlias(normalized, 'has_rippled', const ['hasRippled']);
   _mirrorAlias(normalized, 'is_read', const ['isRead']);
+  _mirrorAlias(normalized, 'days_left', const ['daysLeft']);
+  _mirrorAlias(normalized, 'has_quota', const ['hasQuota']);
+  _mirrorAlias(normalized, 'frequency_hours', const ['frequencyHours']);
+  _mirrorAlias(normalized, 'frequency_minutes', const ['frequencyMinutes']);
+  _mirrorAlias(normalized, 'remaining_budget', const ['remainingBudget']);
+  _mirrorAlias(normalized, 'total_budget', const ['totalBudget']);
+  _mirrorAlias(normalized, 'query_count', const ['queryCount']);
+  _mirrorAlias(normalized, 'dominant_mood', const ['dominantMood']);
+  _mirrorAlias(normalized, 'sample_count', const ['sampleCount']);
+  _mirrorAlias(normalized, 'avg_score', const ['avgScore']);
+  _mirrorAlias(normalized, 'can_transfer_lamp', const ['canTransferLamp']);
+  _mirrorAlias(normalized, 'is_guardian', const ['isGuardian']);
+  _mirrorAlias(normalized, 'is_lamp_keeper', const ['isLampKeeper']);
+  _mirrorAlias(normalized, 'resonance_points', const ['resonancePoints']);
+  _mirrorAlias(normalized, 'quality_ripples', const ['qualityRipples']);
+  _mirrorAlias(normalized, 'warm_boats', const ['warmBoats']);
+  _mirrorAlias(normalized, 'is_vip', const ['isVip']);
 
   return normalized;
 }

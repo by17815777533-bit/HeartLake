@@ -271,7 +271,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | POST | `/api/safe-harbor/resources` | Bearer | 添加关怀资源 |
 | PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
 | DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
-| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源 |
+| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，兼容 `emotion` / `mood` |
 | GET | `/api/guardian/status` | Bearer | 守护者状态 |
 | POST | `/api/guardian/bindGuardian` | Bearer | 绑定守护者 |
 | DELETE | `/api/guardian/unbind` | Bearer | 解除守护关系 |

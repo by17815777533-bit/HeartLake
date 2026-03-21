@@ -1,5 +1,6 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
 
 /// EdgeAI引擎客户端服务
 ///
@@ -9,12 +10,32 @@ class EdgeAIService extends BaseService {
   @override
   String get serviceName => 'EdgeAIService';
 
+  Map<String, dynamic> _normalizeEdgePayload(dynamic raw) {
+    if (raw is! Map) return const <String, dynamic>{};
+
+    final payload = normalizePayloadContract(
+      Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+    );
+    final status = payload['status'] ?? payload['engine_status'];
+    if (status != null) {
+      payload['status'] = status;
+      payload['engine_status'] = status;
+    }
+    return payload;
+  }
+
   /// 查询EdgeAI引擎运行状态
   ///
   /// 返回引擎的运行状态信息。
   Future<Map<String, dynamic>> getStatus() async {
     final response = await get('/edge-ai/status');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeEdgePayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+    };
   }
 
   /// 调用后端情感分析接口
@@ -32,7 +53,14 @@ class EdgeAIService extends BaseService {
       'prefer_onnx': preferOnnx,
       'analysis_mode': preferOnnx ? 'onnx_preferred' : 'balanced',
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeEdgePayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 查询差分隐私预算
@@ -40,7 +68,14 @@ class EdgeAIService extends BaseService {
   /// 返回当前用户的差分隐私预算消耗情况。
   Future<Map<String, dynamic>> getPrivacyBudget() async {
     final response = await get('/edge-ai/privacy-budget', useCache: false);
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeEdgePayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 获取社区情绪脉搏
@@ -48,6 +83,13 @@ class EdgeAIService extends BaseService {
   /// 返回社区整体的情绪分布和趋势数据。
   Future<Map<String, dynamic>> getEmotionPulse() async {
     final response = await get('/edge-ai/emotion-pulse', useCache: false);
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeEdgePayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 }

@@ -279,7 +279,7 @@ POST `/api/edge-ai/analyze` 请求体：
 | POST | `/api/safe-harbor/resources` | Bearer | 添加关怀资源 |
 | PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
 | DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
-| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源 |
+| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，兼容 `emotion` / `mood` |
 
 ---
 

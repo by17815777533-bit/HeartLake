@@ -1,28 +1,78 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
+import 'social_payload_normalizer.dart';
 
 /// 灯火（VIP）服务，管理会员状态、权益查询和心理咨询预约
 class VIPService extends BaseService {
   @override
   String get serviceName => '灯火服务';
 
+  Map<String, dynamic> _normalizeVipPayload(dynamic raw) {
+    if (raw is! Map) return const <String, dynamic>{};
+
+    final payload = normalizePayloadContract(
+      Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+    );
+    final expiresAt = payload['expires_at'] ?? payload['expiresAt'];
+    if (expiresAt != null) {
+      payload['expires_at'] = expiresAt;
+      payload['expiresAt'] = expiresAt;
+    }
+    return payload;
+  }
+
   /// 获取当前用户的灯火会员状态
   Future<Map<String, dynamic>> getVIPStatus() async {
     final response = await get('/vip/status');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeVipPayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 获取VIP权益列表
   Future<Map<String, dynamic>> getPrivileges() async {
     final response = await get('/vip/privileges');
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final privileges = extractNormalizedList(
+      response.data,
+      itemNormalizer: (raw) => normalizePayloadContract(
+        Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+      ),
+      listKeys: const ['privileges'],
+    );
+    final payload = response.data is Map
+        ? _normalizeVipPayload(response.data)
+        : const <String, dynamic>{};
+
+    return {
+      ...toMap(response),
+      'data': {
+        ...payload,
+        'privileges': privileges,
+        'items': privileges,
+        'list': privileges,
+      },
+      ...buildCollectionEnvelope(
+        response.data,
+        primaryKey: 'privileges',
+        items: privileges,
+      ),
+    };
   }
 
   /// 检查是否有免费心理咨询额度
   Future<bool> hasFreeCounselingQuota() async {
     final response = await get('/vip/counseling/check');
     if (response.success) {
-      return response.data?['has_quota'] ?? false;
+      final payload = _normalizeVipPayload(response.data);
+      return payload['has_quota'] == true;
     }
     return false;
   }
@@ -37,14 +87,24 @@ class VIPService extends BaseService {
       'appointment_time': appointmentTime,
       'is_free_vip': isFreeVIP,
     });
-    return toMap(response);
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeVipPayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 获取AI评论频率（小时）
   Future<double> getAICommentFrequency() async {
     final response = await get('/vip/ai-comment-frequency');
     if (response.success) {
-      return (response.data?['frequency_hours'] ?? 2.0).toDouble();
+      final payload = _normalizeVipPayload(response.data);
+      final frequency = payload['frequency_hours'];
+      if (frequency is num) return frequency.toDouble();
+      return double.tryParse(frequency?.toString() ?? '') ?? 2.0;
     }
     return 2.0;
   }
