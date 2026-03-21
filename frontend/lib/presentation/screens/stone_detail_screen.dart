@@ -28,8 +28,15 @@ import '../widgets/similar_stones_section.dart';
 /// - 举报功能
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
+  final InteractionDataSource? interactionService;
+  final RoomSubscriptionClient? wsClient;
 
-  const StoneDetailScreen({super.key, required this.stone});
+  const StoneDetailScreen({
+    super.key,
+    required this.stone,
+    this.interactionService,
+    this.wsClient,
+  });
 
   @override
   State<StoneDetailScreen> createState() => _StoneDetailScreenState();
@@ -53,10 +60,10 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
   int _localBoatsCount = 0;
   bool _hasInteraction = false; // 追踪是否有互动发生
   bool _hasRippled = false; // 当前用户是否已涟漪
-  final InteractionService _interactionService = sl<InteractionService>();
+  late final InteractionDataSource _interactionService;
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
-  late WebSocketManager _wsManager;
+  late final RoomSubscriptionClient _wsManager;
 
   // 监听器引用，用于正确移除
   late void Function(Map<String, dynamic>) _rippleListener;
@@ -87,7 +94,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _localRipplesCount = widget.stone.rippleCount;
     _localBoatsCount = widget.stone.boatCount;
     _hasRippled = widget.stone.hasRippled;
-    _wsManager = WebSocketManager();
+    _interactionService = widget.interactionService ?? sl<InteractionService>();
+    _wsManager = widget.wsClient ?? WebSocketManager();
     _loadBoats();
     _setupWebSocketListener();
 
@@ -114,7 +122,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     // 定义监听器函数 - 使用服务器返回的实际总数
     _rippleListener = (data) {
       if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
-        final serverCount = data['ripple_count'];
+        final serverCount = extractRippleCount(data);
         if (serverCount is int) {
           setState(() {
             _localRipplesCount = serverCount;
@@ -125,7 +133,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
     _rippleDeletedListener = (data) {
       if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
-        final serverCount = data['ripple_count'];
+        final serverCount = extractRippleCount(data);
         setState(() {
           if (serverCount is int) {
             _localRipplesCount = serverCount;
@@ -138,7 +146,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
 
     _boatListener = (data) {
       if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
-        final serverCount = data['boat_count'];
+        final serverCount = extractBoatCount(data);
         if (serverCount is int) {
           setState(() {
             _localBoatsCount = serverCount;
@@ -152,7 +160,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _boatDeletedListener = (data) {
       if (extractStoneEntityId(data) == widget.stone.stoneId && mounted) {
         final deletedBoatId = extractBoatEntityId(data);
-        final serverCount = data['boat_count'];
+        final serverCount = extractBoatCount(data);
         setState(() {
           if (serverCount is int) {
             _localBoatsCount = serverCount;
@@ -196,7 +204,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     _reconnectedListener = (data) {
       if (mounted) {
         _wsManager.joinRoom('stone:${widget.stone.stoneId}');
-        _loadBoats();
+        unawaited(_loadBoats());
       }
     };
     _wsManager.on('reconnected', _reconnectedListener);

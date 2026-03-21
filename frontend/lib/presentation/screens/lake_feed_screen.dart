@@ -10,8 +10,8 @@ import '../providers/stone_provider.dart';
 
 /// 心湖动态流页面，按时间线展示最新石头
 ///
-/// 支持无限滚动分页加载，通过 WebSocket 实时接收新石头并插入列表顶部。
-/// 同时展示湖面气象卡片，涟漪/纸船计数通过 WebSocket 实时同步。
+/// 石头列表与实时同步统一交给 [StoneProvider]，页面只负责滚动和展示。
+/// 同时展示湖面气象卡片，避免页面层重复持有 service 与 websocket 状态。
 class LakeFeedScreen extends StatefulWidget {
   const LakeFeedScreen({super.key});
 
