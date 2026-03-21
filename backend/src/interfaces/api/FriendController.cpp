@@ -393,10 +393,20 @@ void FriendController::sendMessage(
             wsMsg["sender_id"] = userId;
             wsMsg["receiver_id"] = friendId;
             wsMsg["content"] = content;
-            wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+            const auto timestamp = static_cast<Json::Int64>(time(nullptr));
+            wsMsg["timestamp"] = timestamp;
             BroadcastWebSocketController::sendToUser(friendId, wsMsg);
 
-            callback(ResponseUtil::success("消息已发送"));
+            Json::Value data;
+            data["sender_id"] = userId;
+            data["receiver_id"] = friendId;
+            data["friend_id"] = friendId;
+            data["friend_user_id"] = friendId;
+            data["peer_id"] = friendId;
+            data["content"] = content;
+            data["status"] = "sent";
+            data["created_at"] = timestamp;
+            callback(ResponseUtil::success(data, "消息已发送"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Error in sendMessage: " << e.what();
             callback(ResponseUtil::internalError("发送消息失败"));

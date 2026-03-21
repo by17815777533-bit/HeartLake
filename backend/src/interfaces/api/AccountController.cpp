@@ -242,6 +242,7 @@ void AccountController::updateProfile(
     auto dbClient = app().getDbClient("default");
     std::vector<std::string> updates;
     std::vector<std::string> params;
+    Json::Value updatedData(Json::objectValue);
     int paramIndex = 1;
 
     if (json->isMember("nickname")) {
@@ -257,6 +258,7 @@ void AccountController::updateProfile(
       }
       updates.push_back("nickname = $" + std::to_string(paramIndex++));
       params.push_back(nickname);
+      updatedData["nickname"] = nickname;
     }
     if (json->isMember("bio")) {
       if (!(*json)["bio"].isString()) {
@@ -271,6 +273,7 @@ void AccountController::updateProfile(
       }
       updates.push_back("bio = $" + std::to_string(paramIndex++));
       params.push_back(bio);
+      updatedData["bio"] = bio;
     }
     if (json->isMember("avatar_url") || json->isMember("avatar")) {
       const auto &avatarNode = json->isMember("avatar_url")
@@ -291,6 +294,7 @@ void AccountController::updateProfile(
       updates.push_back("avatar_url = NULLIF($" + std::to_string(paramIndex++) +
                         ", '')");
       params.push_back(avatarUrl);
+      updatedData["avatar_url"] = avatarUrl;
     }
     if (json->isMember("gender")) {
       if (!(*json)["gender"].isString()) {
@@ -306,6 +310,7 @@ void AccountController::updateProfile(
       updates.push_back("gender = NULLIF($" + std::to_string(paramIndex++) +
                         ", '')");
       params.push_back(gender);
+      updatedData["gender"] = gender;
     }
     if (json->isMember("birthday")) {
       if (!(*json)["birthday"].isString()) {
@@ -314,7 +319,9 @@ void AccountController::updateProfile(
       }
       updates.push_back("birthday = NULLIF($" + std::to_string(paramIndex++) +
                         ", '')::date");
-      params.push_back(trimAscii((*json)["birthday"].asString()));
+      const auto birthday = trimAscii((*json)["birthday"].asString());
+      params.push_back(birthday);
+      updatedData["birthday"] = birthday;
     }
     if (json->isMember("location")) {
       if (!(*json)["location"].isString()) {
@@ -330,6 +337,7 @@ void AccountController::updateProfile(
       updates.push_back("location = NULLIF($" + std::to_string(paramIndex++) +
                         ", '')");
       params.push_back(location);
+      updatedData["location"] = location;
     }
     if (json->isMember("email")) {
       if (!(*json)["email"].isString()) {
@@ -347,6 +355,7 @@ void AccountController::updateProfile(
       updates.push_back("email = NULLIF($" + std::to_string(paramIndex++) +
                         ", '')");
       params.push_back(email);
+      updatedData["email"] = email;
     }
 
     if (updates.empty()) {
@@ -381,7 +390,7 @@ void AccountController::updateProfile(
                             params[4], params[5], params[6], userId);
     }
 
-    callback(ResponseUtil::success(Json::Value(), "资料更新成功"));
+    callback(ResponseUtil::success(updatedData, "资料更新成功"));
   } catch (const std::exception &e) {
     LOG_ERROR << "updateProfile error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -518,7 +527,10 @@ void AccountController::removeDevice(
                               sessionId, userId);
 
     if (result.affectedRows() > 0) {
-      callback(ResponseUtil::success(Json::Value(), "设备已移除"));
+      Json::Value data;
+      data["session_id"] = sessionId;
+      data["status"] = "removed";
+      callback(ResponseUtil::success(data, "设备已移除"));
     } else {
       callback(ResponseUtil::notFound("设备不存在"));
     }
@@ -662,6 +674,8 @@ void AccountController::getPrivacySettings(
       data["allow_message_from_stranger"] =
           row["allow_message_from_stranger"].as<bool>();
     }
+    data["allow_stranger_boat"] = data["allow_message_from_stranger"];
+    data["allow_stranger_message"] = data["allow_message_from_stranger"];
 
     callback(ResponseUtil::success(data));
   } catch (const std::exception &e) {
@@ -692,9 +706,10 @@ void AccountController::updatePrivacySettings(
     std::string visibility = parseVisibilityCompat(*json);
     bool showOnline = parseBoolCompat(*json, "show_online_status", true);
     bool allowFriend = parseBoolCompat(*json, "allow_friend_request", true);
-    // 兼容 allow_stranger_boat 历史字段
+    // 兼容 allow_stranger_boat / allow_stranger_message 历史字段
     bool allowStranger = parseBoolCompat(*json, "allow_message_from_stranger",
-                                         parseBoolCompat(*json, "allow_stranger_boat", false));
+                                         parseBoolCompat(*json, "allow_stranger_message",
+                                                         parseBoolCompat(*json, "allow_stranger_boat", false)));
 
     dbClient->execSqlSync(
         "INSERT INTO user_privacy_settings (user_id, profile_visibility, "
@@ -706,7 +721,14 @@ void AccountController::updatePrivacySettings(
         "allow_friend_request = $4, allow_message_from_stranger = $5",
         userId, visibility, showOnline, allowFriend, allowStranger);
 
-    callback(ResponseUtil::success(Json::Value(), "隐私设置已更新"));
+    Json::Value data;
+    data["profile_visibility"] = visibility;
+    data["show_online_status"] = showOnline;
+    data["allow_friend_request"] = allowFriend;
+    data["allow_message_from_stranger"] = allowStranger;
+    data["allow_stranger_boat"] = allowStranger;
+    data["allow_stranger_message"] = allowStranger;
+    callback(ResponseUtil::success(data, "隐私设置已更新"));
   } catch (const std::exception &e) {
     LOG_ERROR << "updatePrivacySettings error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -797,7 +819,11 @@ void AccountController::blockUser(
       return;
     }
 
-    callback(ResponseUtil::success(Json::Value(), "用户已拉黑"));
+    Json::Value data;
+    data["blocked_user_id"] = targetUserId;
+    data["target_user_id"] = targetUserId;
+    data["status"] = "blocked";
+    callback(ResponseUtil::success(data, "用户已拉黑"));
   } catch (const std::exception &e) {
     LOG_ERROR << "blockUser error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -822,7 +848,11 @@ void AccountController::unblockUser(
         "DELETE FROM user_blocks WHERE user_id = $1 AND blocked_user_id = $2",
         userId, targetUserId);
 
-    callback(ResponseUtil::success(Json::Value(), "已取消拉黑"));
+    Json::Value data;
+    data["blocked_user_id"] = targetUserId;
+    data["target_user_id"] = targetUserId;
+    data["status"] = "unblocked";
+    callback(ResponseUtil::success(data, "已取消拉黑"));
   } catch (const std::exception &e) {
     LOG_ERROR << "unblockUser error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -1081,7 +1111,10 @@ void AccountController::deleteAccountPermanently(
       return;
     }
 
-    callback(ResponseUtil::success(Json::Value(), "账号已永久删除"));
+    Json::Value data;
+    data["status"] = "deleted";
+    data["deleted"] = true;
+    callback(ResponseUtil::success(data, "账号已永久删除"));
   } catch (const std::exception &e) {
     LOG_ERROR << "deleteAccountPermanently error: " << e.what();
     callback(ResponseUtil::internalError());

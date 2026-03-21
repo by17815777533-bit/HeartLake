@@ -7,6 +7,7 @@
 // 才能提交到后端，防止非法字段注入和XSS攻击。
 
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
 import 'base_service.dart';
 import 'social_payload_normalizer.dart';
 
@@ -21,7 +22,9 @@ class AccountService extends BaseService {
     final normalized = Map<String, dynamic>.from(payload);
     final rawData = normalized['data'];
     if (rawData is Map) {
-      final data = Map<String, dynamic>.from(rawData.cast<String, dynamic>());
+      final data = normalizePayloadContract(
+        Map<String, dynamic>.from(rawData.cast<String, dynamic>()),
+      );
       final avatar = data['avatar'];
       if ((data['avatar_url'] == null ||
               data['avatar_url'].toString().isEmpty) &&
@@ -32,9 +35,31 @@ class AccountService extends BaseService {
       if (data['items'] == null && blockedUsers is List) {
         data['items'] = blockedUsers;
       }
+      final allowStranger = data['allow_message_from_stranger'] ??
+          data['allow_stranger_boat'] ??
+          data['allow_stranger_message'];
+      if (allowStranger != null) {
+        data['allow_message_from_stranger'] = allowStranger;
+        data['allow_stranger_boat'] = allowStranger;
+        data['allow_stranger_message'] = allowStranger;
+      }
       normalized['data'] = data;
     }
     return normalized;
+  }
+
+  Map<String, dynamic> _normalizeResponseWithFallbackData(
+    ServiceResponse<dynamic> response, {
+    Map<String, dynamic> fallbackData = const <String, dynamic>{},
+  }) {
+    final rawData = response.data;
+    final data = rawData is Map
+        ? Map<String, dynamic>.from(rawData.cast<String, dynamic>())
+        : Map<String, dynamic>.from(fallbackData);
+    return _normalizePayload({
+      ...toMap(response),
+      'data': data,
+    });
   }
 
   Map<String, dynamic> _normalizeDevicePayload(Map raw) {
@@ -175,7 +200,7 @@ class AccountService extends BaseService {
   /// 返回账号的统计数据，如发布石头数、好友数等。
   Future<Map<String, dynamic>> getAccountStats() async {
     final response = await get('/account/stats');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(response);
   }
 
   /// 获取登录设备列表
@@ -244,7 +269,7 @@ class AccountService extends BaseService {
   /// 返回当前用户的隐私设置配置。
   Future<Map<String, dynamic>> getPrivacySettings() async {
     final response = await get('/account/privacy');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(response);
   }
 
   /// 更新隐私设置
@@ -255,8 +280,16 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> updatePrivacySettings(
       Map<String, dynamic> settings) async {
     settings = InputValidator.validateMapKeys(settings, _allowedPrivacyKeys);
+    final allowStranger = settings['allow_message_from_stranger'] ??
+        settings['allow_stranger_message'] ??
+        settings['allow_stranger_boat'];
+    if (allowStranger != null) {
+      settings['allow_message_from_stranger'] = allowStranger;
+      settings['allow_stranger_message'] = allowStranger;
+      settings['allow_stranger_boat'] = allowStranger;
+    }
     final response = await put('/account/privacy', data: settings);
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(response, fallbackData: settings);
   }
 
   /// 获取黑名单列表
@@ -297,7 +330,14 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> blockUser(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/account/block/$userId');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(
+      response,
+      fallbackData: {
+        'blocked_user_id': userId,
+        'target_user_id': userId,
+        'status': response.success ? 'blocked' : null,
+      },
+    );
   }
 
   /// 取消拉黑
@@ -306,7 +346,14 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> unblockUser(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await delete('/account/unblock/$userId');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(
+      response,
+      fallbackData: {
+        'blocked_user_id': userId,
+        'target_user_id': userId,
+        'status': response.success ? 'unblocked' : null,
+      },
+    );
   }
 
   /// 导出数据
@@ -335,7 +382,13 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> removeDevice(String sessionId) async {
     InputValidator.validateUUID(sessionId, '会话ID');
     final response = await delete('/account/devices/$sessionId');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(
+      response,
+      fallbackData: {
+        'session_id': sessionId,
+        'status': response.success ? 'removed' : null,
+      },
+    );
   }
 
   /// 获取安全事件
@@ -408,7 +461,7 @@ class AccountService extends BaseService {
       InputValidator.validateFileSize(fileSize, maxMB: 5);
     }
     final response = await post('/account/avatar', data: avatarData);
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(response);
   }
 
   /// 更新个人资料
@@ -437,7 +490,7 @@ class AccountService extends BaseService {
       profile['bio'] = InputValidator.sanitizeText(profile['bio'] as String);
     }
     final response = await put('/account/profile', data: profile);
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(response, fallbackData: profile);
   }
 
   /// 停用账号
@@ -445,7 +498,13 @@ class AccountService extends BaseService {
   /// 临时停用账号，可以恢复。
   Future<Map<String, dynamic>> deactivateAccount() async {
     final response = await post('/account/deactivate');
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(
+      response,
+      fallbackData: const {
+        'status': 'deactivated',
+        'recovery_window_days': 30,
+      },
+    );
   }
 
   /// 永久删除账号
@@ -455,6 +514,12 @@ class AccountService extends BaseService {
     final response = await post('/account/delete-permanent', data: {
       'confirmation': 'DELETE',
     });
-    return toMap(response);
+    return _normalizeResponseWithFallbackData(
+      response,
+      fallbackData: const {
+        'status': 'deleted',
+        'deleted': true,
+      },
+    );
   }
 }

@@ -3,6 +3,7 @@
 // 处理好友请求的发送、接受、拒绝以及聊天消息收发。
 
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
 import 'base_service.dart';
 import 'social_payload_normalizer.dart';
 
@@ -27,6 +28,50 @@ class FriendService extends BaseService implements FriendDataSource {
   @override
   String get serviceName => 'FriendService';
 
+  Map<String, dynamic> _normalizeFriendActionPayload(
+    dynamic raw, {
+    String? peerId,
+    String? requestId,
+    String? content,
+  }) {
+    final payload = raw is Map
+        ? normalizeFriendPayload(
+            normalizePayloadContract(
+              Map<String, dynamic>.from(raw.cast<String, dynamic>()),
+            ),
+          )
+        : <String, dynamic>{};
+
+    final resolvedPeerId = peerId ??
+        payload['friend_id']?.toString() ??
+        payload['friend_user_id']?.toString() ??
+        payload['user_id']?.toString() ??
+        payload['peer_id']?.toString();
+    if (resolvedPeerId != null && resolvedPeerId.isNotEmpty) {
+      payload['friend_id'] = resolvedPeerId;
+      payload['friendId'] = resolvedPeerId;
+      payload['friend_user_id'] = resolvedPeerId;
+      payload['friendUserId'] = resolvedPeerId;
+      payload['user_id'] = resolvedPeerId;
+      payload['userId'] = resolvedPeerId;
+      payload['peer_id'] = resolvedPeerId;
+      payload['peerId'] = resolvedPeerId;
+    }
+
+    final resolvedRequestId =
+        requestId ?? payload['request_id']?.toString() ?? payload['requestId']?.toString();
+    if (resolvedRequestId != null && resolvedRequestId.isNotEmpty) {
+      payload['request_id'] = resolvedRequestId;
+      payload['requestId'] = resolvedRequestId;
+    }
+
+    if (content != null && content.isNotEmpty && payload['content'] == null) {
+      payload['content'] = content;
+    }
+
+    return payload;
+  }
+
   /// 发送好友请求
   ///
   /// 向指定用户发送好友请求，可附带一条附言。
@@ -50,15 +95,19 @@ class FriendService extends BaseService implements FriendDataSource {
 
     if (!response.success) return toMap(response);
 
-    final payload = response.data is Map
-        ? normalizeFriendPayload(response.data as Map)
-        : response.data;
+    final payload = _normalizeFriendActionPayload(
+      response.data,
+      peerId: userId,
+      requestId: response.data is Map
+          ? (response.data as Map)['request_id']?.toString()
+          : null,
+    );
 
     return {
       ...toMap(response),
       'data': payload,
-      'request_id':
-          response.data is Map ? (response.data as Map)['request_id'] : null,
+      'request_id': payload['request_id'],
+      'requestId': payload['requestId'],
     };
   }
 
@@ -69,7 +118,10 @@ class FriendService extends BaseService implements FriendDataSource {
   Future<Map<String, dynamic>> acceptFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/accept/$userId');
-    return toMap(response);
+    return {
+      ...toMap(response),
+      'data': _normalizeFriendActionPayload(response.data, peerId: userId),
+    };
   }
 
   /// 拒绝好友请求
@@ -79,7 +131,10 @@ class FriendService extends BaseService implements FriendDataSource {
   Future<Map<String, dynamic>> rejectFriendRequest(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/friends/reject/$userId');
-    return toMap(response);
+    return {
+      ...toMap(response),
+      'data': _normalizeFriendActionPayload(response.data, peerId: userId),
+    };
   }
 
   /// 删除好友
@@ -89,7 +144,10 @@ class FriendService extends BaseService implements FriendDataSource {
   Future<Map<String, dynamic>> removeFriend(String friendId) async {
     InputValidator.validateUUID(friendId, '好友ID');
     final response = await delete('/friends/$friendId');
-    return toMap(response);
+    return {
+      ...toMap(response),
+      'data': _normalizeFriendActionPayload(response.data, peerId: friendId),
+    };
   }
 
   /// 获取好友列表
@@ -188,7 +246,11 @@ class FriendService extends BaseService implements FriendDataSource {
 
     final payload = response.data is Map
         ? normalizeMessagePayload(response.data as Map)
-        : response.data;
+        : _normalizeFriendActionPayload(
+            const <String, dynamic>{},
+            peerId: friendId,
+            content: content,
+          );
     return {
       ...toMap(response),
       'data': payload,

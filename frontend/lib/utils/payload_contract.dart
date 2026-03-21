@@ -57,9 +57,12 @@ Map<String, dynamic> normalizePayloadContract(Map raw) {
   _mirrorAlias(normalized, 'boat_id', const ['boatId']);
   _mirrorAlias(normalized, 'ripple_id', const ['rippleId']);
   _mirrorAlias(normalized, 'message_id', const ['messageId']);
+  _mirrorAlias(normalized, 'request_id', const ['requestId']);
   _mirrorAlias(normalized, 'connection_id', const ['connectionId']);
+  _mirrorAlias(normalized, 'session_id', const ['sessionId']);
   _mirrorAlias(normalized, 'friendship_id', const ['friendshipId']);
   _mirrorAlias(normalized, 'notification_id', const ['notificationId', 'id']);
+  _mirrorAlias(normalized, 'blocked_user_id', const ['blockedUserId']);
   _mirrorAlias(normalized, 'resource_id', const ['resourceId']);
   _mirrorAlias(normalized, 'appointment_id', const ['appointmentId']);
   _mirrorAlias(normalized, 'avatar_url', const ['avatarUrl']);
