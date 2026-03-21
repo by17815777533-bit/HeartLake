@@ -51,6 +51,30 @@ Json::Value parseJsonArrayColumn(const drogon::orm::Row &row,
     return value;
 }
 
+int extractWindowTotal(const drogon::orm::Result &result) {
+    return result.empty() || result[0]["total_count"].isNull()
+        ? 0
+        : result[0]["total_count"].as<int>();
+}
+
+int resolveSearchTotal(const drogon::orm::DbClientPtr &dbClient,
+                       const drogon::orm::Result &result,
+                       int page,
+                       const std::string &userId,
+                       const std::string &searchPattern) {
+    const int total = extractWindowTotal(result);
+    if (!result.empty() || page <= 1) {
+        return total;
+    }
+    return safeCount(dbClient->execSqlSync(
+        "SELECT COUNT(*) as total FROM stones s "
+        "WHERE s.status = 'published' "
+        "AND s.deleted_at IS NULL "
+        "AND s.user_id != $1 "
+        "AND s.content ILIKE $2 ESCAPE '\\'",
+        userId, searchPattern));
+}
+
 } // namespace
 
 /**
@@ -773,12 +797,8 @@ void RecommendationController::searchRecommendations(
         auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, pageSize, offset);
 
         Json::Value results(Json::arrayValue);
-        int total = 0;
         for (size_t i = 0; i < searchResult.size(); ++i) {
             auto row = searchResult[i];
-            if (total == 0 && !row["total_count"].isNull()) {
-                total = row["total_count"].as<int>();
-            }
             Json::Value stone;
             stone["stone_id"] = row["stone_id"].as<std::string>();
             stone["content"] = row["content"].as<std::string>();
@@ -793,17 +813,8 @@ void RecommendationController::searchRecommendations(
             stone["recommendation_type"] = "search";
             results.append(stone);
         }
-
-        if (total == 0 && page > 1) {
-            auto countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM stones s "
-                "WHERE s.status = 'published' "
-                "AND s.deleted_at IS NULL "
-                "AND s.user_id != $1 "
-                "AND s.content ILIKE $2 ESCAPE '\\'",
-                userId, searchPattern);
-            total = safeCount(countResult);
-        }
+        const int total = resolveSearchTotal(
+            dbClient, searchResult, page, userId, searchPattern);
 
         callback(ResponseUtil::success(
             ResponseUtil::buildCollectionPayload("results", results, total,

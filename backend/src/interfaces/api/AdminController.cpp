@@ -57,6 +57,23 @@ static int extractWindowTotal(const drogon::orm::Result& result,
         : result[0][column].as<int>();
 }
 
+static int resolveHighRiskTotal(const drogon::orm::DbClientPtr &dbClient,
+                                const drogon::orm::Result &result,
+                                int offset,
+                                const std::string &status) {
+    const int total = extractWindowTotal(result);
+    if (!result.empty() || offset <= 0) {
+        return total;
+    }
+    return safeCount(
+        !status.empty()
+            ? dbClient->execSqlSync(
+                  "SELECT COUNT(*) as total FROM high_risk_events WHERE status = $1",
+                  status)
+            : dbClient->execSqlSync(
+                  "SELECT COUNT(*) as total FROM high_risk_events"));
+}
+
 static Json::Value parseJsonColumn(const drogon::orm::Row &row,
                                    const char *column,
                                    Json::ValueType expectedType) {
@@ -664,15 +681,7 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
             data.append(event);
         }
 
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            auto countResult = !status.empty()
-                ? dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM high_risk_events WHERE status = $1", status)
-                : dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM high_risk_events");
-            total = safeCount(countResult);
-        }
+        const int total = resolveHighRiskTotal(dbClient, result, offset, status);
         const int page = limit > 0 ? (offset / limit) + 1 : 1;
 
         Json::Value response = ResponseUtil::buildCollectionPayload(
