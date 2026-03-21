@@ -1,0 +1,10 @@
+DROP INDEX IF EXISTS idx_reports_pending_reporter_target;
+DROP INDEX IF EXISTS idx_consultation_messages_session_created;
+DROP INDEX IF EXISTS idx_consultation_sessions_counselor_created;
+DROP INDEX IF EXISTS idx_user_emotion_history_user_created;
+DROP INDEX IF EXISTS idx_friend_messages_pair_created;
+DROP INDEX IF EXISTS idx_temp_friends_user2_active_created;
+DROP INDEX IF EXISTS idx_temp_friends_user1_active_created;
+DROP INDEX IF EXISTS idx_paper_boats_stone_created;
+DROP INDEX IF EXISTS idx_paper_boats_receiver_created;
+DROP INDEX IF EXISTS idx_paper_boats_sender_created;

@@ -23,6 +23,7 @@
 | 017 | `017_account_schema_alignment.sql` | 账户字段、拉黑表与消息索引对齐 |
 | 018 | `018_user_identity_contract.sql` | 用户身份主键契约与外键统一 |
 | 019 | `019_feature_contract_completion.sql` | 推荐/VIP/风险监控缺失契约补齐 |
+| 020 | `020_query_path_index_tuning.sql` | 高频查询路径索引补强 |
 
 ## 执行方式
 
@@ -267,6 +268,14 @@ ALTER TABLE IF EXISTS user_similarity DROP CONSTRAINT IF EXISTS fk_user_similari
 ALTER TABLE IF EXISTS user_similarity DROP CONSTRAINT IF EXISTS fk_user_similarity_user1;
 ALTER TABLE users ALTER COLUMN user_id DROP NOT NULL;
 ```
+
+### 019_feature_contract_completion — 回滚
+
+详见 `rollback/019_feature_contract_completion_down.sql`
+
+### 020_query_path_index_tuning — 回滚
+
+详见 `rollback/020_query_path_index_tuning_down.sql`
 
 ## 紧急回滚流程
 
