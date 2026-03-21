@@ -16,26 +16,78 @@
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
 #include <algorithm>
+#include <cstdint>
 #include <drogon/drogon.h>
+#include <iomanip>
 #include <openssl/rand.h>
 #include <sstream>
-#include <iomanip>
 
 using namespace drogon;
 using namespace heartlake::api;
 using namespace heartlake::utils;
 
 namespace {
-    std::string generateSessionId() {
-        unsigned char bytes[16];
-        RAND_bytes(bytes, 16);
-        std::ostringstream oss;
-        oss << "sess_";
-        for (int i = 0; i < 16; ++i)
-            oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(bytes[i]);
-        return oss.str();
-    }
+std::string generateSessionId() {
+  unsigned char bytes[16];
+  RAND_bytes(bytes, 16);
+  std::ostringstream oss;
+  oss << "sess_";
+  for (int i = 0; i < 16; ++i) {
+    oss << std::hex << std::setw(2) << std::setfill('0')
+        << static_cast<int>(bytes[i]);
+  }
+  return oss.str();
 }
+
+bool isValidEncryptedPayload(const Json::Value &payload, std::string &ciphertext,
+                             std::string &iv, std::string &tag) {
+  if (!payload.isObject() || !payload.isMember("ciphertext") ||
+      !payload.isMember("iv") || !payload.isMember("tag") ||
+      !payload["ciphertext"].isString() || !payload["iv"].isString() ||
+      !payload["tag"].isString()) {
+    return false;
+  }
+
+  ciphertext = payload["ciphertext"].asString();
+  iv = payload["iv"].asString();
+  tag = payload["tag"].asString();
+  return !ciphertext.empty() && !iv.empty() && !tag.empty() &&
+         ciphertext.size() <= 65536 && iv.size() <= 32 && tag.size() <= 64;
+}
+
+int extractWindowTotal(const orm::Result &result) {
+  if (result.empty() || result[0]["total_count"].isNull()) {
+    return 0;
+  }
+  return result[0]["total_count"].as<int>();
+}
+
+Json::Value buildMessageCollectionPayload(const orm::Result &result,
+                                          const std::string &currentUserShadowId,
+                                          int total, int page,
+                                          int pageSize) {
+  Json::Value messages(Json::arrayValue);
+  for (const auto &row : result) {
+    if (row["sender_shadow_id"].isNull()) {
+      continue;
+    }
+
+    Json::Value message;
+    const auto senderShadowId = row["sender_shadow_id"].as<std::string>();
+    message["sender"] = senderShadowId;
+    message["sender_type"] =
+        senderShadowId == currentUserShadowId ? "user" : "counselor";
+    message["encrypted"]["ciphertext"] = row["ciphertext"].as<std::string>();
+    message["encrypted"]["iv"] = row["iv"].as<std::string>();
+    message["encrypted"]["tag"] = row["tag"].as<std::string>();
+    message["time"] = row["created_at"].as<std::string>();
+    messages.append(message);
+  }
+
+  return ResponseUtil::buildCollectionPayload("messages", messages, total, page,
+                                              pageSize);
+}
+} // namespace
 
 void ConsultationController::createSession(const HttpRequestPtr& req,
                                            std::function<void(const HttpResponsePtr&)>&& callback) {
@@ -52,7 +104,7 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
     }
 
     std::string counselorId = (*json)["counselor_id"].asString();
-    if (counselorId.empty() || counselorId.size() > 64) {
+    if (counselorId.empty() || counselorId.size() > 64 || counselorId == *userId) {
         callback(ResponseUtil::badRequest("counselor_id无效"));
         return;
     }
@@ -62,8 +114,14 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
     auto db = app().getDbClient("default");
     db->execSqlAsync(
         "INSERT INTO consultation_sessions (id, user_id, counselor_id, server_key, status, created_at) "
-        "VALUES ($1, $2, $3, $4, 'pending', NOW())",
-        [callback, sessionId, serverKey](const orm::Result&) {
+        "SELECT $1, $2, u.user_id, $3, 'pending', NOW() "
+        "FROM users u "
+        "WHERE u.user_id = $4 AND u.user_id <> $2",
+        [callback, sessionId, serverKey](const orm::Result& result) {
+            if (result.affectedRows() == 0) {
+                callback(ResponseUtil::badRequest("咨询师不存在或无效"));
+                return;
+            }
             Json::Value resp;
             resp["session_id"] = sessionId;
             resp["server_public_key"] = serverKey;
@@ -72,7 +130,7 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "创建会话失败"));
         },
-        sessionId, *userId, counselorId, serverKey
+        sessionId, *userId, serverKey, counselorId
     );
 }
 
@@ -92,8 +150,9 @@ void ConsultationController::exchangeKey(const HttpRequestPtr& req,
 
     std::string sessionId = (*json)["session_id"].asString();
     std::string clientKey = (*json)["client_public_key"].asString();
-    if (clientKey.empty() || clientKey.size() > 4096) {
-        callback(ResponseUtil::badRequest("client_public_key无效"));
+    if (sessionId.empty() || sessionId.size() > 64 || clientKey.empty() ||
+        clientKey.size() > 4096) {
+        callback(ResponseUtil::badRequest("session_id或client_public_key无效"));
         return;
     }
     std::string salt = E2EEncryption::generateKey();
@@ -135,42 +194,35 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
     }
 
     std::string sessionId = (*json)["session_id"].asString();
-    auto& enc = (*json)["encrypted"];
-    std::string ciphertext = enc["ciphertext"].asString();
-    std::string iv = enc["iv"].asString();
-    std::string tag = enc["tag"].asString();
-    if (ciphertext.size() > 65536 || iv.size() > 32 || tag.size() > 64) {
-        callback(ResponseUtil::badRequest("加密字段长度超限"));
+    const auto& enc = (*json)["encrypted"];
+    std::string ciphertext;
+    std::string iv;
+    std::string tag;
+    if (sessionId.empty() || sessionId.size() > 64 ||
+        !isValidEncryptedPayload(enc, ciphertext, iv, tag)) {
+        callback(ResponseUtil::badRequest("加密字段无效"));
         return;
     }
 
     auto shadowId = IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
 
-    // 验证用户是会话参与者后才允许发送消息
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "SELECT id FROM consultation_sessions WHERE id = $1 AND (user_id = $2 OR counselor_id = $2) AND status = 'active'",
-        [callback, sessionId, shadowId, ciphertext, iv, tag, db](const orm::Result& r) {
-            if (r.empty()) {
+        "INSERT INTO consultation_messages (session_id, sender_shadow_id, ciphertext, iv, tag, created_at) "
+        "SELECT $1, $2, $3, $4, $5, NOW() "
+        "FROM consultation_sessions "
+        "WHERE id = $1 AND status = 'active' AND (user_id = $6 OR counselor_id = $6)",
+        [callback](const orm::Result& result) {
+            if (result.affectedRows() == 0) {
                 callback(ResponseUtil::forbidden("无权在此会话中发送消息"));
                 return;
             }
-            db->execSqlAsync(
-                "INSERT INTO consultation_messages (session_id, sender_shadow_id, ciphertext, iv, tag, created_at) "
-                "VALUES ($1, $2, $3, $4, $5, NOW())",
-                [callback](const orm::Result&) {
-                    callback(ResponseUtil::success("消息已发送"));
-                },
-                [callback](const orm::DrogonDbException&) {
-                    callback(ResponseUtil::error(500, "发送失败"));
-                },
-                sessionId, shadowId, ciphertext, iv, tag
-            );
+            callback(ResponseUtil::success("消息已发送"));
         },
         [callback](const orm::DrogonDbException&) {
-            callback(ResponseUtil::error(500, "验证会话权限失败"));
+            callback(ResponseUtil::error(500, "发送失败"));
         },
-        sessionId, *userId
+        sessionId, shadowId, ciphertext, iv, tag, *userId
     );
 }
 
@@ -182,55 +234,67 @@ void ConsultationController::getMessages(const HttpRequestPtr& req,
         callback(ResponseUtil::unauthorized("未授权"));
         return;
     }
+    if (sessionId.empty() || sessionId.size() > 64) {
+        callback(ResponseUtil::badRequest("session_id无效"));
+        return;
+    }
 
+    const auto [page, pageSize] = safePagination(req);
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
     const std::string currentUserShadowId =
         IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
 
-    // 先验证用户是会话参与者
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "SELECT id FROM consultation_sessions WHERE id = $1 AND (user_id = $2 OR counselor_id = $2)",
-        [callback, sessionId, db, currentUserShadowId](const orm::Result& r) {
-            if (r.empty()) {
+        "WITH authorized_session AS ("
+        "  SELECT 1 AS allowed "
+        "  FROM consultation_sessions "
+        "  WHERE id = $1 AND (user_id = $2 OR counselor_id = $2)"
+        "), paged_messages AS ("
+        "  SELECT m.sender_shadow_id, m.ciphertext, m.iv, m.tag, m.created_at, "
+        "         COUNT(*) OVER() AS total_count "
+        "  FROM consultation_messages m "
+        "  JOIN authorized_session auth ON TRUE "
+        "  WHERE m.session_id = $1 "
+        "  ORDER BY m.created_at ASC "
+        "  LIMIT $3 OFFSET $4"
+        ") "
+        "SELECT pm.sender_shadow_id, pm.ciphertext, pm.iv, pm.tag, "
+        "       pm.created_at, pm.total_count "
+        "FROM authorized_session auth "
+        "LEFT JOIN paged_messages pm ON TRUE",
+        [callback, currentUserShadowId, page, pageSize, db, sessionId](
+            const orm::Result& result) {
+            if (result.empty()) {
                 callback(ResponseUtil::forbidden("无权访问此会话消息"));
                 return;
             }
+
+            const bool hasMessages = !result[0]["sender_shadow_id"].isNull();
+            if (hasMessages || page == 1) {
+                const int total = hasMessages ? extractWindowTotal(result) : 0;
+                callback(ResponseUtil::success(buildMessageCollectionPayload(
+                    result, currentUserShadowId, total, page, pageSize)));
+                return;
+            }
+
             db->execSqlAsync(
-                "SELECT sender_shadow_id, ciphertext, iv, tag, created_at FROM consultation_messages "
-                "WHERE session_id = $1 ORDER BY created_at ASC LIMIT 500",
-                [callback, currentUserShadowId](const orm::Result& dbResult) {
-                    Json::Value messages(Json::arrayValue);
-                    for (const auto& row : dbResult) {
-                        Json::Value msg;
-                        const auto senderShadowId = row["sender_shadow_id"].as<std::string>();
-                        msg["sender"] = senderShadowId;
-                        msg["sender_type"] = senderShadowId == currentUserShadowId ? "user" : "counselor";
-                        msg["encrypted"]["ciphertext"] = row["ciphertext"].as<std::string>();
-                        msg["encrypted"]["iv"] = row["iv"].as<std::string>();
-                        msg["encrypted"]["tag"] = row["tag"].as<std::string>();
-                        msg["time"] = row["created_at"].as<std::string>();
-                        messages.append(msg);
-                    }
-                    callback(ResponseUtil::success(
-                        ResponseUtil::buildCollectionPayload(
-                            "messages",
-                            messages,
-                            static_cast<int>(dbResult.size()),
-                            1,
-                            std::max(1, static_cast<int>(dbResult.size()))
-                        )
-                    ));
+                "SELECT COUNT(*) AS total FROM consultation_messages WHERE session_id = $1",
+                [callback, currentUserShadowId, page, pageSize, result](
+                    const orm::Result& countResult) {
+                    callback(ResponseUtil::success(buildMessageCollectionPayload(
+                        result, currentUserShadowId, safeCount(countResult), page,
+                        pageSize)));
                 },
                 [callback](const orm::DrogonDbException&) {
-                    callback(ResponseUtil::error(500, "获取消息失败"));
+                    callback(ResponseUtil::error(500, "获取消息总数失败"));
                 },
-                sessionId
-            );
+                sessionId);
         },
         [callback](const orm::DrogonDbException&) {
-            callback(ResponseUtil::error(500, "验证会话权限失败"));
+            callback(ResponseUtil::error(500, "获取消息失败"));
         },
-        sessionId, *userId
+        sessionId, *userId, static_cast<int64_t>(pageSize), offset
     );
 }
 
@@ -242,12 +306,16 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
         return;
     }
 
+    const auto [page, pageSize] = safePagination(req);
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
+
     auto db = app().getDbClient("default");
     db->execSqlAsync(
-        "SELECT id, counselor_id, status, created_at "
-        "FROM consultation_sessions WHERE user_id = $1 OR counselor_id = $1 "
-        "ORDER BY created_at DESC LIMIT 50",
-        [callback](const orm::Result& r) {
+        "SELECT id, counselor_id, status, created_at, COUNT(*) OVER() AS total_count "
+        "FROM consultation_sessions "
+        "WHERE user_id = $1 OR counselor_id = $1 "
+        "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        [callback, page, pageSize, userId, db](const orm::Result& r) {
             Json::Value sessions(Json::arrayValue);
             for (const auto& row : r) {
                 Json::Value s;
@@ -257,18 +325,32 @@ void ConsultationController::getSessions(const HttpRequestPtr& req,
                 s["created_at"] = row["created_at"].as<std::string>();
                 sessions.append(s);
             }
-            Json::Value data = ResponseUtil::buildCollectionPayload(
-                "sessions",
-                sessions,
-                static_cast<int>(r.size()),
-                1,
-                std::max(1, static_cast<int>(r.size()))
-            );
-            callback(ResponseUtil::success(data));
+
+            if (!r.empty() || page == 1) {
+                const int total = r.empty() ? 0 : extractWindowTotal(r);
+                Json::Value data = ResponseUtil::buildCollectionPayload(
+                    "sessions", sessions, total, page, pageSize);
+                callback(ResponseUtil::success(data));
+                return;
+            }
+
+            db->execSqlAsync(
+                "SELECT COUNT(*) AS total "
+                "FROM consultation_sessions "
+                "WHERE user_id = $1 OR counselor_id = $1",
+                [callback, sessions, page, pageSize](const orm::Result& countResult) {
+                    Json::Value data = ResponseUtil::buildCollectionPayload(
+                        "sessions", sessions, safeCount(countResult), page, pageSize);
+                    callback(ResponseUtil::success(data));
+                },
+                [callback](const orm::DrogonDbException&) {
+                    callback(ResponseUtil::error(500, "获取会话总数失败"));
+                },
+                *userId);
         },
         [callback](const orm::DrogonDbException&) {
             callback(ResponseUtil::error(500, "获取会话列表失败"));
         },
-        *userId
+        *userId, static_cast<int64_t>(pageSize), offset
     );
 }

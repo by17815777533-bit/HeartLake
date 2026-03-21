@@ -282,9 +282,11 @@ POST `/api/edge-ai/analyze` 请求体：
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/consultation/start` | Bearer | 开始咨询会话 |
+| POST | `/api/consultation/session` | Bearer | 创建咨询会话 |
+| POST | `/api/consultation/key-exchange` | Bearer | 完成咨询会话密钥交换 |
 | POST | `/api/consultation/message` | Bearer | 发送咨询消息 |
-| GET | `/api/consultation/history` | Bearer | 咨询历史记录 |
+| GET | `/api/consultation/messages/{sessionId}` | Bearer | 获取咨询消息列表 |
+| GET | `/api/consultation/sessions` | Bearer | 获取当前用户咨询会话列表 |
 
 ---
 

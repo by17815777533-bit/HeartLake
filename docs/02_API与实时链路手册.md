@@ -254,9 +254,11 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | POST | `/api/guardian/bindGuardian` | Bearer | 绑定守护者 |
 | DELETE | `/api/guardian/unbind` | Bearer | 解除守护关系 |
 | GET | `/api/guardian/alerts` | Bearer | 守护告警列表 |
-| POST | `/api/consultation/start` | Bearer | 开始心理咨询会话 |
+| POST | `/api/consultation/session` | Bearer | 创建心理咨询会话 |
+| POST | `/api/consultation/key-exchange` | Bearer | 完成咨询会话密钥交换 |
 | POST | `/api/consultation/message` | Bearer | 发送咨询消息 |
-| GET | `/api/consultation/history` | Bearer | 咨询历史记录 |
+| GET | `/api/consultation/messages/{sessionId}` | Bearer | 咨询消息分页列表 |
+| GET | `/api/consultation/sessions` | Bearer | 当前用户咨询会话列表 |
 
 ### 4.9 其他
 
