@@ -203,6 +203,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 说明：
 - 临时连接过期后，以及连接已升级为正式好友后，对应 connection 的消息读取和发送入口都会返回拒绝访问
+- 若目标用户未开启 `allow_message_from_stranger`，陌生人不能新建临时连接；已是好友时不受该限制
 
 ---
 

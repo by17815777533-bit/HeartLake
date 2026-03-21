@@ -1010,9 +1010,39 @@ void AccountController::deleteAccountPermanently(
     trans->execSqlSync(
         "DELETE FROM friends WHERE user_id = $1 OR friend_id = $1", userId);
     trans->execSqlSync(
-        "DELETE FROM paper_boats WHERE sender_id = $1 OR receiver_id = $1",
+        "WITH deleted_boats AS ("
+        "  DELETE FROM paper_boats "
+        "  WHERE sender_id = $1 OR receiver_id = $1 "
+        "  RETURNING stone_id"
+        "), deleted_ripples AS ("
+        "  DELETE FROM ripples "
+        "  WHERE user_id = $1 "
+        "  RETURNING stone_id"
+        "), affected_stones AS ("
+        "  SELECT DISTINCT stone_id FROM deleted_boats WHERE stone_id IS NOT NULL "
+        "  UNION "
+        "  SELECT DISTINCT stone_id FROM deleted_ripples WHERE stone_id IS NOT NULL"
+        "), remaining_boats AS ("
+        "  SELECT stone_id, COUNT(*)::INTEGER AS boat_count "
+        "  FROM paper_boats "
+        "  WHERE stone_id IN (SELECT stone_id FROM affected_stones) "
+        "    AND COALESCE(status, 'active') <> 'deleted' "
+        "  GROUP BY stone_id"
+        "), remaining_ripples AS ("
+        "  SELECT stone_id, COUNT(*)::INTEGER AS ripple_count "
+        "  FROM ripples "
+        "  WHERE stone_id IN (SELECT stone_id FROM affected_stones) "
+        "  GROUP BY stone_id"
+        ") "
+        "UPDATE stones s "
+        "SET boat_count = COALESCE(rb.boat_count, 0), "
+        "    ripple_count = COALESCE(rr.ripple_count, 0) "
+        "FROM affected_stones a "
+        "LEFT JOIN remaining_boats rb ON rb.stone_id = a.stone_id "
+        "LEFT JOIN remaining_ripples rr ON rr.stone_id = a.stone_id "
+        "WHERE s.stone_id = a.stone_id "
+        "  AND s.user_id <> $1",
         userId);
-    trans->execSqlSync("DELETE FROM ripples WHERE user_id = $1", userId);
     trans->execSqlSync("DELETE FROM stone_embeddings WHERE stone_id IN (SELECT "
                        "stone_id FROM stones WHERE user_id = $1)",
                        userId);

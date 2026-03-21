@@ -447,7 +447,7 @@ void InteractionController::createConnectionForStone(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createConnectionForStone: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in createConnectionForStone: " << e.what();
     callback(ResponseUtil::internalError("创建连接失败"));
@@ -489,7 +489,7 @@ void InteractionController::createConnection(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createConnection: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in createConnection: " << e.what();
     callback(ResponseUtil::internalError("创建连接失败"));

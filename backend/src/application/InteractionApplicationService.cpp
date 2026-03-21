@@ -88,6 +88,53 @@ Json::Value buildAnonymousActor(const std::string &userId,
   return actor;
 }
 
+struct ConnectionTargetPolicy {
+  bool targetExists = false;
+  bool isFriend = false;
+  bool allowStrangerMessage = false;
+};
+
+ConnectionTargetPolicy loadConnectionTargetPolicy(
+    const drogon::orm::DbClientPtr &dbClient, const std::string &userId,
+    const std::string &targetUserId) {
+  auto result = dbClient->execSqlSync(
+      "SELECT "
+      "  EXISTS(SELECT 1 FROM users WHERE user_id = $2 AND status = 'active') "
+      "    AS target_exists, "
+      "  EXISTS(SELECT 1 FROM friends "
+      "         WHERE ((user_id = $1 AND friend_id = $2) "
+      "             OR (user_id = $2 AND friend_id = $1)) "
+      "           AND status = 'accepted') AS is_friend, "
+      "  COALESCE((SELECT allow_message_from_stranger "
+      "            FROM user_privacy_settings "
+      "            WHERE user_id = $2), false) AS allow_message_from_stranger",
+      userId, targetUserId);
+
+  if (result.empty()) {
+    return {};
+  }
+
+  const auto row = *safeRow(result);
+  ConnectionTargetPolicy policy;
+  policy.targetExists = safeBoolColumn(row, "target_exists");
+  policy.isFriend = safeBoolColumn(row, "is_friend");
+  policy.allowStrangerMessage =
+      safeBoolColumn(row, "allow_message_from_stranger");
+  return policy;
+}
+
+void ensureConnectionTargetAllowed(const drogon::orm::DbClientPtr &dbClient,
+                                   const std::string &userId,
+                                   const std::string &targetUserId) {
+  const auto policy = loadConnectionTargetPolicy(dbClient, userId, targetUserId);
+  if (!policy.targetExists) {
+    throw std::runtime_error("目标用户不存在或不可用");
+  }
+  if (!policy.isFriend && !policy.allowStrangerMessage) {
+    throw std::runtime_error("对方未开启陌生人消息");
+  }
+}
+
 Json::Value buildConnectionPayload(const drogon::orm::Row &row) {
   Json::Value result(Json::objectValue);
   const auto connectionId = safeStringColumn(row, "connection_id");
@@ -1016,6 +1063,8 @@ Json::Value InteractionApplicationService::createConnectionForStone(
       return buildConnectionPayload(existing[0]);
     }
 
+    ensureConnectionTargetAllowed(dbClient, userId, targetUserId);
+
     const std::string connectionId = utils::IdGenerator::generateConnectionId();
     auto insertResult = dbClient->execSqlSync(
         "INSERT INTO connections (connection_id, user_id, target_user_id, "
@@ -1059,6 +1108,8 @@ InteractionApplicationService::createConnection(const std::string &targetUserId,
     if (!existing.empty()) {
       return buildConnectionPayload(existing[0]);
     }
+
+    ensureConnectionTargetAllowed(dbClient, userId, targetUserId);
 
     const std::string connectionId = utils::IdGenerator::generateConnectionId();
     auto insertResult = dbClient->execSqlSync(
