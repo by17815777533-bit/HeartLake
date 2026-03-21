@@ -41,9 +41,11 @@ curl -X POST http://localhost:8080/api/auth/anonymous \
   "code": 0,
   "data": {
     "token": "v4.local.xxx...",
+    "refresh_token": "rt_xxx...",
     "user_id": "anonymous_8a92d411ffb0",
     "is_new_user": true,
-    "keyword": "星辰-湖畔-微风"
+    "recovery_key": "星辰-湖畔-微风",
+    "session_id": "3d25b8f1-5cb2-4c56-8b2f-9f09cbfb1f6d"
   }
 }
 ```
@@ -53,16 +55,21 @@ curl -X POST http://localhost:8080/api/auth/anonymous \
 | 字段 | 说明 |
 |------|------|
 | `token` | PASETO v4 令牌，后续请求的认证凭据 |
+| `refresh_token` | 长期会话续期凭据，客户端需安全持久化 |
 | `user_id` | 系统分配的匿名用户标识 |
 | `is_new_user` | 是否为新创建的用户 |
-| `keyword` | 账号恢复关键词，用于跨设备找回账号 |
+| `recovery_key` | 账号恢复关键词，用于跨设备找回账号 |
+| `session_id` | 当前登录设备对应的服务端会话 ID |
 
 ### 2.3 令牌刷新
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/refresh \
-  -H 'Authorization: Bearer <current_token>'
+  -H 'Content-Type: application/json' \
+  -d '{"refresh_token":"rt_xxx..."}'
 ```
+
+兼容旧客户端时，仍可带 `Authorization: Bearer <current_token>` 请求该接口；服务端会在访问令牌仍有效时回补 `refresh_token` 和 `user_sessions` 记录。
 
 ### 2.4 管理后台认证
 
@@ -116,7 +123,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/auth/anonymous` | 无 | 匿名登录 |
-| POST | `/api/auth/refresh` | Bearer | 刷新令牌 |
+| POST | `/api/auth/refresh` | 无（支持 Bearer 兼容） | 刷新令牌 / 回补会话 |
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
 | POST | `/api/auth/delete-account` | Bearer | 兼容旧客户端的账号停用别名（30 天内可恢复） |
 | GET | `/api/account/info` | Bearer | 获取个人资料 |

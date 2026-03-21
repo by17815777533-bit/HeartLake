@@ -12,12 +12,14 @@
 #include "utils/ResponseUtil.h"
 #include "utils/SecurityLogger.h"
 #include "utils/Validator.h"
+#include <openssl/sha.h>
 #include <algorithm>
 #include <cctype>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
 #include <map>
+#include <optional>
 #include <sstream>
 
 using namespace heartlake::controllers;
@@ -78,6 +80,220 @@ int extractWindowTotal(const drogon::orm::Result &result,
 
 int64_t paginationOffset(int page, int pageSize) {
   return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
+}
+
+constexpr int64_t kRefreshTokenTtlSeconds = 30LL * 24 * 3600;
+
+std::string toLowerAscii(std::string value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) {
+                   return static_cast<char>(std::tolower(c));
+                 });
+  return value;
+}
+
+std::string sha256Hex(const std::string &value) {
+  unsigned char digest[SHA256_DIGEST_LENGTH];
+  SHA256(reinterpret_cast<const unsigned char *>(value.data()), value.size(),
+         digest);
+
+  std::ostringstream oss;
+  oss << std::hex << std::setfill('0');
+  for (unsigned char byte : digest) {
+    oss << std::setw(2) << static_cast<int>(byte);
+  }
+  return oss.str();
+}
+
+std::string extractClientIp(const HttpRequestPtr &req) {
+  const auto xRealIp = trimAscii(req->getHeader("X-Real-IP"));
+  if (!xRealIp.empty()) {
+    return xRealIp.substr(0, 45);
+  }
+  return req->getPeerAddr().toIp();
+}
+
+std::string deriveDeviceType(const HttpRequestPtr &req) {
+  const auto userAgent = toLowerAscii(trimAscii(req->getHeader("User-Agent")));
+  if (userAgent.find("android") != std::string::npos) {
+    return "android";
+  }
+  if (userAgent.find("iphone") != std::string::npos ||
+      userAgent.find("ipad") != std::string::npos ||
+      userAgent.find("ios") != std::string::npos) {
+    return "ios";
+  }
+  if (userAgent.find("windows") != std::string::npos ||
+      userAgent.find("mac os") != std::string::npos ||
+      userAgent.find("linux") != std::string::npos) {
+    return "desktop";
+  }
+  if (userAgent.find("mozilla") != std::string::npos) {
+    return "web";
+  }
+  if (userAgent.find("dart") != std::string::npos ||
+      userAgent.find("flutter") != std::string::npos) {
+    return "app";
+  }
+  return "unknown";
+}
+
+std::string deriveDeviceName(const HttpRequestPtr &req) {
+  auto deviceName = trimAscii(req->getHeader("X-Device-Name"));
+  if (deviceName.empty()) {
+    deviceName = trimAscii(req->getHeader("User-Agent"));
+  }
+  if (deviceName.empty()) {
+    deviceName = "HeartLake Client";
+  }
+  if (deviceName.size() > 128) {
+    deviceName.resize(128);
+  }
+  return deviceName;
+}
+
+std::string generateRefreshToken() {
+  return "rt_" + IdGenerator::generateUUID() + IdGenerator::generateUUID();
+}
+
+std::optional<std::string> extractBearerToken(const HttpRequestPtr &req) {
+  const auto authHeader = req->getHeader("Authorization");
+  if (authHeader.rfind("Bearer ", 0) != 0) {
+    return std::nullopt;
+  }
+  const auto token = trimAscii(authHeader.substr(7));
+  if (token.empty()) {
+    return std::nullopt;
+  }
+  return token;
+}
+
+std::optional<std::string> verifyBearerUserId(const HttpRequestPtr &req) {
+  const auto token = extractBearerToken(req);
+  if (!token) {
+    return std::nullopt;
+  }
+
+  try {
+    const auto userId = PasetoUtil::verifyToken(*token, PasetoUtil::getKey());
+    if (userId.empty()) {
+      return std::nullopt;
+    }
+    return userId;
+  } catch (const std::exception &) {
+    return std::nullopt;
+  }
+}
+
+void recordLoginLog(const drogon::orm::DbClientPtr &dbClient,
+                    const HttpRequestPtr &req, const std::string &userId) {
+  dbClient->execSqlAsync(
+      "INSERT INTO login_logs (user_id, ip_address, device_type, location, "
+      "success, login_time) VALUES ($1, $2, $3, '', true, NOW())",
+      [](const drogon::orm::Result &) {},
+      [](const drogon::orm::DrogonDbException &e) {
+        LOG_WARN << "Failed to write login log: " << e.base().what();
+      },
+      userId, extractClientIp(req), deriveDeviceType(req));
+}
+
+struct SessionIssueResult {
+  std::string sessionId;
+  std::string refreshToken;
+  Json::Int64 refreshExpiresAt{0};
+};
+
+SessionIssueResult issueRefreshSession(const drogon::orm::DbClientPtr &dbClient,
+                                       const HttpRequestPtr &req,
+                                       const std::string &userId,
+                                       const std::string *existingSessionId =
+                                           nullptr,
+                                       const std::string *existingRefreshToken =
+                                           nullptr) {
+  const auto refreshToken =
+      existingRefreshToken != nullptr ? *existingRefreshToken
+                                      : generateRefreshToken();
+  const auto refreshTokenHash = sha256Hex(refreshToken);
+  const auto deviceType = deriveDeviceType(req);
+  const auto deviceName = deriveDeviceName(req);
+  const auto ipAddress = extractClientIp(req);
+
+  std::optional<drogon::orm::Result> result;
+  if (existingSessionId != nullptr) {
+    result = dbClient->execSqlSync(
+        "UPDATE user_sessions "
+        "SET user_id = $2, device_type = NULLIF($3, ''), "
+        "device_name = NULLIF($4, ''), ip_address = NULLIF($5, ''), "
+        "is_active = true, refresh_token_hash = $6, "
+        "refresh_expires_at = NOW() + INTERVAL '30 days', "
+        "last_active_at = NOW() "
+        "WHERE session_id = $1::uuid "
+        "RETURNING session_id::text AS session_id, "
+        "EXTRACT(EPOCH FROM refresh_expires_at)::BIGINT AS refresh_expires_at",
+        *existingSessionId, userId, deviceType, deviceName, ipAddress,
+        refreshTokenHash);
+  }
+
+  if (!result || result->empty()) {
+    result = dbClient->execSqlSync(
+        "INSERT INTO user_sessions "
+        "(user_id, device_type, device_name, ip_address, is_active, "
+        "refresh_token_hash, refresh_expires_at, last_active_at, created_at) "
+        "VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), true, "
+        "$5, NOW() + INTERVAL '30 days', NOW(), NOW()) "
+        "RETURNING session_id::text AS session_id, "
+        "EXTRACT(EPOCH FROM refresh_expires_at)::BIGINT AS refresh_expires_at",
+        userId, deviceType, deviceName, ipAddress, refreshTokenHash);
+  }
+
+  SessionIssueResult issued;
+  issued.sessionId = (*result)[0]["session_id"].as<std::string>();
+  issued.refreshToken = refreshToken;
+  issued.refreshExpiresAt =
+      (*result)[0]["refresh_expires_at"].isNull()
+          ? static_cast<Json::Int64>(time(nullptr) + kRefreshTokenTtlSeconds)
+          : static_cast<Json::Int64>(
+                (*result)[0]["refresh_expires_at"].as<int64_t>());
+  return issued;
+}
+
+struct RefreshSessionContext {
+  std::string sessionId;
+  std::string userId;
+  Json::Int64 refreshExpiresAt{0};
+};
+
+std::optional<RefreshSessionContext>
+findRefreshSession(const drogon::orm::DbClientPtr &dbClient,
+                   const std::string &refreshToken) {
+  if (refreshToken.empty()) {
+    return std::nullopt;
+  }
+
+  const auto result = dbClient->execSqlSync(
+      "SELECT session_id::text AS session_id, user_id, "
+      "EXTRACT(EPOCH FROM refresh_expires_at)::BIGINT AS refresh_expires_at "
+      "FROM user_sessions "
+      "WHERE refresh_token_hash = $1 "
+      "AND is_active = true "
+      "AND refresh_expires_at IS NOT NULL "
+      "AND refresh_expires_at > NOW() "
+      "LIMIT 1",
+      sha256Hex(refreshToken));
+
+  if (result.empty()) {
+    return std::nullopt;
+  }
+
+  RefreshSessionContext context;
+  context.sessionId = result[0]["session_id"].as<std::string>();
+  context.userId = result[0]["user_id"].as<std::string>();
+  context.refreshExpiresAt =
+      result[0]["refresh_expires_at"].isNull()
+          ? static_cast<Json::Int64>(time(nullptr) + kRefreshTokenTtlSeconds)
+          : static_cast<Json::Int64>(
+                result[0]["refresh_expires_at"].as<int64_t>());
+  return context;
 }
 
 std::shared_ptr<heartlake::application::UserApplicationService>
@@ -170,14 +386,23 @@ void UserController::anonymousLogin(
       isNewUser = true;
     }
 
+    const auto issuedSession = issueRefreshSession(dbClient, req, user_id);
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(user_id, key, 24);
 
     responseData["token"] = token;
+    responseData["refresh_token"] = issuedSession.refreshToken;
+    responseData["refresh_expires_at"] = issuedSession.refreshExpiresAt;
+    responseData["session_id"] = issuedSession.sessionId;
     responseData["is_new_user"] = isNewUser;
     responseData["expires_at"] =
         static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 
+    recordLoginLog(dbClient, req, user_id);
+    SecurityLogger::logEventFromRequest(req, user_id,
+                                        SecurityEventType::SESSION_CREATED,
+                                        SecuritySeverity::LOW,
+                                        "匿名会话创建成功");
     callback(ResponseUtil::success(responseData, "登录成功"));
 
   } catch (const drogon::orm::DrogonDbException &e) {
@@ -283,6 +508,7 @@ void UserController::recoverWithKey(
           "UPDATE users SET last_active_at = NOW() WHERE user_id = $1", userId);
     }
 
+    const auto issuedSession = issueRefreshSession(dbClient, req, userId);
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(userId, key, 24);
 
@@ -290,11 +516,19 @@ void UserController::recoverWithKey(
     responseData["user_id"] = userId;
     responseData["nickname"] = nickname;
     responseData["token"] = token;
+    responseData["refresh_token"] = issuedSession.refreshToken;
+    responseData["refresh_expires_at"] = issuedSession.refreshExpiresAt;
+    responseData["session_id"] = issuedSession.sessionId;
     responseData["is_new_user"] = false;
     responseData["reactivated"] = (status == "deactivated");
     responseData["expires_at"] =
         static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 
+    recordLoginLog(dbClient, req, userId);
+    SecurityLogger::logEventFromRequest(req, userId,
+                                        SecurityEventType::SESSION_CREATED,
+                                        SecuritySeverity::LOW,
+                                        "恢复会话创建成功");
     callback(ResponseUtil::success(responseData, "账号恢复成功"));
 
   } catch (const drogon::orm::DrogonDbException &e) {
@@ -310,18 +544,64 @@ void UserController::refreshToken(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    auto userIdOpt = Validator::getUserId(req);
-    if (!userIdOpt) {
+    auto dbClient = drogon::app().getDbClient("default");
+    const auto json = req->getJsonObject();
+    const auto requestRefreshToken =
+        json && json->isMember("refresh_token")
+            ? trimAscii((*json)["refresh_token"].asString())
+            : std::string{};
+
+    const auto refreshSession =
+        requestRefreshToken.empty()
+            ? std::nullopt
+            : findRefreshSession(dbClient, requestRefreshToken);
+    const auto bearerUserId = verifyBearerUserId(req);
+
+    if (refreshSession && bearerUserId &&
+        refreshSession->userId != *bearerUserId) {
+      callback(ResponseUtil::unauthorized("会话凭证不匹配"));
+      return;
+    }
+
+    std::string user_id;
+    std::optional<std::string> existingSessionId;
+    std::optional<std::string> existingRefreshToken;
+
+    if (refreshSession) {
+      user_id = refreshSession->userId;
+      existingSessionId = refreshSession->sessionId;
+      existingRefreshToken = requestRefreshToken;
+    } else if (bearerUserId) {
+      user_id = *bearerUserId;
+    } else {
       callback(ResponseUtil::unauthorized("未登录"));
       return;
     }
-    auto user_id = *userIdOpt;
+
+    auto userResult = dbClient->execSqlSync(
+        "SELECT user_id FROM users "
+        "WHERE user_id = $1 AND status IN ('active', 'deactivated') "
+        "LIMIT 1",
+        user_id);
+    if (userResult.empty()) {
+      callback(ResponseUtil::unauthorized("用户不存在或已失效"));
+      return;
+    }
+
+    const auto issuedSession = issueRefreshSession(
+        dbClient, req, user_id,
+        existingSessionId ? &*existingSessionId : nullptr,
+        existingRefreshToken ? &*existingRefreshToken : nullptr);
 
     std::string key = PasetoUtil::getKey();
     std::string token = PasetoUtil::generateToken(user_id, key, 24);
 
     Json::Value responseData;
+    responseData["user_id"] = user_id;
     responseData["token"] = token;
+    responseData["refresh_token"] = issuedSession.refreshToken;
+    responseData["refresh_expires_at"] = issuedSession.refreshExpiresAt;
+    responseData["session_id"] = issuedSession.sessionId;
     responseData["expires_at"] =
         static_cast<Json::Int64>(time(nullptr) + 24 * 3600);
 

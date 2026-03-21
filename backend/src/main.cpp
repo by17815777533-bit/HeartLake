@@ -495,6 +495,7 @@ int main(int argc, char *argv[]) {
                 "/api/auth/verification-code",
                 "/api/auth/email/verification-code",
                 "/api/auth/recover",
+                "/api/auth/refresh",
                 "/api/auth/register/email",
                 "/api/auth/login/email",
                 "/api/auth/reset-password/code",

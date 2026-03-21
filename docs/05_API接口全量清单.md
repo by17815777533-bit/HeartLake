@@ -42,7 +42,7 @@
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/auth/anonymous` | 无 | 匿名登录 |
-| POST | `/api/auth/refresh` | Bearer | 刷新令牌 |
+| POST | `/api/auth/refresh` | 无（支持 Bearer 兼容） | 刷新令牌 / 回补会话 |
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
 | GET | `/api/users/my/emotion-calendar` | Bearer | 情绪日历 |
 | GET | `/api/users/my/emotion-heatmap` | Bearer | 情绪热力图 |

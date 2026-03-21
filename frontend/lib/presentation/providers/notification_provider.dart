@@ -4,6 +4,8 @@
 // 实时通知事件和纸船事件更新未读角标。
 // 依赖 [NotificationDataSource] 完成后端交互，依赖 [WebSocketClient] 接收推送。
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
 import '../../data/datasources/websocket_manager.dart';
@@ -60,14 +62,21 @@ class NotificationProvider with ChangeNotifier {
   void _setupWebSocketListener() {
     if (_wsListenerRegistered) return;
     _onNewNotification = (data) {
-      if (_upsertNotification(data, insertAtHead: true)) {
-        _unreadCount++;
+      final normalized = normalizePayloadContract(data);
+      final notificationId = _notificationIdOf(normalized);
+      final authoritativeUnread = normalized['unread_count'] as int?;
+
+      if (notificationId != null &&
+          _upsertNotification(normalized, insertAtHead: true)) {
+        _unreadCount = authoritativeUnread ?? (_unreadCount + 1);
+      } else if (authoritativeUnread != null) {
+        _unreadCount = authoritativeUnread;
+      } else {
+        unawaited(forceRefreshUnreadCount());
       }
       notifyListeners();
     };
-    _onBoatUpdate = (data) {
-      incrementUnread();
-    };
+    _onBoatUpdate = (_) {};
     _wsManager.on('new_notification', _onNewNotification);
     _wsManager.on('boat_update', _onBoatUpdate);
     _wsListenerRegistered = true;
@@ -90,6 +99,7 @@ class NotificationProvider with ChangeNotifier {
   bool _upsertNotification(
     Map<String, dynamic> notification, {
     bool insertAtHead = false,
+    bool rebuildIndex = true,
   }) {
     final normalized = normalizePayloadContract(notification);
     final notificationId = _notificationIdOf(normalized);
@@ -114,7 +124,9 @@ class NotificationProvider with ChangeNotifier {
       _notifications.add(normalized);
     }
 
-    _rebuildNotificationIndex();
+    if (rebuildIndex) {
+      _rebuildNotificationIndex();
+    }
     return shouldCountUnread && !wasUnread;
   }
 
@@ -262,10 +274,14 @@ class NotificationProvider with ChangeNotifier {
                 result['list']) as List? ??
             [];
         final newItems = items.whereType<Map<String, dynamic>>().toList();
+        var merged = false;
         for (final item in newItems) {
-          _upsertNotification(item);
+          merged = _upsertNotification(item, rebuildIndex: false) || merged;
         }
-        _hasMore = newItems.length >= _pageSize;
+        if (merged || newItems.isNotEmpty) {
+          _rebuildNotificationIndex();
+        }
+        _hasMore = result['has_more'] == true;
         _currentPage++;
         // 同步未读数
         if (result['unread_count'] != null) {

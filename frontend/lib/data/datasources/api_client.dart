@@ -9,6 +9,7 @@
 /// - SSL 证书固定：生产环境下校验证书 SHA-256 指纹，防止中间人攻击
 library;
 
+import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
@@ -35,8 +36,7 @@ class ApiClient {
   String? _refreshToken;
   String? _userId;
 
-  /// 防止多个 401 响应同时触发 Token 刷新
-  bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
 
   /// 标记是否已触发过未授权回调，避免重复跳转登录页
   bool _hasTriggeredUnauthorized = false;
@@ -197,7 +197,7 @@ class ApiClient {
     }
 
     // 401 错误时尝试刷新 Token 并重试请求
-    if (statusCode == 401) {
+    if (statusCode == 401 && !_isRefreshRequest(error.requestOptions)) {
       final refreshed = await _handleUnauthorized();
       if (refreshed) {
         try {
@@ -215,6 +215,12 @@ class ApiClient {
     }
 
     return handler.next(error);
+  }
+
+  bool _isRefreshRequest(RequestOptions options) {
+    final normalizedPath = options.path.toLowerCase();
+    return normalizedPath.endsWith('/auth/refresh') ||
+        normalizedPath == '/auth/refresh';
   }
 
   /// 从本地存储加载已持久化的认证令牌
@@ -235,14 +241,20 @@ class ApiClient {
   /// 刷新成功返回 true，调用方可用新 Token 重试原请求；
   /// 刷新失败触发 onUnauthorized 回调（通常跳转登录页）。
   Future<bool> _handleUnauthorized() async {
-    if (_isRefreshing) return false;
-    _isRefreshing = true;
+    final existingCompleter = _refreshCompleter;
+    if (existingCompleter != null) {
+      return existingCompleter.future;
+    }
+
+    final completer = Completer<bool>();
+    _refreshCompleter = completer;
     try {
-      if (_tokenRefreshCallback != null && _refreshToken != null) {
+      if (_tokenRefreshCallback != null) {
         final newToken = await _tokenRefreshCallback!(_refreshToken);
-        if (newToken != null) {
+        if (newToken != null && newToken.isNotEmpty) {
           _token = newToken;
-          await StorageUtil.saveToken(newToken);
+          _hasTriggeredUnauthorized = false;
+          completer.complete(true);
           return true;
         }
       }
@@ -250,9 +262,15 @@ class ApiClient {
         _hasTriggeredUnauthorized = true;
         _onUnauthorized?.call();
       }
+      completer.complete(false);
       return false;
+    } catch (_) {
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+      rethrow;
     } finally {
-      _isRefreshing = false;
+      _refreshCompleter = null;
     }
   }
 
@@ -276,7 +294,8 @@ class ApiClient {
   /// 更新认证令牌并持久化到本地存储
   ///
   /// 登录成功后由 AuthService 调用，同时重置未授权标记。
-  Future<void> setToken(String token, {String? refreshToken, String? userId}) async {
+  Future<void> setToken(String token,
+      {String? refreshToken, String? userId}) async {
     _token = token;
     _hasTriggeredUnauthorized = false;
     await StorageUtil.saveToken(token);

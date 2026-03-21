@@ -19,6 +19,7 @@ import 'presentation/providers/edge_ai_provider.dart';
 import 'data/datasources/cache_service.dart';
 import 'data/datasources/websocket_manager.dart';
 import 'data/datasources/api_client.dart';
+import 'data/datasources/auth_service.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_config.dart';
 import 'package:go_router/go_router.dart';
@@ -68,10 +69,16 @@ void main() {
     appConfig.initialize();
     CacheService().startAutoCleanup();
 
-    // 设置401未授权回调，跳转到登录页
-    ApiClient().setOnUnauthorized(() {
-      rootNavigatorKey.currentState?.pushNamedAndRemoveUntil('/', (_) => false);
-    });
+    final authService = sl<AuthService>();
+
+    // 设置401未授权恢复链，优先刷新会话，失败后再跳转登录页
+    ApiClient().configureAuth(
+      tokenRefreshCallback: authService.refreshAccessToken,
+      onUnauthorized: () {
+        rootNavigatorKey.currentState
+            ?.pushNamedAndRemoveUntil('/', (_) => false);
+      },
+    );
 
     runApp(const HeartLakeApp());
   }, (error, stack) {

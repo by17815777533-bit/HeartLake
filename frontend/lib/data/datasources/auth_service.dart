@@ -51,13 +51,15 @@ class AuthService extends BaseService implements AuthDataSource {
   Future<void> _saveAuthData({
     required String token,
     required String userId,
+    String? refreshToken,
     String? nickname,
   }) async {
-    ApiClient().setToken(token);
-    ApiClient().setUserId(userId);
     await Future.wait([
-      StorageUtil.saveUserId(userId),
-      StorageUtil.saveToken(token),
+      ApiClient().setToken(
+        token,
+        refreshToken: refreshToken,
+        userId: userId,
+      ),
       if (nickname != null) StorageUtil.saveNickname(nickname),
     ]);
   }
@@ -91,12 +93,18 @@ class AuthService extends BaseService implements AuthDataSource {
       return {'success': false, 'message': '服务器返回数据不完整'};
     }
     await _saveAuthData(
-        token: token, userId: userId, nickname: data['nickname']);
+      token: token,
+      userId: userId,
+      refreshToken: data['refresh_token'],
+      nickname: data['nickname'],
+    );
     return {
       'success': true,
       'user_id': userId,
       'nickname': data['nickname'],
       'recovery_key': data['recovery_key'],
+      'refresh_token': data['refresh_token'],
+      'refresh_expires_at': data['refresh_expires_at'],
       'is_new_user': data['is_new_user'] == true,
     };
   }
@@ -108,8 +116,16 @@ class AuthService extends BaseService implements AuthDataSource {
   /// 返回包含token和用户信息的Map。
   Future<Map<String, dynamic>> recoverWithKey(String recoveryKey) async {
     InputValidator.requireLength(recoveryKey, '恢复密钥', min: 8, max: 512);
-    final response =
-        await post('/auth/recover', data: {'recovery_key': recoveryKey});
+    String? deviceId = await StorageUtil.getDeviceId();
+    if (deviceId == null) {
+      deviceId = const Uuid().v4();
+      await StorageUtil.saveDeviceId(deviceId);
+    }
+
+    final response = await post('/auth/recover', data: {
+      'recovery_key': recoveryKey,
+      'device_id': deviceId,
+    });
     if (!response.success) return toMap(response);
 
     final data = response.data as Map<String, dynamic>? ?? {};
@@ -121,12 +137,15 @@ class AuthService extends BaseService implements AuthDataSource {
     await _saveAuthData(
       token: token,
       userId: userId,
+      refreshToken: data['refresh_token'],
       nickname: data['nickname'],
     );
     return {
       'success': true,
       'user_id': userId,
       'nickname': data['nickname'],
+      'refresh_token': data['refresh_token'],
+      'refresh_expires_at': data['refresh_expires_at'],
       'is_new_user': data['is_new_user'] == true,
     };
   }
@@ -195,21 +214,41 @@ class AuthService extends BaseService implements AuthDataSource {
   /// 刷新访问令牌
   ///
   /// 使用refresh_token刷新访问令牌。
-  Future<Map<String, dynamic>> refreshToken() async {
-    final refreshTk = await StorageUtil.getRefreshToken();
-    if (refreshTk == null) return {'success': false, 'code': 401};
+  Future<Map<String, dynamic>> refreshToken({String? refreshToken}) async {
+    final refreshTk = refreshToken ?? await StorageUtil.getRefreshToken();
+    final payload = (refreshTk != null && refreshTk.isNotEmpty)
+        ? {'refresh_token': refreshTk}
+        : null;
 
-    final response =
-        await post('/auth/refresh', data: {'refresh_token': refreshTk});
+    final response = await post('/auth/refresh', data: payload);
     if (!response.success) return toMap(response);
 
     final data = response.data;
     if (data != null && data['token'] != null) {
+      final resolvedUserId =
+          (data['user_id'] as String?) ?? await StorageUtil.getUserId() ?? '';
       await _saveAuthData(
-          token: data['token'],
-          userId: data['user_id'] ?? await StorageUtil.getUserId() ?? '');
+        token: data['token'],
+        userId: resolvedUserId,
+        refreshToken: data['refresh_token'] ?? refreshTk,
+      );
     }
-    return {'success': true};
+    return {
+      'success': true,
+      'token': data?['token'],
+      'refresh_token': data?['refresh_token'] ?? refreshTk,
+      'refresh_expires_at': data?['refresh_expires_at'],
+      'user_id': data?['user_id'],
+      'expires_at': data?['expires_at'],
+    };
+  }
+
+  Future<String?> refreshAccessToken(String? refreshTokenValue) async {
+    final result = await refreshToken(refreshToken: refreshTokenValue);
+    if (result['success'] == true) {
+      return result['token'] as String?;
+    }
+    return null;
   }
 
   /// 更新昵称

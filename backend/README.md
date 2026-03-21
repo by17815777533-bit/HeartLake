@@ -186,7 +186,7 @@ cd /path/to/heartlake
 
 | # | 控制器 | 职责 |
 |---|--------|------|
-| 1 | `UserController` | 匿名登录、关键词恢复、用户信息 |
+| 1 | `UserController` | 匿名登录、关键词恢复、会话续期、用户信息 |
 | 2 | `AccountController` | 账号管理、个人信息、设备管理 |
 | 3 | `StoneController` | 心石 CRUD、投石、捞石 |
 | 4 | `InteractionController` | 涟漪、点亮等互动操作 |

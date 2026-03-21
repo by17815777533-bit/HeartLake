@@ -4,7 +4,7 @@
  * HeartLake 采用匿名优先的认证模型：
  * - 匿名登录：无需注册，自动生成匿名身份和恢复密钥
  * - 密钥恢复：通过恢复密钥在新设备上找回账号
- * - Token 刷新：PASETO 令牌过期后无感续期
+ * - Token 刷新：会话 refresh_token 与短期访问令牌协同续期
  *
  * 同时提供用户信息查询、搜索、个人资料编辑，
  * 以及情绪日历/热力图等数据可视化接口。
@@ -82,7 +82,8 @@ public:
    * @brief 刷新 PASETO 令牌
    * @details POST /api/auth/refresh
    *
-   * 请求体: { "refresh_token": "..." }
+   * 请求体: { "refresh_token": "..." }，可选。
+   * 兼容旧客户端：若仍携带有效 Authorization 访问令牌，也可回补会话并下发 refresh_token。
    *
    * @param req HTTP 请求
    * @param callback 响应回调

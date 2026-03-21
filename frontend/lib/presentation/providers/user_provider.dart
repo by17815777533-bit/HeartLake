@@ -127,7 +127,9 @@ class UserProvider with ChangeNotifier {
     try {
       final result = await _authService.updateNickname(nickname);
       if (result['success'] == true && _user != null) {
-        _user = _user!.copyWith(nickname: nickname);
+        _user = _user!.copyWith(
+          nickname: result['nickname']?.toString() ?? _user!.nickname,
+        );
         notifyListeners();
         return true;
       }
@@ -151,8 +153,11 @@ class UserProvider with ChangeNotifier {
       final result = await _authService.updateProfile(
           nickname: nickname, avatarUrl: avatarUrl, bio: bio);
       if (result['success'] == true && _user != null) {
-        _user =
-            _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+        _user = _user!.copyWith(
+          nickname: result['nickname']?.toString() ?? _user!.nickname,
+          avatarUrl: result['avatar_url']?.toString() ?? _user!.avatarUrl,
+          bio: result['bio']?.toString() ?? _user!.bio,
+        );
         notifyListeners();
         return true;
       }
