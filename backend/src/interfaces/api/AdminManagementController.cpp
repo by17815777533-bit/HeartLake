@@ -397,10 +397,7 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
         const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
-        std::string querySql =
-            "SELECT content_id, content_type, content, mood_type, is_anonymous, "
-            "status, created_at, author_nickname, ripple_count, boat_count, "
-            "COUNT(*) OVER() AS total_count "
+        const std::string baseFeedSql =
             "FROM ("
             "  SELECT s.stone_id AS content_id, 'stone' AS content_type, "
             "         s.content, s.mood_type, s.is_anonymous, "
@@ -421,11 +418,17 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
             "  LEFT JOIN users u ON b.sender_id = u.user_id"
             ") content_feed "
             "WHERE 1=1";
+        std::string querySql =
+            "SELECT content_id, content_type, content, mood_type, is_anonymous, "
+            "status, created_at, author_nickname, ripple_count, boat_count, "
+            "COUNT(*) OVER() AS total_count " + baseFeedSql;
+        std::string countSql = "SELECT COUNT(*) as total " + baseFeedSql;
         std::vector<std::string> params;
         int paramIdx = 1;
 
         if (!status.empty() && isValidStoneStatus(status)) {
             querySql += " AND status = $" + std::to_string(paramIdx);
+            countSql += " AND status = $" + std::to_string(paramIdx);
             params.push_back(status);
             ++paramIdx;
         }
@@ -433,6 +436,9 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
         if (!keyword.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
             querySql += " AND (content ILIKE " + placeholder +
+                " ESCAPE '\\' OR author_nickname ILIKE " + placeholder +
+                " ESCAPE '\\')";
+            countSql += " AND (content ILIKE " + placeholder +
                 " ESCAPE '\\' OR author_nickname ILIKE " + placeholder +
                 " ESCAPE '\\')";
             params.push_back("%" + escapeLike(keyword) + "%");
@@ -446,7 +452,8 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = extractWindowTotal(result);
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -490,6 +497,7 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
+        std::string countSql = "SELECT COUNT(*) as total FROM stones s LEFT JOIN users u ON s.user_id = u.user_id WHERE 1=1";
         std::string querySql =
             "SELECT s.stone_id, s.content, s.mood_type, s.is_anonymous, "
             "s.ripple_count, s.boat_count, s.status, s.created_at, u.nickname, "
@@ -501,8 +509,10 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         if (!status.empty() && isValidStoneStatus(status)) {
             if (status == "deleted") {
                 querySql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
+                countSql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
             } else {
                 querySql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
+                countSql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
                 params.push_back(status);
                 paramIdx++;
             }
@@ -511,6 +521,7 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         if (!keyword.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
             querySql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            countSql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             params.push_back("%" + escapeLike(keyword) + "%");
             paramIdx++;
         }
@@ -530,7 +541,8 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = extractWindowTotal(result);
+        int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -621,6 +633,9 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
+        std::string countSql =
+            "SELECT COUNT(*) as total "
+            "FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id WHERE 1=1";
         std::string querySql =
             "SELECT b.boat_id, b.content, b.is_anonymous, b.status, b.created_at, u.nickname, "
             "COUNT(*) OVER() AS total_count "
@@ -631,8 +646,10 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         if (!status.empty() && isValidBoatStatus(status)) {
             if (status == "published") {
                 querySql += " AND COALESCE(b.status, 'active') = 'active'";
+                countSql += " AND COALESCE(b.status, 'active') = 'active'";
             } else {
                 querySql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
+                countSql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
                 params.push_back(status);
                 paramIdx++;
             }
@@ -641,6 +658,7 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         if (!keyword.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
             querySql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
+            countSql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             params.push_back("%" + escapeLike(keyword) + "%");
             paramIdx++;
         }
@@ -660,7 +678,8 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = extractWindowTotal(result);
+        int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset, countSql, params);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
