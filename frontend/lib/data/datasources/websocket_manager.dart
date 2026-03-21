@@ -47,6 +47,7 @@ class WebSocketManager implements RoomSubscriptionClient {
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
   bool _isConnected = false;
+  bool _shouldReconnect = true;
   DateTime? _lastPongTime;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
@@ -54,6 +55,7 @@ class WebSocketManager implements RoomSubscriptionClient {
 
   /// 防止并发重连竞态的 Completer
   Completer<bool>? _connectCompleter;
+  Completer<bool>? _authReadyCompleter;
 
   bool get isConnected => _isConnected;
 
@@ -82,9 +84,11 @@ class WebSocketManager implements RoomSubscriptionClient {
     }
 
     _connectCompleter = Completer<bool>();
+    _authReadyCompleter = Completer<bool>();
 
     try {
       // 优先使用内存态 token，SecureStorage 在 Web 端可能读到旧值
+      _shouldReconnect = true;
       var token = _normalizeToken(ApiClient().token);
       token ??= _normalizeToken(await StorageUtil.getToken());
       if (token == null || token.isEmpty) {
@@ -109,24 +113,22 @@ class WebSocketManager implements RoomSubscriptionClient {
       // 首包认证，兼容后端消息级鉴权
       _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
 
-      // 标记为已连接（WebSocket 通道已建立）
-      _isConnected = true;
-      if (_reconnectAttempts > 0) {
-        // 重连成功后清除缓存，确保页面刷新时拿到最新数据
-        CacheService().removeByPrefix('stones_');
-        CacheService().removeByPrefix('stone_');
-        _emit('reconnected', {'type': 'reconnected'});
+      final ready = await _authReadyCompleter!.future.timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => false,
+      );
+      _connectCompleter!.complete(ready);
+      if (!ready) {
+        _closeConnection(allowReconnect: true);
+        _scheduleReconnect();
       }
-      _reconnectAttempts = 0;
-      _startHeartbeat();
-      _rejoinRooms();
-      _flushQueue();
-      _emit('connected', {'type': 'connected'});
-      _connectCompleter!.complete(true);
-      return true;
+      return ready;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('WebSocket连接失败: $e');
+      }
+      if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
+        _authReadyCompleter!.complete(false);
       }
       _connectCompleter!.complete(false);
       _scheduleReconnect();
@@ -137,9 +139,18 @@ class WebSocketManager implements RoomSubscriptionClient {
   /// 断开连接
   @override
   void disconnect() {
+    _closeConnection(allowReconnect: false);
+  }
+
+  void _closeConnection({required bool allowReconnect}) {
+    _shouldReconnect = allowReconnect;
     _isConnected = false;
     _lastPongTime = null;
     _connectCompleter = null;
+    if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
+      _authReadyCompleter!.complete(false);
+    }
+    _authReadyCompleter = null;
     _heartbeatTimer?.cancel();
     _reconnectTimer?.cancel();
     _channel?.sink.close();
@@ -239,6 +250,10 @@ class WebSocketManager implements RoomSubscriptionClient {
         _lastPongTime = DateTime.now();
         return;
       }
+      if (type == 'auth_success') {
+        _completeAuthReady(data);
+        return;
+      }
       if (type != null) _emit(type, data);
     } catch (e) {
       if (kDebugMode) {
@@ -249,16 +264,45 @@ class WebSocketManager implements RoomSubscriptionClient {
 
   void _onError(error) {
     _isConnected = false;
+    if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
+      _authReadyCompleter!.complete(false);
+    }
     _heartbeatTimer?.cancel();
     _emit('error', {'type': 'error', 'message': error.toString()});
-    _scheduleReconnect();
+    if (_shouldReconnect) {
+      _scheduleReconnect();
+    }
   }
 
   void _onDone() {
     _isConnected = false;
+    if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
+      _authReadyCompleter!.complete(false);
+    }
     _heartbeatTimer?.cancel();
     _emit('disconnected', {'type': 'disconnected'});
-    _scheduleReconnect();
+    if (_shouldReconnect) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _completeAuthReady(Map<String, dynamic> payload) {
+    final wasReconnect = _reconnectAttempts > 0;
+    _isConnected = true;
+    _lastPongTime = DateTime.now();
+    if (wasReconnect) {
+      CacheService().removeByPrefix('stones_');
+      CacheService().removeByPrefix('stone_');
+      _emit('reconnected', {'type': 'reconnected', ...payload});
+    }
+    _reconnectAttempts = 0;
+    _startHeartbeat();
+    _rejoinRooms();
+    _flushQueue();
+    _emit('connected', {'type': 'connected', ...payload});
+    if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
+      _authReadyCompleter!.complete(true);
+    }
   }
 
   /// 发送消息，离线时暂存到队列（上限 50 条）
@@ -292,12 +336,13 @@ class WebSocketManager implements RoomSubscriptionClient {
 
   /// 公开重连方法：重置计数器并重新连接
   Future<bool> reconnect() async {
-    disconnect();
+    _closeConnection(allowReconnect: true);
     _reconnectAttempts = 0;
     return connect();
   }
 
   void _scheduleReconnect() {
+    if (!_shouldReconnect) return;
     if (_reconnectTimer?.isActive == true) return;
     _reconnectAttempts++;
     // 前10次指数退避，之后每60秒尝试一次

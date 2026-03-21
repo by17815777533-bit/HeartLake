@@ -358,6 +358,12 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 {"type": "auth", "token": "<token>"}
 ```
 
+服务端鉴权成功后会主动回：
+
+```json
+{"type":"auth_success","user_id":"anonymous_xxx","authenticated":true}
+```
+
 ### 5.2 房间订阅
 
 客户端通过加入 / 离开房间来订阅特定事件：
@@ -370,6 +376,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 ### 5.3 心跳保活
 
 服务端定期发送 `ping`，客户端须回复 `pong`。超时未回复则服务端断开连接并清理资源。
+客户端只有在收到 `auth_success` 后才应视为“连接成功”，再回放房间订阅和离线消息。
 
 ### 5.4 事件类型
 

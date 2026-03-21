@@ -341,6 +341,7 @@ POST `/api/edge-ai/analyze` 请求体：
 
 - URL 参数：`?token=<url_encoded_token>`（推荐）
 - 首包鉴权：`{"type":"auth","token":"<token>"}`
+- 鉴权成功回包：`{"type":"auth_success","user_id":"...","authenticated":true}`
 
 事件类型：`new_stone` / `ripple_update` / `boat_update` / `new_friend_message` / `new_notification`
 

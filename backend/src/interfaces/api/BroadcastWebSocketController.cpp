@@ -16,6 +16,18 @@ namespace heartlake::controllers {
 
 using Hub = realtime::WebSocketHub;
 
+namespace {
+void sendAuthSuccess(const drogon::WebSocketConnectionPtr &conn,
+                     const std::string &userId) {
+    Json::Value ok;
+    ok["type"] = "auth_success";
+    ok["user_id"] = userId;
+    ok["authenticated"] = true;
+    ok["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+    conn->send(Json::FastWriter().write(ok));
+}
+} // namespace
+
 void BroadcastWebSocketController::handleNewConnection(
     const drogon::HttpRequestPtr& req,
     const drogon::WebSocketConnectionPtr& conn
@@ -54,6 +66,7 @@ void BroadcastWebSocketController::handleNewConnection(
 
     Hub::getInstance().addConnection(conn, userId);
     conn->setContext(std::make_shared<std::string>(userId));
+    sendAuthSuccess(conn, userId);
 }
 
 void BroadcastWebSocketController::handleConnectionClosed(const drogon::WebSocketConnectionPtr& conn) {
@@ -118,6 +131,7 @@ void BroadcastWebSocketController::handleNewMessage(
         }
         Hub::getInstance().addConnection(conn, connUserId);
         conn->setContext(std::make_shared<std::string>(connUserId));
+        sendAuthSuccess(conn, connUserId);
         return;
     }
 
