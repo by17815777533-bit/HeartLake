@@ -579,12 +579,9 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
-        int total = extractWindowTotal(result);
-        if (result.empty() && offset > 0) {
-            auto countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM reports WHERE status = 'pending'");
-            total = safeCount(countResult);
-        }
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, offset,
+            "SELECT COUNT(*) as total FROM reports WHERE status = 'pending'", {});
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1073,12 +1070,9 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
             "FROM broadcast_messages ORDER BY created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>((page - 1) * pageSize)
         );
-        int total = extractWindowTotal(result);
-        if (result.empty() && page > 1) {
-            auto countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*) as total FROM broadcast_messages");
-            total = safeCount(countResult);
-        }
+        const int total = resolveWindowTotalOrFallbackCount(
+            dbClient, result, static_cast<int64_t>(page - 1) * pageSize,
+            "SELECT COUNT(*) as total FROM broadcast_messages", {});
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
