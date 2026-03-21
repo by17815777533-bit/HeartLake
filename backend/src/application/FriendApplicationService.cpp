@@ -11,7 +11,99 @@
 
 #include "application/FriendApplicationService.h"
 #include "infrastructure/services/FriendshipTTLEngine.h"
+#include "utils/RequestHelper.h"
 #include <drogon/orm/DbClient.h>
+#include <optional>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+
+namespace {
+
+struct ResolvedFriendshipRequest {
+    std::string friendshipId;
+    std::string friendId;
+};
+
+struct FriendUserSummary {
+    std::string nickname;
+    std::string username;
+    std::string avatarUrl;
+};
+
+std::optional<ResolvedFriendshipRequest> resolveFriendshipRequest(
+    const std::vector<heartlake::domain::friend_domain::FriendEntity>& friendships,
+    const std::string& userId,
+    const std::string& friendshipRef
+) {
+    std::optional<ResolvedFriendshipRequest> fallback;
+
+    for (const auto& friendship : friendships) {
+        if (friendship.friendshipId == friendshipRef) {
+            return ResolvedFriendshipRequest{
+                friendship.friendshipId,
+                friendship.userId == userId ? friendship.friendId : friendship.userId
+            };
+        }
+
+        if (!fallback && friendship.userId == friendshipRef &&
+            friendship.friendId == userId && friendship.status == "pending") {
+            fallback = ResolvedFriendshipRequest{friendship.friendshipId, friendship.userId};
+        }
+    }
+
+    return fallback;
+}
+
+drogon::Task<std::unordered_map<std::string, FriendUserSummary>> loadUserSummaries(
+    const std::vector<std::string>& userIds
+) {
+    std::unordered_map<std::string, FriendUserSummary> summaries;
+    if (userIds.empty()) {
+        co_return summaries;
+    }
+
+    std::vector<std::string> uniqueUserIds;
+    uniqueUserIds.reserve(userIds.size());
+    std::unordered_set<std::string> seen;
+    for (const auto& userId : userIds) {
+        if (!userId.empty() && seen.insert(userId).second) {
+            uniqueUserIds.push_back(userId);
+        }
+    }
+
+    if (uniqueUserIds.empty()) {
+        co_return summaries;
+    }
+
+    auto dbClient = drogon::app().getDbClient("default");
+    auto rows = co_await dbClient->execSqlCoro(
+        "SELECT user_id, nickname, username, avatar_url "
+        "FROM users WHERE user_id = ANY($1::text[])",
+        heartlake::utils::toPgTextArrayLiteral(uniqueUserIds));
+
+    summaries.reserve(rows.size());
+    for (const auto& row : rows) {
+        const std::string rowUserId =
+            row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();
+        if (rowUserId.empty()) {
+            continue;
+        }
+
+        FriendUserSummary summary;
+        summary.username =
+            row["username"].isNull() ? "" : row["username"].as<std::string>();
+        summary.nickname =
+            row["nickname"].isNull() ? summary.username : row["nickname"].as<std::string>();
+        summary.avatarUrl =
+            row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
+        summaries.emplace(rowUserId, std::move(summary));
+    }
+
+    co_return summaries;
+}
+
+} // namespace
 
 namespace heartlake::application {
 
@@ -52,46 +144,28 @@ drogon::Task<Json::Value> FriendApplicationService::acceptFriendRequestAsync(
         err["error"] = "Service not initialized";
         co_return err;
     }
-    // Get friendship data before accepting
     auto friendships = co_await repository_->findAllByUserIdAsync(userId);
-    std::string friendId;
-    std::string actualFriendshipId = friendshipId;
-
-    // 先按 friendshipId 精确匹配
-    for (const auto& f : friendships) {
-        if (f.friendshipId == friendshipId) {
-            friendId = (f.userId == userId) ? f.friendId : f.userId;
-            break;
-        }
-    }
-
-    // 如果没匹配到，尝试按 from_user_id 查找 pending 请求
-    if (friendId.empty()) {
-        for (const auto& f : friendships) {
-            if (f.userId == friendshipId && f.friendId == userId && f.status == "pending") {
-                friendId = f.userId;
-                actualFriendshipId = f.friendshipId;
-                break;
-            }
-        }
-    }
-
-    if (friendId.empty()) {
+    const auto resolved = resolveFriendshipRequest(friendships, userId, friendshipId);
+    if (!resolved) {
         Json::Value err;
         err["error"] = "好友请求不存在";
         co_return err;
     }
 
-    co_await friendService_->acceptFriendRequestAsync(actualFriendshipId);
+    co_await friendService_->acceptFriendRequestAsync(resolved->friendshipId);
 
     // Create friendship with 24h TTL
     auto& ttlEngine = infrastructure::FriendshipTTLEngine::getInstance();
-    co_await ttlEngine.createFriendshipWithTTL(actualFriendshipId, userId, friendId, 86400);
+    co_await ttlEngine.createFriendshipWithTTL(
+        resolved->friendshipId,
+        userId,
+        resolved->friendId,
+        86400);
 
     Json::Value result;
     result["success"] = true;
-    result["friendship_id"] = actualFriendshipId;
-    result["friend_id"] = friendId;
+    result["friendship_id"] = resolved->friendshipId;
+    result["friend_id"] = resolved->friendId;
 
     co_return result;
 }
@@ -107,34 +181,15 @@ drogon::Task<Json::Value> FriendApplicationService::rejectFriendRequestAsync(
         co_return err;
     }
 
-    std::string actualFriendshipId = friendshipId;
-
-    // 先按 friendshipId 精确匹配，如果没匹配到则按 from_user_id 查找
     auto friendships = co_await repository_->findAllByUserIdAsync(userId);
-    bool found = false;
-    for (const auto& f : friendships) {
-        if (f.friendshipId == friendshipId) {
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        for (const auto& f : friendships) {
-            if (f.userId == friendshipId && f.friendId == userId && f.status == "pending") {
-                actualFriendshipId = f.friendshipId;
-                found = true;
-                break;
-            }
-        }
-    }
-
-    if (!found) {
+    const auto resolved = resolveFriendshipRequest(friendships, userId, friendshipId);
+    if (!resolved) {
         Json::Value err;
         err["error"] = "好友请求不存在";
         co_return err;
     }
 
-    co_await friendService_->rejectFriendRequestAsync(actualFriendshipId);
+    co_await friendService_->rejectFriendRequestAsync(resolved->friendshipId);
 
     Json::Value result;
     result["success"] = true;
@@ -179,7 +234,9 @@ drogon::Task<Json::Value> FriendApplicationService::getFriendsListAsync(
     // BUG-6 修复：使用批量 TTL 查询替代 N+1 逐个查询，避免好友列表超时
     auto& ttlEngine = infrastructure::FriendshipTTLEngine::getInstance();
     std::vector<Json::Value> items;
+    items.reserve(friendships.size());
     std::vector<std::string> friendshipIds;
+    friendshipIds.reserve(friendships.size());
 
     for (const auto& f : friendships) {
         Json::Value item;
@@ -236,21 +293,17 @@ drogon::Task<Json::Value> FriendApplicationService::getReceivedRequestsAsync(
         }
     }
 
+    std::vector<std::string> fromUserIds;
+    fromUserIds.reserve(pendingItems.size());
+    for (const auto& [_, fromId] : pendingItems) {
+        fromUserIds.push_back(fromId);
+    }
+
     // 批量查询发起者的用户信息
-    std::map<std::string, std::pair<std::string, std::string>> userInfoMap; // userId -> {nickname, username}
+    std::unordered_map<std::string, FriendUserSummary> userInfoMap;
     if (!pendingItems.empty()) {
         try {
-            auto dbClient = drogon::app().getDbClient();
-            for (const auto& [fid, fromId] : pendingItems) {
-                auto rows = co_await dbClient->execSqlCoro(
-                    "SELECT nickname, username FROM users WHERE user_id = $1 LIMIT 1", fromId);
-                if (!rows.empty()) {
-                    userInfoMap[fromId] = {
-                        rows[0]["nickname"].as<std::string>(),
-                        rows[0]["username"].isNull() ? "" : rows[0]["username"].as<std::string>()
-                    };
-                }
-            }
+            userInfoMap = co_await loadUserSummaries(fromUserIds);
         } catch (const std::exception& e) {
             LOG_WARN << "查询好友请求用户信息失败: " << e.what();
         }
@@ -262,8 +315,12 @@ drogon::Task<Json::Value> FriendApplicationService::getReceivedRequestsAsync(
         item["from_user_id"] = fromId;
         auto it = userInfoMap.find(fromId);
         if (it != userInfoMap.end()) {
-            item["nickname"] = it->second.first;
-            item["username"] = it->second.second;
+            item["nickname"] = it->second.nickname;
+            item["username"] = it->second.username;
+            if (!it->second.avatarUrl.empty()) {
+                item["avatar_url"] = it->second.avatarUrl;
+                item["avatarUrl"] = it->second.avatarUrl;
+            }
         } else {
             item["nickname"] = "未知用户";
             item["username"] = "";

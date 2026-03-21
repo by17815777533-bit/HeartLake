@@ -467,10 +467,9 @@ void AccountController::getLoginDevices(
                                      : row["last_active_at"].as<std::string>();
       devices.append(device);
     }
-
-    Json::Value data;
-    data["devices"] = devices;
-    callback(ResponseUtil::success(data));
+    const int pageSize = std::max(1, static_cast<int>(result.size()));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "devices", devices, static_cast<int>(result.size()), 1, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getLoginDevices error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -541,10 +540,8 @@ void AccountController::getLoginLogs(
       log["success"] = row["success"].as<bool>();
       logs.append(log);
     }
-
-    Json::Value data;
-    data["logs"] = logs;
-    callback(ResponseUtil::success(data));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "logs", logs, static_cast<int>(result.size()), 1, 50)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getLoginLogs error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -583,10 +580,8 @@ void AccountController::getSecurityEvents(
       event["created_at"] = row["created_at"].as<std::string>();
       events.append(event);
     }
-
-    Json::Value data;
-    data["events"] = events;
-    callback(ResponseUtil::success(data));
+    callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
+        "events", events, static_cast<int>(result.size()), 1, 50)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getSecurityEvents error: " << e.what();
     callback(ResponseUtil::internalError());
@@ -694,34 +689,15 @@ void AccountController::getBlockedUsers(
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
     ensureAccountRuntimeSchema(dbClient);
-
-    int page = 1;
-    int pageSize = 20;
-    try {
-      if (req->getParameter("page").empty() == false) {
-        page = std::stoi(req->getParameter("page"));
-      }
-      if (req->getParameter("page_size").empty() == false) {
-        pageSize = std::stoi(req->getParameter("page_size"));
-      }
-    } catch (const std::exception &) {
-      callback(ResponseUtil::badRequest("分页参数格式不正确"));
-      return;
-    }
-    auto paginationValidation = Validator::paginationParams(page, pageSize);
-    if (!paginationValidation) {
-      callback(ResponseUtil::badRequest(paginationValidation.errorMessage));
-      return;
-    }
-    int offset = (page - 1) * pageSize;
+    auto [page, pageSize] = safePagination(req);
+    int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
-        "SELECT b.blocked_user_id, u.nickname, u.avatar_url, b.created_at "
+        "SELECT b.blocked_user_id, u.nickname, u.avatar_url, b.created_at, "
+        "COUNT(*) OVER() AS total_count "
         "FROM user_blocks b JOIN users u ON b.blocked_user_id = u.user_id "
         "WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
         userId, pageSize, offset);
-    auto countResult = dbClient->execSqlSync(
-        "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1", userId);
 
     Json::Value users(Json::arrayValue);
     for (const auto &row : result) {
@@ -735,8 +711,18 @@ void AccountController::getBlockedUsers(
       users.append(user);
     }
 
+    int total = 0;
+    if (!result.empty() && !result[0]["total_count"].isNull()) {
+      total = result[0]["total_count"].as<int>();
+    } else if (page > 1) {
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1",
+          userId);
+      total = safeCount(countResult);
+    }
+
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
-        "blocked_users", users, safeCount(countResult), page, pageSize)));
+        "blocked_users", users, total, page, pageSize)));
   } catch (const std::exception &e) {
     LOG_ERROR << "getBlockedUsers error: " << e.what();
     callback(ResponseUtil::internalError());

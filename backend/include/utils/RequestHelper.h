@@ -5,13 +5,14 @@
  * 安全访问封装，避免 Controller 层出现裸的 stoi/result[0] 等危险调用。
  */
 #pragma once
-#include <string>
-#include <optional>
 #include <charconv>
 #include <drogon/HttpRequest.h>
+#include <drogon/orm/Field.h>
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
-#include <drogon/orm/Field.h>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace heartlake::utils {
 
@@ -62,6 +63,27 @@ inline std::optional<drogon::orm::Row> safeRow(const drogon::orm::Result& result
 inline int safeCount(const drogon::orm::Result& result, const std::string& col = "total") {
     if (result.empty()) return 0;
     return result[0][col].as<int>();
+}
+
+/// 构建 PostgreSQL text[] 参数字面量，配合 ANY($1::text[]) 使用
+inline std::string toPgTextArrayLiteral(const std::vector<std::string>& values) {
+    std::string literal = "{";
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            literal += ",";
+        }
+
+        literal += "\"";
+        for (const char c : values[i]) {
+            if (c == '\\' || c == '"') {
+                literal += '\\';
+            }
+            literal += c;
+        }
+        literal += "\"";
+    }
+    literal += "}";
+    return literal;
 }
 
 } // namespace heartlake::utils

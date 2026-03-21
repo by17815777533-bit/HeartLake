@@ -74,7 +74,7 @@ public:
     /**
      * @brief 批量获取用户基本信息
      * @details 用于好友列表、涟漪列表等场景的用户信息补全，避免 N+1 查询。
-     *          单次最多 100 个 ID，超出截断。
+     *          内部按 100 个 ID 分批，并使用 PostgreSQL ANY(text[]) 减少往返次数。
      * @param userIds 用户 ID 列表
      * @return JSON 数组，每个元素包含 userId / nickname / avatar
      */

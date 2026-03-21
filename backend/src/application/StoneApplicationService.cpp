@@ -71,26 +71,6 @@ std::string normalizeMoodType(std::string mood) {
   return mood;
 }
 
-std::string buildPgTextArrayLiteral(const std::vector<std::string> &values) {
-  std::string result = "{";
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (i > 0) {
-      result += ",";
-    }
-
-    result += "\"";
-    for (char c : values[i]) {
-      if (c == '\\' || c == '"') {
-        result += '\\';
-      }
-      result += c;
-    }
-    result += "\"";
-  }
-  result += "}";
-  return result;
-}
-
 std::string safeString(const drogon::orm::Row &row, const char *column,
                        const std::string &fallback = "") {
   return row[column].isNull() ? fallback : row[column].as<std::string>();
@@ -216,7 +196,7 @@ Json::Value StoneApplicationService::publishStone(
   auto dbClient = drogon::app().getDbClient("default");
   std::string stoneId = "stone_" + drogon::utils::getUuid();
   const std::string normalizedMood = normalizeMoodType(moodType);
-  const std::string tagsLiteral = buildPgTextArrayLiteral(tags);
+  const std::string tagsLiteral = toPgTextArrayLiteral(tags);
 
   try {
     // 创建石头
@@ -563,7 +543,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
                                    riskResult.supportMessage);
 
       try {
-        const auto keywordsLiteral = buildPgTextArrayLiteral(riskResult.keywords);
+        const auto keywordsLiteral = toPgTextArrayLiteral(riskResult.keywords);
         const auto factorsJson = serializeRiskFactors(riskResult.factors);
         auto trans = db->newTransaction();
         auto assessmentResult = trans->execSqlSync(

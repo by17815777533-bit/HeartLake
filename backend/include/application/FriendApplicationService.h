@@ -114,7 +114,8 @@ public:
 
     /**
      * @brief 获取收到的待处理好友请求
-     * @details 只返回 status=pending 的请求，附带发起者的 nickname 和 avatar。
+     * @details 只返回 status=pending 的请求，附带发起者的 nickname / username / avatar，
+     *          并使用批量用户查询避免逐条回源 users 表。
      * @param userId 当前用户 ID
      * @return 请求数组 JSON
      */

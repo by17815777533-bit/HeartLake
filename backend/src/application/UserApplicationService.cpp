@@ -9,13 +9,14 @@
  *
  * 安全措施：
  *   - searchUsers 对 LIKE 通配符做转义，防止通配符注入
- *   - getUsersBatch 使用参数化查询，超过 5 个 ID 时自动分批递归
+ *   - getUsersBatch 使用 PostgreSQL ANY(text[]) 批量查询，减少大批量场景的往返次数
  */
 
 #include "application/UserApplicationService.h"
 #include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
+#include <algorithm>
 #include <drogon/drogon.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -266,7 +267,7 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
   }
 }
 
-/// 批量获取用户基本信息，超过 5 个 ID 时自动分批递归查询
+/// 批量获取用户基本信息，使用 ANY(text[]) 降低大批量场景的查询往返
 Json::Value
 UserApplicationService::getUsersBatch(const std::vector<std::string> &userIds) {
   if (userIds.empty()) {
@@ -285,25 +286,20 @@ UserApplicationService::getUsersBatch(const std::vector<std::string> &userIds) {
       }
     }
 
+    constexpr size_t kUserBatchSize = 100;
     std::unordered_map<std::string, Json::Value> userById;
-    for (size_t i = 0; i < uniqueUserIds.size(); i += 5) {
+    userById.reserve(uniqueUserIds.size());
+
+    for (size_t i = 0; i < uniqueUserIds.size(); i += kUserBatchSize) {
       std::vector<std::string> batch(uniqueUserIds.begin() + i,
                                      uniqueUserIds.begin() +
-                                         std::min(i + 5, uniqueUserIds.size()));
+                                         std::min(i + kUserBatchSize,
+                                                  uniqueUserIds.size()));
 
-      std::string placeholders;
-      for (size_t idx = 0; idx < batch.size(); ++idx) {
-        if (idx > 0) {
-          placeholders += ", ";
-        }
-        placeholders += "$" + std::to_string(idx + 1);
-      }
-
-      std::string sql = "SELECT user_id, username, nickname, avatar_url "
-                        "FROM users WHERE user_id IN (" +
-                        placeholders + ")";
-
-      auto dbResult = execSqlSyncWithStringParams(dbClient, sql, batch);
+      auto dbResult = dbClient->execSqlSync(
+          "SELECT user_id, username, nickname, avatar_url "
+          "FROM users WHERE user_id = ANY($1::text[])",
+          toPgTextArrayLiteral(batch));
       for (const auto &row : dbResult) {
         const std::string rowUserId =
             row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();

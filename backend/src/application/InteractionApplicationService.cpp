@@ -119,30 +119,35 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    // 使用事务+唯一约束防止竞态条件
     auto trans = dbClient->newTransaction();
-
-    // 验证石头存在
-    auto stoneCheck =
-        trans->execSqlSync("SELECT stone_id FROM stones WHERE stone_id = $1 "
-                           "AND status = 'published'",
-                           stoneId);
-    if (stoneCheck.empty()) {
-      throw std::runtime_error("石头不存在");
-    }
 
     std::string rippleId = utils::IdGenerator::generateRippleId();
 
-    // 原子插入，依赖唯一约束(stone_id, user_id)防止重复
-    trans->execSqlSync(
-        "INSERT INTO ripples (ripple_id, stone_id, user_id, created_at) "
-        "VALUES ($1, $2, $3, NOW())",
+    // 单条 CTE 合并石头校验、涟漪写入和计数更新，减少事务内往返
+    auto writeResult = trans->execSqlSync(
+        "WITH target AS ("
+        "  SELECT stone_id FROM stones "
+        "  WHERE stone_id = $2 AND status = 'published'"
+        "), inserted AS ("
+        "  INSERT INTO ripples (ripple_id, stone_id, user_id, created_at) "
+        "  SELECT $1, stone_id, $3, NOW() FROM target "
+        "  RETURNING ripple_id, stone_id, user_id"
+        "), updated AS ("
+        "  UPDATE stones SET ripple_count = ripple_count + 1 "
+        "  WHERE stone_id IN (SELECT stone_id FROM target) "
+        "  RETURNING ripple_count"
+        ") "
+        "SELECT i.ripple_id, i.stone_id, i.user_id, "
+        "       COALESCE(u.ripple_count, 0) AS ripple_count "
+        "FROM inserted i "
+        "LEFT JOIN updated u ON TRUE",
         rippleId, stoneId, userId);
 
-    // 同步更新计数器
-    trans->execSqlSync(
-        "UPDATE stones SET ripple_count = ripple_count + 1 WHERE stone_id = $1",
-        stoneId);
+    if (writeResult.empty()) {
+      throw std::runtime_error("石头不存在");
+    }
+
+    const auto &row = writeResult[0];
 
     // 清除石头缓存，确保计数器实时更新
     if (cacheManager_) {
@@ -160,17 +165,13 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     heartlake::infrastructure::GuardianIncentiveService::getInstance()
         .recordQualityRipple(userId, stoneId);
 
-    // 查询最新计数返回给前端
-    auto countResult = trans->execSqlSync(
-        "SELECT ripple_count FROM stones WHERE stone_id = $1", stoneId);
-    int rippleCount =
-        countResult.empty() ? 1 : countResult[0]["ripple_count"].as<int>();
-
     Json::Value result;
-    result["ripple_id"] = rippleId;
-    result["stone_id"] = stoneId;
-    result["user_id"] = userId;
-    result["ripple_count"] = rippleCount;
+    result["ripple_id"] = safeStringColumn(row, "ripple_id", rippleId);
+    result["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
+    result["user_id"] = safeStringColumn(row, "user_id", userId);
+    result["ripple_count"] = row["ripple_count"].isNull()
+                                 ? 1
+                                 : row["ripple_count"].as<int>();
 
     LOG_INFO << "Ripple created: " << rippleId;
     return result;
@@ -179,23 +180,27 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     std::string err = e.base().what();
     if (err.find("unique") != std::string::npos ||
         err.find("duplicate") != std::string::npos) {
-      // 幂等处理：重复点涟漪时返回当前状态，避免前端出现权限类误判
-      auto existingRipple = dbClient->execSqlSync(
-          "SELECT ripple_id FROM ripples WHERE stone_id = $1 AND user_id = $2 "
-          "ORDER BY created_at DESC LIMIT 1",
+      // 幂等处理：重复点涟漪时用一条查询返回已有记录与当前计数
+      auto currentState = dbClient->execSqlSync(
+          "SELECT "
+          "  (SELECT ripple_id FROM ripples "
+          "   WHERE stone_id = $1 AND user_id = $2 "
+          "   ORDER BY created_at DESC LIMIT 1) AS ripple_id, "
+          "  s.ripple_count "
+          "FROM stones s WHERE s.stone_id = $1",
           stoneId, userId);
-      auto countResult = dbClient->execSqlSync(
-          "SELECT ripple_count FROM stones WHERE stone_id = $1", stoneId);
 
       Json::Value result;
       result["ripple_id"] =
-          existingRipple.empty()
+          currentState.empty() || currentState[0]["ripple_id"].isNull()
               ? ""
-              : existingRipple[0]["ripple_id"].as<std::string>();
+              : currentState[0]["ripple_id"].as<std::string>();
       result["stone_id"] = stoneId;
       result["user_id"] = userId;
       result["ripple_count"] =
-          countResult.empty() ? 0 : countResult[0]["ripple_count"].as<int>();
+          currentState.empty() || currentState[0]["ripple_count"].isNull()
+              ? 0
+              : currentState[0]["ripple_count"].as<int>();
       result["already_rippled"] = true;
 
       LOG_INFO << "Ripple already exists for stone " << stoneId << " user "
@@ -490,31 +495,37 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    // 1. 生成纸船 ID
     std::string boatId = utils::IdGenerator::generateBoatId();
 
-    // 2. 插入数据库（简化版本，不需要receiver_id）
-    dbClient->execSqlSync(
-        "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, "
-        "is_anonymous, status, created_at) VALUES ($1, $2, $3, $4, true, "
-        "'active', NOW())",
+    // 单条 CTE 合并石头计数更新与纸船写入，避免额外 count 查询
+    auto writeResult = dbClient->execSqlSync(
+        "WITH updated AS ("
+        "  UPDATE stones SET boat_count = boat_count + 1 "
+        "  WHERE stone_id = $2 "
+        "  RETURNING boat_count"
+        "), inserted AS ("
+        "  INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, "
+        "                           is_anonymous, status, created_at) "
+        "  SELECT $1, $2, $3, $4, true, 'active', NOW() "
+        "  FROM updated "
+        "  RETURNING boat_id, stone_id, sender_id, content"
+        ") "
+        "SELECT i.boat_id, i.stone_id, i.sender_id, i.content, "
+        "       u.boat_count "
+        "FROM inserted i "
+        "JOIN updated u ON TRUE",
         boatId, stoneId, userId, content);
 
-    // 2.5 更新石头的纸船计数
-    dbClient->execSqlSync(
-        "UPDATE stones SET boat_count = boat_count + 1 WHERE stone_id = $1",
-        stoneId);
+    if (writeResult.empty()) {
+      throw std::runtime_error("石头不存在");
+    }
+
+    const auto &row = writeResult[0];
 
     // 2.6 清除石头缓存，确保计数器实时更新
     if (cacheManager_) {
       cacheManager_->invalidate("stone:" + stoneId);
     }
-
-    // 查询最新计数返回给前端
-    auto countResult = dbClient->execSqlSync(
-        "SELECT boat_count FROM stones WHERE stone_id = $1", stoneId);
-    int boatCount =
-        countResult.empty() ? 1 : countResult[0]["boat_count"].as<int>();
 
     // 温暖纸船激励：用本地情绪模型估算暖意分，按比例发放积分
     auto &edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -526,14 +537,15 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
 
     // 3. 返回结果
     Json::Value result;
-    result["boat_id"] = boatId;
-    result["stone_id"] = stoneId;
-    result["sender_id"] = userId;
-    result["senderId"] = userId;
-    result["content"] = content;
-    result["message"] = content;
+    result["boat_id"] = safeStringColumn(row, "boat_id", boatId);
+    result["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
+    result["sender_id"] = safeStringColumn(row, "sender_id", userId);
+    result["senderId"] = result["sender_id"];
+    result["content"] = safeStringColumn(row, "content", content);
+    result["message"] = result["content"];
     result["status"] = "sent";
-    result["boat_count"] = boatCount;
+    result["boat_count"] =
+        row["boat_count"].isNull() ? 1 : row["boat_count"].as<int>();
 
     LOG_INFO << "Boat created: " << boatId;
 
