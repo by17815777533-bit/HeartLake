@@ -17,6 +17,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <algorithm>
+#include <array>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -46,6 +47,13 @@ static HttpResponsePtr collectionSuccess(const char* semanticKey,
     const int resolvedPageSize = pageSize > 0 ? pageSize : std::max(total, 1);
     return ResponseUtil::success(
         ResponseUtil::buildCollectionPayload(primaryKey, items, total, page, resolvedPageSize));
+}
+
+static int extractWindowTotal(const drogon::orm::Result& result,
+                              const std::string& column = "total_count") {
+    return result.empty() || result[0][column].isNull()
+        ? 0
+        : result[0][column].as<int>();
 }
 
 void AdminController::login(const HttpRequestPtr &req,
@@ -245,20 +253,41 @@ void AdminController::getRealtimeStats([[maybe_unused]] const HttpRequestPtr &re
         auto dbClient = drogon::app().getDbClient("default");
 
         auto result = dbClient->execSqlSync(
+            "WITH user_stats AS ("
+            "  SELECT "
+            "    COUNT(*)::INTEGER AS total_users, "
+            "    COUNT(*) FILTER ("
+            "      WHERE last_active_at > NOW() - INTERVAL '5 minutes' "
+            "        AND status = 'active'"
+            "    )::INTEGER AS active_online_users "
+            "  FROM users"
+            "), stone_stats AS ("
+            "  SELECT "
+            "    COUNT(*) FILTER ("
+            "      WHERE status = 'published' AND deleted_at IS NULL"
+            "    )::INTEGER AS total_stones, "
+            "    COUNT(*) FILTER ("
+            "      WHERE created_at >= CURRENT_DATE "
+            "        AND created_at < CURRENT_DATE + INTERVAL '1 day'"
+            "    )::INTEGER AS today_stones "
+            "  FROM stones"
+            "), session_stats AS ("
+            "  SELECT "
+            "    COUNT(DISTINCT user_id)::INTEGER AS session_online_users "
+            "  FROM user_sessions "
+            "  WHERE created_at > NOW() - INTERVAL '5 minutes'"
+            ") "
             "SELECT "
-            "  (SELECT COUNT(*) FROM users) AS total_users, "
-            "  (SELECT COUNT(*) FROM stones "
-            "     WHERE status = 'published' AND deleted_at IS NULL) AS total_stones, "
-            "  (SELECT COUNT(*) FROM stones "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_stones, "
-            "  GREATEST( "
-            "    COALESCE((SELECT COUNT(DISTINCT user_id) FROM user_sessions "
-            "                WHERE created_at > NOW() - INTERVAL '5 minutes'), 0), "
-            "    COALESCE((SELECT COUNT(*) FROM users "
-            "                WHERE last_active_at > NOW() - INTERVAL '5 minutes' "
-            "                  AND status = 'active'), 0) "
-            "  ) AS online_users");
+            "  us.total_users, "
+            "  ss.total_stones, "
+            "  ss.today_stones, "
+            "  GREATEST("
+            "    COALESCE(sess.session_online_users, 0), "
+            "    COALESCE(us.active_online_users, 0)"
+            "  ) AS online_users "
+            "FROM user_stats us "
+            "CROSS JOIN stone_stats ss "
+            "CROSS JOIN session_stats sess");
 
         if (result.empty()) {
             LOG_ERROR << "Database query returned empty results in getRealtimeStats";
@@ -286,25 +315,50 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
     try {
         auto dbClient = drogon::app().getDbClient("default");
         auto result = dbClient->execSqlSync(
+            "WITH user_stats AS ("
+            "  SELECT "
+            "    COUNT(*) FILTER ("
+            "      WHERE created_at >= CURRENT_DATE "
+            "        AND created_at < CURRENT_DATE + INTERVAL '1 day'"
+            "    )::INTEGER AS today_new_users "
+            "  FROM users"
+            "), stone_stats AS ("
+            "  SELECT "
+            "    COUNT(DISTINCT user_id) FILTER ("
+            "      WHERE created_at >= CURRENT_DATE "
+            "        AND created_at < CURRENT_DATE + INTERVAL '1 day'"
+            "    )::INTEGER AS today_active_users, "
+            "    COUNT(*) FILTER ("
+            "      WHERE created_at >= CURRENT_DATE "
+            "        AND created_at < CURRENT_DATE + INTERVAL '1 day' "
+            "        AND status = 'published' AND deleted_at IS NULL"
+            "    )::INTEGER AS today_stones "
+            "  FROM stones"
+            "), interaction_stats AS ("
+            "  SELECT COUNT(*)::INTEGER AS today_interactions "
+            "  FROM ("
+            "    SELECT created_at FROM ripples "
+            "    WHERE created_at >= CURRENT_DATE "
+            "      AND created_at < CURRENT_DATE + INTERVAL '1 day' "
+            "    UNION ALL "
+            "    SELECT created_at FROM paper_boats "
+            "    WHERE created_at >= CURRENT_DATE "
+            "      AND created_at < CURRENT_DATE + INTERVAL '1 day'"
+            "  ) interactions"
+            "), report_stats AS ("
+            "  SELECT COUNT(*) FILTER (WHERE status = 'pending')::INTEGER AS pending_reports "
+            "  FROM reports"
+            ") "
             "SELECT "
-            "  (SELECT COUNT(*) FROM users "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_new_users, "
-            "  (SELECT COUNT(DISTINCT user_id) FROM stones "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') AS today_active_users, "
-            "  (SELECT COUNT(*) FROM stones "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day' "
-            "       AND status = 'published' AND deleted_at IS NULL) AS today_stones, "
-            "  (SELECT COUNT(*) FROM ripples "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') + "
-            "  (SELECT COUNT(*) FROM paper_boats "
-            "     WHERE created_at >= CURRENT_DATE "
-            "       AND created_at < CURRENT_DATE + INTERVAL '1 day') "
-            "    AS today_interactions, "
-            "  (SELECT COUNT(*) FROM reports WHERE status = 'pending') AS pending_reports");
+            "  us.today_new_users, "
+            "  ss.today_active_users, "
+            "  ss.today_stones, "
+            "  ist.today_interactions, "
+            "  rs.pending_reports "
+            "FROM user_stats us "
+            "CROSS JOIN stone_stats ss "
+            "CROSS JOIN interaction_stats ist "
+            "CROSS JOIN report_stats rs");
 
         if (result.empty()) {
             LOG_ERROR << "Database query returned empty results in getDashboardStats";
@@ -450,19 +504,19 @@ void AdminController::getActiveTimeStats([[maybe_unused]] const HttpRequestPtr &
             "ORDER BY hour"
         );
 
+        std::array<int, 24> hourlyCounts{};
+        for (const auto &row : result) {
+            const int hour = row["hour"].as<int>();
+            if (hour >= 0 && hour < static_cast<int>(hourlyCounts.size())) {
+                hourlyCounts[hour] = row["count"].as<int>();
+            }
+        }
+
         Json::Value data(Json::arrayValue);
         for (int i = 0; i < 24; i++) {
             Json::Value item;
             item["hour"] = i;
-            item["count"] = 0;
-            
-            for (const auto& row : result) {
-                if (row["hour"].as<int>() == i) {
-                    item["count"] = row["count"].as<int>();
-                    break;
-                }
-            }
-            
+            item["count"] = hourlyCounts[i];
             data.append(item);
         }
 
@@ -542,14 +596,14 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
         // 使用参数化查询防止SQL注入
         auto result = !status.empty()
             ? dbClient->execSqlSync(
-                "SELECT hre.*, u.nickname, u.email "
+                "SELECT hre.*, u.nickname, u.email, COUNT(*) OVER() AS total_count "
                 "FROM high_risk_events hre "
                 "JOIN users u ON hre.user_id = u.user_id "
                 "WHERE hre.status = $1 "
                 "ORDER BY hre.created_at DESC "
                 "LIMIT $2 OFFSET $3", status, static_cast<int64_t>(limit), static_cast<int64_t>(offset))
             : dbClient->execSqlSync(
-                "SELECT hre.*, u.nickname, u.email "
+                "SELECT hre.*, u.nickname, u.email, COUNT(*) OVER() AS total_count "
                 "FROM high_risk_events hre "
                 "JOIN users u ON hre.user_id = u.user_id "
                 "ORDER BY hre.created_at DESC "
@@ -584,17 +638,15 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
             data.append(event);
         }
 
-        // 获取总数 - 使用参数化查询
-        auto countResult = [&]() {
-            if (!status.empty()) {
-                return dbClient->execSqlSync(
-                    "SELECT COUNT(*) as total FROM high_risk_events WHERE status = $1", status);
-            } else {
-                return dbClient->execSqlSync(
+        int total = extractWindowTotal(result);
+        if (result.empty() && offset > 0) {
+            auto countResult = !status.empty()
+                ? dbClient->execSqlSync(
+                    "SELECT COUNT(*) as total FROM high_risk_events WHERE status = $1", status)
+                : dbClient->execSqlSync(
                     "SELECT COUNT(*) as total FROM high_risk_events");
-            }
-        }();
-        int total = safeCount(countResult);
+            total = safeCount(countResult);
+        }
         const int page = limit > 0 ? (offset / limit) + 1 : 1;
 
         Json::Value response = ResponseUtil::buildCollectionPayload(
@@ -739,29 +791,26 @@ void AdminController::handleRiskEvent(const HttpRequestPtr &req,
             status = "escalated";
         }
 
-        dbClient->execSqlSync(
+        auto eventResult = dbClient->execSqlSync(
             "UPDATE high_risk_events "
             "SET status = $1, handled_by = $2, handled_at = NOW(), notes = $3 "
-            "WHERE event_id = $4",
+            "WHERE event_id = $4 "
+            "RETURNING user_id",
             status, admin_id, notes, eventIdInt
         );
+        if (eventResult.empty()) {
+            callback(ResponseUtil::notFound("风险事件不存在"));
+            return;
+        }
 
         // 记录管理员干预行动
-        auto eventResult = dbClient->execSqlSync(
-            "SELECT user_id FROM high_risk_events WHERE event_id = $1",
-            eventIdInt
+        const std::string user_id = eventResult[0]["user_id"].as<std::string>();
+        dbClient->execSqlSync(
+            "INSERT INTO admin_interventions "
+            "(admin_id, user_id, event_id, action_type, action_details, outcome, created_at) "
+            "VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+            admin_id, user_id, eventIdInt, action, notes, status
         );
-
-        if (!eventResult.empty()) {
-            std::string user_id = eventResult[0]["user_id"].as<std::string>();
-
-            dbClient->execSqlSync(
-                "INSERT INTO admin_interventions "
-                "(admin_id, user_id, event_id, action_type, action_details, outcome, created_at) "
-                "VALUES ($1, $2, $3, $4, $5, $6, NOW())",
-                admin_id, user_id, eventIdInt, action, notes, status
-            );
-        }
 
         Json::Value data;
         data["event_id"] = event_id;

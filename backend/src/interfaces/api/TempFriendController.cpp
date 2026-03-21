@@ -7,6 +7,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
+#include <algorithm>
 #include <drogon/HttpResponse.h>
 #include <drogon/utils/Utilities.h>
 #include <trantor/utils/Logger.h>
@@ -22,6 +23,20 @@ constexpr const char kTempFriendBaseColumns[] =
 constexpr const char kTempFriendAliasedColumns[] =
     "tf.temp_friend_id, tf.user1_id, tf.user2_id, tf.source, tf.source_id, "
     "tf.status, tf.upgraded_to_friend, tf.created_at, tf.expires_at";
+
+std::pair<std::string, std::string> normalizeTempFriendPair(const std::string &left,
+                                                            const std::string &right) {
+    if (left <= right) {
+        return {left, right};
+    }
+    return {right, left};
+}
+
+int readRemainingSeconds(const drogon::orm::Row &row) {
+    return row["seconds_remaining"].isNull()
+               ? 0
+               : clampRemainingSeconds(row["seconds_remaining"].as<int>());
+}
 }
 
 void TempFriendController::createTempFriend(const HttpRequestPtr &req,
@@ -82,9 +97,23 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
         
         // 检查是否已经是好友
         auto dbClient = app().getDbClient("default");
-        auto targetResult = dbClient->execSqlSync(
-            "SELECT user_id FROM users WHERE user_id = $1 LIMIT 1", targetUserId);
-        if (targetResult.empty()) {
+        const auto [user1Id, user2Id] = normalizeTempFriendPair(currentUserId, targetUserId);
+        auto relationState = dbClient->execSqlSync(
+            "SELECT "
+            "  EXISTS(SELECT 1 FROM users WHERE user_id = $1) AS target_exists, "
+            "  EXISTS(SELECT 1 FROM friends "
+            "         WHERE ((user_id = $2 AND friend_id = $1) "
+            "             OR (user_id = $1 AND friend_id = $2)) "
+            "           AND status = 'accepted') AS already_friend, "
+            "  EXISTS(SELECT 1 FROM temp_friends "
+            "         WHERE status = 'active' "
+            "           AND expires_at >= NOW() "
+            "           AND ((user1_id = $2 AND user2_id = $1) "
+            "             OR (user1_id = $1 AND user2_id = $2))) AS already_temp_friend",
+            targetUserId, currentUserId);
+        const auto relationRow = *safeRow(relationState);
+
+        if (!relationRow["target_exists"].as<bool>()) {
             Json::Value ret;
             ret["code"] = 404;
             ret["message"] = "目标用户不存在";
@@ -93,13 +122,7 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             return;
         }
 
-        auto friendCheck = dbClient->execSqlSync(
-            "SELECT friendship_id FROM friends "
-            "WHERE ((user_id = $1 AND friend_id = $2) "
-            "OR (user_id = $2 AND friend_id = $1)) "
-            "AND status = 'accepted' LIMIT 1",
-            currentUserId, targetUserId);
-        if (!friendCheck.empty()) {
+        if (relationRow["already_friend"].as<bool>()) {
             Json::Value ret;
             ret["code"] = 400;
             ret["message"] = "已经是永久好友";
@@ -107,15 +130,8 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             callback(resp);
             return;
         }
-        
-        // 检查是否已存在临时好友或永久好友关系
-        auto checkSql = "SELECT COUNT(*) as cnt FROM temp_friends "
-                       "WHERE ((user1_id = $1 AND user2_id = $2) "
-                       "OR (user1_id = $2 AND user2_id = $1)) "
-                       "AND status = 'active'";
-        
-        auto result = dbClient->execSqlSync(checkSql, currentUserId, targetUserId);
-        if (safeCount(result, "cnt") > 0) {
+
+        if (relationRow["already_temp_friend"].as<bool>()) {
             Json::Value ret;
             ret["code"] = 400;
             ret["message"] = "已经是临时好友";
@@ -129,12 +145,18 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
         auto expiresAt = trantor::Date::date().after(24 * 3600); // 24小时后过期
         
         auto insertSql = "INSERT INTO temp_friends "
-                        "(temp_friend_id, user1_id, user2_id, source, source_id, expires_at) "
-                        "VALUES ($1, $2, $3, $4, $5, $6) "
+                        "(temp_friend_id, user1_id, user2_id, source, source_id, status, upgraded_to_friend, expires_at) "
+                        "VALUES ($1, $2, $3, $4, $5, 'active', false, $6) "
+                        "ON CONFLICT ON CONSTRAINT unique_temp_friendship DO UPDATE SET "
+                        "source = EXCLUDED.source, "
+                        "source_id = EXCLUDED.source_id, "
+                        "status = 'active', "
+                        "upgraded_to_friend = false, "
+                        "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at) "
                         "RETURNING temp_friend_id, expires_at";
         
         auto insertResult = dbClient->execSqlSync(insertSql, 
-            tempFriendId, currentUserId, targetUserId, 
+            tempFriendId, user1Id, user2Id, 
             source, sourceId, expiresAt.toDbStringLocal());
         
         if (insertResult.size() > 0) {
@@ -189,11 +211,6 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
         auto& currentUserId = *userIdOpt2;
         auto dbClient = app().getDbClient("default");
 
-        // 首先清理过期的临时好友
-        auto cleanupSql = "UPDATE temp_friends SET status = 'expired' "
-                         "WHERE status = 'active' AND expires_at < NOW()";
-        dbClient->execSqlSync(cleanupSql);
-        
         // 查询临时好友列表
         auto querySql = std::string("SELECT ") + kTempFriendAliasedColumns + ", "
                        "CASE "
@@ -214,6 +231,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
                        "LEFT JOIN users u2 ON tf.user2_id = u2.user_id "
                        "WHERE (tf.user1_id = $1 OR tf.user2_id = $1) "
                        "AND tf.status = 'active' "
+                       "AND tf.expires_at >= NOW() "
                        "ORDER BY tf.created_at DESC";
         
         auto result = dbClient->execSqlSync(querySql, currentUserId);
@@ -229,9 +247,7 @@ void TempFriendController::getMyTempFriends(const HttpRequestPtr &req,
             friend_["source"] = row["source"].as<std::string>();
             friend_["created_at"] = row["created_at"].as<std::string>();
             friend_["expires_at"] = row["expires_at"].as<std::string>();
-            int secRemaining = row["seconds_remaining"].isNull()
-                                   ? 0
-                                   : clampRemainingSeconds(row["seconds_remaining"].as<int>());
+            int secRemaining = readRemainingSeconds(row);
             friend_["seconds_remaining"] = secRemaining;
             friend_["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
             
@@ -272,6 +288,10 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
 
         auto querySql = std::string("SELECT ") + kTempFriendAliasedColumns + ", "
+                       "CASE "
+                       "  WHEN tf.status = 'active' AND tf.expires_at < NOW() THEN 'expired' "
+                       "  ELSE tf.status "
+                       "END AS effective_status, "
                        "u1.nickname as user1_nickname, u1.avatar_url as user1_avatar, "
                        "u2.nickname as user2_nickname, u2.avatar_url as user2_avatar, "
                        "EXTRACT(EPOCH FROM (tf.expires_at - NOW())) as seconds_remaining "
@@ -299,13 +319,11 @@ void TempFriendController::getTempFriendDetail(const HttpRequestPtr &req,
         
         Json::Value data;
         data["temp_friend_id"] = row["temp_friend_id"].as<std::string>();
-        data["status"] = row["status"].as<std::string>();
+        data["status"] = row["effective_status"].as<std::string>();
         data["source"] = row["source"].as<std::string>();
         data["created_at"] = row["created_at"].as<std::string>();
         data["expires_at"] = row["expires_at"].as<std::string>();
-        int secRemaining = row["seconds_remaining"].isNull()
-                               ? 0
-                               : clampRemainingSeconds(row["seconds_remaining"].as<int>());
+        int secRemaining = readRemainingSeconds(row);
         data["seconds_remaining"] = secRemaining;
         data["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
         data["upgraded_to_friend"] = row["upgraded_to_friend"].as<bool>();
@@ -361,7 +379,8 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
         auto querySql = std::string("SELECT ") + kTempFriendBaseColumns + " FROM temp_friends "
                        "WHERE temp_friend_id = $1 "
                        "AND (user1_id = $2 OR user2_id = $2) "
-                       "AND status = 'active'";
+                       "AND status = 'active' "
+                       "AND expires_at >= NOW()";
         
         auto result = dbClient->execSqlSync(querySql, tempFriendId, currentUserId);
         
@@ -375,8 +394,8 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
         }
         
         auto row = *safeRow(result);
-        auto user1 = row["user1_id"].as<std::string>();
-        auto user2 = row["user2_id"].as<std::string>();
+        auto [user1, user2] = normalizeTempFriendPair(
+            row["user1_id"].as<std::string>(), row["user2_id"].as<std::string>());
         
         // 开启事务
         auto trans = dbClient->newTransaction();
@@ -451,7 +470,8 @@ void TempFriendController::deleteTempFriend(const HttpRequestPtr &req,
                         "SET status = 'expired' "
                         "WHERE temp_friend_id = $1 "
                         "AND (user1_id = $2 OR user2_id = $2) "
-                        "AND status = 'active'";
+                        "AND status = 'active' "
+                        "AND expires_at >= NOW()";
         
         auto result = dbClient->execSqlSync(updateSql, tempFriendId, currentUserId);
         
@@ -502,7 +522,8 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
                        "FROM temp_friends tf "
                        "WHERE ((tf.user1_id = $1 AND tf.user2_id = $2) "
                        "OR (tf.user1_id = $2 AND tf.user2_id = $1)) "
-                       "AND tf.status = 'active'";
+                       "AND tf.status = 'active' "
+                       "AND tf.expires_at >= NOW()";
         
         auto result = dbClient->execSqlSync(querySql, currentUserId, targetUserId);
         
@@ -515,9 +536,7 @@ void TempFriendController::checkTempFriendStatus(const HttpRequestPtr &req,
             data["is_temp_friend"] = true;
             data["temp_friend_id"] = row["temp_friend_id"].as<std::string>();
             data["expires_at"] = row["expires_at"].as<std::string>();
-            int secRemaining = row["seconds_remaining"].isNull()
-                                   ? 0
-                                   : clampRemainingSeconds(row["seconds_remaining"].as<int>());
+            int secRemaining = readRemainingSeconds(row);
             data["seconds_remaining"] = secRemaining;
             data["hours_remaining"] = remainingHoursFromSeconds(secRemaining);
             ret["data"] = data;

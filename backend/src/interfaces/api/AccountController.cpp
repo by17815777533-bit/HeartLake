@@ -8,6 +8,7 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cctype>
+#include <mutex>
 #include <thread>
 
 using namespace heartlake::controllers;
@@ -73,9 +74,12 @@ void ensureUserBlocksTable(const drogon::orm::DbClientPtr &dbClient) {
 }
 
 void ensureAccountRuntimeSchema(const drogon::orm::DbClientPtr &dbClient) {
-  ensureUserProfileColumns(dbClient);
-  ensureUserPrivacySettingsTable(dbClient);
-  ensureUserBlocksTable(dbClient);
+  static std::once_flag initFlag;
+  std::call_once(initFlag, [&dbClient]() {
+    ensureUserProfileColumns(dbClient);
+    ensureUserPrivacySettingsTable(dbClient);
+    ensureUserBlocksTable(dbClient);
+  });
 }
 
 bool parseBoolCompat(const Json::Value &json, const char *key,
@@ -764,18 +768,24 @@ void AccountController::blockUser(
 
     auto dbClient = app().getDbClient("default");
     ensureAccountRuntimeSchema(dbClient);
-    auto targetResult =
-        dbClient->execSqlSync("SELECT user_id FROM users WHERE user_id = $1",
-                              targetUserId);
-    if (targetResult.empty()) {
+    auto result = dbClient->execSqlSync(
+        "WITH target AS ("
+        "  SELECT user_id FROM users WHERE user_id = $2"
+        "), inserted AS ("
+        "  INSERT INTO user_blocks (user_id, blocked_user_id) "
+        "  SELECT $1, user_id FROM target "
+        "  ON CONFLICT DO NOTHING "
+        "  RETURNING blocked_user_id"
+        ") "
+        "SELECT EXISTS(SELECT 1 FROM target) AS target_exists, "
+        "       EXISTS(SELECT 1 FROM inserted) AS inserted",
+        userId, targetUserId);
+
+    if (result.empty() || result[0]["target_exists"].isNull() ||
+        !result[0]["target_exists"].as<bool>()) {
       callback(ResponseUtil::notFound("用户不存在"));
       return;
     }
-
-    dbClient->execSqlSync(
-        "INSERT INTO user_blocks (user_id, blocked_user_id) VALUES ($1, $2) "
-        "ON CONFLICT DO NOTHING",
-        userId, targetUserId);
 
     callback(ResponseUtil::success(Json::Value(), "用户已拉黑"));
   } catch (const std::exception &e) {
