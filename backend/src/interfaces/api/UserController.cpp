@@ -386,17 +386,32 @@ void UserController::getUserStats(
 
     auto result = dbClient->execSqlSync(
         "SELECT "
-        "  (SELECT COUNT(*) FROM stones WHERE user_id = $1 AND status = "
-        "'published') as stones_count,"
-        "  (SELECT COALESCE(SUM(ripple_count), 0) FROM stones WHERE user_id = "
-        "$1) as ripples_received,"
-        "  (SELECT COALESCE(SUM(boat_count), 0) FROM stones WHERE user_id = "
-        "$1) as boats_received,"
-        "  (SELECT COUNT(*) FROM ripples WHERE user_id = $1) as ripples_sent,"
-        "  (SELECT COUNT(*) FROM paper_boats WHERE sender_id = $1) as "
-        "boats_sent,"
-        "  (SELECT DATE_PART('day', NOW() - created_at) FROM users WHERE "
-        "user_id = $1) as join_days",
+        "  COALESCE(st.stones_count, 0) AS stones_count, "
+        "  COALESCE(st.ripples_received, 0) AS ripples_received, "
+        "  COALESCE(st.boats_received, 0) AS boats_received, "
+        "  COALESCE(rp.ripples_sent, 0) AS ripples_sent, "
+        "  COALESCE(pb.boats_sent, 0) AS boats_sent, "
+        "  GREATEST(DATE_PART('day', NOW() - u.created_at), 0) AS join_days "
+        "FROM users u "
+        "LEFT JOIN LATERAL ("
+        "  SELECT "
+        "    COUNT(*) FILTER (WHERE s.status = 'published' AND s.deleted_at IS NULL) AS stones_count, "
+        "    COALESCE(SUM(CASE WHEN s.status = 'published' AND s.deleted_at IS NULL THEN s.ripple_count ELSE 0 END), 0) AS ripples_received, "
+        "    COALESCE(SUM(CASE WHEN s.status = 'published' AND s.deleted_at IS NULL THEN s.boat_count ELSE 0 END), 0) AS boats_received "
+        "  FROM stones s "
+        "  WHERE s.user_id = u.user_id"
+        ") st ON TRUE "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) AS ripples_sent "
+        "  FROM ripples r "
+        "  WHERE r.user_id = u.user_id"
+        ") rp ON TRUE "
+        "LEFT JOIN LATERAL ("
+        "  SELECT COUNT(*) FILTER (WHERE COALESCE(pb.status, 'active') != 'deleted') AS boats_sent "
+        "  FROM paper_boats pb "
+        "  WHERE pb.sender_id = u.user_id"
+        ") pb ON TRUE "
+        "WHERE u.user_id = $1 AND u.status = 'active'",
         userId);
 
     if (result.empty()) {

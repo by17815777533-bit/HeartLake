@@ -152,7 +152,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/stones/{stoneId}/ripples` | Bearer | 点涟漪（幂等） |
-| GET | `/api/interactions/my/ripples` | Bearer | 我收到的涟漪 |
+| GET | `/api/interactions/my/ripples` | Bearer | 我发出的涟漪 |
 | POST | `/api/stones/{stoneId}/collect` | Bearer | 收藏石头 |
 | DELETE | `/api/stones/{stoneId}/collect` | Bearer | 取消收藏 |
 | GET | `/api/interactions/my/collections` | Bearer | 我的收藏 |
