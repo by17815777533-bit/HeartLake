@@ -151,6 +151,9 @@ POST `/api/stones` 请求体：
 
 GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
+- `sort` 支持 `latest` / `hot` 兼容别名，以及 `created_at` / `ripple_count` / `boat_count` / `view_count`
+- `hot` 映射到 `ripple_count`，`latest` 映射到 `created_at`
+
 ---
 
 ## InteractionController — 互动

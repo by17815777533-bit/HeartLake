@@ -166,6 +166,10 @@ curl -X POST http://localhost:8080/api/admin/login \
 StonePublishedEvent → AI 情感分析 → EmotionAnalyzedEvent → 缓存更新 + 情绪追踪 → 心理风险评估 → [CRITICAL] SafeHarbor 触发
 ```
 
+查询参数说明：
+- `sort` 支持兼容别名 `latest` / `hot`，也支持显式排序值 `created_at` / `ripple_count` / `boat_count` / `view_count`
+- `hot` 当前映射到 `ripple_count`，`latest` 映射到 `created_at`
+
 ### 4.3 互动
 
 | 方法 | 路径 | 认证 | 说明 |

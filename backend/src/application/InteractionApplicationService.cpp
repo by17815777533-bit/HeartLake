@@ -358,13 +358,15 @@ using heartlake::utils::stone_cache::buildStoneRippleStateCacheKey;
 
 void invalidateStoneReadCaches(
     const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
-    const std::string &stoneId) {
+    const std::string &stoneId, const std::string &stoneOwnerId,
+    const std::string &moodType) {
   if (!cacheManager) {
     return;
   }
 
   cacheManager->invalidate(buildStoneDetailCacheKey(stoneId));
-  heartlake::utils::stone_cache::bumpStoneListNamespace();
+  heartlake::utils::stone_cache::bumpStoneListNamespacesForStone(stoneOwnerId,
+                                                                 moodType);
 }
 
 } // namespace
@@ -393,7 +395,7 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     // 单条 CTE 合并石头校验、涟漪写入和计数更新，减少事务内往返
     auto writeResult = trans->execSqlSync(
         "WITH target AS ("
-        "  SELECT stone_id, user_id AS stone_owner_id FROM stones "
+        "  SELECT stone_id, user_id AS stone_owner_id, mood_type FROM stones "
         "  WHERE stone_id = $2 AND status = 'published' AND deleted_at IS NULL"
         "), inserted AS ("
         "  INSERT INTO ripples (ripple_id, stone_id, user_id, created_at) "
@@ -405,7 +407,7 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
         "  RETURNING ripple_count"
         ") "
         "SELECT i.ripple_id, i.stone_id, i.user_id, "
-        "       t.stone_owner_id, "
+        "       t.stone_owner_id, t.mood_type, "
         "       COALESCE(u.ripple_count, 0) AS ripple_count "
         "FROM inserted i "
         "JOIN target t ON t.stone_id = i.stone_id "
@@ -417,9 +419,11 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     }
 
     const auto &row = writeResult[0];
+    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
+    const auto moodType = safeStringColumn(row, "mood_type");
 
     // 清除石头缓存，确保计数器实时更新
-    invalidateStoneReadCaches(cacheManager_, stoneId);
+    invalidateStoneReadCaches(cacheManager_, stoneId, stoneOwnerId, moodType);
     if (cacheManager_) {
       cacheManager_->set(buildStoneRippleStateCacheKey(userId, stoneId), "1",
                          kStoneRippleStateCacheTtlSeconds);
@@ -440,7 +444,6 @@ InteractionApplicationService::createRipple(const std::string &stoneId,
     result["ripple_id"] = safeStringColumn(row, "ripple_id", rippleId);
     result["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
     result["user_id"] = safeStringColumn(row, "user_id", userId);
-    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
     result["stone_owner_id"] = stoneOwnerId;
     result["ripple_count"] = row["ripple_count"].isNull()
                                  ? 1
@@ -571,9 +574,11 @@ Json::Value InteractionApplicationService::deleteRipple(
         "  WHERE stone_id IN (SELECT stone_id FROM deleted) "
         "  RETURNING stone_id, ripple_count"
         ") "
-        "SELECT d.stone_id, COALESCE(u.ripple_count, 0) AS ripple_count "
+        "SELECT d.stone_id, s.user_id AS stone_owner_id, s.mood_type, "
+        "       COALESCE(u.ripple_count, 0) AS ripple_count "
         "FROM deleted d "
-        "LEFT JOIN updated u ON u.stone_id = d.stone_id",
+        "LEFT JOIN updated u ON u.stone_id = d.stone_id "
+        "LEFT JOIN stones s ON s.stone_id = d.stone_id",
         rippleId, userId);
 
     if (result.empty()) {
@@ -582,8 +587,10 @@ Json::Value InteractionApplicationService::deleteRipple(
 
     auto row = *safeRow(result);
     std::string stoneId = row["stone_id"].as<std::string>();
+    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
+    const auto moodType = safeStringColumn(row, "mood_type");
 
-    invalidateStoneReadCaches(cacheManager_, stoneId);
+    invalidateStoneReadCaches(cacheManager_, stoneId, stoneOwnerId, moodType);
     if (cacheManager_) {
       cacheManager_->set(buildStoneRippleStateCacheKey(userId, stoneId), "0",
                          kStoneRippleStateCacheTtlSeconds);
@@ -618,7 +625,7 @@ Json::Value InteractionApplicationService::sendBoat(
     // 2. 入库并同步石头 boat_count，避免旁路写入导致计数漂移
     auto writeResult = dbClient->execSqlSync(
         "WITH target AS ("
-        "  SELECT stone_id "
+        "  SELECT stone_id, user_id AS stone_owner_id, mood_type "
         "  FROM stones "
         "  WHERE stone_id = $2 AND deleted_at IS NULL"
         "), updated AS ("
@@ -634,15 +641,19 @@ Json::Value InteractionApplicationService::sendBoat(
         "  RETURNING boat_id, stone_id, sender_id, receiver_id, content, status"
         ") "
         "SELECT i.boat_id, i.stone_id, i.sender_id, i.receiver_id, i.content, "
-        "       i.status, COALESCE(u.boat_count, 1) AS boat_count "
+        "       i.status, t.stone_owner_id, t.mood_type, "
+        "       COALESCE(u.boat_count, 1) AS boat_count "
         "FROM inserted i "
+        "JOIN target t ON t.stone_id = i.stone_id "
         "LEFT JOIN updated u ON u.stone_id = i.stone_id",
         boatId, stoneId, senderId, receiverId, message);
     if (writeResult.empty()) {
       throw std::runtime_error("石头不存在");
     }
 
-    invalidateStoneReadCaches(cacheManager_, stoneId);
+    invalidateStoneReadCaches(cacheManager_, stoneId,
+                              safeStringColumn(writeResult[0], "stone_owner_id"),
+                              safeStringColumn(writeResult[0], "mood_type"));
 
     // 3. 发布事件
     core::events::BoatSentEvent event;
@@ -879,7 +890,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
     // 单条 CTE 合并石头计数更新与纸船写入，避免额外 count 查询
     auto writeResult = dbClient->execSqlSync(
         "WITH target AS ("
-        "  SELECT stone_id, user_id AS stone_owner_id "
+        "  SELECT stone_id, user_id AS stone_owner_id, mood_type "
         "  FROM stones "
         "  WHERE stone_id = $2 AND status = 'published' AND deleted_at IS NULL"
         "), updated AS ("
@@ -894,7 +905,7 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
         "  RETURNING boat_id, stone_id, sender_id, content"
         ") "
         "SELECT i.boat_id, i.stone_id, i.sender_id, i.content, "
-        "       t.stone_owner_id, u.boat_count "
+        "       t.stone_owner_id, t.mood_type, u.boat_count "
         "FROM inserted i "
         "JOIN target t ON t.stone_id = i.stone_id "
         "JOIN updated u ON u.stone_id = i.stone_id",
@@ -906,9 +917,10 @@ InteractionApplicationService::createBoat(const std::string &stoneId,
 
     const auto &row = writeResult[0];
     const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
+    const auto moodType = safeStringColumn(row, "mood_type");
 
     // 2.6 清除石头缓存，确保计数器实时更新
-    invalidateStoneReadCaches(cacheManager_, stoneId);
+    invalidateStoneReadCaches(cacheManager_, stoneId, stoneOwnerId, moodType);
 
     // 温暖纸船激励：用本地情绪模型估算暖意分，按比例发放积分
     auto &edgeEngine = heartlake::ai::EdgeAIEngine::getInstance();
@@ -975,9 +987,11 @@ InteractionApplicationService::deleteBoat(const std::string &boatId,
         "  WHERE stone_id IN (SELECT stone_id FROM deleted WHERE stone_id IS NOT NULL) "
         "  RETURNING stone_id, boat_count"
         ") "
-        "SELECT d.stone_id, COALESCE(u.boat_count, 0) AS boat_count "
+        "SELECT d.stone_id, s.user_id AS stone_owner_id, s.mood_type, "
+        "       COALESCE(u.boat_count, 0) AS boat_count "
         "FROM deleted d "
-        "LEFT JOIN updated u ON u.stone_id = d.stone_id",
+        "LEFT JOIN updated u ON u.stone_id = d.stone_id "
+        "LEFT JOIN stones s ON s.stone_id = d.stone_id",
         boatId, userId);
 
     if (deleteResult.empty()) {
@@ -987,11 +1001,13 @@ InteractionApplicationService::deleteBoat(const std::string &boatId,
     const auto &row = deleteResult[0];
     std::string stoneId =
         row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();
+    const auto stoneOwnerId = safeStringColumn(row, "stone_owner_id");
+    const auto moodType = safeStringColumn(row, "mood_type");
     const int boatCount =
         row["boat_count"].isNull() ? 0 : row["boat_count"].as<int>();
 
     if (!stoneId.empty()) {
-      invalidateStoneReadCaches(cacheManager_, stoneId);
+      invalidateStoneReadCaches(cacheManager_, stoneId, stoneOwnerId, moodType);
     }
 
     Json::Value response;

@@ -64,7 +64,9 @@ static const std::set<std::string> VALID_STONE_TYPES = {"small", "medium", "larg
 static const std::set<std::string> VALID_MOOD_TYPES = {
     "calm", "happy", "sad", "angry", "anxious", "confused", "surprised", "neutral"
 };
-static const std::set<std::string> VALID_SORT_VALUES = {"latest", "hot", "created_at"};
+static const std::set<std::string> VALID_SORT_VALUES = {
+    "latest", "hot", "created_at", "ripple_count", "boat_count", "view_count"
+};
 
 static std::string normalizeMoodType(std::string mood) {
     std::transform(mood.begin(), mood.end(), mood.begin(),
@@ -92,6 +94,22 @@ static std::string normalizeMoodType(std::string mood) {
         return "";
     }
     return mood;
+}
+
+static std::string normalizeStoneSort(std::string sort) {
+    std::transform(sort.begin(), sort.end(), sort.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    if (sort == "latest") {
+        return "created_at";
+    }
+    if (sort == "hot") {
+        return "ripple_count";
+    }
+    if (VALID_SORT_VALUES.find(sort) == VALID_SORT_VALUES.end()) {
+        return "created_at";
+    }
+    return sort;
 }
 
 // ==================== 石头发布 ====================
@@ -232,9 +250,7 @@ void StoneController::getStones(
         std::string filterMood = req->getParameter("mood");
 
         // SEC-WHITELIST: sort 参数白名单校验，防止 SQL 注入
-        if (VALID_SORT_VALUES.find(sort) == VALID_SORT_VALUES.end()) {
-            sort = "created_at";
-        }
+        sort = normalizeStoneSort(sort);
 
         // SEC-WHITELIST: mood 参数白名单校验，防止 SQL 注入
         if (!filterMood.empty()) {
@@ -245,18 +261,10 @@ void StoneController::getStones(
             return;
         }
 
-        // 映射排序参数
-        std::string sortBy = "created_at";
-        if (sort == "hot") {
-            sortBy = "ripple_count";
-        } else if (sort == "latest") {
-            sortBy = "created_at";
-        }
-
         std::string currentUserId = Validator::getUserId(req).value_or("");
 
         auto service = getStoneService();
-        auto result = service->getStoneList(page, pageSize, sortBy, filterMood, "", currentUserId);
+        auto result = service->getStoneList(page, pageSize, sort, filterMood, "", currentUserId);
 
         callback(ResponseUtil::success(result));
 

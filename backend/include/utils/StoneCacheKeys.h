@@ -15,12 +15,13 @@ std::string buildStoneListCacheKey(int page, int pageSize,
 std::string buildStoneRippleStateCacheKey(const std::string &userId,
                                           const std::string &stoneId);
 
-uint64_t currentStoneListNamespace() noexcept;
+uint64_t currentStoneListNamespace(const std::string &userId = "",
+                                   const std::string &filterMood = "") noexcept;
 
-uint64_t currentStoneListSortNamespace(const std::string &sortBy) noexcept;
+void bumpStoneListNamespace(const std::string &userId = "",
+                            const std::string &filterMood = "") noexcept;
 
-void bumpStoneListNamespace() noexcept;
-
-void bumpStoneListSortNamespace(const std::string &sortBy) noexcept;
+void bumpStoneListNamespacesForStone(const std::string &ownerUserId,
+                                     const std::string &moodType) noexcept;
 
 } // namespace heartlake::utils::stone_cache

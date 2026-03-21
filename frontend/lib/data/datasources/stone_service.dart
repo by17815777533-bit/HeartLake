@@ -62,6 +62,22 @@ class StoneService extends BaseService implements StoneDataSource {
     return buildCollectionEnvelope(data, primaryKey: 'stones', items: stones);
   }
 
+  String _normalizeSort(String sort) {
+    switch (sort) {
+      case 'latest':
+        return 'created_at';
+      case 'hot':
+        return 'ripple_count';
+      case 'created_at':
+      case 'view_count':
+      case 'ripple_count':
+      case 'boat_count':
+        return sort;
+      default:
+        throw ArgumentError('不支持的排序方式: $sort');
+    }
+  }
+
   /// 发布一颗石头，内容经过 XSS 过滤和长度校验
   ///
   /// 后端返回 403 表示高危内容被拦截，此时返回 high_risk 标记。
@@ -137,15 +153,25 @@ class StoneService extends BaseService implements StoneDataSource {
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
     InputValidator.requireInList(
-        sort, const ['latest', 'hot', 'random'], '排序方式');
-    final cacheKey = 'stones_${page}_${pageSize}_$sort';
+        sort,
+        const [
+          'latest',
+          'hot',
+          'created_at',
+          'view_count',
+          'ripple_count',
+          'boat_count',
+        ],
+        '排序方式');
+    final normalizedSort = _normalizeSort(sort);
+    final cacheKey = 'stones_${page}_${pageSize}_$normalizedSort';
 
     try {
       final result = await _breaker.call(() async {
         final response = await get('/lake/stones', queryParameters: {
           'page': page,
           'page_size': pageSize,
-          'sort': sort,
+          'sort': normalizedSort,
         });
 
         if (!response.success) return toMap(response);
