@@ -299,7 +299,8 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       );
 
       if (result['success'] == true && mounted) {
-        final normalizedBoats = (result['boats'] as List? ?? const [])
+        final rawBoats = result['boats'] ?? result['items'] ?? result['list'];
+        final normalizedBoats = (rawBoats as List? ?? const [])
             .whereType<Map>()
             .map((boat) =>
                 normalizePayloadContract(Map<String, dynamic>.from(boat)))

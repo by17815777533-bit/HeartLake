@@ -8,16 +8,44 @@ class NotificationResponseProcessor {
     if (!success) return {'success': false, 'message': '获取通知失败'};
     if (data is List) {
       final unread = data.where((n) => n is Map && n['is_read'] != true).length;
-      return {'success': true, 'notifications': data, 'unread_count': unread};
+      return {
+        'success': true,
+        'notifications': data,
+        'items': data,
+        'list': data,
+        'unread_count': unread,
+      };
     }
     if (data is Map<String, dynamic>) {
       final rawNotifications = data['notifications'];
       final rawItems = data['items'];
-      final items = rawNotifications is List ? rawNotifications : (rawItems is List ? rawItems : []);
-      final unreadCount = data['unread_count'] as int? ?? 0;
-      return {'success': true, 'notifications': items, 'unread_count': unreadCount};
+      final rawList = data['list'];
+      final nestedData = data['data'] is Map<String, dynamic>
+          ? data['data'] as Map<String, dynamic>
+          : null;
+      final items = rawNotifications is List
+          ? rawNotifications
+          : (rawItems is List ? rawItems : (rawList is List ? rawList : []));
+      final unreadCount = data['unread_count'] as int? ??
+          data['unreadCount'] as int? ??
+          nestedData?['unread_count'] as int? ??
+          nestedData?['unreadCount'] as int? ??
+          0;
+      return {
+        'success': true,
+        'notifications': items,
+        'items': items,
+        'list': items,
+        'unread_count': unreadCount,
+      };
     }
-    return {'success': true, 'notifications': [], 'unread_count': 0};
+    return {
+      'success': true,
+      'notifications': [],
+      'items': [],
+      'list': [],
+      'unread_count': 0,
+    };
   }
 
   Map<String, dynamic> processGetUnreadCount(dynamic data, bool success) {
@@ -86,7 +114,9 @@ void main() {
     });
 
     test('should treat missing is_read as unread', () {
-      final data = [{'id': 'n1', 'content': '通知'}];
+      final data = [
+        {'id': 'n1', 'content': '通知'}
+      ];
       final result = processor.processGetNotifications(data, true);
       expect(result['unread_count'], 1);
     });
@@ -119,17 +149,38 @@ void main() {
 
     test('should extract from items key when notifications missing', () {
       final data = {
-        'items': [{'id': 'n1'}],
+        'items': [
+          {'id': 'n1'}
+        ],
         'unread_count': 1,
       };
       final result = processor.processGetNotifications(data, true);
       expect((result['notifications'] as List).length, 1);
     });
 
+    test(
+        'should extract from list key when notifications and items are missing',
+        () {
+      final data = {
+        'list': [
+          {'id': 'n9'}
+        ],
+        'unread_count': 1,
+      };
+      final result = processor.processGetNotifications(data, true);
+      expect((result['notifications'] as List).length, 1);
+      expect((result['items'] as List).length, 1);
+    });
+
     test('should prefer notifications over items', () {
       final data = {
-        'notifications': [{'id': 'n1'}, {'id': 'n2'}],
-        'items': [{'id': 'n3'}],
+        'notifications': [
+          {'id': 'n1'},
+          {'id': 'n2'}
+        ],
+        'items': [
+          {'id': 'n3'}
+        ],
         'unread_count': 0,
       };
       final result = processor.processGetNotifications(data, true);
@@ -137,13 +188,29 @@ void main() {
     });
 
     test('should default unread_count to 0', () {
-      final data = {'notifications': [{'id': 'n1'}]};
+      final data = {
+        'notifications': [
+          {'id': 'n1'}
+        ]
+      };
       final result = processor.processGetNotifications(data, true);
       expect(result['unread_count'], 0);
     });
 
+    test('should read nested unread_count aliases', () {
+      final data = {
+        'items': [
+          {'id': 'n1'}
+        ],
+        'data': {'unreadCount': 4},
+      };
+      final result = processor.processGetNotifications(data, true);
+      expect(result['unread_count'], 4);
+    });
+
     test('should handle empty map', () {
-      final result = processor.processGetNotifications(<String, dynamic>{}, true);
+      final result =
+          processor.processGetNotifications(<String, dynamic>{}, true);
       expect(result['success'], true);
       expect(result['notifications'], isEmpty);
       expect(result['unread_count'], 0);
@@ -211,7 +278,8 @@ void main() {
     });
 
     test('should handle large unread count', () {
-      final result = processor.processGetUnreadCount({'unread_count': 9999}, true);
+      final result =
+          processor.processGetUnreadCount({'unread_count': 9999}, true);
       expect(result['unread_count'], 9999);
     });
 

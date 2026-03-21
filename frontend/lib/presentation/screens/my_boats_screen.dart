@@ -144,7 +144,8 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       );
 
       if (result['success'] == true && mounted) {
-        final boats = (result['boats'] as List? ?? const [])
+        final rawBoats = result['boats'] ?? result['items'] ?? result['list'];
+        final boats = (rawBoats as List? ?? const [])
             .whereType<Map>()
             .map((boat) =>
                 normalizePayloadContract(Map<String, dynamic>.from(boat)))

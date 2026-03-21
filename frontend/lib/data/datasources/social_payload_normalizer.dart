@@ -69,7 +69,6 @@ Map<String, dynamic> extractPaginationPayload(
   final sources = raw is Map
       ? _candidateMaps(raw).toList()
       : const <Map<String, dynamic>>[];
-  final source = sources.isNotEmpty ? sources.first : <String, dynamic>{};
 
   Map<String, dynamic> pagination = <String, dynamic>{};
   for (final candidate in sources) {

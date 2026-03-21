@@ -173,7 +173,8 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
       );
 
       if (result['success'] == true && mounted) {
-        final items = (result['ripples'] as List? ?? const [])
+        final rawItems = result['ripples'] ?? result['items'] ?? result['list'];
+        final items = (rawItems as List? ?? const [])
             .whereType<Map>()
             .map((json) =>
                 normalizePayloadContract(Map<String, dynamic>.from(json)))

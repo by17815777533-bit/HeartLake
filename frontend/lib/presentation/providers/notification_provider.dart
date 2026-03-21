@@ -253,7 +253,10 @@ class NotificationProvider with ChangeNotifier {
         pageSize: _pageSize,
       );
       if (result['success'] == true) {
-        final items = result['notifications'] as List? ?? [];
+        final items = (result['notifications'] ??
+                result['items'] ??
+                result['list']) as List? ??
+            [];
         final newItems = items.whereType<Map<String, dynamic>>().toList();
         for (final item in newItems) {
           _upsertNotification(item);
