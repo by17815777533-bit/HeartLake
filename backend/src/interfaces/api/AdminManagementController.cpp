@@ -88,13 +88,20 @@ HttpResponsePtr collectionResponse(const Json::Value& items,
     return ResponseUtil::success(
         ResponseUtil::buildCollectionPayload(primaryKey, items, total, page, pageSize));
 }
+
+int extractWindowTotal(const drogon::orm::Result& result,
+                       const std::string& column = "total_count") {
+    return result.empty() || result[0][column].isNull()
+        ? 0
+        : result[0][column].as<int>();
+}
 }
 
 void AdminManagementController::getUsers(const HttpRequestPtr &req,
                                          std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
         const auto userId = !req->getParameter("userId").empty()
             ? req->getParameter("userId")
@@ -106,11 +113,11 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         auto dbClient = app().getDbClient("default");
 
         // 使用参数化查询防止SQL注入
-        std::string countSql = "SELECT COUNT(*) as total FROM users u WHERE 1=1";
         std::string querySql =
             "SELECT u.user_id, u.username, u.nickname, u.status, u.created_at, u.last_active_at, "
             "COALESCE(st.stones_count, 0) as stones_count, "
-            "COALESCE(pb.boat_count, 0) as boat_count "
+            "COALESCE(pb.boat_count, 0) as boat_count, "
+            "COUNT(*) OVER() AS total_count "
             "FROM users u "
             "LEFT JOIN ("
             "  SELECT user_id, COUNT(*) as stones_count "
@@ -130,19 +137,16 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         int paramIdx = 1;
 
         if (!userId.empty()) {
-            countSql += " AND u.user_id LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
             querySql += " AND u.user_id LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(userId) + "%");
             paramIdx++;
         }
         if (!nickname.empty()) {
-            countSql += " AND u.nickname LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
             querySql += " AND u.nickname LIKE $" + std::to_string(paramIdx) + " ESCAPE '\\'";
             params.push_back("%" + escapeLike(nickname) + "%");
             paramIdx++;
         }
         if (!status.empty() && isValidUserStatus(status)) {
-            countSql += " AND u.status = $" + std::to_string(paramIdx);
             querySql += " AND u.status = $" + std::to_string(paramIdx);
             params.push_back(status);
             paramIdx++;
@@ -152,30 +156,28 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
             std::string searchCondition = " AND (u.username ILIKE $" + std::to_string(paramIdx) +
                 " OR u.nickname ILIKE $" + std::to_string(paramIdx) +
                 " OR u.user_id ILIKE $" + std::to_string(paramIdx) + ")";
-            countSql += searchCondition;
             querySql += searchCondition;
             params.push_back("%" + escapeLike(search) + "%");
             paramIdx++;
         }
 
-        // LIMIT/OFFSET 内联为安全整数（parsePage/parsePageSize 保证为 int）
-        querySql += " ORDER BY u.created_at DESC LIMIT " + std::to_string(pageSize) +
-                    " OFFSET " + std::to_string(offset);
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY u.created_at DESC LIMIT $" + std::to_string(limitParam) +
+                    " OFFSET $" + std::to_string(offsetParam);
 
-        // 执行查询：countSql 和 querySql 使用相同的 filter params
-        auto execWithParams = [&](const std::string& sql) {
+        auto execWithParams = [&]() {
             switch (params.size()) {
-                case 0: return dbClient->execSqlSync(sql);
-                case 1: return dbClient->execSqlSync(sql, params[0]);
-                case 2: return dbClient->execSqlSync(sql, params[0], params[1]);
-                case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
-                default: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3]);
+                case 0: return dbClient->execSqlSync(querySql, static_cast<int64_t>(pageSize), offset);
+                case 1: return dbClient->execSqlSync(querySql, params[0], static_cast<int64_t>(pageSize), offset);
+                case 2: return dbClient->execSqlSync(querySql, params[0], params[1], static_cast<int64_t>(pageSize), offset);
+                case 3: return dbClient->execSqlSync(querySql, params[0], params[1], params[2], static_cast<int64_t>(pageSize), offset);
+                case 4: return dbClient->execSqlSync(querySql, params[0], params[1], params[2], params[3], static_cast<int64_t>(pageSize), offset);
+                default: throw std::invalid_argument("SQL 参数数量超出支持范围");
             }
         };
-        auto countResult = execWithParams(countSql);
-        auto result = execWithParams(querySql);
-
-        int total = safeCount(countResult);
+        auto result = execWithParams();
+        int total = extractWindowTotal(result);
 
         Json::Value users(Json::arrayValue);
         for (const auto &row : result) {
@@ -308,25 +310,23 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
                                           std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
         const auto status = req->getParameter("status");
         const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
-        std::string countSql = "SELECT COUNT(*) as total FROM stones s LEFT JOIN users u ON s.user_id = u.user_id WHERE 1=1";
         std::string querySql =
             "SELECT s.stone_id, s.content, s.mood_type, s.is_anonymous, "
-            "s.ripple_count, s.boat_count, s.status, s.created_at, u.nickname "
+            "s.ripple_count, s.boat_count, s.status, s.created_at, u.nickname, "
+            "COUNT(*) OVER() AS total_count "
             "FROM stones s LEFT JOIN users u ON s.user_id = u.user_id WHERE 1=1";
         std::vector<std::string> params;
         int paramIdx = 1;
 
         if (!status.empty() && isValidStoneStatus(status)) {
             if (status == "deleted") {
-                countSql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
                 querySql += " AND (COALESCE(s.status, 'published') = 'deleted' OR s.deleted_at IS NOT NULL)";
             } else {
-                countSql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
                 querySql += " AND COALESCE(s.status, 'published') = $" + std::to_string(paramIdx);
                 params.push_back(status);
                 paramIdx++;
@@ -335,26 +335,27 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
 
         if (!keyword.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
-            countSql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             querySql += " AND (s.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             params.push_back("%" + escapeLike(keyword) + "%");
             paramIdx++;
         }
 
-        querySql += " ORDER BY s.created_at DESC LIMIT " + std::to_string(pageSize) +
-            " OFFSET " + std::to_string(offset);
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY s.created_at DESC LIMIT $" + std::to_string(limitParam) +
+            " OFFSET $" + std::to_string(offsetParam);
 
-        auto execWithParams = [&](const std::string& sql) {
+        auto execWithParams = [&]() {
             switch (params.size()) {
-                case 0: return dbClient->execSqlSync(sql);
-                case 1: return dbClient->execSqlSync(sql, params[0]);
-                default: return dbClient->execSqlSync(sql, params[0], params[1]);
+                case 0: return dbClient->execSqlSync(querySql, static_cast<int64_t>(pageSize), offset);
+                case 1: return dbClient->execSqlSync(querySql, params[0], static_cast<int64_t>(pageSize), offset);
+                case 2: return dbClient->execSqlSync(querySql, params[0], params[1], static_cast<int64_t>(pageSize), offset);
+                default: throw std::invalid_argument("SQL 参数数量超出支持范围");
             }
         };
 
-        auto countResult = execWithParams(countSql);
-        auto result = execWithParams(querySql);
-        int total = safeCount(countResult);
+        auto result = execWithParams();
+        int total = extractWindowTotal(result);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -433,24 +434,22 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
                                          std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
         auto [page, pageSize] = safePagination(req);
-        int offset = (page - 1) * pageSize;
+        const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
         const auto status = req->getParameter("status");
         const auto keyword = req->getParameter("keyword");
 
         auto dbClient = app().getDbClient("default");
-        std::string countSql = "SELECT COUNT(*) as total FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id WHERE 1=1";
         std::string querySql =
-            "SELECT b.boat_id, b.content, b.is_anonymous, b.status, b.created_at, u.nickname "
+            "SELECT b.boat_id, b.content, b.is_anonymous, b.status, b.created_at, u.nickname, "
+            "COUNT(*) OVER() AS total_count "
             "FROM paper_boats b LEFT JOIN users u ON b.sender_id = u.user_id WHERE 1=1";
         std::vector<std::string> params;
         int paramIdx = 1;
 
         if (!status.empty() && isValidBoatStatus(status)) {
             if (status == "published") {
-                countSql += " AND COALESCE(b.status, 'active') = 'active'";
                 querySql += " AND COALESCE(b.status, 'active') = 'active'";
             } else {
-                countSql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
                 querySql += " AND COALESCE(b.status, 'active') = $" + std::to_string(paramIdx);
                 params.push_back(status);
                 paramIdx++;
@@ -459,26 +458,27 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
 
         if (!keyword.empty()) {
             const auto placeholder = "$" + std::to_string(paramIdx);
-            countSql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             querySql += " AND (b.content ILIKE " + placeholder + " ESCAPE '\\' OR COALESCE(u.nickname, '') ILIKE " + placeholder + " ESCAPE '\\')";
             params.push_back("%" + escapeLike(keyword) + "%");
             paramIdx++;
         }
 
-        querySql += " ORDER BY b.created_at DESC LIMIT " + std::to_string(pageSize) +
-            " OFFSET " + std::to_string(offset);
+        const int limitParam = paramIdx++;
+        const int offsetParam = paramIdx;
+        querySql += " ORDER BY b.created_at DESC LIMIT $" + std::to_string(limitParam) +
+            " OFFSET $" + std::to_string(offsetParam);
 
-        auto execWithParams = [&](const std::string& sql) {
+        auto execWithParams = [&]() {
             switch (params.size()) {
-                case 0: return dbClient->execSqlSync(sql);
-                case 1: return dbClient->execSqlSync(sql, params[0]);
-                default: return dbClient->execSqlSync(sql, params[0], params[1]);
+                case 0: return dbClient->execSqlSync(querySql, static_cast<int64_t>(pageSize), offset);
+                case 1: return dbClient->execSqlSync(querySql, params[0], static_cast<int64_t>(pageSize), offset);
+                case 2: return dbClient->execSqlSync(querySql, params[0], params[1], static_cast<int64_t>(pageSize), offset);
+                default: throw std::invalid_argument("SQL 参数数量超出支持范围");
             }
         };
 
-        auto countResult = execWithParams(countSql);
-        auto result = execWithParams(querySql);
-        int total = safeCount(countResult);
+        auto result = execWithParams();
+        int total = extractWindowTotal(result);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
