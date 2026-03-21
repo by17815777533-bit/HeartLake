@@ -39,6 +39,17 @@ std::string trimAscii(const std::string &value) {
 std::string normalizeNickname(const std::string &raw) {
   return Validator::sanitizeHtml(trimAscii(raw));
 }
+
+int extractWindowTotal(const drogon::orm::Result &result,
+                       const std::string &column = "total_count") {
+  return result.empty() || result[0][column].isNull()
+             ? 0
+             : result[0][column].as<int>();
+}
+
+int64_t paginationOffset(int page, int pageSize) {
+  return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
+}
 } // namespace
 
 void UserController::anonymousLogin(
@@ -430,7 +441,7 @@ void UserController::searchUsers(
 
     auto dbClient = drogon::app().getDbClient("default");
     auto [page, pageSize] = safePagination(req);
-    int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
+    const int64_t offset = paginationOffset(page, pageSize);
 
     auto result = dbClient->execSqlSync(
         "SELECT user_id, username, nickname, avatar_url, is_anonymous, "
@@ -443,7 +454,6 @@ void UserController::searchUsers(
         offset);
 
     Json::Value users(Json::arrayValue);
-    int total = 0;
     for (const auto &row : result) {
       Json::Value user;
       user["user_id"] =
@@ -462,11 +472,8 @@ void UserController::searchUsers(
       user["is_anonymous"] =
           row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
       users.append(user);
-
-      if (total == 0 && !row["total_count"].isNull()) {
-        total = row["total_count"].as<int>();
-      }
     }
+    const int total = extractWindowTotal(result);
 
     callback(ResponseUtil::success(
         ResponseUtil::buildCollectionPayload("users", users, total, page,
@@ -495,24 +502,17 @@ void UserController::getMyBoats(
     auto [page, page_size] = safePagination(req);
 
     auto dbClient = drogon::app().getDbClient("default");
-
-    auto countResult =
-        dbClient->execSqlSync("SELECT COUNT(*) as total FROM paper_boats b "
-                              "INNER JOIN stones s ON b.stone_id = s.stone_id "
-                              "WHERE s.user_id = $1 AND b.sender_id <> $1",
-                              user_id);
-    int total = safeCount(countResult);
-
-    int64_t offset = static_cast<int64_t>(page - 1) * page_size;
+    const int64_t offset = paginationOffset(page, page_size);
     auto result = dbClient->execSqlSync(
         "SELECT b.boat_id, b.stone_id, b.content, b.boat_style, b.created_at, "
         "b.status, b.sender_id, b.is_anonymous, b.mood, b.response_content, "
-        "b.response_at "
+        "b.response_at, COUNT(*) OVER() AS total_count "
         "FROM paper_boats b "
         "INNER JOIN stones s ON b.stone_id = s.stone_id "
         "WHERE s.user_id = $1 AND b.sender_id <> $1 "
         "ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
         user_id, static_cast<int64_t>(page_size), offset);
+    const int total = extractWindowTotal(result);
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {

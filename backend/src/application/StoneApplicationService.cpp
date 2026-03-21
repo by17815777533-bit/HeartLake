@@ -85,33 +85,6 @@ bool safeBool(const drogon::orm::Row &row, const char *column,
   return row[column].isNull() ? fallback : row[column].as<bool>();
 }
 
-drogon::orm::Result
-execSqlSyncWithStringParams(const drogon::orm::DbClientPtr &dbClient,
-                            const std::string &sql,
-                            const std::vector<std::string> &params) {
-  switch (params.size()) {
-  case 0:
-    return dbClient->execSqlSync(sql);
-  case 1:
-    return dbClient->execSqlSync(sql, params[0]);
-  case 2:
-    return dbClient->execSqlSync(sql, params[0], params[1]);
-  case 3:
-    return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
-  case 4:
-    return dbClient->execSqlSync(sql, params[0], params[1], params[2],
-                                 params[3]);
-  case 5:
-    return dbClient->execSqlSync(sql, params[0], params[1], params[2],
-                                 params[3], params[4]);
-  case 6:
-    return dbClient->execSqlSync(sql, params[0], params[1], params[2],
-                                 params[3], params[4], params[5]);
-  default:
-    throw std::invalid_argument("SQL 参数数量超出支持范围");
-  }
-}
-
 std::string serializeRiskFactors(
     const std::vector<heartlake::utils::RiskFactor> &factors) {
   Json::Value payload(Json::arrayValue);
@@ -359,10 +332,8 @@ Json::Value StoneApplicationService::getStoneList(
     int offset = (page - 1) * pageSize;
 
     // 构建查询
-    std::vector<std::string> queryParams;
     int paramIndex = 1;
     const int currentUserParamIndex = paramIndex++;
-    queryParams.push_back(currentUserId);
 
     std::string sql =
         "SELECT s.stone_id, s.user_id, s.content, s.stone_type, s.stone_color, "
@@ -384,12 +355,10 @@ Json::Value StoneApplicationService::getStoneList(
     // 用户ID过滤
     if (!userId.empty()) {
       sql += "AND s.user_id = $" + std::to_string(paramIndex++) + " ";
-      queryParams.push_back(userId);
     }
 
     if (!filterMood.empty()) {
       sql += "AND s.mood_type = $" + std::to_string(paramIndex++) + " ";
-      queryParams.push_back(filterMood);
     }
 
     sql += "ORDER BY ";
@@ -404,11 +373,26 @@ Json::Value StoneApplicationService::getStoneList(
     }
 
     sql += "LIMIT $" + std::to_string(paramIndex++) + " ";
-    queryParams.push_back(std::to_string(pageSize));
     sql += "OFFSET $" + std::to_string(paramIndex);
-    queryParams.push_back(std::to_string(offset));
-
-    auto result = execSqlSyncWithStringParams(dbClient, sql, queryParams);
+    auto result = [&]() -> drogon::orm::Result {
+      if (!userId.empty() && !filterMood.empty()) {
+        return dbClient->execSqlSync(
+            sql, currentUserId, userId, filterMood,
+            static_cast<int64_t>(pageSize), offset);
+      }
+      if (!userId.empty()) {
+        return dbClient->execSqlSync(
+            sql, currentUserId, userId, static_cast<int64_t>(pageSize),
+            offset);
+      }
+      if (!filterMood.empty()) {
+        return dbClient->execSqlSync(
+            sql, currentUserId, filterMood, static_cast<int64_t>(pageSize),
+            offset);
+      }
+      return dbClient->execSqlSync(sql, currentUserId,
+                                   static_cast<int64_t>(pageSize), offset);
+    }();
 
     Json::Value stones(Json::arrayValue);
     int total = 0;

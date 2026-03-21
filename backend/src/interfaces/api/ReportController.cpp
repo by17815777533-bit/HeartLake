@@ -10,6 +10,19 @@
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
+namespace {
+int extractWindowTotal(const drogon::orm::Result &result,
+                       const std::string &column = "total_count") {
+    return result.empty() || result[0][column].isNull()
+               ? 0
+               : result[0][column].as<int>();
+}
+
+int64_t paginationOffset(int page, int pageSize) {
+    return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
+}
+} // namespace
+
 void ReportController::createReport(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
@@ -96,22 +109,15 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
         auto [page, page_size] = safePagination(req);
 
         auto dbClient = drogon::app().getDbClient("default");
-
-        // 获取总数
-        auto countResult = dbClient->execSqlSync(
-            "SELECT COUNT(*) as total FROM reports WHERE reporter_id = $1",
-            user_id
-        );
-        int total = safeCount(countResult);
-
-        // 获取列表
-        int offset = (page - 1) * page_size;
+        const int64_t offset = paginationOffset(page, page_size);
         auto result = dbClient->execSqlSync(
-            "SELECT report_id, target_type, target_id, reason, description, status, created_at "
+            "SELECT report_id, target_type, target_id, reason, description, status, created_at, "
+            "COUNT(*) OVER() AS total_count "
             "FROM reports WHERE reporter_id = $1 "
             "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
-            user_id, std::to_string(page_size), std::to_string(offset)
+            user_id, static_cast<int64_t>(page_size), offset
         );
+        const int total = extractWindowTotal(result);
         
         Json::Value reports(Json::arrayValue);
         for (const auto &row : result) {
