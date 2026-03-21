@@ -66,7 +66,7 @@ describe('API Stress Tests', () => {
       mock.onGet('/admin/stats/trending-topics').reply(200, { data: [] })
       mock.onGet('/admin/stats/active-time').reply(200, { data: [] })
       mock.onGet('/admin/users').reply(200, { data: [] })
-      mock.onGet('/admin/stones').reply(200, { data: [] })
+      mock.onGet('/admin/content').reply(200, { data: [] })
       mock.onGet('/admin/reports').reply(200, { data: [] })
       mock.onGet('/admin/logs').reply(200, { data: [] })
 
@@ -352,7 +352,7 @@ describe('API Stress Tests', () => {
     it('并发请求正确管理loading计数', async () => {
       mock.onGet('/admin/stats/dashboard').reply(200, { data: {} })
       mock.onGet('/admin/users').reply(200, { data: [] })
-      mock.onGet('/admin/stones').reply(200, { data: [] })
+      mock.onGet('/admin/content').reply(200, { data: [] })
 
       await Promise.all([
         api.getDashboardStats(),

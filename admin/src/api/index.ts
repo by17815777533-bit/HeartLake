@@ -321,7 +321,8 @@ export default {
   unbanUser: (id: string) => http.post(`/admin/users/${id}/unban`),
   // Content
   getContents: (params?: Params) => http.get('/admin/content', { params }),
-  deleteContent: (id: string, reason: string) => http.delete(`/admin/stones/${id}`, { data: { reason } }),
+  deleteContent: (id: string, reason: string, type: 'stone' | 'boat' = 'stone') =>
+    http.delete(`/admin/${type === 'boat' ? 'boats' : 'stones'}/${id}`, { data: { reason } }),
   getStones: (params?: Params) => http.get('/admin/stones', { params }),
   getBoats: (params?: Params) => http.get('/admin/boats', { params }),
   deleteStone: (id: string, reason: string) => http.delete(`/admin/stones/${id}`, { data: { reason } }),

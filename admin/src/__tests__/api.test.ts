@@ -152,9 +152,9 @@ describe('API Module', () => {
     })
 
     it('should call contents endpoint', async () => {
-      mock.onGet('/admin/stones').reply(200, { data: { list: [] } })
+      mock.onGet('/admin/content').reply(200, { data: { list: [] } })
       await api.getContents({ page: 1 })
-      expect(mock.history.get[0].url).toBe('/admin/stones')
+      expect(mock.history.get[0].url).toBe('/admin/content')
     })
 
     it('should call reports handle endpoint', async () => {
@@ -231,15 +231,21 @@ describe('API Module', () => {
     })
 
     it('getContents 带 keyword', async () => {
-      mock.onGet('/admin/stones').reply(200, { data: { list: [] } })
+      mock.onGet('/admin/content').reply(200, { data: { list: [] } })
       await api.getContents({ page: 1, keyword: '心湖' })
       expect(mock.history.get[0].params.keyword).toBe('心湖')
     })
 
     it('getContents 500', async () => {
-      mock.onGet('/admin/stones').reply(500)
+      mock.onGet('/admin/content').reply(500)
       try { await api.getContents({}); expect.unreachable() } catch (e: any) { expect(e.response.status).toBe(500) }
     }, 15000)
+
+    it('deleteContent 支持纸船路由', async () => {
+      mock.onDelete('/admin/boats/b1').reply(200, { code: 0 })
+      await api.deleteContent('b1', '违规内容', 'boat')
+      expect(mock.history.delete[0].url).toBe('/admin/boats/b1')
+    })
   })
 
   describe('Reports API', () => {
