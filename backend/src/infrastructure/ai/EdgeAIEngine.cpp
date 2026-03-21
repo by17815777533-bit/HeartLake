@@ -586,6 +586,7 @@ Json::Value EdgeAIEngine::getNodeDashboard() const {
 
 Json::Value EdgeAIEngine::getEngineStats() const {
     Json::Value stats;
+    Json::Value callCounts(Json::objectValue);
     stats["enabled"] = enabled_.load(std::memory_order_acquire);
     stats["initialized"] = initialized_.load(std::memory_order_acquire);
     stats["low_resource_defaults_applied"] = lowResourceDefaultsApplied_;
@@ -602,12 +603,20 @@ Json::Value EdgeAIEngine::getEngineStats() const {
         stats["total_sentiment_calls"] = static_cast<Json::UInt64>(sentiment_->getTotalCalls());
         stats["sentiment_cache_hits"] = static_cast<Json::UInt64>(sentiment_->getCacheHits());
         stats["sentiment_cache_misses"] = static_cast<Json::UInt64>(sentiment_->getCacheMisses());
+        callCounts["sentiment_analysis"] =
+            static_cast<Json::UInt64>(sentiment_->getTotalCalls());
+    }
+
+    if (moderator_) {
+        callCounts["text_moderation"] =
+            static_cast<Json::UInt64>(moderator_->getTotalCalls());
     }
 
     if (hnsw_) {
         auto hnswStats = hnsw_->getHNSWStats();
         stats["hnsw_node_count"] = hnswStats.get("node_count", 0u);
         stats["hnsw_max_level"] = hnswStats.get("max_level", 0);
+        callCounts["hnsw_searches"] = hnswStats.get("total_searches", 0u);
     }
 
     if (pulse_) {
@@ -629,6 +638,12 @@ Json::Value EdgeAIEngine::getEngineStats() const {
         stats["registered_nodes"] = dashboard.get("total_nodes", 0u);
         stats["healthy_nodes"] = dashboard.get("healthy_nodes", 0);
     }
+
+    if (quantizer_) {
+        callCounts["quantized_ops"] =
+            static_cast<Json::UInt64>(quantizer_->getTotalOps());
+    }
+    stats["call_counts"] = callCounts;
 
     return stats;
 }

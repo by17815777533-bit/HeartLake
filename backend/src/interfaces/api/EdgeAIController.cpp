@@ -284,6 +284,39 @@ Json::Value buildAdminEdgeAIConfigPayload(const Json::Value& aiConfig,
     return config;
 }
 
+int countLoadedSubsystems(const Json::Value& subsystems) {
+    int loaded = 0;
+    for (const auto& key : subsystems.getMemberNames()) {
+        if (subsystems[key].asString() != "disabled") {
+            ++loaded;
+        }
+    }
+    return loaded;
+}
+
+double resolveCacheHitRatePercent(const Json::Value& cacheMetrics) {
+    double hitRate = cacheMetrics.get("hit_rate", 0.0).asDouble();
+    if (cacheMetrics.isMember("semantic_cache")) {
+        hitRate = cacheMetrics["semantic_cache"].get("hit_rate", hitRate).asDouble();
+    }
+    if (hitRate <= 1.0) {
+        hitRate *= 100.0;
+    }
+    return std::clamp(hitRate, 0.0, 100.0);
+}
+
+std::string joinStrings(const std::vector<std::string>& values,
+                        const std::string& delimiter) {
+    std::string joined;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            joined += delimiter;
+        }
+        joined += values[i];
+    }
+    return joined;
+}
+
 struct ConfidenceCalibration {
     float calibratedConfidence{0.0f};
     float uncertainty{1.0f};
@@ -320,23 +353,47 @@ void EdgeAIController::getStatus(
         auto traceId = req->getAttributes()->get<std::string>("trace_id");
         LOG_INFO << "[trace:" << traceId << "] getStatus called";
         auto &engine = heartlake::ai::EdgeAIEngine::getInstance();
+        const auto subsystems = collectSubsystemHealth();
+        const auto engineStats = engine.getEngineStats();
+        const auto cacheMetrics = collectCacheMetrics();
+        const auto embeddingMetrics = collectEmbeddingMetrics();
 
         Json::Value data;
         data["enabled"] = engine.isEnabled();
         data["timestamp"] = trantor::Date::now().toFormattedString(false);
-        data["subsystems"] = collectSubsystemHealth();
+        data["subsystems"] = subsystems;
 
         // 引擎统计信息
-        data["engine_stats"] = engine.getEngineStats();
+        data["engine_stats"] = engineStats;
+        data["cache"] = cacheMetrics;
+        data["embedding"] = embeddingMetrics;
 
         // 节点状态
         auto nodes = engine.getAllNodeStatus();
         Json::Value nodesJson = Json::arrayValue;
+        float totalLatency = 0.0f;
         for (const auto &node : nodes) {
             nodesJson.append(node.toJson());
+            totalLatency += node.latencyMs;
         }
         data["nodes"] = nodesJson;
         data["node_count"] = static_cast<int>(nodes.size());
+        const auto nodeCount = static_cast<int>(nodes.size());
+        const auto totalModules = static_cast<int>(subsystems.getMemberNames().size());
+        const auto modulesLoaded = countLoadedSubsystems(subsystems);
+        const auto avgLatency = nodes.empty() ? 0.0 : totalLatency / nodes.size();
+        const auto cacheHitRate = resolveCacheHitRatePercent(cacheMetrics);
+
+        setMirroredConfig(data, "modules_loaded", "modulesLoaded", modulesLoaded);
+        setMirroredConfig(data, "total_modules", "totalModules", totalModules);
+        setMirroredConfig(data, "active_nodes", "activeNodes", nodeCount);
+        setMirroredConfig(data, "cache_hit_rate", "cacheHitRate", cacheHitRate);
+        setMirroredConfig(data, "avg_latency", "avgLatency", avgLatency);
+        setMirroredConfig(data, "inference_count", "inferenceCount",
+                          engineStats.get("total_sentiment_calls", 0u));
+        data["throughput"] = embeddingMetrics.get("throughput_per_sec", 0.0);
+        data["throughput_estimated"] =
+            embeddingMetrics.get("throughput_estimated", true);
 
         callback(ResponseUtil::success(data, "边缘AI引擎状态获取成功"));
     } catch (const std::exception &e) {
@@ -388,6 +445,23 @@ void EdgeAIController::getMetrics(
         nodeMetrics["healthy_nodes"] = healthyCount;
         nodeMetrics["avg_latency_ms"] = nodes.empty() ? 0.0f : totalLatency / nodes.size();
         data["node_metrics"] = nodeMetrics;
+        const auto subsystems = collectSubsystemHealth();
+        setMirroredConfig(data, "active_nodes", "activeNodes",
+                          static_cast<int>(nodes.size()));
+        setMirroredConfig(data, "avg_latency", "avgLatency",
+                          nodeMetrics["avg_latency_ms"]);
+        data["avg_latency_ms"] = nodeMetrics["avg_latency_ms"];
+        setMirroredConfig(data, "cache_hit_rate", "cacheHitRate",
+                          resolveCacheHitRatePercent(data["cache"]));
+        setMirroredConfig(data, "inference_count", "inferenceCount",
+                          data["engine_stats"].get("total_sentiment_calls", 0u));
+        setMirroredConfig(data, "modules_loaded", "modulesLoaded",
+                          countLoadedSubsystems(subsystems));
+        setMirroredConfig(data, "total_modules", "totalModules",
+                          static_cast<int>(subsystems.getMemberNames().size()));
+        data["throughput"] = data["embedding"].get("throughput_per_sec", 0.0);
+        data["throughput_estimated"] =
+            data["embedding"].get("throughput_estimated", true);
 
         // 双记忆RAG指标
         data["dual_memory_rag"] = heartlake::ai::DualMemoryRAG::getInstance().getStats();
@@ -452,6 +526,9 @@ void EdgeAIController::analyzeLocal(
         const auto calibrated = calibrateConfidence(result.score, result.confidence, text.size());
         data["score"] = result.score;
         data["mood"] = result.mood;
+        data["sentiment"] = result.mood;
+        data["emotion"] = result.mood;
+        data["sentiment_score"] = result.score;
         data["confidence"] = calibrated.calibratedConfidence;
         data["calibrated_confidence"] = calibrated.calibratedConfidence;
         data["raw_confidence"] = result.confidence;
@@ -504,10 +581,22 @@ void EdgeAIController::moderateLocal(
 
         Json::Value data;
         data["passed"] = result.passed;
+        data["pass"] = result.passed;
         data["risk_level"] = result.riskLevel;
+        data["risk"] = result.riskLevel;
         data["confidence"] = result.confidence;
         for (const auto &p : result.matchedPatterns) data["matched_patterns"].append(p);
         for (const auto &c : result.categories) data["categories"].append(c);
+        std::vector<std::string> reasonParts;
+        if (!result.categories.empty()) {
+            reasonParts.push_back("分类: " + joinStrings(result.categories, " / "));
+        }
+        if (!result.matchedPatterns.empty()) {
+            reasonParts.push_back("命中: " + joinStrings(result.matchedPatterns, " / "));
+        }
+        const auto reason = joinStrings(reasonParts, "; ");
+        data["reason"] = reason;
+        data["reject_reason"] = reason;
 
         callback(ResponseUtil::success(data, "本地内容审核完成"));
     } catch (const std::exception &e) {
@@ -535,9 +624,16 @@ void EdgeAIController::getEmotionPulse(
 
         Json::Value data;
         data["avg_score"] = pulse.avgScore;
-        data["normalized_score"] = std::clamp((pulse.avgScore + 1.0f) / 2.0f, 0.0f, 1.0f);
+        const auto normalizedScore =
+            std::clamp((pulse.avgScore + 1.0f) / 2.0f, 0.0f, 1.0f);
+        data["normalized_score"] = normalizedScore;
+        data["temperature"] =
+            static_cast<int>(std::round(normalizedScore * 100.0));
+        data["value"] = data["temperature"];
         data["dominant_mood"] = pulse.dominantMood;
+        data["top_mood"] = pulse.dominantMood;
         data["sample_count"] = pulse.sampleCount;
+        data["today_matches"] = pulse.sampleCount;
         data["trend_slope"] = pulse.trendSlope;
         if (pulse.trendSlope > 0.01f) {
             data["trend"] = "rising";
@@ -630,13 +726,23 @@ void EdgeAIController::getPrivacyBudget(
         auto stats = engine.getEngineStats();
 
         Json::Value data;
-        data["remaining_budget"] = remaining;
-        data["total_budget"] = stats.get("dp_total_budget", 10.0);
-        data["consumed"] = stats.get("dp_consumed", 0.0);
-        data["query_count"] = stats.get("dp_query_count", 0);
-        data["utilization_percent"] = stats.get("dp_total_budget", 10.0).asDouble() > 0
-            ? (1.0 - remaining / stats.get("dp_total_budget", 10.0).asDouble()) * 100.0
+        const auto totalBudget = stats.get("dp_total_budget", 10.0);
+        const auto consumed = stats.get("dp_consumed", 0.0);
+        const auto utilizationPercent = totalBudget.asDouble() > 0
+            ? (1.0 - remaining / totalBudget.asDouble()) * 100.0
             : 0.0;
+        data["remaining_budget"] = remaining;
+        data["total_budget"] = totalBudget;
+        data["consumed"] = consumed;
+        data["query_count"] = stats.get("dp_query_count", 0);
+        data["utilization_percent"] = utilizationPercent;
+        setMirroredConfig(data, "epsilon_total", "epsilonTotal", totalBudget);
+        setMirroredConfig(data, "epsilon_used", "epsilonUsed", consumed);
+        setMirroredConfig(data, "epsilon_remaining", "epsilonRemaining", remaining);
+        setMirroredConfig(data, "epsilon_percent", "epsilonPercent",
+                          utilizationPercent);
+        setMirroredConfig(data, "delta_value", "deltaValue",
+                          stats.get("dp_delta", 1e-5));
 
         callback(ResponseUtil::success(data, "隐私预算状态获取成功"));
     } catch (const std::exception &e) {
@@ -883,6 +989,12 @@ void EdgeAIController::updateAdminConfig(
                 persistedAiConfig["sentiment_cache_ttl"] = parsed;
                 runtimeConfig["sentiment_cache_ttl"] = parsed;
                 appliedKeys.append(key);
+            } else if (key == "sentimentCacheMax" ||
+                       key == "sentiment_cache_max") {
+                const int parsed = std::max(1, parseJsonIntValue(value, 4096));
+                persistedAiConfig["sentiment_cache_max"] = parsed;
+                runtimeConfig["sentiment_cache_max"] = parsed;
+                appliedKeys.append(key);
             } else if (key == "onnx_enabled" || key == "onnxEnabled") {
                 persistedAiConfig["onnx_enabled"] =
                     parseJsonStringValue(value, "auto");
@@ -1126,6 +1238,7 @@ Json::Value EdgeAIController::collectEmbeddingMetrics() {
     } else {
         metrics["throughput_per_sec"] = 0.0;
     }
+    metrics["throughput_estimated"] = true;
 
     return metrics;
 }

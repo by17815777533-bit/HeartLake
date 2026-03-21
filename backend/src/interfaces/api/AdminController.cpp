@@ -389,6 +389,7 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
         auto result = dbClient->execSqlSync(
             "WITH user_stats AS ("
             "  SELECT "
+            "    COUNT(*)::INTEGER AS total_users, "
             "    COUNT(*) FILTER ("
             "      WHERE created_at >= CURRENT_DATE "
             "        AND created_at < CURRENT_DATE + INTERVAL '1 day'"
@@ -440,6 +441,7 @@ void AdminController::getDashboardStats([[maybe_unused]] const HttpRequestPtr &r
 
         const auto row = *safeRow(result);
         Json::Value data;
+        data["total_users"] = row["total_users"].as<int>();
         data["today_new_users"] = row["today_new_users"].as<int>();
         data["today_active_users"] = row["today_active_users"].as<int>();
         data["today_stones"] = row["today_stones"].as<int>();

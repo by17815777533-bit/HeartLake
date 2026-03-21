@@ -230,9 +230,9 @@ export function useDashboardLoaders({
       const res = await api.getPrivacyBudget()
       const d = normalizeDashboardRecord(res.data)
       privacyStats.queryCount = d.query_count ?? 0
-      privacyStats.epsilonUsed = d.epsilon_used ?? 0
-      privacyStats.epsilonTotal = d.epsilon_total ?? 1.0
-      privacyStats.protectedUsers = d.protected_users ?? 0
+      privacyStats.epsilonUsed = d.epsilon_used ?? d.epsilonUsed ?? d.consumed ?? 0
+      privacyStats.epsilonTotal = d.epsilon_total ?? d.epsilonTotal ?? d.total_budget ?? 1.0
+      privacyStats.protectedUsers = d.protected_users ?? d.protectedUsers ?? 0
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       console.warn('加载隐私统计失败:', (e as Error).message)
@@ -247,9 +247,9 @@ export function useDashboardLoaders({
     try {
       const res = await api.getEmotionPulse()
       const d = normalizeDashboardRecord(res.data)
-      resonanceStats.todayMatches = d.today_matches ?? 0
-      resonanceStats.avgScore = d.avg_score ?? 0
-      resonanceStats.topMood = d.top_mood ?? ''
+      resonanceStats.todayMatches = d.today_matches ?? d.sample_count ?? 0
+      resonanceStats.avgScore = d.avg_score ?? d.avgScore ?? 0
+      resonanceStats.topMood = d.top_mood ?? d.dominant_mood ?? ''
       resonanceStats.successRate = d.success_rate ?? 0
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -264,7 +264,9 @@ export function useDashboardLoaders({
     try {
       const res = await api.getEmotionPulse()
       const d = normalizeDashboardRecord(res.data)
-      const temp = d.temperature ?? 50
+      const temp =
+        d.temperature ??
+        (d.normalized_score != null ? Number(d.normalized_score) * 100 : 50)
       emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
