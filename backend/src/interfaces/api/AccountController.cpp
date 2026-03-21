@@ -8,7 +8,6 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cctype>
-#include <mutex>
 #include <thread>
 
 using namespace heartlake::controllers;
@@ -32,54 +31,6 @@ std::string trimAscii(const std::string &value) {
 
 std::string normalizeNickname(const std::string &raw) {
   return Validator::sanitizeHtml(trimAscii(raw));
-}
-
-void ensureUserPrivacySettingsTable(const drogon::orm::DbClientPtr &dbClient) {
-  dbClient->execSqlSync(
-      "CREATE TABLE IF NOT EXISTS user_privacy_settings ("
-      "user_id VARCHAR(64) PRIMARY KEY,"
-      "profile_visibility VARCHAR(16) NOT NULL DEFAULT 'public',"
-      "show_online_status BOOLEAN NOT NULL DEFAULT true,"
-      "allow_friend_request BOOLEAN NOT NULL DEFAULT true,"
-      "allow_message_from_stranger BOOLEAN NOT NULL DEFAULT false"
-      ")");
-}
-
-void ensureUserProfileColumns(const drogon::orm::DbClientPtr &dbClient) {
-  dbClient->execSqlSync(
-      "ALTER TABLE users "
-      "ADD COLUMN IF NOT EXISTS email VARCHAR(255), "
-      "ADD COLUMN IF NOT EXISTS gender VARCHAR(32), "
-      "ADD COLUMN IF NOT EXISTS birthday DATE, "
-      "ADD COLUMN IF NOT EXISTS location VARCHAR(128)");
-}
-
-void ensureUserBlocksTable(const drogon::orm::DbClientPtr &dbClient) {
-  dbClient->execSqlSync(
-      "CREATE TABLE IF NOT EXISTS user_blocks ("
-      "user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON DELETE "
-      "CASCADE,"
-      "blocked_user_id VARCHAR(64) NOT NULL REFERENCES users(user_id) ON "
-      "DELETE CASCADE,"
-      "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
-      "PRIMARY KEY (user_id, blocked_user_id),"
-      "CONSTRAINT chk_user_blocks_not_self CHECK (user_id <> blocked_user_id)"
-      ")");
-  dbClient->execSqlSync(
-      "CREATE INDEX IF NOT EXISTS idx_user_blocks_user_created "
-      "ON user_blocks(user_id, created_at DESC)");
-  dbClient->execSqlSync(
-      "CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked_created "
-      "ON user_blocks(blocked_user_id, created_at DESC)");
-}
-
-void ensureAccountRuntimeSchema(const drogon::orm::DbClientPtr &dbClient) {
-  static std::once_flag initFlag;
-  std::call_once(initFlag, [&dbClient]() {
-    ensureUserProfileColumns(dbClient);
-    ensureUserPrivacySettingsTable(dbClient);
-    ensureUserBlocksTable(dbClient);
-  });
 }
 
 bool parseBoolCompat(const Json::Value &json, const char *key,
@@ -137,7 +88,6 @@ void AccountController::getAccountInfo(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
 
     auto result =
         dbClient->execSqlSync("SELECT user_id, username, nickname, avatar_url, "
@@ -247,7 +197,6 @@ void AccountController::updateProfile(
     }
 
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
     std::vector<std::string> updates;
     std::vector<std::string> params;
     int paramIndex = 1;
@@ -622,7 +571,6 @@ void AccountController::getPrivacySettings(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
 
     auto result = dbClient->execSqlSync(
         "SELECT profile_visibility, show_online_status, allow_friend_request, "
@@ -670,7 +618,6 @@ void AccountController::updatePrivacySettings(
     }
 
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
 
     std::string visibility = parseVisibilityCompat(*json);
     bool showOnline = parseBoolCompat(*json, "show_online_status", true);
@@ -708,7 +655,6 @@ void AccountController::getBlockedUsers(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
     auto [page, pageSize] = safePagination(req);
     int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
@@ -767,7 +713,6 @@ void AccountController::blockUser(
     }
 
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
     auto result = dbClient->execSqlSync(
         "WITH target AS ("
         "  SELECT user_id FROM users WHERE user_id = $2"
@@ -807,7 +752,6 @@ void AccountController::unblockUser(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
 
     dbClient->execSqlSync(
         "DELETE FROM user_blocks WHERE user_id = $1 AND blocked_user_id = $2",
@@ -834,7 +778,6 @@ void AccountController::exportData(
     }
     auto userId = *userIdOpt;
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
 
     std::string taskId = IdGenerator::generateUserId();
 
@@ -964,7 +907,6 @@ void AccountController::deleteAccountPermanently(
     }
 
     auto dbClient = app().getDbClient("default");
-    ensureAccountRuntimeSchema(dbClient);
     auto trans = dbClient->newTransaction();
 
     // 按依赖顺序删除关联数据
