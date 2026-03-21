@@ -388,15 +388,6 @@ const contentSignals = computed(() => {
   ]
 })
 
-const contentHeroDescription =
-  '把公开表达与一对一漂流收在同一张巡看桌面里，先判断流入节奏，再决定是否深入查看、删除或继续观察。'
-
-const contentHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 条内容`,
-  `${summaryItems.value[3]?.value || 0} 待确认`,
-  `${contentHealthScore.value} 分 ${contentHealthLabel.value}`,
-])
-
 const contentGuideHeadline = computed(() => {
   if (contentPendingCount.value > 0) return '先消化待确认内容，再决定是否进入深看和删除'
   if (contentBoatCount.value > contentStoneCount.value)
@@ -413,15 +404,6 @@ const contentGuideCopy = computed(() => {
   }
   return `当前页公开内容更占主导，建议结合发布时间与关键词筛查，快速确认是否存在需要删除或继续观察的条目。`
 })
-
-const contentGuideMetrics = computed(() => [
-  { label: '待确认', value: `${formatCount(contentPendingCount.value)} 条` },
-  {
-    label: '纸船占比',
-    value: `${contentPageStats.value.totalCount ? Math.round((contentBoatCount.value / contentPageStats.value.totalCount) * 100) : 0}%`,
-  },
-  { label: '巡检评分', value: `${contentHealthScore.value} 分` },
-])
 
 const contentOverviewDescription = computed(() => {
   if (contentPendingCount.value > 0) {
@@ -524,7 +506,8 @@ async function fetchContent() {
     })
 
     if (filters.type === 'boat') {
-      const { type: _type, ...boatParams } = params
+      const boatParams = { ...params }
+      delete boatParams.type
       const res = await api.getBoats(boatParams)
       const { items, total } = normalizeContentCollection(res.data, 'boat', ['boats'])
       contentList.value = sortByCreatedAtDesc(items)
@@ -533,7 +516,8 @@ async function fetchContent() {
     }
 
     if (filters.type === 'stone') {
-      const { type: _type, ...stoneParams } = params
+      const stoneParams = { ...params }
+      delete stoneParams.type
       const res = await api.getStones(stoneParams)
       const { items, total } = normalizeContentCollection(res.data, 'stone', ['stones'])
       contentList.value = sortByCreatedAtDesc(items)

@@ -436,22 +436,6 @@ const travelerSignals = computed(() => {
   ]
 })
 
-const usersStageHighlights = computed(() => [
-  summaryItems.value[1],
-  {
-    label: '最近回湖',
-    value: latestActiveMeta.value.value,
-    note: latestActiveMeta.value.note,
-    tone: 'plain' as const,
-  },
-  {
-    label: '互动密度',
-    value: travelerSignals.value[2]?.value || '0.0 / 人',
-    note: travelerSignals.value[2]?.badge || '总产出 0',
-    tone: 'amber' as const,
-  },
-])
-
 const usersGuideHeadline = computed(() => {
   if (bannedTravelerCount.value > 0) return '先回看限制旅人'
   if (activeTravelerCount.value > 0) return '旅人状态平稳'
@@ -467,12 +451,6 @@ const usersGuideCopy = computed(() => {
   }
   return '当前页暂未呈现明显活跃波动，适合回看筛选条件并准备下一轮定向检索。'
 })
-
-const usersGuideMetrics = computed(() => [
-  { label: '限制中账号', value: `${formatCount(bannedTravelerCount.value)} 位` },
-  { label: '总互动产出', value: `${formatCount(totalStones.value + totalBoats.value)} 条` },
-  { label: '关怀评分', value: `${engagementScore.value} 分` },
-])
 
 const usersOverviewDescription = computed(() => {
   if (bannedTravelerCount.value > 0) {

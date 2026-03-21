@@ -436,15 +436,6 @@ const moderationSignals = computed(() => {
   ]
 })
 
-const moderationHeroDescription =
-  '把待复核队列、人审历史和风险触发收在同一张守护台里，先判断高危密度，再决定是继续放行、拦截，还是回看边界误伤。'
-
-const moderationHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 条待复核`,
-  `${highRiskPendingCount.value} 条高危`,
-  `${moderationScore.value} 分 ${moderationLabel.value}`,
-])
-
 const moderationGuideHeadline = computed(() => {
   if (highRiskPendingCount.value > 0) return '高危条目仍在队列里，先处理边界最清晰的一批'
   if (historyList.value.length > 0) return '队列相对平稳，可以抽时间回看历史通过率和误伤边界'
@@ -460,12 +451,6 @@ const moderationGuideCopy = computed(() => {
   }
   return '当前没有明显堆积，保持对新入队内容的持续巡看即可。'
 })
-
-const moderationGuideMetrics = computed(() => [
-  { label: '高危队列', value: `${formatCount(highRiskPendingCount.value)} 条` },
-  { label: '历史回看', value: `${formatCount(historyList.value.length)} 条` },
-  { label: '守护评分', value: `${moderationScore.value} 分` },
-])
 
 const moderationOverviewDescription = computed(() => {
   if (highRiskPendingCount.value > 0) {
@@ -542,7 +527,11 @@ async function fetchHistory() {
 }
 
 const handleTabChange = (tab: string) => {
-  tab === 'pending' ? fetchPending() : fetchHistory()
+  if (tab === 'pending') {
+    fetchPending()
+    return
+  }
+  fetchHistory()
 }
 
 // 审核通过添加二次确认

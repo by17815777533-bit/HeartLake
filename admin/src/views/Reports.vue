@@ -365,15 +365,6 @@ const reportSignals = computed(() => {
   ]
 })
 
-const reportsHeroDescription =
-  '把求助、举报和回执状态收在同一张处置台面里，先判断队列温度，再决定是优先确认、回看历史，还是继续保持观察。'
-
-const reportsHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 条工单`,
-  `${reportPendingCount.value} 条待处理`,
-  `${reportResolutionScore.value} 分 ${reportResolutionLabel.value}`,
-])
-
 const reportGuideHeadline = computed(() => {
   if (reportPendingCount.value > reportHandledCount.value)
     return '待处理工单偏多，先清掉堆积再回看已忽略项'
@@ -390,12 +381,6 @@ const reportGuideCopy = computed(() => {
   }
   return '当前队列节奏比较平稳，继续以最新流入和待处理状态为主轴即可。'
 })
-
-const reportGuideMetrics = computed(() => [
-  { label: '待处理', value: `${formatCount(reportPendingCount.value)} 条` },
-  { label: '已完成', value: `${formatCount(reportHandledCount.value)} 条` },
-  { label: '处置评分', value: `${reportResolutionScore.value} 分` },
-])
 
 const reportsOverviewDescription = computed(() => {
   if (reportPendingCount.value > reportHandledCount.value) {

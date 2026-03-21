@@ -400,15 +400,6 @@ const logSignals = computed(() => {
   ]
 })
 
-const logsHeroDescription =
-  '把后台登录、内容处置和配置改动收在同一条审计链路里，先判断最近动作和筛选范围，再决定是否继续深查。'
-
-const logsHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 条记录`,
-  `${loginCount.value} 次登录`,
-  `${auditScore.value} 分 ${auditLabel.value}`,
-])
-
 const logsGuideHeadline = computed(() => {
   if (configActionCount.value > 0) return '最近存在配置改动，先核对参数变更是否符合预期'
   if (contentActionCount.value > 0) return '内容处置链路活跃，建议回看动作细节和时间顺序'
@@ -424,12 +415,6 @@ const logsGuideCopy = computed(() => {
   }
   return '当前页以基础登录留痕为主，没有明显异常链路，可以保持常规巡看。'
 })
-
-const logsGuideMetrics = computed(() => [
-  { label: '登录动作', value: `${formatCount(loginCount.value)} 次` },
-  { label: '内容处置', value: `${formatCount(contentActionCount.value)} 次` },
-  { label: '审计评分', value: `${auditScore.value} 分` },
-])
 
 const logsOverviewDescription = computed(() => {
   if (configActionCount.value > 0) {
