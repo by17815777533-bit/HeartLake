@@ -23,8 +23,138 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace heartlake::infrastructure {
+
+namespace {
+
+struct CandidateContext {
+    ResonanceMatch match;
+    std::string mood = "neutral";
+    std::string createdAt;
+};
+
+std::vector<float> parseEmbeddingCsv(const std::string& raw) {
+    std::vector<float> values;
+    std::stringstream ss(raw);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        if (!token.empty()) {
+            values.push_back(std::stof(token));
+        }
+    }
+    return values;
+}
+
+std::vector<float> parsePgFloatArray(const std::string& raw) {
+    std::vector<float> values;
+    if (raw.size() < 2) {
+        return values;
+    }
+
+    const std::string body = raw.substr(1, raw.size() - 2);
+    std::stringstream ss(body);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        if (!token.empty() && token != "NULL") {
+            values.push_back(std::stof(token));
+        }
+    }
+    return values;
+}
+
+std::string joinDelimitedIds(const std::vector<std::string>& values) {
+    std::string joined;
+    for (const auto& value : values) {
+        if (value.empty()) {
+            continue;
+        }
+        if (!joined.empty()) {
+            joined += ',';
+        }
+        joined += value;
+    }
+    return joined;
+}
+
+std::unordered_map<std::string, CandidateContext> loadCandidateContexts(
+    const drogon::orm::DbClientPtr& db,
+    const std::vector<std::string>& stoneIds
+) {
+    std::unordered_map<std::string, CandidateContext> contexts;
+    if (stoneIds.empty()) {
+        return contexts;
+    }
+
+    const std::string joinedStoneIds = joinDelimitedIds(stoneIds);
+    if (joinedStoneIds.empty()) {
+        return contexts;
+    }
+
+    auto rows = db->execSqlSync(
+        "SELECT stone_id, user_id, content, "
+        "       COALESCE(mood_type, 'neutral') AS mood_type, "
+        "       created_at::text AS created_at "
+        "FROM stones "
+        "WHERE stone_id = ANY(string_to_array($1, ',')::text[]) "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL",
+        joinedStoneIds);
+
+    contexts.reserve(rows.size());
+    for (const auto& row : rows) {
+        CandidateContext context;
+        context.match.stoneId = row["stone_id"].as<std::string>();
+        context.match.userId = row["user_id"].as<std::string>();
+        context.match.content = row["content"].as<std::string>();
+        context.mood = row["mood_type"].isNull()
+            ? "neutral"
+            : row["mood_type"].as<std::string>();
+        context.createdAt = row["created_at"].isNull()
+            ? ""
+            : row["created_at"].as<std::string>();
+        contexts.emplace(context.match.stoneId, std::move(context));
+    }
+    return contexts;
+}
+
+std::unordered_map<std::string, std::vector<float>> loadTrajectoryScores(
+    const drogon::orm::DbClientPtr& db,
+    const std::vector<std::string>& userIds
+) {
+    std::unordered_map<std::string, std::vector<float>> trajectories;
+    if (userIds.empty()) {
+        return trajectories;
+    }
+
+    const std::string joinedUserIds = joinDelimitedIds(userIds);
+    if (joinedUserIds.empty()) {
+        return trajectories;
+    }
+
+    auto rows = db->execSqlSync(
+        "SELECT et.user_id, ARRAY_AGG(et.score ORDER BY et.created_at ASC)::text AS scores "
+        "FROM emotion_tracking et "
+        "WHERE et.user_id = ANY(string_to_array($1, ',')::text[]) "
+        "  AND et.created_at > NOW() - INTERVAL '7 days' "
+        "GROUP BY et.user_id",
+        joinedUserIds);
+
+    trajectories.reserve(rows.size());
+    for (const auto& row : rows) {
+        const auto userId = row["user_id"].as<std::string>();
+        const auto rawScores = row["scores"].isNull()
+            ? std::string("{}")
+            : row["scores"].as<std::string>();
+        trajectories.emplace(userId, parsePgFloatArray(rawScores));
+    }
+    return trajectories;
+}
+
+}  // namespace
 
 ResonanceSearchService& ResonanceSearchService::getInstance() {
     static ResonanceSearchService instance;
@@ -100,60 +230,74 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
     // Phase 1: 收集 cosine similarity 候选（宽松阈值，多取候选供重排序）
     const float candidateThreshold = std::max(0.5f, threshold - 0.2f);
     const int candidateLimit = limit * 5;
-    std::vector<ResonanceMatch> candidates;
+    std::vector<CandidateContext> candidates;
+    candidates.reserve(static_cast<size_t>(std::max(candidateLimit, limit)));
 
     if (useMilvus_) {
         auto results = MilvusClient::getInstance().search(
             COLLECTION_NAME, queryVec, candidateLimit, "id != \"" + stoneId + "\"");
 
         auto db = drogon::app().getDbClient("default");
+        std::vector<std::pair<std::string, float>> acceptedStoneIds;
+        acceptedStoneIds.reserve(results.size());
+        std::vector<std::string> stoneIds;
+        stoneIds.reserve(results.size());
         for (const auto& r : results) {
             float similarity = 1.0f - r.score; // COSINE distance to similarity
             if (similarity < candidateThreshold) continue;
+            acceptedStoneIds.emplace_back(r.id, similarity);
+            stoneIds.push_back(r.id);
+        }
 
-            try {
-                auto row = db->execSqlSync(
-                    "SELECT user_id, content FROM stones WHERE stone_id = $1 AND status = 'published'",
-                    r.id);
-                if (row.empty()) continue;
-
-                ResonanceMatch m;
-                m.stoneId = r.id;
-                m.userId = row[0]["user_id"].as<std::string>();
-                m.content = row[0]["content"].as<std::string>();
-                m.similarity = similarity;
-                m.semanticScore = similarity;
-                candidates.push_back(m);
-            } catch (const std::exception& e) {
-                LOG_WARN << "HNSW candidate lookup failed: " << e.what();
+        try {
+            auto contexts = loadCandidateContexts(db, stoneIds);
+            for (const auto& [candidateStoneId, similarity] : acceptedStoneIds) {
+                auto it = contexts.find(candidateStoneId);
+                if (it == contexts.end()) {
+                    continue;
+                }
+                auto context = std::move(it->second);
+                context.match.similarity = similarity;
+                context.match.semanticScore = similarity;
+                candidates.push_back(std::move(context));
             }
+        } catch (const std::exception& e) {
+            LOG_WARN << "HNSW candidate batch lookup failed: " << e.what();
         }
     } else {
         // Fallback: DB-based search
         auto db = drogon::app().getDbClient("default");
         try {
             auto result = db->execSqlSync(
-                "SELECT se.stone_id, se.embedding, s.user_id, s.content "
+                "SELECT se.stone_id, se.embedding, s.user_id, s.content, "
+                "       COALESCE(s.mood_type, 'neutral') AS mood_type, "
+                "       s.created_at::text AS created_at "
                 "FROM stone_embeddings se JOIN stones s ON se.stone_id = s.stone_id "
-                "WHERE se.stone_id != $1 AND s.status = 'published'", stoneId);
+                "WHERE se.stone_id != $1 "
+                "  AND s.status = 'published' "
+                "  AND s.deleted_at IS NULL",
+                stoneId);
 
             for (const auto& row : result) {
-                std::vector<float> targetVec;
-                std::stringstream ss(row["embedding"].as<std::string>());
-                std::string token;
-                while (std::getline(ss, token, ',')) targetVec.push_back(std::stof(token));
+                auto targetVec = parseEmbeddingCsv(row["embedding"].as<std::string>());
 
                 if (targetVec.size() != queryVec.size()) continue;
 
                 float similarity = ai::AdvancedEmbeddingEngine::cosineSimilarity(queryVec, targetVec);
                 if (similarity >= candidateThreshold) {
-                    ResonanceMatch m;
-                    m.stoneId = row["stone_id"].as<std::string>();
-                    m.userId = row["user_id"].as<std::string>();
-                    m.content = row["content"].as<std::string>();
-                    m.similarity = similarity;
-                    m.semanticScore = similarity;
-                    candidates.push_back(m);
+                    CandidateContext context;
+                    context.match.stoneId = row["stone_id"].as<std::string>();
+                    context.match.userId = row["user_id"].as<std::string>();
+                    context.match.content = row["content"].as<std::string>();
+                    context.match.similarity = similarity;
+                    context.match.semanticScore = similarity;
+                    context.mood = row["mood_type"].isNull()
+                        ? "neutral"
+                        : row["mood_type"].as<std::string>();
+                    context.createdAt = row["created_at"].isNull()
+                        ? ""
+                        : row["created_at"].as<std::string>();
+                    candidates.push_back(std::move(context));
                 }
             }
         } catch (const drogon::orm::DrogonDbException& e) {
@@ -204,41 +348,33 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
     }
 
     std::vector<std::string> recommendedMoods;
-
-    for (auto& m : candidates) {
-        // 获取候选石头的 mood 和 timestamp
-        std::string candMood = "neutral";
-        std::string candTimestamp;
-        try {
-            auto candRow = db->execSqlSync(
-                "SELECT mood_type, created_at FROM stones WHERE stone_id = $1",
-                m.stoneId);
-            if (!candRow.empty()) {
-                if (!candRow[0]["mood_type"].isNull())
-                    candMood = candRow[0]["mood_type"].as<std::string>();
-                candTimestamp = candRow[0]["created_at"].as<std::string>();
-            }
-        } catch (const std::exception& e) {
-            LOG_WARN << "Candidate stone metadata lookup failed: " << e.what();
+    recommendedMoods.reserve(candidates.size());
+    std::unordered_set<std::string> seenUserIds;
+    seenUserIds.reserve(candidates.size());
+    std::vector<std::string> candidateUserIds;
+    candidateUserIds.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        if (seenUserIds.insert(candidate.match.userId).second) {
+            candidateUserIds.push_back(candidate.match.userId);
         }
+    }
+
+    const auto trajectoryScoresByUser = loadTrajectoryScores(db, candidateUserIds);
+
+    for (auto& candidate : candidates) {
+        auto& m = candidate.match;
 
         // 维度1: 语义相似度（已有）
         // m.semanticScore 已在 Phase 1 设置
 
         // 维度2: DTW 情绪轨迹相似度
         ai::EmotionTrajectory candTraj;
-        try {
-            auto trajRows = db->execSqlSync(
-                "SELECT score FROM emotion_tracking "
-                "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
-                "ORDER BY created_at ASC", m.userId);
-            for (const auto& r : trajRows) {
-                candTraj.scores.push_back(r["score"].as<float>());
-            }
-            if (!candTraj.scores.empty())
+        auto candidateTrajectoryIt = trajectoryScoresByUser.find(m.userId);
+        if (candidateTrajectoryIt != trajectoryScoresByUser.end()) {
+            candTraj.scores = candidateTrajectoryIt->second;
+            if (!candTraj.scores.empty()) {
                 candTraj.currentScore = candTraj.scores.back();
-        } catch (const std::exception& e) {
-            LOG_WARN << "Candidate trajectory load failed: " << e.what();
+            }
         }
 
         if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
@@ -249,12 +385,12 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         }
 
         // 维度3: 时间衰减
-        m.temporalScore = candTimestamp.empty()
+        m.temporalScore = candidate.createdAt.empty()
             ? 0.5f
-            : resonanceEngine.temporalDecay(candTimestamp);
+            : resonanceEngine.temporalDecay(candidate.createdAt);
 
         // 维度4: 多样性奖励
-        m.diversityScore = resonanceEngine.diversityBonus(sourceMood, candMood, recommendedMoods);
+        m.diversityScore = resonanceEngine.diversityBonus(sourceMood, candidate.mood, recommendedMoods);
 
         // 加权总分: α=0.30, β=0.35, γ=0.20, δ=0.15
         m.resonanceTotal = resonanceEngine.getAlpha() * m.semanticScore
@@ -270,21 +406,23 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         rr.trajectoryScore = m.trajectoryScore;
         rr.temporalScore = m.temporalScore;
         rr.diversityScore = m.diversityScore;
-        m.resonanceReason = resonanceEngine.generateResonanceReason(rr, sourceMood, candMood);
+        m.resonanceReason = resonanceEngine.generateResonanceReason(rr, sourceMood, candidate.mood);
 
-        recommendedMoods.push_back(candMood);
+        recommendedMoods.push_back(candidate.mood);
     }
 
     // Phase 3: 按四维共鸣总分降序排序
     std::sort(candidates.begin(), candidates.end(),
-        [](const ResonanceMatch& a, const ResonanceMatch& b) {
-            return a.resonanceTotal > b.resonanceTotal;
+        [](const CandidateContext& a, const CandidateContext& b) {
+            return a.match.resonanceTotal > b.match.resonanceTotal;
         });
 
     // 截取 top-K 并计算投递延迟
     std::vector<ResonanceMatch> matches;
-    for (auto& m : candidates) {
+    matches.reserve(std::min(candidates.size(), static_cast<size_t>(limit)));
+    for (auto& candidate : candidates) {
         if (static_cast<int>(matches.size()) >= limit) break;
+        auto& m = candidate.match;
         // 使用四维总分作为最终 similarity 供外部使用
         m.similarity = m.resonanceTotal;
         m.deliveryDelaySeconds = calculateDeliveryDelay(m.resonanceTotal);
