@@ -159,30 +159,11 @@ private:
 
         try {
             auto& eventBus = core::events::EventBus::getInstance();
-            auto& di = core::di::ServiceLocator::instance();
 
             // 注册石头发布事件处理器 (触发 AI 情绪分析)
             auto aiService = std::shared_ptr<ai::AIService>(&ai::AIService::getInstance(), [](ai::AIService*){});
             auto stonePublishedHandler = std::make_shared<application::handlers::StonePublishedHandler>(aiService);
             eventBus.subscribe<core::events::StonePublishedEvent>(stonePublishedHandler);
-
-            // 注册情绪分析完成事件处理器
-            auto cacheManager1 = di.resolve<core::cache::CacheManager>();
-            if (!cacheManager1) {
-                LOG_ERROR << "Failed to resolve CacheManager for EmotionAnalyzedHandler";
-                throw std::runtime_error("CacheManager not registered in DI container");
-            }
-            auto emotionAnalyzedHandler = std::make_shared<application::handlers::EmotionAnalyzedHandler>(cacheManager1);
-            eventBus.subscribe<core::events::EmotionAnalyzedEvent>(emotionAnalyzedHandler);
-
-            // 注册涟漪创建事件处理器
-            auto cacheManager2 = di.resolve<core::cache::CacheManager>();
-            if (!cacheManager2) {
-                LOG_ERROR << "Failed to resolve CacheManager for RippleCreatedHandler";
-                throw std::runtime_error("CacheManager not registered in DI container");
-            }
-            auto rippleCreatedHandler = std::make_shared<application::handlers::RippleCreatedHandler>(cacheManager2);
-            eventBus.subscribe<core::events::RippleCreatedEvent>(rippleCreatedHandler);
 
             // 注册纸船发送事件处理器
             auto boatSentHandler = std::make_shared<application::handlers::BoatSentHandler>();
