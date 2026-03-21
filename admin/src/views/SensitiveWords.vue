@@ -3,7 +3,7 @@
 
   功能：
   - 敏感词列表展示，支持按关键词搜索和分页
-  - 新增敏感词：填写词条、风险等级（low/medium/high/critical）、替换词
+  - 新增敏感词：填写词条、风险等级（low/medium/high/critical）、处置策略
   - 编辑敏感词：弹窗修改词条属性
   - 删除敏感词：二次确认后删除
   - 风险等级以不同颜色 tag 区分，便于快速识别
@@ -50,10 +50,10 @@
       <div class="ops-soft-toolbar sensitive-table-toolbar">
         <div class="sensitive-table-copy">
           <h3>词典列表</h3>
-          <p>词条、级别与替换策略都集中在这里维护。</p>
+          <p>词条、级别与处置策略都集中在这里维护。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">高风险 {{ highRiskWordCount }} 条</span>
-            <span class="ops-toolbar-meta__item">替换策略 {{ replacementWordCount }} 条</span>
+            <span class="ops-toolbar-meta__item">放行策略 {{ allowStrategyCount }} 条</span>
             <span class="ops-toolbar-meta__item">已选 {{ selectedWords.length }} 项</span>
           </div>
         </div>
@@ -110,9 +110,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="replacement" label="替换词" width="120">
+        <el-table-column prop="action" label="处置策略" width="120">
           <template #default="{ row }">
-            {{ row.replacement || '***' }}
+            {{ getActionLabel(row.action) }}
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="添加时间" width="180" />
@@ -155,17 +155,15 @@
         <el-form-item label="级别" prop="level">
           <el-select v-model="form.level" style="width: 100%">
             <el-option label="低 - 仅记录" value="low" />
-            <el-option label="中 - 替换显示" value="medium" />
+            <el-option label="中 - 审慎处理" value="medium" />
             <el-option label="高 - 拦截发布" value="high" />
           </el-select>
         </el-form-item>
-        <el-form-item label="替换词">
-          <el-input
-            v-model="form.replacement"
-            placeholder="默认为 ***"
-            maxlength="50"
-            show-word-limit
-          />
+        <el-form-item label="处置" prop="action">
+          <el-select v-model="form.action" style="width: 100%">
+            <el-option label="拦截" value="block" />
+            <el-option label="放行" value="allow" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -191,6 +189,12 @@ import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 
 import { normalizeCollectionResponse } from '@/utils/collectionPayload'
+import {
+  normalizeAdminPayload,
+  pickBoolean,
+  pickNumber,
+  pickString,
+} from '@/utils/adminPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -202,9 +206,13 @@ import {
 } from '@/utils/opsDashboardDeck'
 import type { SensitiveWord } from '@/types'
 
+type SensitiveWordRow = SensitiveWord & {
+  action?: string
+}
+
 const loading = ref(false)
 const submitting = ref(false)
-const wordList = ref<SensitiveWord[]>([])
+const wordList = ref<SensitiveWordRow[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref<FormInstance | null>(null)
@@ -271,30 +279,32 @@ const {
     }
   },
 })
-const form = reactive({ word: '', level: 'medium', replacement: '' })
+const form = reactive({ word: '', level: 'medium', action: 'block' })
 // 保存编辑前的原始值，用于变更检测
-const originalForm = reactive({ word: '', level: 'medium', replacement: '' })
+const originalForm = reactive({ word: '', level: 'medium', action: 'block' })
 const hasFormChanged = computed(() => {
   if (!isEdit.value) return true // 新增模式始终允许提交
   return (
     form.word !== originalForm.word ||
     form.level !== originalForm.level ||
-    form.replacement !== originalForm.replacement
+    form.action !== originalForm.action
   )
 })
 const rules = {
   word: [{ required: true, message: '请输入敏感词', trigger: 'blur' }],
   level: [{ required: true, message: '请选择级别', trigger: 'change' }],
+  action: [{ required: true, message: '请选择处置策略', trigger: 'change' }],
 }
 
 const getLevelType = (level: string) =>
   ({ low: 'info', medium: 'warning', high: 'danger' })[level] || 'info'
 const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' })[level] || level
+const getActionLabel = (action?: string) => ({ allow: '放行', block: '拦截' })[action || 'block'] || '拦截'
 const formatCount = (value: number) => value.toLocaleString()
 
 const summaryItems = computed(() => {
   const highRiskCount = highRiskWordCount.value
-  const replacementCount = replacementWordCount.value
+  const allowCount = allowStrategyCount.value
 
   return [
     {
@@ -310,9 +320,9 @@ const summaryItems = computed(() => {
       tone: 'rose' as const,
     },
     {
-      label: '替换策略',
-      value: formatCount(replacementCount),
-      note: '当前页设置了替换文案的词条',
+      label: '放行策略',
+      value: formatCount(allowCount),
+      note: '当前页明确标记为放行的词条',
       tone: 'amber' as const,
     },
     {
@@ -327,8 +337,8 @@ const summaryItems = computed(() => {
 const highRiskWordCount = computed(
   () => wordList.value.filter((item) => item.level === 'high' || item.level === 'critical').length,
 )
-const replacementWordCount = computed(
-  () => wordList.value.filter((item) => Boolean(item.replacement)).length,
+const allowStrategyCount = computed(
+  () => wordList.value.filter((item) => item.action === 'allow').length,
 )
 const mediumRiskWordCount = computed(
   () => wordList.value.filter((item) => item.level === 'medium').length,
@@ -342,9 +352,9 @@ const sensitiveVizBars = computed(() => [
     display: formatCount(mediumRiskWordCount.value),
   },
   {
-    label: '替换',
-    value: replacementWordCount.value,
-    display: formatCount(replacementWordCount.value),
+    label: '放行',
+    value: allowStrategyCount.value,
+    display: formatCount(allowStrategyCount.value),
   },
   {
     label: '选中',
@@ -359,7 +369,7 @@ const sensitiveScore = computed(() => {
     30,
     Math.min(
       96,
-      Math.round(((highRiskWordCount.value + replacementWordCount.value) / total) * 60 + 35),
+      Math.round(((highRiskWordCount.value + allowStrategyCount.value) / total) * 60 + 35),
     ),
   )
 })
@@ -424,7 +434,7 @@ const sensitiveSignals = computed(() => {
 })
 
 const sensitiveHeroDescription =
-  '把风险词、替换策略和批量操作集中到同一张维护台面里，先判断级别密度，再决定是新增、调整，还是批量清理。'
+  '把风险词、处置策略和批量操作集中到同一张维护台面里，先判断级别密度，再决定是新增、调整，还是批量清理。'
 
 const sensitiveHeroChips = computed(() => [
   `${summaryItems.value[0]?.value || 0} 条词条`,
@@ -435,31 +445,31 @@ const sensitiveHeroChips = computed(() => [
 const sensitiveGuideHeadline = computed(() => {
   if (selectedWords.value.length > 0) return '当前已经选中一批词条，先确认误删风险再执行批量操作'
   if (highRiskWordCount.value > mediumRiskWordCount.value)
-    return '高风险词条偏多，优先回看替换策略和误伤边界'
+    return '高风险词条偏多，优先回看处置策略和误伤边界'
   return '词典结构相对稳定，继续补充新词和细化中风险表达即可'
 })
 
 const sensitiveGuideCopy = computed(() => {
   if (selectedWords.value.length > 0) {
-    return `当前已选中 ${formatCount(selectedWords.value.length)} 条词条，建议先复核级别和替换词，再进行批量删除。`
+    return `当前已选中 ${formatCount(selectedWords.value.length)} 条词条，建议先复核级别和处置策略，再进行批量删除。`
   }
   if (highRiskWordCount.value > mediumRiskWordCount.value) {
-    return `当前页高风险词条 ${formatCount(highRiskWordCount.value)} 条，多于中风险 ${formatCount(mediumRiskWordCount.value)} 条，建议优先确认是否需要更细的替换策略。`
+    return `当前页高风险词条 ${formatCount(highRiskWordCount.value)} 条，多于中风险 ${formatCount(mediumRiskWordCount.value)} 条，建议优先确认是否需要更细的处置策略。`
   }
   return '当前词典没有明显堆积，适合继续补充新出现的表达并保持规则整洁。'
 })
 
 const sensitiveGuideMetrics = computed(() => [
   { label: '高风险词条', value: `${formatCount(highRiskWordCount.value)} 条` },
-  { label: '替换策略', value: `${formatCount(replacementWordCount.value)} 条` },
+  { label: '放行策略', value: `${formatCount(allowStrategyCount.value)} 条` },
   { label: '词典评分', value: `${sensitiveScore.value} 分` },
 ])
 
 const sensitiveOverviewDescription = computed(() => {
   if (selectedWords.value.length > 0) {
-    return `维护敏感词与风险等级，统一管理替换策略和批量删除，当前已有 ${formatCount(selectedWords.value.length)} 条词条待确认批量操作。`
+    return `维护敏感词与风险等级，统一管理处置策略和批量删除，当前已有 ${formatCount(selectedWords.value.length)} 条词条待确认批量操作。`
   }
-  return '维护敏感词与风险等级，统一管理替换策略和批量删除，保障识别规则清晰、可维护。'
+  return '维护敏感词与风险等级，统一管理处置策略和批量删除，保障识别规则清晰、可维护。'
 })
 
 const sensitiveOverviewCards = computed(() =>
@@ -478,27 +488,60 @@ const sensitiveGuideItems = computed(() =>
     {
       label: '高风险词条',
       value: `${formatCount(highRiskWordCount.value)} 条`,
-      note: '高风险密度更高时，优先回看替换策略与误伤边界。',
+      note: '高风险密度更高时，优先回看处置策略与误伤边界。',
     },
     {
-      label: '替换策略',
-      value: `${formatCount(replacementWordCount.value)} 条`,
-      note: '替换词越清晰，比赛演示时越容易解释规则边界。',
+      label: '放行策略',
+      value: `${formatCount(allowStrategyCount.value)} 条`,
+      note: '放行词条越少，越容易解释当前规则边界。',
     },
     {
       label: '词典评分',
       value: `${sensitiveScore.value} 分`,
-      note: '综合高风险词条、替换策略和批量准备形成当前判断。',
+      note: '综合高风险词条、处置策略和批量准备形成当前判断。',
     },
   ]),
 )
+
+const normalizeSensitiveLevel = (payload: Record<string, unknown>) => {
+  const level = pickString(payload, ['level'])
+  if (level) return level
+
+  const numericLevel = pickNumber(payload, ['level'])
+  if ((numericLevel ?? 0) >= 3) return 'high'
+  if (numericLevel === 2) return 'medium'
+  return 'low'
+}
+
+const normalizeSensitiveAction = (payload: Record<string, unknown>) => {
+  const action = pickString(payload, ['action'])
+  if (action) return action
+  const isActive = pickBoolean(payload, ['is_active'])
+  return isActive === false ? 'allow' : 'block'
+}
+
+const normalizeSensitiveWord = (item: unknown): SensitiveWordRow => {
+  const payload = normalizeAdminPayload(item)
+  const action = normalizeSensitiveAction(payload)
+
+  return {
+    id: pickNumber(payload, ['id']) ?? pickString(payload, ['id']) ?? '',
+    word: pickString(payload, ['word']) ?? '',
+    level: normalizeSensitiveLevel(payload),
+    category: pickString(payload, ['category']) ?? 'general',
+    action,
+    replacement: getActionLabel(action),
+    created_at: pickString(payload, ['created_at', 'createdAt']) ?? '',
+    updated_at: pickString(payload, ['updated_at', 'updatedAt']) ?? '',
+  }
+}
 
 async function fetchWords() {
   loading.value = true
   try {
     const res = await api.getSensitiveWords(buildParams(filters))
-    const { items, total } = normalizeCollectionResponse<SensitiveWord>(res.data, ['words'])
-    wordList.value = items
+    const { items, total } = normalizeCollectionResponse<unknown>(res.data, ['words'])
+    wordList.value = items.map((item) => normalizeSensitiveWord(item))
     pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
@@ -514,15 +557,15 @@ async function fetchWords() {
 const showAddDialog = () => {
   isEdit.value = false
   currentId.value = null
-  Object.assign(form, { word: '', level: 'medium', replacement: '' })
-  Object.assign(originalForm, { word: '', level: 'medium', replacement: '' })
+  Object.assign(form, { word: '', level: 'medium', action: 'block' })
+  Object.assign(originalForm, { word: '', level: 'medium', action: 'block' })
   dialogVisible.value = true
 }
 
-const showEditDialog = (row: { id: number; word: string; level: string; replacement?: string }) => {
+const showEditDialog = (row: SensitiveWordRow) => {
   isEdit.value = true
   currentId.value = row.id
-  const values = { word: row.word, level: row.level, replacement: row.replacement || '' }
+  const values = { word: row.word, level: row.level, action: row.action || 'block' }
   Object.assign(form, values)
   Object.assign(originalForm, values) // 记录原始值用于变更检测
   dialogVisible.value = true
@@ -533,11 +576,12 @@ const handleSubmit = async () => {
   if (!valid) return
   submitting.value = true
   try {
+    const payload = { word: form.word, level: form.level, action: form.action }
     if (isEdit.value) {
-      await api.updateSensitiveWord(currentId.value, form)
+      await api.updateSensitiveWord(currentId.value, payload)
       ElMessage.success('更新成功')
     } else {
-      await api.addSensitiveWord(form)
+      await api.addSensitiveWord(payload)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false

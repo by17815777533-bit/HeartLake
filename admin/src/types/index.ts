@@ -111,6 +111,8 @@ export interface SensitiveWord {
   /** 风险等级：low / medium / high / critical */
   level: string
   category?: string
+  action?: string
+  replacement?: string
   created_at?: string
   updated_at?: string
 }

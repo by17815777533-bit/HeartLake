@@ -20,7 +20,7 @@
       <el-button
         type="primary"
         size="large"
-        @click="router.push('/dashboard')"
+        @click="router.push(ADMIN_HOME_PATH)"
       >
         返回首页
       </el-button>
@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { Warning } from '@element-plus/icons-vue'
+import { ADMIN_HOME_PATH } from '@/utils/adminRoutes'
 
 const router = useRouter()
 </script>

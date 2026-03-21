@@ -6,7 +6,7 @@
 
     <div class="workspace-shell">
       <header class="workspace-shell__header">
-        <button class="brand-mark" type="button" @click="navigateTo('/dashboard')">
+        <button class="brand-mark" type="button" @click="navigateTo(ADMIN_HOME_PATH)">
           <div class="brand-mark__icon">
             <img src="@/assets/logo.svg" alt="HeartLake" />
           </div>
@@ -123,6 +123,7 @@ import { Bell, Moon, Search, Setting, Sunny } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
+import { ADMIN_HOME_PATH, ADMIN_LOGIN_PATH } from '@/utils/adminRoutes'
 import { normalizePayloadRecord } from '@/utils/collectionPayload'
 
 const router = useRouter()
@@ -131,7 +132,7 @@ const appStore = useAppStore()
 const navSearch = ref('')
 
 const menuItems = [
-  { path: '/dashboard', title: '总览' },
+  { path: ADMIN_HOME_PATH, title: '总览' },
   { path: '/users', title: '旅人' },
   { path: '/content', title: '内容' },
   { path: '/moderation', title: '守护' },
@@ -143,7 +144,7 @@ const menuItems = [
 ]
 
 const routeNarrativeMap: Record<string, { kicker: string; summary: string }> = {
-  '/dashboard': { kicker: '湖面总览', summary: '查看旅人状态、波动趋势和需要优先处理的内容。' },
+  [ADMIN_HOME_PATH]: { kicker: '湖面总览', summary: '查看旅人状态、波动趋势和需要优先处理的内容。' },
   '/users': { kicker: '旅人关怀', summary: '筛查账户状态、活跃记录和个体产出。' },
   '/content': { kicker: '内容台账', summary: '统一查看石头与纸船，确认当前内容水位。' },
   '/moderation': { kicker: '温暖守护', summary: '把系统判断与人工复核放在同一个工作面上。' },
@@ -230,7 +231,7 @@ const handleCommand = async (command: string) => {
       })
       websocket.disconnect()
       appStore.clearToken()
-      router.push('/login')
+      router.push(ADMIN_LOGIN_PATH)
       ElMessage.success('已退出登录')
     } catch {
       // 取消退出
