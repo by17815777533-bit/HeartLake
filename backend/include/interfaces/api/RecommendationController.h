@@ -215,7 +215,8 @@ private:
      * @brief 计算热门内容排行（内部方法）
      * @param callback 响应回调
      */
-    void calculateTrendingContent(std::function<void(const HttpResponsePtr &)> &&callback);
+    void calculateTrendingContent(int limit,
+                                  std::function<void(const HttpResponsePtr &)> &&callback);
 };
 
 } // namespace controllers

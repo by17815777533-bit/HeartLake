@@ -8,6 +8,7 @@
 #include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <random>
@@ -617,16 +618,18 @@ void RecommendationController::discoverByMood(
  * 获取热门内容
  */
 void RecommendationController::getTrendingContent(
-    [[maybe_unused]] const HttpRequestPtr &req,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
     auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
     try {
+        const int requestedLimit = safeInt(req->getParameter("limit"), 10);
+        const int limit = std::clamp(requestedLimit, 1, 50);
         // 检查缓存（热门内容缓存3分钟）
         auto& cache = RedisCache::getInstance();
-        std::string cacheKey = "recommendations:trending";
+        std::string cacheKey = "recommendations:trending:" + std::to_string(limit);
 
-        cache.get(cacheKey, [this, cb](const std::string& cachedData, bool exists) mutable {
+        cache.get(cacheKey, [this, cb, limit](const std::string& cachedData, bool exists) mutable {
             try {
                 if (exists && !cachedData.empty()) {
                     Json::Value cached;
@@ -637,7 +640,9 @@ void RecommendationController::getTrendingContent(
                     }
                 }
 
-                this->calculateTrendingContent([cb](const HttpResponsePtr &resp) { (*cb)(resp); });
+                this->calculateTrendingContent(
+                    limit,
+                    [cb](const HttpResponsePtr &resp) { (*cb)(resp); });
             } catch (const std::exception &e) {
                 LOG_ERROR << "Error in getTrendingContent Redis callback: " << e.what();
                 (*cb)(ResponseUtil::internalError("获取热门内容失败"));
@@ -657,6 +662,7 @@ void RecommendationController::getTrendingContent(
  * 计算热门内容（内部方法）
  */
 void RecommendationController::calculateTrendingContent(
+    int limit,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
     try {
@@ -676,7 +682,7 @@ void RecommendationController::calculateTrendingContent(
             "), top_stones AS ("
             "  SELECT * FROM recent_stones "
             "  ORDER BY ripple_count DESC, created_at DESC "
-            "  LIMIT 10"
+            "  LIMIT $1"
             "), top_moods AS ("
             "  SELECT mood_type, COUNT(*)::INTEGER AS count "
             "  FROM recent_stones "
@@ -709,7 +715,8 @@ void RecommendationController::calculateTrendingContent(
             "      ORDER BY count DESC, mood_type ASC"
             "    ) "
             "    FROM top_moods"
-            "  ), '[]'::json) AS trending_moods");
+            "  ), '[]'::json) AS trending_moods",
+            static_cast<int64_t>(limit));
 
         Json::Value trendingStones(Json::arrayValue);
         Json::Value trendingMoods(Json::arrayValue);
@@ -726,7 +733,7 @@ void RecommendationController::calculateTrendingContent(
         auto& cache = RedisCache::getInstance();
         Json::StreamWriterBuilder builder;
         std::string jsonStr = Json::writeString(builder, responseData);
-        cache.setEx("recommendations:trending", jsonStr, 180);
+        cache.setEx("recommendations:trending:" + std::to_string(limit), jsonStr, 180);
 
         callback(ResponseUtil::success(responseData, "当前热门"));
 

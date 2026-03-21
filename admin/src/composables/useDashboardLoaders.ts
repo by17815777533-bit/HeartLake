@@ -348,7 +348,7 @@ export function useDashboardLoaders({
   /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
-      const res = await api.getTrendingContent()
+      const res = await api.getTrendingContent({ limit: 6 })
       const list = normalizeDashboardCollection<{
         stone_id?: string
         content?: string

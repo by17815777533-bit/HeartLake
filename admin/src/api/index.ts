@@ -369,7 +369,10 @@ export default {
   analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
   moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
   // Recommendation System
-  getTrendingContent: () => http.get('/recommendations/trending', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
+  getTrendingContent: (params?: Params) => http.get(
+    '/recommendations/trending',
+    { params, skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig,
+  ),
   getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
   getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
 }
