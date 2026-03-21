@@ -41,18 +41,19 @@ public:
      * @details 优先从缓存读取，miss 时查库回填。返回 JSON 包含
      *          nickname、avatar、bio、stone_count、friend_count 等聚合信息。
      * @param userId 目标用户 ID
-     * @return 用户资料 JSON，用户不存在时返回 error 字段
+     * @return 用户资料 JSON，包含 stone/ripple/boat 等聚合字段
      */
     Json::Value getUserProfile(const std::string& userId);
 
     /**
      * @brief 更新用户资料
      * @details 支持部分更新——只修改 updates 中包含的字段。
-     *          更新后清除该用户的缓存条目。
+     *          更新后失效完整资料缓存，并回写用户摘要缓存。
      * @param userId 当前登录用户 ID
      * @param updates 待更新字段的 JSON（如 nickname、avatar、bio）
+     * @return 更新后的基础用户资料 JSON
      */
-    void updateUserProfile(
+    Json::Value updateUserProfile(
         const std::string& userId,
         const Json::Value& updates
     );
@@ -63,12 +64,14 @@ public:
      * @param keyword 搜索关键词
      * @param page 页码（从 1 开始）
      * @param pageSize 每页数量
+     * @param excludeUserId 可选，排除当前登录用户自己
      * @return 分页 JSON，含 items 数组和 total
      */
     Json::Value searchUsers(
         const std::string& keyword,
         int page,
-        int pageSize
+        int pageSize,
+        const std::string& excludeUserId = ""
     );
 
     /**

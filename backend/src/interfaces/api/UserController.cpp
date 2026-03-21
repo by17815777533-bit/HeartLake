@@ -2,6 +2,8 @@
  * 用户控制器 - 匿名登录 + 关键词恢复
  */
 #include "interfaces/api/UserController.h"
+#include "application/UserApplicationService.h"
+#include "infrastructure/di/ServiceLocator.h"
 #include "utils/IdGenerator.h"
 #include "utils/BusinessRules.h"
 #include "utils/PasetoUtil.h"
@@ -49,6 +51,12 @@ int extractWindowTotal(const drogon::orm::Result &result,
 
 int64_t paginationOffset(int page, int pageSize) {
   return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
+}
+
+std::shared_ptr<heartlake::application::UserApplicationService>
+getUserService() {
+  return heartlake::core::di::ServiceLocator::instance()
+      .resolve<heartlake::application::UserApplicationService>();
 }
 } // namespace
 
@@ -323,51 +331,30 @@ void UserController::getUserInfo(
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &userId) {
   try {
-    auto dbClient = drogon::app().getDbClient("default");
+    auto service = getUserService();
+    const auto profile = service->getUserProfile(userId);
 
-    auto result = dbClient->execSqlSync(
-        "SELECT u.user_id, u.username, u.nickname, "
-        "u.is_anonymous, u.created_at, u.avatar_url, u.bio, "
-        "COALESCE(st.stones_count, 0) AS stones_count, "
-        "COALESCE(st.ripples_received, 0) AS ripples_received, "
-        "COALESCE(st.boats_received, 0) AS boats_received "
-        "FROM users u "
-        "LEFT JOIN LATERAL ("
-        "  SELECT "
-        "    COUNT(*) FILTER (WHERE s.status = 'published') AS stones_count, "
-        "    COALESCE(SUM(CASE WHEN s.status = 'published' THEN s.ripple_count ELSE 0 END), 0) AS ripples_received, "
-        "    COALESCE(SUM(CASE WHEN s.status = 'published' THEN s.boat_count ELSE 0 END), 0) AS boats_received "
-        "  FROM stones s "
-        "  WHERE s.user_id = u.user_id AND s.deleted_at IS NULL"
-        ") st ON TRUE "
-        "WHERE u.user_id = $1 AND u.status = 'active'",
-        userId);
-
-    if (result.empty()) {
-      callback(ResponseUtil::notFound("用户不存在"));
-      return;
-    }
-
-    auto row = *safeRow(result);
     Json::Value user;
-    user["user_id"] = row["user_id"].as<std::string>();
-    user["username"] = row["username"].as<std::string>();
-    user["nickname"] = row["nickname"].as<std::string>();
-    user["is_anonymous"] = row["is_anonymous"].as<bool>();
-    user["created_at"] = row["created_at"].as<std::string>();
-    user["avatar_url"] =
-        row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
-    user["bio"] = row["bio"].isNull() ? "" : row["bio"].as<std::string>();
-    user["stones_count"] =
-        row["stones_count"].isNull() ? 0 : row["stones_count"].as<int>();
-    user["ripples_received"] = row["ripples_received"].isNull()
-                                   ? 0
-                                   : row["ripples_received"].as<int>();
-    user["boats_received"] =
-        row["boats_received"].isNull() ? 0 : row["boats_received"].as<int>();
+    user["user_id"] = profile.get("user_id", "").asString();
+    user["username"] = profile.get("username", "").asString();
+    user["nickname"] = profile.get("nickname", "").asString();
+    user["is_anonymous"] = profile.get("is_anonymous", true).asBool();
+    user["created_at"] = profile.get("created_at", "").asString();
+    user["avatar_url"] = profile.get("avatar_url", "").asString();
+    user["bio"] = profile.get("bio", "").asString();
+    user["stones_count"] = profile.get("stone_count", 0).asInt();
+    user["ripples_received"] = profile.get("ripples_received", 0).asInt();
+    user["boats_received"] = profile.get("boats_received", 0).asInt();
 
     callback(ResponseUtil::success(user));
 
+  } catch (const std::runtime_error &e) {
+    if (std::string(e.what()) == "用户不存在") {
+      callback(ResponseUtil::notFound("用户不存在"));
+      return;
+    }
+    LOG_ERROR << "Error in getUserInfo: " << e.what();
+    callback(ResponseUtil::internalError());
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in getUserInfo: " << e.base().what();
     callback(ResponseUtil::internalError("数据库错误"));
@@ -456,45 +443,10 @@ void UserController::searchUsers(
       return;
     }
 
-    auto dbClient = drogon::app().getDbClient("default");
     auto [page, pageSize] = safePagination(req);
-    const int64_t offset = paginationOffset(page, pageSize);
-
-    auto result = dbClient->execSqlSync(
-        "SELECT user_id, username, nickname, avatar_url, is_anonymous, "
-        "created_at, COUNT(*) OVER() AS total_count "
-        "FROM users "
-        "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE '\\') "
-        "AND status = 'active' AND user_id != $2 "
-        "ORDER BY created_at DESC LIMIT $3 OFFSET $4",
-        "%" + escapeLike(query) + "%", user_id, static_cast<int64_t>(pageSize),
-        offset);
-
-    Json::Value users(Json::arrayValue);
-    for (const auto &row : result) {
-      Json::Value user;
-      user["user_id"] =
-          row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();
-      user["id"] = user["user_id"];
-      user["userId"] = user["user_id"];
-      user["username"] =
-          row["username"].isNull() ? "" : row["username"].as<std::string>();
-      user["nickname"] = row["nickname"].isNull()
-                             ? user["username"].asString()
-                             : row["nickname"].as<std::string>();
-      if (!row["avatar_url"].isNull()) {
-        user["avatar_url"] = row["avatar_url"].as<std::string>();
-        user["avatarUrl"] = user["avatar_url"];
-      }
-      user["is_anonymous"] =
-          row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
-      users.append(user);
-    }
-    const int total = extractWindowTotal(result);
-
-    callback(ResponseUtil::success(
-        ResponseUtil::buildCollectionPayload("users", users, total, page,
-                                             pageSize)));
+    auto service = getUserService();
+    auto result = service->searchUsers(query, page, pageSize, user_id);
+    callback(ResponseUtil::success(result));
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Database error in searchUsers: " << e.base().what();
@@ -585,19 +537,14 @@ void UserController::updateProfile(
       return;
     }
 
-    auto dbClient = drogon::app().getDbClient("default");
-    std::vector<std::string> setClauses;
-    std::vector<std::string> paramValues;
-    int paramIdx = 1;
+    Json::Value updates(Json::objectValue);
 
     if (json->isMember("avatar_url") &&
         !(*json)["avatar_url"].asString().empty()) {
-      setClauses.push_back("avatar_url = $" + std::to_string(paramIdx++));
-      paramValues.push_back((*json)["avatar_url"].asString());
+      updates["avatar_url"] = (*json)["avatar_url"].asString();
     }
     if (json->isMember("bio") && !(*json)["bio"].asString().empty()) {
-      setClauses.push_back("bio = $" + std::to_string(paramIdx++));
-      paramValues.push_back((*json)["bio"].asString());
+      updates["bio"] = (*json)["bio"].asString();
     }
     if (json->isMember("nickname")) {
       if (!(*json)["nickname"].isString()) {
@@ -610,49 +557,21 @@ void UserController::updateProfile(
         callback(ResponseUtil::badRequest(nicknameValidation.errorMessage));
         return;
       }
-      setClauses.push_back("nickname = $" + std::to_string(paramIdx++));
-      paramValues.push_back(nickname);
+      updates["nickname"] = nickname;
     }
 
-    if (setClauses.empty()) {
+    if (updates.empty()) {
       callback(ResponseUtil::badRequest("没有要更新的字段"));
       return;
     }
 
-    std::string sql = "UPDATE users SET ";
-    for (size_t i = 0; i < setClauses.size(); ++i) {
-      if (i > 0)
-        sql += ", ";
-      sql += setClauses[i];
-    }
-    sql += ", updated_at = NOW() WHERE user_id = $" + std::to_string(paramIdx);
-
-    if (paramValues.size() == 1) {
-      dbClient->execSqlSync(sql, paramValues[0], user_id);
-    } else if (paramValues.size() == 2) {
-      dbClient->execSqlSync(sql, paramValues[0], paramValues[1], user_id);
-    } else if (paramValues.size() == 3) {
-      dbClient->execSqlSync(sql, paramValues[0], paramValues[1], paramValues[2],
-                            user_id);
-    }
-
-    auto result = dbClient->execSqlSync("SELECT user_id, nickname, avatar_url, "
-                                        "bio FROM users WHERE user_id = $1",
-                                        user_id);
-
-    if (result.empty()) {
-      callback(ResponseUtil::internalError("更新失败"));
-      return;
-    }
-
-    auto row = *safeRow(result);
+    auto service = getUserService();
+    const auto result = service->updateUserProfile(user_id, updates);
     Json::Value responseData;
-    responseData["user_id"] = row["user_id"].as<std::string>();
-    responseData["nickname"] = row["nickname"].as<std::string>();
-    responseData["avatar_url"] =
-        row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
-    responseData["bio"] =
-        row["bio"].isNull() ? "" : row["bio"].as<std::string>();
+    responseData["user_id"] = result.get("user_id", "").asString();
+    responseData["nickname"] = result.get("nickname", "").asString();
+    responseData["avatar_url"] = result.get("avatar_url", "").asString();
+    responseData["bio"] = result.get("bio", "").asString();
 
     callback(ResponseUtil::success(responseData, "资料更新成功"));
 

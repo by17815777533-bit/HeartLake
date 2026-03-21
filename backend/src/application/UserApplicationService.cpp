@@ -127,6 +127,10 @@ Json::Value buildProfileUserJson(const drogon::orm::Row &row) {
       row["stone_count"].isNull() ? 0 : row["stone_count"].as<int>();
   user["friend_count"] =
       row["friend_count"].isNull() ? 0 : row["friend_count"].as<int>();
+  user["ripples_received"] =
+      row["ripples_received"].isNull() ? 0 : row["ripples_received"].as<int>();
+  user["boats_received"] =
+      row["boats_received"].isNull() ? 0 : row["boats_received"].as<int>();
   return user;
 }
 
@@ -174,13 +178,24 @@ Json::Value UserApplicationService::getUserProfile(const std::string &userId) {
         "u.gender, "
         "       u.birthday, u.location, u.is_anonymous, u.created_at, "
         "       COALESCE(stone_stats.stone_count, 0) AS stone_count, "
+        "       COALESCE(stone_stats.ripples_received, 0) AS "
+        "ripples_received, "
+        "       COALESCE(stone_stats.boats_received, 0) AS boats_received, "
         "       COALESCE(friend_stats.friend_count, 0) AS friend_count "
         "FROM users u "
         "LEFT JOIN LATERAL ("
-        "  SELECT COUNT(*) AS stone_count FROM stones s "
+        "  SELECT COUNT(*) FILTER ("
+        "           WHERE s.status = 'published' AND s.deleted_at IS NULL"
+        "         ) AS stone_count, "
+        "         COALESCE(SUM(CASE "
+        "             WHEN s.status = 'published' AND s.deleted_at IS NULL "
+        "             THEN s.ripple_count ELSE 0 END), 0) AS "
+        "ripples_received, "
+        "         COALESCE(SUM(CASE "
+        "             WHEN s.status = 'published' AND s.deleted_at IS NULL "
+        "             THEN s.boat_count ELSE 0 END), 0) AS boats_received "
+        "  FROM stones s "
         "  WHERE s.user_id = u.user_id "
-        "    AND s.status = 'published' "
-        "    AND s.deleted_at IS NULL"
         ") AS stone_stats ON TRUE "
         "LEFT JOIN LATERAL ("
         "  SELECT COUNT(*) AS friend_count FROM friends f "
@@ -212,8 +227,8 @@ Json::Value UserApplicationService::getUserProfile(const std::string &userId) {
 }
 
 /// 更新用户资料：动态构建 SET 子句，只更新传入的字段
-void UserApplicationService::updateUserProfile(const std::string &userId,
-                                               const Json::Value &updates) {
+Json::Value UserApplicationService::updateUserProfile(const std::string &userId,
+                                                      const Json::Value &updates) {
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
@@ -248,7 +263,7 @@ void UserApplicationService::updateUserProfile(const std::string &userId,
     }
 
     if (setClauses.empty()) {
-      return;
+      throw std::runtime_error("没有要更新的字段");
     }
 
     setClauses.push_back("updated_at = NOW()");
@@ -260,18 +275,24 @@ void UserApplicationService::updateUserProfile(const std::string &userId,
       sql += setClauses[i];
     }
     sql += " WHERE user_id = $" + std::to_string(paramIndex);
+    sql += " RETURNING user_id, username, nickname, avatar_url, bio";
     params.push_back(userId);
 
-    // 执行更新
-    execSqlSyncWithStringParams(dbClient, sql, params);
+    auto result = execSqlSyncWithStringParams(dbClient, sql, params);
+    if (result.empty()) {
+      throw std::runtime_error("用户不存在");
+    }
 
-    // 使缓存失效
+    const auto &row = result[0];
+    Json::Value updatedUser = buildBasicUserJson(row, true);
+
     if (cacheManager_) {
       cacheManager_->invalidate(buildUserProfileCacheKey(userId));
-      cacheManager_->invalidate(buildUserSummaryCacheKey(userId));
+      cacheUserSummary(cacheManager_, updatedUser);
     }
 
     LOG_INFO << "User profile updated: " << userId;
+    return updatedUser;
 
   } catch (const drogon::orm::DrogonDbException &e) {
     LOG_ERROR << "Failed to update user profile: " << e.base().what();
@@ -281,22 +302,41 @@ void UserApplicationService::updateUserProfile(const std::string &userId,
 
 /// 搜索用户：按 username/nickname 模糊匹配，LIKE 通配符已转义
 Json::Value UserApplicationService::searchUsers(const std::string &keyword,
-                                                int page, int pageSize) {
+                                                int page, int pageSize,
+                                                const std::string &excludeUserId) {
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
-    std::string searchPattern = "%" + escapeLike(keyword) + "%";
+    const int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
+    const std::string searchPattern = "%" + escapeLike(keyword) + "%";
 
-    auto result = dbClient->execSqlSync(
-        "SELECT user_id, username, nickname, avatar_url, bio, COUNT(*) OVER() "
-        "AS total_count "
-        "FROM users "
-        "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE '\\') "
-        "AND is_anonymous = false AND status = 'active' "
-        "ORDER BY created_at DESC "
-        "LIMIT $2 OFFSET $3",
-        searchPattern, static_cast<int64_t>(pageSize), offset);
+    auto result = [&]() -> drogon::orm::Result {
+      if (!excludeUserId.empty()) {
+        return dbClient->execSqlSync(
+            "SELECT user_id, username, nickname, avatar_url, bio, "
+            "is_anonymous, COUNT(*) OVER() AS total_count "
+            "FROM users "
+            "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+            "'\\') "
+            "AND is_anonymous = false AND status = 'active' "
+            "AND user_id != $2 "
+            "ORDER BY created_at DESC "
+            "LIMIT $3 OFFSET $4",
+            searchPattern, excludeUserId, static_cast<int64_t>(pageSize),
+            offset);
+      }
+
+      return dbClient->execSqlSync(
+          "SELECT user_id, username, nickname, avatar_url, bio, "
+          "is_anonymous, COUNT(*) OVER() AS total_count "
+          "FROM users "
+          "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+          "'\\') "
+          "AND is_anonymous = false AND status = 'active' "
+          "ORDER BY created_at DESC "
+          "LIMIT $2 OFFSET $3",
+          searchPattern, static_cast<int64_t>(pageSize), offset);
+    }();
 
     Json::Value users(Json::arrayValue);
     int total = 0;

@@ -1076,24 +1076,27 @@ Json::Value InteractionApplicationService::createConnectionMessage(
   auto dbClient = drogon::app().getDbClient("default");
 
   try {
-    // 0. 验证用户是 connection 的参与者（防止 IDOR）
-    auto connCheck = dbClient->execSqlSync(
-        "SELECT connection_id FROM connections WHERE connection_id = $1 "
-        "AND (user_id = $2 OR target_user_id = $2)",
-        connectionId, userId);
-    if (connCheck.empty()) {
+    auto insertResult = dbClient->execSqlSync(
+        "WITH authorized AS ("
+        "  SELECT connection_id FROM connections "
+        "  WHERE connection_id = $1 "
+        "    AND (user_id = $2 OR target_user_id = $2)"
+        "), inserted AS ("
+        "  INSERT INTO connection_messages "
+        "  (connection_id, sender_id, content, created_at) "
+        "  SELECT connection_id, $2, $3, NOW() FROM authorized "
+        "  RETURNING id, connection_id, sender_id, content, created_at"
+        ") "
+        "SELECT id, connection_id, sender_id, content, created_at "
+        "FROM inserted",
+        connectionId, userId, content);
+
+    if (insertResult.empty()) {
       throw std::runtime_error("无权操作此连接");
     }
 
-    // 1. 插入数据库并返回真实主键
-    auto insertResult = dbClient->execSqlSync(
-        "INSERT INTO connection_messages (connection_id, sender_id, content, "
-        "created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at",
-        connectionId, userId, content);
-
     auto row = *safeRow(insertResult);
 
-    // 2. 返回结果
     Json::Value result;
     result["message_id"] = std::to_string(row["id"].as<int>());
     result["id"] = result["message_id"];
@@ -1297,26 +1300,42 @@ Json::Value InteractionApplicationService::getConnectionMessages(
     int pageSize) {
   auto dbClient = drogon::app().getDbClient("default");
   try {
-    auto accessCheck = dbClient->execSqlSync(
-        "SELECT connection_id FROM connections WHERE connection_id = $1 "
-        "AND (user_id = $2 OR target_user_id = $2)",
-        connectionId, userId);
-    if (accessCheck.empty()) {
+    const int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
+    auto result = dbClient->execSqlSync(
+        "WITH authorized AS ("
+        "  SELECT connection_id FROM connections "
+        "  WHERE connection_id = $1 "
+        "    AND (user_id = $2 OR target_user_id = $2)"
+        "), totals AS ("
+        "  SELECT COUNT(*)::INTEGER AS total_count "
+        "  FROM connection_messages cm "
+        "  JOIN authorized a ON a.connection_id = cm.connection_id"
+        ") "
+        "SELECT paged.id, paged.sender_id, paged.content, paged.created_at, "
+        "       paged.username, paged.nickname, paged.avatar_url, "
+        "       COALESCE(t.total_count, 0) AS total_count "
+        "FROM authorized a "
+        "CROSS JOIN totals t "
+        "LEFT JOIN LATERAL ("
+        "  SELECT cm.id, cm.sender_id, cm.content, cm.created_at, "
+        "         u.username, u.nickname, u.avatar_url "
+        "  FROM connection_messages cm "
+        "  LEFT JOIN users u ON cm.sender_id = u.user_id "
+        "  WHERE cm.connection_id = a.connection_id "
+        "  ORDER BY cm.created_at ASC "
+        "  LIMIT $3 OFFSET $4"
+        ") paged ON TRUE",
+        connectionId, userId, static_cast<int64_t>(pageSize), offset);
+    if (result.empty()) {
       throw std::runtime_error("无权访问此连接");
     }
 
-    int64_t offset = static_cast<int64_t>((page - 1) * pageSize);
-    auto result = dbClient->execSqlSync(
-        "SELECT cm.id, cm.sender_id, cm.content, cm.created_at, "
-        "u.username, u.nickname, u.avatar_url, "
-        "COUNT(*) OVER() AS total_count "
-        "FROM connection_messages cm "
-        "LEFT JOIN users u ON cm.sender_id = u.user_id "
-        "WHERE cm.connection_id = $1 "
-        "ORDER BY cm.created_at ASC LIMIT $2 OFFSET $3",
-        connectionId, static_cast<int64_t>(pageSize), offset);
     Json::Value messages(Json::arrayValue);
     for (const auto &row : result) {
+      if (row["id"].isNull()) {
+        continue;
+      }
+
       Json::Value msg;
       const auto messageId = std::to_string(row["id"].as<int>());
       const auto senderId = safeStringColumn(row, "sender_id");
