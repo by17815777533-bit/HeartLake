@@ -73,6 +73,22 @@ execSqlSyncWithStringParams(const drogon::orm::DbClientPtr &dbClient,
   }
 }
 
+int extractWindowTotal(const drogon::orm::Result &result,
+                       const std::string &column = "total_count") {
+  return result.empty() || result[0][column].isNull()
+             ? 0
+             : result[0][column].as<int>();
+}
+
+template <typename F>
+int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
+                                 F &&fallbackQuery) {
+  if (!result.empty() || page <= 1) {
+    return extractWindowTotal(result);
+  }
+  return fallbackQuery();
+}
+
 void addUserAliases(Json::Value &user) {
   if (user.isMember("user_id")) {
     user["id"] = user["user_id"];
@@ -339,16 +355,35 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
     }();
 
     Json::Value users(Json::arrayValue);
-    int total = 0;
     for (const auto &row : result) {
-      if (total == 0 && !row["total_count"].isNull()) {
-        total = row["total_count"].as<int>();
-      }
       Json::Value user = buildBasicUserJson(row, true);
       user["is_anonymous"] =
           row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
       users.append(user);
     }
+
+    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+      if (!excludeUserId.empty()) {
+        auto countResult = dbClient->execSqlSync(
+            "SELECT COUNT(*)::INTEGER AS total_count "
+            "FROM users "
+            "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+            "'\\') "
+            "AND status = 'active' "
+            "AND user_id != $2",
+            searchPattern, excludeUserId);
+        return extractWindowTotal(countResult);
+      }
+
+      auto countResult = dbClient->execSqlSync(
+          "SELECT COUNT(*)::INTEGER AS total_count "
+          "FROM users "
+          "WHERE (username LIKE $1 ESCAPE '\\' OR nickname LIKE $1 ESCAPE "
+          "'\\') "
+          "AND status = 'active'",
+          searchPattern);
+      return extractWindowTotal(countResult);
+    });
 
     return buildPaginatedUsersResponse(users, total, page, pageSize);
 

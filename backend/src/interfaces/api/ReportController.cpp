@@ -18,6 +18,15 @@ int extractWindowTotal(const drogon::orm::Result &result,
                : result[0][column].as<int>();
 }
 
+template <typename F>
+int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
+                                 F &&fallbackQuery) {
+    if (!result.empty() || page <= 1) {
+        return extractWindowTotal(result);
+    }
+    return fallbackQuery();
+}
+
 int64_t paginationOffset(int page, int pageSize) {
     return static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
 }
@@ -117,7 +126,14 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
             "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
             user_id, static_cast<int64_t>(page_size), offset
         );
-        const int total = extractWindowTotal(result);
+        const int total = resolveWindowTotalOrFallback(result, page, [&]() {
+            auto countResult = dbClient->execSqlSync(
+                "SELECT COUNT(*)::INTEGER AS total_count "
+                "FROM reports WHERE reporter_id = $1",
+                user_id
+            );
+            return extractWindowTotal(countResult);
+        });
         
         Json::Value reports(Json::arrayValue);
         for (const auto &row : result) {
