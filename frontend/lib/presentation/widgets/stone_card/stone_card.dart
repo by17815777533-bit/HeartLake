@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../data/datasources/social_payload_normalizer.dart';
 import '../../../domain/entities/stone.dart';
 import '../../../data/datasources/websocket_manager.dart';
 import '../../../utils/app_theme.dart';
@@ -230,7 +231,11 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
 
       if (result['success'] == true) {
         setModalState(() {
-          boats = List<Map<String, dynamic>>.from(result['boats'] ?? []);
+          boats = extractNormalizedList(
+            result,
+            itemNormalizer: normalizeBoatPayload,
+            listKeys: const ['boats'],
+          );
           loading = false;
         });
       } else {

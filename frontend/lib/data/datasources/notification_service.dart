@@ -1,6 +1,5 @@
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
-import '../../utils/payload_contract.dart';
 import 'social_payload_normalizer.dart';
 
 abstract class NotificationDataSource {
@@ -18,49 +17,6 @@ class NotificationService extends BaseService
     implements NotificationDataSource {
   @override
   String get serviceName => 'NotificationService';
-
-  List<Map<String, dynamic>> _normalizeNotifications(dynamic rawItems) {
-    if (rawItems is! List) return const [];
-
-    return rawItems.whereType<Map>().map((item) {
-      final normalized = normalizePayloadContract(
-        Map<String, dynamic>.from(item),
-      );
-      final notificationType =
-          (normalized['notification_type'] ?? normalized['type'])?.toString();
-      if (notificationType != null && notificationType.isNotEmpty) {
-        normalized['type'] = notificationType;
-        normalized['notification_type'] = notificationType;
-      }
-      final notificationId = extractNotificationEntityId(normalized);
-      if (notificationId != null) {
-        normalized['notification_id'] = notificationId;
-        normalized['id'] = notificationId;
-      }
-
-      final relatedId = normalized['related_id'] ??
-          normalized['target_id'] ??
-          normalized['stone_id'] ??
-          normalized['friend_id'];
-      if (relatedId != null) {
-        normalized['related_id'] = relatedId;
-        normalized['relatedId'] = relatedId;
-      }
-
-      final stoneId = normalized['stone_id']?.toString();
-      if (stoneId != null &&
-          stoneId.isNotEmpty &&
-          const {'ripple', 'boat', 'ai_reply'}.contains(notificationType)) {
-        normalized['target_id'] = stoneId;
-        normalized['targetId'] = stoneId;
-      } else if (relatedId != null) {
-        normalized['target_id'] = relatedId;
-        normalized['targetId'] = relatedId;
-      }
-
-      return normalized;
-    }).toList();
-  }
 
   Map<String, dynamic> _applyHasMoreFallback(
     Map<String, dynamic> envelope, {
@@ -107,82 +63,29 @@ class NotificationService extends BaseService
     });
     if (!response.success) return toMap(response);
 
-    final data = response.data;
-    // 兼容后端纯数组和对象两种返回格式
-    if (data is List) {
-      final items = _normalizeNotifications(data);
-      final unreadCount = extractUnreadCount(data, items: items);
-      final envelope = {
-        ...toMap(response),
-        ...buildCollectionEnvelope(
-          data,
-          primaryKey: 'notifications',
-          items: items,
-          extra: {
-            'unread_count': unreadCount,
-            'unreadCount': unreadCount,
-          },
-        ),
-      };
-      return _applyHasMoreFallback(
-        envelope,
-        raw: data,
-        pageSize: pageSize,
-        itemCount: items.length,
-      );
-    }
-    if (data is Map<String, dynamic>) {
-      dynamic rawItems = data['notifications'] ??
-          data['items'] ??
-          data['list'] ??
-          data['results'] ??
-          data['data'];
-      if (rawItems is Map<String, dynamic>) {
-        rawItems = rawItems['notifications'] ??
-            rawItems['items'] ??
-            rawItems['list'] ??
-            rawItems['results'] ??
-            rawItems['data'];
-      }
-
-      final items = _normalizeNotifications(rawItems);
-      final unreadCount = extractUnreadCount(data, items: items);
-      final envelope = {
-        ...toMap(response),
-        ...buildCollectionEnvelope(
-          data,
-          primaryKey: 'notifications',
-          items: items,
-          extra: {
-            'unread_count': unreadCount,
-            'unreadCount': unreadCount,
-          },
-        ),
-      };
-      return _applyHasMoreFallback(
-        envelope,
-        raw: data,
-        pageSize: pageSize,
-        itemCount: items.length,
-      );
-    }
+    final items = extractNormalizedList(
+      response.data,
+      itemNormalizer: normalizeNotificationPayload,
+      listKeys: const ['notifications'],
+    );
+    final unreadCount = extractUnreadCount(response.data, items: items);
     final envelope = {
       ...toMap(response),
       ...buildCollectionEnvelope(
-        const [],
+        response.data,
         primaryKey: 'notifications',
-        items: const <Map<String, dynamic>>[],
-        extra: const {
-          'unread_count': 0,
-          'unreadCount': 0,
+        items: items,
+        extra: {
+          'unread_count': unreadCount,
+          'unreadCount': unreadCount,
         },
       ),
     };
     return _applyHasMoreFallback(
       envelope,
-      raw: const <String, dynamic>{},
+      raw: response.data,
       pageSize: pageSize,
-      itemCount: 0,
+      itemCount: items.length,
     );
   }
 
@@ -210,7 +113,9 @@ class NotificationService extends BaseService
 
     final data = response.data;
     final normalized = data is Map
-        ? normalizePayloadContract(Map<String, dynamic>.from(data))
+        ? normalizeNotificationPayload(
+            Map<String, dynamic>.from(data.cast<String, dynamic>()),
+          )
         : data;
     final unreadCount = (normalized is Map) ? normalized['unread_count'] : null;
     return {...toMap(response), 'unread_count': unreadCount};

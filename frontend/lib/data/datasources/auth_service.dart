@@ -33,13 +33,7 @@ abstract class AuthDataSource {
   Future<Map<String, dynamic>> anonymousLogin();
   Future<StoredAuthSession?> getStoredSession();
   Future<Map<String, dynamic>> getUserProfile(String userId);
-  Future<Map<String, dynamic>> updateProfile({
-    String? avatarUrl,
-    String? bio,
-    String? nickname,
-  });
   Future<void> logout();
-  Future<Map<String, dynamic>> updateNickname(String nickname);
 }
 
 /// 认证服务
@@ -219,57 +213,6 @@ class AuthService extends BaseService implements AuthDataSource {
     _authStateController.add(null);
   }
 
-  /// 更新用户个人资料
-  ///
-  /// 仅提交显式传入字段，昵称会做XSS过滤和长度校验。
-  ///
-  /// [avatarUrl] 头像URL，最长500字符
-  /// [bio] 个人简介，最长200字符
-  /// [nickname] 昵称，2-20字符
-  @override
-  Future<Map<String, dynamic>> updateProfile(
-      {String? avatarUrl, String? bio, String? nickname}) async {
-    final Map<String, dynamic> data = {};
-    if (avatarUrl != null) {
-      InputValidator.requireLength(avatarUrl, '头像URL', max: 500);
-      data['avatar_url'] = avatarUrl;
-    }
-    if (bio != null) {
-      InputValidator.requireLength(bio, '个人简介', max: 200);
-      data['bio'] = bio;
-    }
-    if (nickname != null) {
-      final sanitized = InputValidator.sanitizeText(nickname);
-      data['nickname'] =
-          InputValidator.requireLength(sanitized, '昵称', min: 2, max: 20);
-    }
-    if (data.isEmpty) return {'success': true};
-
-    final response = await put('/account/profile', data: data);
-    if (!response.success) return toMap(response);
-
-    final responseData = UserPayloadNormalizer.normalizeUser(response.data) ??
-        <String, dynamic>{};
-    final currentUserId = await StorageUtil.getUserId();
-    if ((responseData['user_id'] == null ||
-            responseData['user_id'].toString().trim().isEmpty) &&
-        currentUserId != null &&
-        currentUserId.isNotEmpty) {
-      responseData['user_id'] = currentUserId;
-      responseData['userId'] = currentUserId;
-    }
-    if (responseData['nickname'] != null) {
-      await StorageUtil.saveNickname(responseData['nickname']);
-    }
-    return {
-      'success': true,
-      'user_id': responseData['user_id'],
-      'nickname': responseData['nickname'],
-      'avatar_url': responseData['avatar_url'],
-      'bio': responseData['bio']
-    };
-  }
-
   /// 刷新访问令牌
   ///
   /// 使用refresh_token刷新访问令牌。
@@ -311,23 +254,6 @@ class AuthService extends BaseService implements AuthDataSource {
       return result['token'] as String?;
     }
     return null;
-  }
-
-  /// 更新昵称
-  ///
-  /// 快捷方法，仅更新昵称。
-  ///
-  /// [nickname] 新昵称
-  @override
-  Future<Map<String, dynamic>> updateNickname(String nickname) async {
-    final result = await updateProfile(nickname: nickname);
-    if (result['success'] != true) {
-      return result;
-    }
-    return {
-      'success': true,
-      'nickname': result['nickname'],
-    };
   }
 
   @override

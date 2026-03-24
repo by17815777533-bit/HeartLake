@@ -1,3 +1,5 @@
+import '../../utils/payload_contract.dart';
+
 Map<String, dynamic> _asMap(Map raw) =>
     Map<String, dynamic>.from(raw.cast<String, dynamic>());
 
@@ -13,7 +15,7 @@ Iterable<Map<String, dynamic>> _candidateMaps(dynamic raw) sync* {
 }
 
 List<String> _mergeListKeys(List<String> listKeys) {
-  return {...listKeys, 'items', 'list'}.toList();
+  return {...listKeys, 'items', 'list', 'results'}.toList();
 }
 
 dynamic _firstValue(Map<String, dynamic> data, List<String> keys) {
@@ -118,17 +120,20 @@ Map<String, dynamic> extractPaginationPayload(
     return _firstValue(pagination, keys);
   }
 
-  final total =
-      _toInt(read(const ['total', 'count', 'total_count'])) ?? itemCount;
-  final page = _toInt(read(const ['page', 'page_index'])) ?? 1;
-  final pageSize =
-      _toInt(read(const ['page_size', 'pageSize', 'per_page', 'limit'])) ??
-          itemCount;
+  final rawTotal = _toInt(read(const ['total', 'count', 'total_count']));
+  final rawPage = _toInt(read(const ['page', 'page_index']));
+  final rawPageSize =
+      _toInt(read(const ['page_size', 'pageSize', 'per_page', 'limit']));
+  final rawTotalPages =
+      _toInt(read(const ['total_pages', 'totalPages', 'page_count']));
+  final rawHasMore = _toBool(read(const ['has_more', 'hasMore']));
+
+  final total = rawTotal ?? itemCount;
+  final page = rawPage ?? 1;
+  final pageSize = rawPageSize ?? itemCount;
   final totalPages =
-      _toInt(read(const ['total_pages', 'totalPages', 'page_count'])) ??
-          (pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0);
-  final hasMore = _toBool(read(const ['has_more', 'hasMore'])) == true ||
-      (pageSize > 0 && page * pageSize < total);
+      rawTotalPages ?? (pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0);
+  final hasMore = rawHasMore ?? (pageSize > 0 && page * pageSize < total);
 
   return {
     'total': total,
@@ -138,6 +143,10 @@ Map<String, dynamic> extractPaginationPayload(
     'total_pages': totalPages,
     'totalPages': totalPages,
     'has_more': hasMore,
+    'hasMore': hasMore,
+    '_has_explicit_total': rawTotal != null,
+    '_has_explicit_total_pages': rawTotalPages != null,
+    '_has_explicit_has_more': rawHasMore != null,
   };
 }
 
@@ -175,8 +184,17 @@ Map<String, dynamic> buildCollectionEnvelope<T>(
   final total = totalOverride ?? basePagination['total'] as int;
   final page = basePagination['page'] as int;
   final pageSize = basePagination['page_size'] as int;
-  final totalPages = pageSize > 0 ? (total + pageSize - 1) ~/ pageSize : 0;
-  final hasMore = pageSize > 0 && page * pageSize < total;
+  final hasExplicitTotalPages =
+      basePagination['_has_explicit_total_pages'] == true;
+  final hasExplicitHasMore = basePagination['_has_explicit_has_more'] == true;
+  final totalPages = hasExplicitTotalPages
+      ? basePagination['total_pages'] as int
+      : pageSize > 0
+          ? (total + pageSize - 1) ~/ pageSize
+          : 0;
+  final hasMore = hasExplicitHasMore
+      ? basePagination['has_more'] == true
+      : pageSize > 0 && page * pageSize < total;
   final pagination = {
     ...basePagination,
     'total': total,
@@ -186,7 +204,11 @@ Map<String, dynamic> buildCollectionEnvelope<T>(
     'total_pages': totalPages,
     'totalPages': totalPages,
     'has_more': hasMore,
+    'hasMore': hasMore,
   };
+  pagination.remove('_has_explicit_total');
+  pagination.remove('_has_explicit_total_pages');
+  pagination.remove('_has_explicit_has_more');
   return {
     'success': true,
     primaryKey: items,
@@ -199,6 +221,7 @@ Map<String, dynamic> buildCollectionEnvelope<T>(
     'total_pages': totalPages,
     'totalPages': totalPages,
     'has_more': hasMore,
+    'hasMore': hasMore,
     'pagination': pagination,
     ...extra,
   };
@@ -474,6 +497,80 @@ Map<String, dynamic> normalizeMessagePayload(Map raw) {
   return item;
 }
 
+Map<String, dynamic> normalizeNotificationPayload(Map raw) {
+  final normalized = normalizePayloadContract(_asMap(raw));
+  final nestedData = normalized['data'];
+  final item = nestedData is Map
+      ? {
+          ...normalized,
+          ...normalizePayloadContract(_asMap(nestedData)),
+        }
+      : normalized;
+
+  final eventType = normalized['type']?.toString();
+  final notificationType =
+      _firstValue(item, const ['notification_type', 'type'])?.toString();
+  if (notificationType != null && notificationType.isNotEmpty) {
+    if (eventType != null &&
+        eventType.isNotEmpty &&
+        eventType != notificationType) {
+      item['event_type'] = eventType;
+    }
+    item['type'] = notificationType;
+    item['notification_type'] = notificationType;
+  }
+
+  final notificationId = _firstValue(
+    item,
+    const ['notification_id', 'notificationId', 'id'],
+  );
+  if (notificationId != null) {
+    final normalizedId = notificationId.toString();
+    item['notification_id'] = normalizedId;
+    item['notificationId'] = normalizedId;
+    item['id'] = normalizedId;
+  }
+
+  final relatedId = _firstValue(item, const [
+    'related_id',
+    'relatedId',
+    'target_id',
+    'targetId',
+    'stone_id',
+    'stoneId',
+    'friend_id',
+    'friendId',
+  ]);
+  if (relatedId != null) {
+    final normalizedRelatedId = relatedId.toString();
+    item['related_id'] = normalizedRelatedId;
+    item['relatedId'] = normalizedRelatedId;
+  }
+
+  final stoneId = _firstValue(item, const ['stone_id', 'stoneId']);
+  if (stoneId != null &&
+      notificationType != null &&
+      const {'ripple', 'boat', 'ai_reply'}.contains(notificationType)) {
+    final normalizedStoneId = stoneId.toString();
+    item['target_id'] = normalizedStoneId;
+    item['targetId'] = normalizedStoneId;
+    item['stone_id'] = normalizedStoneId;
+    item['stoneId'] = normalizedStoneId;
+  } else if (relatedId != null) {
+    final normalizedRelatedId = relatedId.toString();
+    item['target_id'] = normalizedRelatedId;
+    item['targetId'] = normalizedRelatedId;
+  }
+
+  final isRead = _toBool(_firstValue(item, const ['is_read', 'isRead']));
+  if (isRead != null) {
+    item['is_read'] = isRead;
+    item['isRead'] = isRead;
+  }
+
+  return item;
+}
+
 Map<String, dynamic> normalizeConsultationSessionPayload(Map raw) {
   final item = _asMap(raw);
 
@@ -487,7 +584,12 @@ Map<String, dynamic> normalizeConsultationSessionPayload(Map raw) {
 
   final counterpartId = _firstValue(
     item,
-    const ['counterpart_id', 'counterpartId', 'participant_id', 'participantId'],
+    const [
+      'counterpart_id',
+      'counterpartId',
+      'participant_id',
+      'participantId'
+    ],
   );
   if (counterpartId != null) {
     final normalizedCounterpartId = counterpartId.toString();
@@ -520,7 +622,12 @@ Map<String, dynamic> normalizeConsultationSessionPayload(Map raw) {
 
   final counselorAvatar = _firstValue(
     item,
-    const ['counselor_avatar_url', 'counselorAvatarUrl', 'avatar_url', 'avatarUrl'],
+    const [
+      'counselor_avatar_url',
+      'counselorAvatarUrl',
+      'avatar_url',
+      'avatarUrl'
+    ],
   );
   if (counselorAvatar != null) {
     item['counselor_avatar_url'] = counselorAvatar;

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/datasources/psych_support_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../di/service_locator.dart';
 
 class PsychSupportDialog extends StatefulWidget {
@@ -34,14 +35,27 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
     _loadData();
   }
 
+  List<Map<String, dynamic>> _extractHotlines(Map<String, dynamic> payload) {
+    return extractNormalizedList(
+      payload,
+      itemNormalizer: (item) => Map<String, dynamic>.from(item),
+      listKeys: const ['hotlines'],
+    );
+  }
+
   Future<void> _loadData() async {
     try {
       final results =
           await Future.wait([_service.getHotlines(), _service.getPrompt()]);
       if (mounted) {
+        final promptData = results[1]['data'] is Map
+            ? Map<String, dynamic>.from(
+                (results[1]['data'] as Map).cast<String, dynamic>(),
+              )
+            : const <String, dynamic>{};
         setState(() {
-          _hotlines = (results[0]['data'] as List?) ?? [];
-          _prompt = (results[1]['data']?['prompt'] as String?) ??
+          _hotlines = _extractHotlines(results[0]);
+          _prompt = promptData['prompt']?.toString() ??
               widget.helpTip ??
               '需要有人陪伴吗？我们在这里倾听你。';
           _loading = false;

@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/temp_friend_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
@@ -169,8 +170,10 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.getFriends();
       if (result['success'] == true) {
-        _friends = List<Map<String, dynamic>>.from(
-          result['friends'] ?? result['items'] ?? result['list'] ?? [],
+        _friends = extractNormalizedList(
+          result,
+          itemNormalizer: normalizeFriendPayload,
+          listKeys: const ['friends'],
         );
         _rebuildFriendIndex();
       }
@@ -190,12 +193,10 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _tempFriendService.getMyTempFriends();
       if (result['success'] == true) {
-        _tempFriends = List<Map<String, dynamic>>.from(
-          result['temp_friends'] ??
-              result['friends'] ??
-              result['items'] ??
-              result['list'] ??
-              [],
+        _tempFriends = extractNormalizedList(
+          result,
+          itemNormalizer: (item) => Map<String, dynamic>.from(item),
+          listKeys: const ['temp_friends', 'friends'],
         );
         _rebuildTempFriendIndex();
         notifyListeners();

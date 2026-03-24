@@ -3,6 +3,7 @@
 // 展示其他用户对我的石头的匿名回应。
 
 import 'package:flutter/material.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/user_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
@@ -152,18 +153,11 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
       final result = await _userService.getMyBoats();
 
       if (result['success'] == true && mounted) {
-        final data = result['data'] as Map<String, dynamic>?;
-        final rawBoats = result['boats'] ??
-            result['items'] ??
-            result['list'] ??
-            data?['boats'] ??
-            data?['items'] ??
-            data?['list'];
-        final items = (rawBoats as List? ?? const [])
-            .whereType<Map>()
-            .map((boat) =>
-                normalizePayloadContract(Map<String, dynamic>.from(boat)))
-            .toList();
+        final items = extractNormalizedList(
+          result,
+          itemNormalizer: normalizeBoatPayload,
+          listKeys: const ['boats'],
+        );
         setState(() {
           _boats.clear();
           _boats.addAll(items);

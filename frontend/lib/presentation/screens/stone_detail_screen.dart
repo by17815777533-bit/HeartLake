@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/entities/stone.dart';
 import '../../data/datasources/interaction_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/mood_colors.dart';
@@ -307,12 +308,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
       );
 
       if (result['success'] == true && mounted) {
-        final rawBoats = result['boats'] ?? result['items'] ?? result['list'];
-        final normalizedBoats = (rawBoats as List? ?? const [])
-            .whereType<Map>()
-            .map((boat) =>
-                normalizePayloadContract(Map<String, dynamic>.from(boat)))
-            .toList();
+        final normalizedBoats = extractNormalizedList(
+          result,
+          itemNormalizer: normalizeBoatPayload,
+          listKeys: const ['boats'],
+        );
         setState(() {
           _boats.clear();
           _boats.addAll(normalizedBoats);
@@ -323,7 +323,7 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               result['pagination']['total'] != null &&
               result['pagination']['total'] is int) {
             _localBoatsCount = result['pagination']['total'];
-          } else if (_boats.isNotEmpty) {
+          } else {
             _localBoatsCount = _boats.length;
           }
           _isLoading = false;
@@ -385,6 +385,13 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
             backgroundColor: MoodColors.getConfig(_stoneMood).primary,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 1),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? '发送涟漪失败'),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }

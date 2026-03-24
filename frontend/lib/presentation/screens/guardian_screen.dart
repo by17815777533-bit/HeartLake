@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/datasources/guardian_service.dart';
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/payload_contract.dart';
@@ -321,13 +322,11 @@ class _GuardianScreenState extends State<GuardianScreen>
     List<Map<String, dynamic>> friends = <Map<String, dynamic>>[];
     try {
       final result = await _friendService.getFriends();
-      final raw = result['friends'] ?? result['items'] ?? result['list'];
-      if (raw is List) {
-        friends = raw
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-      }
+      friends = extractNormalizedList(
+        result,
+        itemNormalizer: normalizeFriendPayload,
+        listKeys: const ['friends'],
+      );
     } catch (_) {}
 
     if (!mounted) {

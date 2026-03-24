@@ -356,22 +356,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final messenger = ScaffoldMessenger.of(context);
               final userProvider =
                   Provider.of<UserProvider>(context, listen: false);
-              final authService = sl<AuthService>();
-              final result = await authService.updateProfile(bio: newBio);
+              final success = await userProvider.updateProfile(bio: newBio);
 
               if (mounted) {
-                if (result['success']) {
+                if (success) {
                   setState(() {
-                    _bio = newBio;
+                    _bio = userProvider.user?.bio;
                   });
-                  // 同步到 UserProvider
-                  userProvider.updateUser(bio: newBio);
                   messenger.showSnackBar(
                     const SnackBar(content: Text('签名已更新')),
                   );
                 } else {
                   messenger.showSnackBar(
-                    SnackBar(content: Text(result['message'] ?? '更新失败')),
+                    const SnackBar(content: Text('更新失败')),
                   );
                 }
               }
@@ -875,23 +872,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // 调用更新昵称API
               final userProvider =
                   Provider.of<UserProvider>(context, listen: false);
-              final authService = sl<AuthService>();
-              final result = await authService.updateNickname(newNickname);
+              final success = await userProvider.updateNickname(newNickname);
 
               if (!mounted) return;
 
-              if (result['success']) {
+              if (success) {
                 final savedNickname =
-                    (result['nickname']?.toString().trim().isNotEmpty == true)
-                        ? result['nickname'].toString()
+                    userProvider.nickname?.trim().isNotEmpty == true
+                        ? userProvider.nickname!.trim()
                         : newNickname;
                 if (mounted) {
                   setState(() {
                     _nickname = savedNickname;
                   });
-                  await StorageUtil.saveNickname(savedNickname);
-                  // 同步到 UserProvider
-                  userProvider.updateUser(nickname: savedNickname);
                   if (mounted) {
                     messenger.showSnackBar(
                       const SnackBar(content: Text('昵称修改成功')),
@@ -900,7 +893,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               } else {
                 messenger.showSnackBar(
-                  SnackBar(content: Text(result['message'] ?? '修改失败')),
+                  const SnackBar(content: Text('修改失败')),
                 );
               }
             },

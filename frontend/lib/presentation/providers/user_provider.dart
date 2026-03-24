@@ -7,10 +7,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../../data/datasources/account_service.dart';
 import '../../domain/entities/user.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
+import '../../utils/storage_util.dart';
 
 /// 用户认证与会话状态管理器
 ///
@@ -18,6 +20,7 @@ import '../../di/service_locator.dart';
 /// 登录成功后自动建立 WebSocket 连接，登出时断开并清理本地存储。
 class UserProvider with ChangeNotifier {
   final AuthDataSource _authService;
+  final AccountService _accountService;
   final RealtimeClient _wsManager;
   StreamSubscription<StoredAuthSession?>? _authStateSubscription;
 
@@ -36,8 +39,10 @@ class UserProvider with ChangeNotifier {
 
   UserProvider({
     AuthDataSource? authService,
+    AccountService? accountService,
     RealtimeClient? wsManager,
   })  : _authService = authService ?? sl<AuthService>(),
+        _accountService = accountService ?? sl<AccountService>(),
         _wsManager = wsManager ?? WebSocketManager() {
     _authStateSubscription = _authService.authStateChanges.listen(
       (session) {
@@ -124,6 +129,10 @@ class UserProvider with ChangeNotifier {
       final result = await _authService.getUserProfile(_user!.userId);
       if (result['success'] == true && result['user'] is Map<String, dynamic>) {
         _user = User.fromJson(result['user'] as Map<String, dynamic>);
+        final nickname = _user?.nickname.trim();
+        if (nickname != null && nickname.isNotEmpty) {
+          await StorageUtil.saveNickname(nickname);
+        }
         _isAnonymous = _user?.isAnonymous ?? false;
         notifyListeners();
       }
@@ -139,10 +148,22 @@ class UserProvider with ChangeNotifier {
   /// [nickname] 新昵称
   Future<bool> updateNickname(String nickname) async {
     try {
-      final result = await _authService.updateNickname(nickname);
+      final result = await _accountService.updateProfile({
+        'nickname': nickname,
+      });
       if (result['success'] == true && _user != null) {
+        final data = result['data'] is Map
+            ? Map<String, dynamic>.from(
+                (result['data'] as Map).cast<String, dynamic>(),
+              )
+            : const <String, dynamic>{};
+        final resolvedNickname =
+            data['nickname']?.toString().trim().isNotEmpty == true
+                ? data['nickname'].toString().trim()
+                : nickname.trim();
+        await StorageUtil.saveNickname(resolvedNickname);
         _user = _user!.copyWith(
-          nickname: result['nickname']?.toString() ?? _user!.nickname,
+          nickname: resolvedNickname,
         );
         notifyListeners();
         return true;
@@ -164,13 +185,49 @@ class UserProvider with ChangeNotifier {
   Future<bool> updateProfile(
       {String? nickname, String? avatarUrl, String? bio}) async {
     try {
-      final result = await _authService.updateProfile(
-          nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+      final payload = <String, dynamic>{};
+      if (nickname != null) {
+        payload['nickname'] = nickname;
+      }
+      if (avatarUrl != null) {
+        payload['avatar_url'] = avatarUrl;
+      }
+      if (bio != null) {
+        payload['bio'] = bio;
+      }
+      if (payload.isEmpty) {
+        return true;
+      }
+
+      final result = await _accountService.updateProfile(payload);
       if (result['success'] == true && _user != null) {
+        final data = result['data'] is Map
+            ? Map<String, dynamic>.from(
+                (result['data'] as Map).cast<String, dynamic>(),
+              )
+            : const <String, dynamic>{};
+        final resolvedNickname =
+            data['nickname']?.toString().trim().isNotEmpty == true
+                ? data['nickname'].toString().trim()
+                : nickname?.trim();
+        if (resolvedNickname != null && resolvedNickname.isNotEmpty) {
+          await StorageUtil.saveNickname(resolvedNickname);
+        }
+
+        String? resolvedBio;
+        if (data.containsKey('bio')) {
+          resolvedBio = data['bio']?.toString() ?? '';
+        } else if (bio != null) {
+          resolvedBio = bio;
+        }
+
+        final resolvedAvatarUrl = data['avatar_url']?.toString() ??
+            data['avatarUrl']?.toString() ??
+            avatarUrl;
         _user = _user!.copyWith(
-          nickname: result['nickname']?.toString() ?? _user!.nickname,
-          avatarUrl: result['avatar_url']?.toString() ?? _user!.avatarUrl,
-          bio: result['bio']?.toString() ?? _user!.bio,
+          nickname: resolvedNickname,
+          avatarUrl: resolvedAvatarUrl,
+          bio: resolvedBio,
         );
         notifyListeners();
         return true;

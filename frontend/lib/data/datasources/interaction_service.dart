@@ -52,6 +52,24 @@ class InteractionService extends BaseService implements InteractionDataSource {
     return stoneId.startsWith('showcase_stone_');
   }
 
+  void _validateStoneId(
+    String stoneId, {
+    bool allowShowcaseStone = false,
+  }) {
+    if (allowShowcaseStone && _isReadonlyShowcaseStone(stoneId)) {
+      return;
+    }
+    InputValidator.validateUUID(stoneId, '石头ID');
+  }
+
+  Map<String, dynamic> _showcaseReadonlyResponse(String message) {
+    return {
+      'success': false,
+      'code': 'SHOWCASE_READ_ONLY',
+      'message': message,
+    };
+  }
+
   /// 将示例石头的 404 错误转换为更友好的用户提示
   ///
   /// 示例石头在后端不存在实体，请求会返回 404，
@@ -82,14 +100,10 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// [stoneId] 目标石头ID，示例石头会被拒绝操作
   @override
   Future<Map<String, dynamic>> createRipple(String stoneId) async {
-    InputValidator.validateUUID(stoneId, '石头ID');
     if (_isReadonlyShowcaseStone(stoneId)) {
-      return {
-        'success': false,
-        'code': 'SHOWCASE_READ_ONLY',
-        'message': '示例石头仅供浏览，不能进行涟漪操作',
-      };
+      return _showcaseReadonlyResponse('示例石头仅供浏览，不能进行涟漪操作');
     }
+    _validateStoneId(stoneId);
     final response = await post('/stones/$stoneId/ripples');
     if (!response.success) {
       return _friendlyStoneNotFound(toMap(response), stoneId);
@@ -124,14 +138,10 @@ class InteractionService extends BaseService implements InteractionDataSource {
     required String content,
     bool isAnonymous = true,
   }) async {
-    InputValidator.validateUUID(stoneId, '石头ID');
     if (_isReadonlyShowcaseStone(stoneId)) {
-      return {
-        'success': false,
-        'code': 'SHOWCASE_READ_ONLY',
-        'message': '示例石头仅供浏览，不能发送纸船',
-      };
+      return _showcaseReadonlyResponse('示例石头仅供浏览，不能发送纸船');
     }
+    _validateStoneId(stoneId);
     InputValidator.requireLength(content, '纸船内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
     final response = await post('/stones/$stoneId/boats', data: {
@@ -168,7 +178,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
     int page = 1,
     int pageSize = 20,
   }) async {
-    InputValidator.validateUUID(stoneId, '石头ID');
+    _validateStoneId(stoneId, allowShowcaseStone: true);
     InputValidator.requirePage(page);
     InputValidator.requirePageSize(pageSize);
     final response = await get('/stones/$stoneId/boats', queryParameters: {
@@ -199,7 +209,10 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 用户通过石头发起与作者的限时聊天，后端会创建一个有过期时间的 connection。
   @override
   Future<Map<String, dynamic>> createConnectionByStone(String stoneId) async {
-    InputValidator.validateUUID(stoneId, '石头ID');
+    if (_isReadonlyShowcaseStone(stoneId)) {
+      return _showcaseReadonlyResponse('示例石头仅供浏览，不能发起连接');
+    }
+    _validateStoneId(stoneId);
     final response = await post('/stones/$stoneId/connections');
     if (!response.success) return toMap(response);
 
@@ -387,7 +400,10 @@ class InteractionService extends BaseService implements InteractionDataSource {
   /// 删除石头（代理到 [StoneService]）
   @override
   Future<Map<String, dynamic>> deleteStone(String stoneId) async {
-    InputValidator.validateUUID(stoneId, '石头ID');
+    if (_isReadonlyShowcaseStone(stoneId)) {
+      return _showcaseReadonlyResponse('示例石头仅供浏览，不能删除');
+    }
+    _validateStoneId(stoneId);
     return await _stoneService.deleteStone(stoneId);
   }
 

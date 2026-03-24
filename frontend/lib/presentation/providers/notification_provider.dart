@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/notification_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/payload_contract.dart';
@@ -82,45 +83,7 @@ class NotificationProvider with ChangeNotifier {
   Map<String, dynamic> _normalizeRealtimeNotificationPayload(
     Map<String, dynamic> payload,
   ) {
-    final normalized = normalizePayloadContract(payload);
-    final nestedData = normalized['data'];
-    final mergedPayload = nestedData is Map
-        ? {
-            ...normalized,
-            ...normalizePayloadContract(
-              Map<String, dynamic>.from(nestedData.cast<String, dynamic>()),
-            ),
-          }
-        : normalized;
-
-    final notificationType = mergedPayload['notification_type']?.toString();
-    if (notificationType != null && notificationType.isNotEmpty) {
-      mergedPayload['event_type'] = normalized['type'];
-      mergedPayload['type'] = notificationType;
-      mergedPayload['notification_type'] = notificationType;
-    }
-
-    final relatedId = mergedPayload['related_id'] ??
-        mergedPayload['target_id'] ??
-        mergedPayload['stone_id'] ??
-        mergedPayload['friend_id'];
-    if (relatedId != null) {
-      mergedPayload['related_id'] = relatedId;
-      mergedPayload['relatedId'] = relatedId;
-    }
-
-    final stoneId = mergedPayload['stone_id']?.toString();
-    if (stoneId != null &&
-        stoneId.isNotEmpty &&
-        const {'ripple', 'boat', 'ai_reply'}.contains(notificationType)) {
-      mergedPayload['target_id'] = stoneId;
-      mergedPayload['targetId'] = stoneId;
-    } else if (relatedId != null) {
-      mergedPayload['target_id'] = relatedId;
-      mergedPayload['targetId'] = relatedId;
-    }
-
-    return mergedPayload;
+    return normalizeNotificationPayload(payload);
   }
 
   void _rebuildNotificationIndex() {
@@ -142,7 +105,7 @@ class NotificationProvider with ChangeNotifier {
     bool insertAtHead = false,
     bool rebuildIndex = true,
   }) {
-    final normalized = normalizePayloadContract(notification);
+    final normalized = normalizeNotificationPayload(notification);
     final notificationId = _notificationIdOf(normalized);
     if (notificationId != null) {
       normalized['notification_id'] = notificationId;
@@ -309,11 +272,12 @@ class NotificationProvider with ChangeNotifier {
         pageSize: _pageSize,
       );
       if (result['success'] == true) {
-        final items = (result['notifications'] ??
-                result['items'] ??
-                result['list']) as List? ??
-            [];
-        final newItems = items.whereType<Map<String, dynamic>>().toList();
+        final items = result['notifications'] as List? ?? const [];
+        final newItems = items
+            .whereType<Map>()
+            .map((item) =>
+                Map<String, dynamic>.from(item.cast<String, dynamic>()))
+            .toList();
         var merged = false;
         for (final item in newItems) {
           merged = _upsertNotification(item, rebuildIndex: false) || merged;

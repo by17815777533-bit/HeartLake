@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/datasources/psych_support_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/water_background.dart';
@@ -77,6 +78,27 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     }());
   }
 
+  Future<Map<String, dynamic>> _safeSupportRequest(
+    Future<Map<String, dynamic>> Function() request,
+  ) async {
+    try {
+      return await request();
+    } catch (_) {
+      return const <String, dynamic>{'success': false};
+    }
+  }
+
+  List<Map<String, dynamic>> _extractSupportItems(
+    Map<String, dynamic> payload, {
+    required String primaryKey,
+  }) {
+    return extractNormalizedList(
+      payload,
+      itemNormalizer: (item) => Map<String, dynamic>.from(item),
+      listKeys: [primaryKey],
+    );
+  }
+
   String _promptFromPayload(dynamic payload) {
     if (payload is! Map) {
       return '你不是一个人，这里永远是你的安全港湾';
@@ -106,44 +128,45 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
 
     try {
       final results = await Future.wait([
-        _service.getPrompt(),
-        _service.getHotlines(),
-        _service.getTools(),
-        _service.getResources(),
+        _safeSupportRequest(_service.getPrompt),
+        _safeSupportRequest(_service.getHotlines),
+        _safeSupportRequest(_service.getTools),
+        _safeSupportRequest(_service.getResources),
       ]);
 
       // 记录访问
       _recordAccessSilently('page_view');
 
       if (mounted) {
+        final promptPayload = results[0]['data'] is Map
+            ? Map<String, dynamic>.from(
+                (results[0]['data'] as Map).cast<String, dynamic>(),
+              )
+            : results[0];
+        final hotlines = _extractSupportItems(
+          results[1],
+          primaryKey: 'hotlines',
+        );
+        final tools = _extractSupportItems(
+          results[2],
+          primaryKey: 'tools',
+        );
+        final resources = _extractSupportItems(
+          results[3],
+          primaryKey: 'resources',
+        );
         setState(() {
-          final promptData = results[0];
-          _promptText = _promptFromPayload(promptData['data']);
-
-          final hotlineData = results[1];
-          _hotlines = hotlineData['data'] is List
-              ? hotlineData['data']
-              : (hotlineData['data'] is Map &&
-                      hotlineData['data']['items'] is List)
-                  ? hotlineData['data']['items']
-                  : [];
-
-          final toolData = results[2];
-          _tools = toolData['data'] is List
-              ? toolData['data']
-              : (toolData['data'] is Map && toolData['data']['items'] is List)
-                  ? toolData['data']['items']
-                  : [];
-
-          final resourceData = results[3];
-          _resources = resourceData['data'] is List
-              ? resourceData['data']
-              : (resourceData['data'] is Map &&
-                      resourceData['data']['items'] is List)
-                  ? resourceData['data']['items']
-                  : [];
-
+          _promptText = _promptFromPayload(promptPayload);
+          _hotlines = hotlines;
+          _tools = tools;
+          _resources = resources;
           _loading = false;
+          _error = _promptText.isEmpty &&
+                  _hotlines.isEmpty &&
+                  _tools.isEmpty &&
+                  _resources.isEmpty
+              ? '加载失败，请下拉刷新重试'
+              : null;
         });
         _animController.forward();
       }
@@ -185,6 +208,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
 
     if (confirmed == true) {
+      _recordAccessSilently('hotline_${phone.replaceAll(RegExp(r'\D'), '')}');
       final uri = Uri(scheme: 'tel', path: phone);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -516,6 +540,9 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
           final title = r['title'] ?? r['name'] ?? '资源';
           final desc = r['description'] ?? '';
           final url = r['url'] ?? '';
+          final resourceId = r['id']?.toString().trim().isNotEmpty == true
+              ? r['id'].toString().trim()
+              : 'resource_${title.toString().hashCode.abs()}';
           return Card(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.1)
@@ -558,6 +585,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                   : null,
               onTap: url.toString().isNotEmpty
                   ? () async {
+                      _recordAccessSilently(resourceId);
                       final uri = Uri.tryParse(url);
                       if (uri != null && await canLaunchUrl(uri)) {
                         await launchUrl(uri,

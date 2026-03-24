@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/datasources/interaction_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
@@ -152,12 +153,11 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
       );
 
       if (result['success'] == true && mounted) {
-        final rawBoats = result['boats'] ?? result['items'] ?? result['list'];
-        final boats = (rawBoats as List? ?? const [])
-            .whereType<Map>()
-            .map((boat) =>
-                normalizePayloadContract(Map<String, dynamic>.from(boat)))
-            .toList();
+        final boats = extractNormalizedList(
+          result,
+          itemNormalizer: normalizeBoatPayload,
+          listKeys: const ['boats'],
+        );
         setState(() {
           _boats.clear();
           _boats.addAll(boats);
