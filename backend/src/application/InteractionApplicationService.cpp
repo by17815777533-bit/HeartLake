@@ -1097,13 +1097,19 @@ InteractionApplicationService::getNotifications(const std::string &userId,
         ") "
         "SELECT paged.notification_id, paged.type, paged.title, paged.content, "
         "       paged.related_id, paged.related_type, paged.is_read, "
-        "       paged.created_at, totals.total_count, totals.unread_count "
+        "       paged.created_at, paged.stone_id, totals.total_count, totals.unread_count "
         "FROM notification_totals totals "
         "LEFT JOIN LATERAL ("
-        "  SELECT notification_id, type, title, content, related_id, related_type, "
-        "         is_read, created_at "
-        "  FROM notifications "
-        "  WHERE user_id = $1 "
+        "  SELECT n.notification_id, n.type, n.title, n.content, n.related_id, n.related_type, "
+        "         n.is_read, n.created_at, "
+        "         COALESCE(CASE "
+        "                    WHEN n.related_type = 'stone' THEN n.related_id "
+        "                    ELSE NULL "
+        "                  END, pb.stone_id) AS stone_id "
+        "  FROM notifications n "
+        "  LEFT JOIN paper_boats pb "
+        "    ON n.related_type = 'boat' AND pb.boat_id = n.related_id "
+        "  WHERE n.user_id = $1 "
         "  ORDER BY created_at DESC "
         "  LIMIT $2 OFFSET $3"
         ") paged ON TRUE",
@@ -1127,6 +1133,8 @@ InteractionApplicationService::getNotifications(const std::string &userId,
       notification["relatedId"] = notification["related_id"];
       notification["related_type"] = safeStringColumn(row, "related_type");
       notification["relatedType"] = notification["related_type"];
+      notification["stone_id"] = safeStringColumn(row, "stone_id");
+      notification["stoneId"] = notification["stone_id"];
       notification["is_read"] = safeBoolColumn(row, "is_read");
       notification["isRead"] = notification["is_read"];
       notification["created_at"] = safeStringColumn(row, "created_at");

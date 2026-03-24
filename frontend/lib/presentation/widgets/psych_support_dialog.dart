@@ -35,13 +35,26 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
   }
 
   Future<void> _loadData() async {
-    final results = await Future.wait([_service.getHotlines(), _service.getPrompt()]);
-    if (mounted) {
-      setState(() {
-        _hotlines = (results[0]['data'] as List?) ?? [];
-        _prompt = (results[1]['data']?['prompt'] as String?) ?? widget.helpTip ?? '需要有人陪伴吗？我们在这里倾听你。';
-        _loading = false;
-      });
+    try {
+      final results =
+          await Future.wait([_service.getHotlines(), _service.getPrompt()]);
+      if (mounted) {
+        setState(() {
+          _hotlines = (results[0]['data'] as List?) ?? [];
+          _prompt = (results[1]['data']?['prompt'] as String?) ??
+              widget.helpTip ??
+              '需要有人陪伴吗？我们在这里倾听你。';
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _hotlines = [];
+          _prompt = widget.helpTip ?? '需要有人陪伴吗？我们在这里倾听你。';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -59,20 +72,30 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: const Color(0xFFFFE0B2), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.favorite, color: Color(0xFFFF8A65), size: 24),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFFE0B2),
+                borderRadius: BorderRadius.circular(12)),
+            child:
+                const Icon(Icons.favorite, color: Color(0xFFFF8A65), size: 24),
           ),
           const SizedBox(width: 12),
-          const Text('需要有人陪伴吗？', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF5D4037))),
+          const Text('需要有人陪伴吗？',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5D4037))),
         ],
       ),
       content: _loading
-          ? const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()))
+          ? const SizedBox(
+              height: 100, child: Center(child: CircularProgressIndicator()))
           : Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_prompt, style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF6D4C41))),
+                Text(_prompt,
+                    style: const TextStyle(
+                        fontSize: 15, height: 1.6, color: Color(0xFF6D4C41))),
                 const SizedBox(height: 20),
                 ..._hotlines.take(2).map((h) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -89,18 +112,28 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('我知道了', style: TextStyle(color: Color(0xFF8D6E63), fontSize: 16)),
+          child: const Text('我知道了',
+              style: TextStyle(color: Color(0xFF8D6E63), fontSize: 16)),
         ),
         ElevatedButton(
-          onPressed: _hotlines.isNotEmpty ? () => _callHotline(_hotlines.first['phone'] ?? '') : null,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF81C784), foregroundColor: Colors.white),
+          onPressed: _hotlines.isNotEmpty
+              ? () => _callHotline(_hotlines.first['phone'] ?? '')
+              : null,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF81C784),
+              foregroundColor: Colors.white),
           child: const Text('寻求专业帮助'),
         ),
       ],
     );
   }
 
-  Widget _buildResourceCard({required IconData icon, required String title, required String subtitle, required Color color, required VoidCallback onTap}) {
+  Widget _buildResourceCard(
+      {required IconData icon,
+      required String title,
+      required String subtitle,
+      required Color color,
+      required VoidCallback onTap}) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
@@ -113,7 +146,9 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 12),
@@ -121,9 +156,15 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF5D4037))),
+                    Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: Color(0xFF5D4037))),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Text(subtitle,
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600])),
                   ],
                 ),
               ),

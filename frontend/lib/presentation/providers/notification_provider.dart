@@ -97,6 +97,7 @@ class NotificationProvider with ChangeNotifier {
     if (notificationType != null && notificationType.isNotEmpty) {
       mergedPayload['event_type'] = normalized['type'];
       mergedPayload['type'] = notificationType;
+      mergedPayload['notification_type'] = notificationType;
     }
 
     final relatedId = mergedPayload['related_id'] ??
@@ -105,7 +106,18 @@ class NotificationProvider with ChangeNotifier {
         mergedPayload['friend_id'];
     if (relatedId != null) {
       mergedPayload['related_id'] = relatedId;
+      mergedPayload['relatedId'] = relatedId;
+    }
+
+    final stoneId = mergedPayload['stone_id']?.toString();
+    if (stoneId != null &&
+        stoneId.isNotEmpty &&
+        const {'ripple', 'boat', 'ai_reply'}.contains(notificationType)) {
+      mergedPayload['target_id'] = stoneId;
+      mergedPayload['targetId'] = stoneId;
+    } else if (relatedId != null) {
       mergedPayload['target_id'] = relatedId;
+      mergedPayload['targetId'] = relatedId;
     }
 
     return mergedPayload;

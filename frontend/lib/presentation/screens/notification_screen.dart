@@ -52,14 +52,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   /// 根据通知类型跳转到对应的详情页面（石头详情、好友列表、聊天等）
   Future<void> _navigateToContent(Map<String, dynamic> notification) async {
-    final type = notification['type'] ?? '';
-    final targetId = notification['target_id'] ?? notification['related_id'];
+    final type =
+        (notification['type'] ?? notification['notification_type'] ?? '')
+            .toString();
+    final stoneId = notification['stone_id']?.toString();
+    final targetId = (stoneId != null &&
+            stoneId.isNotEmpty &&
+            const {'ripple', 'boat', 'ai_reply'}.contains(type))
+        ? stoneId
+        : (notification['target_id'] ?? notification['related_id'])?.toString();
     final targetName =
         notification['target_name'] ?? notification['sender_name'] ?? '用户';
 
     switch (type) {
       case 'ripple':
       case 'boat':
+      case 'ai_reply':
         if (targetId != null) {
           final result = await sl<StoneService>().getStoneDetail(targetId);
           if (result['success'] == true && result['stone'] != null && mounted) {
@@ -69,6 +77,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
               MaterialPageRoute(
                 builder: (context) => StoneDetailScreen(stone: stone),
               ),
+            );
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('相关石头已不可用')),
             );
           }
         }
@@ -104,6 +116,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return '💧';
       case 'boat':
         return '⛵';
+      case 'ai_reply':
+        return '🪽';
       case 'connection':
         return '🤝';
       case 'friend_request':

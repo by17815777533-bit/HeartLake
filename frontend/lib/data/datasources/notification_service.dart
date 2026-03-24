@@ -26,6 +26,12 @@ class NotificationService extends BaseService
       final normalized = normalizePayloadContract(
         Map<String, dynamic>.from(item),
       );
+      final notificationType =
+          (normalized['notification_type'] ?? normalized['type'])?.toString();
+      if (notificationType != null && notificationType.isNotEmpty) {
+        normalized['type'] = notificationType;
+        normalized['notification_type'] = notificationType;
+      }
       final notificationId = extractNotificationEntityId(normalized);
       if (notificationId != null) {
         normalized['notification_id'] = notificationId;
@@ -38,7 +44,18 @@ class NotificationService extends BaseService
           normalized['friend_id'];
       if (relatedId != null) {
         normalized['related_id'] = relatedId;
+        normalized['relatedId'] = relatedId;
+      }
+
+      final stoneId = normalized['stone_id']?.toString();
+      if (stoneId != null &&
+          stoneId.isNotEmpty &&
+          const {'ripple', 'boat', 'ai_reply'}.contains(notificationType)) {
+        normalized['target_id'] = stoneId;
+        normalized['targetId'] = stoneId;
+      } else if (relatedId != null) {
         normalized['target_id'] = relatedId;
+        normalized['targetId'] = relatedId;
       }
 
       return normalized;
