@@ -12,9 +12,15 @@ import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
 import api, { isRequestCanceled } from '@/api'
 import type {
-  GrowthDataItem, MoodDistributionItem, MoodTrendItem,
-  ActiveTimeItem, TrendingTopic, TrendingContentItem, EmotionTrendItem,
-  PrivacyStats, ResonanceStats,
+  GrowthDataItem,
+  MoodDistributionItem,
+  MoodTrendItem,
+  ActiveTimeItem,
+  TrendingTopic,
+  TrendingContentItem,
+  EmotionTrendItem,
+  PrivacyStats,
+  ResonanceStats,
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 import { createSoftBaseline } from '@/utils/chartSignals'
@@ -79,16 +85,39 @@ interface LoaderDeps {
 }
 
 export function useDashboardLoaders({
-  stats, chartRange, moodTrendRange, trendingTopics, aiTrendingContent,
-  privacyStats, privacyLoading, resonanceStats, resonanceLoading,
-  userGrowthOption, moodDistributionOption, moodTrendOption,
-  activeTimeOption, emotionPulseOption, emotionTrendsOption,
+  stats,
+  chartRange,
+  moodTrendRange,
+  trendingTopics,
+  aiTrendingContent,
+  privacyStats,
+  privacyLoading,
+  resonanceStats,
+  resonanceLoading,
+  userGrowthOption,
+  moodDistributionOption,
+  moodTrendOption,
+  activeTimeOption,
+  emotionPulseOption,
+  emotionTrendsOption,
 }: LoaderDeps) {
-  const normalizeDashboardCollection = <T>(
-    payload: unknown,
-    semanticKeys: readonly string[],
-  ) => normalizeCollectionResponse<T>(payload, semanticKeys).items
+  const normalizeDashboardCollection = <T>(payload: unknown, semanticKeys: readonly string[]) =>
+    normalizeCollectionResponse<T>(payload, semanticKeys).items
   const normalizeDashboardRecord = (payload: unknown) => normalizePayloadRecord(payload)
+  const rankFallbackTrendingStones = <
+    T extends {
+      ripple_count?: number
+      boat_count?: number
+    },
+  >(
+    items: T[],
+  ) =>
+    [...items].sort(
+      (left, right) =>
+        Number(right.ripple_count ?? 0) +
+        Number(right.boat_count ?? 0) -
+        (Number(left.ripple_count ?? 0) + Number(left.boat_count ?? 0)),
+    )
   const moodTrendRequests = new Map<number, Promise<MoodTrendItem[]>>()
   let emotionPulseRequest: Promise<Record<string, unknown>> | null = null
   let emotionPulseSnapshot: { at: number; data: Record<string, unknown> } | null = null
@@ -97,11 +126,11 @@ export function useDashboardLoaders({
     const cached = moodTrendRequests.get(days)
     if (cached) return cached
 
-    const request = Promise.resolve(api.getMoodTrend?.(String(days)) ?? { data: null }).then((res) =>
-      normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends']),
-    ).finally(() => {
-      moodTrendRequests.delete(days)
-    })
+    const request = Promise.resolve(api.getMoodTrend?.(String(days)) ?? { data: null })
+      .then((res) => normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends']))
+      .finally(() => {
+        moodTrendRequests.delete(days)
+      })
 
     moodTrendRequests.set(days, request)
     return request
@@ -116,13 +145,16 @@ export function useDashboardLoaders({
       return emotionPulseRequest
     }
 
-    emotionPulseRequest = api.getEmotionPulse().then((res) => {
-      const normalized = normalizeDashboardRecord(res.data)
-      emotionPulseSnapshot = { at: Date.now(), data: normalized }
-      return normalized
-    }).finally(() => {
-      emotionPulseRequest = null
-    })
+    emotionPulseRequest = api
+      .getEmotionPulse()
+      .then((res) => {
+        const normalized = normalizeDashboardRecord(res.data)
+        emotionPulseSnapshot = { at: Date.now(), data: normalized }
+        return normalized
+      })
+      .finally(() => {
+        emotionPulseRequest = null
+      })
 
     return emotionPulseRequest
   }
@@ -132,7 +164,7 @@ export function useDashboardLoaders({
     try {
       const [dashRes, realtimeRes] = await Promise.all([
         api.getDashboardStats().catch(() => ({ data: null })),
-        api.getRealtimeStats().catch(() => ({ data: null }))
+        api.getRealtimeStats().catch(() => ({ data: null })),
       ])
       const d = normalizeDashboardRecord(dashRes.data)
       const r = normalizeDashboardRecord(realtimeRes.data)
@@ -183,19 +215,25 @@ export function useDashboardLoaders({
       const res = await api.getMoodDistribution()
       const list = normalizeDashboardCollection<MoodDistributionItem>(res.data, ['moods'])
       if (list.length) {
-        moodDistributionOption.value.series[0].data = list.map((item: MoodDistributionItem, i: number) => ({
-          name: item.mood_type || item.mood,
-          value: item.count,
-          itemStyle: {
-            color: {
-              type: 'linear', x: 0, y: 0, x2: 1, y2: 1,
-              colorStops: [
-                { offset: 0, color: moodGradients[i % moodGradients.length].start },
-                { offset: 1, color: moodGradients[i % moodGradients.length].end }
-              ]
-            }
-          }
-        }))
+        moodDistributionOption.value.series[0].data = list.map(
+          (item: MoodDistributionItem, i: number) => ({
+            name: item.mood_type || item.mood,
+            value: item.count,
+            itemStyle: {
+              color: {
+                type: 'linear',
+                x: 0,
+                y: 0,
+                x2: 1,
+                y2: 1,
+                colorStops: [
+                  { offset: 0, color: moodGradients[i % moodGradients.length].start },
+                  { offset: 1, color: moodGradients[i % moodGradients.length].end },
+                ],
+              },
+            },
+          }),
+        )
       }
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -209,12 +247,12 @@ export function useDashboardLoaders({
     try {
       const trendList = await fetchMoodTrendList(moodTrendRange.value)
       if (trendList.length) {
-        const dates = [...new Set(trendList.map(item => item.date))].sort()
+        const dates = [...new Set(trendList.map((item) => item.date))].sort()
         moodTrendOption.value.xAxis.data = dates
         moodNames.forEach((name, i) => {
-          moodTrendOption.value.series[i].data = dates.map(date => {
-            const found = trendList.find(item =>
-              item.date === date && (item.mood_type === name || item.mood === name)
+          moodTrendOption.value.series[i].data = dates.map((date) => {
+            const found = trendList.find(
+              (item) => item.date === date && (item.mood_type === name || item.mood === name),
             )
             return found?.count ?? 0
           })
@@ -229,15 +267,16 @@ export function useDashboardLoaders({
   /** 读取热门话题。 */
   const loadTrendingTopics = async () => {
     try {
-      const res = await api.getTrendingTopics?.() || { data: null }
-      const sourceList = normalizeDashboardCollection<TrendingTopic & { topic?: string; keyword?: string }>(
-        res.data,
-        ['topics'],
-      )
-      trendingTopics.value = sourceList.slice(0, 10).map((item: TrendingTopic & { topic?: string; keyword?: string }) => ({
-        ...item,
-        keyword: item.keyword || item.topic || '',
-      }))
+      const res = (await api.getTrendingTopics?.()) || { data: null }
+      const sourceList = normalizeDashboardCollection<
+        TrendingTopic & { topic?: string; keyword?: string }
+      >(res.data, ['topics'])
+      trendingTopics.value = sourceList
+        .slice(0, 10)
+        .map((item: TrendingTopic & { topic?: string; keyword?: string }) => ({
+          ...item,
+          keyword: item.keyword || item.topic || '',
+        }))
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       console.warn('加载热门话题失败:', (e as Error).message)
@@ -247,7 +286,7 @@ export function useDashboardLoaders({
   /** 读取活跃时段。 */
   const loadActiveTimeStats = async () => {
     try {
-      const res = await api.getActiveTimeStats?.() || { data: null }
+      const res = (await api.getActiveTimeStats?.()) || { data: null }
       const list = normalizeDashboardCollection<ActiveTimeItem>(res.data, ['hours'])
       if (list.length) {
         activeTimeOption.value.series[0].data = list.map((item: ActiveTimeItem) => item.count)
@@ -285,8 +324,7 @@ export function useDashboardLoaders({
       resonanceStats.todayMatches = d.today_matches ?? d.sample_count ?? 0
       resonanceStats.avgScore = d.avg_score ?? d.avgScore ?? 0
       resonanceStats.topMood = d.top_mood ?? d.dominant_mood ?? ''
-      resonanceStats.successRate =
-        d.top_mood_share_percent ?? d.success_rate ?? 0
+      resonanceStats.successRate = d.top_mood_share_percent ?? d.success_rate ?? 0
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       console.warn('加载共鸣统计失败:', (e as Error).message)
@@ -300,8 +338,7 @@ export function useDashboardLoaders({
     try {
       const d = await fetchEmotionPulseRecord()
       const temp =
-        d.temperature ??
-        (d.normalized_score != null ? Number(d.normalized_score) * 100 : 50)
+        d.temperature ?? (d.normalized_score != null ? Number(d.normalized_score) * 100 : 50)
       emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -314,30 +351,40 @@ export function useDashboardLoaders({
     try {
       const list = await fetchMoodTrendList(moodTrendRange.value)
       if (list.length) {
-        const dates = [...new Set(list.map((item: EmotionTrendItem) => item.date || item.day))].sort()
+        const dates = [
+          ...new Set(list.map((item: EmotionTrendItem) => item.date || item.day)),
+        ].sort()
         const bucket = new Map<string, { positive: number; neutral: number; negative: number }>()
         dates.forEach((date) => bucket.set(date, { positive: 0, neutral: 0, negative: 0 }))
 
-        list.forEach((item: EmotionTrendItem & { mood_type?: string; mood?: string; count?: number }) => {
-          const date = item.date || item.day
-          if (!date) return
-          const mood = item.mood_type || item.mood || ''
-          const target = bucket.get(date)
-          if (!target) return
-          const count = Number(item.count ?? 0)
-          if (POSITIVE_MOODS.has(mood)) {
-            target.positive += count
-          } else if (NEGATIVE_MOODS.has(mood)) {
-            target.negative += count
-          } else {
-            target.neutral += count
-          }
-        })
+        list.forEach(
+          (item: EmotionTrendItem & { mood_type?: string; mood?: string; count?: number }) => {
+            const date = item.date || item.day
+            if (!date) return
+            const mood = item.mood_type || item.mood || ''
+            const target = bucket.get(date)
+            if (!target) return
+            const count = Number(item.count ?? 0)
+            if (POSITIVE_MOODS.has(mood)) {
+              target.positive += count
+            } else if (NEGATIVE_MOODS.has(mood)) {
+              target.negative += count
+            } else {
+              target.neutral += count
+            }
+          },
+        )
 
         emotionTrendsOption.value.xAxis.data = dates
-        emotionTrendsOption.value.series[0].data = dates.map((date) => bucket.get(date)?.positive ?? 0)
-        emotionTrendsOption.value.series[1].data = dates.map((date) => bucket.get(date)?.neutral ?? 0)
-        emotionTrendsOption.value.series[2].data = dates.map((date) => bucket.get(date)?.negative ?? 0)
+        emotionTrendsOption.value.series[0].data = dates.map(
+          (date) => bucket.get(date)?.positive ?? 0,
+        )
+        emotionTrendsOption.value.series[1].data = dates.map(
+          (date) => bucket.get(date)?.neutral ?? 0,
+        )
+        emotionTrendsOption.value.series[2].data = dates.map(
+          (date) => bucket.get(date)?.negative ?? 0,
+        )
       }
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -348,23 +395,37 @@ export function useDashboardLoaders({
   /** 读取热门内容清单。 */
   const loadAITrendingContent = async () => {
     try {
-      const res = await api.getTrendingContent({ limit: 6 })
-      const list = normalizeDashboardCollection<{
+      type TrendingStonePayload = {
         stone_id?: string
         content?: string
         mood_type?: string
         ripple_count?: number
-      }>(res.data, ['trending_stones'])
-      const maxScore = Math.max(1, ...list.map((item: { ripple_count?: number }) =>
-        Number(item.ripple_count ?? 0)
-      ))
+        boat_count?: number
+      }
 
-      aiTrendingContent.value = list.slice(0, 6).map((item: {
-        stone_id?: string
-        content?: string
-        mood_type?: string
-        ripple_count?: number
-      }) => {
+      let list: TrendingStonePayload[] = []
+
+      try {
+        const res = await api.getTrendingContent?.({ limit: 6 })
+        list = normalizeDashboardCollection<TrendingStonePayload>(res?.data, ['trending_stones'])
+      } catch (e: unknown) {
+        if (isRequestCanceled(e)) return
+        console.warn('热门内容接口不可用，回退到石头热度榜:', (e as Error).message)
+      }
+
+      if (!list.length && typeof api.getStones === 'function') {
+        const fallbackRes = await api.getStones({ page: 1, page_size: 20 })
+        list = rankFallbackTrendingStones(
+          normalizeDashboardCollection<TrendingStonePayload>(fallbackRes?.data, ['stones']),
+        )
+      }
+
+      const maxScore = Math.max(
+        1,
+        ...list.map((item: { ripple_count?: number }) => Number(item.ripple_count ?? 0)),
+      )
+
+      aiTrendingContent.value = list.slice(0, 6).map((item: TrendingStonePayload) => {
         const score = Number(item.ripple_count ?? 0)
         return {
           id: item.stone_id,
@@ -380,9 +441,16 @@ export function useDashboardLoaders({
   }
 
   return {
-    loadStats, loadGrowthData, loadMoodDistribution, loadMoodTrend,
-    loadTrendingTopics, loadActiveTimeStats, loadPrivacyStats,
-    loadResonanceStats, loadEmotionPulse, loadEmotionTrends,
+    loadStats,
+    loadGrowthData,
+    loadMoodDistribution,
+    loadMoodTrend,
+    loadTrendingTopics,
+    loadActiveTimeStats,
+    loadPrivacyStats,
+    loadResonanceStats,
+    loadEmotionPulse,
+    loadEmotionTrends,
     loadAITrendingContent,
   }
 }

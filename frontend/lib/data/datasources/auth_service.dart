@@ -223,11 +223,19 @@ class AuthService extends BaseService implements AuthDataSource {
     }
     if (data.isEmpty) return {'success': true};
 
-    final response = await put('/users/my/profile', data: data);
+    final response = await put('/account/profile', data: data);
     if (!response.success) return toMap(response);
 
     final responseData = UserPayloadNormalizer.normalizeUser(response.data) ??
         <String, dynamic>{};
+    final currentUserId = await StorageUtil.getUserId();
+    if ((responseData['user_id'] == null ||
+            responseData['user_id'].toString().trim().isEmpty) &&
+        currentUserId != null &&
+        currentUserId.isNotEmpty) {
+      responseData['user_id'] = currentUserId;
+      responseData['userId'] = currentUserId;
+    }
     if (responseData['nickname'] != null) {
       await StorageUtil.saveNickname(responseData['nickname']);
     }
@@ -317,7 +325,10 @@ class AuthService extends BaseService implements AuthDataSource {
   @override
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
-    final response = await get('/users/$userId');
+    final currentUserId = await StorageUtil.getUserId();
+    final response = currentUserId == userId
+        ? await get('/account/info')
+        : await get('/users/$userId');
     if (!response.success) {
       return toMap(response);
     }

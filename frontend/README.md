@@ -171,8 +171,19 @@ WebSocketManager 管理全局连接，支持：
 # 安装依赖
 flutter pub get
 
-# 开发运行
+# 开发运行（默认连接本地 gateway :3000）
 flutter run
+
+# Android 模拟器 / 真机可显式指定网关主机
+flutter run --dart-define=ANDROID_API_HOST=10.0.2.2
+flutter run --dart-define=ANDROID_API_HOST=192.168.1.10
+
+# iOS 模拟器 / 真机
+flutter run --dart-define=IOS_API_HOST=localhost
+flutter run --dart-define=IOS_API_HOST=192.168.1.10
+
+# 统一指定公网/内网网关 Origin（会同时推导 /api 和 /ws）
+flutter run --dart-define=PUBLIC_ORIGIN=http://192.168.1.10:3000
 
 # 运行测试
 flutter test
@@ -181,6 +192,8 @@ flutter test
 flutter build apk --release    # Android
 flutter build ios --release    # iOS
 ```
+
+默认情况下，移动端与桌面端都会优先连接 `http://<host>:3000` 网关，而不是直接访问后端 `:8080`。这样 `/api`、`/ws`、`/api/media/*` 三条链路会统一走 Nginx 代理，更适合本项目的三端联调和 `server-lite` 部署。
 
 ## 统计
 

@@ -200,10 +200,7 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
-import {
-  normalizeContentCollection,
-  sortByCreatedAtDesc,
-} from '@/utils/adminPayload'
+import { normalizeContentCollection, sortByCreatedAtDesc } from '@/utils/adminPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -526,9 +523,21 @@ async function fetchContent() {
     }
 
     const res = await api.getContents(params)
-    const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
-    contentList.value = sortByCreatedAtDesc(items)
-    pagination.total = total
+    if (res?.data) {
+      const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
+      contentList.value = sortByCreatedAtDesc(items)
+      pagination.total = total
+      return
+    }
+
+    const [stonesRes, boatsRes] = await Promise.all([api.getStones(params), api.getBoats(params)])
+    const stones = normalizeContentCollection(stonesRes?.data, 'stone', ['stones'])
+    const boats = normalizeContentCollection(boatsRes?.data, 'boat', ['boats'])
+    contentList.value = sortByCreatedAtDesc([...stones.items, ...boats.items]).slice(
+      0,
+      pagination.pageSize,
+    )
+    pagination.total = stones.total + boats.total
   } catch (e) {
     if (isRequestCanceled(e)) return
     console.error('获取内容列表失败:', e)

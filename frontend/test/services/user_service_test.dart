@@ -145,16 +145,4 @@ void main() {
       expect(collection['pagination']['total'], 9);
     });
   });
-
-  group('UserPayloadNormalizer.normalizeUploadedFile', () {
-    test('normalizes uploaded file aliases', () {
-      final file = UserPayloadNormalizer.normalizeUploadedFile({
-        'media_url': 'https://cdn.example.com/file.png',
-      });
-
-      expect(file, isNotNull);
-      expect(file!['url'], 'https://cdn.example.com/file.png');
-      expect(file['fileUrl'], 'https://cdn.example.com/file.png');
-    });
-  });
 }

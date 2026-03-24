@@ -11,6 +11,7 @@ import '../../utils/app_theme.dart';
 import '../../utils/storage_util.dart';
 import '../../data/datasources/user_service.dart';
 import '../../data/datasources/auth_service.dart';
+import '../../data/datasources/account_service.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../data/datasources/vip_service.dart';
 import '../../di/service_locator.dart';
@@ -55,6 +56,7 @@ class ProfileScreen extends StatefulWidget {
 /// 通过 WebSocket 监听石头/纸船/涟漪的增删事件实时刷新统计。
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = sl<UserService>();
+  final AccountService _accountService = sl<AccountService>();
   final WebSocketManager _wsManager = WebSocketManager();
   Map<String, dynamic>? _stats;
   String? _username;
@@ -235,14 +237,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// 从后端拉取完整用户资料（头像、签名等），并同步昵称到本地存储
   Future<void> _loadFullProfile() async {
     try {
-      final userId = await StorageUtil.getUserId();
-      if (userId == null) return;
-
-      final result = await _userService.getUserInfo(userId);
+      final result = await _accountService.getAccountInfo();
       if (result['success'] == true) {
-        final userData = result['user'] as Map<String, dynamic>?;
+        final userData = result['data'] as Map<String, dynamic>?;
         if (mounted && userData != null) {
           setState(() {
+            _username = userData['username'] ?? _username;
             _avatarUrl = userData['avatar_url'];
             _bio = userData['bio'];
             _nickname = userData['nickname'];
@@ -277,19 +277,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       final file = File(image.path);
-      final result = await _userService.uploadFile(file);
+      final fileSize = await file.length();
+      final result = await _accountService.uploadAvatar(
+        file,
+        filename: file.path.split('/').last,
+        fileSize: fileSize,
+      );
 
       if (result['success'] == true) {
         final data = result['data'] as Map<String, dynamic>?;
-        final avatarUrl = data?['url'];
-
-        // 更新个人资料
-        final authService = sl<AuthService>();
-        final updateResult =
-            await authService.updateProfile(avatarUrl: avatarUrl);
+        final avatarUrl =
+            data?['avatar_url']?.toString() ?? data?['avatarUrl']?.toString();
 
         if (mounted) {
-          if (updateResult['success']) {
+          if (avatarUrl != null && avatarUrl.isNotEmpty) {
             setState(() {
               _avatarUrl = avatarUrl;
             });
@@ -301,7 +302,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(updateResult['message'] ?? '更新失败')),
+              SnackBar(content: Text(result['message'] ?? '更新失败')),
             );
           }
         }

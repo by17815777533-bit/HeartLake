@@ -102,21 +102,21 @@ class AppConfig {
     // 根据平台智能选择
     try {
       if (Platform.isAndroid) {
-        // 模拟器用 10.0.2.2，真机用局域网IP（可通过ANDROID_API_HOST环境变量配置）
+        // 默认走本地网关，模拟器用 10.0.2.2，真机可通过 ANDROID_API_HOST 覆盖
         const androidHost = String.fromEnvironment('ANDROID_API_HOST',
             defaultValue: '10.0.2.2');
-        return _originToApiBaseUrl('http://$androidHost:8080');
+        return _originToApiBaseUrl('http://$androidHost:3000');
       }
       if (Platform.isIOS) {
-        // iOS模拟器可直接访问 localhost，真机需要局域网IP
+        // iOS 默认同样走本地网关；真机可通过 IOS_API_HOST 覆盖为局域网 IP
         const iosHost =
             String.fromEnvironment('IOS_API_HOST', defaultValue: 'localhost');
-        return _originToApiBaseUrl('http://$iosHost:8080');
+        return _originToApiBaseUrl('http://$iosHost:3000');
       }
-      // Windows / macOS / Linux 桌面端均使用 localhost
-      return _originToApiBaseUrl('http://localhost:8080');
+      // Windows / macOS / Linux 桌面端默认直连本地网关
+      return _originToApiBaseUrl('http://localhost:3000');
     } catch (e) {
-      return _originToApiBaseUrl('http://localhost:8080');
+      return _originToApiBaseUrl('http://localhost:3000');
     }
   }
 
@@ -149,13 +149,13 @@ class AppConfig {
     final isLocalHost = host == 'localhost' || isPrivateIp;
     final port = base.hasPort ? base.port : (base.scheme == 'https' ? 443 : 80);
 
-    // Flutter Web 独立调试服务通常运行在随机端口；这时仍保持直连后端 8080 的旧行为。
+    // Flutter Web 独立调试服务通常运行在随机端口；此时优先回到本地网关 3000。
     if (isLocalHost &&
         port != 80 &&
         port != 443 &&
         port != 3000 &&
         port != 8080) {
-      return _originToApiBaseUrl('${base.scheme}://$host:8080');
+      return _originToApiBaseUrl('${base.scheme}://$host:3000');
     }
 
     return _originToApiBaseUrl(webOrigin);

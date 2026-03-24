@@ -20,17 +20,21 @@ describe('normalizeCollectionResponse', () => {
   })
 
   it('falls back to list and items when semantic key is absent', () => {
-    expect(normalizeCollectionResponse({ data: { list: [{ id: 1 }] } }, ['reports']).items).toEqual([
-      { id: 1 },
-    ])
-    expect(normalizeCollectionResponse({ data: { items: [{ id: 2 }] } }, ['reports']).items).toEqual([
-      { id: 2 },
-    ])
+    expect(normalizeCollectionResponse({ data: { list: [{ id: 1 }] } }, ['reports']).items).toEqual(
+      [{ id: 1 }],
+    )
+    expect(
+      normalizeCollectionResponse({ data: { items: [{ id: 2 }] } }, ['reports']).items,
+    ).toEqual([{ id: 2 }])
   })
 
   it('derives total from item count when total is missing or invalid', () => {
-    expect(normalizeCollectionResponse({ data: { words: [{ id: 1 }, { id: 2 }] } }, ['words']).total).toBe(2)
-    expect(normalizeCollectionResponse({ data: { words: [{ id: 1 }], total: '' } }, ['words']).total).toBe(1)
+    expect(
+      normalizeCollectionResponse({ data: { words: [{ id: 1 }, { id: 2 }] } }, ['words']).total,
+    ).toBe(2)
+    expect(
+      normalizeCollectionResponse({ data: { words: [{ id: 1 }], total: '' } }, ['words']).total,
+    ).toBe(1)
   })
 
   it('returns an empty collection for malformed payloads', () => {
@@ -40,7 +44,13 @@ describe('normalizeCollectionResponse', () => {
       total: 0,
     })
     expect(normalizeCollectionResponse({ data: [] }, ['logs'])).toEqual({
-      data: { data: [] },
+      data: {
+        data: [],
+        list: [],
+        items: [],
+        total: 0,
+        count: 0,
+      },
       items: [],
       total: 0,
     })

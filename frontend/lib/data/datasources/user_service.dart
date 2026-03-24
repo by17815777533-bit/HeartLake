@@ -137,28 +137,6 @@ class UserPayloadNormalizer {
     );
   }
 
-  static Map<String, dynamic>? normalizeUploadedFile(dynamic payload) {
-    final source = asMap(payload);
-    if (source == null) return null;
-
-    final normalized = Map<String, dynamic>.from(source);
-    _applyAlias(normalized, source,
-        canonicalKey: 'url',
-        aliasKeys: const [
-          'file_url',
-          'avatar_url',
-          'media_url',
-          'relative_url',
-          'path'
-        ]);
-    final resolvedUrl = resolveMediaUrl(normalized['url']);
-    if (resolvedUrl != null) {
-      normalized['url'] = resolvedUrl;
-    }
-    _mirrorCamelAlias(normalized, 'url', 'fileUrl');
-    return normalized;
-  }
-
   static Map<String, dynamic>? _extractUserMap(dynamic payload) {
     Map<String, dynamic>? fallback;
     for (final source in _candidateSources(payload)) {
@@ -254,7 +232,6 @@ class UserPayloadNormalizer {
 /// - 用户详情与统计数据
 /// - 情绪热力图 / 情绪日历（个人情绪可视化数据源）
 /// - 收到的纸船列表
-/// - 通用文件上传（头像、音频、视频等）
 class UserService extends BaseService {
   @override
   String get serviceName => 'UserService';
@@ -371,43 +348,5 @@ class UserService extends BaseService {
         items: boats,
       ),
     };
-  }
-
-  /// 上传文件（头像、音频、视频等）
-  ///
-  /// 支持格式：jpg/jpeg/png/webp/gif/mp3/wav/aac/mp4。
-  /// 通过 [ApiClient.uploadFile] 走 multipart 上传。
-  Future<Map<String, dynamic>> uploadFile(dynamic file,
-      {String? filename}) async {
-    if (filename != null) {
-      InputValidator.validateFileType(filename, const [
-        'jpg',
-        'jpeg',
-        'png',
-        'webp',
-        'gif',
-        'mp3',
-        'wav',
-        'aac',
-        'mp4',
-      ]);
-    }
-    try {
-      final response = await client.uploadFile('/media/upload',
-          file: file, filename: filename);
-      final payload = UserPayloadNormalizer.asMap(response.data);
-      final data =
-          UserPayloadNormalizer.normalizeUploadedFile(payload?['data']);
-      if (response.statusCode == 200 && payload?['code'] == 0) {
-        return {'success': true, 'data': data ?? const <String, dynamic>{}};
-      }
-      return {
-        'success': false,
-        'message': payload?['message'] ?? '上传失败',
-        'data': data,
-      };
-    } catch (e) {
-      return {'success': false, 'message': '上传失败: $e'};
-    }
   }
 }
