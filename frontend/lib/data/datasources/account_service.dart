@@ -7,6 +7,7 @@
 // 才能提交到后端，防止非法字段注入和XSS攻击。
 
 import '../../utils/input_validator.dart';
+import '../../utils/app_config.dart';
 import '../../utils/payload_contract.dart';
 import 'base_service.dart';
 import 'social_payload_normalizer.dart';
@@ -17,6 +18,49 @@ import 'social_payload_normalizer.dart';
 class AccountService extends BaseService {
   @override
   String get serviceName => 'AccountService';
+
+  String? _resolveMediaUrl(dynamic value) {
+    final raw = value?.toString().trim();
+    if (raw == null || raw.isEmpty) return null;
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null && parsed.hasScheme) {
+      return raw;
+    }
+
+    final apiBaseUri = Uri.tryParse(appConfig.apiBaseUrl);
+    if (apiBaseUri == null || apiBaseUri.host.isEmpty) {
+      return raw;
+    }
+
+    final origin = Uri(
+      scheme: apiBaseUri.scheme,
+      host: apiBaseUri.host,
+      port: apiBaseUri.hasPort ? apiBaseUri.port : null,
+    );
+    final normalizedPath = raw.startsWith('/') ? raw : '/$raw';
+    return origin.resolve(normalizedPath).toString();
+  }
+
+  String? _extractUploadedUrl(dynamic payload) {
+    if (payload is! Map) return null;
+
+    final source = Map<String, dynamic>.from(payload.cast<String, dynamic>());
+    final data = source['data'] is Map
+        ? Map<String, dynamic>.from(
+            (source['data'] as Map).cast<String, dynamic>(),
+          )
+        : source;
+
+    return _resolveMediaUrl(
+      data['url'] ??
+          data['file_url'] ??
+          data['avatar_url'] ??
+          data['media_url'] ??
+          data['relative_url'] ??
+          data['path'],
+    );
+  }
 
   Map<String, dynamic> _normalizePayload(Map<String, dynamic> payload) {
     final normalized = Map<String, dynamic>.from(payload);
@@ -30,6 +74,11 @@ class AccountService extends BaseService {
               data['avatar_url'].toString().isEmpty) &&
           avatar != null) {
         data['avatar_url'] = avatar;
+      }
+      final resolvedAvatarUrl = _resolveMediaUrl(data['avatar_url']);
+      if (resolvedAvatarUrl != null) {
+        data['avatar_url'] = resolvedAvatarUrl;
+        data['avatarUrl'] = resolvedAvatarUrl;
       }
       final blockedUsers = data['blocked_users'];
       if (data['items'] == null && blockedUsers is List) {
@@ -460,8 +509,51 @@ class AccountService extends BaseService {
     if (fileSize != null) {
       InputValidator.validateFileSize(fileSize, maxMB: 5);
     }
-    final response = await post('/account/avatar', data: avatarData);
-    return _normalizeResponseWithFallbackData(response);
+    if (avatarData is String) {
+      final response = await post('/account/avatar', data: {
+        'avatar_url': avatarData,
+      });
+      return _normalizeResponseWithFallbackData(response);
+    }
+
+    try {
+      final uploadResponse = await client.uploadFile('/media/upload',
+          file: avatarData, filename: filename);
+      final uploadPayload = uploadResponse.data;
+      final avatarUrl = _extractUploadedUrl(uploadPayload);
+      final success = uploadResponse.statusCode == 200 &&
+          uploadPayload is Map &&
+          uploadPayload['code'] == 0 &&
+          avatarUrl != null &&
+          avatarUrl.isNotEmpty;
+      if (!success) {
+        return {
+          'success': false,
+          'message': uploadPayload is Map
+              ? uploadPayload['message']?.toString() ?? '头像上传失败'
+              : '头像上传失败',
+        };
+      }
+
+      final response = await post('/account/avatar', data: {
+        'avatar_url': avatarUrl,
+      });
+      final normalized = _normalizeResponseWithFallbackData(
+        response,
+        fallbackData: {'avatar_url': avatarUrl},
+      );
+      if (normalized['data'] is Map) {
+        final data = Map<String, dynamic>.from(
+          (normalized['data'] as Map).cast<String, dynamic>(),
+        );
+        data['avatar_url'] = avatarUrl;
+        data['avatarUrl'] = avatarUrl;
+        normalized['data'] = data;
+      }
+      return normalized;
+    } catch (e) {
+      return {'success': false, 'message': '头像上传失败: $e'};
+    }
   }
 
   /// 更新个人资料

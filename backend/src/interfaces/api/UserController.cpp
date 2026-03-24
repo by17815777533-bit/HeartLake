@@ -56,6 +56,10 @@ std::string normalizeNickname(const std::string &raw) {
   return Validator::sanitizeHtml(trimAscii(raw));
 }
 
+std::string normalizeBio(const std::string &raw) {
+  return Validator::sanitizeHtml(trimAscii(raw));
+}
+
 std::string normalizeUpperToken(const std::string &raw) {
   auto token = trimAscii(raw);
   std::transform(token.begin(), token.end(), token.begin(),
@@ -203,6 +207,19 @@ std::optional<std::string> verifyBearerUserId(const HttpRequestPtr &req) {
   } catch (const std::exception &) {
     return std::nullopt;
   }
+}
+
+ValidationResult validateAvatarUrlOrMediaPath(const std::string &avatarUrl) {
+  if (avatarUrl.empty()) {
+    return ValidationResult::valid();
+  }
+  if (avatarUrl.rfind("/api/media/", 0) == 0 ||
+      avatarUrl.rfind("api/media/", 0) == 0 ||
+      avatarUrl.rfind("/media/", 0) == 0 ||
+      avatarUrl.rfind("media/", 0) == 0) {
+    return Validator::checkPathTraversal(avatarUrl, "头像地址");
+  }
+  return Validator::url(avatarUrl, "头像地址");
 }
 
 void recordLoginLog(const drogon::orm::DbClientPtr &dbClient,
@@ -920,12 +937,31 @@ void UserController::updateProfile(
 
     Json::Value updates(Json::objectValue);
 
-    if (json->isMember("avatar_url") &&
-        !(*json)["avatar_url"].asString().empty()) {
-      updates["avatar_url"] = (*json)["avatar_url"].asString();
+    if (json->isMember("avatar_url")) {
+      if (!(*json)["avatar_url"].isString()) {
+        callback(ResponseUtil::badRequest("头像地址格式不正确"));
+        return;
+      }
+      const auto avatarUrl = trimAscii((*json)["avatar_url"].asString());
+      auto avatarValidation = validateAvatarUrlOrMediaPath(avatarUrl);
+      if (!avatarValidation) {
+        callback(ResponseUtil::badRequest(avatarValidation.errorMessage));
+        return;
+      }
+      updates["avatar_url"] = avatarUrl;
     }
-    if (json->isMember("bio") && !(*json)["bio"].asString().empty()) {
-      updates["bio"] = (*json)["bio"].asString();
+    if (json->isMember("bio")) {
+      if (!(*json)["bio"].isString()) {
+        callback(ResponseUtil::badRequest("个性签名格式不正确"));
+        return;
+      }
+      const auto bio = normalizeBio((*json)["bio"].asString());
+      auto bioValidation = Validator::length(bio, 0, 200, "个性签名");
+      if (!bioValidation) {
+        callback(ResponseUtil::badRequest(bioValidation.errorMessage));
+        return;
+      }
+      updates["bio"] = bio;
     }
     if (json->isMember("nickname")) {
       if (!(*json)["nickname"].isString()) {

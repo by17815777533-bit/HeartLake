@@ -116,6 +116,19 @@ int resolveWindowTotalOrFallbackCount(
   }
   return safeCount(dbClient->execSqlSync(countSql, userId));
 }
+
+ValidationResult validateAvatarUrlOrMediaPath(const std::string &avatarUrl) {
+  if (avatarUrl.empty()) {
+    return ValidationResult::valid();
+  }
+  if (avatarUrl.rfind("/api/media/", 0) == 0 ||
+      avatarUrl.rfind("api/media/", 0) == 0 ||
+      avatarUrl.rfind("/media/", 0) == 0 ||
+      avatarUrl.rfind("media/", 0) == 0) {
+    return Validator::checkPathTraversal(avatarUrl, "头像地址");
+  }
+  return Validator::url(avatarUrl, "头像地址");
+}
 } // namespace
 
 // ==================== 个人信息管理 ====================
@@ -202,7 +215,7 @@ void AccountController::updateAvatar(
 
     std::string avatarUrl = trimAscii(avatarNode.asString());
     if (!avatarUrl.empty()) {
-      auto avatarValidation = Validator::url(avatarUrl, "头像地址");
+      auto avatarValidation = validateAvatarUrlOrMediaPath(avatarUrl);
       if (!avatarValidation) {
         callback(ResponseUtil::badRequest(avatarValidation.errorMessage));
         return;
@@ -210,8 +223,10 @@ void AccountController::updateAvatar(
     }
     auto dbClient = app().getDbClient("default");
 
-    dbClient->execSqlSync("UPDATE users SET avatar_url = $1 WHERE user_id = $2",
-                          avatarUrl, userId);
+    dbClient->execSqlSync(
+        "UPDATE users SET avatar_url = NULLIF($1, ''), updated_at = NOW() "
+        "WHERE user_id = $2",
+        avatarUrl, userId);
 
     Json::Value data;
     data["avatar_url"] = avatarUrl;
@@ -285,7 +300,7 @@ void AccountController::updateProfile(
       }
       std::string avatarUrl = trimAscii(avatarNode.asString());
       if (!avatarUrl.empty()) {
-        auto avatarValidation = Validator::url(avatarUrl, "头像地址");
+        auto avatarValidation = validateAvatarUrlOrMediaPath(avatarUrl);
         if (!avatarValidation) {
           callback(ResponseUtil::badRequest(avatarValidation.errorMessage));
           return;

@@ -2,6 +2,7 @@
 
 import 'base_service.dart';
 import '../../utils/input_validator.dart';
+import '../../utils/app_config.dart';
 import 'social_payload_normalizer.dart';
 
 /// 用户相关响应归一化器。
@@ -12,6 +13,29 @@ import 'social_payload_normalizer.dart';
 /// - 总数字段：`total/count/total_count/pagination.total/meta.total`
 class UserPayloadNormalizer {
   UserPayloadNormalizer._();
+
+  static String? resolveMediaUrl(dynamic value) {
+    final raw = value?.toString().trim();
+    if (raw == null || raw.isEmpty) return null;
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null && parsed.hasScheme) {
+      return raw;
+    }
+
+    final apiBaseUri = Uri.tryParse(appConfig.apiBaseUrl);
+    if (apiBaseUri == null || apiBaseUri.host.isEmpty) {
+      return raw;
+    }
+
+    final origin = Uri(
+      scheme: apiBaseUri.scheme,
+      host: apiBaseUri.host,
+      port: apiBaseUri.hasPort ? apiBaseUri.port : null,
+    );
+    final normalizedPath = raw.startsWith('/') ? raw : '/$raw';
+    return origin.resolve(normalizedPath).toString();
+  }
 
   static Map<String, dynamic>? asMap(dynamic value) {
     if (value is Map<String, dynamic>) {
@@ -61,6 +85,12 @@ class UserPayloadNormalizer {
     _mirrorCamelAlias(normalized, 'vip_expires_at', 'vipExpiresAt');
     _mirrorCamelAlias(normalized, 'is_anonymous', 'isAnonymous');
 
+    final resolvedAvatarUrl = resolveMediaUrl(normalized['avatar_url']);
+    if (resolvedAvatarUrl != null) {
+      normalized['avatar_url'] = resolvedAvatarUrl;
+      normalized['avatarUrl'] = resolvedAvatarUrl;
+    }
+
     return normalized;
   }
 
@@ -104,7 +134,17 @@ class UserPayloadNormalizer {
     final normalized = Map<String, dynamic>.from(source);
     _applyAlias(normalized, source,
         canonicalKey: 'url',
-        aliasKeys: const ['file_url', 'avatar_url', 'media_url']);
+        aliasKeys: const [
+          'file_url',
+          'avatar_url',
+          'media_url',
+          'relative_url',
+          'path'
+        ]);
+    final resolvedUrl = resolveMediaUrl(normalized['url']);
+    if (resolvedUrl != null) {
+      normalized['url'] = resolvedUrl;
+    }
     _mirrorCamelAlias(normalized, 'url', 'fileUrl');
     return normalized;
   }
@@ -343,7 +383,8 @@ class UserService extends BaseService {
       ]);
     }
     try {
-      final response = await client.uploadFile('/media/upload', file: file);
+      final response = await client.uploadFile('/media/upload',
+          file: file, filename: filename);
       final payload = UserPayloadNormalizer.asMap(response.data);
       final data =
           UserPayloadNormalizer.normalizeUploadedFile(payload?['data']);
