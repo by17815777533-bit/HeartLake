@@ -6,13 +6,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/datasources/account_service.dart';
+import '../../data/datasources/auth_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 
 /// 隐私与安全设置页面
 ///
 /// 用户可在此管理个人隐私偏好：
-/// - 隐私开关：资料可见性、在线状态、好友请求、陌生人消息等
+/// - 隐私开关：资料可见性、在线状态、陌生人纸船等真实生效的设置
 /// - 数据导出：申请导出个人数据（GDPR 合规）
 /// - 账号停用 / 永久删除（不可逆操作，需二次确认）
 class PrivacySettingsScreen extends StatefulWidget {
@@ -36,10 +37,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
   // 隐私设置项
   bool _showOnlineStatus = true;
-  bool _allowFriendRequest = true;
   bool _allowStrangerBoat = true;
-  bool _showMoodHistory = false;
-  bool _allowResonanceMatch = true;
   bool _showProfileToStranger = true;
 
   /// 将动态类型安全转换为 bool，兼容 String / num / bool 三种后端返回格式
@@ -72,19 +70,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
           final visibility = data['profile_visibility']?.toString() ?? 'public';
           _showOnlineStatus =
               _asBool(data['show_online_status'], fallback: true);
-          _allowFriendRequest =
-              _asBool(data['allow_friend_request'], fallback: true);
           _allowStrangerBoat = _asBool(
             data['allow_message_from_stranger'] ?? data['allow_stranger_boat'],
             fallback: true,
           );
-          _showMoodHistory = _asBool(data['show_mood_history']);
-          _allowResonanceMatch =
-              _asBool(data['allow_resonance_match'], fallback: true);
-          _showProfileToStranger = _asBool(
-            data['show_profile_to_stranger'],
-            fallback: visibility != 'private',
-          );
+          _showProfileToStranger = visibility != 'private';
           _isLoading = false;
         });
       }
@@ -95,21 +85,20 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
   }
 
-  /// 组装隐私设置请求体，同时发送当前生效字段和兼容字段
+  /// 组装隐私设置请求体，只发送当前后端真实支持的字段。
   Map<String, dynamic> _buildPrivacyPayload() {
     final visibility = _showProfileToStranger ? 'public' : 'private';
     return {
-      // 后端当前生效字段
       'profile_visibility': visibility,
       'show_online_status': _showOnlineStatus,
-      'allow_friend_request': _allowFriendRequest,
       'allow_message_from_stranger': _allowStrangerBoat,
-      // 兼容字段（便于前后端灰度）
       'allow_stranger_boat': _allowStrangerBoat,
-      'show_mood_history': _showMoodHistory,
-      'allow_resonance_match': _allowResonanceMatch,
-      'show_profile_to_stranger': _showProfileToStranger,
     };
+  }
+
+  String _resolveErrorMessage(Map<String, dynamic> result, String fallback) {
+    final message = result['message']?.toString().trim();
+    return message == null || message.isEmpty ? fallback : message;
   }
 
   /// 延迟 350ms 后触发保存，合并短时间内的多次开关操作
@@ -127,7 +116,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
     setState(() => _isSaving = true);
     try {
-      await _accountService.updatePrivacySettings(_buildPrivacyPayload());
+      final result =
+          await _accountService.updatePrivacySettings(_buildPrivacyPayload());
+      if (result['success'] != true) {
+        throw Exception(_resolveErrorMessage(result, '保存失败，请检查网络后重试'));
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -179,7 +172,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
     setState(() => _isExporting = true);
     try {
-      await _accountService.exportData();
+      final result = await _accountService.exportData();
+      if (result['success'] != true) {
+        throw Exception(_resolveErrorMessage(result, '导出失败，请稍后重试'));
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -223,7 +219,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     if (confirm != true) return;
 
     try {
-      await _accountService.deactivateAccount();
+      final result = await _accountService.deactivateAccount();
+      if (result['success'] != true) {
+        throw Exception(_resolveErrorMessage(result, '操作失败，请稍后重试'));
+      }
+      await sl<AuthService>().logout();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -286,7 +286,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     if (secondConfirm != true) return;
 
     try {
-      await _accountService.deleteAccountPermanently();
+      final result = await _accountService.deleteAccountPermanently();
+      if (result['success'] != true) {
+        throw Exception(_resolveErrorMessage(result, '删除失败，请稍后重试'));
+      }
+      await sl<AuthService>().logout();
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
@@ -337,30 +341,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                         value: _allowStrangerBoat,
                         onChanged: (v) {
                           setState(() => _allowStrangerBoat = v);
-                          _scheduleSave();
-                        },
-                      ),
-                      const Divider(height: 1),
-                      _buildSwitch(
-                        icon: Icons.show_chart,
-                        iconColor: Colors.orange,
-                        title: '公开情绪历史',
-                        subtitle: '其他用户可以看到你的情绪变化趋势',
-                        value: _showMoodHistory,
-                        onChanged: (v) {
-                          setState(() => _showMoodHistory = v);
-                          _scheduleSave();
-                        },
-                      ),
-                      const Divider(height: 1),
-                      _buildSwitch(
-                        icon: Icons.favorite_outline,
-                        iconColor: Colors.pink,
-                        title: '参与情绪共鸣匹配',
-                        subtitle: '允许系统根据情绪状态为你匹配共鸣伙伴',
-                        value: _allowResonanceMatch,
-                        onChanged: (v) {
-                          setState(() => _allowResonanceMatch = v);
                           _scheduleSave();
                         },
                       ),

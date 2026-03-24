@@ -29,6 +29,7 @@ class FriendProvider with ChangeNotifier {
   late void Function(Map<String, dynamic>) _onFriendOffline;
   late void Function(Map<String, dynamic>) _onFriendAccepted;
   late void Function(Map<String, dynamic>) _onFriendRemoved;
+  late void Function(Map<String, dynamic>) _onTempFriendCreated;
   late void Function(Map<String, dynamic>) _onTempFriendExpired;
 
   List<Map<String, dynamic>> get friends => List.unmodifiable(_friends);
@@ -136,11 +137,18 @@ class FriendProvider with ChangeNotifier {
       }
     };
 
+    _onTempFriendCreated = (_) {
+      unawaited(fetchTempFriends());
+    };
+
     _onTempFriendExpired = (data) {
-      final id = data['temp_friend_id']?.toString();
+      final id =
+          data['temp_friend_id']?.toString() ?? data['tempFriendId']?.toString();
       if (id == null) return;
       if (_removeTempFriendById(id)) {
         notifyListeners();
+      } else {
+        unawaited(fetchTempFriends());
       }
     };
 
@@ -148,6 +156,7 @@ class FriendProvider with ChangeNotifier {
     _wsManager.on('friend_offline', _onFriendOffline);
     _wsManager.on('friend_accepted', _onFriendAccepted);
     _wsManager.on('friend_removed', _onFriendRemoved);
+    _wsManager.on('temp_friend_created', _onTempFriendCreated);
     _wsManager.on('temp_friend_expired', _onTempFriendExpired);
     _wsRegistered = true;
   }
@@ -159,6 +168,7 @@ class FriendProvider with ChangeNotifier {
       _wsManager.off('friend_offline', _onFriendOffline);
       _wsManager.off('friend_accepted', _onFriendAccepted);
       _wsManager.off('friend_removed', _onFriendRemoved);
+      _wsManager.off('temp_friend_created', _onTempFriendCreated);
       _wsManager.off('temp_friend_expired', _onTempFriendExpired);
     }
     super.dispose();

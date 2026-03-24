@@ -12,9 +12,37 @@
 #include "infrastructure/services/FriendshipTTLEngine.h"
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/RealtimeEvent.h"
 #include <json/json.h>
 
 namespace heartlake::infrastructure {
+
+namespace {
+
+void emitTempFriendExpiredEvent(const std::string& tempFriendId,
+                                const std::string& user1Id,
+                                const std::string& user2Id) {
+    if (tempFriendId.empty() || user1Id.empty() || user2Id.empty()) {
+        return;
+    }
+
+    Json::Value payload(Json::objectValue);
+    payload["temp_friend_id"] = tempFriendId;
+    payload["tempFriendId"] = tempFriendId;
+    payload["user1_id"] = user1Id;
+    payload["user2_id"] = user2Id;
+    payload["status"] = "expired";
+
+    controllers::BroadcastWebSocketController::sendToUser(
+        user1Id, utils::buildRealtimeEvent("temp_friend_expired", payload));
+    if (user2Id != user1Id) {
+        controllers::BroadcastWebSocketController::sendToUser(
+            user2Id, utils::buildRealtimeEvent("temp_friend_expired", payload));
+    }
+}
+
+} // namespace
 
 FriendshipTTLEngine& FriendshipTTLEngine::getInstance() {
     static FriendshipTTLEngine instance;
@@ -169,12 +197,15 @@ void FriendshipTTLEngine::startExpirationListener() {
                 auto expired = dbClient->execSqlSync(
                     "UPDATE temp_friends SET status = 'expired' "
                     "WHERE status = 'active' AND expires_at < NOW() "
-                    "RETURNING temp_friend_id"
+                    "RETURNING temp_friend_id, user1_id, user2_id"
                 );
                 for (const auto& row : expired) {
-                    std::string friendshipId = row["temp_friend_id"].as<std::string>();
-                    processExpiredKey(friendshipId);
-                    LOG_INFO << "Temp friendship expired: " << friendshipId;
+                    const std::string tempFriendId = row["temp_friend_id"].as<std::string>();
+                    emitTempFriendExpiredEvent(
+                        tempFriendId,
+                        row["user1_id"].as<std::string>(),
+                        row["user2_id"].as<std::string>());
+                    LOG_INFO << "Temp friendship expired: " << tempFriendId;
                 }
             } catch (const std::exception& e) {
                 LOG_WARN << "TTL expiration check failed: " << e.what();

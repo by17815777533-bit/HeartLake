@@ -204,24 +204,13 @@ class AccountService extends BaseService {
     return item;
   }
 
-  /// 隐私设置白名单，只有这些 key 才会被提交到后端
+  /// 隐私设置白名单，仅保留当前后端真实支持的字段与必要别名。
   static const _allowedPrivacyKeys = [
-    // 后端当前生效字段
     'profile_visibility',
     'show_online_status',
-    'allow_friend_request',
     'allow_message_from_stranger',
-    // 兼容历史/前端扩展字段（后端可忽略未知字段）
     'allow_stranger_boat',
-    'show_mood_history',
-    'allow_resonance_match',
-    'show_profile_to_stranger',
-    'show_emotion_heatmap',
     'allow_stranger_message',
-    'show_stone_count',
-    'data_collection',
-    'personalized_recommendation',
-    'anonymous_analytics',
   ];
 
   /// 个人资料白名单，限制可修改的字段范围

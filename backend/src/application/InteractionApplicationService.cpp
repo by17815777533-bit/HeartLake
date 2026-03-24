@@ -18,8 +18,10 @@
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "infrastructure/services/GuardianIncentiveService.h"
 #include "infrastructure/services/NotificationPushService.h"
+#include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/IdGenerator.h"
 #include "utils/PsychologicalRiskAssessment.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/StoneCacheKeys.h"
@@ -253,6 +255,33 @@ std::string createInteractionNotificationAsync(
   return notificationId;
 }
 
+void emitTempFriendLifecycleEvent(
+    const std::string &eventType, const std::string &tempFriendId,
+    const std::string &user1Id, const std::string &user2Id,
+    const Json::Value &extra = Json::Value(Json::objectValue)) {
+  if (tempFriendId.empty() || user1Id.empty() || user2Id.empty()) {
+    return;
+  }
+
+  Json::Value payload(Json::objectValue);
+  payload["temp_friend_id"] = tempFriendId;
+  payload["tempFriendId"] = tempFriendId;
+  payload["user1_id"] = user1Id;
+  payload["user2_id"] = user2Id;
+  if (extra.isObject()) {
+    for (const auto &member : extra.getMemberNames()) {
+      payload[member] = extra[member];
+    }
+  }
+
+  heartlake::controllers::BroadcastWebSocketController::sendToUser(
+      user1Id, heartlake::utils::buildRealtimeEvent(eventType, payload));
+  if (user2Id != user1Id) {
+    heartlake::controllers::BroadcastWebSocketController::sendToUser(
+        user2Id, heartlake::utils::buildRealtimeEvent(eventType, payload));
+  }
+}
+
 void refreshBoatTempFriendshipAsync(const std::string &userId,
                                     const std::string &stoneOwnerId,
                                     const std::string &boatId) {
@@ -275,8 +304,23 @@ void refreshBoatTempFriendshipAsync(const std::string &userId,
       "source = 'boat', "
       "source_id = EXCLUDED.source_id, "
       "expires_at = GREATEST(temp_friends.expires_at, EXCLUDED.expires_at), "
-      "status = 'active'",
-      [](const drogon::orm::Result &) {},
+      "status = 'active' "
+      "RETURNING temp_friend_id, expires_at",
+      [uid1, uid2, userId](const drogon::orm::Result &result) {
+        if (result.empty()) {
+          return;
+        }
+        Json::Value extra(Json::objectValue);
+        extra["source"] = "boat";
+        extra["expires_at"] = result[0]["expires_at"].as<std::string>();
+        extra["triggered_by"] = userId;
+        emitTempFriendLifecycleEvent(
+            "temp_friend_created",
+            result[0]["temp_friend_id"].as<std::string>(),
+            uid1,
+            uid2,
+            extra);
+      },
       [boatId](const drogon::orm::DrogonDbException &e) {
         LOG_ERROR << "Failed to refresh boat temp friendship for boat " << boatId
                   << ": " << e.base().what();

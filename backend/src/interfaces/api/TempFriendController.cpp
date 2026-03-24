@@ -2,8 +2,10 @@
  * TempFriendController 模块实现
  */
 #include "interfaces/api/TempFriendController.h"
+#include "interfaces/api/BroadcastWebSocketController.h"
 #include "infrastructure/services/NotificationPushService.h"
 #include "utils/BusinessRules.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -40,6 +42,60 @@ int readRemainingSeconds(const drogon::orm::Row &row) {
     return row["seconds_remaining"].isNull()
                ? 0
                : clampRemainingSeconds(row["seconds_remaining"].as<int>());
+}
+
+void emitTempFriendLifecycleEvent(
+    const std::string &eventType,
+    const std::string &tempFriendId,
+    const std::string &user1Id,
+    const std::string &user2Id,
+    const Json::Value &extra = Json::Value(Json::objectValue)) {
+    if (tempFriendId.empty() || user1Id.empty() || user2Id.empty()) {
+        return;
+    }
+
+    Json::Value payload(Json::objectValue);
+    payload["temp_friend_id"] = tempFriendId;
+    payload["tempFriendId"] = tempFriendId;
+    payload["user1_id"] = user1Id;
+    payload["user2_id"] = user2Id;
+    if (extra.isObject()) {
+        for (const auto &member : extra.getMemberNames()) {
+            payload[member] = extra[member];
+        }
+    }
+
+    heartlake::controllers::BroadcastWebSocketController::sendToUser(
+        user1Id, heartlake::utils::buildRealtimeEvent(eventType, payload));
+    if (user2Id != user1Id) {
+        heartlake::controllers::BroadcastWebSocketController::sendToUser(
+            user2Id, heartlake::utils::buildRealtimeEvent(eventType, payload));
+    }
+}
+
+void emitFriendAcceptedEvent(const std::string &user1Id,
+                             const std::string &user2Id,
+                             const std::string &friendshipId,
+                             const std::string &triggeredBy) {
+    if (user1Id.empty() || user2Id.empty() || friendshipId.empty()) {
+        return;
+    }
+
+    Json::Value first(Json::objectValue);
+    first["friendship_id"] = friendshipId;
+    first["from_user_id"] = triggeredBy;
+    first["friend_id"] = user2Id;
+    first["peer_id"] = user2Id;
+    heartlake::controllers::BroadcastWebSocketController::sendToUser(
+        user1Id, heartlake::utils::buildRealtimeEvent("friend_accepted", first));
+
+    Json::Value second(Json::objectValue);
+    second["friendship_id"] = friendshipId;
+    second["from_user_id"] = triggeredBy;
+    second["friend_id"] = user1Id;
+    second["peer_id"] = user1Id;
+    heartlake::controllers::BroadcastWebSocketController::sendToUser(
+        user2Id, heartlake::utils::buildRealtimeEvent("friend_accepted", second));
 }
 }
 
@@ -215,6 +271,17 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
             // 发送临时好友通知
             auto& notificationService = heartlake::services::NotificationPushService::getInstance();
             notificationService.pushConnectionNotice(targetUserId, currentUserId, "");
+
+            Json::Value extra(Json::objectValue);
+            extra["expires_at"] = insertResult[0]["expires_at"].as<std::string>();
+            extra["source"] = source;
+            extra["triggered_by"] = currentUserId;
+            emitTempFriendLifecycleEvent(
+                "temp_friend_created",
+                insertResult[0]["temp_friend_id"].as<std::string>(),
+                user1Id,
+                user2Id,
+                extra);
         } else {
             Json::Value ret;
             ret["code"] = 500;
@@ -470,6 +537,18 @@ void TempFriendController::upgradeToPermanent(const HttpRequestPtr &req,
             auto& notificationService = heartlake::services::NotificationPushService::getInstance();
             std::string otherUserId = (user1 == currentUserId) ? user2 : user1;
             notificationService.pushSystemNotice(otherUserId, "好友升级", "你们已成为永久好友");
+            emitFriendAcceptedEvent(user1, user2, friendshipId, currentUserId);
+
+            Json::Value extra(Json::objectValue);
+            extra["status"] = "upgraded";
+            extra["friendship_id"] = friendshipId;
+            extra["triggered_by"] = currentUserId;
+            emitTempFriendLifecycleEvent(
+                "temp_friend_expired",
+                tempFriendId,
+                user1,
+                user2,
+                extra);
 
         } catch (const std::exception &e) {
             LOG_ERROR << "升级好友事务失败: " << e.what();
@@ -509,16 +588,27 @@ void TempFriendController::deleteTempFriend(const HttpRequestPtr &req,
                         "WHERE temp_friend_id = $1 "
                         "AND (user1_id = $2 OR user2_id = $2) "
                         "AND status = 'active' "
-                        "AND expires_at >= NOW()";
+                        "AND expires_at >= NOW() "
+                        "RETURNING temp_friend_id, user1_id, user2_id";
         
         auto result = dbClient->execSqlSync(updateSql, tempFriendId, currentUserId);
         
-        if (result.affectedRows() > 0) {
+        if (!result.empty()) {
             Json::Value ret;
             ret["code"] = 0;
             ret["message"] = "临时好友已删除";
             auto resp = HttpResponse::newHttpJsonResponse(ret);
             callback(resp);
+
+            Json::Value extra(Json::objectValue);
+            extra["status"] = "expired";
+            extra["triggered_by"] = currentUserId;
+            emitTempFriendLifecycleEvent(
+                "temp_friend_expired",
+                result[0]["temp_friend_id"].as<std::string>(),
+                result[0]["user1_id"].as<std::string>(),
+                result[0]["user2_id"].as<std::string>(),
+                extra);
         } else {
             Json::Value ret;
             ret["code"] = 404;
