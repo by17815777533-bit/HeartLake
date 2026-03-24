@@ -32,6 +32,8 @@ using namespace heartlake::utils;
 namespace {
 
 constexpr int kStoneRippleStateCacheTtlSeconds = 60;
+constexpr const char *kLakeGodSenderId = "ai_lakegod";
+constexpr const char *kLegacyLakeGodSenderId = "lake_god";
 
 std::string safeStringColumn(const drogon::orm::Row &row, const char *column,
                              const std::string &fallback = "") {
@@ -87,6 +89,29 @@ Json::Value buildAnonymousActor(const std::string &userId,
     actor.removeMember("avatarUrl");
   }
   return actor;
+}
+
+bool isLakeGodActor(const std::string &userId, bool isAiReply) {
+  return isAiReply || userId == kLakeGodSenderId ||
+         userId == kLegacyLakeGodSenderId;
+}
+
+Json::Value buildBoatAuthorPayload(const std::string &userId,
+                                   const std::string &username,
+                                   const std::string &nickname,
+                                   const std::string &avatarUrl,
+                                   bool isAnonymous, bool isAiReply) {
+  if (isLakeGodActor(userId, isAiReply)) {
+    auto actor = buildUserPayload(userId, username, "湖神", avatarUrl);
+    actor["is_anonymous"] = false;
+    actor["isAnonymous"] = false;
+    actor["is_ai_reply"] = true;
+    actor["isAiReply"] = true;
+    actor["agent"] = "lake_god";
+    actor["agent_name"] = "湖神";
+    return actor;
+  }
+  return buildAnonymousActor(userId, username, nickname, avatarUrl, isAnonymous);
 }
 
 struct ConnectionTargetPolicy {
@@ -719,6 +744,7 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
         "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.receiver_id, "
         "         pb.content, pb.status, pb.created_at, "
         "         pb.boat_style AS boat_color, pb.is_anonymous, "
+        "         pb.is_ai_reply, "
         "         u.username, u.nickname, u.avatar_url, "
         "         s.content as stone_content, s.mood_type AS stone_mood_type "
         "  FROM paper_boats pb "
@@ -740,6 +766,7 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
       const auto boatId = safeStringColumn(row, "boat_id");
       const auto senderId = safeStringColumn(row, "sender_id");
       const auto receiverId = safeStringColumn(row, "receiver_id", userId);
+      const bool isAiReply = safeBoolColumn(row, "is_ai_reply", false);
       boat["boat_id"] = boatId;
       boat["id"] = boatId;
       boat["stone_id"] = safeStringColumn(row, "stone_id");
@@ -752,16 +779,25 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
       boat["boat_color"] = safeStringColumn(row, "boat_color", "#F5EFE7");
       boat["is_anonymous"] = safeBoolColumn(row, "is_anonymous", true);
       boat["isAnonymous"] = boat["is_anonymous"];
+      boat["is_ai_reply"] = isAiReply;
+      boat["isAiReply"] = isAiReply;
       boat["created_at"] = safeStringColumn(row, "created_at");
       boat["createdAt"] = boat["created_at"];
 
       auto sender =
-          buildAnonymousActor(senderId, safeStringColumn(row, "username"),
-                              safeStringColumn(row, "nickname"),
-                              safeStringColumn(row, "avatar_url"),
-                              safeBoolColumn(row, "is_anonymous", true));
+          buildBoatAuthorPayload(senderId, safeStringColumn(row, "username"),
+                                 safeStringColumn(row, "nickname"),
+                                 safeStringColumn(row, "avatar_url"),
+                                 safeBoolColumn(row, "is_anonymous", true),
+                                 isAiReply);
       boat["sender"] = sender;
       boat["author"] = sender;
+      boat["sender_name"] = safeStringColumn(row, "nickname");
+      if (isLakeGodActor(senderId, isAiReply)) {
+        boat["sender_name"] = "湖神";
+        boat["senderName"] = "湖神";
+        boat["agent_name"] = "湖神";
+      }
 
       if (!row["stone_content"].isNull()) {
         boat["stone_content"] = row["stone_content"].as<std::string>();
@@ -1498,13 +1534,14 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
         ") "
         "SELECT paged.boat_id, paged.stone_id, paged.sender_id, paged.content, "
         "       paged.created_at, paged.status, paged.boat_color, "
-        "       paged.is_anonymous, paged.username, paged.sender_nickname, "
+        "       paged.is_anonymous, paged.is_ai_reply, "
+        "       paged.username, paged.sender_nickname, "
         "       paged.avatar_url, tb.total_count "
         "FROM total_boats tb "
         "LEFT JOIN LATERAL ("
         "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.content, "
         "         pb.created_at, pb.status, pb.boat_style AS boat_color, "
-        "         pb.is_anonymous, u.username, "
+        "         pb.is_anonymous, pb.is_ai_reply, u.username, "
         "         u.nickname as sender_nickname, u.avatar_url "
         "  FROM paper_boats pb "
         "  LEFT JOIN users u ON pb.sender_id = u.user_id "
@@ -1522,6 +1559,7 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
       const auto boatId = safeStringColumn(row, "boat_id");
       const auto senderId = safeStringColumn(row, "sender_id");
       const bool isAnonymous = safeBoolColumn(row, "is_anonymous", true);
+      const bool isAiReply = safeBoolColumn(row, "is_ai_reply", false);
       boat["boat_id"] = boatId;
       boat["id"] = boatId;
       boat["stone_id"] = safeStringColumn(row, "stone_id", stoneId);
@@ -1532,14 +1570,23 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
       boat["boat_color"] = safeStringColumn(row, "boat_color", "#F5EFE7");
       boat["is_anonymous"] = isAnonymous;
       boat["isAnonymous"] = isAnonymous;
+      boat["is_ai_reply"] = isAiReply;
+      boat["isAiReply"] = isAiReply;
       boat["created_at"] = safeStringColumn(row, "created_at");
       boat["createdAt"] = boat["created_at"];
-      auto author =
-          buildAnonymousActor(senderId, safeStringColumn(row, "username"),
-                              safeStringColumn(row, "sender_nickname"),
-                              safeStringColumn(row, "avatar_url"), isAnonymous);
+      auto author = buildBoatAuthorPayload(
+          senderId, safeStringColumn(row, "username"),
+          safeStringColumn(row, "sender_nickname"),
+          safeStringColumn(row, "avatar_url"), isAnonymous, isAiReply);
       boat["author"] = author;
       boat["sender"] = author;
+      boat["sender_name"] = isLakeGodActor(senderId, isAiReply)
+                                ? "湖神"
+                                : safeStringColumn(row, "sender_nickname");
+      if (isLakeGodActor(senderId, isAiReply)) {
+        boat["senderName"] = "湖神";
+        boat["agent_name"] = "湖神";
+      }
       boats.append(boat);
     }
     return ResponseUtil::buildCollectionPayload(

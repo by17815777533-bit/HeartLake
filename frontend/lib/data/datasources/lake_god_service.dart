@@ -14,14 +14,16 @@ class LakeGodService extends BaseService {
   static const _allowedEmotions = MoodColors.supportedMoodKeys;
 
   /// 发送消息给湖神，可附带当前情绪类型和情绪分数作为上下文
-  Future<Map<String, dynamic>> sendMessage(String content, {String? emotion, double? emotionScore}) async {
+  Future<Map<String, dynamic>> sendMessage(String content,
+      {String? emotion, double? emotionScore}) async {
     InputValidator.requireLength(content, '消息内容', min: 1, max: 2000);
     content = InputValidator.sanitizeText(content);
     if (emotion != null) {
       InputValidator.validateEnum(emotion, _allowedEmotions, '情绪类型');
     }
     if (emotionScore != null) {
-      InputValidator.requireDoubleRange(emotionScore, '情绪分数', min: 0.0, max: 1.0);
+      InputValidator.requireDoubleRange(emotionScore, '情绪分数',
+          min: 0.0, max: 1.0);
     }
     final resp = await post('/lake-god/chat', data: {
       'content': content,
@@ -60,6 +62,9 @@ class LakeGodService extends BaseService {
     );
     return {
       ...toMap(resp),
+      'data': {
+        'messages': messages,
+      },
       ...buildCollectionEnvelope(
         resp.data,
         primaryKey: 'messages',

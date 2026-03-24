@@ -76,10 +76,8 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     try {
       final result = await _service.getMessages();
       if (!mounted) return;
-      if (result['success'] == true && result['data'] != null) {
-        final data = result['data'];
-        final List<dynamic> history =
-            data is List ? data : (data['messages'] ?? []);
+      if (result['success'] == true) {
+        final List<dynamic> history = result['messages'] as List? ?? const [];
         if (history.isNotEmpty) {
           setState(() {
             for (final msg in history) {
@@ -257,6 +255,16 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     return 'stable';
   }
 
+  double _normalizedPulseScore() {
+    if (_emotionPulse == null) return 0.5;
+    final explicit = _emotionPulse!['normalized_score'];
+    if (explicit is num) {
+      return explicit.toDouble().clamp(0.0, 1.0);
+    }
+    final raw = ((_emotionPulse!['avg_score'] ?? 0.0) as num).toDouble();
+    return ((raw.clamp(-1.0, 1.0) + 1.0) / 2.0).clamp(0.0, 1.0);
+  }
+
   /// 情绪对应颜色
   Color _moodColor(String? mood) {
     if (mood == null) return AppTheme.textTertiary;
@@ -377,7 +385,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                       Text(
                         '湖神情绪脉搏',
                         style: TextStyle(
-                          color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1B2838).withValues(alpha: 0.95),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.9)
+                              : const Color(0xFF1B2838).withValues(alpha: 0.95),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -385,7 +395,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                       const SizedBox(height: 2),
                       Text(
                         _emotionPulse != null
-                            ? '情绪均值 ${((_emotionPulse!['avg_score'] ?? 0) as num).toStringAsFixed(1)}'
+                            ? '情绪均值 ${_normalizedPulseScore().toStringAsFixed(2)}'
                                 '  ·  趋势${_trendLabel(_trendFromSlope(_emotionPulse!['trend_slope']))}'
                                 '  ·  ${_emotionPulse!['sample_count'] ?? 0}条样本'
                             : '暂无数据',
@@ -414,9 +424,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   /// 脉搏颜色：根据avgScore映射
   Color get _pulseColor {
     if (_emotionPulse == null) return Colors.white70;
-    final avg = ((_emotionPulse!['avg_score'] ?? 0.0) as num).toDouble();
-    if (avg >= 0.35) return const Color(0xFF66BB6A); // 积极
-    if (avg >= -0.2) return const Color(0xFF26C6DA); // 平和
+    final normalized = _normalizedPulseScore();
+    if (normalized >= 0.65) return const Color(0xFF66BB6A); // 积极
+    if (normalized >= 0.4) return const Color(0xFF26C6DA); // 平和
     return const Color(0xFFFF7043); // 低落
   }
 
@@ -444,7 +454,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.primaryColor
-                    : isDark ? const Color(0xFF1B2838).withValues(alpha: 0.95) : Colors.white.withValues(alpha: 0.9),
+                    : isDark
+                        ? const Color(0xFF1B2838).withValues(alpha: 0.95)
+                        : Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -462,7 +474,11 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
               child: Text(
                 message['content'] ?? '',
                 style: TextStyle(
-                  color: isMe ? Colors.white : (isDark ? const Color(0xFFE8EAED) : AppTheme.textPrimary),
+                  color: isMe
+                      ? Colors.white
+                      : (isDark
+                          ? const Color(0xFFE8EAED)
+                          : AppTheme.textPrimary),
                   fontSize: 15,
                   height: 1.4,
                 ),
@@ -526,7 +542,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         color: isDark ? const Color(0xFF1B2838) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.transparent
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),

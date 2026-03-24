@@ -249,6 +249,12 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                       itemCount: _boats.length,
                       itemBuilder: (context, index) {
                         final boat = _boats[index];
+                        final isAiReply = boat['is_ai_reply'] == true;
+                        final senderName = isAiReply
+                            ? '湖神'
+                            : boat['sender_name']?.toString() ??
+                                boat['author']?['nickname']?.toString() ??
+                                '匿名旅人';
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           shape: RoundedRectangleBorder(
@@ -282,14 +288,36 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                                   // 发送者信息
                                   Row(
                                     children: [
-                                      const Icon(Icons.person, size: 16),
+                                      Icon(
+                                        isAiReply
+                                            ? Icons.auto_awesome
+                                            : Icons.person,
+                                        size: 16,
+                                      ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        boat['sender_name'] ?? '匿名旅人',
+                                        senderName,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
+                                      if (isAiReply) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'AI回复',
+                                            style: TextStyle(fontSize: 10),
+                                          ),
+                                        ),
+                                      ],
                                       const Spacer(),
                                       Text(
                                         boat['created_at']?.toString() ?? '',

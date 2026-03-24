@@ -123,7 +123,7 @@ void PaperBoatController::getBoatDetail(
     auto dbClient = drogon::app().getDbClient("default");
 
     auto result = dbClient->execSqlSync(
-        "SELECT b.boat_id, b.stone_id, b.content, b.boat_style AS boat_color, "
+        "SELECT b.boat_id, b.stone_id, b.sender_id, b.content, b.boat_style AS boat_color, "
         "b.is_anonymous, "
         "b.is_ai_reply, b.status, "
         "EXTRACT(EPOCH FROM b.created_at) as created_at_ts, "
@@ -157,11 +157,25 @@ void PaperBoatController::getBoatDetail(
         static_cast<Json::Int64>(row["created_at_ts"].as<double>());
 
     Json::Value author;
-    author["nickname"] = row["nickname"].isNull()
-                             ? "匿名旅人"
-                             : row["nickname"].as<std::string>();
-    author["is_anonymous"] =
-        row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
+    const bool isAiReply =
+        row["is_ai_reply"].isNull() ? false : row["is_ai_reply"].as<bool>();
+    const auto senderId =
+        row["sender_id"].isNull() ? "" : row["sender_id"].as<std::string>();
+    const bool isLakeGod = isAiReply || senderId == "ai_lakegod" || senderId == "lake_god";
+    author["nickname"] = isLakeGod
+                             ? "湖神"
+                             : (row["nickname"].isNull()
+                                    ? "匿名旅人"
+                                    : row["nickname"].as<std::string>());
+    author["is_anonymous"] = isLakeGod
+                                 ? false
+                                 : (row["is_anonymous"].isNull()
+                                        ? true
+                                        : row["is_anonymous"].as<bool>());
+    if (isLakeGod) {
+      author["is_ai_reply"] = true;
+      author["agent_name"] = "湖神";
+    }
     boat["author"] = author;
 
     callback(ResponseUtil::success(boat));

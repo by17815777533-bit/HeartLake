@@ -236,6 +236,38 @@ class UserService extends BaseService {
   @override
   String get serviceName => 'UserService';
 
+  Map<String, dynamic> _normalizeEmotionTimeline(dynamic raw) {
+    final source =
+        UserPayloadNormalizer.asMap(raw) ?? const <String, dynamic>{};
+    final data = UserPayloadNormalizer.asMap(source['data']) ?? source;
+    final rawDays = UserPayloadNormalizer.asMap(
+          data['days'] ??
+              source['days'] ??
+              data['timeline'] ??
+              source['timeline'],
+        ) ??
+        const <String, dynamic>{};
+
+    final days = <String, dynamic>{};
+    for (final entry in rawDays.entries) {
+      final day = UserPayloadNormalizer.asMap(entry.value);
+      if (day == null) continue;
+      days[entry.key] = day;
+    }
+
+    return {
+      'days': days,
+      if (data['month'] != null || source['month'] != null)
+        'month': data['month'] ?? source['month'],
+      if (data['days_count'] != null || source['days_count'] != null)
+        'days_count': data['days_count'] ?? source['days_count'],
+      if (data['range_start'] != null || source['range_start'] != null)
+        'range_start': data['range_start'] ?? source['range_start'],
+      if (data['range_end'] != null || source['range_end'] != null)
+        'range_end': data['range_end'] ?? source['range_end'],
+    };
+  }
+
   /// 搜索用户
   ///
   /// 关键词经过 sanitize 处理后提交，长度限制 1~50 字符。
@@ -303,10 +335,20 @@ class UserService extends BaseService {
   ///
   /// 返回当前用户近期的情绪分布热力图原始数据，
   /// 不走缓存以保证实时性。
-  Future<Map<String, dynamic>> getEmotionHeatmap() async {
-    final response = await get('/users/my/emotion-heatmap', useCache: false);
+  Future<Map<String, dynamic>> getEmotionHeatmap({int days = 365}) async {
+    if (days < 1 || days > 365) {
+      throw const ValidationException('热力图天数应在1-365之间');
+    }
+    final response = await get(
+      '/users/my/emotion-heatmap',
+      queryParameters: {'days': days},
+      useCache: false,
+    );
     if (!response.success) return toMap(response);
-    return {'success': true, 'data': response.data};
+    return {
+      'success': true,
+      'data': _normalizeEmotionTimeline(response.data),
+    };
   }
 
   /// 获取情绪日历数据
@@ -320,7 +362,10 @@ class UserService extends BaseService {
       useCache: false,
     );
     if (!response.success) return toMap(response);
-    return {'success': true, 'data': response.data};
+    return {
+      'success': true,
+      'data': _normalizeEmotionTimeline(response.data),
+    };
   }
 
   /// 获取我收到的纸船（分页）

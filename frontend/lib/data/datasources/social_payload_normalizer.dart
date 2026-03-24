@@ -366,6 +366,15 @@ Map<String, dynamic> normalizeBoatPayload(Map raw) {
     item['senderId'] = normalizedSender;
   }
 
+  final isAiReply = _toBool(
+        _firstValue(item, const ['is_ai_reply', 'isAiReply', 'is_ai']),
+      ) ==
+      true;
+  if (isAiReply) {
+    item['is_ai_reply'] = true;
+    item['isAiReply'] = true;
+  }
+
   final receiverId = _firstValue(
     item,
     const ['receiver_id', 'receiverId', 'target_user_id', 'targetUserId'],
@@ -409,6 +418,48 @@ Map<String, dynamic> normalizeBoatPayload(Map raw) {
   final receiver = item['receiver'];
   if (receiver is Map) {
     item['receiver'] = normalizeFriendPayload(receiver);
+  }
+
+  final senderMap =
+      item['sender'] is Map ? _asMap(item['sender'] as Map) : null;
+  final authorMap =
+      item['author'] is Map ? _asMap(item['author'] as Map) : null;
+  final senderName = _firstValue(item, const ['sender_name', 'senderName']) ??
+      senderMap?['nickname'] ??
+      authorMap?['nickname'] ??
+      item['nickname'];
+  if (senderName != null) {
+    item['sender_name'] = senderName.toString();
+    item['senderName'] = senderName.toString();
+  }
+
+  final senderKey = _firstValue(item, const ['sender_id', 'senderId'])
+      ?.toString()
+      .toLowerCase();
+  final isLakeGodSender =
+      isAiReply || senderKey == 'ai_lakegod' || senderKey == 'lake_god';
+  if (isLakeGodSender) {
+    item['is_ai_reply'] = true;
+    item['isAiReply'] = true;
+    item['sender_name'] = '湖神';
+    item['senderName'] = '湖神';
+    item['agent_name'] = item['agent_name'] ?? '湖神';
+    item['agentName'] = item['agentName'] ?? '湖神';
+    final aiAuthor = {
+      ...?authorMap,
+      'nickname': '湖神',
+      'is_anonymous': false,
+      'isAnonymous': false,
+      'is_ai_reply': true,
+      'isAiReply': true,
+      'agent_name': '湖神',
+      'agentName': '湖神',
+    };
+    item['author'] = aiAuthor;
+    item['sender'] = {
+      ...?senderMap,
+      ...aiAuthor,
+    };
   }
 
   return item;

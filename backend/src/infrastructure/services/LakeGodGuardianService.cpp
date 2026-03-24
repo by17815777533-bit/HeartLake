@@ -26,6 +26,10 @@
 
 namespace heartlake::infrastructure {
 
+namespace {
+constexpr const char *kLakeGodSenderId = "ai_lakegod";
+}
+
 LakeGodGuardianService& LakeGodGuardianService::getInstance() {
     static LakeGodGuardianService instance;
     return instance;
@@ -73,8 +77,9 @@ void LakeGodGuardianService::cleanStalePendingBoats() {
     try {
         auto result = db->execSqlSync(
             "DELETE FROM paper_boats WHERE status = 'pending' "
-            "AND sender_id = 'lake_god' AND created_at < NOW() - INTERVAL '10 minutes' "
-            "RETURNING boat_id"
+            "AND sender_id = $1 AND created_at < NOW() - INTERVAL '10 minutes' "
+            "RETURNING boat_id",
+            std::string(kLakeGodSenderId)
         );
         if (!result.empty()) {
             LOG_WARN << "Cleaned " << result.size() << " stale pending boats";
@@ -103,9 +108,10 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             "AND ripple_count = 0 AND boat_count = 0 "
             "AND deleted_at IS NULL "
             "AND created_at < NOW() - make_interval(hours => CAST($1 AS INT)) "
-            "AND NOT EXISTS (SELECT 1 FROM paper_boats WHERE stone_id = stones.stone_id AND sender_id = 'lake_god') "
+            "AND NOT EXISTS (SELECT 1 FROM paper_boats WHERE stone_id = stones.stone_id AND sender_id = $3) "
             "LIMIT CAST($2 AS INT)",
-            zeroInteractionThresholdHours, batchSize
+            zeroInteractionThresholdHours, batchSize,
+            std::string(kLakeGodSenderId)
         );
 
         for (const auto& row : result) {
@@ -117,9 +123,9 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             try {
                 std::string boatId = utils::IdGenerator::generateBoatId();
                 db->execSqlSync(
-                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, status, created_at) "
-                    "VALUES ($1, $2, 'lake_god', '', true, 'pending', NOW())",
-                    boatId, stoneId
+                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, is_ai_reply, status, created_at) "
+                    "VALUES ($1, $2, $3, '', false, true, 'pending', NOW())",
+                    boatId, stoneId, std::string(kLakeGodSenderId)
                 );
                 sendAutoBoat(stoneId, content, mood, boatId);
             } catch (const drogon::orm::DrogonDbException& e) {

@@ -50,6 +50,7 @@ namespace {
 constexpr int kStoneDetailCacheTtlSeconds = 300;
 constexpr int kStoneListCacheTtlSeconds = 60;
 constexpr int kStoneRippleStateCacheTtlSeconds = 60;
+constexpr const char *kLakeGodSenderId = "ai_lakegod";
 
 std::string normalizeMoodType(std::string mood) {
   std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
@@ -935,9 +936,9 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
       auto transPtr = db->newTransaction();
       transPtr->execSqlSync(
           "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, "
-          "is_anonymous, status, created_at) "
-          "VALUES ($1, $2, 'ai_lakegod', $3, false, 'active', NOW())",
-          aiBoatId, stoneId, comment);
+          "is_anonymous, is_ai_reply, status, created_at) "
+          "VALUES ($1, $2, $3, $4, false, true, 'active', NOW())",
+          aiBoatId, stoneId, std::string(kLakeGodSenderId), comment);
       auto updateResult = transPtr->execSqlSync(
           "UPDATE stones SET boat_count = boat_count + 1, updated_at = NOW() "
           "WHERE stone_id = $1 RETURNING boat_count, mood_type",
@@ -960,6 +961,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
       broadcastMsg["boat_content"] = comment;
       broadcastMsg["boat_id"] = aiBoatId;
       broadcastMsg["is_ai"] = true;
+      broadcastMsg["is_ai_reply"] = true;
       broadcastMsg["triggered_by"] = "ai_lakegod_rag";
       broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
 

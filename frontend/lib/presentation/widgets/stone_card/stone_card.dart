@@ -327,6 +327,7 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                           final boat = boats[index];
                           final author = boat['author'] ?? {};
                           final isTemp = boat['_isTemp'] == true;
+                          final isAiReply = boat['is_ai_reply'] == true;
                           final moodConfig = MoodColors.getConfig(_stoneMood);
 
                           return Container(
@@ -372,7 +373,9 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                                         child: Icon(
                                           isTemp
                                               ? Icons.hourglass_empty
-                                              : Icons.person,
+                                              : isAiReply
+                                                  ? Icons.auto_awesome
+                                                  : Icons.person,
                                           size: 10,
                                           color: moodConfig.primary,
                                         ),
@@ -380,13 +383,36 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      author['nickname']?.toString() ?? '匿名旅人',
+                                      isAiReply
+                                          ? '湖神'
+                                          : author['nickname']?.toString() ??
+                                              boat['sender_name']?.toString() ??
+                                              '匿名旅人',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: moodConfig.textColor,
                                         fontSize: 13,
                                       ),
                                     ),
+                                    if (isAiReply && !isTemp) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: moodConfig.primary
+                                              .withValues(alpha: 0.18),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'AI回复',
+                                          style: TextStyle(
+                                              fontSize: 9,
+                                              color: moodConfig.primary),
+                                        ),
+                                      ),
+                                    ],
                                     if (isTemp) ...[
                                       const SizedBox(width: 6),
                                       Container(

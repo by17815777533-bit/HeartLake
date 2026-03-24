@@ -863,11 +863,14 @@ void UserController::getMyBoats(
     auto dbClient = drogon::app().getDbClient("default");
     const int64_t offset = paginationOffset(page, page_size);
     auto result = dbClient->execSqlSync(
-        "SELECT b.boat_id, b.stone_id, b.content, b.boat_style, b.created_at, "
-        "b.status, b.sender_id, b.is_anonymous, b.mood, b.response_content, "
-        "b.response_at, COUNT(*) OVER() AS total_count "
+        "SELECT b.boat_id, b.stone_id, s.user_id AS stone_user_id, "
+        "b.content, b.boat_style, b.created_at, "
+        "b.status, b.sender_id, b.is_anonymous, b.is_ai_reply, "
+        "b.mood, b.response_content, b.response_at, "
+        "u.nickname AS sender_nickname, COUNT(*) OVER() AS total_count "
         "FROM paper_boats b "
         "INNER JOIN stones s ON b.stone_id = s.stone_id "
+        "LEFT JOIN users u ON b.sender_id = u.user_id "
         "WHERE s.user_id = $1 AND b.sender_id <> $1 "
         "ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
         user_id, static_cast<int64_t>(page_size), offset);
@@ -887,6 +890,9 @@ void UserController::getMyBoats(
       boat["boat_id"] = row["boat_id"].as<std::string>();
       boat["stone_id"] =
           row["stone_id"].isNull() ? "" : row["stone_id"].as<std::string>();
+      boat["stone_user_id"] = row["stone_user_id"].isNull()
+                                  ? user_id
+                                  : row["stone_user_id"].as<std::string>();
       boat["content"] = row["content"].as<std::string>();
       boat["boat_style"] = row["boat_style"].isNull()
                                ? "paper"
@@ -895,7 +901,15 @@ void UserController::getMyBoats(
       boat["status"] = row["status"].as<std::string>();
       boat["is_anonymous"] =
           row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
+      const bool isAiReply =
+          row["is_ai_reply"].isNull() ? false : row["is_ai_reply"].as<bool>();
+      boat["is_ai_reply"] = isAiReply;
       boat["mood"] = row["mood"].isNull() ? "" : row["mood"].as<std::string>();
+      boat["sender_name"] =
+          isAiReply ? "湖神"
+                    : (row["sender_nickname"].isNull()
+                           ? "匿名旅人"
+                           : row["sender_nickname"].as<std::string>());
       boat["response_content"] =
           row["response_content"].isNull()
               ? ""
@@ -1128,9 +1142,9 @@ void UserController::getEmotionHeatmap(
     }
     auto user_id = *userIdOpt;
 
-    int days_count = safeInt(req->getParameter("days"), 30);
+    int days_count = safeInt(req->getParameter("days"), 365);
     if (days_count < 1 || days_count > 365)
-      days_count = 30;
+      days_count = 365;
 
     auto dbClient = drogon::app().getDbClient("default");
 
@@ -1171,6 +1185,7 @@ void UserController::getEmotionHeatmap(
 
     Json::Value response;
     response["days"] = days;
+    response["days_count"] = days_count;
     callback(ResponseUtil::success(response));
 
   } catch (const drogon::orm::DrogonDbException &e) {

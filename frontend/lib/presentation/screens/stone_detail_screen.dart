@@ -89,6 +89,17 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
     return MoodType.neutral;
   }
 
+  bool _isAiBoat(Map<String, dynamic> boat) => boat['is_ai_reply'] == true;
+
+  String _boatDisplayName(Map<String, dynamic> boat) {
+    if (_isAiBoat(boat)) {
+      return '湖神';
+    }
+    return boat['author']?['nickname']?.toString() ??
+        boat['sender_name']?.toString() ??
+        '匿名旅人';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -987,7 +998,11 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                   backgroundColor:
                       isDark ? const Color(0xFF16213E) : Colors.white,
                   child: Icon(
-                    isTemp ? Icons.hourglass_empty : Icons.person,
+                    isTemp
+                        ? Icons.hourglass_empty
+                        : _isAiBoat(boat)
+                            ? Icons.auto_awesome
+                            : Icons.person,
                     size: 14,
                     color: moodConfig.primary,
                   ),
@@ -995,13 +1010,31 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                boat['author']?['nickname'] ?? '匿名旅人',
+                _boatDisplayName(boat),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                   color: moodConfig.textColor,
                 ),
               ),
+              if (_isAiBoat(boat) && !isTemp) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: moodConfig.primary.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'AI回复',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: moodConfig.primary,
+                    ),
+                  ),
+                ),
+              ],
               if (isTemp) ...[
                 const SizedBox(width: 8),
                 Container(

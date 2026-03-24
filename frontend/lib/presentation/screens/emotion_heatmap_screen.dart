@@ -118,16 +118,18 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   Future<void> _loadHeatmapData() async {
     if (mounted) setState(() => _isLoading = true);
     try {
-      final result = await _userService.getEmotionHeatmap();
+      final result = await _userService.getEmotionHeatmap(days: 365);
       if (!mounted) return;
       if (result['success'] == true) {
-        final rawData = (result['data'] as Map<String, dynamic>?)?['days']
-                as Map<String, dynamic>? ??
-            {};
+        final rawData =
+            (result['data'] as Map<String, dynamic>?)?['days'] ?? const {};
         final parsed = <String, Map<String, dynamic>>{};
-        for (final entry in rawData.entries) {
-          if (entry.value is Map) {
-            parsed[entry.key] = Map<String, dynamic>.from(entry.value as Map);
+        if (rawData is Map) {
+          for (final entry in rawData.entries) {
+            if (entry.value is Map) {
+              parsed[entry.key.toString()] = Map<String, dynamic>.from(
+                  (entry.value as Map).cast<String, dynamic>());
+            }
           }
         }
         setState(() {
