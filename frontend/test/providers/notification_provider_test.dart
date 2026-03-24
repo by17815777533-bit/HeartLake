@@ -85,12 +85,10 @@ void main() {
       );
 
       expect(wsClient.listenerCount('new_notification'), 2);
-      expect(wsClient.listenerCount('boat_update'), 2);
 
       localProvider.dispose();
 
       expect(wsClient.listenerCount('new_notification'), 1);
-      expect(wsClient.listenerCount('boat_update'), 1);
     });
 
     test('loads unread count and throttles repeated requests', () async {
@@ -107,7 +105,8 @@ void main() {
       expect(provider.unreadCount, 99);
     });
 
-    test('loads notifications from shared collection payload', () async {
+    test('loads notifications and infers hasMore from page size fallback',
+        () async {
       dataSource.notificationResponses.add({
         'success': true,
         'notifications': List.generate(
@@ -180,9 +179,11 @@ void main() {
           true);
     });
 
-    test('reacts to websocket notifications using normalized aliases', () {
+    test('normalizes realtime notification payloads to notification type', () {
       wsClient.emit('new_notification', {
+        'type': 'new_notification',
         'notificationId': 'ws_1',
+        'notification_type': 'boat',
         'isRead': false,
         'targetId': 'stone_1',
       });
@@ -190,10 +191,19 @@ void main() {
       expect(provider.unreadCount, 1);
       expect(provider.notifications, hasLength(1));
       expect(provider.notifications.first['notification_id'], 'ws_1');
+      expect(provider.notifications.first['type'], 'boat');
       expect(provider.notifications.first['target_id'], 'stone_1');
+    });
 
-      wsClient.emit('boat_update', {'boat_id': 'b1'});
-      expect(provider.unreadCount, 2);
+    test('prefers authoritative unread count from websocket payload', () {
+      wsClient.emit('new_notification', {
+        'notification_id': 'ws_1',
+        'notification_type': 'system_notice',
+        'is_read': false,
+        'unread_count': 6,
+      });
+
+      expect(provider.unreadCount, 6);
     });
 
     test('clear resets provider state', () async {

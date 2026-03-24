@@ -1,7 +1,7 @@
 // 通知状态管理
 //
 // 管理未读计数、通知列表分页加载，并通过 WebSocket 监听
-// 实时通知事件和纸船事件更新未读角标。
+// 统一的 `new_notification` 事件更新角标。
 // 依赖 [NotificationDataSource] 完成后端交互，依赖 [WebSocketClient] 接收推送。
 
 import 'dart:async';
@@ -15,7 +15,7 @@ import '../../utils/payload_contract.dart';
 /// 通知中心状态管理器
 ///
 /// 维护未读计数和通知列表两部分状态。
-/// 通过 WebSocket 监听 `new_notification` 和 `boat_update` 事件实时递增未读数。
+/// 通过 WebSocket 监听统一的 `new_notification` 事件实时递增未读数。
 /// 未读计数有节流保护，[refreshInterval] 秒内不会重复请求后端。
 class NotificationProvider with ChangeNotifier {
   final NotificationDataSource _notificationService;
@@ -37,7 +37,6 @@ class NotificationProvider with ChangeNotifier {
 
   // WebSocket 监听器引用，dispose 时精确移除防止内存泄漏
   late final void Function(Map<String, dynamic>) _onNewNotification;
-  late final void Function(Map<String, dynamic>) _onBoatUpdate;
 
   /// 未读数拉取的最小间隔（秒），防止频繁请求
   static const int refreshInterval = 30;
@@ -62,16 +61,7 @@ class NotificationProvider with ChangeNotifier {
   void _setupWebSocketListener() {
     if (_wsListenerRegistered) return;
     _onNewNotification = (data) {
-      final normalized = normalizePayloadContract(data);
-      final nestedData = normalized['data'];
-      final mergedPayload = nestedData is Map
-          ? {
-              ...normalized,
-              ...normalizePayloadContract(
-                Map<String, dynamic>.from(nestedData.cast<String, dynamic>()),
-              ),
-            }
-          : normalized;
+      final mergedPayload = _normalizeRealtimeNotificationPayload(data);
       final notificationId = _notificationIdOf(mergedPayload);
       final authoritativeUnread = mergedPayload['unread_count'] as int?;
 
@@ -85,10 +75,40 @@ class NotificationProvider with ChangeNotifier {
       }
       notifyListeners();
     };
-    _onBoatUpdate = (_) {};
     _wsManager.on('new_notification', _onNewNotification);
-    _wsManager.on('boat_update', _onBoatUpdate);
     _wsListenerRegistered = true;
+  }
+
+  Map<String, dynamic> _normalizeRealtimeNotificationPayload(
+    Map<String, dynamic> payload,
+  ) {
+    final normalized = normalizePayloadContract(payload);
+    final nestedData = normalized['data'];
+    final mergedPayload = nestedData is Map
+        ? {
+            ...normalized,
+            ...normalizePayloadContract(
+              Map<String, dynamic>.from(nestedData.cast<String, dynamic>()),
+            ),
+          }
+        : normalized;
+
+    final notificationType = mergedPayload['notification_type']?.toString();
+    if (notificationType != null && notificationType.isNotEmpty) {
+      mergedPayload['event_type'] = normalized['type'];
+      mergedPayload['type'] = notificationType;
+    }
+
+    final relatedId = mergedPayload['related_id'] ??
+        mergedPayload['target_id'] ??
+        mergedPayload['stone_id'] ??
+        mergedPayload['friend_id'];
+    if (relatedId != null) {
+      mergedPayload['related_id'] = relatedId;
+      mergedPayload['target_id'] = relatedId;
+    }
+
+    return mergedPayload;
   }
 
   void _rebuildNotificationIndex() {
@@ -156,7 +176,6 @@ class NotificationProvider with ChangeNotifier {
     // 精确移除监听器，防止内存泄漏
     if (_wsListenerRegistered) {
       _wsManager.off('new_notification', _onNewNotification);
-      _wsManager.off('boat_update', _onBoatUpdate);
     }
     super.dispose();
   }
@@ -290,7 +309,12 @@ class NotificationProvider with ChangeNotifier {
         if (merged || newItems.isNotEmpty) {
           _rebuildNotificationIndex();
         }
-        _hasMore = result['has_more'] == true;
+        final explicitHasMore = result['has_more'] ?? result['hasMore'];
+        if (explicitHasMore is bool) {
+          _hasMore = explicitHasMore;
+        } else {
+          _hasMore = newItems.length >= _pageSize;
+        }
         _currentPage++;
         // 同步未读数
         if (result['unread_count'] != null) {

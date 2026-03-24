@@ -1095,12 +1095,12 @@ InteractionApplicationService::getNotifications(const std::string &userId,
         "  FROM notifications "
         "  WHERE user_id = $1"
         ") "
-        "SELECT paged.notification_id, paged.type, paged.content, "
+        "SELECT paged.notification_id, paged.type, paged.title, paged.content, "
         "       paged.related_id, paged.related_type, paged.is_read, "
         "       paged.created_at, totals.total_count, totals.unread_count "
         "FROM notification_totals totals "
         "LEFT JOIN LATERAL ("
-        "  SELECT notification_id, type, content, related_id, related_type, "
+        "  SELECT notification_id, type, title, content, related_id, related_type, "
         "         is_read, created_at "
         "  FROM notifications "
         "  WHERE user_id = $1 "
@@ -1120,6 +1120,8 @@ InteractionApplicationService::getNotifications(const std::string &userId,
       notification["id"] = notificationId;
       notification["notificationId"] = notificationId;
       notification["type"] = safeStringColumn(row, "type");
+      notification["notification_type"] = notification["type"];
+      notification["title"] = safeStringColumn(row, "title");
       notification["content"] = safeStringColumn(row, "content");
       notification["related_id"] = safeStringColumn(row, "related_id");
       notification["relatedId"] = notification["related_id"];

@@ -214,7 +214,7 @@ void TempFriendController::createTempFriend(const HttpRequestPtr &req,
 
             // 发送临时好友通知
             auto& notificationService = heartlake::services::NotificationPushService::getInstance();
-            notificationService.pushFriendRequestNotification(targetUserId, currentUserId, "");
+            notificationService.pushConnectionNotice(targetUserId, currentUserId, "");
         } else {
             Json::Value ret;
             ret["code"] = 500;

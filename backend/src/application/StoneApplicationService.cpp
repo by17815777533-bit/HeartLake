@@ -22,8 +22,10 @@
 #include "infrastructure/services/VIPService.h"
 #include "infrastructure/services/WarmQuoteService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/IdGenerator.h"
 #include "utils/PsychologicalRiskAssessment.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/StoneCacheKeys.h"
@@ -509,6 +511,8 @@ Json::Value StoneApplicationService::getStoneList(
 
   try {
     const int offset = (page - 1) * pageSize;
+    const auto limitValue = static_cast<int64_t>(pageSize);
+    const auto offsetValue = static_cast<int64_t>(offset);
     const std::string normalizedSort = normalizeStoneSort(sortBy);
     const std::string cacheKey =
         buildStoneListCacheKey(page, pageSize, normalizedSort, filterMood, userId);
@@ -556,19 +560,17 @@ Json::Value StoneApplicationService::getStoneList(
       sql += "OFFSET $" + std::to_string(paramIndex);
       auto result = [&]() -> drogon::orm::Result {
         if (!userId.empty() && !filterMood.empty()) {
-          return dbClient->execSqlSync(sql, userId, filterMood,
-                                       static_cast<int64_t>(pageSize), offset);
+          return dbClient->execSqlSync(sql, userId, filterMood, limitValue,
+                                       offsetValue);
         }
         if (!userId.empty()) {
-          return dbClient->execSqlSync(sql, userId, static_cast<int64_t>(pageSize),
-                                       offset);
+          return dbClient->execSqlSync(sql, userId, limitValue, offsetValue);
         }
         if (!filterMood.empty()) {
-          return dbClient->execSqlSync(sql, filterMood,
-                                       static_cast<int64_t>(pageSize), offset);
+          return dbClient->execSqlSync(sql, filterMood, limitValue,
+                                       offsetValue);
         }
-        return dbClient->execSqlSync(
-            sql, static_cast<int64_t>(pageSize), offset);
+        return dbClient->execSqlSync(sql, limitValue, offsetValue);
       }();
 
       Json::Value stones(Json::arrayValue);
@@ -953,7 +955,6 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
       }
 
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "boat_update";
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["boat_count"] = newBoatsCount;
       broadcastMsg["boat_content"] = comment;
@@ -964,8 +965,13 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
 
       drogon::app().getLoop()->queueInLoop(
           [stoneId, msg = std::move(broadcastMsg)]() mutable {
+            const auto event = heartlake::utils::buildRealtimeEvent(
+                "boat_update", std::move(msg));
             heartlake::controllers::BroadcastWebSocketController::sendToRoom(
-                "stone:" + stoneId, msg);
+                "stone:" + stoneId, event);
+            heartlake::controllers::BroadcastWebSocketController::broadcast(
+                event);
+            heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_update");
           });
     } catch (const std::exception &e) {
       LOG_ERROR << "DualMemoryRAG comment creation failed: " << e.what();

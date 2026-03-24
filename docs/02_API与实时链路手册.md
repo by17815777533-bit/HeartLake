@@ -445,11 +445,13 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
   "type": "new_notification",
   "event": "new_notification",
   "notification_id": "notif_xxx",
+  "title": "湖面来信",
   "notification_type": "boat",
   "content": "有人给你的石头回了一封纸船",
   "related_id": "boat_xxx",
   "related_type": "boat",
   "is_read": false,
+  "unread_count": 3,
   "timestamp": 1700000000
 }
 ```
@@ -458,6 +460,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 
 - 广播事件统一为扁平结构，核心字段至少包含 `type / event / timestamp`
 - 常见标识会镜像 snake / camel 别名，例如 `stone_id / stoneId`
+- `new_notification.type` 固定为事件名，实际通知语义请读取 `notification_type`
 - 管理端与移动端应直接消费标准事件，不再依赖历史 `data/payload` 嵌套结构
 
 好友消息：

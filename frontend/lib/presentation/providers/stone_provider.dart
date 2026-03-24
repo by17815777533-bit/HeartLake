@@ -191,9 +191,7 @@ class StoneProvider with ChangeNotifier {
 
     _wsManager.on('new_stone', _onNewStone);
     _wsManager.on('boat_update', _onBoatUpdate);
-    _wsManager.on('new_boat', _onBoatUpdate);
     _wsManager.on('ripple_update', _onRippleUpdate);
-    _wsManager.on('new_ripple', _onRippleUpdate);
     _wsManager.on('stone_deleted', _onStoneDeleted);
     _wsManager.on('boat_deleted', _onBoatDeleted);
     _wsManager.on('ripple_deleted', _onRippleDeleted);
@@ -585,9 +583,7 @@ class StoneProvider with ChangeNotifier {
     }
     _wsManager.off('new_stone', _onNewStone);
     _wsManager.off('boat_update', _onBoatUpdate);
-    _wsManager.off('new_boat', _onBoatUpdate);
     _wsManager.off('ripple_update', _onRippleUpdate);
-    _wsManager.off('new_ripple', _onRippleUpdate);
     _wsManager.off('stone_deleted', _onStoneDeleted);
     _wsManager.off('boat_deleted', _onBoatDeleted);
     _wsManager.off('ripple_deleted', _onRippleDeleted);

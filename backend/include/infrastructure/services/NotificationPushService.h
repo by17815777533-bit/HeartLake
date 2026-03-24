@@ -1,12 +1,10 @@
 /**
- * @brief 实时通知推送服务 -- 通过 WebSocket 向客户端推送各类通知
+ * @brief 通知服务 -- 统一负责持久化与实时分发
  *
  * @details
- * 统一的通知出口，将业务层产生的各类事件（涟漪、纸船、好友请求等）
- * 封装为 NotificationMessage 后，通过 WebSocketHub 推送到客户端。
- *
- * 支持单用户推送和批量推送，提供好友请求、系统通知等常用场景的
- * 便捷方法，业务层无需关心 WebSocket 协议细节。
+ * 所有站内通知必须经过该服务写入 notifications 表，然后再通过统一的
+ * WebSocket 事件 `new_notification` 分发给对应用户，避免出现
+ * “实时收到了但刷新列表消失”或“不同模块自行拼接不同通知格式”的漂移。
  */
 
 #pragma once
@@ -19,42 +17,30 @@
 namespace heartlake {
 namespace services {
 
-/// 通知类型枚举
 enum class NotificationType {
-    RIPPLE_RECEIVED,      ///< 收到涟漪
-    BOAT_RECEIVED,        ///< 收到纸船
-    FRIEND_REQUEST,       ///< 好友请求
-    FRIEND_ACCEPTED,      ///< 好友接受
-    TEMP_FRIEND_EXPIRING, ///< 临时好友即将过期
-    NEW_MESSAGE,          ///< 新消息
-    SYSTEM_NOTICE,        ///< 系统通知
-    AI_REPLY              ///< AI 回复
+    RIPPLE_RECEIVED,
+    BOAT_RECEIVED,
+    CONNECTION_REQUEST,
+    FRIEND_ACCEPTED,
+    TEMP_FRIEND_EXPIRING,
+    NEW_MESSAGE,
+    SYSTEM_NOTICE,
+    AI_REPLY
 };
 
-/// 通知消息载体
 struct NotificationMessage {
-    std::string notificationId;   ///< 通知唯一标识
-    std::string userId;           ///< 目标用户
-    NotificationType type;        ///< 通知类型
-    std::string title;            ///< 通知标题
-    std::string content;          ///< 通知正文
-    std::string relatedId;        ///< 关联的业务对象 ID（石头/纸船/好友等）
-    int64_t timestamp;            ///< 通知产生的 Unix 时间戳
-    Json::Value extraData;        ///< 附加数据（类型相关的扩展字段）
+    std::string notificationId;
+    std::string userId;
+    NotificationType type{NotificationType::SYSTEM_NOTICE};
+    std::string title;
+    std::string content;
+    std::string relatedId;
+    std::string relatedType;
+    bool isRead{false};
+    int64_t timestamp{0};
+    Json::Value extraData{Json::objectValue};
 
-    /// 序列化为 JSON，用于 WebSocket 传输
-    Json::Value toJson() const {
-        Json::Value json;
-        json["notification_id"] = notificationId;
-        json["user_id"] = userId;
-        json["type"] = static_cast<int>(type);
-        json["title"] = title;
-        json["content"] = content;
-        json["related_id"] = relatedId;
-        json["timestamp"] = timestamp;
-        json["extra_data"] = extraData;
-        return json;
-    }
+    Json::Value toRealtimePayload() const;
 };
 
 /**
@@ -67,23 +53,18 @@ public:
         return instance;
     }
 
-    /**
-     * @brief 推送通知给指定用户
-     * @param userId 目标用户 ID
-     * @param notification 通知消息
-     * @return 推送是否成功（用户不在线时返回 false）
-     */
-    bool pushToUser(const std::string& userId, const NotificationMessage& notification);
+    /// 写库并向目标用户分发实时通知。
+    bool push(NotificationMessage notification);
 
     /**
-     * @brief 推送好友请求通知（便捷方法）
+     * @brief 推送连接/临时好友通知
      * @param receiverId 接收方用户 ID
-     * @param requesterId 请求方用户 ID
-     * @param requesterNickname 请求方昵称，用于展示
+     * @param requesterId 发起方用户 ID
+     * @param requesterNickname 发起方昵称
      */
-    void pushFriendRequestNotification(const std::string& receiverId,
-                                       const std::string& requesterId,
-                                       const std::string& requesterNickname);
+    void pushConnectionNotice(const std::string& receiverId,
+                              const std::string& requesterId,
+                              const std::string& requesterNickname);
 
     /**
      * @brief 推送系统通知（便捷方法）
@@ -101,7 +82,7 @@ public:
      * @param notification 通知消息
      */
     void pushToMultipleUsers(const std::vector<std::string>& userIds,
-                            const NotificationMessage& notification);
+                             const NotificationMessage& notification);
 
 private:
     NotificationPushService() = default;

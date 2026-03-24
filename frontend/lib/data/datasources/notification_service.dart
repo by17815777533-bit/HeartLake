@@ -45,6 +45,39 @@ class NotificationService extends BaseService
     }).toList();
   }
 
+  Map<String, dynamic> _applyHasMoreFallback(
+    Map<String, dynamic> envelope, {
+    required dynamic raw,
+    required int pageSize,
+    required int itemCount,
+  }) {
+    bool? explicitHasMore;
+    if (raw is Map<String, dynamic>) {
+      explicitHasMore = raw['has_more'] as bool? ??
+          raw['hasMore'] as bool? ??
+          (raw['pagination'] is Map
+              ? (raw['pagination']['has_more'] as bool? ??
+                  raw['pagination']['hasMore'] as bool?)
+              : null) ??
+          (raw['data'] is Map
+              ? (raw['data']['has_more'] as bool? ??
+                  raw['data']['hasMore'] as bool?)
+              : null);
+    }
+
+    final hasMore = explicitHasMore ?? itemCount >= pageSize;
+    final pagination = Map<String, dynamic>.from(
+      envelope['pagination'] as Map<String, dynamic>? ?? const {},
+    )..['has_more'] = hasMore;
+
+    return {
+      ...envelope,
+      'has_more': hasMore,
+      'hasMore': hasMore,
+      'pagination': pagination,
+    };
+  }
+
   /// 分页获取通知列表，同时返回未读数
   @override
   Future<Map<String, dynamic>> getNotifications(
@@ -62,7 +95,7 @@ class NotificationService extends BaseService
     if (data is List) {
       final items = _normalizeNotifications(data);
       final unreadCount = extractUnreadCount(data, items: items);
-      return {
+      final envelope = {
         ...toMap(response),
         ...buildCollectionEnvelope(
           data,
@@ -74,6 +107,12 @@ class NotificationService extends BaseService
           },
         ),
       };
+      return _applyHasMoreFallback(
+        envelope,
+        raw: data,
+        pageSize: pageSize,
+        itemCount: items.length,
+      );
     }
     if (data is Map<String, dynamic>) {
       dynamic rawItems = data['notifications'] ??
@@ -91,7 +130,7 @@ class NotificationService extends BaseService
 
       final items = _normalizeNotifications(rawItems);
       final unreadCount = extractUnreadCount(data, items: items);
-      return {
+      final envelope = {
         ...toMap(response),
         ...buildCollectionEnvelope(
           data,
@@ -103,8 +142,14 @@ class NotificationService extends BaseService
           },
         ),
       };
+      return _applyHasMoreFallback(
+        envelope,
+        raw: data,
+        pageSize: pageSize,
+        itemCount: items.length,
+      );
     }
-    return {
+    final envelope = {
       ...toMap(response),
       ...buildCollectionEnvelope(
         const [],
@@ -116,6 +161,12 @@ class NotificationService extends BaseService
         },
       ),
     };
+    return _applyHasMoreFallback(
+      envelope,
+      raw: const <String, dynamic>{},
+      pageSize: pageSize,
+      itemCount: 0,
+    );
   }
 
   /// 获取未读通知数量

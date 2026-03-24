@@ -206,13 +206,13 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/friends/request` | Bearer | 发送好友请求 |
+| POST | `/api/friends/request` | Bearer | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
 | GET | `/api/friends` | Bearer | 好友列表 |
 | DELETE | `/api/friends/{friendId}` | Bearer | 删除好友（软删除，可恢复） |
 | GET | `/api/friends/{friendId}/messages` | Bearer | 聊天记录 |
 | POST | `/api/friends/{friendId}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
 
-删除好友返回 `mode: intimacy_auto_hidden`，重新发送好友请求可恢复关系。已删除好友间发送消息返回 403。
+删除好友返回 `mode: intimacy_auto_hidden`，重新请求该入口可恢复关系显示。已删除好友间发送消息返回 403。
 
 ---
 

@@ -514,12 +514,20 @@ void InteractionController::upgradeConnectionToFriend(
 
     // 广播好友升级事件
     if (result.isMember("friend_id")) {
+      const auto friendId = result["friend_id"].asString();
       Json::Value broadcastMsg;
       broadcastMsg["friendship_id"] = result["friendship_id"].asString();
       broadcastMsg["from_user_id"] = userId;
+      broadcastMsg["friend_id"] = friendId;
+      broadcastMsg["peer_id"] = friendId;
       BroadcastWebSocketController::sendToUser(
-          result["friend_id"].asString(),
-          buildRealtimeEvent("friend_accepted", std::move(broadcastMsg)));
+          friendId, buildRealtimeEvent("friend_accepted", broadcastMsg));
+
+      Json::Value selfMsg = broadcastMsg;
+      selfMsg["friend_id"] = friendId;
+      selfMsg["peer_id"] = friendId;
+      BroadcastWebSocketController::sendToUser(
+          userId, buildRealtimeEvent("friend_accepted", std::move(selfMsg)));
     }
 
     callback(ResponseUtil::success(result, "升级为好友成功"));

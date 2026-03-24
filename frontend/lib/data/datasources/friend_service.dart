@@ -1,6 +1,6 @@
 // 好友关系管理服务
 //
-// 处理好友请求的发送、接受、拒绝以及聊天消息收发。
+// 前端仅保留当前仍在使用的自动好友/临时好友能力，不再维护手动申请流。
 
 import '../../utils/input_validator.dart';
 import '../../utils/payload_contract.dart';
@@ -8,15 +8,8 @@ import 'base_service.dart';
 import 'social_payload_normalizer.dart';
 
 abstract class FriendDataSource {
-  Future<Map<String, dynamic>> sendFriendRequest({
-    required String userId,
-    String? message,
-  });
-  Future<Map<String, dynamic>> acceptFriendRequest(String userId);
-  Future<Map<String, dynamic>> rejectFriendRequest(String userId);
   Future<Map<String, dynamic>> removeFriend(String friendId);
   Future<Map<String, dynamic>> getFriends();
-  Future<Map<String, dynamic>> getPendingRequests();
   Future<Map<String, dynamic>> getMessages(String friendId);
   Future<Map<String, dynamic>> sendMessage(String friendId, String content);
 }
@@ -58,8 +51,9 @@ class FriendService extends BaseService implements FriendDataSource {
       payload['peerId'] = resolvedPeerId;
     }
 
-    final resolvedRequestId =
-        requestId ?? payload['request_id']?.toString() ?? payload['requestId']?.toString();
+    final resolvedRequestId = requestId ??
+        payload['request_id']?.toString() ??
+        payload['requestId']?.toString();
     if (resolvedRequestId != null && resolvedRequestId.isNotEmpty) {
       payload['request_id'] = resolvedRequestId;
       payload['requestId'] = resolvedRequestId;
@@ -70,71 +64,6 @@ class FriendService extends BaseService implements FriendDataSource {
     }
 
     return payload;
-  }
-
-  /// 发送好友请求
-  ///
-  /// 向指定用户发送好友请求，可附带一条附言。
-  ///
-  /// [userId] 目标用户ID
-  /// [message] 附言，最长200字符
-  @override
-  Future<Map<String, dynamic>> sendFriendRequest({
-    required String userId,
-    String? message,
-  }) async {
-    InputValidator.validateUUID(userId, '用户ID');
-    if (message != null) {
-      InputValidator.requireLength(message, '附言', max: 200);
-      message = InputValidator.sanitizeText(message);
-    }
-    final response = await post('/friends/request', data: {
-      'target_user_id': userId,
-      if (message != null) 'message': message,
-    });
-
-    if (!response.success) return toMap(response);
-
-    final payload = _normalizeFriendActionPayload(
-      response.data,
-      peerId: userId,
-      requestId: response.data is Map
-          ? (response.data as Map)['request_id']?.toString()
-          : null,
-    );
-
-    return {
-      ...toMap(response),
-      'data': payload,
-      'request_id': payload['request_id'],
-      'requestId': payload['requestId'],
-    };
-  }
-
-  /// 接受好友请求
-  ///
-  /// [userId] 发送请求的用户ID
-  @override
-  Future<Map<String, dynamic>> acceptFriendRequest(String userId) async {
-    InputValidator.validateUUID(userId, '用户ID');
-    final response = await post('/friends/accept/$userId');
-    return {
-      ...toMap(response),
-      'data': _normalizeFriendActionPayload(response.data, peerId: userId),
-    };
-  }
-
-  /// 拒绝好友请求
-  ///
-  /// [userId] 发送请求的用户ID
-  @override
-  Future<Map<String, dynamic>> rejectFriendRequest(String userId) async {
-    InputValidator.validateUUID(userId, '用户ID');
-    final response = await post('/friends/reject/$userId');
-    return {
-      ...toMap(response),
-      'data': _normalizeFriendActionPayload(response.data, peerId: userId),
-    };
   }
 
   /// 删除好友
@@ -171,31 +100,6 @@ class FriendService extends BaseService implements FriendDataSource {
         response.data,
         primaryKey: 'friends',
         items: friends,
-      ),
-    };
-  }
-
-  /// 获取待处理的好友请求
-  ///
-  /// 返回尚未处理的好友请求列表。
-  @override
-  Future<Map<String, dynamic>> getPendingRequests() async {
-    final response = await get('/friends/requests/pending');
-
-    if (!response.success) return toMap(response);
-
-    final requests = extractNormalizedList(
-      response.data,
-      itemNormalizer: normalizeFriendPayload,
-      listKeys: const ['requests', 'items', 'list'],
-    );
-
-    return {
-      ...toMap(response),
-      ...buildCollectionEnvelope(
-        response.data,
-        primaryKey: 'requests',
-        items: requests,
       ),
     };
   }

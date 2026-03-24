@@ -14,9 +14,12 @@
 
 #include "infrastructure/services/LakeGodGuardianService.h"
 #include "infrastructure/ai/AIService.h"
+#include "infrastructure/services/NotificationPushService.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/IdGenerator.h"
 #include "utils/PsychologicalRiskAssessment.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/EnvUtils.h"
 #include <drogon/drogon.h>
 #include <chrono>
@@ -152,34 +155,49 @@ void LakeGodGuardianService::sendAutoBoat(const std::string& stoneId, const std:
                 comment, boatId
             );
 
-            db->execSqlSync(
-                "UPDATE stones SET boat_count = boat_count + 1, updated_at = NOW() WHERE stone_id = $1",
+            auto updateResult = db->execSqlSync(
+                "UPDATE stones SET boat_count = boat_count + 1, updated_at = NOW() "
+                "WHERE stone_id = $1 RETURNING boat_count",
                 stoneId
             );
+            const int boatCount = updateResult.empty()
+                ? 1
+                : updateResult[0]["boat_count"].as<int>();
 
             // 通知石头主人
             db->execSqlAsync(
                 "SELECT user_id FROM stones WHERE stone_id = $1",
-                [boatId](const drogon::orm::Result& r) {
+                [stoneId, boatId, comment, boatCount](const drogon::orm::Result& r) {
                     if (r.empty()) return;
                     std::string ownerId = r[0]["user_id"].as<std::string>();
-                    std::string notifId = utils::IdGenerator::generateNotificationId();
-                    auto db2 = drogon::app().getDbClient("default");
-                    db2->execSqlAsync(
-                        "INSERT INTO notifications (notification_id, user_id, type, content, related_id, related_type, is_read, created_at) "
-                        "VALUES ($1, $2, 'lake_god', '湖神给你的石头送来了一封暖心纸船', $3, 'boat', false, NOW())",
-                        [ownerId](const drogon::orm::Result&) {
-                            Json::Value notifMsg;
-                            notifMsg["type"] = "new_notification";
-                            notifMsg["notification_type"] = "lake_god";
-                            notifMsg["content"] = "湖神给你的石头送来了一封暖心纸船";
-                            controllers::BroadcastWebSocketController::sendToUser(ownerId, notifMsg);
-                        },
-                        [](const drogon::orm::DrogonDbException& e) {
-                            LOG_ERROR << "Failed to create lake_god notification: " << e.base().what();
-                        },
-                        notifId, ownerId, boatId
-                    );
+                    services::NotificationMessage notification;
+                    notification.userId = ownerId;
+                    notification.type = services::NotificationType::AI_REPLY;
+                    notification.title = "湖神来信";
+                    notification.content = "湖神给你的石头送来了一封暖心纸船";
+                    notification.relatedId = boatId;
+                    notification.relatedType = "boat";
+                    notification.extraData["stone_id"] = stoneId;
+                    notification.extraData["boat_id"] = boatId;
+                    notification.extraData["is_ai"] = true;
+                    notification.extraData["triggered_by"] = "lake_god";
+                    services::NotificationPushService::getInstance().push(
+                        std::move(notification));
+
+                    Json::Value broadcastMsg;
+                    broadcastMsg["stone_id"] = stoneId;
+                    broadcastMsg["boat_id"] = boatId;
+                    broadcastMsg["boat_count"] = boatCount;
+                    broadcastMsg["boat_content"] = comment;
+                    broadcastMsg["is_ai"] = true;
+                    broadcastMsg["triggered_by"] = "lake_god";
+                    const auto event =
+                        heartlake::utils::buildRealtimeEvent("boat_update",
+                                                             std::move(broadcastMsg));
+                    controllers::BroadcastWebSocketController::sendToRoom(
+                        "stone:" + stoneId, event);
+                    controllers::BroadcastWebSocketController::broadcast(event);
+                    heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_update");
                 },
                 [](const drogon::orm::DrogonDbException& e) {
                     LOG_ERROR << "Failed to get stone owner: " << e.base().what();

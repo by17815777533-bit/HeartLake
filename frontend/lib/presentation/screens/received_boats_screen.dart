@@ -25,8 +25,8 @@ class ReceivedBoatsScreen extends StatefulWidget {
 
 /// 收到的纸船列表页面状态管理
 ///
-/// 通过 WebSocket 监听四类实时事件：
-/// - new_boat / boat_update: 重新加载整个列表
+/// 通过 WebSocket 监听三类实时事件：
+/// - boat_update: 重新加载整个列表
 /// - boat_deleted: 按 boat_id 从本地列表移除
 /// - stone_deleted: 移除该石头关联的所有纸船
 class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
@@ -38,7 +38,6 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
   bool _isLoading = false;
 
   // WebSocket 监听器
-  late void Function(Map<String, dynamic>) _newBoatListener;
   late void Function(Map<String, dynamic>) _boatUpdateListener;
   late void Function(Map<String, dynamic>) _boatDeletedListener;
   late void Function(Map<String, dynamic>) _stoneDeletedListener;
@@ -52,7 +51,6 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
 
   @override
   void dispose() {
-    _wsManager.off('new_boat', _newBoatListener);
     _wsManager.off('boat_update', _boatUpdateListener);
     _wsManager.off('boat_deleted', _boatDeletedListener);
     _wsManager.off('stone_deleted', _stoneDeletedListener);
@@ -61,15 +59,7 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
 
   /// 注册 WebSocket 实时事件监听器
   void _initWebSocket() {
-    // 监听新纸船 - 重新加载列表
-    _newBoatListener = (data) {
-      if (mounted) {
-        _loadReceivedBoats();
-      }
-    };
-    _wsManager.on('new_boat', _newBoatListener);
-
-    // 监听纸船更新（boat_update 是后端实际广播的事件）- 重新加载列表
+    // 监听纸船更新 - 重新加载列表
     _boatUpdateListener = (data) {
       if (mounted) {
         _loadReceivedBoats();

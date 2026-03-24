@@ -218,6 +218,15 @@ void FriendController::removeFriend(
             result["friend_user_id"] = friendId;
             result["user_id"] = friendId;
             result["peer_id"] = friendId;
+            Json::Value wsMsg;
+            wsMsg["friend_id"] = friendId;
+            wsMsg["friend_user_id"] = friendId;
+            wsMsg["user_id"] = friendId;
+            wsMsg["peer_id"] = friendId;
+            wsMsg["triggered_by"] = userId;
+            BroadcastWebSocketController::sendToUser(
+                userId,
+                buildRealtimeEvent("friend_removed", std::move(wsMsg)));
             callback(ResponseUtil::success(result, "已从好友列表移除"));
         } catch (const std::exception& e) {
             LOG_ERROR << "Error in removeFriend: " << e.what();

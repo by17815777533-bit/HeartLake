@@ -170,7 +170,7 @@ public:
      * 将连接升级为好友关系
      * POST /api/connections/{connectionId}/friend
      *
-     * 升级成功后通过 WebSocket 向对方推送 friend_accepted 事件。
+     * 升级成功后通过 WebSocket 向双方所有在线会话推送 friend_accepted 事件。
      *
      * @param connectionId 连接ID
      */

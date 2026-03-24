@@ -133,14 +133,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) _loadUserStats(silent: true);
     };
     _wsManager.on('boat_update', _boatUpdateListener!);
-    _wsManager.on('new_boat', _boatUpdateListener!);
 
     // 监听涟漪更新
     _rippleUpdateListener = (data) {
       if (mounted) _loadUserStats(silent: true);
     };
     _wsManager.on('ripple_update', _rippleUpdateListener!);
-    _wsManager.on('new_ripple', _rippleUpdateListener!);
 
     // 监听删除事件，刷新统计
     _stoneDeletedListener = (data) {
@@ -172,11 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     if (_boatUpdateListener != null) {
       _wsManager.off('boat_update', _boatUpdateListener!);
-      _wsManager.off('new_boat', _boatUpdateListener!);
     }
     if (_rippleUpdateListener != null) {
       _wsManager.off('ripple_update', _rippleUpdateListener!);
-      _wsManager.off('new_ripple', _rippleUpdateListener!);
     }
     if (_stoneDeletedListener != null) {
       _wsManager.off('stone_deleted', _stoneDeletedListener!);

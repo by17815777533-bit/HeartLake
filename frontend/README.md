@@ -141,7 +141,7 @@ lib/
 WebSocketManager 管理全局连接，支持：
 - 自动重连（指数退避）
 - 心跳保活（30 秒间隔）
-- 事件分发: new_stone, boat_update, new_boat, ripple_update, new_ripple, stone_deleted, boat_deleted, ripple_deleted, friend_accepted, friend_removed, friend_request
+- 事件分发: new_stone, boat_update, ripple_update, stone_deleted, boat_deleted, ripple_deleted, friend_accepted, friend_removed, new_notification
 
 ### 边缘 AI
 
