@@ -51,6 +51,18 @@ void main() {
       expect(user.lastActiveAt, isNull);
     });
 
+    test('should normalize blank avatar and bio to null', () {
+      final user = User.fromJson({
+        'user_id': 'u1',
+        'nickname': '空值用户',
+        'avatar_url': '   ',
+        'bio': '',
+      });
+
+      expect(user.avatarUrl, isNull);
+      expect(user.bio, isNull);
+    });
+
     test('should parse timestamps as unix seconds * 1000', () {
       final json = {
         'user_id': 'u1',
@@ -209,6 +221,16 @@ void main() {
 
       expect(copy.vipLevel, 3);
       expect(copy.vipExpiresAt, newExpiry);
+    });
+
+    test('should clear optional text fields when empty string is provided', () {
+      final copy = original.copyWith(
+        avatarUrl: '   ',
+        bio: '',
+      );
+
+      expect(copy.avatarUrl, isNull);
+      expect(copy.bio, isNull);
     });
   });
 }

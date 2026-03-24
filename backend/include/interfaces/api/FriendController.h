@@ -1,11 +1,11 @@
 /**
- * 好友控制器 - 好友关系管理与私信通信
+ * 好友控制器 - 基于亲密分的自动关系与私信通信
  *
- * 覆盖好友系统的完整生命周期：
- * - 发送/接受/拒绝好友请求
- * - 删除好友关系
- * - 好友列表与待处理请求查询
- * - 好友间私信收发
+ * 当前好友系统不再使用传统“申请 / 同意 / 拒绝”流程，而是：
+ * - 通过互动亲密分自动决定是否视为可聊天好友
+ * - 保留 request/accept/reject 路由作为兼容入口，返回自动关系说明
+ * - 删除好友仅对当前用户隐藏，不破坏整体互动图
+ * - 私信读写统一受亲密分阈值与隐藏状态约束
  *
  * 所有端点经 SecurityAuditFilter 进行 PASETO 令牌校验。
  */
@@ -26,14 +26,14 @@ namespace controllers {
  * @details 路由表：
  * | 方法   | 路径                            | 说明               |
  * |--------|--------------------------------|-------------------|
- * | POST   | /api/friends/request           | 发送好友请求        |
- * | POST   | /api/friends/accept/{userId}   | 接受好友请求        |
- * | POST   | /api/friends/reject/{userId}   | 拒绝好友请求        |
- * | DELETE | /api/friends/{friendId}         | 删除好友            |
- * | GET    | /api/friends                    | 获取好友列表        |
- * | GET    | /api/friends/requests/pending   | 获取待处理请求      |
- * | POST   | /api/friends/{friendId}/messages| 发送私信           |
- * | GET    | /api/friends/{friendId}/messages| 获取私信记录        |
+ * | POST   | /api/friends/request            | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
+ * | POST   | /api/friends/accept/{userId}    | 兼容入口：返回自动关系说明 |
+ * | POST   | /api/friends/reject/{userId}    | 兼容入口：返回自动关系说明 |
+ * | DELETE | /api/friends/{friendId}         | 对当前用户隐藏好友   |
+ * | GET    | /api/friends                    | 获取自动关系好友列表 |
+ * | GET    | /api/friends/requests/pending   | 获取待处理请求（当前固定为空） |
+ * | POST   | /api/friends/{friendId}/messages| 发送私信（需达亲密分阈值） |
+ * | GET    | /api/friends/{friendId}/messages| 获取私信记录（需达亲密分阈值） |
  */
 class FriendController : public drogon::HttpController<FriendController> {
 public:
@@ -62,7 +62,8 @@ public:
      * @details POST /api/friends/request
      *
      * 请求体: { "target_user_id": "目标用户ID" }
-     * 不能向自己发送请求，重复请求返回幂等响应。
+     * 当前实现不会创建待处理请求，而是返回亲密分状态；
+     * 若当前用户此前隐藏了该关系，会顺便恢复显示。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -74,7 +75,7 @@ public:
      * @brief 接受好友请求
      * @details POST /api/friends/accept/{userId}
      *
-     * 接受后双方互为好友，通过 WebSocket 通知对方。
+     * 当前实现不会执行“同意”写操作，仅返回自动关系说明。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -85,8 +86,10 @@ public:
                             const std::string &userId);
 
     /**
-     * @brief 拒绝好友请求
+     * @brief 拒绝好友请求（兼容入口）
      * @details POST /api/friends/reject/{userId}
+     *
+     * 当前实现不会执行“拒绝”写操作，仅返回自动关系说明。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -100,7 +103,7 @@ public:
      * @brief 删除好友关系
      * @details DELETE /api/friends/{friendId}
      *
-     * 双向解除好友关系。
+     * 当前实现语义为“仅自己隐藏该好友”。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -116,7 +119,7 @@ public:
      *
      * @param req HTTP 请求
      * @param callback 响应回调
-     * @return 分页好友列表，包含昵称、头像、在线状态
+     * @return 自动关系好友列表，包含亲密分、等级、评分拆解和聊天资格
      */
     void getFriends(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
@@ -127,7 +130,7 @@ public:
      *
      * @param req HTTP 请求
      * @param callback 响应回调
-     * @return 待处理请求列表，包含请求者信息和请求时间
+     * @return 待处理请求列表；当前自动关系模式下固定为空集合
      */
     void getPendingRequests(const HttpRequestPtr &req,
                            std::function<void(const HttpResponsePtr &)> &&callback);

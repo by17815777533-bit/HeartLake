@@ -128,14 +128,16 @@ curl -X POST http://localhost:8080/api/admin/login \
 | POST | `/api/auth/delete-account` | Bearer | 兼容旧客户端的账号停用别名（30 天内可恢复） |
 | GET | `/api/account/info` | Bearer | 获取个人资料 |
 | PUT | `/api/account/profile` | Bearer | 更新个人资料 |
-| POST | `/api/account/avatar` | Bearer | 更新头像 |
+| POST | `/api/account/avatar` | Bearer | 写入头像 URL（通常配合媒体上传使用） |
+| POST | `/api/media/upload` | Bearer | 上传头像 / 图片 / 音视频文件 |
+| GET | `/api/media/{category}/{filename}` | 无 | 访问已上传媒体文件 |
 | GET | `/api/account/stats` | Bearer | 账号统计（石头数 / 好友数 / 涟漪数） |
 | GET | `/api/account/devices` | Bearer | 登录设备列表 |
 | DELETE | `/api/account/devices/{id}` | Bearer | 移除登录设备 |
 | GET | `/api/account/privacy` | Bearer | 隐私设置 |
 | PUT | `/api/account/privacy` | Bearer | 更新隐私设置 |
-| POST | `/api/account/block/{id}` | Bearer | 拉黑用户（幂等） |
-| DELETE | `/api/account/unblock/{id}` | Bearer | 取消拉黑 |
+| POST | `/api/account/block/{targetUserId}` | Bearer | 拉黑用户（幂等） |
+| DELETE | `/api/account/unblock/{targetUserId}` | Bearer | 取消拉黑 |
 | POST | `/api/account/export` | Bearer | 创建数据导出任务（GDPR） |
 | GET | `/api/account/export/{taskId}` | Bearer | 查询导出任务状态 |
 | POST | `/api/account/deactivate` | Bearer | 停用账号（30 天内可恢复） |
@@ -144,7 +146,8 @@ curl -X POST http://localhost:8080/api/admin/login \
 说明：
 
 - `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则接受 `DEACTIVATE` 和历史值 `DELETE`
-- `POST /api/account/delete-permanent` 允许空请求体；如提供 `confirmation`，则接受 `DELETE`
+- `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
+- 二进制头像上传统一走 `POST /api/media/upload`，返回 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/users/my/profile`
 
 ### 4.2 石头（核心内容）
 
@@ -169,6 +172,21 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 查询参数说明：
 - `sort` 支持兼容别名 `latest` / `hot`，也支持显式排序值 `created_at` / `ripple_count` / `boat_count` / `view_count`
 - `hot` 当前映射到 `ripple_count`，`latest` 映射到 `created_at`
+
+`POST /api/stones` 推荐请求体：
+
+```json
+{
+  "content": "今天想把心事写下来",
+  "stone_type": "medium",
+  "stone_color": "#7A92A3",
+  "mood_type": "calm",
+  "tags": ["记录", "夜晚"],
+  "is_anonymous": true
+}
+```
+
+- `stone_type / stone_color / mood_type` 未显式传入时，服务端默认回落到 `medium / #7A92A3 / calm`
 
 ### 4.3 互动
 
@@ -199,8 +217,11 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/friends/request` | Bearer | 发送好友请求 |
-| GET | `/api/friends` | Bearer | 好友列表 |
+| POST | `/api/friends/request` | Bearer | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
+| POST | `/api/friends/accept/{id}` | Bearer | 兼容入口：返回自动关系说明 |
+| POST | `/api/friends/reject/{id}` | Bearer | 兼容入口：返回自动关系说明 |
+| GET | `/api/friends` | Bearer | 自动关系好友列表 |
+| GET | `/api/friends/requests/pending` | Bearer | 待处理请求（当前固定为空集合） |
 | DELETE | `/api/friends/{id}` | Bearer | 删除好友（软删除，返回 `mode: intimacy_auto_hidden`） |
 | GET | `/api/friends/{id}/messages` | Bearer | 聊天记录 |
 | POST | `/api/friends/{id}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
@@ -211,6 +232,8 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 好友删除机制说明：
 - 删除操作为软删除，返回 `mode: intimacy_auto_hidden`
 - 重新发送好友请求可恢复关系
+- `accept` / `reject` 仅保留兼容语义，不会生成待处理请求
+- `GET /api/friends/requests/pending` 在自动关系模式下固定返回空集合与 `mode: intimacy_auto`
 - 已删除好友间发送消息返回 403
 - 临时连接一旦过期或升级为正式好友，对应的 connection 历史读取与发消息入口都会拒绝访问
 - 任一方建立拉黑关系后，手动临时连接、石头派生 connection、纸船派生 connection 的后续建连、历史读取、发消息和升级好友都会统一返回 403
@@ -272,10 +295,11 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
 | DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
 | GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，兼容 `emotion` / `mood` |
-| GET | `/api/guardian/status` | Bearer | 守护者状态 |
-| POST | `/api/guardian/bindGuardian` | Bearer | 绑定守护者 |
-| DELETE | `/api/guardian/unbind` | Bearer | 解除守护关系 |
-| GET | `/api/guardian/alerts` | Bearer | 守护告警列表 |
+| GET | `/api/guardian/stats` | Bearer | 守望统计 |
+| GET | `/api/guardian` | Bearer | 守望统计简写 |
+| POST | `/api/guardian/transfer-lamp` | Bearer | 转赠灯火 |
+| GET | `/api/guardian/insights` | Bearer | 获取情绪洞察 |
+| POST | `/api/guardian/chat` | Bearer | 湖神陪伴对话 |
 | POST | `/api/consultation/session` | Bearer | 创建心理咨询会话 |
 | POST | `/api/consultation/key-exchange` | Bearer | 完成咨询会话密钥交换 |
 | POST | `/api/consultation/message` | Bearer | 发送咨询消息 |
@@ -297,9 +321,11 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | GET | `/api/reports/my` | Bearer | 我的举报记录 |
 | GET | `/api/privacy/settings` | Bearer | 隐私设置 |
 | PUT | `/api/privacy/settings` | Bearer | 更新隐私设置 |
-| GET | `/api/vip/status` | Bearer | VIP 状态 |
-| POST | `/api/vip/activate` | Bearer | 激活 VIP |
-| GET | `/api/vip/benefits` | Bearer | VIP 权益列表 |
+| GET | `/api/vip/status` | Bearer | 灯火状态 |
+| GET | `/api/vip/privileges` | Bearer | 灯火权益列表 |
+| GET | `/api/vip/counseling/check` | Bearer | 免费咨询额度检查 |
+| POST | `/api/vip/counseling/book` | Bearer | 预约心理咨询 |
+| GET | `/api/vip/ai-comment-frequency` | Bearer | AI 评论频率配置 |
 
 ### 4.10 管理后台
 
@@ -362,12 +388,6 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 ```
 
-方式二：首包鉴权（兼容旧客户端）
-
-```json
-{"type": "auth", "token": "<token>"}
-```
-
 服务端鉴权成功后会主动回：
 
 ```json
@@ -389,6 +409,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 
 服务端定期发送 `ping`，客户端须回复 `pong`。超时未回复则服务端断开连接并清理资源。
 客户端只有在收到 `auth_success` 后才应视为“连接成功”，再回放房间订阅和离线消息。
+当前版本只支持握手阶段 URL `token` 鉴权，连接建立后发送 `auth` 首包不会再触发兼容认证逻辑。
 
 ### 5.4 事件类型
 
@@ -397,7 +418,8 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 ```json
 {
   "type": "new_stone",
-  "stone": {"id": "...", "content": "...", "mood": "..."},
+  "event": "new_stone",
+  "stone": {"stone_id": "...", "content": "...", "mood_type": "..."},
   "triggered_by": "anonymous_xxx",
   "timestamp": 1700000000
 }
@@ -408,6 +430,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 ```json
 {
   "type": "ripple_update",
+  "event": "ripple_update",
   "stone_id": "stone_xxx",
   "ripple_count": 12,
   "triggered_by": "anonymous_xxx",
@@ -420,6 +443,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 ```json
 {
   "type": "new_notification",
+  "event": "new_notification",
   "notification_id": "notif_xxx",
   "notification_type": "boat",
   "content": "有人给你的石头回了一封纸船",
@@ -429,6 +453,12 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
   "timestamp": 1700000000
 }
 ```
+
+说明：
+
+- 广播事件统一为扁平结构，核心字段至少包含 `type / event / timestamp`
+- 常见标识会镜像 snake / camel 别名，例如 `stone_id / stoneId`
+- 管理端与移动端应直接消费标准事件，不再依赖历史 `data/payload` 嵌套结构
 
 好友消息：
 

@@ -2,11 +2,10 @@
  * 守望者控制器 - 灯火转赠、情绪洞察与 AI 陪伴对话
  *
  * "守望者"是 HeartLake 的激励与陪伴系统：
- * - 灯火转赠：用户可以将自己的"灯火"（善意积分）赠送给他人，
- *   传递温暖和鼓励
- * - 情绪洞察：基于用户近期行为数据，生成个性化的情绪分析报告
- * - AI 陪伴对话：与 AI 守望者进行心理支持对话，
- *   受 RateLimitFilter 保护防止滥用
+ * - 守望统计：展示共鸣点、高质量涟漪、温暖纸船和灯火转赠资格
+ * - 灯火转赠：达到条件的守望者可向其他用户传递灯火
+ * - 情绪洞察：基于用户近期行为生成个性化情绪分析报告
+ * - AI 陪伴对话：与“湖神”进行心理支持对话，受 RateLimitFilter 保护
  *
  * 所有端点经 SecurityAuditFilter 进行 PASETO 令牌校验。
  * chat 端点额外经 RateLimitFilter 限流保护。
@@ -48,7 +47,8 @@ public:
      * @brief 获取守望者统计数据
      * @details GET /api/guardian/stats 或 GET /api/guardian
      *
-     * 返回用户的灯火余额、累计赠送/收到数量、守望等级等。
+     * 返回 `resonance_points / quality_ripples / warm_boats / is_guardian /
+     * can_transfer_lamp / role` 等稳定字段。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -59,8 +59,8 @@ public:
      * @brief 灯火转赠
      * @details POST /api/guardian/transfer-lamp
      *
-     * 请求体: { "target_user_id": "接收者ID", "amount": 1, "message": "加油" }
-     * 转赠后双方均收到 WebSocket 通知。
+     * 请求体: { "to_user_id": "接收者ID" }
+     * 当前版本固定转赠一盏灯火，由服务端校验守望者资格。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -70,7 +70,7 @@ public:
 
     /**
      * @brief 获取个性化情绪洞察报告
-     * @details GET /api/guardian/insights?days=7
+     * @details GET /api/guardian/insights
      *
      * 基于用户近期投石、交互、情绪标签等数据，
      * 生成情绪变化趋势和个性化建议。
@@ -84,7 +84,7 @@ public:
      * @brief AI 守望者陪伴对话
      * @details POST /api/guardian/chat
      *
-     * 请求体: { "message": "用户消息", "context": "conversation_id" }
+     * 请求体: { "content": "用户消息", "emotion": "sad", "emotion_score": 0.3 }
      * 受 RateLimitFilter 限流保护，防止 API 滥用。
      *
      * @param req HTTP 请求

@@ -84,7 +84,7 @@ POST `/api/auth/anonymous`
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/account/info` | 获取个人资料 |
-| POST | `/api/account/avatar` | 更新头像 |
+| POST | `/api/account/avatar` | 写入头像 URL（通常配合媒体上传使用） |
 | PUT | `/api/account/profile` | 更新个人资料 |
 | GET | `/api/account/stats` | 账号统计（石头数 / 好友数 / 涟漪数） |
 | GET | `/api/account/devices` | 登录设备列表 |
@@ -126,6 +126,23 @@ POST `/api/account/delete-permanent` 请求体：
 
 ---
 
+## MediaController — 媒体上传
+
+上传接口需要 Bearer 认证；媒体访问接口为公开读取。
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/api/media/upload` | Bearer | 上传头像 / 图片 / 音视频 |
+| GET | `/api/media/{category}/{filename}` | 无 | 访问已上传媒体文件 |
+
+说明：
+
+- 上传成功后统一返回稳定的 `url / relative_url / path / filename / category / media_type / size_bytes`
+- 头像更新链路应先调用 `POST /api/media/upload`，拿到 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/account/profile`
+- 当前媒体分类由服务端自动判定为 `images / audio / video`
+
+---
+
 ## StoneController — 石头（核心内容）
 
 | 方法 | 路径 | 认证 | 说明 |
@@ -143,9 +160,11 @@ POST `/api/stones` 请求体：
 ```json
 {
   "content": "心事内容",
-  "mood": "calm|happy|sad|anxious|angry|hopeful",
+  "stone_type": "medium",
+  "stone_color": "#7A92A3",
+  "mood_type": "calm|happy|sad|anxious|angry|confused|surprised|neutral",
   "tags": ["标签1", "标签2"],
-  "anonymous": true
+  "is_anonymous": true
 }
 ```
 
@@ -153,6 +172,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 - `sort` 支持 `latest` / `hot` 兼容别名，以及 `created_at` / `ripple_count` / `boat_count` / `view_count`
 - `hot` 映射到 `ripple_count`，`latest` 映射到 `created_at`
+- `stone_type / stone_color / mood_type` 在请求中省略时，服务端默认回落到 `medium / #7A92A3 / calm`
 
 ---
 
@@ -287,10 +307,11 @@ POST `/api/edge-ai/analyze` 请求体：
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| GET | `/api/guardian/status` | Bearer | 守护者状态 |
-| POST | `/api/guardian/bindGuardian` | Bearer | 绑定守护者 |
-| DELETE | `/api/guardian/unbind` | Bearer | 解除守护关系 |
-| GET | `/api/guardian/alerts` | Bearer | 守护告警列表 |
+| GET | `/api/guardian/stats` | Bearer | 守望统计 |
+| GET | `/api/guardian` | Bearer | 守望统计简写 |
+| POST | `/api/guardian/transfer-lamp` | Bearer | 转赠灯火 |
+| GET | `/api/guardian/insights` | Bearer | 获取情绪洞察 |
+| POST | `/api/guardian/chat` | Bearer | 湖神陪伴对话 |
 
 ---
 
@@ -336,9 +357,11 @@ POST `/api/edge-ai/analyze` 请求体：
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| GET | `/api/vip/status` | Bearer | VIP 状态查询 |
-| POST | `/api/vip/activate` | Bearer | 激活 VIP |
-| GET | `/api/vip/benefits` | Bearer | VIP 权益列表 |
+| GET | `/api/vip/status` | Bearer | 灯火状态查询 |
+| GET | `/api/vip/privileges` | Bearer | 灯火权益列表 |
+| GET | `/api/vip/counseling/check` | Bearer | 免费咨询额度检查 |
+| POST | `/api/vip/counseling/book` | Bearer | 预约心理咨询 |
+| GET | `/api/vip/ai-comment-frequency` | Bearer | AI 评论频率配置 |
 
 ---
 
@@ -351,9 +374,9 @@ POST `/api/edge-ai/analyze` 请求体：
 鉴权方式：
 
 - URL 参数：`?token=<url_encoded_token>`（推荐）
-- 首包鉴权：`{"type":"auth","token":"<token>"}`
 - 鉴权成功回包：`{"type":"auth_success","user_id":"...","authenticated":true}`
 - 房间消息：客户端需先 `join` 对应房间；私有房间会校验参与者身份，服务端会重写 `sender_id/timestamp/type`
+- 当前仅支持握手阶段 `token` 鉴权；连接建立后发送 `auth` 首包不会再触发兼容认证
 
 事件类型：`new_stone` / `ripple_update` / `boat_update` / `new_friend_message` / `new_notification`
 

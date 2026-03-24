@@ -67,13 +67,16 @@ public:
      * @code
      * {
      *   "content": "心事内容",
-     *   "mood": "calm|happy|sad|anxious|angry|surprised|confused|neutral",
+     *   "stone_type": "small|medium|large|light|heavy",
+     *   "stone_color": "#7A92A3",
+     *   "mood_type": "calm|happy|sad|anxious|angry|surprised|confused|neutral",
      *   "tags": ["标签1", "标签2"],
-     *   "anonymous": true
+     *   "is_anonymous": true
      * }
      * @endcode
      *
-     * 创建后自动触发情感分析、内容审核和向量索引更新。
+     * `stone_type / stone_color / mood_type` 未显式传入时分别默认回落到
+     * `medium / #7A92A3 / calm`。创建后自动触发情感分析、内容审核和向量索引更新。
      *
      * @param req HTTP 请求
      * @param callback 响应回调

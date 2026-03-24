@@ -8,6 +8,7 @@ import 'dart:async';
 import '../../utils/input_validator.dart';
 import 'base_service.dart';
 import 'api_client.dart';
+import 'user_service.dart' show UserPayloadNormalizer;
 import 'package:uuid/uuid.dart';
 import '../../utils/storage_util.dart';
 
@@ -198,7 +199,7 @@ class AuthService extends BaseService implements AuthDataSource {
 
   /// 更新用户个人资料
   ///
-  /// 仅提交非空字段，昵称会做XSS过滤和长度校验。
+  /// 仅提交显式传入字段，昵称会做XSS过滤和长度校验。
   ///
   /// [avatarUrl] 头像URL，最长500字符
   /// [bio] 个人简介，最长200字符
@@ -225,7 +226,8 @@ class AuthService extends BaseService implements AuthDataSource {
     final response = await put('/users/my/profile', data: data);
     if (!response.success) return toMap(response);
 
-    final responseData = response.data;
+    final responseData = UserPayloadNormalizer.normalizeUser(response.data) ??
+        <String, dynamic>{};
     if (responseData['nickname'] != null) {
       await StorageUtil.saveNickname(responseData['nickname']);
     }
@@ -319,8 +321,8 @@ class AuthService extends BaseService implements AuthDataSource {
     if (!response.success) {
       return toMap(response);
     }
-    final user = response.data;
-    if (user is! Map<String, dynamic>) {
+    final user = UserPayloadNormalizer.normalizeUser(response.data);
+    if (user == null) {
       return {'success': false, 'message': '服务器返回数据不完整'};
     }
     return {

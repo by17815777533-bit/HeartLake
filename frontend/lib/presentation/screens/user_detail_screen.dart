@@ -80,24 +80,26 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor:
-                              AppTheme.skyBlue.withValues(alpha: 0.2),
-                          backgroundImage: (_user?['avatar_url'] != null &&
-                                  _user!['avatar_url'].toString().isNotEmpty)
-                              ? NetworkImage(_user!['avatar_url'])
-                              : null,
-                          child: _user?['avatar_url'] == null
-                              ? Text(
-                                  (_user?['nickname']?.isNotEmpty == true)
-                                      ? _user!['nickname'].substring(0, 1)
-                                      : '?',
-                                  style: const TextStyle(
-                                      fontSize: 36, color: AppTheme.skyBlue),
-                                )
-                              : null,
-                        ),
+                        Builder(builder: (context) {
+                          final avatarUrl = _user?['avatar_url']?.toString().trim();
+                          final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+                          return CircleAvatar(
+                            radius: 50,
+                            backgroundColor:
+                                AppTheme.skyBlue.withValues(alpha: 0.2),
+                            backgroundImage:
+                                hasAvatar ? NetworkImage(avatarUrl) : null,
+                            child: !hasAvatar
+                                ? Text(
+                                    (_user?['nickname']?.isNotEmpty == true)
+                                        ? _user!['nickname'].substring(0, 1)
+                                        : '?',
+                                    style: const TextStyle(
+                                        fontSize: 36, color: AppTheme.skyBlue),
+                                  )
+                                : null,
+                          );
+                        }),
                         const SizedBox(height: 16),
                         Text(
                           _user?['nickname'] ?? '匿名用户',

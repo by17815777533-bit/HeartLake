@@ -389,6 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasAvatar = _avatarUrl?.trim().isNotEmpty == true;
     final stonesCount = _stats?['stones_count']?.toString() ?? '0';
     final boatsReceived = _stats?['boats_received']?.toString() ?? '0';
     final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
@@ -452,11 +453,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 radius: 45,
                                 backgroundColor:
                                     AppTheme.skyBlue.withValues(alpha: 0.3),
-                                backgroundImage: (_avatarUrl != null &&
-                                        _avatarUrl!.isNotEmpty)
+                                backgroundImage: hasAvatar
                                     ? NetworkImage(_avatarUrl!)
                                     : null,
-                                child: _avatarUrl == null
+                                child: !hasAvatar
                                     ? const Icon(Icons.person,
                                         size: 45, color: Colors.white)
                                     : null,

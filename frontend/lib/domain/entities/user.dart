@@ -52,8 +52,8 @@ class User {
       nickname: nickname ?? this.nickname,
       isAnonymous: isAnonymous,
       status: status,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      bio: bio ?? this.bio,
+      avatarUrl: avatarUrl == null ? this.avatarUrl : _normalizeOptionalText(avatarUrl),
+      bio: bio == null ? this.bio : _normalizeOptionalText(bio),
       vipLevel: vipLevel ?? this.vipLevel,
       vipExpiresAt: vipExpiresAt ?? this.vipExpiresAt,
       createdAt: createdAt,
@@ -67,8 +67,8 @@ class User {
       nickname: json['nickname'] ?? '',
       isAnonymous: _parseBool(json['is_anonymous'], defaultValue: true),
       status: json['status'] ?? 'active',
-      avatarUrl: json['avatar_url'],
-      bio: json['bio'],
+      avatarUrl: _normalizeOptionalText(json['avatar_url']),
+      bio: _normalizeOptionalText(json['bio']),
       vipLevel: json['vip_level'] ?? 0,
       vipExpiresAt: _parseDateTime(json['vip_expires_at']),
       createdAt: _parseDateTime(json['created_at']),
@@ -105,6 +105,12 @@ class User {
       return DateTime.tryParse(date);
     }
     return null;
+  }
+
+  static String? _normalizeOptionalText(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
   }
 
   Map<String, dynamic> toJson() {

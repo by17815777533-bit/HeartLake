@@ -14,6 +14,12 @@ import 'social_payload_normalizer.dart';
 class UserPayloadNormalizer {
   UserPayloadNormalizer._();
 
+  static String? _normalizeOptionalText(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
+
   static String? resolveMediaUrl(dynamic value) {
     final raw = value?.toString().trim();
     if (raw == null || raw.isEmpty) return null;
@@ -89,7 +95,11 @@ class UserPayloadNormalizer {
     if (resolvedAvatarUrl != null) {
       normalized['avatar_url'] = resolvedAvatarUrl;
       normalized['avatarUrl'] = resolvedAvatarUrl;
+    } else {
+      normalized['avatar_url'] = null;
+      normalized['avatarUrl'] = null;
     }
+    normalized['bio'] = _normalizeOptionalText(normalized['bio']);
 
     return normalized;
   }

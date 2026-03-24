@@ -40,6 +40,20 @@ void main() {
       expect(user!['user_id'], 'u2');
       expect(user['nickname'], '旅人');
     });
+
+    test('normalizes blank avatar and bio to null', () {
+      final user = UserPayloadNormalizer.normalizeUser({
+        'user_id': 'u3',
+        'nickname': '空值用户',
+        'avatar_url': '   ',
+        'bio': '',
+      });
+
+      expect(user, isNotNull);
+      expect(user!['avatar_url'], isNull);
+      expect(user['avatarUrl'], isNull);
+      expect(user['bio'], isNull);
+    });
   });
 
   group('UserPayloadNormalizer.extractUserList', () {
