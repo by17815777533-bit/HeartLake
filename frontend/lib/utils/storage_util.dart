@@ -23,6 +23,7 @@ class StorageUtil {
   static const String _deviceIdKey = 'device_id';
   static const String _usernameKey = 'username';
   static const String _nicknameKey = 'nickname';
+  static const String _isAnonymousKey = 'is_anonymous';
 
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   static SharedPreferences? _prefs;
@@ -259,6 +260,18 @@ class StorageUtil {
   static Future<String?> getNickname() async {
     final prefs = await _instance;
     return prefs.getString(_nicknameKey);
+  }
+
+  // 保存匿名状态
+  static Future<void> saveIsAnonymous(bool isAnonymous) async {
+    final prefs = await _instance;
+    await prefs.setBool(_isAnonymousKey, isAnonymous);
+  }
+
+  // 获取匿名状态
+  static Future<bool?> getIsAnonymous() async {
+    final prefs = await _instance;
+    return _readBoolCompat(prefs, _isAnonymousKey);
   }
 
   // 保存设备ID

@@ -185,9 +185,6 @@ flutter run --dart-define=IOS_API_HOST=192.168.1.10
 # 统一指定公网/内网网关 Origin（会同时推导 /api 和 /ws）
 flutter run --dart-define=PUBLIC_ORIGIN=http://192.168.1.10:3000
 
-# 运行测试
-flutter test
-
 # 构建发布版
 flutter build apk --release    # Android
 flutter build ios --release    # iOS

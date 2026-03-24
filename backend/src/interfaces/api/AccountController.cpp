@@ -147,8 +147,9 @@ void AccountController::getAccountInfo(
 
     auto result =
         dbClient->execSqlSync("SELECT user_id, username, nickname, avatar_url, "
-                              "bio, gender, birthday, location, "
-                              "email, status, created_at, last_active_at "
+                              "bio, gender, birthday, location, email, "
+                              "is_anonymous, status, created_at, "
+                              "last_active_at "
                               "FROM users WHERE user_id = $1",
                               userId);
 
@@ -174,6 +175,8 @@ void AccountController::getAccountInfo(
     data["location"] =
         row["location"].isNull() ? "" : row["location"].as<std::string>();
     data["email"] = row["email"].isNull() ? "" : row["email"].as<std::string>();
+    data["is_anonymous"] =
+        row["is_anonymous"].isNull() ? true : row["is_anonymous"].as<bool>();
     data["status"] =
         row["status"].isNull() ? "active" : row["status"].as<std::string>();
     // BUG-FIX: created_at 可能为 NULL，添加空值保护

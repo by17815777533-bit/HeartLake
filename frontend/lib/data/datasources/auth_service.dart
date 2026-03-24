@@ -17,12 +17,14 @@ class StoredAuthSession {
   final String token;
   final String? sessionId;
   final String? nickname;
+  final bool? isAnonymous;
 
   const StoredAuthSession({
     required this.userId,
     required this.token,
     this.sessionId,
     this.nickname,
+    this.isAnonymous,
   });
 }
 
@@ -67,6 +69,7 @@ class AuthService extends BaseService implements AuthDataSource {
     String? refreshToken,
     String? sessionId,
     String? nickname,
+    bool? isAnonymous,
   }) async {
     await Future.wait([
       ApiClient().setToken(
@@ -76,6 +79,7 @@ class AuthService extends BaseService implements AuthDataSource {
         sessionId: sessionId,
       ),
       if (nickname != null) StorageUtil.saveNickname(nickname),
+      if (isAnonymous != null) StorageUtil.saveIsAnonymous(isAnonymous),
     ]);
     _authStateController.add(
       StoredAuthSession(
@@ -83,8 +87,24 @@ class AuthService extends BaseService implements AuthDataSource {
         token: token,
         sessionId: sessionId,
         nickname: nickname,
+        isAnonymous: isAnonymous,
       ),
     );
+  }
+
+  bool? _parseOptionalBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
   }
 
   /// 匿名登录
@@ -121,6 +141,7 @@ class AuthService extends BaseService implements AuthDataSource {
       refreshToken: data['refresh_token'],
       sessionId: data['session_id'],
       nickname: data['nickname'],
+      isAnonymous: _parseOptionalBool(data['is_anonymous']),
     );
     return {
       'success': true,
@@ -165,6 +186,7 @@ class AuthService extends BaseService implements AuthDataSource {
       refreshToken: data['refresh_token'],
       sessionId: data['session_id'],
       nickname: data['nickname'],
+      isAnonymous: _parseOptionalBool(data['is_anonymous']),
     );
     return {
       'success': true,
@@ -269,6 +291,7 @@ class AuthService extends BaseService implements AuthDataSource {
         userId: resolvedUserId,
         refreshToken: data['refresh_token'] ?? refreshTk,
         sessionId: data['session_id'] as String?,
+        isAnonymous: await StorageUtil.getIsAnonymous(),
       );
     }
     return {
@@ -319,6 +342,7 @@ class AuthService extends BaseService implements AuthDataSource {
       token: token,
       sessionId: await StorageUtil.getSessionId(),
       nickname: await StorageUtil.getNickname(),
+      isAnonymous: await StorageUtil.getIsAnonymous(),
     );
   }
 
@@ -335,6 +359,16 @@ class AuthService extends BaseService implements AuthDataSource {
     final user = UserPayloadNormalizer.normalizeUser(response.data);
     if (user == null) {
       return {'success': false, 'message': '服务器返回数据不完整'};
+    }
+    if (currentUserId == userId) {
+      user['user_id'] = user['user_id'] ?? currentUserId;
+      user['userId'] = user['userId'] ?? currentUserId;
+
+      final storedIsAnonymous = await StorageUtil.getIsAnonymous();
+      if (!user.containsKey('is_anonymous') && storedIsAnonymous != null) {
+        user['is_anonymous'] = storedIsAnonymous;
+        user['isAnonymous'] = storedIsAnonymous;
+      }
     }
     return {
       'success': true,

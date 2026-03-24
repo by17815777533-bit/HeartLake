@@ -54,12 +54,13 @@ class UserProvider with ChangeNotifier {
     StoredAuthSession session, {
     bool refreshProfileAfter = false,
   }) {
+    final isAnonymous = session.isAnonymous ?? true;
     _user = User(
       userId: session.userId,
       nickname: session.nickname ?? '用户',
-      isAnonymous: true,
+      isAnonymous: isAnonymous,
     );
-    _isAnonymous = true;
+    _isAnonymous = isAnonymous;
     notifyListeners();
     unawaited(_wsManager.connect());
     if (refreshProfileAfter) {

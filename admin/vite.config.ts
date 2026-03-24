@@ -19,7 +19,7 @@ function toWsOrigin(origin: string): string {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiOrigin = normalizeOrigin(env.VITE_DEV_API_ORIGIN, 'http://127.0.0.1:8080')
+  const apiOrigin = normalizeOrigin(env.VITE_DEV_API_ORIGIN, 'http://127.0.0.1:3000')
   const wsOrigin = normalizeOrigin(env.VITE_DEV_WS_ORIGIN, toWsOrigin(apiOrigin))
 
   return {

@@ -288,17 +288,18 @@ Docker 环境下 `start-docker.sh` 会根据环境变量自动生成 `config.jso
 
 ---
 
-## 测试
+## 校验
 
-项目使用 Google Test (GTest) 框架。CMakeLists.txt 中通过 `HeartLake_lib` 静态库支持测试链接。
+当前仓库不再保留后端测试目录，交付前以构建与联调校验为主。
 
 ```bash
-cd build
+# 后端构建
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
 
-# 构建并运行测试（如有 test target）
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-make -j$(nproc)
-ctest --output-on-failure
+# 仓库级 2C2G 校验
+cd ..
+./scripts/verify-2c2g.sh
 ```
 
 ---

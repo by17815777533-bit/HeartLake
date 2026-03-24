@@ -6,8 +6,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "lint": "eslint src/ --ext .vue,.ts,.js",
     "lint:fix": "eslint src/ --ext .vue,.ts,.js --fix",
     "format": "prettier --write \"src/**/*.{vue,ts,js,json,scss,css}\"",
@@ -28,13 +26,10 @@
     "@eslint/js": "^10.0.1",
     "@tsconfig/node20": "^20.1.9",
     "@vitejs/plugin-vue": "^5.0.0",
-    "@vue/test-utils": "^2.4.0",
-    "axios-mock-adapter": "^2.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^17.3.0",
-    "jsdom": "^24.0.0",
     "prettier": "^3.8.1",
     "sass": "^1.70.0",
     "sass-embedded": "^1.97.3",
@@ -43,7 +38,6 @@
     "unplugin-auto-import": "^0.18.0",
     "unplugin-vue-components": "^0.27.0",
     "vite": "^5.0.0",
-    "vitest": "^1.6.0",
     "vue-tsc": "^3.2.5"
   }
 }
