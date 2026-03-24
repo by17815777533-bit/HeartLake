@@ -2,14 +2,15 @@
  * @file BroadcastWebSocketController.cpp
  * @brief WebSocket 广播控制器 — PASETO 鉴权、房间管理、消息路由
  *
- * 基于 WebSocketHub 实现实时通信：连接建立时通过 URL token 或首包 auth
- * 完成 PASETO v4 身份验证（5 秒超时自动断开），支持 join/leave 房间、
+ * 基于 WebSocketHub 实现实时通信：连接建立时通过 URL token
+ * 完成 PASETO v4 身份验证，支持 join/leave 房间、
  * 私有房间权限校验（private:{uid1}_{uid2}）、64KB 消息体限制、
  * 心跳保活（30s 间隔 / 90s 超时）。静态方法 broadcast / sendToUser /
  * sendToRoom 供其他 Controller 调用以推送实时事件。
  */
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/PasetoUtil.h"
+#include "utils/RealtimeEvent.h"
 #include <sstream>
 
 namespace heartlake::controllers {
@@ -20,19 +21,18 @@ namespace {
 void sendAuthSuccess(const drogon::WebSocketConnectionPtr &conn,
                      const std::string &userId) {
     Json::Value ok;
-    ok["type"] = "auth_success";
     ok["user_id"] = userId;
     ok["authenticated"] = true;
-    ok["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-    conn->send(Json::FastWriter().write(ok));
+    conn->send(Json::FastWriter().write(
+        heartlake::utils::buildRealtimeEvent("auth_success", std::move(ok))));
 }
 
 void sendWsError(const drogon::WebSocketConnectionPtr &conn,
                  const std::string &message) {
     Json::Value err;
-    err["type"] = "error";
     err["message"] = message;
-    conn->send(Json::FastWriter().write(err));
+    conn->send(Json::FastWriter().write(
+        heartlake::utils::buildRealtimeEvent("error", std::move(err))));
 }
 
 bool isPrivateRoomAuthorized(const std::string &room,
@@ -62,18 +62,8 @@ void BroadcastWebSocketController::handleNewConnection(
 ) {
     std::string token = req->getParameter("token");
 
-    // 兼容旧客户端：允许首包 auth 认证；URL token 仍为优先鉴权路径
     if (token.empty()) {
-        conn->setContext(std::make_shared<std::string>(""));
-        auto weakConn = std::weak_ptr<drogon::WebSocketConnection>(conn);
-        drogon::app().getLoop()->runAfter(5.0, [weakConn]() {
-            if (auto locked = weakConn.lock()) {
-                auto ctx = locked->getContext<std::string>();
-                if (!ctx || ctx->empty()) {
-                    locked->shutdown(drogon::CloseCode::kViolation, "认证超时");
-                }
-            }
-        });
+        conn->shutdown(drogon::CloseCode::kViolation, "认证失败：缺少 token");
         return;
     }
 
@@ -137,32 +127,6 @@ void BroadcastWebSocketController::handleNewMessage(
     auto ctx = conn->getContext<std::string>();
     std::string connUserId = ctx ? *ctx : "";
 
-    if (msgType == "auth") {
-        if (!connUserId.empty()) {
-            return;
-        }
-        const std::string token = json["token"].asString();
-        if (token.empty()) {
-            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：缺少 token");
-            return;
-        }
-        try {
-            connUserId = utils::PasetoUtil::verifyToken(token, utils::PasetoUtil::getKey());
-        } catch (const std::exception& e) {
-            LOG_WARN << "WebSocket 首包认证失败：token 验证失败 - " << e.what();
-            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：无效 token");
-            return;
-        }
-        if (connUserId.empty()) {
-            conn->shutdown(drogon::CloseCode::kViolation, "认证失败：无效用户");
-            return;
-        }
-        Hub::getInstance().addConnection(conn, connUserId);
-        conn->setContext(std::make_shared<std::string>(connUserId));
-        sendAuthSuccess(conn, connUserId);
-        return;
-    }
-
     if (msgType == "ping") {
         Json::Value pong;
         pong["type"] = "pong";
@@ -172,7 +136,7 @@ void BroadcastWebSocketController::handleNewMessage(
 
     // 仅允许已认证连接处理业务消息
     if (connUserId.empty()) {
-        conn->shutdown(drogon::CloseCode::kViolation, "认证失败：请先发送 auth");
+        conn->shutdown(drogon::CloseCode::kViolation, "认证失败：无效连接上下文");
         return;
     }
 
@@ -230,15 +194,30 @@ void BroadcastWebSocketController::handleNewMessage(
 }
 
 void BroadcastWebSocketController::broadcast(const Json::Value& message) {
-    Hub::getInstance().broadcast(Json::FastWriter().write(message));
+    auto payload = message;
+    if (payload.isObject() && payload.isMember("type")) {
+        payload = heartlake::utils::buildRealtimeEvent(
+            payload["type"].asString(), std::move(payload));
+    }
+    Hub::getInstance().broadcast(Json::FastWriter().write(payload));
 }
 
 void BroadcastWebSocketController::sendToUser(const std::string& userId, const Json::Value& message) {
-    Hub::getInstance().sendToUser(userId, Json::FastWriter().write(message));
+    auto payload = message;
+    if (payload.isObject() && payload.isMember("type")) {
+        payload = heartlake::utils::buildRealtimeEvent(
+            payload["type"].asString(), std::move(payload));
+    }
+    Hub::getInstance().sendToUser(userId, Json::FastWriter().write(payload));
 }
 
 void BroadcastWebSocketController::sendToRoom(const std::string& room, const Json::Value& message) {
-    Hub::getInstance().sendToRoom(room, Json::FastWriter().write(message));
+    auto payload = message;
+    if (payload.isObject() && payload.isMember("type")) {
+        payload = heartlake::utils::buildRealtimeEvent(
+            payload["type"].asString(), std::move(payload));
+    }
+    Hub::getInstance().sendToRoom(room, Json::FastWriter().write(payload));
 }
 
 void BroadcastWebSocketController::startHeartbeatTimer() {

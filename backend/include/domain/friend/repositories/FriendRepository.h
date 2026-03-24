@@ -1,7 +1,7 @@
 /**
  * 好友仓储 PostgreSQL 实现
  *
- * 通过 Drogon ORM 操作 friends 表，实现 IFriendRepository 全部契约。
+ * 通过 Drogon ORM 操作 friends 表，实现 IFriendRepository 协程契约。
  * 双向查询（A->B 或 B->A）在 SQL 层用 OR 条件处理，无需应用层拼接。
  *
  * @note deleteBidirectionalAsync 使用单条 DELETE ... WHERE (A,B) OR (B,A) 语句，
@@ -17,8 +17,6 @@ namespace heartlake::domain::friend_domain {
 
 class FriendRepository : public IFriendRepository {
 public:
-    // --- 协程异步接口 ---
-
     /// @brief 插入新的好友关系记录
     drogon::Task<void> saveAsync(const FriendEntity& friendship) override;
 
@@ -39,23 +37,6 @@ public:
 
     /// @brief 双向删除：一条 SQL 同时清理 A->B 和 B->A
     drogon::Task<void> deleteBidirectionalAsync(const std::string& userId, const std::string& friendId) override;
-
-    // --- 同步接口（兼容旧代码路径） ---
-
-    /// @brief 同步版插入
-    void save(const FriendEntity& friendship) override;
-
-    /// @brief 同步版双向查找
-    std::optional<FriendEntity> findByUserAndFriend(const std::string& userId, const std::string& friendId) override;
-
-    /// @brief 同步版查询已接受的好友列表
-    std::vector<FriendEntity> findByUserId(const std::string& userId) override;
-
-    /// @brief 同步版更新状态
-    void updateStatus(const std::string& friendshipId, const std::string& status) override;
-
-    /// @brief 同步版按 ID 删除
-    void deleteById(const std::string& friendshipId) override;
 
 private:
     /**

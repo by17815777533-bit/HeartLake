@@ -1,5 +1,6 @@
 #include "utils/AdminRealtimeNotifier.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include <drogon/drogon.h>
 #include <ctime>
@@ -75,21 +76,12 @@ void broadcastAdminRealtimeStatsUpdate(std::string reason, Json::Value extra) {
                 : (*row)["pending_reports"].as<int>();
 
             Json::Value payload(Json::objectValue);
-            payload["type"] = "stats_update";
             payload["reason"] = reason;
-            payload["event"] = reason;
-            payload["timestamp"] = static_cast<Json::Int64>(time(nullptr));
             payload["total_users"] = totalUsers;
-            payload["totalUsers"] = totalUsers;
             payload["total_stones"] = totalStones;
-            payload["totalStones"] = totalStones;
             payload["today_stones"] = todayStones;
-            payload["todayStones"] = todayStones;
             payload["online_users"] = onlineUsers;
-            payload["online_count"] = onlineUsers;
-            payload["onlineCount"] = onlineUsers;
             payload["pending_reports"] = pendingReports;
-            payload["pendingReports"] = pendingReports;
 
             if (extra.isObject()) {
                 for (const auto &memberName : extra.getMemberNames()) {
@@ -97,7 +89,8 @@ void broadcastAdminRealtimeStatsUpdate(std::string reason, Json::Value extra) {
                 }
             }
 
-            controllers::BroadcastWebSocketController::broadcast(payload);
+            controllers::BroadcastWebSocketController::broadcast(
+                buildRealtimeEvent("stats_update", std::move(payload)));
         } catch (const std::exception &e) {
             LOG_WARN << "broadcastAdminRealtimeStatsUpdate failed: " << e.what();
         }

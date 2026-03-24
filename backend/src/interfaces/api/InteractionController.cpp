@@ -8,6 +8,7 @@
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/AdminRealtimeNotifier.h"
 #include "utils/ContentFilter.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -45,21 +46,18 @@ void InteractionController::createRipple(
       int rippleCount = result["ripple_count"].asInt();
 
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "ripple_update";
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["ripple_count"] = rippleCount;
       broadcastMsg["triggered_by"] = userId;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::broadcast(broadcastMsg);
+      BroadcastWebSocketController::broadcast(
+          buildRealtimeEvent("ripple_update", std::move(broadcastMsg)));
 
       const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
       if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
         Json::Value notifyMsg;
         const auto notificationId =
             result.get("notification_id", "").asString();
-        notifyMsg["type"] = "new_notification";
         notifyMsg["notification_id"] = notificationId;
-        notifyMsg["id"] = notificationId;
         notifyMsg["notification_type"] = "ripple";
         notifyMsg["content"] = "有人给你的石头点了涟漪";
         notifyMsg["stone_id"] = stoneId;
@@ -68,8 +66,9 @@ void InteractionController::createRipple(
         notifyMsg["is_read"] = false;
         notifyMsg["from_user_id"] = userId;
         notifyMsg["ripple_count"] = rippleCount;
-        notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+        BroadcastWebSocketController::sendToUser(
+            stoneOwnerId,
+            buildRealtimeEvent("new_notification", std::move(notifyMsg)));
       }
 
       heartlake::utils::broadcastAdminRealtimeStatsUpdate("ripple_update");
@@ -107,15 +106,14 @@ void InteractionController::deleteRipple(
       const int rippleCount = result.get("ripple_count", 0).asInt();
 
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "ripple_deleted";
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["ripple_id"] = rippleId;
       broadcastMsg["ripple_count"] = rippleCount;
       broadcastMsg["triggered_by"] = userId;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToRoom("stone:" + stoneId,
-                                               broadcastMsg);
-      BroadcastWebSocketController::broadcast(broadcastMsg);
+      const auto event =
+          buildRealtimeEvent("ripple_deleted", std::move(broadcastMsg));
+      BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);
+      BroadcastWebSocketController::broadcast(event);
       heartlake::utils::broadcastAdminRealtimeStatsUpdate("ripple_deleted");
     }
 
@@ -200,24 +198,21 @@ void InteractionController::createBoat(
       int boatCount = result["boat_count"].asInt();
 
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "boat_update";
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["boat_count"] = boatCount;
       broadcastMsg["boat_id"] = result["boat_id"].asString();
       broadcastMsg["triggered_by"] = userId;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToRoom("stone:" + stoneId,
-                                               broadcastMsg);
-      BroadcastWebSocketController::broadcast(broadcastMsg);
+      const auto event =
+          buildRealtimeEvent("boat_update", std::move(broadcastMsg));
+      BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);
+      BroadcastWebSocketController::broadcast(event);
 
       const auto stoneOwnerId = result.get("stone_owner_id", "").asString();
       if (!stoneOwnerId.empty() && stoneOwnerId != userId) {
         Json::Value notifyMsg;
         const auto notificationId =
             result.get("notification_id", "").asString();
-        notifyMsg["type"] = "new_notification";
         notifyMsg["notification_id"] = notificationId;
-        notifyMsg["id"] = notificationId;
         notifyMsg["notification_type"] = "boat";
         notifyMsg["content"] = "有人给你的石头回了一封纸船";
         notifyMsg["stone_id"] = stoneId;
@@ -227,8 +222,9 @@ void InteractionController::createBoat(
         notifyMsg["is_read"] = false;
         notifyMsg["from_user_id"] = userId;
         notifyMsg["boat_count"] = boatCount;
-        notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
+        BroadcastWebSocketController::sendToUser(
+            stoneOwnerId,
+            buildRealtimeEvent("new_notification", std::move(notifyMsg)));
       }
 
       heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_update");
@@ -282,15 +278,14 @@ void InteractionController::deleteBoat(
       int boatCount = result["boat_count"].asInt();
 
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "boat_deleted";
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["boat_id"] = boatId;
       broadcastMsg["boat_count"] = boatCount;
       broadcastMsg["triggered_by"] = userId;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToRoom("stone:" + stoneId,
-                                               broadcastMsg);
-      BroadcastWebSocketController::broadcast(broadcastMsg);
+      const auto event =
+          buildRealtimeEvent("boat_deleted", std::move(broadcastMsg));
+      BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);
+      BroadcastWebSocketController::broadcast(event);
       heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_deleted");
     }
 
@@ -520,12 +515,11 @@ void InteractionController::upgradeConnectionToFriend(
     // 广播好友升级事件
     if (result.isMember("friend_id")) {
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "friend_accepted";
       broadcastMsg["friendship_id"] = result["friendship_id"].asString();
       broadcastMsg["from_user_id"] = userId;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToUser(result["friend_id"].asString(),
-                                               broadcastMsg);
+      BroadcastWebSocketController::sendToUser(
+          result["friend_id"].asString(),
+          buildRealtimeEvent("friend_accepted", std::move(broadcastMsg)));
     }
 
     callback(ResponseUtil::success(result, "升级为好友成功"));

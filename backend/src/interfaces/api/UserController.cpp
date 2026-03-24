@@ -668,7 +668,6 @@ void UserController::deleteAccount(
 
     Json::Value data;
     data["status"] = "deactivated";
-    data["legacy_route"] = true;
     data["recovery_window_days"] = 30;
     callback(ResponseUtil::success(data, "账号已停用，30天内可恢复"));
 

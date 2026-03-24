@@ -6,6 +6,7 @@
 #include "infrastructure/di/ServiceLocator.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/ContentFilter.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -69,28 +70,27 @@ void PaperBoatController::replyToStone(
     // 广播 boat_update 事件到 stone 房间，让查看该石头的用户实时更新纸船计数
     {
       Json::Value broadcastMsg;
-      broadcastMsg["type"] = "boat_update";
       broadcastMsg["stone_id"] = stone_id;
       broadcastMsg["boat_id"] = boat_id;
       broadcastMsg["boat_count"] = newBoatsCount;
       broadcastMsg["triggered_by"] = user_id;
-      broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToRoom("stone:" + stone_id,
-                                               broadcastMsg);
-      BroadcastWebSocketController::broadcast(broadcastMsg);
+      const auto event =
+          buildRealtimeEvent("boat_update", std::move(broadcastMsg));
+      BroadcastWebSocketController::sendToRoom("stone:" + stone_id, event);
+      BroadcastWebSocketController::broadcast(event);
     }
 
     // 服务层已经负责入库通知、风险评估和临时好友刷新，这里只发实时通知。
     if (!stone_owner_id.empty() && stone_owner_id != user_id) {
       Json::Value notifMsg;
-      notifMsg["type"] = "new_notification";
       notifMsg["notification_type"] = "boat";
       notifMsg["stone_id"] = stone_id;
       notifMsg["boat_id"] = boat_id;
       notifMsg["from_user_id"] = user_id;
       notifMsg["boat_count"] = newBoatsCount;
-      notifMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-      BroadcastWebSocketController::sendToUser(stone_owner_id, notifMsg);
+      BroadcastWebSocketController::sendToUser(
+          stone_owner_id,
+          buildRealtimeEvent("new_notification", std::move(notifMsg)));
     }
     Json::Value data;
     data["boat_id"] = boat_id;

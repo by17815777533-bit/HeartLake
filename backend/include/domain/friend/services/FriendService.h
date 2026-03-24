@@ -5,9 +5,6 @@
  * 发送请求前会通过仓储检查是否已存在关系记录（任意状态），防止重复请求。
  * 删除好友采用双向删除策略，确保双方视角一致——不会出现"我删了你但你还看得到我"的情况。
  *
- * 提供协程异步和同步两套接口，新功能推荐使用异步版本。
- * 同步接口仅为兼容旧代码路径保留，后续版本可能移除。
- *
  * @note 本层只处理业务规则，不涉及 TTL 管理、缓存失效等应用层关注点；
  *       这些能力现在由控制器和独立基础设施服务直接编排。
  */
@@ -77,21 +74,6 @@ public:
      * @return true 表示双方为好友（status='accepted'）
      */
     drogon::Task<bool> areFriendsAsync(const std::string& userId, const std::string& friendId);
-
-    // --- 同步接口（兼容旧代码路径） ---
-
-    /// @brief 同步版发送好友请求
-    void sendFriendRequest(const std::string& userId, const std::string& friendId);
-    /// @brief 同步版接受好友请求
-    void acceptFriendRequest(const std::string& friendshipId);
-    /// @brief 同步版拒绝好友请求
-    void rejectFriendRequest(const std::string& friendshipId);
-    /// @brief 同步版双向删除好友
-    void removeFriend(const std::string& userId, const std::string& friendId);
-    /// @brief 同步版获取好友列表
-    std::vector<FriendEntity> getFriends(const std::string& userId);
-    /// @brief 同步版判断是否为好友
-    bool areFriends(const std::string& userId, const std::string& friendId);
 
 private:
     std::shared_ptr<IFriendRepository> repository_;

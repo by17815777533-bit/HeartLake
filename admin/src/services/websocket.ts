@@ -2,7 +2,7 @@
  * WebSocket 服务 -- 安全认证、心跳保活、消息类型白名单
  *
  * 连接策略：
- * - 握手时优先通过 URL query 传递 token，并在 onopen 后补发 auth 首包兼容后端双通道鉴权
+ * - 握手时通过 URL query 传递 token 完成鉴权
  * - 心跳间隔 30s，超过 2 个周期未收到 pong 判定连接已死并强制重连
  * - 非正常关闭时指数退避重连（基础 1s，最大 30s），叠加随机抖动避免惊群
  * - 最多重连 10 次，disconnect() 后不再自动重连
@@ -41,7 +41,6 @@ const WS_MESSAGE_TYPE_LIST = [
   'user_offline',
   'pong',
   'auth_success',
-  'auth_fail',
   'new_stone',
   'ripple_update',
   'ripple_deleted',
@@ -59,14 +58,6 @@ const WS_MESSAGE_TYPE_LIST = [
 type WSMessageType = (typeof WS_MESSAGE_TYPE_LIST)[number]
 
 export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
-
-function resolveMessagePayload(message: Record<string, unknown>): unknown {
-  const nested = message.data ?? message.payload
-  if (nested && typeof nested === 'object') {
-    return nested
-  }
-  return message
-}
 
 function resolveWsEndpoint(token: string): URL {
   const explicitUrl = import.meta.env.VITE_WS_URL?.trim()
@@ -124,7 +115,6 @@ export default {
       hasEverConnected = true
       reconnectAttempts = 0
       lastPongTime = Date.now()
-      ws?.send(JSON.stringify({ type: 'auth', token }))
       // 启动心跳保活
       startHeartbeat()
     }
@@ -133,7 +123,6 @@ export default {
       try {
         const parsed = JSON.parse(e.data) as Record<string, unknown>
         const type = String(parsed.type ?? '')
-        const data = resolveMessagePayload(parsed)
         // 收到 pong 时更新时间戳（心跳存活检测用）
         if (type === 'pong') {
           lastPongTime = Date.now()
@@ -143,7 +132,7 @@ export default {
           console.warn('收到未知 WebSocket 消息类型:', type)
           return
         }
-        listeners[type]?.forEach((fn) => fn(data))
+        listeners[type]?.forEach((fn) => fn(parsed))
       } catch (err) {
         console.error('WebSocket 消息解析失败:', err)
       }

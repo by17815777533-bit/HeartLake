@@ -27,9 +27,7 @@ namespace controllers {
  * | 方法   | 路径                              | 说明                |
  * |--------|----------------------------------|-------------------|
  * | POST   | /api/temp-friends                | 创建临时好友关系     |
- * | POST   | /api/friends/temp                | 同上（兼容路由）     |
  * | GET    | /api/temp-friends                | 获取临时好友列表     |
- * | GET    | /api/friends/temp                | 同上（兼容路由）     |
  * | GET    | /api/temp-friends/{id}           | 获取临时好友详情     |
  * | POST   | /api/temp-friends/{id}/upgrade   | 升级为永久好友       |
  * | DELETE | /api/temp-friends/{id}           | 删除临时好友关系     |
@@ -41,13 +39,9 @@ public:
 
     ADD_METHOD_TO(TempFriendController::createTempFriend,
                   "/api/temp-friends", Post, "heartlake::filters::SecurityAuditFilter");
-    ADD_METHOD_TO(TempFriendController::createTempFriend,
-                  "/api/friends/temp", Post, "heartlake::filters::SecurityAuditFilter");
 
     ADD_METHOD_TO(TempFriendController::getMyTempFriends,
                   "/api/temp-friends", Get, "heartlake::filters::SecurityAuditFilter");
-    ADD_METHOD_TO(TempFriendController::getMyTempFriends,
-                  "/api/friends/temp", Get, "heartlake::filters::SecurityAuditFilter");
 
     ADD_METHOD_TO(TempFriendController::getTempFriendDetail,
                   "/api/temp-friends/{1}", Get, "heartlake::filters::SecurityAuditFilter");

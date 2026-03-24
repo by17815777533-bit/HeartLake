@@ -36,15 +36,12 @@ struct FriendEntity {
 /**
  * @brief 好友仓储接口（纯虚基类）
  *
- * 同时提供协程异步和传统同步两套方法。
- * 异步方法基于 drogon::Task，推荐在协程控制器中使用；
- * 同步方法仅供旧代码路径兼容，新功能不应再使用。
+ * 统一提供协程异步方法。
+ * 控制器与应用服务通过 drogon::Task 进行编排，避免同步数据库调用继续扩散。
  */
 class IFriendRepository {
 public:
     virtual ~IFriendRepository() = default;
-
-    // --- 协程异步接口 ---
 
     /**
      * @brief 持久化好友关系实体
@@ -96,23 +93,6 @@ public:
      * @param friendId 用户 B
      */
     virtual drogon::Task<void> deleteBidirectionalAsync(const std::string& userId, const std::string& friendId) = 0;
-
-    // --- 同步接口（deprecated，保留兼容） ---
-
-    /// @brief 同步版持久化
-    virtual void save(const FriendEntity& friendship) = 0;
-
-    /// @brief 同步版双向查找
-    virtual std::optional<FriendEntity> findByUserAndFriend(const std::string& userId, const std::string& friendId) = 0;
-
-    /// @brief 同步版查询已接受的好友列表
-    virtual std::vector<FriendEntity> findByUserId(const std::string& userId) = 0;
-
-    /// @brief 同步版更新状态
-    virtual void updateStatus(const std::string& friendshipId, const std::string& status) = 0;
-
-    /// @brief 同步版按 ID 删除
-    virtual void deleteById(const std::string& friendshipId) = 0;
 };
 
 } // namespace heartlake::domain::friend_domain

@@ -25,7 +25,7 @@ namespace controllers {
  * @brief 用户认证与信息 HTTP 控制器
  *
  * @details 路由分组：
- * - 认证：anonymous / recover / refresh / delete-account(兼容停用别名)
+ * - 认证：anonymous / recover / refresh / delete-account
  * - 用户信息：getUserInfo / getUserStats / searchUsers / getMyBoats / updateProfile
  * - 情绪数据：emotion-calendar / emotion-heatmap
  */
@@ -92,11 +92,11 @@ public:
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief 删除账号兼容路由（实际执行停用，30天内可恢复）
+   * @brief 停用账号（保留 delete-account 路由名，语义与停用一致）
    * @details POST /api/auth/delete-account
    *
-   * 兼容历史客户端，语义与 `/api/account/deactivate` 保持一致；
-   * 接受 `confirmation=DELETE/DEACTIVATE`，缺省时按旧客户端 `DELETE` 兼容。
+   * 与 `/api/account/deactivate` 保持一致；
+   * 接受 `confirmation=DELETE/DEACTIVATE`，返回统一停用结果。
    *
    * @param req HTTP 请求
    * @param callback 响应回调

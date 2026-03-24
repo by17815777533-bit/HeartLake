@@ -10,6 +10,7 @@
 #include "utils/Validator.h"
 #include "utils/AdminRealtimeNotifier.h"
 #include "utils/ContentFilter.h"
+#include "utils/RealtimeEvent.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
 #include <memory>
@@ -217,11 +218,10 @@ void StoneController::createStone(
 
         // 新石头需要同步到湖面、资料页和后台面板，直接走全局广播。
         Json::Value broadcastMsg;
-        broadcastMsg["type"] = "new_stone";
         broadcastMsg["stone"] = result;
         broadcastMsg["triggered_by"] = userId;
-        broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(broadcastMsg);
+        BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("new_stone", std::move(broadcastMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("new_stone");
 
         callback(ResponseUtil::success(result, "投石成功"));
@@ -378,11 +378,10 @@ void StoneController::deleteStone(
 
         // 删除事件需要同步到我的石头、我的涟漪和后台看板。
         Json::Value broadcastMsg;
-        broadcastMsg["type"] = "stone_deleted";
         broadcastMsg["stone_id"] = stoneId;
         broadcastMsg["triggered_by"] = userId;
-        broadcastMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(broadcastMsg);
+        BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("stone_deleted", std::move(broadcastMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("stone_deleted");
 
         callback(ResponseUtil::success(Json::Value(), "删除成功"));

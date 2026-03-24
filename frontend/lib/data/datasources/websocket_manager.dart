@@ -110,9 +110,6 @@ class WebSocketManager implements RoomSubscriptionClient {
       _channel!.stream.listen(_onMessage,
           onError: _onError, onDone: _onDone, cancelOnError: false);
 
-      // 首包认证，兼容后端消息级鉴权
-      _channel!.sink.add(jsonEncode({'type': 'auth', 'token': token}));
-
       final ready = await _authReadyCompleter!.future.timeout(
         const Duration(seconds: 6),
         onTimeout: () => false,

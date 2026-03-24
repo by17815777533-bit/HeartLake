@@ -2,10 +2,6 @@
  * @file FriendRepository.cpp
  * @brief 好友仓储实现 —— 封装 friends 表的持久化操作
  *
- * 提供同步和协程两套接口：
- *   - 同步版本（save / findByUserId 等）用于兼容旧代码路径
- *   - 异步版本（saveAsync / findByUserIdAsync 等）基于 Drogon 协程
- *
  * 好友关系是双向的：查询时同时匹配 user_id 和 friend_id 两个方向，
  * 删除时使用 deleteBidirectionalAsync 一次清除双向记录。
  */
@@ -107,54 +103,6 @@ drogon::Task<void> FriendRepository::deleteBidirectionalAsync(const std::string&
         "DELETE FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
         userId, friendId
     );
-}
-
-// ==================== 同步兼容接口（旧代码路径） ====================
-
-/// 同步版本：插入好友关系
-void FriendRepository::save(const FriendEntity& friendship) {
-    auto db = drogon::app().getDbClient("default");
-    db->execSqlSync(
-        "INSERT INTO friends (friendship_id, user_id, friend_id, status, created_at) "
-        "VALUES ($1, $2, $3, $4, NOW())",
-        friendship.friendshipId, friendship.userId, friendship.friendId, friendship.status
-    );
-}
-
-std::optional<FriendEntity> FriendRepository::findByUserAndFriend(const std::string& userId, const std::string& friendId) {
-    auto db = drogon::app().getDbClient("default");
-    auto result = db->execSqlSync(
-        std::string("SELECT ") + kFriendSelectColumns +
-            " FROM friends WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
-        userId, friendId
-    );
-    auto row = safeRow(result);
-    if (!row) return std::nullopt;
-    return rowToEntity(*row);
-}
-
-std::vector<FriendEntity> FriendRepository::findByUserId(const std::string& userId) {
-    auto db = drogon::app().getDbClient("default");
-    auto result = db->execSqlSync(
-        std::string("SELECT ") + kFriendSelectColumns +
-            " FROM friends WHERE (user_id = $1 OR friend_id = $1) AND status = 'accepted'",
-        userId
-    );
-    std::vector<FriendEntity> friends;
-    for (const auto& row : result) {
-        friends.push_back(rowToEntity(row));
-    }
-    return friends;
-}
-
-void FriendRepository::updateStatus(const std::string& friendshipId, const std::string& status) {
-    auto db = drogon::app().getDbClient("default");
-    db->execSqlSync("UPDATE friends SET status = $1 WHERE friendship_id = $2", status, friendshipId);
-}
-
-void FriendRepository::deleteById(const std::string& friendshipId) {
-    auto db = drogon::app().getDbClient("default");
-    db->execSqlSync("DELETE FROM friends WHERE friendship_id = $1", friendshipId);
 }
 
 } // namespace heartlake::domain::friend_domain

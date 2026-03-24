@@ -15,6 +15,7 @@
 #include "infrastructure/di/ServiceLocator.h"
 #include "infrastructure/services/IntimacyService.h"
 #include "utils/IdGenerator.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/Validator.h"
@@ -389,7 +390,6 @@ void FriendController::sendMessage(
 
             // 推送实时消息给接收方
             Json::Value wsMsg;
-            wsMsg["type"] = "new_friend_message";
             wsMsg["sender_id"] = userId;
             wsMsg["receiver_id"] = friendId;
             wsMsg["content"] = content;
@@ -398,7 +398,9 @@ void FriendController::sendMessage(
             wsMsg["created_at"] = timestamp;
             wsMsg["friend_id"] = friendId;
             wsMsg["peer_id"] = friendId;
-            BroadcastWebSocketController::sendToUser(friendId, wsMsg);
+            BroadcastWebSocketController::sendToUser(
+                friendId,
+                buildRealtimeEvent("new_friend_message", std::move(wsMsg)));
 
             Json::Value data;
             data["sender_id"] = userId;

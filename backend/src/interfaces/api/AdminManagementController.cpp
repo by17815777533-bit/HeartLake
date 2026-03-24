@@ -13,6 +13,7 @@
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/AdminConfigStore.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include "infrastructure/ai/AIService.h"
@@ -834,12 +835,11 @@ void AdminManagementController::approveContent(const HttpRequestPtr &req,
 
         writeOperationLog(req, adminId, "approve", "report", moderationId, "审核通过");
         Json::Value wsMsg;
-        wsMsg["type"] = "new_moderation";
         wsMsg["report_id"] = moderationId;
         wsMsg["status"] = "handled";
         wsMsg["action"] = "approved";
-        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(wsMsg);
+        BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("new_moderation", std::move(wsMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_handled");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -892,12 +892,11 @@ void AdminManagementController::rejectContent(const HttpRequestPtr &req,
 
         writeOperationLog(req, adminId, "reject", "report", moderationId, moderationReason);
         Json::Value wsMsg;
-        wsMsg["type"] = "new_moderation";
         wsMsg["report_id"] = moderationId;
         wsMsg["status"] = "ignored";
         wsMsg["action"] = "rejected";
-        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(wsMsg);
+        BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("new_moderation", std::move(wsMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_ignored");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -1090,12 +1089,11 @@ void AdminManagementController::handleReport(const HttpRequestPtr &req,
         const auto note = json && json->isMember("note") ? (*json)["note"].asString() : "";
         writeOperationLog(req, adminId, "handle_report", "report", reportId, note.empty() ? action : note);
         Json::Value wsMsg;
-        wsMsg["type"] = "new_moderation";
         wsMsg["report_id"] = reportId;
         wsMsg["status"] = action;
         wsMsg["action"] = action;
-        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        BroadcastWebSocketController::broadcast(wsMsg);
+        BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("new_moderation", std::move(wsMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_status_changed");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
@@ -1308,10 +1306,8 @@ void AdminManagementController::broadcastMessage(const HttpRequestPtr &req,
     }
 
     Json::Value payload;
-    payload["type"] = "broadcast";
     payload["message"] = (*json)["message"].asString();
     payload["level"] = (*json).get("level", "info").asString();
-    payload["timestamp"] = static_cast<Json::Int64>(time(nullptr));
 
     try {
         auto adminId = req->getAttributes()->get<std::string>("admin_id");
@@ -1325,7 +1321,8 @@ void AdminManagementController::broadcastMessage(const HttpRequestPtr &req,
         LOG_WARN << "persist broadcast message failed: " << e.what();
     }
 
-    BroadcastWebSocketController::broadcast(payload);
+    BroadcastWebSocketController::broadcast(
+        buildRealtimeEvent("broadcast", std::move(payload)));
     callback(ResponseUtil::success());
 }
 

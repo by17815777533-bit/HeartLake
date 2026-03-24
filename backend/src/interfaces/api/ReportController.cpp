@@ -6,6 +6,7 @@
 #include "utils/AdminRealtimeNotifier.h"
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
+#include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <ctime>
@@ -97,15 +98,14 @@ void ReportController::createReport(const HttpRequestPtr &req,
         responseData["report_id"] = report_id;
 
         Json::Value wsMsg;
-        wsMsg["type"] = "new_report";
         wsMsg["report_id"] = report_id;
         wsMsg["target_type"] = target_type;
         wsMsg["target_id"] = target_id;
         wsMsg["reason"] = reason;
         wsMsg["reporter_id"] = user_id;
         wsMsg["status"] = "pending";
-        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
-        heartlake::controllers::BroadcastWebSocketController::broadcast(wsMsg);
+        heartlake::controllers::BroadcastWebSocketController::broadcast(
+            buildRealtimeEvent("new_report", std::move(wsMsg)));
         heartlake::utils::broadcastAdminRealtimeStatsUpdate("new_report");
         
         callback(ResponseUtil::success(responseData, "举报已提交，我们会尽快处理"));
