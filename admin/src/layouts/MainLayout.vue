@@ -144,7 +144,10 @@ const menuItems = [
 ]
 
 const routeNarrativeMap: Record<string, { kicker: string; summary: string }> = {
-  [ADMIN_HOME_PATH]: { kicker: '湖面总览', summary: '查看旅人状态、波动趋势和需要优先处理的内容。' },
+  [ADMIN_HOME_PATH]: {
+    kicker: '湖面总览',
+    summary: '查看旅人状态、波动趋势和需要优先处理的内容。',
+  },
   '/users': { kicker: '旅人关怀', summary: '筛查账户状态、活跃记录和个体产出。' },
   '/content': { kicker: '内容台账', summary: '统一查看石头与纸船，确认当前内容水位。' },
   '/moderation': { kicker: '温暖守护', summary: '把系统判断与人工复核放在同一个工作面上。' },
@@ -241,9 +244,13 @@ const handleCommand = async (command: string) => {
   }
 }
 
-const handleStatsUpdate = (data: { online_count?: number; today_stones?: number }) => {
+const handleStatsUpdate = (data: {
+  online_count?: number
+  online_users?: number
+  today_stones?: number
+}) => {
   if (data) {
-    realtimeStats.onlineCount = data.online_count ?? realtimeStats.onlineCount
+    realtimeStats.onlineCount = data.online_count ?? data.online_users ?? realtimeStats.onlineCount
     realtimeStats.todayStones = data.today_stones ?? realtimeStats.todayStones
   }
 }

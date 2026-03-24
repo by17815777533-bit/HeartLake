@@ -269,10 +269,21 @@ class _FriendsScreenState extends State<FriendsScreen>
                               '未知'),
                           subtitle: Builder(
                             builder: (_) {
-                              final username =
-                                  friend['username']?.toString() ?? '';
-                              final friendId = _extractFriendId(friend) ?? '';
-                              return Text('账号: $username\n用户ID: $friendId');
+                              final intimacyLabel =
+                                  friend['intimacy_label']?.toString() ??
+                                      '温暖连接';
+                              final intimacyScore = friend['intimacy_score'];
+                              final canChat = friend['can_chat'] == true;
+                              final scoreText = intimacyScore is num
+                                  ? intimacyScore.toStringAsFixed(1)
+                                  : null;
+                              final statusText =
+                                  canChat ? '已开启私聊' : '继续互动可解锁私聊';
+                              return Text(
+                                scoreText == null
+                                    ? '$intimacyLabel · $statusText'
+                                    : '$intimacyLabel · 亲密分 $scoreText\n$statusText',
+                              );
                             },
                           ),
                           onTap: () {

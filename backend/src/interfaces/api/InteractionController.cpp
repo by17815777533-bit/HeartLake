@@ -6,6 +6,7 @@
 #include "application/InteractionApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/ContentFilter.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
@@ -70,6 +71,8 @@ void InteractionController::createRipple(
         notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
         BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
       }
+
+      heartlake::utils::broadcastAdminRealtimeStatsUpdate("ripple_update");
     }
 
     callback(ResponseUtil::success(result, alreadyRippled ? "已经点过涟漪了"
@@ -113,6 +116,7 @@ void InteractionController::deleteRipple(
       BroadcastWebSocketController::sendToRoom("stone:" + stoneId,
                                                broadcastMsg);
       BroadcastWebSocketController::broadcast(broadcastMsg);
+      heartlake::utils::broadcastAdminRealtimeStatsUpdate("ripple_deleted");
     }
 
     callback(ResponseUtil::success(Json::Value(), "删除涟漪成功"));
@@ -226,6 +230,8 @@ void InteractionController::createBoat(
         notifyMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
         BroadcastWebSocketController::sendToUser(stoneOwnerId, notifyMsg);
       }
+
+      heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_update");
     }
 
     callback(ResponseUtil::success(result, "纸船发送成功"));
@@ -285,6 +291,7 @@ void InteractionController::deleteBoat(
       BroadcastWebSocketController::sendToRoom("stone:" + stoneId,
                                                broadcastMsg);
       BroadcastWebSocketController::broadcast(broadcastMsg);
+      heartlake::utils::broadcastAdminRealtimeStatsUpdate("boat_deleted");
     }
 
     callback(ResponseUtil::success(Json::Value(), "删除纸船成功"));

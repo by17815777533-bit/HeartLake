@@ -395,6 +395,9 @@ void FriendController::sendMessage(
             wsMsg["content"] = content;
             const auto timestamp = static_cast<Json::Int64>(time(nullptr));
             wsMsg["timestamp"] = timestamp;
+            wsMsg["created_at"] = timestamp;
+            wsMsg["friend_id"] = friendId;
+            wsMsg["peer_id"] = friendId;
             BroadcastWebSocketController::sendToUser(friendId, wsMsg);
 
             Json::Value data;

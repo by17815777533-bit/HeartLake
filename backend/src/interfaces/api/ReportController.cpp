@@ -2,10 +2,13 @@
  * ReportController 模块实现
  */
 #include "interfaces/api/ReportController.h"
+#include "interfaces/api/BroadcastWebSocketController.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
+#include <ctime>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -92,6 +95,18 @@ void ReportController::createReport(const HttpRequestPtr &req,
         
         Json::Value responseData;
         responseData["report_id"] = report_id;
+
+        Json::Value wsMsg;
+        wsMsg["type"] = "new_report";
+        wsMsg["report_id"] = report_id;
+        wsMsg["target_type"] = target_type;
+        wsMsg["target_id"] = target_id;
+        wsMsg["reason"] = reason;
+        wsMsg["reporter_id"] = user_id;
+        wsMsg["status"] = "pending";
+        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        heartlake::controllers::BroadcastWebSocketController::broadcast(wsMsg);
+        heartlake::utils::broadcastAdminRealtimeStatsUpdate("new_report");
         
         callback(ResponseUtil::success(responseData, "举报已提交，我们会尽快处理"));
         

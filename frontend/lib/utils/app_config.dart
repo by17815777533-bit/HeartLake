@@ -103,12 +103,14 @@ class AppConfig {
     try {
       if (Platform.isAndroid) {
         // 模拟器用 10.0.2.2，真机用局域网IP（可通过ANDROID_API_HOST环境变量配置）
-        const androidHost = String.fromEnvironment('ANDROID_API_HOST', defaultValue: '10.0.2.2');
+        const androidHost = String.fromEnvironment('ANDROID_API_HOST',
+            defaultValue: '10.0.2.2');
         return _originToApiBaseUrl('http://$androidHost:8080');
       }
       if (Platform.isIOS) {
         // iOS模拟器可直接访问 localhost，真机需要局域网IP
-        const iosHost = String.fromEnvironment('IOS_API_HOST', defaultValue: 'localhost');
+        const iosHost =
+            String.fromEnvironment('IOS_API_HOST', defaultValue: 'localhost');
         return _originToApiBaseUrl('http://$iosHost:8080');
       }
       // Windows / macOS / Linux 桌面端均使用 localhost
@@ -148,7 +150,11 @@ class AppConfig {
     final port = base.hasPort ? base.port : (base.scheme == 'https' ? 443 : 80);
 
     // Flutter Web 独立调试服务通常运行在随机端口；这时仍保持直连后端 8080 的旧行为。
-    if (isLocalHost && port != 80 && port != 443 && port != 3000 && port != 8080) {
+    if (isLocalHost &&
+        port != 80 &&
+        port != 443 &&
+        port != 3000 &&
+        port != 8080) {
       return _originToApiBaseUrl('${base.scheme}://$host:8080');
     }
 
@@ -383,10 +389,10 @@ class AppConfig {
       _environment = isLocalHost
           ? AppEnvironment.development
           : (kReleaseMode
-                ? AppEnvironment.production
-                : (kProfileMode
-                      ? AppEnvironment.staging
-                      : AppEnvironment.development));
+              ? AppEnvironment.production
+              : (kProfileMode
+                  ? AppEnvironment.staging
+                  : AppEnvironment.development));
     } else {
       // 非Web端维持原有编译模式策略
       if (kReleaseMode) {
@@ -398,16 +404,21 @@ class AppConfig {
       }
     }
 
-    debugPrint('🔧 AppConfig initialized');
-    debugPrint('   Environment: ${_environment.name}');
-    debugPrint('   API URL: $apiBaseUrl');
-    debugPrint('   WS URL: $wsUrl');
+    if (kDebugMode) {
+      debugPrint('AppConfig initialized');
+      debugPrint('Environment: ${_environment.name}');
+      debugPrint('API URL: $apiBaseUrl');
+      debugPrint('WS URL: $wsUrl');
+    }
   }
 
   /// 打印所有配置
   ///
   /// 调试用，输出当前配置信息。
   void printConfig() {
+    if (!kDebugMode) {
+      return;
+    }
     debugPrint('''
 ╔══════════════════════════════════════════════════════════════╗
 ║                    HeartLake 配置信息                         ║

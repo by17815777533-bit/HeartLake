@@ -9,6 +9,7 @@
 #include "interfaces/api/AdminManagementController.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/BusinessRules.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/ResponseUtil.h"
 #include "utils/IdGenerator.h"
 #include "utils/AdminConfigStore.h"
@@ -17,6 +18,7 @@
 #include "infrastructure/ai/AIService.h"
 #include <drogon/orm/Exception.h>
 #include <json/json.h>
+#include <ctime>
 
 using namespace drogon;
 using namespace heartlake::utils;
@@ -831,6 +833,14 @@ void AdminManagementController::approveContent(const HttpRequestPtr &req,
             adminId);
 
         writeOperationLog(req, adminId, "approve", "report", moderationId, "审核通过");
+        Json::Value wsMsg;
+        wsMsg["type"] = "new_moderation";
+        wsMsg["report_id"] = moderationId;
+        wsMsg["status"] = "handled";
+        wsMsg["action"] = "approved";
+        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        BroadcastWebSocketController::broadcast(wsMsg);
+        heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_handled");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin approveContent error: " << e.what();
@@ -881,6 +891,14 @@ void AdminManagementController::rejectContent(const HttpRequestPtr &req,
             adminId);
 
         writeOperationLog(req, adminId, "reject", "report", moderationId, moderationReason);
+        Json::Value wsMsg;
+        wsMsg["type"] = "new_moderation";
+        wsMsg["report_id"] = moderationId;
+        wsMsg["status"] = "ignored";
+        wsMsg["action"] = "rejected";
+        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        BroadcastWebSocketController::broadcast(wsMsg);
+        heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_ignored");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin rejectContent error: " << e.what();
@@ -1071,6 +1089,14 @@ void AdminManagementController::handleReport(const HttpRequestPtr &req,
         }
         const auto note = json && json->isMember("note") ? (*json)["note"].asString() : "";
         writeOperationLog(req, adminId, "handle_report", "report", reportId, note.empty() ? action : note);
+        Json::Value wsMsg;
+        wsMsg["type"] = "new_moderation";
+        wsMsg["report_id"] = reportId;
+        wsMsg["status"] = action;
+        wsMsg["action"] = action;
+        wsMsg["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+        BroadcastWebSocketController::broadcast(wsMsg);
+        heartlake::utils::broadcastAdminRealtimeStatsUpdate("report_status_changed");
         callback(ResponseUtil::success());
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin handleReport error: " << e.what();

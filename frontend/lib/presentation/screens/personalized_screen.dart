@@ -231,6 +231,52 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     );
   }
 
+  String _algorithmLabel(Stone stone) {
+    switch (stone.recommendationAlgorithm) {
+      case 'emotion_temporal_resonance':
+        return '四维共鸣';
+      case 'emotion_resonance_hybrid':
+        return '混合共鸣';
+      case 'user_cf':
+        return '同频旅人';
+      case 'item_cf':
+        return '相似心声';
+      case 'content_based':
+        return '情绪匹配';
+      case 'ucb_explore':
+        return '探索发现';
+      case 'graph_walk':
+        return '关系扩散';
+      case 'multi_armed_bandit_mmr':
+        return '多路融合';
+      default:
+        return '为你而来';
+    }
+  }
+
+  String? _scoreBreakdown(Stone stone) {
+    final parts = <String>[];
+    if (stone.semanticScore != null) {
+      parts.add('语义 ${(stone.semanticScore! * 100).round()}');
+    }
+    if (stone.trajectoryScore != null) {
+      parts.add('轨迹 ${(stone.trajectoryScore! * 100).round()}');
+    }
+    if (stone.temporalScore != null) {
+      parts.add('时序 ${(stone.temporalScore! * 100).round()}');
+    }
+    if (stone.diversityScore != null) {
+      parts.add('多样 ${(stone.diversityScore! * 100).round()}');
+    }
+    if (parts.isEmpty) return null;
+    return parts.join(' · ');
+  }
+
+  String _formatRecommendationScore(double score) {
+    final normalized = score > 1 ? score : score * 100;
+    return '${normalized.round()}分';
+  }
+
   /// 带微浮动动画的石头推荐卡片，点击时上报交互事件
   Widget _buildDriftingCard(Stone stone, int index) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -293,6 +339,20 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                _InfoChip(label: _algorithmLabel(stone)),
+                                if (stone.recommendationScore != null)
+                                  _InfoChip(
+                                    label: _formatRecommendationScore(
+                                      stone.recommendationScore!,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text(
                               stone.content.length > 50
                                   ? '${stone.content.substring(0, 50)}...'
@@ -306,6 +366,33 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                                 height: 1.5,
                               ),
                             ),
+                            if ((stone.recommendationReason ?? '')
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                stone.recommendationReason!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: config.primary.withValues(alpha: 0.9),
+                                  height: 1.4,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            if (_scoreBreakdown(stone) != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                _scoreBreakdown(stone)!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: (isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : AppTheme.textSecondary)
+                                      .withValues(alpha: 0.68),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -397,6 +484,35 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final String label;
+
+  const _InfoChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+          letterSpacing: 0.4,
         ),
       ),
     );

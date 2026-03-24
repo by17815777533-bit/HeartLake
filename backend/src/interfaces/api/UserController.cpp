@@ -4,6 +4,7 @@
 #include "interfaces/api/UserController.h"
 #include "application/UserApplicationService.h"
 #include "infrastructure/di/ServiceLocator.h"
+#include "infrastructure/services/IntimacyService.h"
 #include "utils/IdGenerator.h"
 #include "utils/BusinessRules.h"
 #include "utils/PasetoUtil.h"
@@ -26,6 +27,16 @@ using namespace heartlake::controllers;
 using namespace heartlake::utils;
 
 namespace {
+std::string intimacyLevelZhForUser(const std::string &level) {
+  if (level == "soulmate")
+    return "灵魂同频";
+  if (level == "close")
+    return "深度共鸣";
+  if (level == "warm")
+    return "温暖连接";
+  return "初识";
+}
+
 std::string trimAscii(const std::string &value) {
   size_t start = 0;
   while (start < value.size() &&
@@ -671,7 +682,7 @@ void UserController::deleteAccount(
 }
 
 void UserController::getUserInfo(
-    [[maybe_unused]] const HttpRequestPtr &req,
+    const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &userId) {
   try {
@@ -689,6 +700,25 @@ void UserController::getUserInfo(
     user["stones_count"] = profile.get("stone_count", 0).asInt();
     user["ripples_received"] = profile.get("ripples_received", 0).asInt();
     user["boats_received"] = profile.get("boats_received", 0).asInt();
+    user["is_friend"] = false;
+    user["can_chat"] = false;
+
+    if (auto currentUserIdOpt = Validator::getUserId(req);
+        currentUserIdOpt && *currentUserIdOpt != userId) {
+      auto &intimacy =
+          heartlake::infrastructure::IntimacyService::getInstance();
+      const double intimacyScore =
+          intimacy.getIntimacyScore(*currentUserIdOpt, userId);
+      const bool canChat = intimacy.canChat(*currentUserIdOpt, userId);
+      const auto intimacyLevel =
+          heartlake::infrastructure::IntimacyService::levelFromScore(
+              intimacyScore);
+      user["intimacy_score"] = intimacyScore;
+      user["intimacy_level"] = intimacyLevel;
+      user["intimacy_label"] = intimacyLevelZhForUser(intimacyLevel);
+      user["is_friend"] = canChat;
+      user["can_chat"] = canChat;
+    }
 
     callback(ResponseUtil::success(user));
 

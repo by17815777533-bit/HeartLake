@@ -8,6 +8,7 @@
 // - Provider状态管理树构建
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'presentation/providers/theme_provider.dart';
@@ -35,14 +36,18 @@ void main() {
 
     // 捕获Flutter框架内的同步错误
     FlutterError.onError = (details) {
-      FlutterError.presentError(details);
-      debugPrint('Flutter Error: ${details.exceptionAsString()}');
+      if (kDebugMode) {
+        FlutterError.presentError(details);
+        debugPrint('Flutter Error: ${details.exceptionAsString()}');
+      }
     };
 
     // 捕获异步错误
     WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-      debugPrint('Unhandled async error: $error');
-      debugPrint(stack.toString());
+      if (kDebugMode) {
+        debugPrint('Unhandled async error: $error');
+        debugPrint(stack.toString());
+      }
       return true;
     };
 
@@ -54,7 +59,9 @@ void main() {
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Text(
-              '页面渲染异常，请刷新重试\n${details.exceptionAsString()}',
+              kDebugMode
+                  ? '页面渲染异常，请刷新重试\n${details.exceptionAsString()}'
+                  : '页面暂时开了点小差，请稍后重试',
               style: const TextStyle(color: Colors.black87, fontSize: 14),
               textAlign: TextAlign.center,
             ),
@@ -82,8 +89,10 @@ void main() {
 
     runApp(const HeartLakeApp());
   }, (error, stack) {
-    debugPrint('runZonedGuarded caught: $error');
-    debugPrint(stack.toString());
+    if (kDebugMode) {
+      debugPrint('runZonedGuarded caught: $error');
+      debugPrint(stack.toString());
+    }
   });
 }
 

@@ -202,6 +202,7 @@ import VChart from 'vue-echarts'
 import { Download, RefreshRight } from '@element-plus/icons-vue'
 import { useDashboardData } from '@/composables/useDashboardData'
 import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
+import websocket from '@/services/websocket'
 
 const router = useRouter()
 
@@ -480,6 +481,18 @@ const jumpToReports = () => router.push('/reports')
 
 let clockTimer: ReturnType<typeof setInterval> | null = null
 let pulseTimer: ReturnType<typeof setInterval> | null = null
+let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+const scheduleRealtimeRefresh = () => {
+  if (document.hidden) return
+  if (realtimeRefreshTimer) {
+    clearTimeout(realtimeRefreshTimer)
+  }
+  realtimeRefreshTimer = setTimeout(() => {
+    void refreshData()
+    realtimeRefreshTimer = null
+  }, 280)
+}
 
 const startPolling = () => {
   if (!clockTimer) {
@@ -516,11 +529,33 @@ const handleVisibilityChange = () => {
 onMounted(() => {
   refreshData()
   startPolling()
+  websocket.on('stats_update', scheduleRealtimeRefresh)
+  websocket.on('new_stone', scheduleRealtimeRefresh)
+  websocket.on('stone_deleted', scheduleRealtimeRefresh)
+  websocket.on('ripple_update', scheduleRealtimeRefresh)
+  websocket.on('ripple_deleted', scheduleRealtimeRefresh)
+  websocket.on('boat_update', scheduleRealtimeRefresh)
+  websocket.on('boat_deleted', scheduleRealtimeRefresh)
+  websocket.on('new_report', scheduleRealtimeRefresh)
+  websocket.on('new_moderation', scheduleRealtimeRefresh)
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
   stopPolling()
+  if (realtimeRefreshTimer) {
+    clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
+  websocket.off('stats_update', scheduleRealtimeRefresh)
+  websocket.off('new_stone', scheduleRealtimeRefresh)
+  websocket.off('stone_deleted', scheduleRealtimeRefresh)
+  websocket.off('ripple_update', scheduleRealtimeRefresh)
+  websocket.off('ripple_deleted', scheduleRealtimeRefresh)
+  websocket.off('boat_update', scheduleRealtimeRefresh)
+  websocket.off('boat_deleted', scheduleRealtimeRefresh)
+  websocket.off('new_report', scheduleRealtimeRefresh)
+  websocket.off('new_moderation', scheduleRealtimeRefresh)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>

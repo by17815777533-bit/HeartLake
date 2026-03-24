@@ -56,14 +56,27 @@ const WS_MESSAGE_TYPE_LIST = [
   'ping',
 ] as const
 
-type WSMessageType = typeof WS_MESSAGE_TYPE_LIST[number]
+type WSMessageType = (typeof WS_MESSAGE_TYPE_LIST)[number]
 
 export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
 
+function resolveMessagePayload(message: Record<string, unknown>): unknown {
+  const nested = message.data ?? message.payload
+  if (nested && typeof nested === 'object') {
+    return nested
+  }
+  return message
+}
+
 function resolveWsEndpoint(token: string): URL {
   const explicitUrl = import.meta.env.VITE_WS_URL?.trim()
-  const rawUrl = explicitUrl || `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/broadcast`
-  const wsUrl = new URL(rawUrl, `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`)
+  const rawUrl =
+    explicitUrl ||
+    `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/broadcast`
+  const wsUrl = new URL(
+    rawUrl,
+    `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`,
+  )
   // 低配机的代理链路更稳定地支持握手期 query 鉴权；连接后仍兼容发送 auth 首包。
   wsUrl.searchParams.set('token', token)
   return wsUrl
@@ -116,9 +129,11 @@ export default {
       startHeartbeat()
     }
 
-    ws.onmessage = e => {
+    ws.onmessage = (e) => {
       try {
-        const { type, data } = JSON.parse(e.data)
+        const parsed = JSON.parse(e.data) as Record<string, unknown>
+        const type = String(parsed.type ?? '')
+        const data = resolveMessagePayload(parsed)
         // 收到 pong 时更新时间戳（心跳存活检测用）
         if (type === 'pong') {
           lastPongTime = Date.now()
@@ -128,7 +143,7 @@ export default {
           console.warn('收到未知 WebSocket 消息类型:', type)
           return
         }
-        listeners[type]?.forEach(fn => fn(data))
+        listeners[type]?.forEach((fn) => fn(data))
       } catch (err) {
         console.error('WebSocket 消息解析失败:', err)
       }
@@ -181,16 +196,16 @@ export default {
 
   /** 注册指定消息类型的监听器 */
   on(type: string, fn: WSListener) {
-    (listeners[type] ||= []).push(fn)
+    ;(listeners[type] ||= []).push(fn)
   },
 
   /** 移除指定消息类型的监听器 */
   off(type: string, fn: WSListener) {
-    listeners[type] = listeners[type]?.filter(f => f !== fn)
+    listeners[type] = listeners[type]?.filter((f) => f !== fn)
   },
 
   /** 清理所有监听器（用于完全断开时） */
   clearAllListeners() {
-    Object.keys(listeners).forEach(key => delete listeners[key])
-  }
+    Object.keys(listeners).forEach((key) => delete listeners[key])
+  },
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Mock WebSocket
 class MockWebSocket {
+  static instances: MockWebSocket[] = []
   url: string
   readyState: number
   onopen: ((ev: Event) => void) | null
@@ -18,9 +19,14 @@ class MockWebSocket {
     this.onclose = null
     this.onerror = null
     this.sentMessages = []
+    MockWebSocket.instances.push(this)
   }
-  send(data: string): void { this.sentMessages.push(data) }
-  close(): void { this.readyState = 3 }
+  send(data: string): void {
+    this.sentMessages.push(data)
+  }
+  close(): void {
+    this.readyState = 3
+  }
 }
 
 Object.assign(globalThis, {
@@ -49,6 +55,7 @@ describe('WebSocket Service', () => {
 
   beforeEach(async () => {
     vi.resetModules()
+    MockWebSocket.instances = []
     const mod = await import('@/services/websocket')
     wsService = mod.default as unknown as WSService
   })
@@ -72,5 +79,22 @@ describe('WebSocket Service', () => {
     wsService.on('stats_update', handler)
     wsService.on('new_report', handler)
     wsService.clearAllListeners()
+  })
+
+  it('should normalize flat websocket payloads', () => {
+    const handler = vi.fn()
+    wsService.on('new_stone', handler)
+    wsService.connect()
+
+    const ws = MockWebSocket.instances.at(-1)
+    expect(ws).toBeTruthy()
+
+    ws?.onmessage?.({
+      data: JSON.stringify({ type: 'new_stone', stone_id: 'stone-1', triggered_by: 'user-1' }),
+    } as MessageEvent)
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'new_stone', stone_id: 'stone-1', triggered_by: 'user-1' }),
+    )
   })
 })

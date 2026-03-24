@@ -354,24 +354,32 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
           await _interactionService.createRipple(widget.stone.stoneId);
 
       if (result['success'] == true && mounted) {
+        final payload = result['data'] is Map<String, dynamic>
+            ? result['data'] as Map<String, dynamic>
+            : null;
+        final alreadyRippled = result['already_rippled'] == true ||
+            payload?['already_rippled'] == true;
+        final resolvedRippleCount = extractRippleCount(result) ??
+            (payload != null ? extractRippleCount(payload) : null);
         setState(() {
           _hasInteraction = true; // 标记有互动
           _hasRippled = true; // 标记已涟漪
-          if (result['data'] != null &&
-              result['data']['ripple_count'] != null) {
-            _localRipplesCount = result['data']['ripple_count'];
-          } else {
+          if (resolvedRippleCount != null) {
+            _localRipplesCount = resolvedRippleCount;
+          } else if (!alreadyRippled) {
             _localRipplesCount++;
+          } else {
+            _localRipplesCount = _localRipplesCount.clamp(0, 99999);
           }
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.waves, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('你的共鸣已传递'),
+                const Icon(Icons.waves, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(alreadyRippled ? '你已经点过这道涟漪了' : '你的共鸣已传递'),
               ],
             ),
             backgroundColor: MoodColors.getConfig(_stoneMood).primary,

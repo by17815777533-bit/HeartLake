@@ -76,6 +76,50 @@ int resolveSearchTotal(const drogon::orm::DbClientPtr &dbClient,
         userId, searchPattern));
 }
 
+std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto result = dbClient->execSqlSync(
+        "WITH candidates AS ("
+        "  SELECT s.stone_id, s.created_at, 0 AS priority "
+        "  FROM stones s "
+        "  WHERE s.user_id = $1 "
+        "    AND s.status = 'published' "
+        "    AND s.deleted_at IS NULL "
+        "  UNION ALL "
+        "  SELECT h.stone_id, h.created_at, 1 AS priority "
+        "  FROM user_interaction_history h "
+        "  JOIN stones s ON s.stone_id = h.stone_id "
+        "  WHERE h.user_id = $1 "
+        "    AND s.status = 'published' "
+        "    AND s.deleted_at IS NULL "
+        "  UNION ALL "
+        "  SELECT r.stone_id, r.created_at, 2 AS priority "
+        "  FROM ripples r "
+        "  JOIN stones s ON s.stone_id = r.stone_id "
+        "  WHERE r.user_id = $1 "
+        "    AND s.status = 'published' "
+        "    AND s.deleted_at IS NULL "
+        "  UNION ALL "
+        "  SELECT b.stone_id, b.created_at, 3 AS priority "
+        "  FROM paper_boats b "
+        "  JOIN stones s ON s.stone_id = b.stone_id "
+        "  WHERE b.user_id = $1 "
+        "    AND s.status = 'published' "
+        "    AND s.deleted_at IS NULL "
+        ") "
+        "SELECT stone_id "
+        "FROM candidates "
+        "ORDER BY priority ASC, created_at DESC "
+        "LIMIT 1",
+        userId);
+
+    const auto row = safeRow(result);
+    if (!row || (*row)["stone_id"].isNull()) {
+        return "";
+    }
+    return (*row)["stone_id"].as<std::string>();
+}
+
 } // namespace
 
 /**
@@ -979,15 +1023,21 @@ void RecommendationController::getAdvancedRecommendations(
             limit = std::clamp(safeInt(params.at("limit"), 20), 1, 50);
         }
 
-        // 如果提供了stone_id，融合情绪共鸣引擎结果
-        std::string stoneId;
+        // 如果未显式提供 stone_id，则自动回退到最近有效的上下文石头，
+        // 让四维共鸣算法在默认推荐入口也能真正参与产出。
+        std::string requestedStoneId;
         if (params.count("stone_id")) {
-            stoneId = params.at("stone_id");
+            requestedStoneId = params.at("stone_id");
         }
+        const std::string referenceStoneId = requestedStoneId.empty()
+            ? resolveRecommendationReferenceStoneId(userId)
+            : requestedStoneId;
+        const bool usedAutoReference =
+            requestedStoneId.empty() && !referenceStoneId.empty();
 
         auto& engine = heartlake::ai::RecommendationEngine::getInstance();
         engine.getRecommendations(userId, "stone", limit,
-            [callback, userId, stoneId, limit](
+            [callback, userId, referenceStoneId, usedAutoReference, limit](
                 const std::vector<heartlake::ai::RecommendationCandidate>& results,
                 const std::string& error
             ) {
@@ -999,10 +1049,13 @@ void RecommendationController::getAdvancedRecommendations(
                 Json::Value recommendations(Json::arrayValue);
                 std::unordered_set<std::string> addedIds;
 
-                // 如果有stone_id，先添加情绪共鸣结果（权重更高）
-                if (!stoneId.empty()) {
+                // 有参考石头时，先加入四维共鸣结果。
+                if (!referenceStoneId.empty()) {
                     auto& resonanceEngine = heartlake::ai::EmotionResonanceEngine::getInstance();
-                    auto resonanceResults = resonanceEngine.findResonance(userId, stoneId, limit / 2);
+                    auto resonanceResults = resonanceEngine.findResonance(
+                        userId,
+                        referenceStoneId,
+                        std::max(1, limit / 2));
 
                     for (const auto& res : resonanceResults) {
                         Json::Value item;
@@ -1021,6 +1074,7 @@ void RecommendationController::getAdvancedRecommendations(
                         item["author_name"] = res.authorName;
                         item["ripple_count"] = res.rippleCount;
                         item["created_at"] = res.createdAt;
+                        item["reference_stone_id"] = referenceStoneId;
                         recommendations.append(item);
                         addedIds.insert(res.stoneId);
                     }
@@ -1049,9 +1103,14 @@ void RecommendationController::getAdvancedRecommendations(
                 Json::Value data =
                     buildStaticCollectionPayload("recommendations", recommendations);
                 data["count"] = static_cast<int>(recommendations.size());
-                data["algorithm"] = stoneId.empty()
+                data["algorithm"] = referenceStoneId.empty()
                     ? "multi_armed_bandit_mmr"
                     : "emotion_resonance_hybrid";
+                if (!referenceStoneId.empty()) {
+                    data["reference_stone_id"] = referenceStoneId;
+                    data["reference_source"] =
+                        usedAutoReference ? "auto_latest_context" : "explicit";
+                }
 
                 callback(ResponseUtil::success(data, "为你精选的内容"));
             }

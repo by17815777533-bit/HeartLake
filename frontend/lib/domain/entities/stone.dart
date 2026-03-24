@@ -30,6 +30,15 @@ class Stone {
   final double? sentimentScore; // 情感分数: -1.0 (消极) 到 1.0 (积极)
   final List<String>? aiTags; // AI 生成的标签
 
+  // 推荐与共鸣算法相关字段
+  final String? recommendationAlgorithm;
+  final String? recommendationReason;
+  final double? recommendationScore;
+  final double? semanticScore;
+  final double? trajectoryScore;
+  final double? temporalScore;
+  final double? diversityScore;
+
   // 媒体文件相关字段
   final List<String>? mediaIds; // 关联的媒体文件ID列表
   final bool hasMedia; // 是否包含媒体文件
@@ -52,6 +61,13 @@ class Stone {
     this.moodType,
     this.sentimentScore,
     this.aiTags,
+    this.recommendationAlgorithm,
+    this.recommendationReason,
+    this.recommendationScore,
+    this.semanticScore,
+    this.trajectoryScore,
+    this.temporalScore,
+    this.diversityScore,
     this.mediaIds,
     this.hasMedia = false,
     this.hasRippled = false,
@@ -118,6 +134,16 @@ class Stone {
         aiTags: normalized['ai_tags'] != null
             ? List<String>.from(normalized['ai_tags'])
             : null,
+        recommendationAlgorithm:
+            normalized['algorithm'] ?? normalized['recommendation_algorithm'],
+        recommendationReason:
+            normalized['recommendation_reason'] ?? normalized['reason'],
+        recommendationScore:
+            _parseDouble(normalized['score'] ?? normalized['relevance_score']),
+        semanticScore: _parseDouble(normalized['semantic_score']),
+        trajectoryScore: _parseDouble(normalized['trajectory_score']),
+        temporalScore: _parseDouble(normalized['temporal_score']),
+        diversityScore: _parseDouble(normalized['diversity_score']),
         // 媒体字段
         mediaIds: mediaIds,
         hasMedia: parseBool(normalized['has_media']) ||
@@ -213,6 +239,13 @@ class Stone {
       'mood_type': moodType,
       'sentiment_score': sentimentScore,
       'ai_tags': aiTags,
+      'algorithm': recommendationAlgorithm,
+      'recommendation_reason': recommendationReason,
+      'score': recommendationScore,
+      'semantic_score': semanticScore,
+      'trajectory_score': trajectoryScore,
+      'temporal_score': temporalScore,
+      'diversity_score': diversityScore,
       'media_ids': mediaIds,
       'has_media': hasMedia,
       'has_rippled': hasRippled,
@@ -239,6 +272,13 @@ class Stone {
     String? moodType,
     double? sentimentScore,
     List<String>? aiTags,
+    String? recommendationAlgorithm,
+    String? recommendationReason,
+    double? recommendationScore,
+    double? semanticScore,
+    double? trajectoryScore,
+    double? temporalScore,
+    double? diversityScore,
     List<String>? mediaIds,
     bool? hasMedia,
     bool? hasRippled,
@@ -260,6 +300,14 @@ class Stone {
       moodType: moodType ?? this.moodType,
       sentimentScore: sentimentScore ?? this.sentimentScore,
       aiTags: aiTags ?? this.aiTags,
+      recommendationAlgorithm:
+          recommendationAlgorithm ?? this.recommendationAlgorithm,
+      recommendationReason: recommendationReason ?? this.recommendationReason,
+      recommendationScore: recommendationScore ?? this.recommendationScore,
+      semanticScore: semanticScore ?? this.semanticScore,
+      trajectoryScore: trajectoryScore ?? this.trajectoryScore,
+      temporalScore: temporalScore ?? this.temporalScore,
+      diversityScore: diversityScore ?? this.diversityScore,
       mediaIds: mediaIds ?? this.mediaIds,
       hasMedia: hasMedia ?? this.hasMedia,
       hasRippled: hasRippled ?? this.hasRippled,
