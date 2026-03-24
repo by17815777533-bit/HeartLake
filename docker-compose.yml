@@ -75,6 +75,11 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-http://ollama:11434}
       AI_MODEL: ${AI_MODEL:-heartlake-qwen}
       AI_TIMEOUT: ${AI_TIMEOUT:-30}
+      EDGE_AI_ONNX_ENABLED: ${EDGE_AI_ONNX_ENABLED:-auto}
+      EDGE_AI_MODEL_PATH: ${EDGE_AI_MODEL_PATH:-./models}
+      EDGE_AI_VOCAB_PATH: ${EDGE_AI_VOCAB_PATH:-./models/vocab.txt}
+      EDGE_AI_ONNX_THREADS: ${EDGE_AI_ONNX_THREADS:-2}
+      EDGE_AI_ONNX_SESSION_POOL: ${EDGE_AI_ONNX_SESSION_POOL:-1}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
       PUBLIC_WS_URL: ${PUBLIC_WS_URL:-ws://localhost:8080/ws/broadcast}
       ENV_MODE: ${ENV_MODE:-development}

@@ -3,6 +3,7 @@
 // 支持E2E加密的咨询会话，包含预约咨询和实时消息收发。
 import 'package:flutter/material.dart';
 import '../../data/datasources/consultation_service.dart';
+import '../../data/datasources/vip_service.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../widgets/atmospheric_background.dart';
@@ -10,7 +11,7 @@ import '../widgets/atmospheric_background.dart';
 /// 心理咨询主页面
 ///
 /// 双 Tab 结构：
-/// - 预约咨询：展示咨询师列表（资质、评分、咨询次数），点击预约进入聊天
+/// - 预约咨询：走后端真实预约链路，提交咨询预约时间
 /// - 我的会话：历史咨询会话列表，点击继续对话
 ///
 /// 聊天界面内置 E2E 加密保护，所有消息经 X25519 + AES-GCM 加密后传输，
@@ -74,24 +75,11 @@ class _ConsultationScreenState extends State<ConsultationScreen>
           TabBarView(
             controller: _tabController,
             children: [
-              _CounselorListTab(onStartChat: _goToChat),
+              const _ConsultationBookingTab(),
               _SessionListTab(onOpenSession: _goToChatWithSession),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  /// 跳转到咨询聊天页面（新建会话）
-  void _goToChat(String counselorId, String counselorName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ConsultationChatScreen(
-          counselorId: counselorId,
-          counselorName: counselorName,
-        ),
       ),
     );
   }
@@ -110,182 +98,289 @@ class _ConsultationScreenState extends State<ConsultationScreen>
   }
 }
 
-/// 咨询师列表 Tab（预约咨询），展示静态咨询师数据
-class _CounselorListTab extends StatelessWidget {
-  /// 点击预约后的回调，传递咨询师ID和姓名
-  final void Function(String counselorId, String counselorName) onStartChat;
-
-  const _CounselorListTab({required this.onStartChat});
-
-  static final List<Map<String, dynamic>> _counselors = [
-    {
-      'id': 'counselor_001',
-      'name': '林心怡',
-      'avatar': '🧑‍⚕️',
-      'specialty': '情绪管理 · 压力疏导',
-      'rating': 4.9,
-      'sessions': 1280,
-      'description': '国家二级心理咨询师，擅长认知行为疗法与正念减压',
-    },
-    {
-      'id': 'counselor_002',
-      'name': '苏晓晨',
-      'avatar': '🧑‍⚕️',
-      'specialty': '人际关系 · 社交焦虑',
-      'rating': 4.8,
-      'sessions': 960,
-      'description': '应用心理学硕士，专注人际沟通与社交适应训练',
-    },
-    {
-      'id': 'counselor_003',
-      'name': '陈思源',
-      'avatar': '🧑‍⚕️',
-      'specialty': '自我成长 · 心理健康',
-      'rating': 4.9,
-      'sessions': 1100,
-      'description': '临床心理学博士，擅长自我探索与积极心理干预',
-    },
-  ];
+/// 预约咨询 Tab，走真实预约接口，不再展示前端伪造的咨询师列表
+class _ConsultationBookingTab extends StatefulWidget {
+  const _ConsultationBookingTab();
 
   @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + kToolbarHeight + 60,
-        bottom: 20,
-        left: 16,
-        right: 16,
-      ),
-      itemCount: _counselors.length,
-      itemBuilder: (context, index) {
-        final c = _counselors[index];
-        return _CounselorCard(
-          name: c['name'] as String,
-          avatar: c['avatar'] as String,
-          specialty: c['specialty'] as String,
-          rating: c['rating'] as double,
-          sessions: c['sessions'] as int,
-          description: c['description'] as String,
-          onBook: () => onStartChat(
-            c['id'] as String,
-            c['name'] as String,
-          ),
-        );
-      },
-    );
-  }
+  State<_ConsultationBookingTab> createState() =>
+      _ConsultationBookingTabState();
 }
 
-/// 咨询师信息卡片，展示资质、评分和预约按钮
-class _CounselorCard extends StatelessWidget {
-  final String name;
-  final String avatar;
-  final String specialty;
-  final double rating;
-  final int sessions;
-  final String description;
-  final VoidCallback onBook;
+class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
+  final VIPService _vipService = sl<VIPService>();
 
-  const _CounselorCard({
-    required this.name,
-    required this.avatar,
-    required this.specialty,
-    required this.rating,
-    required this.sessions,
-    required this.description,
-    required this.onBook,
-  });
+  bool _isLoadingStatus = true;
+  bool _isBooking = false;
+  bool _hasFreeQuota = false;
+  bool _isVip = false;
+  int _vipDaysLeft = 0;
+  DateTime? _selectedTime;
+  String? _lastAppointmentId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    if (mounted) {
+      setState(() => _isLoadingStatus = true);
+    }
+    try {
+      final results = await Future.wait<dynamic>([
+        _vipService.getVIPStatus(),
+        _vipService.hasFreeCounselingQuota(),
+      ]);
+      final status = results[0] as Map<String, dynamic>;
+      final payload = status['data'] is Map<String, dynamic>
+          ? status['data'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+
+      if (!mounted) return;
+      setState(() {
+        _isVip = payload['is_vip'] == true;
+        _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
+        _hasFreeQuota = results[1] == true;
+        _isLoadingStatus = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isVip = false;
+        _vipDaysLeft = 0;
+        _hasFreeQuota = false;
+        _isLoadingStatus = false;
+      });
+    }
+  }
+
+  Future<void> _pickAppointmentTime() async {
+    final now = DateTime.now();
+    final initialDate = now.add(const Duration(days: 1));
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (selectedDate == null || !mounted) return;
+
+    final selectedClock = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+    );
+    if (selectedClock == null || !mounted) return;
+
+    final appointmentTime = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedClock.hour,
+      selectedClock.minute,
+    );
+    if (appointmentTime.isBefore(now.add(const Duration(minutes: 30)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('预约时间需要晚于当前时间 30 分钟')),
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedTime = appointmentTime;
+    });
+  }
+
+  Future<void> _bookAppointment() async {
+    final appointmentTime = _selectedTime;
+    if (appointmentTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先选择预约时间')),
+      );
+      return;
+    }
+
+    setState(() => _isBooking = true);
+    try {
+      final result = await _vipService.bookCounseling(
+        appointmentTime: appointmentTime.toIso8601String(),
+        isFreeVIP: _hasFreeQuota,
+      );
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final payload = result['data'] is Map<String, dynamic>
+            ? result['data'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+        setState(() {
+          _lastAppointmentId = payload['appointment_id']?.toString();
+        });
+        await _loadStatus();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('预约已提交，请留意后续通知')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message']?.toString() ?? '预约失败')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('网络异常，请稍后再试')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isBooking = false);
+      }
+    }
+  }
+
+  String _formatAppointmentTime(DateTime? time) {
+    if (time == null) return '未选择';
+    final month = time.month.toString().padLeft(2, '0');
+    final day = time.day.toString().padLeft(2, '0');
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '${time.year}-$month-$day $hour:$minute';
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: isDark
-          ? const Color(0xFF16213E).withValues(alpha: 0.92)
-          : Colors.white.withValues(alpha: 0.92),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 60;
+
+    return RefreshIndicator(
+      onRefresh: _loadStatus,
+      color: AppTheme.primaryColor,
+      child: ListView(
+        padding: EdgeInsets.only(
+          top: topPadding,
+          bottom: 20,
+          left: 16,
+          right: 16,
+        ),
+        children: [
+          Card(
+            color: isDark
+                ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('真实预约链路',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  SizedBox(height: 8),
+                  Text(
+                    '这里直接提交后端心理咨询预约，不再使用前端伪造咨询师数据。预约成功后，系统会通过通知和会话列表同步后续安排。',
+                    style: TextStyle(height: 1.6),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            color: isDark
+                ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ListTile(
+              leading: Icon(
+                _hasFreeQuota ? Icons.local_fire_department : Icons.schedule,
+                color: _hasFreeQuota ? Colors.orange : AppTheme.primaryColor,
+              ),
+              title: Text(
+                _isLoadingStatus
+                    ? '正在加载预约状态...'
+                    : (_hasFreeQuota ? '当前可用一次免费咨询' : '当前走普通预约'),
+              ),
+              subtitle: Text(
+                _isLoadingStatus
+                    ? '请稍候'
+                    : (_isVip
+                        ? '灯火剩余 $_vipDaysLeft 天'
+                        : '未检测到免费灯火额度'),
+              ),
+              trailing: IconButton(
+                onPressed: _isLoadingStatus ? null : _loadStatus,
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            color: isDark
+                ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Column(
               children: [
-                // 头像
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppTheme.skyBlue.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(avatar, style: const TextStyle(fontSize: 28)),
+                ListTile(
+                  leading: const Icon(Icons.event_available,
+                      color: AppTheme.primaryColor),
+                  title: const Text('预约时间'),
+                  subtitle: Text(_formatAppointmentTime(_selectedTime)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _pickAppointmentTime,
                 ),
-                const SizedBox(width: 12),
-                // 信息
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text(specialty,
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: isDark
-                                  ? Colors.white70
-                                  : AppTheme.textSecondary)),
-                    ],
-                  ),
-                ),
-                // 评分
-                Column(
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.star_rounded,
-                            color: AppTheme.accentColor, size: 18),
-                        const SizedBox(width: 2),
-                        Text('$rating',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15)),
-                      ],
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isBooking || _isLoadingStatus
+                          ? null
+                          : _bookAppointment,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isBooking
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_hasFreeQuota ? '预约免费咨询' : '提交咨询预约'),
                     ),
-                    const SizedBox(height: 2),
-                    Text('$sessions次咨询',
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textTertiary)),
-                  ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(description,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+          ),
+          if (_lastAppointmentId != null) ...[
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onBook,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                child: const Text('预约咨询'),
+            Card(
+              color: isDark
+                  ? const Color(0xFF16213E).withValues(alpha: 0.92)
+                  : Colors.white.withValues(alpha: 0.92),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading:
+                    const Icon(Icons.check_circle, color: AppTheme.successColor),
+                title: const Text('最近一次预约已提交'),
+                subtitle: Text('预约单号：$_lastAppointmentId'),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -327,7 +422,12 @@ class _SessionListTabState extends State<_SessionListTab> {
         final data = result['data'];
         final List<dynamic> list =
             data is List ? data : (data['sessions'] ?? []);
-        _sessions = list.cast<Map<String, dynamic>>();
+        _sessions = list
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item.cast<String, dynamic>()))
+            .toList();
+      } else {
+        _error = result['message']?.toString() ?? '加载失败，请稍后重试';
       }
     } catch (e) {
       _error = '加载失败，请稍后重试';
@@ -383,7 +483,7 @@ class _SessionListTabState extends State<_SessionListTab> {
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 15)),
               const SizedBox(height: 4),
-              Text('预约一位咨询师开始吧',
+              Text('先提交一次咨询预约吧',
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 13)),
@@ -468,17 +568,15 @@ class _SessionListTabState extends State<_SessionListTab> {
 
 /// E2E 加密聊天界面
 ///
-/// 进入时自动创建会话（如无 sessionId）并初始化 E2E 加密通道，
+/// 进入时使用既有会话初始化 E2E 加密通道，
 /// 加载历史消息并自动解密。发送消息前强制加密，
 /// 未建立安全通道时拒绝发送。
 class _ConsultationChatScreen extends StatefulWidget {
-  final String? counselorId;
-  final String? sessionId;
+  final String sessionId;
   final String counselorName;
 
   const _ConsultationChatScreen({
-    this.counselorId,
-    this.sessionId,
+    required this.sessionId,
     required this.counselorName,
   });
 
@@ -489,7 +587,7 @@ class _ConsultationChatScreen extends StatefulWidget {
 
 /// E2E 加密咨询聊天页面的状态管理
 ///
-/// 管理会话创建、E2E 加密初始化、消息加解密和收发流程。
+/// 管理既有会话的 E2E 加密初始化、消息加解密和收发流程。
 class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   final ConsultationService _service = sl<ConsultationService>();
   final TextEditingController _controller = TextEditingController();
@@ -521,34 +619,25 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
 
   @override
   void dispose() {
-    _service.dispose();
+    if (_sessionId != null && _sessionId!.isNotEmpty) {
+      _service.disposeSession(_sessionId!);
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  /// 初始化聊天：创建会话（如需要）-> 初始化 E2E 加密 -> 加载历史消息
+  /// 初始化聊天：校验会话ID -> 初始化 E2E 加密 -> 加载历史消息
   Future<void> _initChat() async {
-    // 如果没有sessionId，先创建会话
-    if (_sessionId == null) {
-      final result =
-          await _service.createSession(counselorId: widget.counselorId);
-      if (result['success'] == true && result['data'] != null) {
-        _sessionId = result['data']['session_id'] as String?;
+    if (_sessionId == null || _sessionId!.isEmpty) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _addSystemMessage('会话标识缺失，无法进入咨询对话');
       }
-      if (_sessionId == null) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          _addSystemMessage('会话创建失败，请稍后重试');
-        }
-        return;
-      }
+      return;
     }
 
-    // 初始化 E2E 加密
     await _service.initE2E(_sessionId!);
-
-    // 加载历史消息
     await _loadMessages();
     if (mounted) setState(() => _isLoading = false);
   }

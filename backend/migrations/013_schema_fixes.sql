@@ -108,10 +108,19 @@ CREATE INDEX IF NOT EXISTS idx_uih_stone_user ON user_interaction_history(stone_
 -- 3. TIMESTAMP → TIMESTAMPTZ conversion
 -- ============================================================
 
--- 005_ai_system.sql 中的 user_emotion_profile 依赖 stones.created_at，
--- 先移除视图，列类型转换后再重建，避免 fresh init 阶段报错。
+-- 视图依赖说明：
+-- 1) 005_ai_system.sql 的 user_emotion_profile 依赖 stones.created_at
+-- 2) 013 中的 temp_connections 依赖 connections.expires_at
+-- 3) 019_feature_contract_completion.sql 的 user_behavior_patterns /
+--    high_risk_users_monitor 也依赖 stones.created_at
+--
+-- 运行时 migration 会在每次启动时按序重放全部 SQL。若数据库曾经执行过 019，
+-- 这里直接 ALTER stones.created_at 会被视图依赖阻塞，导致 backend 重启循环。
+-- 因此先统一移除相关视图，后续 migration 会在同一轮启动里自动重建。
+DROP VIEW IF EXISTS high_risk_users_monitor;
+DROP VIEW IF EXISTS user_behavior_patterns;
+DROP VIEW IF EXISTS emotion_trend_analysis;
 DROP VIEW IF EXISTS user_emotion_profile;
--- temp_connections 视图依赖 connections.expires_at，类型转换前需要先移除。
 DROP VIEW IF EXISTS temp_connections;
 
 -- 001_users.sql: users

@@ -2,7 +2,8 @@ build
 build-*
 .cache
 tests
-third_party
+third_party/*
+!third_party/onnxruntime-linux-x64-1.22.0.tgz
 logs
 quic_gateway
 .git

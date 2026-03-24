@@ -318,6 +318,15 @@ class _GuardianScreenState extends State<GuardianScreen>
       extractFriendEntityId(friend);
 
   Future<void> _showTransferDialog() async {
+    if (_stats?['can_transfer_lamp'] != true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('继续积累共鸣点后才能转赠灯火')),
+        );
+      }
+      return;
+    }
+
     final controller = TextEditingController();
     List<Map<String, dynamic>> friends = <Map<String, dynamic>>[];
     try {
@@ -537,7 +546,7 @@ class _GuardianScreenState extends State<GuardianScreen>
                               // 情感洞察卡片
                               _buildInsightsCard(),
                               const SizedBox(height: 24),
-                              if (_stats!['is_guardian'] == true)
+                              if (_stats!['can_transfer_lamp'] == true)
                                 ElevatedButton.icon(
                                   onPressed: _showTransferDialog,
                                   icon: const Icon(Icons.volunteer_activism),
@@ -552,6 +561,23 @@ class _GuardianScreenState extends State<GuardianScreen>
                                             BorderRadius.circular(12)),
                                   ),
                                 ),
+                              if (_stats!['is_guardian'] == true &&
+                                  _stats!['can_transfer_lamp'] != true) ...[
+                                Card(
+                                  color: isDark
+                                      ? const Color(0xFF16213E)
+                                          .withValues(alpha: 0.95)
+                                      : Colors.white.withValues(alpha: 0.95),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                  child: const ListTile(
+                                    leading: Icon(Icons.lock_outline,
+                                        color: Colors.orange),
+                                    title: Text('灯火转赠暂未解锁'),
+                                    subtitle: Text('继续积累共鸣点后可开启转赠能力'),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               // 湖神入口
                               Card(

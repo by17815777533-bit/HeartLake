@@ -47,6 +47,23 @@ static bool isRemovedByCurrentUser(
     return !result.empty();
 }
 
+static bool hasActiveTempFriendship(
+    const std::string& userId,
+    const std::string& peerId
+) {
+    auto db = drogon::app().getDbClient("default");
+    auto result = db->execSqlSync(
+        "SELECT 1 FROM temp_friends "
+        "WHERE status = 'active' "
+        "  AND expires_at >= NOW() "
+        "  AND ((user1_id = $1 AND user2_id = $2) "
+        "    OR (user1_id = $2 AND user2_id = $1)) "
+        "LIMIT 1",
+        userId, peerId
+    );
+    return !result.empty();
+}
+
 
 // ==================== 好友请求相关 ====================
 
@@ -383,9 +400,13 @@ void FriendController::sendMessage(
                 callback(ResponseUtil::forbidden("你已移除此好友，暂不可私聊"));
                 co_return;
             }
-            auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
-            const double score = intimacy.getIntimacyScore(userId, friendId);
-            if (score < kIntimacyThreshold) {
+            const bool hasTempFriendship = hasActiveTempFriendship(userId, friendId);
+            double score = 0.0;
+            if (!hasTempFriendship) {
+                auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+                score = intimacy.getIntimacyScore(userId, friendId);
+            }
+            if (!hasTempFriendship && score < kIntimacyThreshold) {
                 callback(ResponseUtil::forbidden("亲密分不足，暂不可私聊（>=12可开启）"));
                 co_return;
             }
@@ -419,6 +440,7 @@ void FriendController::sendMessage(
             data["peer_id"] = friendId;
             data["content"] = content;
             data["status"] = "sent";
+            data["chat_mode"] = hasTempFriendship ? "temp_friend" : "friend";
             data["created_at"] = timestamp;
             callback(ResponseUtil::success(data, "消息已发送"));
         } catch (const std::exception& e) {
@@ -447,9 +469,13 @@ void FriendController::getMessages(
                 callback(ResponseUtil::forbidden("你已移除此好友，无法查看私聊"));
                 co_return;
             }
-            auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
-            const double score = intimacy.getIntimacyScore(userId, friendId);
-            if (score < kIntimacyThreshold) {
+            const bool hasTempFriendship = hasActiveTempFriendship(userId, friendId);
+            double score = 0.0;
+            if (!hasTempFriendship) {
+                auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+                score = intimacy.getIntimacyScore(userId, friendId);
+            }
+            if (!hasTempFriendship && score < kIntimacyThreshold) {
                 callback(ResponseUtil::forbidden("亲密分不足，暂不可查看私聊（>=12可开启）"));
                 co_return;
             }

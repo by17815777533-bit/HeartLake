@@ -3,6 +3,7 @@
 FROM ubuntu:24.04 AS builder
 
 ARG BUILD_JOBS=1
+ARG ONNX_RUNTIME_ARCHIVE=third_party/onnxruntime-linux-x64-1.22.0.tgz
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake make g++ ca-certificates \
@@ -18,9 +19,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /src
 COPY . .
 
+RUN test -f "${ONNX_RUNTIME_ARCHIVE}" \
+    && mkdir -p /src/third_party \
+    && tar -xzf "${ONNX_RUNTIME_ARCHIVE}" -C /src/third_party
+
 RUN mkdir -p build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release \
         -DHEARTLAKE_BUILD_TESTS=OFF \
+        -DHEARTLAKE_USE_ONNX=ON \
+        -DOnnxRuntime_ROOT=/src/third_party/onnxruntime-linux-x64-1.22.0 \
         -DMYSQL_INCLUDE_DIRS=/usr/include/mysql \
         -DMYSQL_LIBRARIES=/usr/lib/x86_64-linux-gnu/libmysqlclient.so \
     && make -j"${BUILD_JOBS}"
@@ -42,6 +49,8 @@ WORKDIR /app
 COPY --from=builder /src/build/HeartLake .
 COPY --from=builder /src/start-docker.sh ./start-docker.sh
 COPY --from=builder /src/migrations ./migrations
+COPY --from=builder /src/models ./models
+COPY --from=builder /src/third_party/onnxruntime-linux-x64-1.22.0 ./third_party/onnxruntime-linux-x64-1.22.0
 
 RUN mkdir -p /app/logs \
     && chown -R heartlake:heartlake /app

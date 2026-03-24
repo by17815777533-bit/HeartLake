@@ -118,7 +118,7 @@ bool GuardianIncentiveService::checkAndGrantGuardian(const std::string& userId) 
             pushService.pushSystemNotice(
                 userId,
                 "守护者成就达成",
-                "感谢你在心湖中传递的温暖。你已成为守护者，解锁了「转赠灯火」功能，可以将你的灯火传递给需要的人。"
+                "感谢你在心湖中传递的温暖。你已成为守护者，继续累积共鸣点后可解锁「转赠灯火」功能。"
             );
 
             LOG_INFO << "User " << userId << " granted Guardian status";

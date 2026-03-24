@@ -59,6 +59,17 @@ export ENABLE_USER_FOLLOWUP="${ENABLE_USER_FOLLOWUP:-${DEFAULT_USER_FOLLOWUP_ENA
 export REALTIME_QUIC_ENABLED="${REALTIME_QUIC_ENABLED:-false}"
 export AI_OLLAMA_NUM_THREAD="${AI_OLLAMA_NUM_THREAD:-$([[ "${LOW_RESOURCE_PROFILE}" == "true" ]] && echo 2 || echo 0)}"
 export AI_OLLAMA_NUM_CTX="${AI_OLLAMA_NUM_CTX:-$([[ "${LOW_RESOURCE_PROFILE}" == "true" ]] && echo 2048 || echo 0)}"
+ORT_CPU_ROOT="${ONNXRUNTIME_ROOT:-./third_party/onnxruntime-linux-x64-1.22.0}"
+if [[ -d "${ORT_CPU_ROOT}/lib" ]]; then
+    export ONNXRUNTIME_ROOT="${ORT_CPU_ROOT}"
+    export LD_LIBRARY_PATH="${ORT_CPU_ROOT}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+fi
+if [[ -d "./models" ]]; then
+    export EDGE_AI_MODEL_PATH="${EDGE_AI_MODEL_PATH:-./models}"
+fi
+if [[ -z "${EDGE_AI_VOCAB_PATH:-}" && -f "./models/vocab.txt" ]]; then
+    export EDGE_AI_VOCAB_PATH="./models/vocab.txt"
+fi
 
 # Generate config.json from environment variables
 cat > config.json <<CONF

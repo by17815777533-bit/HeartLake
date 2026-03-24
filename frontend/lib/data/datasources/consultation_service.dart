@@ -52,41 +52,6 @@ class ConsultationService extends BaseService {
     return created;
   }
 
-  /// 创建咨询会话
-  Future<Map<String, dynamic>> createSession({String? counselorId}) async {
-    final normalizedCounselorId =
-        InputValidator.validateUUID(
-          InputValidator.requireNonEmpty(counselorId, '咨询师ID'),
-          '咨询师ID',
-        );
-    final resp = await post('/consultation/session', data: {
-      'counselor_id': normalizedCounselorId,
-    });
-    if (!resp.success) return toMap(resp);
-
-    final payload = resp.data is Map
-        ? normalizeConsultationSessionPayload(
-            Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
-          )
-        : <String, dynamic>{};
-    final sessionId = payload['session_id'] ??
-        (resp.data is Map ? (resp.data as Map)['session_id'] : null);
-    final serverPublicKey = payload['server_public_key'] ??
-        (resp.data is Map ? (resp.data as Map)['server_public_key'] : null);
-
-    return {
-      ...toMap(resp),
-      'data': {
-        ...payload,
-        if (sessionId != null) 'session_id': sessionId,
-        if (sessionId != null) 'sessionId': sessionId,
-        if (serverPublicKey != null) 'server_public_key': serverPublicKey,
-      },
-      'session_id': sessionId,
-      'sessionId': sessionId,
-    };
-  }
-
   /// 初始化 E2E 加密通道
   ///
   /// 流程：生成本地 X25519 密钥对 -> 将公钥发送给服务端 ->
@@ -326,6 +291,12 @@ class ConsultationService extends BaseService {
 
   /// E2E 加密通道是否已就绪
   bool get isE2EReady => _contexts.values.any((context) => context.e2e.isReady);
+
+  /// 释放指定会话的加密资源
+  void disposeSession(String sessionId) {
+    final context = _contexts.remove(sessionId);
+    context?.e2e.dispose();
+  }
 
   /// 释放加密资源，清除密钥对
   void dispose() {
