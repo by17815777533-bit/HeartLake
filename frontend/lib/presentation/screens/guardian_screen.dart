@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../data/datasources/guardian_service.dart';
-import '../../data/datasources/friend_service.dart';
-import '../../data/datasources/social_payload_normalizer.dart';
 import '../../di/service_locator.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/payload_contract.dart';
+import '../providers/friend_provider.dart';
 import '../widgets/water_background.dart';
 import 'lake_god_chat_screen.dart';
 
@@ -25,7 +25,6 @@ class GuardianScreen extends StatefulWidget {
 class _GuardianScreenState extends State<GuardianScreen>
     with SingleTickerProviderStateMixin {
   final _service = sl<GuardianService>();
-  final _friendService = sl<FriendService>();
   Map<String, dynamic>? _stats;
   bool _loading = true;
   late AnimationController _animController;
@@ -60,6 +59,21 @@ class _GuardianScreenState extends State<GuardianScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   Future<void> _loadStats() async {
     try {
       final stats = await _service.getStats();
@@ -71,9 +85,13 @@ class _GuardianScreenState extends State<GuardianScreen>
         _loading = false;
       });
       _animController.forward();
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'GuardianScreen._loadStats');
       if (!mounted) return;
       setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('加载守护者数据失败，请稍后重试')),
+      );
     }
   }
 
@@ -93,7 +111,8 @@ class _GuardianScreenState extends State<GuardianScreen>
           _insightsLoading = false;
         });
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'GuardianScreen._loadInsights');
       if (mounted) {
         setState(() {
           _insightsLoading = false;
@@ -329,14 +348,28 @@ class _GuardianScreenState extends State<GuardianScreen>
 
     final controller = TextEditingController();
     List<Map<String, dynamic>> friends = <Map<String, dynamic>>[];
+    final friendProvider = context.read<FriendProvider>();
     try {
-      final result = await _friendService.getFriends();
-      friends = extractNormalizedList(
-        result,
-        itemNormalizer: normalizeFriendPayload,
-        listKeys: const ['friends'],
-      );
-    } catch (_) {}
+      final result = await friendProvider.fetchFriends();
+      if (result['success'] == true) {
+        friends = friendProvider.friends;
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result['message']?.toString() ?? '好友列表加载失败，可手动输入用户ID',
+            ),
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'GuardianScreen._showTransferDialog');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('好友列表加载失败，可手动输入用户ID')),
+        );
+      }
+    }
 
     if (!mounted) {
       controller.dispose();
@@ -438,12 +471,17 @@ class _GuardianScreenState extends State<GuardianScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(success ? '灯火已传递' : '转赠失败'),
+                content: Text(
+                  success
+                      ? '灯火已传递'
+                      : (response['message']?.toString() ?? '转赠失败'),
+                ),
                 backgroundColor: success ? Colors.green : Colors.red),
           );
           if (success) _loadStats();
         }
-      } catch (e) {
+      } catch (error, stackTrace) {
+        _reportUiError(error, stackTrace, 'GuardianScreen.transferLamp');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

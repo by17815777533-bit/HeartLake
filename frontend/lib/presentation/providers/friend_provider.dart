@@ -68,6 +68,55 @@ class FriendProvider with ChangeNotifier {
   String? _tempFriendId(Map<String, dynamic> item) =>
       item['temp_friend_id']?.toString();
 
+  void _reportProviderError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _replaceFriends(List<Map<String, dynamic>> friends) {
+    _friends = friends;
+    _rebuildFriendIndex();
+  }
+
+  void _replaceTempFriends(List<Map<String, dynamic>> tempFriends) {
+    _tempFriends = tempFriends;
+    _rebuildTempFriendIndex();
+  }
+
+  Future<void> _refreshFriendsFromRealtime() async {
+    try {
+      await fetchFriends();
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'FriendProvider._refreshFriendsFromRealtime',
+      );
+    }
+  }
+
+  Future<void> _refreshTempFriendsFromRealtime() async {
+    try {
+      await fetchTempFriends();
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'FriendProvider._refreshTempFriendsFromRealtime',
+      );
+    }
+  }
+
   void _rebuildFriendIndex() {
     _friendIndexByUserId.clear();
     for (var i = 0; i < _friends.length; i++) {
@@ -126,7 +175,7 @@ class FriendProvider with ChangeNotifier {
     };
 
     _onFriendAccepted = (_) {
-      unawaited(fetchFriends());
+      unawaited(_refreshFriendsFromRealtime());
     };
 
     _onFriendRemoved = (data) {
@@ -138,17 +187,17 @@ class FriendProvider with ChangeNotifier {
     };
 
     _onTempFriendCreated = (_) {
-      unawaited(fetchTempFriends());
+      unawaited(_refreshTempFriendsFromRealtime());
     };
 
     _onTempFriendExpired = (data) {
-      final id =
-          data['temp_friend_id']?.toString() ?? data['tempFriendId']?.toString();
+      final id = data['temp_friend_id']?.toString() ??
+          data['tempFriendId']?.toString();
       if (id == null) return;
       if (_removeTempFriendById(id)) {
         notifyListeners();
       } else {
-        unawaited(fetchTempFriends());
+        unawaited(_refreshTempFriendsFromRealtime());
       }
     };
 
@@ -180,19 +229,18 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _friendService.getFriends();
       if (result['success'] == true) {
-        _friends = extractNormalizedList(
-          result,
-          itemNormalizer: normalizeFriendPayload,
-          listKeys: const ['friends'],
+        _replaceFriends(
+          extractNormalizedList(
+            result,
+            itemNormalizer: normalizeFriendPayload,
+            listKeys: const ['friends'],
+          ),
         );
-        _rebuildFriendIndex();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[FriendProvider] 获取好友列表失败: $e');
-      }
-      return {'success': false, 'message': '获取好友列表失败'};
+    } catch (error, stackTrace) {
+      _reportProviderError(error, stackTrace, 'FriendProvider.fetchFriends');
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -203,20 +251,23 @@ class FriendProvider with ChangeNotifier {
     try {
       final result = await _tempFriendService.getMyTempFriends();
       if (result['success'] == true) {
-        _tempFriends = extractNormalizedList(
-          result,
-          itemNormalizer: (item) => Map<String, dynamic>.from(item),
-          listKeys: const ['temp_friends', 'friends'],
+        _replaceTempFriends(
+          extractNormalizedList(
+            result,
+            itemNormalizer: (item) => Map<String, dynamic>.from(item),
+            listKeys: const ['temp_friends', 'friends'],
+          ),
         );
-        _rebuildTempFriendIndex();
         notifyListeners();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[FriendProvider] 获取临时好友失败: $e');
-      }
-      return {'success': false, 'message': '获取临时好友失败'};
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'FriendProvider.fetchTempFriends',
+      );
+      rethrow;
     }
   }
 
@@ -228,11 +279,9 @@ class FriendProvider with ChangeNotifier {
         notifyListeners();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[FriendProvider] 删除好友失败: $e');
-      }
-      return {'success': false, 'message': '操作失败'};
+    } catch (error, stackTrace) {
+      _reportProviderError(error, stackTrace, 'FriendProvider.removeFriend');
+      rethrow;
     }
   }
 
@@ -244,11 +293,13 @@ class FriendProvider with ChangeNotifier {
         await fetchFriends();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[FriendProvider] 升级好友失败: $e');
-      }
-      return {'success': false, 'message': '操作失败'};
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'FriendProvider.upgradeToPermanent',
+      );
+      rethrow;
     }
   }
 
@@ -260,11 +311,13 @@ class FriendProvider with ChangeNotifier {
         notifyListeners();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[FriendProvider] 删除临时好友失败: $e');
-      }
-      return {'success': false, 'message': '操作失败'};
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'FriendProvider.deleteTempFriend',
+      );
+      rethrow;
     }
   }
 

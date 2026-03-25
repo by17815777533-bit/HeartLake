@@ -74,6 +74,8 @@ void PaperBoatController::replyToStone(
       broadcastMsg["boat_id"] = boat_id;
       broadcastMsg["boat_count"] = newBoatsCount;
       broadcastMsg["triggered_by"] = user_id;
+      broadcastMsg["sender_id"] = user_id;
+      broadcastMsg["stone_owner_id"] = stone_owner_id;
       const auto event =
           buildRealtimeEvent("boat_update", std::move(broadcastMsg));
       BroadcastWebSocketController::sendToRoom("stone:" + stone_id, event);

@@ -94,6 +94,21 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 初始化 WebSocket 实时同步：获取用户ID、加入 lake 房间、注册事件监听
   Future<void> _initRealtimeSync() async {
     _currentUserId = await StorageUtil.getUserId();
@@ -145,14 +160,22 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
           _isLoading = false;
         });
         _animController.forward(from: 0);
-      } else {
-        setState(() {
-          _emotionData = {};
-          _cachedStats = null;
-        });
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? '情绪日历加载失败'),
+          ),
+        );
       }
-    } catch (e) {
-      debugPrint('Load emotion data error: $e');
+    } catch (error, stackTrace) {
+      _reportUiError(
+          error, stackTrace, 'EmotionCalendarScreen._loadEmotionData');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('情绪日历加载失败，请稍后重试')),
+        );
+      }
     }
     if (mounted) setState(() => _isLoading = false);
   }

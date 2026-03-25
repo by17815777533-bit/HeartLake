@@ -2,22 +2,24 @@
 //
 // 展示用户信息、统计数据和个人中心功能入口。
 
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
-import '../../utils/app_theme.dart';
-import '../../utils/storage_util.dart';
-import '../../data/datasources/user_service.dart';
-import '../../data/datasources/auth_service.dart';
-import '../../data/datasources/account_service.dart';
-import '../../data/datasources/websocket_manager.dart';
-import '../../data/datasources/vip_service.dart';
-import '../../di/service_locator.dart';
-import '../widgets/atmospheric_background.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
+import '../../data/datasources/account_service.dart';
+import '../../data/datasources/user_service.dart';
+import '../../data/datasources/vip_service.dart';
+import '../../data/datasources/websocket_manager.dart';
+import '../../di/service_locator.dart';
+import '../../utils/app_theme.dart';
+import '../../utils/payload_contract.dart';
+import '../../utils/storage_util.dart';
+import '../widgets/atmospheric_background.dart';
 import 'help_screen.dart';
 import 'vip_screen.dart';
 import 'privacy_settings_screen.dart';
@@ -65,6 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _bio;
   bool _hasLight = false; // 灯是否点亮
   int _vipDaysLeft = 0;
+  String? _currentUserId;
   final ImagePicker _picker = ImagePicker();
 
   // WebSocket 监听器
@@ -88,10 +91,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final _vipService = sl<VIPService>();
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _resolveMessage(
+    Map<String, dynamic> result,
+    String fallback,
+  ) {
+    final message = result['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+    return fallback;
+  }
+
+  bool _matchesCurrentUserId(dynamic value) {
+    final currentUserId = _currentUserId?.trim();
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+    return value?.toString().trim() == currentUserId;
+  }
+
+  bool _shouldRefreshStatsForEvent(
+    Map<String, dynamic> payload, {
+    bool fallbackWhenOwnerContextMissing = false,
+  }) {
+    final currentUserId = _currentUserId?.trim();
+    if (currentUserId == null || currentUserId.isEmpty) {
+      return true;
+    }
+
+    final normalized = normalizePayloadContract(payload);
+    final stonePayload = normalized['stone'];
+    final stone = stonePayload is Map
+        ? normalizePayloadContract(stonePayload)
+        : const <String, dynamic>{};
+    final candidateIds = [
+      normalized['stone_owner_id'],
+      normalized['stone_user_id'],
+      normalized['user_id'],
+      normalized['sender_id'],
+      normalized['from_user_id'],
+      normalized['to_user_id'],
+      normalized['target_user_id'],
+      normalized['triggered_by'],
+      stone['stone_owner_id'],
+      stone['stone_user_id'],
+      stone['user_id'],
+      stone['author_id'],
+    ];
+    if (candidateIds.any(_matchesCurrentUserId)) {
+      return true;
+    }
+
+    if (!fallbackWhenOwnerContextMissing) {
+      return false;
+    }
+
+    final hasOwnershipContext = [
+      normalized['stone_owner_id'],
+      normalized['stone_user_id'],
+      stone['stone_owner_id'],
+      stone['stone_user_id'],
+    ].any((value) => value?.toString().trim().isNotEmpty == true);
+    return !hasOwnershipContext;
+  }
+
   /// 查询灯火（VIP）状态：是否点亮、剩余天数
-  Future<void> _loadVIPStatus() async {
+  Future<void> _loadVIPStatus({bool showFeedback = false}) async {
     try {
       final status = await _vipService.getVIPStatus();
+      if (status['success'] != true) {
+        final message = _resolveMessage(status, '加载灯火状态失败');
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadVIPStatus',
+        );
+        if (showFeedback && mounted) {
+          _showMessage(message);
+        }
+        return;
+      }
+
       final payload = (status['data'] is Map<String, dynamic>)
           ? status['data'] as Map<String, dynamic>
           : const <String, dynamic>{};
@@ -101,68 +202,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
         });
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('加载灯火状态失败: $e');
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ProfileScreen._loadVIPStatus');
+      if (showFeedback && mounted) {
+        _showMessage('加载灯火状态失败，请稍后重试');
       }
     }
   }
 
   /// 并行刷新统计、资料和灯火状态
   Future<void> _refreshAll() async {
-    await Future.wait([_loadUserStats(), _loadFullProfile(), _loadVIPStatus()]);
+    await Future.wait([
+      _loadUserStats(),
+      _loadFullProfile(showFeedback: true),
+      _loadVIPStatus(showFeedback: true),
+    ]);
   }
 
   /// 注册 WebSocket 事件监听器，实时更新统计数据
   ///
   /// 监听事件包括：新石头、纸船增删、涟漪增删、断线重连
   void _setupWebSocketListeners() async {
-    await _wsManager.connect();
-    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    try {
+      await _wsManager.connect();
+      if (!mounted) return;
 
-    // 监听新石头（更新投石计数）
-    _newStoneListener = (data) async {
-      final userId = await StorageUtil.getUserId();
-      final stoneUserId = data['stone']?['user_id'] ?? data['user_id'];
-      if (stoneUserId == userId && mounted) {
-        _loadUserStats(silent: true);
-      }
-    };
-    _wsManager.on('new_stone', _newStoneListener!);
+      _currentUserId = userProvider.userId ?? await StorageUtil.getUserId();
 
-    // 监听纸船更新
-    _boatUpdateListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
-    };
-    _wsManager.on('boat_update', _boatUpdateListener!);
+      // 监听新石头（更新投石计数）
+      _newStoneListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(data)) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('new_stone', _newStoneListener!);
 
-    // 监听涟漪更新
-    _rippleUpdateListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
-    };
-    _wsManager.on('ripple_update', _rippleUpdateListener!);
+      // 监听纸船更新
+      _boatUpdateListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(
+          data,
+          fallbackWhenOwnerContextMissing: true,
+        )) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('boat_update', _boatUpdateListener!);
 
-    // 监听删除事件，刷新统计
-    _stoneDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
-    };
-    _wsManager.on('stone_deleted', _stoneDeletedListener!);
+      // 监听涟漪更新
+      _rippleUpdateListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(
+          data,
+          fallbackWhenOwnerContextMissing: true,
+        )) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('ripple_update', _rippleUpdateListener!);
 
-    _boatDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
-    };
-    _wsManager.on('boat_deleted', _boatDeletedListener!);
+      // 监听删除事件，刷新统计
+      _stoneDeletedListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(data)) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('stone_deleted', _stoneDeletedListener!);
 
-    _rippleDeletedListener = (data) {
-      if (mounted) _loadUserStats(silent: true);
-    };
-    _wsManager.on('ripple_deleted', _rippleDeletedListener!);
+      _boatDeletedListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(
+          data,
+          fallbackWhenOwnerContextMissing: true,
+        )) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('boat_deleted', _boatDeletedListener!);
 
-    // 断线重连后自动刷新所有数据
-    _reconnectedListener = (data) {
-      if (mounted) _refreshAll();
-    };
-    _wsManager.on('reconnected', _reconnectedListener!);
+      _rippleDeletedListener = (data) {
+        if (!mounted) return;
+        if (_shouldRefreshStatsForEvent(
+          data,
+          fallbackWhenOwnerContextMissing: true,
+        )) {
+          unawaited(_loadUserStats(silent: true));
+        }
+      };
+      _wsManager.on('ripple_deleted', _rippleDeletedListener!);
+
+      // 断线重连后自动刷新所有数据
+      _reconnectedListener = (data) {
+        if (!mounted) return;
+        unawaited(_refreshAll());
+      };
+      _wsManager.on('reconnected', _reconnectedListener!);
+    } catch (error, stackTrace) {
+      _reportUiError(
+        error,
+        stackTrace,
+        'ProfileScreen._setupWebSocketListeners',
+      );
+    }
   }
 
   /// 移除所有 WebSocket 监听器，防止内存泄漏
@@ -197,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// 从本地存储读取用户名和昵称
-  Future<void> _loadUserInfo() async {
+  Future<void> _loadUserInfo({bool showFeedback = false}) async {
     try {
       final username = await StorageUtil.getUsername();
       final nickname = await StorageUtil.getNickname();
@@ -207,9 +351,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _nickname = nickname;
         });
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error loading user info: $e');
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ProfileScreen._loadUserInfo');
+      if (showFeedback && mounted) {
+        _showMessage('读取本地用户信息失败，请稍后重试');
       }
     }
   }
@@ -218,43 +363,122 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ///
   /// [silent] 为 true 时不显示加载状态，用于后台静默刷新
   Future<void> _loadUserStats({bool silent = false}) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     try {
       final token = await StorageUtil.getToken();
-      final userId = await StorageUtil.getUserId();
-      if (token != null && userId != null) {
-        final result = await _userService.getUserStats(userId);
-        if (result['success'] == true && mounted) {
-          setState(() => _stats = result['data']);
+      final userId = userProvider.userId ?? await StorageUtil.getUserId();
+      _currentUserId = userId;
+      if (token == null || userId == null || userId.isEmpty) {
+        _reportUiError(
+          StateError('缺少有效登录态，无法加载个人统计'),
+          StackTrace.current,
+          'ProfileScreen._loadUserStats',
+        );
+        if (!silent && mounted) {
+          _showMessage('登录状态异常，请重新进入页面');
         }
+        return;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error loading user stats: $e');
+
+      final result = await _userService.getUserStats(userId);
+      if (result['success'] != true) {
+        final message = _resolveMessage(result, '加载个人统计失败');
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadUserStats',
+        );
+        if (!silent && mounted) {
+          _showMessage(message);
+        }
+        return;
+      }
+
+      final payload = result['data'];
+      if (payload is! Map) {
+        _reportUiError(
+          StateError('个人统计响应缺少 data 对象'),
+          StackTrace.current,
+          'ProfileScreen._loadUserStats',
+        );
+        if (!silent && mounted) {
+          _showMessage('加载个人统计失败，请稍后重试');
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(
+          () => _stats =
+              Map<String, dynamic>.from(payload.cast<String, dynamic>()),
+        );
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ProfileScreen._loadUserStats');
+      if (!silent && mounted) {
+        _showMessage('加载个人统计失败，请稍后重试');
       }
     }
   }
 
   /// 从后端拉取完整用户资料（头像、签名等），并同步昵称到本地存储
-  Future<void> _loadFullProfile() async {
+  Future<void> _loadFullProfile({bool showFeedback = false}) async {
     try {
       final result = await _accountService.getAccountInfo();
-      if (result['success'] == true) {
-        final userData = result['data'] as Map<String, dynamic>?;
-        if (mounted && userData != null) {
-          setState(() {
-            _username = userData['username'] ?? _username;
-            _avatarUrl = userData['avatar_url'];
-            _bio = userData['bio'];
-            _nickname = userData['nickname'];
-            if (userData['nickname'] != null) {
-              StorageUtil.saveNickname(userData['nickname']);
-            }
-          });
+      if (result['success'] != true) {
+        final message = _resolveMessage(result, '加载个人资料失败');
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadFullProfile',
+        );
+        if (showFeedback && mounted) {
+          _showMessage(message);
         }
+        return;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error loading full profile: $e');
+
+      final payload = result['data'];
+      if (payload is! Map) {
+        _reportUiError(
+          StateError('个人资料响应缺少 data 对象'),
+          StackTrace.current,
+          'ProfileScreen._loadFullProfile',
+        );
+        if (showFeedback && mounted) {
+          _showMessage('加载个人资料失败，请稍后重试');
+        }
+        return;
+      }
+
+      final userData =
+          Map<String, dynamic>.from(payload.cast<String, dynamic>());
+      final resolvedNickname = userData['nickname']?.toString().trim();
+      final resolvedAvatarUrl = userData['avatar_url']?.toString();
+      final resolvedBio = userData['bio']?.toString();
+      if (resolvedNickname != null && resolvedNickname.isNotEmpty) {
+        await StorageUtil.saveNickname(resolvedNickname);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _username = userData['username']?.toString() ?? _username;
+        _avatarUrl =
+            resolvedAvatarUrl?.isNotEmpty == true ? resolvedAvatarUrl : null;
+        _bio = resolvedBio;
+        _nickname =
+            resolvedNickname?.isNotEmpty == true ? resolvedNickname : _nickname;
+      });
+      Provider.of<UserProvider>(context, listen: false).updateUser(
+        nickname:
+            resolvedNickname?.isNotEmpty == true ? resolvedNickname : null,
+        avatarUrl: resolvedAvatarUrl,
+        bio: resolvedBio,
+      );
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ProfileScreen._loadFullProfile');
+      if (showFeedback && mounted) {
+        _showMessage('加载个人资料失败，请稍后重试');
       }
     }
   }
@@ -284,43 +508,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
         fileSize: fileSize,
       );
 
-      if (result['success'] == true) {
-        final data = result['data'] as Map<String, dynamic>?;
-        final avatarUrl =
-            data?['avatar_url']?.toString() ?? data?['avatarUrl']?.toString();
-
-        if (mounted) {
-          if (avatarUrl != null && avatarUrl.isNotEmpty) {
-            setState(() {
-              _avatarUrl = avatarUrl;
-            });
-            // 同步到 UserProvider
-            Provider.of<UserProvider>(context, listen: false)
-                .updateUser(avatarUrl: avatarUrl);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('头像更新成功')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(result['message'] ?? '更新失败')),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? '上传失败')),
-          );
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error picking avatar: $e');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('选择图片失败')),
+      if (result['success'] != true) {
+        final message = _resolveMessage(result, '上传头像失败');
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._pickAndUploadAvatar',
         );
+        if (mounted) {
+          _showMessage(message);
+        }
+        return;
+      }
+
+      final payload = result['data'];
+      if (payload is! Map) {
+        _reportUiError(
+          StateError('头像上传成功但响应缺少 data 对象'),
+          StackTrace.current,
+          'ProfileScreen._pickAndUploadAvatar',
+        );
+        if (mounted) {
+          _showMessage('头像更新失败，请稍后重试');
+        }
+        return;
+      }
+
+      final data = Map<String, dynamic>.from(payload.cast<String, dynamic>());
+      final avatarUrl =
+          data['avatar_url']?.toString() ?? data['avatarUrl']?.toString();
+      if (avatarUrl == null || avatarUrl.isEmpty) {
+        final message = _resolveMessage(result, '头像上传成功但未返回头像地址');
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._pickAndUploadAvatar',
+        );
+        if (mounted) {
+          _showMessage(message);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          _avatarUrl = avatarUrl;
+        });
+        Provider.of<UserProvider>(context, listen: false)
+            .updateUser(avatarUrl: avatarUrl);
+        _showMessage('头像更新成功');
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ProfileScreen._pickAndUploadAvatar');
+      if (mounted) {
+        _showMessage('选择或上传图片失败，请稍后重试');
       }
     }
   }
@@ -368,7 +609,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 } else {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('更新失败')),
+                    SnackBar(
+                      content: Text(userProvider.errorMessage ?? '更新失败，请稍后重试'),
+                    ),
                   );
                 }
               }
@@ -749,11 +992,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // 断开 WebSocket
                             _wsManager.disconnect();
 
-                            // 清除本地存储
-                            await StorageUtil.clearToken();
-                            sl<AuthService>().logout();
-
-                            // 清除用户状态
+                            // 清除用户状态与本地凭证
                             if (context.mounted) {
                               await Provider.of<UserProvider>(context,
                                       listen: false)
@@ -893,7 +1132,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               } else {
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('修改失败')),
+                  SnackBar(
+                    content: Text(userProvider.errorMessage ?? '修改失败，请稍后重试'),
+                  ),
                 );
               }
             },

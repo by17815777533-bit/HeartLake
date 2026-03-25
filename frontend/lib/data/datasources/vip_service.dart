@@ -68,13 +68,22 @@ class VIPService extends BaseService {
   }
 
   /// 检查是否有免费心理咨询额度
-  Future<bool> hasFreeCounselingQuota() async {
+  Future<Map<String, dynamic>> getCounselingQuotaStatus() async {
     final response = await get('/vip/counseling/check');
-    if (response.success) {
-      final payload = _normalizeVipPayload(response.data);
-      return payload['has_quota'] == true;
-    }
-    return false;
+    if (!response.success) return toMap(response);
+
+    final payload = _normalizeVipPayload(response.data);
+    return {
+      ...toMap(response),
+      'data': payload,
+      ...payload,
+    };
+  }
+
+  /// 检查是否有免费心理咨询额度
+  Future<bool> hasFreeCounselingQuota() async {
+    final result = await getCounselingQuotaStatus();
+    return result['success'] == true && result['has_quota'] == true;
   }
 
   /// 预约心理咨询

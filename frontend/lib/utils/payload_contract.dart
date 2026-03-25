@@ -51,6 +51,7 @@ Map<String, dynamic> normalizePayloadContract(Map raw) {
   _mirrorAlias(normalized, 'created_at', const ['createdAt']);
   _mirrorAlias(normalized, 'stone_id', const ['stoneId']);
   _mirrorAlias(normalized, 'stone_user_id', const ['stoneUserId']);
+  _mirrorAlias(normalized, 'stone_owner_id', const ['stoneOwnerId']);
   _mirrorAlias(normalized, 'stone_content', const ['stoneContent']);
   _mirrorAlias(normalized, 'stone_created_at', const ['stoneCreatedAt']);
   _mirrorAlias(normalized, 'stone_mood_type', const ['stoneMoodType']);

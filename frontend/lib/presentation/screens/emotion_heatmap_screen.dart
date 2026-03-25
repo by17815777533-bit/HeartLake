@@ -76,6 +76,21 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 初始化 WebSocket 实时同步：获取用户ID、加入 lake 房间、注册事件监听
   Future<void> _initRealtimeSync() async {
     _currentUserId = await StorageUtil.getUserId();
@@ -138,9 +153,21 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
           _isLoading = false;
         });
         return;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? '情绪热力图加载失败'),
+          ),
+        );
       }
-    } catch (e) {
-      debugPrint('Load emotion heatmap error: $e');
+    } catch (error, stackTrace) {
+      _reportUiError(
+          error, stackTrace, 'EmotionHeatmapScreen._loadHeatmapData');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('情绪热力图加载失败，请稍后重试')),
+        );
+      }
     }
 
     if (mounted) {
@@ -204,7 +231,13 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
         final date = DateTime.parse(entry.key);
         final score = (entry.value['score'] ?? 0.5) as num;
         weekdayScores.putIfAbsent(date.weekday, () => []).add(score.toDouble());
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        _reportUiError(
+          error,
+          stackTrace,
+          'EmotionHeatmapScreen._generateInsights(${entry.key})',
+        );
+      }
     }
     if (weekdayScores.isNotEmpty) {
       double bestAvg = -1.0;

@@ -61,6 +61,21 @@ class _PublishScreenState extends State<PublishScreen> {
   AIPreviewResult? _pendingPreviewResult;
   bool _previewApplyScheduled = false;
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 接收 AIContentPreview 的结果回调，合并到下一帧统一刷新，避免 build 期间 setState
   void _handlePreviewResultChanged(AIPreviewResult preview) {
     final unchanged = _previewResult.status == preview.status &&
@@ -355,29 +370,51 @@ class _PublishScreenState extends State<PublishScreen> {
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       final snapshot = _contentController.text.trim();
       if (snapshot.isEmpty) return;
-      final result = await _provider.classifyText(snapshot);
-      if (!mounted || currentSeq != _analysisSeq) return;
-      if (_contentController.text.trim() != snapshot) return;
+      try {
+        final result = await _provider.classifyText(snapshot);
+        if (!mounted || currentSeq != _analysisSeq) return;
+        if (_contentController.text.trim() != snapshot) return;
 
-      final topEmotion = _provider.lastEmotion;
-      final topConfidence =
-          topEmotion == null ? 0.0 : (result[topEmotion] ?? 0.0);
-      final suggestedMood =
-          topEmotion == null ? null : MoodColors.fromString(topEmotion);
-      var autoSelected = false;
-      setState(() {
-        _emotionResult = result;
-        _topEmotion = topEmotion;
-        autoSelected = _applyAIMoodSuggestion(suggestedMood, topConfidence);
-      });
-      if (autoSelected && suggestedMood != null) {
-        _triggerAIMoodPulse(suggestedMood);
+        final topEmotion = _provider.lastEmotion;
+        final topConfidence =
+            topEmotion == null ? 0.0 : (result[topEmotion] ?? 0.0);
+        final suggestedMood =
+            topEmotion == null ? null : MoodColors.fromString(topEmotion);
+        var autoSelected = false;
+        setState(() {
+          _emotionResult = result;
+          _topEmotion = topEmotion;
+          autoSelected = _applyAIMoodSuggestion(suggestedMood, topConfidence);
+        });
+        if (autoSelected && suggestedMood != null) {
+          _triggerAIMoodPulse(suggestedMood);
+        }
+      } catch (error, stackTrace) {
+        _reportUiError(error, stackTrace, 'PublishScreen._onContentChanged');
+        if (!mounted || currentSeq != _analysisSeq) return;
+        if (_contentController.text.trim() != snapshot) return;
+        setState(() {
+          _emotionResult = null;
+          _topEmotion = null;
+          _aiSuggestedMood = null;
+          _aiSuggestionConfidence = 0.0;
+          _manualMoodLocked = false;
+          _aiPulseMood = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('AI 情绪分析暂时不可用，请以你的真实感受为准'),
+          ),
+        );
       }
     });
   }
 
   /// 构建 AI 情绪分析提示文本，包含置信度和联动状态
   String _buildAIHintText() {
+    if (_provider.usedLocalFallback && _provider.lastRemoteWarning != null) {
+      return '湖神参考：远端分析暂不可用，当前结果来自本地判断，请以你的真实感受为准';
+    }
     if (_topEmotion == null || _emotionResult == null) return '湖神参考：分析中';
     final confidence = _emotionResult![_topEmotion!] ?? 0.0;
     if (confidence < 0.45) {
@@ -509,7 +546,11 @@ class _PublishScreenState extends State<PublishScreen> {
 
       if (result['success'] == true) {
         if (result['stone_id'] == null) {
-          debugPrint('Warning: stone_id is null in success response');
+          _reportUiError(
+            StateError('createStone succeeded without stone_id'),
+            StackTrace.current,
+            'PublishScreen._submitStone',
+          );
         }
         // 清除石头列表缓存，确保刷新能拿到最新数据
         CacheService().removeByPrefix('GET:/lake/stones');
@@ -551,7 +592,8 @@ class _PublishScreenState extends State<PublishScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'PublishScreen._submitStone');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

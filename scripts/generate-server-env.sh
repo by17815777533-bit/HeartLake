@@ -14,7 +14,7 @@ usage() {
   --admin-user USER      管理员用户名，默认 admin
   --admin-password PASS  管理员密码；不传则交互输入
   --allow-origin ORIGIN  追加允许的 CORS 来源，可重复传入
-  --ai-provider NAME     AI 提供方，默认 ollama
+  --ai-provider NAME     AI 提供方，默认 deepseek
   --ai-api-key KEY       外部 AI 服务密钥
   --ai-base-url URL      AI 服务地址
   --ai-model MODEL       AI 模型名
@@ -29,10 +29,10 @@ ADMIN_PASSWORD=""
 OUTPUT_FILE=".env.server-lite"
 USE_HTTPS="false"
 ALLOWED_ORIGINS=()
-AI_PROVIDER_VALUE="ollama"
+AI_PROVIDER_VALUE="deepseek"
 AI_API_KEY_VALUE=""
-AI_BASE_URL_VALUE="http://127.0.0.1:11434"
-AI_MODEL_VALUE="heartlake-qwen"
+AI_BASE_URL_VALUE="https://api.deepseek.com"
+AI_MODEL_VALUE="deepseek-chat"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -184,15 +184,15 @@ EDGE_AI_ONNX_ENABLED=false
 EDGE_AI_ONNX_THREADS=1
 
 EMBEDDING_WARMUP_ON_BOOT=false
-ENABLE_LAKE_GOD_GUARDIAN=true
+ENABLE_LAKE_GOD_GUARDIAN=false
 LAKE_GOD_STARTUP_DELAY_SEC=300
 LAKE_GOD_SCAN_INTERVAL_MINUTES=60
 LAKE_GOD_ZERO_INTERACTION_THRESHOLD_HOURS=6
 LAKE_GOD_SCAN_BATCH_SIZE=1
-ENABLE_EMOTION_TRACKING=true
+ENABLE_EMOTION_TRACKING=false
 EMOTION_TRACKING_STARTUP_DELAY_SEC=300
 EMOTION_TRACKING_SCAN_INTERVAL_MINUTES=60
-ENABLE_USER_FOLLOWUP=true
+ENABLE_USER_FOLLOWUP=false
 USER_FOLLOWUP_STARTUP_DELAY_SEC=600
 USER_FOLLOWUP_SCAN_INTERVAL_HOURS=12
 ENABLE_WS_HEARTBEAT=true
@@ -203,4 +203,7 @@ echo "已生成 ${OUTPUT_FILE}"
 echo "管理员用户名: ${ADMIN_USER}"
 echo "公网入口: ${SCHEME}://${HOST}"
 echo "AI 提供方: ${AI_PROVIDER_VALUE}"
+if [[ "${AI_PROVIDER_VALUE}" != "ollama" && -z "${AI_API_KEY_VALUE}" ]]; then
+  echo "警告: 当前使用外部 AI 提供方，但 AI_API_KEY 为空；上线前请补齐 ${OUTPUT_FILE} 中的 AI_API_KEY"
+fi
 echo "下一步: cp ${OUTPUT_FILE} .env && ./scripts/docker-up.sh server-lite"

@@ -119,6 +119,40 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
     }
   }
 
+  void _replaceRipples({
+    required List<Map<String, dynamic>> data,
+    required List<Stone> stones,
+  }) {
+    _ripplesData
+      ..clear()
+      ..addAll(data);
+    _ripples
+      ..clear()
+      ..addAll(stones);
+    _rebuildRippleIndices();
+  }
+
+  void _insertRippleAt(int index, Map<String, dynamic> data, Stone stone) {
+    _ripplesData.insert(index, data);
+    _ripples.insert(index, stone);
+    _rebuildRippleIndices();
+  }
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   bool _removeRippleById(String rippleId) {
     final index = _rippleIndexById[rippleId];
     if (index == null) return false;
@@ -187,12 +221,9 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
             .map((json) =>
                 normalizePayloadContract(Map<String, dynamic>.from(json)))
             .toList();
+        final stones = items.map((json) => Stone.fromJson(json)).toList();
         setState(() {
-          _ripplesData.clear();
-          _ripplesData.addAll(items);
-          _ripples.clear();
-          _ripples.addAll(items.map((json) => Stone.fromJson(json)));
-          _rebuildRippleIndices();
+          _replaceRipples(data: items, stones: stones);
           _isLoading = false;
         });
       } else {
@@ -200,7 +231,8 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
           setState(() => _isLoading = false);
         }
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'MyRipplesScreen._loadMyRipples');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -314,13 +346,12 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                           },
                           onDismissed: (direction) async {
                             // 保存备份用于回滚
-                            final removedData = _ripplesData[index];
+                            final removedData =
+                                Map<String, dynamic>.from(_ripplesData[index]);
                             final removedStone = _ripples[index];
                             final removedIndex = index;
                             setState(() {
-                              _ripplesData.removeAt(index);
-                              _ripples.removeAt(index);
-                              _rebuildRippleIndices();
+                              _removeRippleById(rippleId);
                             });
                             try {
                               final result =
@@ -336,11 +367,18 @@ class _MyRipplesScreenState extends State<MyRipplesScreen> {
                               );
                             } catch (e) {
                               // API 失败时回滚
+                              _reportUiError(
+                                e,
+                                StackTrace.current,
+                                'MyRipplesScreen.deleteRipple',
+                              );
                               if (!context.mounted) return;
                               setState(() {
-                                _ripplesData.insert(removedIndex, removedData);
-                                _ripples.insert(removedIndex, removedStone);
-                                _rebuildRippleIndices();
+                                _insertRippleAt(
+                                  removedIndex,
+                                  removedData,
+                                  removedStone,
+                                );
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('删除失败，请重试')),

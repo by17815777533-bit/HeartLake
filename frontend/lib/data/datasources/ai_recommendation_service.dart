@@ -8,8 +8,10 @@
 library;
 
 import '../../utils/input_validator.dart';
+import '../../utils/payload_contract.dart';
 import 'base_service.dart';
 import 'recommendation_response_parser.dart';
+import 'social_payload_normalizer.dart';
 
 /// AI推荐服务
 ///
@@ -17,6 +19,90 @@ import 'recommendation_response_parser.dart';
 class AIRecommendationService extends BaseService {
   @override
   String get serviceName => '湖神陪伴服务';
+
+  static const _trendListKeys = ['trends', 'items', 'list', 'results'];
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.trim());
+    return null;
+  }
+
+  Map<String, dynamic> _normalizeEmotionTrendRow(Map<String, dynamic> item) {
+    final normalized = normalizePayloadContract(item);
+
+    final date =
+        normalized['date'] ?? normalized['day'] ?? normalized['created_at'];
+    if (date != null) {
+      normalized['date'] = date.toString();
+      normalized['day'] = date.toString();
+    }
+
+    final mood = (normalized['mood'] ?? normalized['mood_type'] ?? 'neutral')
+        .toString()
+        .toLowerCase();
+    normalized['mood'] = mood;
+    normalized['mood_type'] = mood;
+
+    final stoneCount = _toInt(normalized['stone_count'] ?? normalized['count']);
+    if (stoneCount != null) {
+      normalized['stone_count'] = stoneCount;
+      normalized['count'] = stoneCount;
+    }
+
+    final emotionScore =
+        _toDouble(normalized['emotion_score'] ?? normalized['score']);
+    if (emotionScore != null) {
+      normalized['emotion_score'] = emotionScore;
+      normalized['score'] = emotionScore;
+    }
+
+    return normalized;
+  }
+
+  Map<String, dynamic> _normalizeEmotionTrendsPayload(
+    dynamic raw, {
+    required int requestedDays,
+  }) {
+    if (raw is! Map) {
+      throw StateError('Emotion trends payload is not a map');
+    }
+
+    final source = Map<String, dynamic>.from(raw);
+    final nestedData = source['data'] is Map
+        ? Map<String, dynamic>.from(source['data'] as Map)
+        : source;
+    final hasTrendList = _trendListKeys.any(source.containsKey) ||
+        _trendListKeys.any(nestedData.containsKey);
+    if (!hasTrendList) {
+      throw StateError('Emotion trends payload is missing trends collection');
+    }
+    final trends = extractNormalizedList(
+      raw,
+      itemNormalizer: _normalizeEmotionTrendRow,
+      listKeys: _trendListKeys,
+    );
+    final periodDays =
+        _toInt(nestedData['period_days'] ?? source['period_days']) ??
+            requestedDays;
+
+    return buildCollectionEnvelope(
+      raw,
+      primaryKey: 'trends',
+      items: trends,
+      extra: {
+        'period_days': periodDays,
+      },
+    );
+  }
 
   /// 获取相似石头推荐
   ///
@@ -79,13 +165,26 @@ class AIRecommendationService extends BaseService {
   /// 返回用户的情绪变化时序数据，用于情绪趋势可视化。
   ///
   /// 返回包含情绪趋势点的Map。
-  Future<Map<String, dynamic>> getEmotionTrends() async {
-    final resp =
-        await get<dynamic>('/recommendations/emotion-trends', useCache: false);
-    if (resp.success && resp.data is Map<String, dynamic>) {
-      return resp.data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> getEmotionTrends({int days = 30}) async {
+    if (days < 1 || days > 365) {
+      throw const ValidationException('情绪趋势天数应在1-365之间');
     }
-    return {};
+    final resp = await get<dynamic>(
+      '/recommendations/emotion-trends',
+      queryParameters: {'days': days},
+      useCache: false,
+    );
+    if (!resp.success) return toMap(resp);
+
+    final payload = _normalizeEmotionTrendsPayload(
+      resp.data,
+      requestedDays: days,
+    );
+    return {
+      ...toMap(resp),
+      'data': payload,
+      ...payload,
+    };
   }
 
   /// 记录用户交互

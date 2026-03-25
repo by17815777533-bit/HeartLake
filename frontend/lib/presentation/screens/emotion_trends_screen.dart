@@ -41,12 +41,37 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
   Map<String, dynamic> _trends = {};
   Map<String, dynamic>? _privacyInfo;
   bool _loading = true;
+  String? _loadErrorMessage;
   String? _currentUserId;
+  int _pulseRefreshVersion = 0;
   late final void Function(Map<String, dynamic>) _onNewStoneListener;
   late final void Function(Map<String, dynamic>) _onStoneDeletedListener;
   late final void Function(Map<String, dynamic>) _onReconnectedListener;
   Timer? _refreshDebounce;
   int _refreshSeq = 0;
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showLoadFailure(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -130,18 +155,49 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       final trendPayload = results[0];
       final privacyPayload = results[1];
       if (mounted) {
+        final trendSuccess =
+            trendPayload['success'] == true && trendPayload['data'] is Map;
+        final privacySuccess =
+            privacyPayload['success'] == true && privacyPayload['data'] is Map;
+        final failures = <String>[
+          if (!trendSuccess) trendPayload['message']?.toString() ?? '情绪趋势加载失败',
+          if (!privacySuccess)
+            privacyPayload['message']?.toString() ?? '隐私预算加载失败',
+        ];
+        final nextTrends = trendSuccess
+            ? _normalizeTrendPayload(
+                Map<String, dynamic>.from(trendPayload['data'] as Map),
+              )
+            : _trends;
+        final nextPrivacyInfo = privacySuccess
+            ? Map<String, dynamic>.from(privacyPayload['data'] as Map)
+            : _privacyInfo;
+        final loadErrorMessage =
+            failures.isNotEmpty ? failures.join('；') : null;
         setState(() {
-          _trends = _normalizeTrendPayload(trendPayload);
-          _privacyInfo = (privacyPayload['success'] == true &&
-                  privacyPayload['data'] is Map)
-              ? Map<String, dynamic>.from(privacyPayload['data'] as Map)
-              : null;
+          _trends = nextTrends;
+          _privacyInfo = nextPrivacyInfo;
           _loading = false;
+          _loadErrorMessage = loadErrorMessage;
+          _pulseRefreshVersion++;
         });
-        _fadeController.forward();
+        if (trendSuccess || privacySuccess) {
+          _fadeController.forward(from: 0);
+        }
+        if (failures.isNotEmpty) {
+          _showLoadFailure(failures.join('；'));
+        }
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'EmotionTrendsScreen._loadData');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadErrorMessage = '情绪趋势加载失败，请稍后重试';
+          _pulseRefreshVersion++;
+        });
+        _showLoadFailure('情绪趋势加载失败，请稍后重试');
+      }
     }
   }
 
@@ -187,6 +243,45 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
 
   /// 构建页面主体内容：情绪脉搏 + 隐私徽章 + 趋势卡片
   Widget _buildContent() {
+    if (_loadErrorMessage != null && _trends.isEmpty && _privacyInfo == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Card(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.wifi_off_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _loadErrorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _loadData,
+                    child: const Text('重试'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -194,8 +289,15 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
         children: [
           const SizedBox(height: 12),
           // 情绪脉搏
-          const EmotionPulseWidget(size: 140),
+          EmotionPulseWidget(
+            size: 140,
+            refreshVersion: _pulseRefreshVersion,
+          ),
           const SizedBox(height: 20),
+          if (_loadErrorMessage != null) ...[
+            _buildLoadWarningCard(),
+            const SizedBox(height: 16),
+          ],
           // 隐私徽章
           _buildPrivacyBadge(),
           const SizedBox(height: 24),
@@ -247,6 +349,42 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
                 fontSize: 11,
                 color: AppTheme.secondaryColor.withValues(alpha: 0.8),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadWarningCard() {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFFFFF3E0).withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 18,
+              color: AppTheme.warningColor,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _loadErrorMessage!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textPrimary,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            TextButton(
+              onPressed: _loadData,
+              child: const Text('重试'),
             ),
           ],
         ),
@@ -428,6 +566,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       'anger': Color(0xFFEF5350),
       'fear': Color(0xFFB39DDB),
       'fearful': Color(0xFFB39DDB),
+      'confused': Color(0xFFA1887F),
       'surprise': Color(0xFFFFAB40),
       'surprised': Color(0xFFFFAB40),
       'neutral': Color(0xFF90CAF9),
@@ -447,6 +586,7 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       'anger': '愤怒',
       'fear': '恐惧',
       'fearful': '恐惧',
+      'confused': '迷茫',
       'surprise': '惊喜',
       'surprised': '惊喜',
       'neutral': '平静',
@@ -473,10 +613,11 @@ class _EmotionTrendsScreenState extends State<EmotionTrendsScreen>
       if (item is! Map) continue;
       final row = Map<String, dynamic>.from(item);
       final mood = (row['mood'] ?? row['mood_type'] ?? 'neutral').toString();
-      final weight = (row['stone_count'] as num?)?.toInt() ?? 1;
+      final weight =
+          ((row['stone_count'] ?? row['count']) as num?)?.toInt() ?? 1;
       counts[mood] = (counts[mood] ?? 0) + weight;
 
-      final score = row['emotion_score'];
+      final score = row['emotion_score'] ?? row['score'];
       if (score is num) {
         scoreSum += score.toDouble() * weight;
         scoreCount += weight;

@@ -34,11 +34,30 @@ class EdgeAIProvider extends ChangeNotifier {
   bool _isReady = false;
   Map<String, double>? _lastResult;
   String? _lastEmotion;
+  String? _lastRemoteWarning;
+  bool _usedLocalFallback = false;
 
   bool get isReady => _isReady;
   Map<String, double>? get lastResult => _lastResult;
   String? get lastEmotion => _lastEmotion;
+  String? get lastRemoteWarning => _lastRemoteWarning;
+  bool get usedLocalFallback => _usedLocalFallback;
   Map<String, dynamic> get privacyInfo => _classifier.privacyInfo;
+
+  void _reportProviderError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
 
   /// 加载本地分类模型，首次调用后标记就绪
   Future<void> initialize() async {
@@ -55,6 +74,7 @@ class EdgeAIProvider extends ChangeNotifier {
   Future<Map<String, double>> classifyText(String text) async {
     if (!_isReady) await initialize();
     late Map<String, double> result;
+    _usedLocalFallback = false;
 
     // 优先使用后端情感分析，失败时降级到本地模型
     final remote = await analyzeRemote(text);
@@ -68,6 +88,7 @@ class EdgeAIProvider extends ChangeNotifier {
           _applyContextCorrection(text, normalizedMood, confidence);
       final shouldFallback = _shouldFallbackFromRemote(remote, corrected.value);
       if (shouldFallback) {
+        _usedLocalFallback = true;
         final fallback = await _classifyFallback(text);
         final remoteHint = _buildDistribution(corrected.key, corrected.value);
         if (_isRemoteAbstained(remote)) {
@@ -80,6 +101,7 @@ class EdgeAIProvider extends ChangeNotifier {
         result = _buildDistribution(corrected.key, corrected.value);
       }
     } else {
+      _usedLocalFallback = true;
       result = await _classifyFallback(text);
     }
 
@@ -513,14 +535,29 @@ class EdgeAIProvider extends ChangeNotifier {
     return 0.5;
   }
 
-  /// 调用后端情感分析接口，失败时静默返回 null 由调用方降级处理
+  /// 调用后端情感分析接口，失败时记录警告并返回 null 由调用方降级处理
   Future<Map<String, dynamic>?> analyzeRemote(String text) async {
     try {
       final resp = await _edgeService.analyzeSentiment(text);
-      if (resp['success'] == true && resp['data'] != null) {
-        return resp['data'] as Map<String, dynamic>;
+      if (resp['success'] == true && resp['data'] is Map) {
+        _lastRemoteWarning = null;
+        return Map<String, dynamic>.from(resp['data'] as Map);
       }
-    } catch (_) {}
+      _lastRemoteWarning = resp['message']?.toString() ?? '远端情绪分析失败，已降级到本地模型';
+      _reportProviderError(
+        StateError(
+            resp['message']?.toString() ?? 'Remote sentiment analysis failed'),
+        StackTrace.current,
+        'EdgeAIProvider.analyzeRemote',
+      );
+    } catch (error, stackTrace) {
+      _lastRemoteWarning = '远端情绪分析失败，已降级到本地模型';
+      _reportProviderError(
+        error,
+        stackTrace,
+        'EdgeAIProvider.analyzeRemote',
+      );
+    }
     return null;
   }
 

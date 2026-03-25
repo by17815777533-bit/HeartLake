@@ -55,70 +55,98 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 初始化会话：并行加载历史消息和情绪脉搏，历史加载失败时降级只加载脉搏
   Future<void> _initSession() async {
-    try {
-      await Future.wait([
-        _loadHistory(),
-        _loadEmotionPulse(),
-      ]);
-    } catch (_) {
-      await _loadEmotionPulse();
-    }
+    await Future.wait([
+      _loadHistory(),
+      _loadEmotionPulse(),
+    ]);
     if (_messages.isEmpty && mounted) {
       _addWelcome();
     }
   }
 
   /// 加载历史消息
-  Future<void> _loadHistory() async {
+  Future<bool> _loadHistory() async {
     if (mounted) setState(() => _isLoadingHistory = true);
     try {
       final result = await _service.getMessages();
-      if (!mounted) return;
-      if (result['success'] == true) {
-        final List<dynamic> history = result['messages'] as List? ?? const [];
-        if (history.isNotEmpty) {
-          setState(() {
-            for (final msg in history) {
-              _messages.add({
-                'content': msg['content'] ?? '',
-                'is_mine': msg['role'] == 'user',
-                'mood': msg['mood'],
-                'created_at': msg['created_at'],
-              });
-            }
-          });
-          _scrollToBottom();
-        }
+      if (!mounted) return false;
+      if (result['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? '历史消息加载失败'),
+          ),
+        );
+        return false;
       }
-    } catch (_) {
-      // 静默失败，不影响使用
+
+      final history = (result['messages'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (msg) => <String, dynamic>{
+              'content': msg['content'] ?? '',
+              'is_mine': msg['role'] == 'user',
+              'mood': msg['mood'],
+              'created_at': msg['created_at'],
+            },
+          )
+          .toList();
+
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(history);
+      });
+      if (history.isNotEmpty) {
+        _scrollToBottom();
+      }
+      return true;
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'LakeGodChatScreen._loadHistory');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('历史消息加载失败，请稍后重试')),
+        );
+      }
+      return false;
     } finally {
       if (mounted) setState(() => _isLoadingHistory = false);
     }
   }
 
   /// 加载情绪脉搏（公开端点）
-  Future<void> _loadEmotionPulse() async {
+  Future<bool> _loadEmotionPulse() async {
     if (mounted) setState(() => _isPulseLoading = true);
     try {
       final result = await _edgeAIService.getEmotionPulse();
-      if (!mounted) return;
+      if (!mounted) return false;
 
       if (result['success'] == true && result['data'] is Map) {
         setState(() {
           _emotionPulse = Map<String, dynamic>.from(result['data'] as Map);
         });
-      } else {
-        setState(() {
-          _emotionPulse = null;
-        });
+        return true;
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _emotionPulse = null);
-      }
+      return false;
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'LakeGodChatScreen._loadEmotionPulse');
+      return false;
     } finally {
       if (mounted) setState(() => _isPulseLoading = false);
     }
@@ -126,7 +154,6 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 下拉刷新 - 重新加载历史消息和情绪脉搏
   Future<void> _onRefresh() async {
-    setState(() => _messages.clear());
     await Future.wait([
       _loadHistory(),
       _loadEmotionPulse(),
@@ -163,6 +190,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
+    final optimisticMessage = <String, dynamic>{
+      'content': content,
+      'is_mine': true,
+    };
 
     _controller.clear();
     FocusScope.of(context).unfocus();
@@ -170,12 +201,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     setState(() => _isSending = true);
 
     try {
+      final messenger = ScaffoldMessenger.of(context);
       // 1. 添加用户消息到列表
       setState(() {
-        _messages.add({
-          'content': content,
-          'is_mine': true,
-        });
+        _messages.add(optimisticMessage);
       });
       _scrollToBottom();
 
@@ -201,29 +230,36 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
               'mood': mood,
             });
           } else {
-            // 后端返回失败（如内容审核不通过）
-            final msg = result['message'] ?? '消息发送失败，请稍后再试~';
-            _messages.add({
-              'content': msg,
-              'is_mine': false,
-            });
+            _messages.remove(optimisticMessage);
+            _controller.text = content;
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(result['message'] ?? '消息发送失败，请稍后再试'),
+              ),
+            );
           }
         });
-        _scrollToBottom();
+        if (result['success'] == true) {
+          _scrollToBottom();
+        }
       }
 
       // 3. 异步刷新情绪脉搏
       _loadEmotionPulse();
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'LakeGodChatScreen._sendMessage');
       if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
         setState(() {
           _isSending = false;
-          _messages.add({
-            'content': '网络不太好，稍后再试试吧~',
-            'is_mine': false,
-          });
+          _messages.remove(optimisticMessage);
         });
-        _scrollToBottom();
+        _controller.text = content;
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('网络不太好，稍后再试试吧'),
+          ),
+        );
       }
     }
   }

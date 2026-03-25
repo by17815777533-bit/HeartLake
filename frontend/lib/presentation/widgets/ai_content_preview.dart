@@ -56,6 +56,21 @@ class _AIContentPreviewState extends State<AIContentPreview>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -118,55 +133,74 @@ class _AIContentPreviewState extends State<AIContentPreview>
 
       if (!mounted) return;
 
-      // 解析情感分析结果
-      if (sentimentRes['success'] == true && sentimentRes['data'] is Map) {
-        final data = Map<String, dynamic>.from(sentimentRes['data'] as Map);
-        final rawMood = data['mood']?.toString() ??
-            data['sentiment']?.toString() ??
-            data['label']?.toString();
-        _sentimentLabel = _normalizeMoodLabel(rawMood);
-
-        final score = data['score'];
-        final confidence = data['calibrated_confidence'] ?? data['confidence'];
-        if (score != null) {
-          _sentimentScore = (score is num)
-              ? score.toDouble()
-              : double.tryParse(score.toString());
-        } else if (confidence != null) {
-          _sentimentScore = (confidence is num)
-              ? confidence.toDouble()
-              : double.tryParse(confidence.toString());
-        }
-        final uncertaintyRaw = data['uncertainty'];
-        if (uncertaintyRaw is num) {
-          _uncertainty = uncertaintyRaw.toDouble().clamp(0.0, 1.0);
-        } else if (uncertaintyRaw != null) {
-          _uncertainty =
-              double.tryParse(uncertaintyRaw.toString())?.clamp(0.0, 1.0);
-        } else {
-          _uncertainty = null;
-        }
-
-        _reliabilityTier = data['reliability_tier']?.toString();
-        final abstainedRaw = data['abstained'];
-        if (abstainedRaw is bool) {
-          _abstained = abstainedRaw;
-        } else {
-          final decision = data['decision']?.toString().toLowerCase();
-          _abstained = decision == 'abstain';
-        }
-        _recommendedAction = data['recommended_action']?.toString();
-
-        // 检测心理风险（情感分析结果中可能包含风险标记）
-        final highRisk =
-            data['high_risk'] == true || data['mental_risk'] == true;
-        if (highRisk) {
-          _showCareHint = true;
-          _careHintText = data['help_tip']?.toString() ??
-              '湖神看见你可能正承受很重的情绪。如果你愿意，请先联系可信任的人，也可以拨打心理援助热线：400-161-9995。';
-        } else {
+      if (sentimentRes['success'] != true) {
+        setState(() {
+          _status = ModerationStatus.warning;
+          _sentimentLabel = null;
+          _sentimentScore = null;
+          _moderationMessage = sentimentRes['message']?.toString() ??
+              'AI 情绪分析暂时不可用，发布后仍会经过后端审核。';
           _showCareHint = false;
-        }
+          _careHintText = null;
+          _uncertainty = null;
+          _reliabilityTier = null;
+          _abstained = false;
+          _recommendedAction = null;
+        });
+        _notifyResult();
+        return;
+      }
+      if (sentimentRes['data'] is! Map) {
+        throw StateError('Sentiment analysis payload is not a map');
+      }
+
+      // 解析情感分析结果
+      final data = Map<String, dynamic>.from(sentimentRes['data'] as Map);
+      final rawMood = data['mood']?.toString() ??
+          data['sentiment']?.toString() ??
+          data['label']?.toString();
+      _sentimentLabel = _normalizeMoodLabel(rawMood);
+
+      final score = data['score'];
+      final confidence = data['calibrated_confidence'] ?? data['confidence'];
+      if (score != null) {
+        _sentimentScore = (score is num)
+            ? score.toDouble()
+            : double.tryParse(score.toString());
+      } else if (confidence != null) {
+        _sentimentScore = (confidence is num)
+            ? confidence.toDouble()
+            : double.tryParse(confidence.toString());
+      }
+      final uncertaintyRaw = data['uncertainty'];
+      if (uncertaintyRaw is num) {
+        _uncertainty = uncertaintyRaw.toDouble().clamp(0.0, 1.0);
+      } else if (uncertaintyRaw != null) {
+        _uncertainty =
+            double.tryParse(uncertaintyRaw.toString())?.clamp(0.0, 1.0);
+      } else {
+        _uncertainty = null;
+      }
+
+      _reliabilityTier = data['reliability_tier']?.toString();
+      final abstainedRaw = data['abstained'];
+      if (abstainedRaw is bool) {
+        _abstained = abstainedRaw;
+      } else {
+        final decision = data['decision']?.toString().toLowerCase();
+        _abstained = decision == 'abstain';
+      }
+      _recommendedAction = data['recommended_action']?.toString();
+
+      // 检测心理风险（情感分析结果中可能包含风险标记）
+      final highRisk = data['high_risk'] == true || data['mental_risk'] == true;
+      if (highRisk) {
+        _showCareHint = true;
+        _careHintText = data['help_tip']?.toString() ??
+            '湖神看见你可能正承受很重的情绪。如果你愿意，请先联系可信任的人，也可以拨打心理援助热线：400-161-9995。';
+      } else {
+        _showCareHint = false;
+        _careHintText = null;
       }
 
       // 前端不做硬拦截：不确定时给 warning 提示，由用户决定
@@ -175,11 +209,16 @@ class _AIContentPreviewState extends State<AIContentPreview>
 
       setState(() {});
       _notifyResult();
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'AIContentPreview._runAnalysis');
       if (!mounted) return;
-      // 网络错误时默认通过
       setState(() {
-        _status = ModerationStatus.passed;
+        _status = ModerationStatus.warning;
+        _sentimentLabel = null;
+        _sentimentScore = null;
+        _moderationMessage = 'AI 情绪分析暂时不可用，发布后仍会经过后端审核。';
+        _showCareHint = false;
+        _careHintText = null;
         _abstained = false;
         _uncertainty = null;
         _reliabilityTier = null;

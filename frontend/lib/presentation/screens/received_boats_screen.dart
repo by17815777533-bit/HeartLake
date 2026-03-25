@@ -109,6 +109,28 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
     }
   }
 
+  void _replaceBoats(List<Map<String, dynamic>> boats) {
+    _boats
+      ..clear()
+      ..addAll(boats);
+    _rebuildBoatIndices();
+  }
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   bool _removeBoatById(String boatId) {
     final index = _boatIndexById[boatId];
     if (index == null) return false;
@@ -159,15 +181,18 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
           listKeys: const ['boats'],
         );
         setState(() {
-          _boats.clear();
-          _boats.addAll(items);
-          _rebuildBoatIndices();
+          _replaceBoats(items);
           _isLoading = false;
         });
       } else {
         if (mounted) setState(() => _isLoading = false);
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(
+        error,
+        stackTrace,
+        'ReceivedBoatsScreen._loadReceivedBoats',
+      );
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(

@@ -7,7 +7,13 @@ import '../../di/service_locator.dart';
 /// 情绪脉搏光球 - 实时展示社区情绪状态
 class EmotionPulseWidget extends StatefulWidget {
   final double size;
-  const EmotionPulseWidget({super.key, this.size = 120});
+  final int refreshVersion;
+
+  const EmotionPulseWidget({
+    super.key,
+    this.size = 120,
+    this.refreshVersion = 0,
+  });
 
   @override
   State<EmotionPulseWidget> createState() => _EmotionPulseWidgetState();
@@ -18,6 +24,7 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
   late AnimationController _breathController;
   final EdgeAIService _edgeAIService = sl<EdgeAIService>();
   Map<String, dynamic>? _pulseData;
+  String? _loadErrorMessage;
   String _dominantMood = 'neutral';
   double _intensity = 0.5;
 
@@ -31,11 +38,35 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
     'fear': Color(0xFFB39DDB),
     'fearful': Color(0xFFB39DDB),
     'anxious': Color(0xFFFFB74D),
+    'confused': Color(0xFFA1887F),
     'calm': Color(0xFF4DB6AC),
     'surprise': Color(0xFFFFAB40),
     'surprised': Color(0xFFFFAB40),
     'neutral': Color(0xFF90CAF9),
   };
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showLoadFailure(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -48,57 +79,137 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
   }
 
   @override
+  void didUpdateWidget(covariant EmotionPulseWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshVersion != widget.refreshVersion) {
+      _loadPulse(showFailureMessage: false);
+    }
+  }
+
+  @override
   void dispose() {
     _breathController.dispose();
     super.dispose();
   }
 
   // 公开端点：/api/edge-ai/emotion-pulse
-  Future<void> _loadPulse() async {
+  Future<void> _loadPulse({bool showFailureMessage = true}) async {
     try {
       final result = await _edgeAIService.getEmotionPulse();
       if (!mounted) return;
 
-      if (result['success'] == true && result['data'] is Map) {
-        final data = Map<String, dynamic>.from(result['data'] as Map);
-        final dominantMood =
-            (data['dominant_mood'] ?? 'neutral').toString().toLowerCase();
-        final sampleCount = (data['sample_count'] as num?)?.toInt() ?? 0;
-        final distribution = data['mood_distribution'] is Map
-            ? data['mood_distribution'] as Map
-            : null;
-        final avgScore = (data['avg_score'] as num?)?.toDouble() ?? 0.0;
-
-        double intensity;
-        if (distribution != null && sampleCount > 0) {
-          final dominantCount =
-              (distribution[dominantMood] as num?)?.toDouble() ?? 0.0;
-          intensity = (dominantCount / sampleCount).clamp(0.25, 1.0);
-        } else {
-          intensity = (avgScore.abs() + 0.3).clamp(0.25, 1.0);
-        }
-
+      if (result['success'] != true) {
+        final message = result['message']?.toString() ?? '情绪脉搏加载失败';
         setState(() {
-          _pulseData = data;
-          _dominantMood = dominantMood;
-          _intensity = intensity;
+          _loadErrorMessage = message;
         });
+        if (showFailureMessage) {
+          _showLoadFailure(message);
+        }
         return;
       }
-    } catch (_) {}
+      if (result['data'] is! Map) {
+        throw StateError('Emotion pulse payload is not a map');
+      }
 
-    if (!mounted) return;
-    setState(() {
-      _pulseData = {'dominant_mood': 'neutral', 'intensity': 0.5};
-      _dominantMood = 'neutral';
-      _intensity = 0.5;
-    });
+      final data = Map<String, dynamic>.from(result['data'] as Map);
+      final dominantMood =
+          (data['dominant_mood'] ?? 'neutral').toString().toLowerCase();
+      final sampleCount = (data['sample_count'] as num?)?.toInt() ?? 0;
+      final distribution = data['mood_distribution'] is Map
+          ? data['mood_distribution'] as Map
+          : null;
+      final avgScore = (data['avg_score'] as num?)?.toDouble() ?? 0.0;
+
+      double intensity;
+      if (distribution != null && sampleCount > 0) {
+        final dominantCount =
+            (distribution[dominantMood] as num?)?.toDouble() ?? 0.0;
+        intensity = (dominantCount / sampleCount).clamp(0.25, 1.0);
+      } else {
+        intensity = (avgScore.abs() + 0.3).clamp(0.25, 1.0);
+      }
+
+      setState(() {
+        _pulseData = data;
+        _dominantMood = dominantMood;
+        _intensity = intensity;
+        _loadErrorMessage = null;
+      });
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'EmotionPulseWidget._loadPulse');
+      if (!mounted) return;
+      setState(() {
+        _loadErrorMessage = '情绪脉搏加载失败，请稍后重试';
+      });
+      if (showFailureMessage) {
+        _showLoadFailure('情绪脉搏加载失败，请稍后重试');
+      }
+    }
   }
 
   Color get _glowColor => _moodColors[_dominantMood] ?? const Color(0xFF90CAF9);
 
   @override
   Widget build(BuildContext context) {
+    if (_pulseData == null) {
+      return GestureDetector(
+        onTap: _loadPulse,
+        child: SizedBox(
+          width: widget.size + 40,
+          height: widget.size + 40,
+          child: Center(
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.blueGrey.withValues(alpha: 0.28),
+                    Colors.blueGrey.withValues(alpha: 0.12),
+                    Colors.blueGrey.withValues(alpha: 0.04),
+                  ],
+                  stops: const [0.3, 0.7, 1.0],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      color: Colors.white70,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _loadErrorMessage ?? '情绪脉搏暂不可用',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '点击重试',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return AnimatedBuilder(
       animation: _breathController,
       builder: (_, __) {
@@ -161,6 +272,16 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
                             color: Colors.white.withValues(alpha: 0.6),
                           ),
                         ),
+                        if (_loadErrorMessage != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '数据未更新',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.white.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -184,6 +305,7 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
       'fear': '🌙',
       'fearful': '🌙',
       'anxious': '🌫️',
+      'confused': '🪵',
       'calm': '💧',
       'surprise': '⭐',
       'surprised': '⭐',
@@ -203,6 +325,7 @@ class _EmotionPulseWidgetState extends State<EmotionPulseWidget>
       'fear': '幽深',
       'fearful': '幽深',
       'anxious': '波动',
+      'confused': '迷雾',
       'calm': '安定',
       'surprise': '惊喜',
       'surprised': '惊喜',

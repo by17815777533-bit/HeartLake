@@ -32,6 +32,21 @@ class ConsultationService extends BaseService {
 
   final Map<String, _ConsultationCryptoContext> _contexts = {};
 
+  void _reportServiceError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   _ConsultationCryptoContext? _contextOf(String sessionId) {
     return _contexts[sessionId];
   }
@@ -56,8 +71,8 @@ class ConsultationService extends BaseService {
   ///
   /// 流程：生成本地 X25519 密钥对 -> 将公钥发送给服务端 ->
   /// 接收对端公钥 -> 派生 ECDH 共享密钥。
-  /// 成功返回 true，任何环节失败返回 false。
-  Future<bool> initE2E(String sessionId) async {
+  /// 返回 `{success, message, data}`，显式区分初始化成功和失败。
+  Future<Map<String, dynamic>> initE2E(String sessionId) async {
     InputValidator.validateUUID(sessionId, '会话ID');
     try {
       final context = await _ensureContext(sessionId);
@@ -67,19 +82,46 @@ class ConsultationService extends BaseService {
         sessionId: sessionId,
         clientPublicKey: myPublicKey,
       );
+      if (resp['success'] != true) {
+        disposeSession(sessionId);
+        return resp;
+      }
 
       final data = resp['data'] as Map<String, dynamic>? ?? const {};
       final serverPublicKey = data['server_public_key']?.toString() ?? '';
       final salt = data['salt']?.toString() ?? '';
       if (serverPublicKey.isEmpty || salt.isEmpty) {
-        return false;
+        disposeSession(sessionId);
+        return {
+          'success': false,
+          'message': '安全通道初始化失败，请稍后重试',
+        };
       }
 
       await context.e2e.deriveSessionKeyFromSeed(serverPublicKey, salt);
-      return true;
-    } catch (e) {
-      if (kDebugMode) debugPrint('E2E初始化失败: $e');
-      return false;
+      return {
+        'success': true,
+        'message': '安全通道已建立',
+        'data': {
+          'session_id': sessionId,
+          'sessionId': sessionId,
+          'status': 'ready',
+          'is_ready': true,
+          'isReady': true,
+          'key_exchange_status': data['status'] ?? 'key_exchanged',
+        },
+      };
+    } catch (error, stackTrace) {
+      disposeSession(sessionId);
+      _reportServiceError(
+        error,
+        stackTrace,
+        'ConsultationService.initE2E',
+      );
+      return {
+        'success': false,
+        'message': '安全通道初始化失败，请稍后重试',
+      };
     }
   }
 
@@ -107,7 +149,8 @@ class ConsultationService extends BaseService {
 
         final payload = resp.data is Map
             ? normalizeMessagePayload(
-                Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
+                Map<String, dynamic>.from(
+                    (resp.data as Map).cast<String, dynamic>()),
               )
             : <String, dynamic>{
                 'session_id': sessionId,
@@ -119,16 +162,19 @@ class ConsultationService extends BaseService {
           ...toMap(resp),
           'data': payload,
           'message_id': payload['message_id'] ?? payload['messageId'],
-          'message': payload.isNotEmpty ? payload : resp.message,
+          'messageId': payload['messageId'] ?? payload['message_id'],
         };
-      } catch (e) {
-        if (kDebugMode) debugPrint('[ConsultationService] 加密失败，拒绝发送明文: $e');
+      } catch (error, stackTrace) {
+        _reportServiceError(
+          error,
+          stackTrace,
+          'ConsultationService.sendMessage',
+        );
         return {'success': false, 'message': '消息加密失败，请检查网络后重试'};
       }
     }
 
     // 咨询消息涉及隐私，E2E 未就绪时拒绝发送明文
-    if (kDebugMode) debugPrint('[ConsultationService] E2E未就绪，拒绝发送明文');
     return {'success': false, 'message': '安全通道未建立，请稍后再试'};
   }
 
@@ -164,7 +210,7 @@ class ConsultationService extends BaseService {
           };
     final messages = extractNormalizedList(
       envelope,
-      itemNormalizer: (item) => item,
+      itemNormalizer: normalizeMessagePayload,
       listKeys: const ['messages'],
     );
     final context = _contextOf(sessionId);
@@ -191,7 +237,7 @@ class ConsultationService extends BaseService {
               msg['decryption_status'] = 'invalid_payload';
             }
           } else if (encryptedField == true && msg['content'] is String) {
-            msg['content'] = msg['content'];
+            msg['content'] = '[历史加密消息]';
             msg['decryption_status'] = 'legacy_payload';
           } else if (encryptedField is Map) {
             msg['content'] = '[加密消息]';
@@ -199,12 +245,14 @@ class ConsultationService extends BaseService {
           } else {
             msg['decryption_status'] = 'plain';
           }
-        } catch (e) {
+        } catch (error, stackTrace) {
           msg['content'] = '[无法解密]';
           msg['decryption_status'] = 'failed';
-          if (kDebugMode) {
-            debugPrint('[ConsultationService] 解密失败($sessionId): $e');
-          }
+          _reportServiceError(
+            error,
+            stackTrace,
+            'ConsultationService.getMessages($sessionId)',
+          );
         }
         msg['created_at'] = msg['created_at'] ?? msg['time'];
         msg['sender_type'] = msg['sender_type'] ?? msg['sender'];

@@ -33,8 +33,18 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
 
   // 月份标签
   static const _monthLabels = [
-    '1月', '2月', '3月', '4月', '5月', '6月',
-    '7月', '8月', '9月', '10月', '11月', '12月',
+    '1月',
+    '2月',
+    '3月',
+    '4月',
+    '5月',
+    '6月',
+    '7月',
+    '8月',
+    '9月',
+    '10月',
+    '11月',
+    '12月',
   ];
 
   @override
@@ -74,16 +84,33 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
   Color _getCellColor(Map<String, dynamic>? dayData) {
     if (dayData == null) return Colors.grey.shade200;
 
-    final score = (dayData['score'] ?? 0.5) as num;
+    final score = _normalizedScore(dayData);
+    final sentimentScore = _sentimentScore(dayData);
     final mood = dayData['mood'] as String?;
     final moodType = mood != null
         ? MoodColors.fromString(mood)
-        : MoodColors.fromSentimentScore(score.toDouble());
+        : MoodColors.fromSentimentScore(sentimentScore);
 
     final config = MoodColors.getConfig(moodType);
     // 用 score 控制饱和度
-    final intensity = score.toDouble().clamp(0.2, 1.0);
+    final intensity = score.clamp(0.2, 1.0);
     return Color.lerp(Colors.grey.shade100, config.primary, intensity)!;
+  }
+
+  double _normalizedScore(Map<String, dynamic> dayData) {
+    final score = dayData['score'];
+    if (score is num) {
+      return score.toDouble().clamp(0.0, 1.0);
+    }
+    return 0.5;
+  }
+
+  double _sentimentScore(Map<String, dynamic> dayData) {
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return rawScore.toDouble().clamp(-1.0, 1.0);
+    }
+    return (_normalizedScore(dayData) * 2 - 1).clamp(-1.0, 1.0);
   }
 
   /// 格式化日期为 YYYY-MM-DD
@@ -173,10 +200,12 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
           ),
           const SizedBox(height: 12),
           // 月份标签行
-          _buildMonthLabelsRow(monthLabels, totalColumns, cellSize, cellGap, weekdayWidth),
+          _buildMonthLabelsRow(
+              monthLabels, totalColumns, cellSize, cellGap, weekdayWidth),
           const SizedBox(height: 4),
           // 热力图主体
-          _buildHeatmapBody(dates, totalColumns, cellSize, cellGap, weekdayWidth),
+          _buildHeatmapBody(
+              dates, totalColumns, cellSize, cellGap, weekdayWidth),
           const SizedBox(height: 12),
           // Tooltip 显示
           if (_hoveredDate != null) _buildTooltip(),
@@ -274,7 +303,8 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: List.generate(totalColumns, (col) {
-                      return _buildColumn(dates, col, cellSize, cellGap, totalColumns);
+                      return _buildColumn(
+                          dates, col, cellSize, cellGap, totalColumns);
                     }),
                   );
                 },
@@ -312,7 +342,8 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
         // 渐入动画：按列逐步显示
         final animProgress = _animController.value;
         final colRatio = col / totalColumns;
-        final cellOpacity = ((animProgress - colRatio * 0.6) / 0.4).clamp(0.0, 1.0);
+        final cellOpacity =
+            ((animProgress - colRatio * 0.6) / 0.4).clamp(0.0, 1.0);
 
         return GestureDetector(
           onTap: () {
@@ -337,7 +368,11 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
                       ? Border.all(color: AppTheme.primaryColor, width: 1.5)
                       : null,
                   boxShadow: isHovered
-                      ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)]
+                      ? [
+                          BoxShadow(
+                              color: color.withValues(alpha: 0.5),
+                              blurRadius: 4)
+                        ]
                       : null,
                 ),
               ),
@@ -360,11 +395,12 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
       );
     }
 
-    final score = (dayData['score'] ?? 0.5) as num;
+    final score = _normalizedScore(dayData);
+    final sentimentScore = _sentimentScore(dayData);
     final mood = dayData['mood'] as String?;
     final moodType = mood != null
         ? MoodColors.fromString(mood)
-        : MoodColors.fromSentimentScore(score.toDouble());
+        : MoodColors.fromSentimentScore(sentimentScore);
     final config = MoodColors.getConfig(moodType);
 
     return Container(
@@ -415,7 +451,8 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('少', style: TextStyle(fontSize: 10, color: AppTheme.textTertiary)),
+        const Text('少',
+            style: TextStyle(fontSize: 10, color: AppTheme.textTertiary)),
         const SizedBox(width: 4),
         // 渐变色块
         ...List.generate(5, (i) {
@@ -431,7 +468,8 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
           );
         }),
         const SizedBox(width: 4),
-        const Text('多', style: TextStyle(fontSize: 10, color: AppTheme.textTertiary)),
+        const Text('多',
+            style: TextStyle(fontSize: 10, color: AppTheme.textTertiary)),
         const SizedBox(width: 16),
         // 情绪颜色图例
         ...legendItems.map((item) => Padding(
@@ -450,7 +488,8 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
                   const SizedBox(width: 3),
                   Text(
                     item.label,
-                    style: const TextStyle(fontSize: 9, color: AppTheme.textTertiary),
+                    style: const TextStyle(
+                        fontSize: 9, color: AppTheme.textTertiary),
                   ),
                 ],
               ),

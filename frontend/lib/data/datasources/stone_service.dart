@@ -51,12 +51,18 @@ class StoneService extends BaseService implements StoneDataSource {
 
   Map<String, dynamic> _buildStoneCollection(dynamic data) {
     final items = _extractStoneItems(data);
-    final List<Stone> stones = [];
-    for (final json in items) {
+    final stones = <Stone>[];
+    for (var i = 0; i < items.length; i++) {
+      final json = items[i];
       try {
         stones.add(Stone.fromJson(json));
-      } catch (e) {
-        if (kDebugMode) debugPrint('跳过无法解析的石头: $e');
+      } catch (error, stackTrace) {
+        Error.throwWithStackTrace(
+          FormatException(
+            'StoneService 无法解析 stone[$i]，keys=${json.keys.toList()}，error=$error',
+          ),
+          stackTrace,
+        );
       }
     }
     return buildCollectionEnvelope(data, primaryKey: 'stones', items: stones);
@@ -180,14 +186,20 @@ class StoneService extends BaseService implements StoneDataSource {
         return result;
       });
       return result;
-    } catch (_) {
-      // 熔断降级到本地缓存
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'heartlake',
+          context: ErrorDescription('StoneService.getStones'),
+        ),
+      );
       final cached = _cache.get<Map<String, dynamic>>(cacheKey);
       if (cached != null) {
-        if (kDebugMode) debugPrint('[StoneService] 熔断降级到缓存: $cacheKey');
         return {...cached, 'from_cache': true};
       }
-      return {'success': false, 'message': '服务暂时不可用，请稍后重试'};
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
@@ -221,10 +233,18 @@ class StoneService extends BaseService implements StoneDataSource {
         _cache.set(cacheKey, result, ttl: const Duration(minutes: 5));
         return result;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'heartlake',
+          context: ErrorDescription('StoneService.getLakeWeather'),
+        ),
+      );
       final cached = _cache.get<Map<String, dynamic>>(cacheKey);
       if (cached != null) return {...cached, 'from_cache': true};
-      return {'success': false, 'message': '服务暂时不可用'};
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 

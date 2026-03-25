@@ -65,6 +65,7 @@ cp .env.server-lite .env
 说明：
 
 - `server-lite` 模板现在默认按“外部 OpenAI-compatible API”口径填写 AI 参数，更适合 `2C2G`
+- 若使用默认外部 AI，生成脚本不会替你伪造密钥；上线前仍需补齐 `.env` 里的 `AI_API_KEY`
 - 如果你要改回本机 `ollama`，请手动把 `AI_PROVIDER=ollama`，并确认 `AI_BASE_URL` 在服务器内可达
 - 三类后台扫描任务默认关闭；确认机器余量后再逐项改为 `true`
 
@@ -87,6 +88,20 @@ docker compose pull postgres redis gateway || true
 # 只改 gateway
 ./scripts/docker-up.sh server-lite-gateway
 ```
+
+如果你在本地开发机先构建镜像、再推送到远端服务器，也可以用这条更轻的发布脚本：
+
+```bash
+./scripts/deploy-server-lite-local.sh admin <remote-host>
+./scripts/deploy-server-lite-local.sh backend <remote-host>
+./scripts/deploy-server-lite-local.sh all <remote-host>
+```
+
+前置条件：
+
+- 本地机器已安装 `docker`、`ssh`、`rsync`、`gzip`
+- 远端机器已提前准备好仓库目录、`.env` 和 Docker Compose 环境
+- 本地与远端 CPU 架构保持一致
 
 ## 5. 冒烟验证
 

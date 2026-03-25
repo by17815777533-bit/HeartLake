@@ -25,7 +25,7 @@ class PsychSupportDialog extends StatefulWidget {
 
 class _PsychSupportDialogState extends State<PsychSupportDialog> {
   final PsychSupportService _service = sl<PsychSupportService>();
-  List<dynamic> _hotlines = [];
+  List<Map<String, dynamic>> _hotlines = [];
   String _prompt = '';
   bool _loading = true;
 
@@ -43,38 +43,91 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
     );
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _loadData() async {
     try {
       final results =
           await Future.wait([_service.getHotlines(), _service.getPrompt()]);
+      if (!mounted) return;
+      final hotlinesSuccess =
+          results[0]['success'] == true && results[0]['data'] != null;
+      final promptSuccess =
+          results[1]['success'] == true && results[1]['data'] != null;
+      final failures = <String>[
+        if (!hotlinesSuccess) results[0]['message']?.toString() ?? '心理热线加载失败',
+        if (!promptSuccess) results[1]['message']?.toString() ?? '关怀提示加载失败',
+      ];
+      final promptData = promptSuccess && results[1]['data'] is Map
+          ? Map<String, dynamic>.from(
+              (results[1]['data'] as Map).cast<String, dynamic>(),
+            )
+          : const <String, dynamic>{};
       if (mounted) {
-        final promptData = results[1]['data'] is Map
-            ? Map<String, dynamic>.from(
-                (results[1]['data'] as Map).cast<String, dynamic>(),
-              )
-            : const <String, dynamic>{};
         setState(() {
-          _hotlines = _extractHotlines(results[0]);
+          _hotlines =
+              hotlinesSuccess ? _extractHotlines(results[0]) : _hotlines;
           _prompt = promptData['prompt']?.toString() ??
+              (_prompt.isNotEmpty ? _prompt : null) ??
               widget.helpTip ??
               '需要有人陪伴吗？我们在这里倾听你。';
           _loading = false;
         });
+        if (failures.isNotEmpty) {
+          _showMessage(failures.join('；'));
+        }
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'PsychSupportDialog._loadData');
       if (mounted) {
         setState(() {
-          _hotlines = [];
-          _prompt = widget.helpTip ?? '需要有人陪伴吗？我们在这里倾听你。';
+          _prompt = _prompt.isNotEmpty
+              ? _prompt
+              : (widget.helpTip ?? '需要有人陪伴吗？我们在这里倾听你。');
           _loading = false;
         });
+        _showMessage('心理支持信息加载失败，请稍后重试');
       }
     }
   }
 
   Future<void> _callHotline(String phone) async {
+    if (phone.trim().isEmpty) {
+      _showMessage('热线号码缺失');
+      return;
+    }
     final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        _showMessage('无法拨打 $phone');
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'PsychSupportDialog._callHotline');
+      _showMessage('拨号失败，请稍后重试');
+    }
   }
 
   @override

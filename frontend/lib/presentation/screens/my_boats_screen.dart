@@ -106,6 +106,33 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
     }
   }
 
+  void _replaceBoats(List<Map<String, dynamic>> boats) {
+    _boats
+      ..clear()
+      ..addAll(boats);
+    _rebuildBoatIndices();
+  }
+
+  void _insertBoatAt(int index, Map<String, dynamic> boat) {
+    _boats.insert(index, boat);
+    _rebuildBoatIndices();
+  }
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   bool _removeBoatById(String boatId) {
     final index = _boatIndexById[boatId];
     if (index == null) return false;
@@ -159,9 +186,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
           listKeys: const ['boats'],
         );
         setState(() {
-          _boats.clear();
-          _boats.addAll(boats);
-          _rebuildBoatIndices();
+          _replaceBoats(boats);
           _isLoading = false;
         });
       } else {
@@ -169,7 +194,8 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
           setState(() => _isLoading = false);
         }
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'MyBoatsScreen._loadMyBoats');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -346,11 +372,10 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                             );
                           },
                           onDismissed: (direction) async {
-                            final removedBoat = boat;
+                            final removedBoat = Map<String, dynamic>.from(boat);
                             final removedIndex = index;
                             setState(() {
-                              _boats.removeAt(index);
-                              _rebuildBoatIndices();
+                              _removeBoatById(boatId);
                             });
                             final result =
                                 await _interactionService.deleteBoat(boatId);
@@ -364,8 +389,7 @@ class _MyBoatsScreenState extends State<MyBoatsScreen> {
                             }
 
                             setState(() {
-                              _boats.insert(removedIndex, removedBoat);
-                              _rebuildBoatIndices();
+                              _insertBoatAt(removedIndex, removedBoat);
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

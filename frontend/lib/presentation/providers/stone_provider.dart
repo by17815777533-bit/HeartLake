@@ -73,6 +73,21 @@ class StoneProvider with ChangeNotifier {
     _initWebSocketListeners();
   }
 
+  void _reportProviderError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   bool _resolveHasMore(
     Map<String, dynamic> result, {
     required int page,
@@ -215,10 +230,12 @@ class StoneProvider with ChangeNotifier {
       _rebuildStoneIndex();
       _invalidateCache();
       notifyListeners();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 忽略无法解析的 new_stone: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider._handleNewStone',
+      );
     }
   }
 
@@ -327,11 +344,19 @@ class StoneProvider with ChangeNotifier {
           (result['weather'] as Map?)?.cast<String, dynamic>() ?? const {},
         );
         notifyListeners();
+      } else {
+        _reportProviderError(
+          StateError(result['message']?.toString() ?? '加载湖面气象失败'),
+          StackTrace.current,
+          'StoneProvider.loadLakeWeather',
+        );
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 加载湖面气象失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider.loadLakeWeather',
+      );
     }
   }
 
@@ -424,13 +449,21 @@ class StoneProvider with ChangeNotifier {
           'stones': newStones,
         });
       } else {
-        throw Exception(result['message'] ?? '加载失败');
+        final message = result['message']?.toString() ?? '石头列表加载失败';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'StoneProvider.loadStones',
+        );
+        _errorMessage = message;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 加载石头失败: $e');
-      }
-      _errorMessage = '网络连接失败，请检查后端服务是否启动';
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider.loadStones',
+      );
+      _errorMessage = '石头列表加载失败，请稍后重试';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -468,11 +501,23 @@ class StoneProvider with ChangeNotifier {
             'stones': newStones,
           });
         }
+        _errorMessage = null;
+      } else {
+        final message = result['message']?.toString() ?? '加载更多失败，请稍后重试';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'StoneProvider.loadMore',
+        );
+        _errorMessage = message;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 加载更多失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider.loadMore',
+      );
+      _errorMessage = '加载更多失败，请稍后重试';
     } finally {
       _isLoadingMore = false;
       notifyListeners();
@@ -507,10 +552,12 @@ class StoneProvider with ChangeNotifier {
         // 新石头会通过 WebSocket 广播自动添加到列表
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 投石失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider.throwStone',
+      );
       return {'success': false, 'message': '投石失败，请稍后再试'};
     }
   }
@@ -526,10 +573,12 @@ class StoneProvider with ChangeNotifier {
         notifyListeners();
       }
       return result;
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 删除石头失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'StoneProvider.deleteStone',
+      );
       return {'success': false, 'message': '删除失败，请稍后再试'};
     }
   }

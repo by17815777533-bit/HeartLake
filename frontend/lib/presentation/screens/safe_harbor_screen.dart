@@ -42,9 +42,9 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
   String? _error;
 
   String _promptText = '';
-  List<dynamic> _hotlines = [];
-  List<dynamic> _tools = [];
-  List<dynamic> _resources = [];
+  List<Map<String, dynamic>> _hotlines = [];
+  List<Map<String, dynamic>> _tools = [];
+  List<Map<String, dynamic>> _resources = [];
 
   // 自助工具展开状态
   final Set<int> _expandedTools = {};
@@ -68,24 +68,48 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _recordAccessSilently(String resourceId) {
     unawaited(() async {
       try {
-        await _service.recordAccess(resourceId: resourceId);
-      } catch (error) {
-        debugPrint('Safe harbor access ignored: $error');
+        final result = await _service.recordAccess(resourceId: resourceId);
+        if (result['success'] != true) {
+          _reportUiError(
+            StateError(result['message']?.toString() ?? '记录安全港湾访问失败'),
+            StackTrace.current,
+            'SafeHarborScreen._recordAccessSilently',
+          );
+        }
+      } catch (error, stackTrace) {
+        _reportUiError(
+          error,
+          stackTrace,
+          'SafeHarborScreen._recordAccessSilently',
+        );
       }
     }());
-  }
-
-  Future<Map<String, dynamic>> _safeSupportRequest(
-    Future<Map<String, dynamic>> Function() request,
-  ) async {
-    try {
-      return await request();
-    } catch (_) {
-      return const <String, dynamic>{'success': false};
-    }
   }
 
   List<Map<String, dynamic>> _extractSupportItems(
@@ -128,38 +152,79 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
 
     try {
       final results = await Future.wait([
-        _safeSupportRequest(_service.getPrompt),
-        _safeSupportRequest(_service.getHotlines),
-        _safeSupportRequest(_service.getTools),
-        _safeSupportRequest(_service.getResources),
+        _service.getPrompt(),
+        _service.getHotlines(),
+        _service.getTools(),
+        _service.getResources(),
       ]);
 
       // 记录访问
       _recordAccessSilently('page_view');
 
       if (mounted) {
-        final promptPayload = results[0]['data'] is Map
+        final promptSuccess =
+            results[0]['success'] == true && results[0]['data'] != null;
+        final hotlinesSuccess =
+            results[1]['success'] == true && results[1]['data'] != null;
+        final toolsSuccess =
+            results[2]['success'] == true && results[2]['data'] != null;
+        final resourcesSuccess =
+            results[3]['success'] == true && results[3]['data'] != null;
+        final failures = <String>[
+          if (!promptSuccess) results[0]['message']?.toString() ?? '关怀提示加载失败',
+          if (!hotlinesSuccess) results[1]['message']?.toString() ?? '心理热线加载失败',
+          if (!toolsSuccess) results[2]['message']?.toString() ?? '自助工具加载失败',
+          if (!resourcesSuccess)
+            results[3]['message']?.toString() ?? '支持资源加载失败',
+        ];
+        final promptPayload = promptSuccess && results[0]['data'] is Map
             ? Map<String, dynamic>.from(
                 (results[0]['data'] as Map).cast<String, dynamic>(),
               )
             : results[0];
-        final hotlines = _extractSupportItems(
-          results[1],
-          primaryKey: 'hotlines',
-        );
-        final tools = _extractSupportItems(
-          results[2],
-          primaryKey: 'tools',
-        );
-        final resources = _extractSupportItems(
-          results[3],
-          primaryKey: 'resources',
-        );
+        final hotlines = hotlinesSuccess
+            ? _extractSupportItems(
+                results[1],
+                primaryKey: 'hotlines',
+              )
+            : _hotlines;
+        final tools = toolsSuccess
+            ? _extractSupportItems(
+                results[2],
+                primaryKey: 'tools',
+              )
+            : _tools;
+        final resources = resourcesSuccess
+            ? _extractSupportItems(
+                results[3],
+                primaryKey: 'resources',
+              )
+            : _resources;
+        final nextPrompt = promptSuccess
+            ? _promptFromPayload(promptPayload)
+            : (_promptText.isNotEmpty ? _promptText : '你不是一个人，这里永远是你的安全港湾');
+        final hadVisibleData = _promptText.isNotEmpty ||
+            _hotlines.isNotEmpty ||
+            _tools.isNotEmpty ||
+            _resources.isNotEmpty;
         setState(() {
-          _promptText = _promptFromPayload(promptPayload);
+          _promptText = nextPrompt;
           _hotlines = hotlines;
           _tools = tools;
           _resources = resources;
+          _loading = false;
+          _error =
+              failures.length == 4 && !hadVisibleData ? '加载失败，请下拉刷新重试' : null;
+        });
+        _animController.forward(from: 0);
+        if (failures.isNotEmpty) {
+          _showMessage(failures.join('；'));
+        }
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'SafeHarborScreen._loadAll');
+      if (mounted) {
+        setState(() {
           _loading = false;
           _error = _promptText.isEmpty &&
                   _hotlines.isEmpty &&
@@ -168,14 +233,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
               ? '加载失败，请下拉刷新重试'
               : null;
         });
-        _animController.forward();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = '加载失败，请下拉刷新重试';
-        });
+        _showMessage('安全港湾加载失败，请稍后重试');
       }
     }
   }

@@ -2,6 +2,8 @@
 //
 // 展示系统通知和互动消息，支持分页加载和已读标记。
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/datasources/stone_service.dart';
@@ -31,23 +33,35 @@ class _NotificationScreenState extends State<NotificationScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<NotificationProvider>().loadNotifications(refresh: true);
+      unawaited(_loadNotifications());
     });
+  }
+
+  void _showProviderError() {
+    if (!mounted) return;
+    final message = context.read<NotificationProvider>().errorMessage;
+    if (message == null || message.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   /// 从 Provider 拉取通知列表
   Future<void> _loadNotifications() async {
     await context.read<NotificationProvider>().loadNotifications(refresh: true);
+    _showProviderError();
   }
 
   /// 将指定通知标记为已读，并更新本地未读计数
   Future<void> _markAsRead(String notificationId) async {
     await context.read<NotificationProvider>().markAsRead(notificationId);
+    _showProviderError();
   }
 
   /// 一键将所有通知标记为已读
   Future<void> _markAllAsRead() async {
     await context.read<NotificationProvider>().markAllAsRead();
+    _showProviderError();
   }
 
   /// 根据通知类型跳转到对应的详情页面（石头详情、好友列表、聊天等）
@@ -138,6 +152,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final notifications = notificationState.notifications;
     final unreadCount = notificationState.unreadCount;
     final isLoading = notificationState.isLoadingNotifications;
+    final errorMessage = notificationState.errorMessage;
 
     return Scaffold(
       appBar: AppBar(
@@ -197,33 +212,68 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       style: TextStyle(color: Colors.grey[600]))
                 ]))
               : notifications.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.7,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.notifications_none,
-                                  size: 80,
-                                  color: Colors.grey[300],
+                  ? errorMessage != null
+                      ? ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.7,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_off_outlined,
+                                      size: 80,
+                                      color: Colors.grey[300],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      errorMessage,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    FilledButton.icon(
+                                      onPressed: _loadNotifications,
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('重试'),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '暂无通知，心湖很安静',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    )
+                          ],
+                        )
+                      : ListView(
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.7,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_none,
+                                      size: 80,
+                                      color: Colors.grey[300],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      '暂无通知，心湖很安静',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: notifications.length,

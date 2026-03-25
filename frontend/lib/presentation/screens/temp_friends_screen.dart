@@ -57,23 +57,48 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 加载临时好友列表，重置列表动画
   Future<void> _loadTempFriends() async {
     if (mounted) setState(() => _isLoading = true);
     _listAnimController.reset();
+    try {
+      final result = await context.read<FriendProvider>().fetchTempFriends();
+      if (!mounted) return;
 
-    final result = await context.read<FriendProvider>().fetchTempFriends();
-    if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (result['success'] == true) {
+        _listAnimController.forward();
+        return;
+      }
 
-    setState(() => _isLoading = false);
-    if (result['success'] == true) {
-      _listAnimController.forward();
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message']?.toString() ?? '加载失败，请下拉重试'),
+        ),
+      );
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'TempFriendsScreen._loadTempFriends');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('加载失败，请稍后重试')),
+      );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result['message']?.toString() ?? '加载失败，请下拉重试')),
-    );
   }
 
   /// 计算距过期时间的剩余时长，格式化为"N小时N分钟"
@@ -155,7 +180,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             ),
           );
         }
-      } catch (e) {
+      } catch (error, stackTrace) {
+        _reportUiError(
+          error,
+          stackTrace,
+          'TempFriendsScreen._upgradeToPermanent',
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -203,7 +233,12 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
             ),
           );
         }
-      } catch (e) {
+      } catch (error, stackTrace) {
+        _reportUiError(
+          error,
+          stackTrace,
+          'TempFriendsScreen._deleteTempFriend',
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

@@ -70,25 +70,48 @@ class _FriendsScreenState extends State<FriendsScreen>
   String? _extractFriendId(Map<String, dynamic> friend) =>
       extractFriendEntityId(friend);
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   /// 加载好友列表，加载完成后触发列表交错淡入动画
   Future<void> _loadFriends() async {
     _listAnimController.reset();
-    final result = await context.read<FriendProvider>().fetchFriends();
-    if (!mounted) return;
+    try {
+      final result = await context.read<FriendProvider>().fetchFriends();
+      if (!mounted) return;
 
-    if (result['success'] == true) {
-      _listAnimController.forward();
-      return;
-    }
+      if (result['success'] == true) {
+        _listAnimController.forward();
+        return;
+      }
 
-    final message = result['message']?.toString();
-    if (message != null && message.isNotEmpty) {
+      final message = result['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载好友列表失败')),
+        );
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'FriendsScreen._loadFriends');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加载好友列表失败')),
+        const SnackBar(content: Text('加载好友列表失败，请稍后重试')),
       );
     }
   }
@@ -391,21 +414,32 @@ class _FriendsScreenState extends State<FriendsScreen>
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
+              try {
+                final result = await context
+                    .read<FriendProvider>()
+                    .removeFriend(resolvedFriendId);
 
-              final result = await context
-                  .read<FriendProvider>()
-                  .removeFriend(resolvedFriendId);
-
-              if (mounted) {
-                if (result['success']) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已轻轻放下')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(result['message'] ?? '删除失败')),
-                  );
+                if (mounted) {
+                  if (result['success']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('已轻轻放下')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(result['message'] ?? '删除失败')),
+                    );
+                  }
                 }
+              } catch (error, stackTrace) {
+                _reportUiError(
+                  error,
+                  stackTrace,
+                  'FriendsScreen._confirmDeleteFriend',
+                );
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('删除好友失败，请稍后重试')),
+                );
               }
             },
             child:

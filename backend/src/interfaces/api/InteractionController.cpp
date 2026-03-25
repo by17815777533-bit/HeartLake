@@ -49,6 +49,9 @@ void InteractionController::createRipple(
       broadcastMsg["stone_id"] = stoneId;
       broadcastMsg["ripple_count"] = rippleCount;
       broadcastMsg["triggered_by"] = userId;
+      broadcastMsg["sender_id"] = userId;
+      broadcastMsg["stone_owner_id"] =
+          result.get("stone_owner_id", "").asString();
       BroadcastWebSocketController::broadcast(
           buildRealtimeEvent("ripple_update", std::move(broadcastMsg)));
 
@@ -110,6 +113,9 @@ void InteractionController::deleteRipple(
       broadcastMsg["ripple_id"] = rippleId;
       broadcastMsg["ripple_count"] = rippleCount;
       broadcastMsg["triggered_by"] = userId;
+      broadcastMsg["sender_id"] = userId;
+      broadcastMsg["stone_owner_id"] =
+          result.get("stone_owner_id", "").asString();
       const auto event =
           buildRealtimeEvent("ripple_deleted", std::move(broadcastMsg));
       BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);
@@ -202,6 +208,9 @@ void InteractionController::createBoat(
       broadcastMsg["boat_count"] = boatCount;
       broadcastMsg["boat_id"] = result["boat_id"].asString();
       broadcastMsg["triggered_by"] = userId;
+      broadcastMsg["sender_id"] = userId;
+      broadcastMsg["stone_owner_id"] =
+          result.get("stone_owner_id", "").asString();
       const auto event =
           buildRealtimeEvent("boat_update", std::move(broadcastMsg));
       BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);
@@ -282,6 +291,9 @@ void InteractionController::deleteBoat(
       broadcastMsg["boat_id"] = boatId;
       broadcastMsg["boat_count"] = boatCount;
       broadcastMsg["triggered_by"] = userId;
+      broadcastMsg["sender_id"] = userId;
+      broadcastMsg["stone_owner_id"] =
+          result.get("stone_owner_id", "").asString();
       const auto event =
           buildRealtimeEvent("boat_deleted", std::move(broadcastMsg));
       BroadcastWebSocketController::sendToRoom("stone:" + stoneId, event);

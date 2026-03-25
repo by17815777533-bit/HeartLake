@@ -11,7 +11,9 @@ class EdgeAIService extends BaseService {
   String get serviceName => 'EdgeAIService';
 
   Map<String, dynamic> _normalizeEdgePayload(dynamic raw) {
-    if (raw is! Map) return const <String, dynamic>{};
+    if (raw is! Map) {
+      throw StateError('EdgeAI payload is not a map');
+    }
 
     final payload = normalizePayloadContract(
       Map<String, dynamic>.from(raw.cast<String, dynamic>()),
@@ -24,6 +26,17 @@ class EdgeAIService extends BaseService {
     return payload;
   }
 
+  Map<String, dynamic> _requirePayload(
+    dynamic raw, {
+    required String endpoint,
+  }) {
+    final payload = _normalizeEdgePayload(raw);
+    if (payload.isEmpty) {
+      throw StateError('$endpoint payload is empty');
+    }
+    return payload;
+  }
+
   /// 查询EdgeAI引擎运行状态
   ///
   /// 返回引擎的运行状态信息。
@@ -31,7 +44,10 @@ class EdgeAIService extends BaseService {
     final response = await get('/edge-ai/status');
     if (!response.success) return toMap(response);
 
-    final payload = _normalizeEdgePayload(response.data);
+    final payload = _requirePayload(
+      response.data,
+      endpoint: '/edge-ai/status',
+    );
     return {
       ...toMap(response),
       'data': payload,
@@ -55,7 +71,10 @@ class EdgeAIService extends BaseService {
     });
     if (!response.success) return toMap(response);
 
-    final payload = _normalizeEdgePayload(response.data);
+    final payload = _requirePayload(
+      response.data,
+      endpoint: '/edge-ai/analyze',
+    );
     return {
       ...toMap(response),
       'data': payload,
@@ -70,7 +89,10 @@ class EdgeAIService extends BaseService {
     final response = await get('/edge-ai/privacy-budget', useCache: false);
     if (!response.success) return toMap(response);
 
-    final payload = _normalizeEdgePayload(response.data);
+    final payload = _requirePayload(
+      response.data,
+      endpoint: '/edge-ai/privacy-budget',
+    );
     return {
       ...toMap(response),
       'data': payload,
@@ -85,7 +107,10 @@ class EdgeAIService extends BaseService {
     final response = await get('/edge-ai/emotion-pulse', useCache: false);
     if (!response.success) return toMap(response);
 
-    final payload = _normalizeEdgePayload(response.data);
+    final payload = _requirePayload(
+      response.data,
+      endpoint: '/edge-ai/emotion-pulse',
+    );
     return {
       ...toMap(response),
       'data': payload,

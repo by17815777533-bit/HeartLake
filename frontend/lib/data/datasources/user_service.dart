@@ -237,16 +237,24 @@ class UserService extends BaseService {
   String get serviceName => 'UserService';
 
   Map<String, dynamic> _normalizeEmotionTimeline(dynamic raw) {
-    final source =
-        UserPayloadNormalizer.asMap(raw) ?? const <String, dynamic>{};
+    if (raw is! Map) {
+      throw StateError('Emotion timeline payload is not a map');
+    }
+
+    final source = UserPayloadNormalizer.asMap(raw)!;
     final data = UserPayloadNormalizer.asMap(source['data']) ?? source;
-    final rawDays = UserPayloadNormalizer.asMap(
-          data['days'] ??
-              source['days'] ??
-              data['timeline'] ??
-              source['timeline'],
-        ) ??
-        const <String, dynamic>{};
+    final rawDaysValue = data['days'] ??
+        source['days'] ??
+        data['timeline'] ??
+        source['timeline'];
+    if (rawDaysValue == null) {
+      throw StateError('Emotion timeline payload is missing days/timeline');
+    }
+
+    final rawDays = UserPayloadNormalizer.asMap(rawDaysValue);
+    if (rawDays == null) {
+      throw StateError('Emotion timeline days payload is not a map');
+    }
 
     final days = <String, dynamic>{};
     for (final entry in rawDays.entries) {

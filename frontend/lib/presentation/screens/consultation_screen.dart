@@ -118,6 +118,29 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
   DateTime? _selectedTime;
   String? _lastAppointmentId;
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -131,28 +154,41 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
     try {
       final results = await Future.wait<dynamic>([
         _vipService.getVIPStatus(),
-        _vipService.hasFreeCounselingQuota(),
+        _vipService.getCounselingQuotaStatus(),
       ]);
+      final quota = results[1] as Map<String, dynamic>;
       final status = results[0] as Map<String, dynamic>;
       final payload = status['data'] is Map<String, dynamic>
           ? status['data'] as Map<String, dynamic>
           : const <String, dynamic>{};
+      final failures = <String>[
+        if (status['success'] != true)
+          status['message']?.toString() ?? '灯火状态加载失败',
+        if (quota['success'] != true)
+          quota['message']?.toString() ?? '咨询额度加载失败',
+      ];
 
       if (!mounted) return;
       setState(() {
-        _isVip = payload['is_vip'] == true;
-        _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
-        _hasFreeQuota = results[1] == true;
+        if (status['success'] == true) {
+          _isVip = payload['is_vip'] == true;
+          _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
+        }
+        if (quota['success'] == true) {
+          _hasFreeQuota = quota['has_quota'] == true;
+        }
         _isLoadingStatus = false;
       });
-    } catch (_) {
+      if (failures.isNotEmpty) {
+        _showMessage(failures.join('；'));
+      }
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ConsultationBookingTab._loadStatus');
       if (!mounted) return;
       setState(() {
-        _isVip = false;
-        _vipDaysLeft = 0;
-        _hasFreeQuota = false;
         _isLoadingStatus = false;
       });
+      _showMessage('预约状态加载失败，请稍后重试');
     }
   }
 
@@ -226,11 +262,14 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
           SnackBar(content: Text(result['message']?.toString() ?? '预约失败')),
         );
       }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('网络异常，请稍后再试')),
+    } catch (error, stackTrace) {
+      _reportUiError(
+        error,
+        stackTrace,
+        'ConsultationBookingTab._bookAppointment',
       );
+      if (!mounted) return;
+      _showMessage('网络异常，请稍后再试');
     } finally {
       if (mounted) {
         setState(() => _isBooking = false);
@@ -306,9 +345,7 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
               subtitle: Text(
                 _isLoadingStatus
                     ? '请稍候'
-                    : (_isVip
-                        ? '灯火剩余 $_vipDaysLeft 天'
-                        : '未检测到免费灯火额度'),
+                    : (_isVip ? '灯火剩余 $_vipDaysLeft 天' : '未检测到免费灯火额度'),
               ),
               trailing: IconButton(
                 onPressed: _isLoadingStatus ? null : _loadStatus,
@@ -354,8 +391,7 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(_hasFreeQuota ? '预约免费咨询' : '提交咨询预约'),
                     ),
@@ -373,8 +409,8 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               child: ListTile(
-                leading:
-                    const Icon(Icons.check_circle, color: AppTheme.successColor),
+                leading: const Icon(Icons.check_circle,
+                    color: AppTheme.successColor),
                 title: const Text('最近一次预约已提交'),
                 subtitle: Text('预约单号：$_lastAppointmentId'),
               ),
@@ -404,6 +440,29 @@ class _SessionListTabState extends State<_SessionListTab> {
   bool _isLoading = true;
   String? _error;
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -412,27 +471,47 @@ class _SessionListTabState extends State<_SessionListTab> {
 
   /// 从后端加载咨询会话列表
   Future<void> _loadSessions() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final result = await _service.getSessions();
+      if (!mounted) return;
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
         final List<dynamic> list =
             data is List ? data : (data['sessions'] ?? []);
-        _sessions = list
+        final nextSessions = list
             .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item.cast<String, dynamic>()))
+            .map(
+              (item) => Map<String, dynamic>.from(item.cast<String, dynamic>()),
+            )
             .toList();
+        setState(() {
+          _sessions = nextSessions;
+          _isLoading = false;
+          _error = null;
+        });
       } else {
-        _error = result['message']?.toString() ?? '加载失败，请稍后重试';
+        final message = result['message']?.toString() ?? '加载失败，请稍后重试';
+        setState(() {
+          _isLoading = false;
+          _error = _sessions.isEmpty ? message : null;
+        });
+        _showMessage(message);
       }
-    } catch (e) {
-      _error = '加载失败，请稍后重试';
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'SessionListTab._loadSessions');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = _sessions.isEmpty ? '加载失败，请稍后重试' : null;
+      });
+      _showMessage('加载失败，请稍后重试');
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -597,6 +676,8 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   String? _sessionId;
   bool _isSending = false;
   bool _isLoading = true;
+  bool _isE2EReady = false;
+  String? _securityStatusMessage;
 
   /// 将动态类型安全转换为 bool，支持 bool / String / num 类型
   bool _asBool(dynamic value, {bool fallback = false}) {
@@ -608,6 +689,29 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
     }
     if (value is num) return value != 0;
     return fallback;
+  }
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -637,7 +741,18 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
       return;
     }
 
-    await _service.initE2E(_sessionId!);
+    final initResult = await _service.initE2E(_sessionId!);
+    if (mounted) {
+      setState(() {
+        _isE2EReady = initResult['success'] == true;
+        _securityStatusMessage = initResult['success'] == true
+            ? '对话内容已加密，仅你和咨询师可见'
+            : (initResult['message']?.toString() ?? '安全通道未建立');
+      });
+    }
+    if (initResult['success'] != true && mounted) {
+      _showMessage(_securityStatusMessage!);
+    }
     await _loadMessages();
     if (mounted) setState(() => _isLoading = false);
   }
@@ -645,22 +760,39 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   /// 加载历史消息并解密，无历史消息时添加咨询师欢迎语
   Future<void> _loadMessages() async {
     if (_sessionId == null) return;
+    var loadFailed = false;
     try {
       final result = await _service.getMessages(_sessionId!);
+      if (!mounted) return;
       if (result['success'] == true && result['data'] != null) {
         final data = result['data'];
         final List<dynamic> history =
             data is List ? data : (data['messages'] ?? []);
+        final nextMessages = <Map<String, dynamic>>[];
         for (final msg in history) {
           final m =
               msg is Map ? Map<String, dynamic>.from(msg) : <String, dynamic>{};
           var content = m['content']?.toString() ?? '';
-          if (content.isEmpty && m['encrypted'] != null) {
-            content = '[加密消息]';
+          if (content.isEmpty) {
+            switch (m['decryption_status']?.toString()) {
+              case 'legacy_payload':
+                content = '[历史加密消息]';
+                break;
+              case 'pending_key_exchange':
+                content = '[安全通道未建立，暂不可读]';
+                break;
+              case 'failed':
+                content = '[无法解密]';
+                break;
+              default:
+                if (m['encrypted'] != null) {
+                  content = '[加密消息]';
+                }
+            }
           }
           final senderType = m['sender_type']?.toString().toLowerCase() ?? '';
           final sender = m['sender']?.toString().toLowerCase() ?? '';
-          _messages.add({
+          nextMessages.add({
             'content': content,
             'isMe': senderType == 'user' ||
                 senderType == 'me' ||
@@ -669,14 +801,29 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
             'time': m['created_at']?.toString() ?? m['time']?.toString() ?? '',
           });
         }
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(nextMessages);
+        });
+      } else {
+        loadFailed = true;
+        _showMessage(result['message']?.toString() ?? '历史消息加载失败');
       }
-    } catch (_) {
-      // 静默处理
+    } catch (error, stackTrace) {
+      loadFailed = true;
+      _reportUiError(error, stackTrace, 'ConsultationChatScreen._loadMessages');
+      if (mounted) {
+        _showMessage('历史消息加载失败，请稍后重试');
+      }
     }
 
     if (_messages.isEmpty) {
       _addSystemMessage(
-          '你好，我是${widget.counselorName}，很高兴为你提供心理咨询服务。请放心倾诉，我们的对话受到端到端加密保护。');
+        loadFailed
+            ? '历史消息加载失败，请稍后重试。'
+            : '你好，我是${widget.counselorName}，很高兴为你提供心理咨询服务。请放心倾诉，我们的对话受到端到端加密保护。',
+      );
     }
 
     _scrollToBottom();
@@ -695,14 +842,20 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending || _sessionId == null) return;
+    if (!_isE2EReady) {
+      _showMessage(_securityStatusMessage ?? '安全通道未建立，请稍后再试');
+      return;
+    }
+
+    final optimisticMessage = <String, dynamic>{
+      'content': text,
+      'isMe': true,
+      'time': _nowStr(),
+    };
 
     _controller.clear();
     setState(() {
-      _messages.add({
-        'content': text,
-        'isMe': true,
-        'time': _nowStr(),
-      });
+      _messages.add(optimisticMessage);
       _isSending = true;
     });
     _scrollToBottom();
@@ -712,21 +865,37 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
         sessionId: _sessionId!,
         content: text,
       );
-      if (result['success'] == true && result['data'] != null) {
-        final reply =
-            result['data']['reply'] ?? result['data']['content'] ?? '';
-        if (reply.toString().isNotEmpty) {
-          _messages.add({
-            'content': reply,
-            'isMe': false,
-            'time': _nowStr(),
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final payload = result['data'] is Map<String, dynamic>
+            ? result['data'] as Map<String, dynamic>
+            : const <String, dynamic>{};
+        final createdAt = payload['created_at']?.toString();
+        if (createdAt != null && createdAt.isNotEmpty) {
+          setState(() {
+            optimisticMessage['time'] = createdAt;
           });
         }
-      } else if (result['success'] != true) {
-        _addSystemMessage(result['message']?.toString() ?? '消息发送失败，请重试');
+      } else {
+        setState(() {
+          _messages.remove(optimisticMessage);
+        });
+        _controller.text = text;
+        _controller.selection =
+            TextSelection.collapsed(offset: _controller.text.length);
+        _showMessage(result['message']?.toString() ?? '消息发送失败，请重试');
       }
-    } catch (_) {
-      _addSystemMessage('消息发送失败，请重试');
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'ConsultationChatScreen._sendMessage');
+      if (mounted) {
+        setState(() {
+          _messages.remove(optimisticMessage);
+        });
+        _controller.text = text;
+        _controller.selection =
+            TextSelection.collapsed(offset: _controller.text.length);
+        _showMessage('消息发送失败，请重试');
+      }
     }
 
     if (mounted) {
@@ -756,6 +925,12 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final securityAccent = _isLoading
+        ? Colors.white70
+        : (_isE2EReady ? AppTheme.successColor : AppTheme.warningColor);
+    final securityText =
+        _isLoading ? '安全通道建立中' : (_securityStatusMessage ?? '安全通道未建立');
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -769,10 +944,16 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock_outline,
-                    size: 11, color: Colors.white.withValues(alpha: 0.8)),
+                Icon(
+                  _isE2EReady ? Icons.lock_outline : Icons.lock_open_outlined,
+                  size: 11,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
                 const SizedBox(width: 3),
-                Text('端到端加密保护',
+                Text(
+                    _isLoading
+                        ? '安全通道建立中'
+                        : (_isE2EReady ? '端到端加密保护' : '安全通道未建立'),
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 11)),
@@ -809,21 +990,27 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.successColor.withValues(alpha: 0.15),
+                    color: securityAccent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_user_outlined,
-                          size: 14,
-                          color: AppTheme.successColor.withValues(alpha: 0.8)),
+                      Icon(
+                        _isE2EReady
+                            ? Icons.verified_user_outlined
+                            : Icons.warning_amber_rounded,
+                        size: 14,
+                        color: securityAccent.withValues(alpha: 0.8),
+                      ),
                       const SizedBox(width: 4),
-                      Text('🔒 对话内容已加密，仅你和咨询师可见',
-                          style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.successColor
-                                  .withValues(alpha: 0.8))),
+                      Text(
+                        _isE2EReady ? '对话内容已加密，仅你和咨询师可见' : securityText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: securityAccent.withValues(alpha: 0.8),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -861,6 +1048,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
   /// 构建底部消息输入栏，包含文本输入框和发送按钮
   Widget _buildInputBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canSend = !_isSending && _isE2EReady;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -880,6 +1068,7 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
           Expanded(
             child: TextField(
               controller: _controller,
+              enabled: !_isLoading,
               decoration: const InputDecoration(
                 hintText: '说说你的感受...',
                 border: InputBorder.none,
@@ -898,8 +1087,12 @@ class _ConsultationChatScreenState extends State<_ConsultationChatScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.send, color: AppTheme.primaryColor),
-            onPressed: _isSending ? null : _sendMessage,
+                : Icon(
+                    Icons.send,
+                    color:
+                        canSend ? AppTheme.primaryColor : AppTheme.textTertiary,
+                  ),
+            onPressed: canSend ? _sendMessage : null,
           ),
         ],
       ),

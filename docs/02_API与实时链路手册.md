@@ -434,6 +434,24 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
   "stone_id": "stone_xxx",
   "ripple_count": 12,
   "triggered_by": "anonymous_xxx",
+  "sender_id": "anonymous_xxx",
+  "stone_owner_id": "anonymous_owner",
+  "timestamp": 1700000000
+}
+```
+
+纸船更新：
+
+```json
+{
+  "type": "boat_update",
+  "event": "boat_update",
+  "stone_id": "stone_xxx",
+  "boat_id": "boat_xxx",
+  "boat_count": 3,
+  "triggered_by": "anonymous_xxx",
+  "sender_id": "anonymous_xxx",
+  "stone_owner_id": "anonymous_owner",
   "timestamp": 1700000000
 }
 ```
@@ -484,7 +502,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 }
 ```
 
-客户端通过 `triggered_by` / `sender_id` 字段判断事件是否由自身触发，避免重复渲染。时间戳为秒级 Unix 时间戳。
+客户端通过 `triggered_by` / `sender_id` 判断操作者，通过 `stone_owner_id` 判断石头归属者，避免全量刷新。时间戳为秒级 Unix 时间戳。
 
 ## 6. 请求过滤链
 

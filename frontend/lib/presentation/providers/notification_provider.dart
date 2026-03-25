@@ -34,6 +34,7 @@ class NotificationProvider with ChangeNotifier {
   bool _isLoadingNotifications = false;
   bool _hasMore = true;
   int _currentPage = 1;
+  String? _errorMessage;
   static const int _pageSize = 20;
 
   // WebSocket 监听器引用，dispose 时精确移除防止内存泄漏
@@ -49,6 +50,7 @@ class NotificationProvider with ChangeNotifier {
       List.unmodifiable(_notifications);
   bool get isLoadingNotifications => _isLoadingNotifications;
   bool get hasMore => _hasMore;
+  String? get errorMessage => _errorMessage;
 
   NotificationProvider({
     NotificationDataSource? notificationService,
@@ -56,6 +58,21 @@ class NotificationProvider with ChangeNotifier {
   })  : _notificationService = notificationService ?? sl<NotificationService>(),
         _wsManager = wsManager ?? WebSocketManager() {
     _setupWebSocketListener();
+  }
+
+  void _reportProviderError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
   }
 
   /// 注册 WebSocket 事件监听器
@@ -74,6 +91,7 @@ class NotificationProvider with ChangeNotifier {
       } else {
         unawaited(forceRefreshUnreadCount());
       }
+      _errorMessage = null;
       notifyListeners();
     };
     _wsManager.on('new_notification', _onNewNotification);
@@ -170,11 +188,23 @@ class NotificationProvider with ChangeNotifier {
       if (result['success'] == true) {
         _unreadCount = result['unread_count'] ?? 0;
         _lastUpdate = DateTime.now();
+        _errorMessage = null;
+      } else {
+        final message = result['message']?.toString() ?? '加载未读数量失败';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'NotificationProvider.loadUnreadCount',
+        );
+        _errorMessage = message;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('加载未读数量失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'NotificationProvider.loadUnreadCount',
+      );
+      _errorMessage = '加载未读数量失败，请稍后重试';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -187,36 +217,68 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markAsRead(String notificationId) async {
     try {
       final result = await _notificationService.markAsRead(notificationId);
-      final changed = _markNotificationReadLocal(notificationId);
-      if (result['unread_count'] != null) {
-        _unreadCount = result['unread_count'] as int;
-      } else if (changed && _unreadCount > 0) {
-        _unreadCount--;
+      if (result['success'] == true) {
+        final changed = _markNotificationReadLocal(notificationId);
+        if (result['unread_count'] != null) {
+          _unreadCount = result['unread_count'] as int;
+        } else if (changed && _unreadCount > 0) {
+          _unreadCount--;
+        }
+        _errorMessage = null;
+        notifyListeners();
+      } else {
+        final message = result['message']?.toString() ?? '标记通知已读失败';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'NotificationProvider.markAsRead',
+        );
+        _errorMessage = message;
+        notifyListeners();
       }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'NotificationProvider.markAsRead',
+      );
+      _errorMessage = '标记通知已读失败，请稍后重试';
       notifyListeners();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('标记通知已读失败: $e');
-      }
     }
   }
 
   /// 标记所有通知为已读，批量更新本地列表状态
   Future<void> markAllAsRead() async {
     try {
-      await _notificationService.markAllAsRead();
-      _unreadCount = 0;
-      // 同步列表中所有通知的已读状态
-      for (int i = 0; i < _notifications.length; i++) {
-        if (_notifications[i]['is_read'] != true) {
-          _notifications[i] = {..._notifications[i], 'is_read': true};
+      final result = await _notificationService.markAllAsRead();
+      if (result['success'] == true) {
+        _unreadCount = 0;
+        // 同步列表中所有通知的已读状态
+        for (int i = 0; i < _notifications.length; i++) {
+          if (_notifications[i]['is_read'] != true) {
+            _notifications[i] = {..._notifications[i], 'is_read': true};
+          }
         }
+        _errorMessage = null;
+        notifyListeners();
+      } else {
+        final message = result['message']?.toString() ?? '标记所有通知已读失败';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'NotificationProvider.markAllAsRead',
+        );
+        _errorMessage = message;
+        notifyListeners();
       }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'NotificationProvider.markAllAsRead',
+      );
+      _errorMessage = '标记所有通知已读失败，请稍后重试';
       notifyListeners();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('标记所有通知已读失败: $e');
-      }
     }
   }
 
@@ -253,22 +315,18 @@ class NotificationProvider with ChangeNotifier {
   /// [refresh] 为 true 时重置分页状态从第一页开始加载。
   Future<void> loadNotifications({bool refresh = false}) async {
     if (_isLoadingNotifications) return;
-
-    if (refresh) {
-      _currentPage = 1;
-      _notifications = [];
-      _notificationIndexById.clear();
-      _hasMore = true;
-    }
-
-    if (!_hasMore) return;
+    final page = refresh ? 1 : _currentPage;
+    if (!refresh && !_hasMore) return;
 
     _isLoadingNotifications = true;
+    if (refresh) {
+      _errorMessage = null;
+    }
     notifyListeners();
 
     try {
       final result = await _notificationService.getNotifications(
-        page: _currentPage,
+        page: page,
         pageSize: _pageSize,
       );
       if (result['success'] == true) {
@@ -278,6 +336,11 @@ class NotificationProvider with ChangeNotifier {
             .map((item) =>
                 Map<String, dynamic>.from(item.cast<String, dynamic>()))
             .toList();
+        if (refresh) {
+          _notifications = [];
+          _notificationIndexById.clear();
+          _hasMore = true;
+        }
         var merged = false;
         for (final item in newItems) {
           merged = _upsertNotification(item, rebuildIndex: false) || merged;
@@ -291,16 +354,28 @@ class NotificationProvider with ChangeNotifier {
         } else {
           _hasMore = newItems.length >= _pageSize;
         }
-        _currentPage++;
+        _currentPage = page + 1;
         // 同步未读数
         if (result['unread_count'] != null) {
           _unreadCount = result['unread_count'] as int;
         }
+        _errorMessage = null;
+      } else {
+        final message = result['message']?.toString() ?? '加载通知列表失败';
+        _reportProviderError(
+          StateError(message),
+          StackTrace.current,
+          'NotificationProvider.loadNotifications',
+        );
+        _errorMessage = message;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('加载通知列表失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportProviderError(
+        error,
+        stackTrace,
+        'NotificationProvider.loadNotifications',
+      );
+      _errorMessage = '加载通知列表失败，请稍后重试';
     } finally {
       _isLoadingNotifications = false;
       notifyListeners();
@@ -316,6 +391,7 @@ class NotificationProvider with ChangeNotifier {
     _currentPage = 1;
     _hasMore = true;
     _isLoadingNotifications = false;
+    _errorMessage = null;
     notifyListeners();
   }
 }

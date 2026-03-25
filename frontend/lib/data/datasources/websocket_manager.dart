@@ -59,6 +59,76 @@ class WebSocketManager implements RoomSubscriptionClient {
 
   bool get isConnected => _isConnected;
 
+  void _reportRealtimeError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _emitErrorEvent(
+    String message, {
+    String? code,
+    Object? error,
+  }) {
+    _emit('error', {
+      'type': 'error',
+      'message': message,
+      if (code != null) 'code': code,
+      if (error != null) 'details': error.toString(),
+    });
+  }
+
+  void _enqueueOfflineMessage(String message) {
+    if (_offlineQueue.length >= _maxQueueSize) {
+      _offlineQueue.removeAt(0);
+    }
+    _offlineQueue.add(message);
+  }
+
+  bool _sendRawMessage(
+    String message, {
+    bool queueOnFailure = false,
+  }) {
+    if (!_isConnected || _channel == null) {
+      if (queueOnFailure) {
+        _enqueueOfflineMessage(message);
+        unawaited(connect());
+      }
+      return false;
+    }
+
+    try {
+      _channel!.sink.add(message);
+      return true;
+    } catch (error, stackTrace) {
+      _reportRealtimeError(
+        error,
+        stackTrace,
+        'WebSocketManager._sendRawMessage',
+      );
+      if (queueOnFailure) {
+        _enqueueOfflineMessage(message);
+      }
+      _emitErrorEvent(
+        '实时消息发送失败，正在重连',
+        code: 'send_failed',
+        error: error,
+      );
+      _closeConnection(allowReconnect: true);
+      _scheduleReconnect();
+      return false;
+    }
+  }
+
   /// 校验 token 格式，兼容 PASETO v4 和 JWT，过滤损坏的缓存值
   String? _normalizeToken(String? raw) {
     if (raw == null) return null;
@@ -121,13 +191,16 @@ class WebSocketManager implements RoomSubscriptionClient {
       }
       return ready;
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('WebSocket连接失败: $e');
-      }
+      _reportRealtimeError(
+        e,
+        StackTrace.current,
+        'WebSocketManager.connect',
+      );
       if (_authReadyCompleter != null && !_authReadyCompleter!.isCompleted) {
         _authReadyCompleter!.complete(false);
       }
       _connectCompleter!.complete(false);
+      _emitErrorEvent('实时连接失败，正在重试', code: 'connect_failed', error: e);
       _scheduleReconnect();
       return false;
     }
@@ -150,7 +223,15 @@ class WebSocketManager implements RoomSubscriptionClient {
     _authReadyCompleter = null;
     _heartbeatTimer?.cancel();
     _reconnectTimer?.cancel();
-    _channel?.sink.close();
+    try {
+      _channel?.sink.close();
+    } catch (error, stackTrace) {
+      _reportRealtimeError(
+        error,
+        stackTrace,
+        'WebSocketManager._closeConnection',
+      );
+    }
     _channel = null;
   }
 
@@ -200,6 +281,9 @@ class WebSocketManager implements RoomSubscriptionClient {
   @override
   void on(String eventType, void Function(Map<String, dynamic>) listener) {
     _listeners[eventType] ??= [];
+    if (_listeners[eventType]!.contains(listener)) {
+      return;
+    }
     _listeners[eventType]!.add(listener);
   }
 
@@ -210,6 +294,9 @@ class WebSocketManager implements RoomSubscriptionClient {
       _listeners.remove(eventType);
     } else {
       _listeners[eventType]?.remove(listener);
+      if (_listeners[eventType]?.isEmpty == true) {
+        _listeners.remove(eventType);
+      }
     }
   }
 
@@ -220,10 +307,12 @@ class WebSocketManager implements RoomSubscriptionClient {
     for (final listener in callbacks) {
       try {
         listener(data);
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('事件处理错误: $e');
-        }
+      } catch (error, stackTrace) {
+        _reportRealtimeError(
+          error,
+          stackTrace,
+          'WebSocketManager._emit($eventType)',
+        );
       }
     }
   }
@@ -239,7 +328,7 @@ class WebSocketManager implements RoomSubscriptionClient {
       if (type == 'ping') {
         _lastPongTime = DateTime.now();
         if (_channel != null) {
-          _channel!.sink.add(jsonEncode({'type': 'pong'}));
+          _sendRawMessage(jsonEncode({'type': 'pong'}));
         }
         return;
       }
@@ -252,10 +341,13 @@ class WebSocketManager implements RoomSubscriptionClient {
         return;
       }
       if (type != null) _emit(type, data);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('消息解析失败: $e');
-      }
+    } catch (error, stackTrace) {
+      _reportRealtimeError(
+        error,
+        stackTrace,
+        'WebSocketManager._onMessage',
+      );
+      _emitErrorEvent('实时消息解析失败', code: 'message_parse_failed', error: error);
     }
   }
 
@@ -305,21 +397,19 @@ class WebSocketManager implements RoomSubscriptionClient {
   /// 发送消息，离线时暂存到队列（上限 50 条）
   void send(Map<String, dynamic> data) {
     final message = jsonEncode(data);
-    if (_isConnected && _channel != null) {
-      _channel!.sink.add(message);
-    } else if (_offlineQueue.length < _maxQueueSize) {
-      _offlineQueue.add(message);
-      unawaited(connect());
-    }
+    _sendRawMessage(message, queueOnFailure: true);
   }
 
   /// 冲刷离线队列中暂存的消息
   void _flushQueue() {
     if (!_isConnected || _channel == null) return;
-    final pending = List<String>.from(_offlineQueue);
-    _offlineQueue.clear();
-    for (final message in pending) {
-      _channel!.sink.add(message);
+    while (_offlineQueue.isNotEmpty) {
+      final message = _offlineQueue.first;
+      final sent = _sendRawMessage(message, queueOnFailure: true);
+      if (!sent) {
+        break;
+      }
+      _offlineQueue.removeAt(0);
     }
   }
 
@@ -327,7 +417,7 @@ class WebSocketManager implements RoomSubscriptionClient {
   void _rejoinRooms() {
     if (!_isConnected || _channel == null || _roomRefCounts.isEmpty) return;
     for (final room in _roomRefCounts.keys) {
-      _channel!.sink.add(jsonEncode({'type': 'join', 'room': room}));
+      _sendRawMessage(jsonEncode({'type': 'join', 'room': room}));
     }
   }
 
@@ -365,12 +455,18 @@ class WebSocketManager implements RoomSubscriptionClient {
         final now = DateTime.now();
         if (_lastPongTime != null &&
             now.difference(_lastPongTime!).inSeconds > 90) {
-          if (kDebugMode) {
-            debugPrint('超过90秒未收到后端ping，判定半开连接，主动断开重连');
-          }
+          _emitErrorEvent('实时连接心跳超时，正在重连', code: 'heartbeat_timeout');
           _isConnected = false;
           _heartbeatTimer?.cancel();
-          _channel?.sink.close();
+          try {
+            _channel?.sink.close();
+          } catch (error, stackTrace) {
+            _reportRealtimeError(
+              error,
+              stackTrace,
+              'WebSocketManager._startHeartbeat',
+            );
+          }
           _channel = null;
           _scheduleReconnect();
         }

@@ -81,7 +81,8 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
       setState(() {
         final index = _stoneIndexById[stoneId];
         if (index != null) {
-          _myStones[index] = _myStones[index].copyWith(rippleCount: rippleCount);
+          _myStones[index] =
+              _myStones[index].copyWith(rippleCount: rippleCount);
         }
       });
     };
@@ -96,7 +97,8 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
       setState(() {
         final index = _stoneIndexById[stoneId];
         if (index != null) {
-          _myStones[index] = _myStones[index].copyWith(rippleCount: rippleCount);
+          _myStones[index] =
+              _myStones[index].copyWith(rippleCount: rippleCount);
         }
       });
     };
@@ -140,12 +142,34 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
     }
   }
 
+  void _replaceMyStones(List<Stone> stones) {
+    _myStones
+      ..clear()
+      ..addAll(stones);
+    _rebuildStoneIndex();
+  }
+
   bool _removeStoneById(String stoneId) {
     final index = _stoneIndexById[stoneId];
     if (index == null) return false;
     _myStones.removeAt(index);
     _rebuildStoneIndex();
     return true;
+  }
+
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
   }
 
   /// 从后端加载当前用户的石头列表（一次性加载，不分页）
@@ -157,9 +181,7 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
 
       if (result['success'] == true && mounted) {
         setState(() {
-          _myStones.clear();
-          _myStones.addAll(result['stones'] as List<Stone>);
-          _rebuildStoneIndex();
+          _replaceMyStones(result['stones'] as List<Stone>);
           _isLoading = false;
         });
       } else {
@@ -167,10 +189,13 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
           setState(() => _isLoading = false);
         }
       }
-    } catch (e) {
-      debugPrint('Error loading my stones: $e');
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'MyStonesScreen._loadMyStones');
       if (mounted) {
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('加载失败，请下拉重试')),
+        );
       }
     }
   }
@@ -194,59 +219,75 @@ class _MyStonesScreenState extends State<MyStonesScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? AppTheme.nightDeep : const Color(0xFFF5F0FF), isDark ? AppTheme.nightSurface : const Color(0xFFE8F4FD)],
+            colors: [
+              isDark ? AppTheme.nightDeep : const Color(0xFFF5F0FF),
+              isDark ? AppTheme.nightSurface : const Color(0xFFE8F4FD)
+            ],
           ),
         ),
         child: RefreshIndicator(
           onRefresh: _loadMyStones,
           child: _isLoading
-            ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text('正在寻找你的石头...', style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]))]))
-            : _myStones.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.7,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.water_drop_outlined,
-                                size: 80,
-                                color: isDark ? Colors.white24 : Colors.grey[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '还没有投出石头，来投下你的第一颗吧',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+              ? Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text('正在寻找你的石头...',
+                      style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey[600]))
+                ]))
+              : _myStones.isEmpty
+                  ? ListView(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.water_drop_outlined,
+                                  size: 80,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.grey[300],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  '还没有投出石头，来投下你的第一颗吧',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: isDark
+                                        ? AppTheme.darkTextSecondary
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _myStones.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: StoneCard(
-                          stone: _myStones[index],
-                          onDeleted: () {
-                            // 删除后从列表中移除该石头
-                            setState(() {
-                              _myStones.removeAt(index);
-                            });
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _myStones.length,
+                      itemBuilder: (context, index) {
+                        final stone = _myStones[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: StoneCard(
+                            stone: stone,
+                            onDeleted: () {
+                              setState(() {
+                                _removeStoneById(stone.stoneId);
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    ),
         ),
       ),
     );

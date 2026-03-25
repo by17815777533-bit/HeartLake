@@ -23,8 +23,7 @@ class PsychSupportService extends BaseService {
       item['name'] = title;
     }
 
-    final description =
-        item['description'] ?? item['desc'] ?? item['content'];
+    final description = item['description'] ?? item['desc'] ?? item['content'];
     if (description != null) {
       item['description'] = description;
       item['desc'] = description;
@@ -39,8 +38,11 @@ class PsychSupportService extends BaseService {
       final payload = normalizePayloadContract(
         Map<String, dynamic>.from(raw.cast<String, dynamic>()),
       );
-      final prompt =
-          payload['prompt'] ?? payload['text'] ?? payload['message'] ?? payload['title'] ?? payload['content'];
+      final prompt = payload['prompt'] ??
+          payload['text'] ??
+          payload['message'] ??
+          payload['title'] ??
+          payload['content'];
       if (prompt != null) {
         payload['prompt'] = prompt;
         payload['text'] = prompt;
@@ -149,8 +151,7 @@ class PsychSupportService extends BaseService {
       InputValidator.validateEnum(mood, _allowedMoods, '情绪类型');
     }
     final response = await get('/safe-harbor/recommend',
-        queryParameters:
-            mood != null ? {'emotion': mood, 'mood': mood} : null);
+        queryParameters: mood != null ? {'emotion': mood, 'mood': mood} : null);
     if (!response.success) return toMap(response);
 
     final resources = extractNormalizedList(
@@ -173,7 +174,7 @@ class PsychSupportService extends BaseService {
   /// 记录访问（用于统计用户使用安全港湾的频率）
   Future<Map<String, dynamic>> recordAccess(
       {required String resourceId}) async {
-    InputValidator.validateUUID(resourceId, '资源ID');
+    InputValidator.requireNonEmpty(resourceId, '资源ID');
     final response =
         await post('/safe-harbor/access', data: {'resource_id': resourceId});
     if (!response.success) return toMap(response);

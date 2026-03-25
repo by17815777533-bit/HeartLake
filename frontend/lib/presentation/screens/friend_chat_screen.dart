@@ -3,6 +3,7 @@
 // 与好友的实时消息收发页面。
 import 'package:flutter/material.dart';
 import '../../data/datasources/friend_service.dart';
+import '../../data/datasources/social_payload_normalizer.dart';
 import '../../data/datasources/websocket_manager.dart';
 import '../../di/service_locator.dart';
 import '../../utils/storage_util.dart';
@@ -34,11 +35,12 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   final WebSocketManager _wsManager = WebSocketManager();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<dynamic> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
   String? _currentUserId;
   String? _loadError;
+  String? _friendIdError;
 
   @override
   void initState() {
@@ -50,11 +52,12 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   /// 初始化流程：先获取当前用户ID，校验好友ID合法性后加载历史消息
   Future<void> _init() async {
     await _initCurrentUser();
-    if (!_isFriendIdUsable(widget.friendId)) {
+    _friendIdError = _validateFriendId(widget.friendId);
+    if (_friendIdError != null) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _loadError = '好友标识异常，无法加载聊天';
+        _loadError = _friendIdError;
       });
       return;
     }
@@ -69,6 +72,41 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  String? _validateFriendId(String value) {
+    try {
+      InputValidator.validateUUID(value, '好友ID');
+      return null;
+    } on ValidationException catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'FriendChatScreen._validateFriendId');
+      return error.message;
+    }
+  }
+
+  Map<String, dynamic> _normalizeChatMessage(
+    Map raw, {
+    bool? isMine,
+  }) {
+    final message = normalizeMessagePayload(raw);
+    message['is_mine'] =
+        isMine ?? message['sender_id']?.toString() == _currentUserId;
+    return message;
+  }
+
   /// 从本地存储读取当前登录用户ID，用于判断消息归属
   Future<void> _initCurrentUser() async {
     _currentUserId = await StorageUtil.getUserId();
@@ -76,63 +114,67 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
 
   /// WebSocket 新消息回调，仅处理来自当前聊天好友的消息
   void _onNewMessage(Map<String, dynamic> data) {
-    final senderId = data['sender_id']?.toString();
+    final message = _normalizeChatMessage(data, isMine: false);
+    final senderId = message['sender_id']?.toString();
     if (senderId != widget.friendId) return;
     if (!mounted) return;
     setState(() {
-      _messages.add({
-        'content': data['content'],
-        'sender_id': senderId,
-        'receiver_id': data['receiver_id'],
-        'created_at': data['created_at'],
-        'is_mine': false,
-      });
+      _messages.add(message);
     });
     _scrollToBottom();
   }
 
   /// 从后端加载历史消息，并根据 sender_id 计算 is_mine 字段
   Future<void> _loadMessages() async {
-    if (!_isFriendIdUsable(widget.friendId)) {
+    if (_friendIdError != null) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = '好友标识异常，无法加载聊天';
+          _loadError = _friendIdError;
         });
       }
       return;
     }
     try {
       final result = await _friendService.getMessages(widget.friendId);
-      if (mounted) {
-        if (result['success'] != true) {
-          setState(() {
-            _messages = [];
-            _isLoading = false;
+      if (!mounted) return;
+      if (result['success'] != true) {
+        setState(() {
+          _isLoading = false;
+          if (_messages.isEmpty) {
             _loadError = result['message']?.toString() ?? '加载消息失败';
-          });
-          return;
-        }
-
-        final rawMessages = result['messages'] ?? [];
-        // 为每条消息计算 is_mine（后端只返回 sender_id，没有 is_mine）
-        final messages = (rawMessages as List).map((msg) {
-          final m = Map<String, dynamic>.from(msg as Map);
-          m['is_mine'] = m['sender_id']?.toString() == _currentUserId;
-          return m;
-        }).toList();
-        setState(() {
-          _messages = messages;
-          _isLoading = false;
-          _loadError = null;
+          }
         });
-        _scrollToBottom();
+        if (_messages.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']?.toString() ?? '加载消息失败'),
+            ),
+          );
+        }
+        return;
       }
-    } catch (e) {
+
+      final messages = (result['messages'] as List? ?? const [])
+          .whereType<Map>()
+          .map((msg) => _normalizeChatMessage(msg))
+          .toList();
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(messages);
+        _isLoading = false;
+        _loadError = null;
+      });
+      _scrollToBottom();
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'FriendChatScreen._loadMessages');
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = '加载消息失败，请重试';
+          if (_messages.isEmpty) {
+            _loadError = '加载消息失败，请重试';
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('加载消息失败，请下拉重试')),
@@ -158,9 +200,9 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
-    if (!_isFriendIdUsable(widget.friendId)) {
+    if (_friendIdError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('好友标识异常，无法发送消息')),
+        SnackBar(content: Text(_friendIdError!)),
       );
       return;
     }
@@ -188,10 +230,10 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
       final result = await _friendService.sendMessage(widget.friendId, content);
 
       if (mounted) {
-        setState(() => _isSending = false);
         if (result['success'] != true) {
           // 发送失败，移除乐观消息并恢复输入
           setState(() {
+            _isSending = false;
             _messages.remove(optimisticMessage);
           });
           _controller.text = content;
@@ -200,9 +242,22 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
                 content: Text(result['message'] ?? '发送失败'),
                 backgroundColor: Colors.red),
           );
+          return;
         }
+
+        final payload = result['data'] is Map
+            ? _normalizeChatMessage(result['data'] as Map, isMine: true)
+            : null;
+        setState(() {
+          _isSending = false;
+          if (payload != null) {
+            optimisticMessage.addAll(payload);
+            optimisticMessage['is_mine'] = true;
+          }
+        });
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'FriendChatScreen._sendMessage');
       if (mounted) {
         setState(() {
           _isSending = false;
@@ -214,16 +269,6 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
               content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
         );
       }
-    }
-  }
-
-  /// 校验好友ID是否为合法 UUID 格式
-  bool _isFriendIdUsable(String value) {
-    try {
-      InputValidator.validateUUID(value, '好友ID');
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -300,7 +345,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
   }
 
   /// 构建单条消息气泡，用户消息靠右蓝色、好友消息靠左灰色
-  Widget _buildMessageBubble(dynamic message) {
+  Widget _buildMessageBubble(Map<String, dynamic> message) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = message['is_mine'] == true;
     return Align(
