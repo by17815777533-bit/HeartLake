@@ -22,6 +22,28 @@ class AIRecommendationService extends BaseService {
 
   static const _trendListKeys = ['trends', 'items', 'list', 'results'];
 
+  String _resolveServiceError(
+      ServiceResponse<dynamic> response, String action) {
+    final message = response.message?.trim();
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+    return '$action失败';
+  }
+
+  List<Map<String, dynamic>> _extractRecommendationList(
+    ServiceResponse<dynamic> response,
+    String action,
+  ) {
+    if (!response.success) {
+      throw StateError(_resolveServiceError(response, action));
+    }
+    if (response.data == null) {
+      throw StateError('$action响应缺少 data');
+    }
+    return RecommendationResponseParser.extractList(response.data);
+  }
+
   int? _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -118,10 +140,7 @@ class AIRecommendationService extends BaseService {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/similar-stones/$stoneId',
         queryParameters: {'limit': limit});
-    if (resp.success && resp.data != null) {
-      return RecommendationResponseParser.extractList(resp.data);
-    }
-    return [];
+    return _extractRecommendationList(resp, '获取相似石头推荐');
   }
 
   /// 获取个性化推荐
@@ -136,10 +155,7 @@ class AIRecommendationService extends BaseService {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/stones',
         queryParameters: {'limit': limit});
-    if (resp.success && resp.data != null) {
-      return RecommendationResponseParser.extractList(resp.data);
-    }
-    return [];
+    return _extractRecommendationList(resp, '获取个性化推荐');
   }
 
   /// 获取高级共鸣推荐
@@ -154,10 +170,7 @@ class AIRecommendationService extends BaseService {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/advanced',
         queryParameters: {'limit': limit});
-    if (resp.success && resp.data != null) {
-      return RecommendationResponseParser.extractList(resp.data);
-    }
-    return [];
+    return _extractRecommendationList(resp, '获取高级共鸣推荐');
   }
 
   /// 获取情绪趋势数据

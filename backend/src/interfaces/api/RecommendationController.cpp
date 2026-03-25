@@ -58,6 +58,17 @@ int extractWindowTotal(const drogon::orm::Result &result) {
         : result[0]["total_count"].as<int>();
 }
 
+int resolveRecommendationLimit(const HttpRequestPtr &req,
+                               int defaultLimit = 20,
+                               int maxLimit = 50) {
+    int limit = defaultLimit;
+    const auto params = req->getParameters();
+    if (params.count("limit")) {
+        limit = safeInt(params.at("limit"), defaultLimit);
+    }
+    return std::clamp(limit, 1, maxLimit);
+}
+
 int resolveSearchTotal(const drogon::orm::DbClientPtr &dbClient,
                        const drogon::orm::Result &result,
                        int page,
@@ -118,6 +129,147 @@ std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
         return "";
     }
     return (*row)["stone_id"].as<std::string>();
+}
+
+bool doesRecommendationTargetUserExist(const std::string &userId) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto result = dbClient->execSqlSync(
+        "SELECT user_id FROM users "
+        "WHERE user_id = $1 AND status <> 'deleted' "
+        "LIMIT 1",
+        userId);
+    return !result.empty();
+}
+
+bool doesRecommendationReferenceStoneExist(const std::string &stoneId) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto result = dbClient->execSqlSync(
+        "SELECT stone_id FROM stones "
+        "WHERE stone_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "LIMIT 1",
+        stoneId);
+    return !result.empty();
+}
+
+void respondWithAdvancedRecommendations(
+    const std::string &userId,
+    int limit,
+    const std::string &requestedStoneId,
+    std::function<void(const HttpResponsePtr &)> callback,
+    Json::Value extraData = Json::Value(Json::objectValue)) {
+    const std::string referenceStoneId = requestedStoneId.empty()
+        ? resolveRecommendationReferenceStoneId(userId)
+        : requestedStoneId;
+    const bool usedAutoReference =
+        requestedStoneId.empty() && !referenceStoneId.empty();
+
+    auto &engine = heartlake::ai::RecommendationEngine::getInstance();
+    engine.getRecommendations(
+        userId,
+        "stone",
+        limit,
+        [callback = std::move(callback),
+         userId,
+         referenceStoneId,
+         usedAutoReference,
+         limit,
+         extraData = std::move(extraData)](
+            const std::vector<heartlake::ai::RecommendationCandidate> &results,
+            const std::string &error) mutable {
+            if (!error.empty()) {
+                callback(ResponseUtil::internalError("推荐服务暂不可用"));
+                return;
+            }
+
+            try {
+                Json::Value recommendations(Json::arrayValue);
+                std::unordered_set<std::string> addedIds;
+                bool hasResonanceResults = false;
+
+                if (!referenceStoneId.empty()) {
+                    auto &resonanceEngine =
+                        heartlake::ai::EmotionResonanceEngine::getInstance();
+                    auto resonanceResults = resonanceEngine.findResonance(
+                        userId,
+                        referenceStoneId,
+                        std::max(1, limit / 2));
+
+                    for (const auto &res : resonanceResults) {
+                        Json::Value item;
+                        item["stone_id"] = res.stoneId;
+                        item["score"] = res.totalScore;
+                        item["reason"] = res.resonanceReason;
+                        item["algorithm"] = "emotion_temporal_resonance";
+                        item["semantic_score"] = res.semanticScore;
+                        item["trajectory_score"] = res.trajectoryScore;
+                        item["temporal_score"] = res.temporalScore;
+                        item["diversity_score"] = res.diversityScore;
+                        item["content"] = res.content;
+                        item["mood_type"] = res.moodType;
+                        item["emotion_score"] = res.emotionScore;
+                        item["author_id"] = res.userId;
+                        item["author_name"] = res.authorName;
+                        item["ripple_count"] = res.rippleCount;
+                        item["created_at"] = res.createdAt;
+                        item["reference_stone_id"] = referenceStoneId;
+                        recommendations.append(item);
+                        addedIds.insert(res.stoneId);
+                        hasResonanceResults = true;
+                    }
+                }
+
+                for (const auto &cand : results) {
+                    if (addedIds.count(cand.itemId)) continue;
+                    if (static_cast<int>(recommendations.size()) >= limit) break;
+
+                    Json::Value item;
+                    item["stone_id"] = cand.itemId;
+                    item["score"] = cand.score;
+                    item["reason"] = cand.reason;
+                    item["algorithm"] = cand.algorithm;
+                    item["content"] = cand.metadata.get("content", "").asString();
+                    item["mood_type"] =
+                        cand.metadata.get("mood_type", "").asString();
+                    item["emotion_score"] =
+                        cand.metadata.get("emotion_score", 0.0).asDouble();
+                    item["author_id"] =
+                        cand.metadata.get("author_id", "").asString();
+                    item["author_name"] =
+                        cand.metadata.get("author_name", "").asString();
+                    item["ripple_count"] =
+                        cand.metadata.get("ripple_count", 0).asInt();
+                    item["created_at"] =
+                        cand.metadata.get("created_at", "").asString();
+                    recommendations.append(item);
+                }
+
+                Json::Value data =
+                    buildStaticCollectionPayload("recommendations", recommendations);
+                data["count"] = static_cast<int>(recommendations.size());
+                data["algorithm"] = hasResonanceResults
+                    ? "emotion_resonance_hybrid"
+                    : "multi_armed_bandit_mmr";
+                data["user_id"] = userId;
+                if (hasResonanceResults) {
+                    data["reference_stone_id"] = referenceStoneId;
+                    data["reference_source"] =
+                        usedAutoReference ? "auto_latest_context" : "explicit";
+                }
+                if (extraData.isObject()) {
+                    for (const auto &member : extraData.getMemberNames()) {
+                        data[member] = extraData[member];
+                    }
+                }
+
+                callback(ResponseUtil::success(data, "为你精选的内容"));
+            } catch (const std::exception &e) {
+                LOG_ERROR << "Failed to build advanced recommendations for user "
+                          << userId << ": " << e.what();
+                callback(ResponseUtil::internalError("获取高级推荐失败"));
+            }
+        });
 }
 
 } // namespace
@@ -1017,107 +1169,63 @@ void RecommendationController::getAdvancedRecommendations(
     auto userId = *userIdOpt;
 
     try {
-        int limit = 20;
-        auto params = req->getParameters();
-        if (params.count("limit")) {
-            limit = std::clamp(safeInt(params.at("limit"), 20), 1, 50);
+        const int limit = resolveRecommendationLimit(req);
+        const auto params = req->getParameters();
+        const std::string requestedStoneId =
+            params.count("stone_id") ? params.at("stone_id") : "";
+        if (!requestedStoneId.empty() &&
+            !doesRecommendationReferenceStoneExist(requestedStoneId)) {
+            callback(ResponseUtil::notFound("参考石头不存在"));
+            return;
         }
 
-        // 如果未显式提供 stone_id，则自动回退到最近有效的上下文石头，
-        // 让四维共鸣算法在默认推荐入口也能真正参与产出。
-        std::string requestedStoneId;
-        if (params.count("stone_id")) {
-            requestedStoneId = params.at("stone_id");
-        }
-        const std::string referenceStoneId = requestedStoneId.empty()
-            ? resolveRecommendationReferenceStoneId(userId)
-            : requestedStoneId;
-        const bool usedAutoReference =
-            requestedStoneId.empty() && !referenceStoneId.empty();
-
-        auto& engine = heartlake::ai::RecommendationEngine::getInstance();
-        engine.getRecommendations(userId, "stone", limit,
-            [callback, userId, referenceStoneId, usedAutoReference, limit](
-                const std::vector<heartlake::ai::RecommendationCandidate>& results,
-                const std::string& error
-            ) {
-                if (!error.empty()) {
-                    callback(ResponseUtil::internalError("推荐服务暂不可用"));
-                    return;
-                }
-
-                Json::Value recommendations(Json::arrayValue);
-                std::unordered_set<std::string> addedIds;
-
-                // 有参考石头时，先加入四维共鸣结果。
-                if (!referenceStoneId.empty()) {
-                    auto& resonanceEngine = heartlake::ai::EmotionResonanceEngine::getInstance();
-                    auto resonanceResults = resonanceEngine.findResonance(
-                        userId,
-                        referenceStoneId,
-                        std::max(1, limit / 2));
-
-                    for (const auto& res : resonanceResults) {
-                        Json::Value item;
-                        item["stone_id"] = res.stoneId;
-                        item["score"] = res.totalScore;
-                        item["reason"] = res.resonanceReason;
-                        item["algorithm"] = "emotion_temporal_resonance";
-                        item["semantic_score"] = res.semanticScore;
-                        item["trajectory_score"] = res.trajectoryScore;
-                        item["temporal_score"] = res.temporalScore;
-                        item["diversity_score"] = res.diversityScore;
-                        item["content"] = res.content;
-                        item["mood_type"] = res.moodType;
-                        item["emotion_score"] = res.emotionScore;
-                        item["author_id"] = res.userId;
-                        item["author_name"] = res.authorName;
-                        item["ripple_count"] = res.rippleCount;
-                        item["created_at"] = res.createdAt;
-                        item["reference_stone_id"] = referenceStoneId;
-                        recommendations.append(item);
-                        addedIds.insert(res.stoneId);
-                    }
-                }
-
-                // 添加常规推荐结果（去重）
-                for (const auto& cand : results) {
-                    if (addedIds.count(cand.itemId)) continue;
-                    if (static_cast<int>(recommendations.size()) >= limit) break;
-
-                    Json::Value item;
-                    item["stone_id"] = cand.itemId;
-                    item["score"] = cand.score;
-                    item["reason"] = cand.reason;
-                    item["algorithm"] = cand.algorithm;
-                    item["content"] = cand.metadata.get("content", "").asString();
-                    item["mood_type"] = cand.metadata.get("mood_type", "").asString();
-                    item["emotion_score"] = cand.metadata.get("emotion_score", 0.0).asDouble();
-                    item["author_id"] = cand.metadata.get("author_id", "").asString();
-                    item["author_name"] = cand.metadata.get("author_name", "").asString();
-                    item["ripple_count"] = cand.metadata.get("ripple_count", 0).asInt();
-                    item["created_at"] = cand.metadata.get("created_at", "").asString();
-                    recommendations.append(item);
-                }
-
-                Json::Value data =
-                    buildStaticCollectionPayload("recommendations", recommendations);
-                data["count"] = static_cast<int>(recommendations.size());
-                data["algorithm"] = referenceStoneId.empty()
-                    ? "multi_armed_bandit_mmr"
-                    : "emotion_resonance_hybrid";
-                if (!referenceStoneId.empty()) {
-                    data["reference_stone_id"] = referenceStoneId;
-                    data["reference_source"] =
-                        usedAutoReference ? "auto_latest_context" : "explicit";
-                }
-
-                callback(ResponseUtil::success(data, "为你精选的内容"));
-            }
-        );
-
+        respondWithAdvancedRecommendations(
+            userId,
+            limit,
+            requestedStoneId,
+            std::move(callback));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getAdvancedRecommendations: " << e.what();
         callback(ResponseUtil::internalError("获取推荐失败"));
+    }
+}
+
+void RecommendationController::getAdminAdvancedRecommendations(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+    try {
+        const auto adminId = req->getAttributes()->get<std::string>("admin_id");
+        const std::string userId = req->getParameter("user_id");
+        if (userId.empty()) {
+            callback(ResponseUtil::badRequest("缺少 user_id"));
+            return;
+        }
+        if (!doesRecommendationTargetUserExist(userId)) {
+            callback(ResponseUtil::notFound("目标用户不存在"));
+            return;
+        }
+
+        const int limit = resolveRecommendationLimit(req);
+        const std::string requestedStoneId = req->getParameter("stone_id");
+        if (!requestedStoneId.empty() &&
+            !doesRecommendationReferenceStoneExist(requestedStoneId)) {
+            callback(ResponseUtil::notFound("参考石头不存在"));
+            return;
+        }
+        Json::Value extraData(Json::objectValue);
+        extraData["inspected_user_id"] = userId;
+        if (!adminId.empty()) {
+            extraData["requested_by_admin_id"] = adminId;
+        }
+
+        respondWithAdvancedRecommendations(
+            userId,
+            limit,
+            requestedStoneId,
+            std::move(callback),
+            std::move(extraData));
+    } catch (const std::exception &e) {
+        LOG_ERROR << "Error in getAdminAdvancedRecommendations: " << e.what();
+        callback(ResponseUtil::internalError("获取高级推荐失败"));
     }
 }

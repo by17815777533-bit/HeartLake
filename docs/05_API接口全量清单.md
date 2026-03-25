@@ -240,7 +240,9 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 | GET | `/api/recommendations/trending` | Bearer | 热门推荐 |
 | GET | `/api/recommendations/similar-stones/{stoneId}` | Bearer | 相似石头推荐 |
 | GET | `/api/recommendations/emotion-trends` | Bearer | 情绪趋势 |
-| GET | `/api/recommendations/personalized` | Bearer | 个性化推荐 |
+| GET | `/api/recommendations/stones` | Bearer | 个性化推荐 |
+| GET | `/api/recommendations/advanced` | Bearer | 高级共鸣推荐 |
+| GET | `/api/admin/recommendations/advanced` | Admin Bearer | 管理端查看指定用户高级推荐结果 |
 
 ---
 

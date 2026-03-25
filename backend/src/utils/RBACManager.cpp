@@ -163,7 +163,9 @@ std::string RBACManager::pathToResource(const std::string& path) {
         return Permissions::SYSTEM;
     }
     if (hasPathSegment(path, "admin/edge-ai") ||
+        hasPathSegment(path, "admin/recommendations") ||
         hasPathSegment(path, "edge-ai") ||
+        hasPathSegment(path, "recommendations") ||
         hasPathSegment(path, "ai")) {
         return Permissions::AI;
     }

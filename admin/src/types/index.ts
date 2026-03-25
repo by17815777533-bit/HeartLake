@@ -194,6 +194,26 @@ export interface TrendingContentItem {
   score?: number
 }
 
+/** 管理端查看指定用户的高级推荐结果 */
+export interface AdvancedRecommendationItem {
+  stone_id: string
+  content: string
+  mood_type?: string
+  author_id?: string
+  author_name?: string
+  created_at?: string
+  ripple_count?: number
+  score?: number
+  reason?: string
+  algorithm?: string
+  emotion_score?: number
+  semantic_score?: number
+  trajectory_score?: number
+  temporal_score?: number
+  diversity_score?: number
+  reference_stone_id?: string
+}
+
 // ── 隐私 ──
 
 /** 差分隐私预算统计，对应 GET /admin/edge-ai/privacy-budget */

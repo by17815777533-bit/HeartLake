@@ -36,9 +36,16 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   List<Stone> _stones = [];
   List<Stone> _keywordResults = [];
   List<Stone> _semanticResults = [];
+  List<Stone> _personalizedAIStones = [];
+  List<Stone> _advancedAIStones = [];
   List<Stone> _aiRecommendations = [];
-  bool _isLoading = false;
+  bool _trendingLoading = false;
+  bool _searchLoading = false;
+  bool _aiLoading = false;
   bool _hasSearched = false;
+  String? _trendingErrorMessage;
+  String? _personalizedAIErrorMessage;
+  String? _advancedAIErrorMessage;
 
   @override
   void initState() {
@@ -66,32 +73,107 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _resolveErrorMessage(Object error, String fallback) {
+    final message = error.toString().trim();
+    if (message.isEmpty) return fallback;
+    if (message.startsWith('Bad state: ')) {
+      return message.substring('Bad state: '.length).trim();
+    }
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length).trim();
+    }
+    return message;
+  }
+
+  List<Stone> _mergeAIRecommendations({
+    required List<Stone> personalized,
+    required List<Stone> advanced,
+  }) {
+    final seen = <String>{};
+    final merged = <Stone>[];
+    for (final stone in [...personalized, ...advanced]) {
+      if (seen.add(stone.stoneId)) {
+        merged.add(stone);
+      }
+    }
+    return merged;
+  }
+
+  Future<_AIRecommendationLoadResult> _loadAIBranch(
+    Future<List<Map<String, dynamic>>> Function() request,
+    String context,
+    String fallbackMessage,
+  ) async {
+    try {
+      final payload = await request();
+      return _AIRecommendationLoadResult.success(
+        payload.map((item) => Stone.fromJson(item)).toList(),
+      );
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, context);
+      return _AIRecommendationLoadResult.failure(
+        _resolveErrorMessage(error, fallbackMessage),
+      );
+    }
+  }
+
   /// 加载热门石头列表
-  Future<void> _loadTrending() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadTrending({bool showFeedback = false}) async {
+    final hadData = _stones.isNotEmpty;
+    if (!hadData && mounted) {
+      setState(() => _trendingLoading = true);
+    }
     try {
       final items = await _service.getTrending();
       if (mounted) {
-        setState(() => _stones = items.map((e) => Stone.fromJson(e)).toList());
+        setState(() {
+          _stones = items.map((e) => Stone.fromJson(e)).toList();
+          _trendingErrorMessage = null;
+        });
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'DiscoverScreen._loadTrending');
+      final message = _resolveErrorMessage(error, '加载热门内容失败，请稍后再试');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载失败，请稍后再试')),
-        );
+        setState(() => _trendingErrorMessage = message);
+        if (showFeedback || !hadData) {
+          _showMessage(message);
+        }
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _trendingLoading = false);
     }
   }
 
   /// 执行心声查找（深层语义匹配端点当前仅在管理端使用）
   Future<void> _searchStones(String query) async {
     if (query.isEmpty) return;
-    setState(() {
-      _isLoading = true;
-      _hasSearched = false;
-    });
+    if (mounted) {
+      setState(() => _searchLoading = true);
+    }
     try {
       final results = await _service.search(query);
 
@@ -103,44 +185,68 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           _hasSearched = true;
         });
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'DiscoverScreen._searchStones');
+      final message = _resolveErrorMessage(error, '暂时没接住你的心声，请稍后再试');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂时没接住你的心声，请稍后再试')),
-        );
+        _showMessage(message);
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _searchLoading = false);
     }
   }
 
   /// 加载湖神个性化推荐
-  Future<void> _loadAIRecommendations() async {
-    setState(() => _isLoading = true);
-    try {
-      final results = await Future.wait([
-        _aiService.getPersonalizedRecommendations(limit: 10),
-        _aiService.getAdvancedRecommendations(limit: 10),
-      ]);
-      if (mounted) {
-        final personalized = results[0].map((e) => Stone.fromJson(e)).toList();
-        final advanced = results[1].map((e) => Stone.fromJson(e)).toList();
-        // 合并去重
-        final seen = <String>{};
-        final merged = <Stone>[];
-        for (final s in [...personalized, ...advanced]) {
-          if (seen.add(s.stoneId)) merged.add(s);
-        }
-        setState(() => _aiRecommendations = merged);
+  Future<void> _loadAIRecommendations({bool showFeedback = false}) async {
+    final hadVisibleData = _aiRecommendations.isNotEmpty;
+    if (!hadVisibleData && mounted) {
+      setState(() => _aiLoading = true);
+    }
+
+    final results = await Future.wait<_AIRecommendationLoadResult>([
+      _loadAIBranch(
+        () => _aiService.getPersonalizedRecommendations(limit: 10),
+        'DiscoverScreen._loadAIRecommendations.personalized',
+        '加载个性化推荐失败',
+      ),
+      _loadAIBranch(
+        () => _aiService.getAdvancedRecommendations(limit: 10),
+        'DiscoverScreen._loadAIRecommendations.advanced',
+        '加载高级共鸣推荐失败',
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    final personalized = results[0];
+    final advanced = results[1];
+
+    setState(() {
+      if (personalized.items != null) {
+        _personalizedAIStones = personalized.items!;
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('加载湖神陪伴内容失败，请稍后再试')),
-        );
+      if (advanced.items != null) {
+        _advancedAIStones = advanced.items!;
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      _personalizedAIErrorMessage = personalized.errorMessage;
+      _advancedAIErrorMessage = advanced.errorMessage;
+      _aiRecommendations = _mergeAIRecommendations(
+        personalized: _personalizedAIStones,
+        advanced: _advancedAIStones,
+      );
+      _aiLoading = false;
+    });
+
+    if (!showFeedback) return;
+
+    final failureCount =
+        results.where((item) => item.errorMessage != null).length;
+    if (failureCount == 2) {
+      _showMessage('湖神陪伴内容刷新失败，请稍后再试');
+      return;
+    }
+    if (failureCount == 1) {
+      _showMessage('部分湖神陪伴内容未更新，已保留上次结果');
     }
   }
 
@@ -189,13 +295,17 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               controller: _tabController,
               children: [
                 RefreshIndicator(
-                  onRefresh: _loadTrending,
+                  onRefresh: () => _loadTrending(showFeedback: true),
                   color: AppTheme.accentColor,
-                  child: _buildStoneList(_stones),
+                  child: _buildStoneList(
+                    _stones,
+                    isLoading: _trendingLoading,
+                    errorMessage: _trendingErrorMessage,
+                  ),
                 ),
                 _buildSearchTab(),
                 RefreshIndicator(
-                  onRefresh: _loadAIRecommendations,
+                  onRefresh: () => _loadAIRecommendations(showFeedback: true),
                   color: AppTheme.accentColor,
                   child: _buildAITab(),
                 ),
@@ -230,11 +340,15 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           ),
         ),
         Expanded(
-          child: _isLoading
+          child: _searchLoading
               ? _buildLoadingIndicator()
               : _hasSearched
                   ? _buildSearchResults()
-                  : _buildStoneList(_stones),
+                  : _buildStoneList(
+                      _stones,
+                      isLoading: _trendingLoading,
+                      errorMessage: _trendingErrorMessage,
+                    ),
         ),
       ],
     );
@@ -315,7 +429,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   /// 湖神推荐Tab
   Widget _buildAITab() {
-    if (_isLoading) return _buildLoadingIndicator();
+    final warningMessages = [
+      _personalizedAIErrorMessage,
+      _advancedAIErrorMessage,
+    ].whereType<String>().toList();
+    if (_aiLoading) return _buildLoadingIndicator();
     if (_aiRecommendations.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -332,6 +450,26 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 Text('暂时还没有更贴合你的内容，多投石头会更懂你',
                     style:
                         TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                if (warningMessages.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: _buildWarningCard(warningMessages.join('；')),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => _loadAIRecommendations(showFeedback: true),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('重试加载'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white.withValues(alpha: 0.9),
+                      side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.push(
@@ -360,7 +498,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       physics:
           const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemCount: _aiRecommendations.length + 2,
+      itemCount:
+          _aiRecommendations.length + 2 + (warningMessages.isNotEmpty ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildResultSectionHeader(
@@ -369,7 +508,15 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             '${_aiRecommendations.length}条',
           );
         }
-        if (index == _aiRecommendations.length + 1) {
+        if (warningMessages.isNotEmpty && index == 1) {
+          return Padding(
+            padding:
+                const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 12),
+            child: _buildWarningCard(warningMessages.join('；')),
+          );
+        }
+        final listOffset = warningMessages.isNotEmpty ? 2 : 1;
+        if (index == _aiRecommendations.length + listOffset) {
           // 底部"查看更多"入口
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
@@ -390,7 +537,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             ),
           );
         }
-        final stone = _aiRecommendations[index - 1];
+        final stone = _aiRecommendations[index - listOffset];
         return GestureDetector(
           onTap: () {
             _aiService.trackInteraction(
@@ -423,8 +570,40 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     );
   }
 
-  Widget _buildStoneList(List<Stone> stones) {
-    if (_isLoading) return _buildLoadingIndicator();
+  Widget _buildWarningCard(String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Colors.amber),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.88),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoneList(
+    List<Stone> stones, {
+    required bool isLoading,
+    String? errorMessage,
+  }) {
+    if (isLoading) return _buildLoadingIndicator();
     if (stones.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -438,9 +617,27 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 Icon(Icons.explore_off,
                     size: 64, color: Colors.white.withValues(alpha: 0.5)),
                 const SizedBox(height: 16),
-                Text('暂无内容，试试写下想找的心声或看看湖神陪伴',
-                    style:
-                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                Text(
+                  errorMessage ?? '暂无内容，试试写下想找的心声或看看湖神陪伴',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: () => _loadTrending(showFeedback: true),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('重新加载'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white.withValues(alpha: 0.9),
+                      side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -451,5 +648,23 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       stones: stones,
       itemBuilder: (stone, layer) => StoneCard(stone: stone),
     );
+  }
+}
+
+class _AIRecommendationLoadResult {
+  final List<Stone>? items;
+  final String? errorMessage;
+
+  const _AIRecommendationLoadResult._({
+    this.items,
+    this.errorMessage,
+  });
+
+  factory _AIRecommendationLoadResult.success(List<Stone> items) {
+    return _AIRecommendationLoadResult._(items: items);
+  }
+
+  factory _AIRecommendationLoadResult.failure(String message) {
+    return _AIRecommendationLoadResult._(errorMessage: message);
   }
 }

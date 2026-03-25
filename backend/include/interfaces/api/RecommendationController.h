@@ -46,6 +46,7 @@ namespace controllers {
  * | GET  | /api/recommendations/trending        | 热门内容                       |
  * | POST | /api/recommendations/search          | 语义搜索推荐                   |
  * | GET  | /api/recommendations/advanced        | 高级多算法推荐                 |
+ * | GET  | /api/admin/recommendations/advanced  | 管理端查看指定用户高级推荐      |
  */
 class RecommendationController : public HttpController<RecommendationController> {
 public:
@@ -75,6 +76,10 @@ public:
 
     ADD_METHOD_TO(RecommendationController::getAdvancedRecommendations,
                   "/api/recommendations/advanced", Get, "heartlake::filters::SecurityAuditFilter");
+
+    ADD_METHOD_TO(RecommendationController::getAdminAdvancedRecommendations,
+                  "/api/admin/recommendations/advanced", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
 
     METHOD_LIST_END
 
@@ -180,6 +185,20 @@ public:
      */
     void getAdvancedRecommendations(const HttpRequestPtr &req,
                                    std::function<void(const HttpResponsePtr &)> &&callback);
+
+    /**
+     * @brief 管理端查看指定用户的高级多算法推荐
+     * @details GET /api/admin/recommendations/advanced?user_id=xxx&limit=20
+     *
+     * 用于运营/排障侧直接核对高级算法对指定用户的真实产出，
+     * 返回字段与移动端高级推荐保持一致，并额外标记 inspected_user_id。
+     *
+     * @param req HTTP 请求
+     * @param callback 响应回调
+     */
+    void getAdminAdvancedRecommendations(
+        const HttpRequestPtr &req,
+        std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
     /**

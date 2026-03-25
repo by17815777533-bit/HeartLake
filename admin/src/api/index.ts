@@ -11,7 +11,11 @@
  * - 防跨站攻击体系 (CSRF)：支持主动抓取预置 `csrf_token` cookie 并追加防御头 `X-CSRF-Token` 以保护长轮询及提交。
  * - 多维耗时补偿策略：默认接口 15 秒通讯截断，为边缘计算聚合 (EdgeAI) 及流式上传/导出配置 60 秒延长窗口。
  */
-import axios, { type AxiosRequestConfig, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { useAppStore } from '@/stores'
@@ -48,8 +52,8 @@ interface BusinessError extends Error {
   response?: AxiosResponse
 }
 
-/** 
- * @brief HttpClient 底层通信实例 
+/**
+ * @brief HttpClient 底层通信实例
  * @details 采用 VITE 宏指令提取基准微服务基址，兼收 CSRF 标准配置并统一下发请求策略。
  */
 export const http = axios.create({
@@ -66,9 +70,9 @@ let isRedirectingToLogin = false
 
 /**
  * @brief 本地响应授权崩塌及清理策略核心函数
- * 
+ *
  * 摧毁现有证书，发起路由出栈处理。
- * 
+ *
  * @param msg 指引层外抛的具体用户视界提示语句
  */
 function handleAuthFailure(msg?: string): void {
@@ -90,28 +94,34 @@ const pendingRequests = new Map<string, AbortController>()
 
 /**
  * @brief 创建网络请求身份摘要
- * 
+ *
  * 支持比对请求五元组及内容序列。若前后双请求匹配该摘要，先导请求即视作无效作废（防重复并发机制）。
- * 
+ *
  * @param config 当前拦截周期的请求组态对象
  * @return 构造哈希字符串
  */
 function getRequestKey(config: CustomInternalConfig): string {
-  const params = config.params ? JSON.stringify(config.params, Object.keys(config.params).sort()) : ''
-  const data = config.data ? (typeof config.data === 'string' ? config.data : JSON.stringify(config.data)) : ''
+  const params = config.params
+    ? JSON.stringify(config.params, Object.keys(config.params).sort())
+    : ''
+  const data = config.data
+    ? typeof config.data === 'string'
+      ? config.data
+      : JSON.stringify(config.data)
+    : ''
   return `${config.method}:${config.url}:${params}:${data}`
 }
 
-/** 
- * @brief 全局抛弃排队池中待决口网络事务 
+/**
+ * @brief 全局抛弃排队池中待决口网络事务
  * @details 多使用于 SPA 路由栈清场等大型生命周期场景。
  */
 export function clearPendingRequests(): void {
-  pendingRequests.forEach(controller => controller.abort())
+  pendingRequests.forEach((controller) => controller.abort())
   pendingRequests.clear()
 }
 
-/** 
+/**
  * @brief 旧版请求清洗 API 暴露别名支持
  */
 export function cancelAllRequests(): void {
@@ -127,12 +137,14 @@ export function isRequestCanceled(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
 
   const maybeError = error as { code?: string; name?: string; message?: string }
-  return maybeError.code === 'ERR_CANCELED'
-    || maybeError.name === 'CanceledError'
-    || maybeError.message === 'canceled'
+  return (
+    maybeError.code === 'ERR_CANCELED' ||
+    maybeError.name === 'CanceledError' ||
+    maybeError.message === 'canceled'
+  )
 }
 
-/** 
+/**
  * @brief Axios 全局请求门神拦截装置
  * @details 第一时间推入验证字典，排遣未完结相同冲突体，挂载事务标识信号标。同时触犯阻塞性遮罩。
  */
@@ -157,7 +169,7 @@ http.interceptors.request.use((config: CustomInternalConfig) => {
   return config
 })
 
-/** 
+/**
  * @brief Axios 全局响应归档拦截装置
  * @details 负责脱钩排队池对应事务键值；收起前端动画负反馈，拆解与剥离响应状态并分类传递异常流或正反馈数据实体。
  */
@@ -187,7 +199,11 @@ http.interceptors.response.use(
   (error: unknown) => {
     if (axios.isCancel(error)) return Promise.reject(error)
 
-    const axiosError = error as { config?: CustomInternalConfig; response?: AxiosResponse; message?: string }
+    const axiosError = error as {
+      config?: CustomInternalConfig
+      response?: AxiosResponse
+      message?: string
+    }
     if (axiosError.config) {
       pendingRequests.delete(getRequestKey(axiosError.config))
       const appStore = useAppStore()
@@ -210,7 +226,7 @@ http.interceptors.response.use(
       if (retryCount < MAX_RETRIES) {
         axiosError.config._retryCount = retryCount + 1
         const delay = Math.min(1000 * 2 ** retryCount, 8000)
-        return new Promise(resolve => setTimeout(resolve, delay)).then(() =>
+        return new Promise((resolve) => setTimeout(resolve, delay)).then(() =>
           http.request(axiosError.config!),
         )
       }
@@ -230,8 +246,8 @@ http.interceptors.response.use(
   },
 )
 
-/** 
- * @brief 通用不定参数映射表 
+/**
+ * @brief 通用不定参数映射表
  */
 type Params = Record<string, unknown>
 
@@ -272,13 +288,13 @@ function buildVectorSearchPayload(data: VectorSearchPayload): Params {
   return buildSnakeMirroredPayload(data, [['topK', 'top_k']])
 }
 
-/** 
+/**
  * @brief 重量级事务强制截断常量
  */
 const LONG_TIMEOUT = 60000
 
-/** 
- * @brief 通行证口令握手包裹模型 
+/**
+ * @brief 通行证口令握手包裹模型
  */
 interface LoginPayload {
   username: string
@@ -287,9 +303,13 @@ interface LoginPayload {
 
 // 高频 API 的具体参数类型
 import type {
-  HandleReportParams, AddSensitiveWordParams, UpdateSensitiveWordParams,
-  BroadcastMessageParams, SaveConfigPayload,
-  FederatedAggregationParams, VectorSearchParams,
+  HandleReportParams,
+  AddSensitiveWordParams,
+  UpdateSensitiveWordParams,
+  BroadcastMessageParams,
+  SaveConfigPayload,
+  FederatedAggregationParams,
+  VectorSearchParams,
 } from '@/types'
 
 /**
@@ -308,12 +328,22 @@ export default {
   logout: () => http.post('/admin/logout'),
   // Dashboard
   getDashboardStats: () => http.get('/admin/stats/dashboard'),
-  getRealtimeStats: () => http.get('/admin/stats/realtime', { skipLoading: true } as CustomAxiosRequestConfig),
-  getUserGrowthStats: (range: string) => http.get(`/admin/stats/user-growth?days=${range}`, { skipLoading: true } as CustomAxiosRequestConfig),
-  getMoodDistribution: () => http.get('/admin/stats/mood-distribution', { skipLoading: true } as CustomAxiosRequestConfig),
-  getMoodTrend: (range: string) => http.get(`/admin/stats/mood-trend?days=${range}`, { skipLoading: true } as CustomAxiosRequestConfig),
-  getTrendingTopics: () => http.get('/admin/stats/trending-topics', { skipLoading: true } as CustomAxiosRequestConfig),
-  getActiveTimeStats: () => http.get('/admin/stats/active-time', { skipLoading: true } as CustomAxiosRequestConfig),
+  getRealtimeStats: () =>
+    http.get('/admin/stats/realtime', { skipLoading: true } as CustomAxiosRequestConfig),
+  getUserGrowthStats: (range: string) =>
+    http.get(`/admin/stats/user-growth?days=${range}`, {
+      skipLoading: true,
+    } as CustomAxiosRequestConfig),
+  getMoodDistribution: () =>
+    http.get('/admin/stats/mood-distribution', { skipLoading: true } as CustomAxiosRequestConfig),
+  getMoodTrend: (range: string) =>
+    http.get(`/admin/stats/mood-trend?days=${range}`, {
+      skipLoading: true,
+    } as CustomAxiosRequestConfig),
+  getTrendingTopics: () =>
+    http.get('/admin/stats/trending-topics', { skipLoading: true } as CustomAxiosRequestConfig),
+  getActiveTimeStats: () =>
+    http.get('/admin/stats/active-time', { skipLoading: true } as CustomAxiosRequestConfig),
   // Users
   getUsers: (params?: Params) => http.get('/admin/users', { params }),
   getUserDetail: (id: string) => http.get(`/admin/users/${id}`),
@@ -325,54 +355,73 @@ export default {
     http.delete(`/admin/${type === 'boat' ? 'boats' : 'stones'}/${id}`, { data: { reason } }),
   getStones: (params?: Params) => http.get('/admin/stones', { params }),
   getBoats: (params?: Params) => http.get('/admin/boats', { params }),
-  deleteStone: (id: string, reason: string) => http.delete(`/admin/stones/${id}`, { data: { reason } }),
-  deleteBoat: (id: string, reason: string) => http.delete(`/admin/boats/${id}`, { data: { reason } }),
+  deleteStone: (id: string, reason: string) =>
+    http.delete(`/admin/stones/${id}`, { data: { reason } }),
+  deleteBoat: (id: string, reason: string) =>
+    http.delete(`/admin/boats/${id}`, { data: { reason } }),
   // Reports
   getReports: (params?: Params) => http.get('/admin/reports', { params }),
-  handleReport: (id: string, data: HandleReportParams) => http.post(`/admin/reports/${id}/handle`, data),
+  handleReport: (id: string, data: HandleReportParams) =>
+    http.post(`/admin/reports/${id}/handle`, data),
   // Moderation
   getPendingModeration: (params?: Params) => http.get('/admin/moderation/pending', { params }),
   getModerationHistory: (params?: Params) => http.get('/admin/moderation/history', { params }),
   approveContent: (id: string) => http.post(`/admin/moderation/${id}/approve`),
-  rejectContent: (id: string, reason: string) => http.post(`/admin/moderation/${id}/reject`, { reason }),
+  rejectContent: (id: string, reason: string) =>
+    http.post(`/admin/moderation/${id}/reject`, { reason }),
   // Sensitive words
   getSensitiveWords: (params?: Params) => http.get('/admin/sensitive-words', { params }),
   addSensitiveWord: (data: AddSensitiveWordParams) => http.post('/admin/sensitive-words', data),
-  updateSensitiveWord: (id: string | number, data: UpdateSensitiveWordParams) => http.put(`/admin/sensitive-words/${id}`, data),
+  updateSensitiveWord: (id: string | number, data: UpdateSensitiveWordParams) =>
+    http.put(`/admin/sensitive-words/${id}`, data),
   deleteSensitiveWord: (id: string | number) => http.delete(`/admin/sensitive-words/${id}`),
   // Settings
   getSystemConfig: () => http.get('/admin/config'),
   updateSystemConfig: (data: SaveConfigPayload) => http.put('/admin/config', data),
-  broadcastMessage: (data: BroadcastMessageParams) => http.post('/admin/broadcast', data, { timeout: LONG_TIMEOUT }),
+  broadcastMessage: (data: BroadcastMessageParams) =>
+    http.post('/admin/broadcast', data, { timeout: LONG_TIMEOUT }),
   // Logs
   getOperationLogs: (params?: Params) => http.get('/admin/logs', { params }),
   // Admin info
   getAdminInfo: () => http.get('/admin/info'),
   // Edge AI
-  getEdgeAIStatus: () => http.get('/admin/edge-ai/status', { skipLoading: true } as CustomAxiosRequestConfig),
-  getEdgeAIMetrics: () => http.get('/admin/edge-ai/metrics', { skipLoading: true } as CustomAxiosRequestConfig),
-  getEmotionPulse: () => http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
-  triggerFederatedAggregation: (data: FederatedAggregationParams) => http.post('/admin/edge-ai/federated/aggregate', data, { timeout: LONG_TIMEOUT }),
-  getPrivacyBudget: () => http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
-  edgeAIVectorSearch: (data: VectorSearchPayload) => http.post(
-    '/admin/edge-ai/vector-search',
-    buildVectorSearchPayload(data),
-    { timeout: LONG_TIMEOUT },
-  ),
+  getEdgeAIStatus: () =>
+    http.get('/admin/edge-ai/status', { skipLoading: true } as CustomAxiosRequestConfig),
+  getEdgeAIMetrics: () =>
+    http.get('/admin/edge-ai/metrics', { skipLoading: true } as CustomAxiosRequestConfig),
+  getEmotionPulse: () =>
+    http.get('/admin/edge-ai/emotion-pulse', { skipLoading: true } as CustomAxiosRequestConfig),
+  triggerFederatedAggregation: (data: FederatedAggregationParams) =>
+    http.post('/admin/edge-ai/federated/aggregate', data, { timeout: LONG_TIMEOUT }),
+  getPrivacyBudget: () =>
+    http.get('/admin/edge-ai/privacy-budget', { skipLoading: true } as CustomAxiosRequestConfig),
+  edgeAIVectorSearch: (data: VectorSearchPayload) =>
+    http.post('/admin/edge-ai/vector-search', buildVectorSearchPayload(data), {
+      timeout: LONG_TIMEOUT,
+    }),
   getEdgeAIConfig: () => http.get('/admin/edge-ai/config'),
-  updateEdgeAIConfig: (data: Params) => http.put(
-    '/admin/edge-ai/config',
-    buildEdgeAIConfigPayload(data),
-    { timeout: LONG_TIMEOUT },
-  ),
+  updateEdgeAIConfig: (data: Params) =>
+    http.put('/admin/edge-ai/config', buildEdgeAIConfigPayload(data), { timeout: LONG_TIMEOUT }),
   // AI Analysis
-  analyzeText: (text: string) => http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
-  moderateText: (text: string) => http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
+  analyzeText: (text: string) =>
+    http.post('/admin/edge-ai/analyze', { text }, { timeout: LONG_TIMEOUT }),
+  moderateText: (text: string) =>
+    http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
   // Recommendation System
-  getTrendingContent: (params?: Params) => http.get(
-    '/recommendations/trending',
-    { params, skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig,
-  ),
-  getEmotionTrends: () => http.get('/recommendations/emotion-trends', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
-  getRecommendationStats: () => http.get('/recommendations/stones', { skipLoading: true, skipAuthRedirect: true } as CustomAxiosRequestConfig),
+  getTrendingContent: (params?: Params) =>
+    http.get('/recommendations/trending', {
+      params,
+      skipLoading: true,
+      skipAuthRedirect: true,
+    } as CustomAxiosRequestConfig),
+  getEmotionTrends: () =>
+    http.get('/recommendations/emotion-trends', {
+      skipLoading: true,
+      skipAuthRedirect: true,
+    } as CustomAxiosRequestConfig),
+  getAdminAdvancedRecommendations: (params: Params) =>
+    http.get('/admin/recommendations/advanced', {
+      params,
+      skipLoading: true,
+    } as CustomAxiosRequestConfig),
 }

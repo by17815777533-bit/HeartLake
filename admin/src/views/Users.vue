@@ -205,6 +205,88 @@
           {{ currentUser.last_active_at }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <section
+        v-if="currentUser"
+        v-loading="advancedRecommendationsLoading"
+        class="advanced-preview"
+      >
+        <div class="advanced-preview__header">
+          <div>
+            <strong>高级推荐预览</strong>
+            <p>直接核对高级算法对该旅人的真实产出，避免三端只看一边。</p>
+          </div>
+          <el-button
+            size="small"
+            :loading="advancedRecommendationsLoading"
+            @click="loadAdvancedRecommendations(currentUser.user_id, true)"
+          >
+            刷新推荐
+          </el-button>
+        </div>
+
+        <div
+          v-if="advancedReferenceStoneId || advancedReferenceSource"
+          class="advanced-preview__meta"
+        >
+          <span v-if="advancedReferenceStoneId">参考石头 {{ advancedReferenceStoneId }}</span>
+          <span v-if="advancedReferenceSource">{{ advancedReferenceSource }}</span>
+        </div>
+
+        <el-alert
+          v-if="advancedRecommendationsError"
+          :title="advancedRecommendationsError"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+
+        <el-empty
+          v-if="!advancedRecommendationsLoading && !advancedRecommendations.length"
+          :description="
+            advancedRecommendationsError ? '高级推荐暂未加载出来' : '当前没有可展示的高级推荐结果'
+          "
+        />
+
+        <div v-else class="advanced-preview__list">
+          <article
+            v-for="item in advancedRecommendations"
+            :key="item.stone_id"
+            class="advanced-preview__item"
+          >
+            <div class="advanced-preview__item-head">
+              <div class="advanced-preview__chips">
+                <span class="advanced-preview__chip is-algorithm">
+                  {{ formatAlgorithmLabel(item.algorithm) }}
+                </span>
+                <span class="advanced-preview__chip is-score">
+                  {{ formatRecommendationScore(item.score) }}
+                </span>
+              </div>
+              <small>{{ item.author_name || item.author_id || '未知作者' }}</small>
+            </div>
+
+            <p class="advanced-preview__content">{{ item.content || '暂无内容预览' }}</p>
+            <p v-if="item.reason" class="advanced-preview__reason">{{ item.reason }}</p>
+
+            <div class="advanced-preview__metrics">
+              <span v-if="item.semantic_score != null"
+                >语义 {{ formatMetricScore(item.semantic_score) }}</span
+              >
+              <span v-if="item.trajectory_score != null"
+                >轨迹 {{ formatMetricScore(item.trajectory_score) }}</span
+              >
+              <span v-if="item.temporal_score != null"
+                >时序 {{ formatMetricScore(item.temporal_score) }}</span
+              >
+              <span v-if="item.diversity_score != null"
+                >多样 {{ formatMetricScore(item.diversity_score) }}</span
+              >
+              <span>涟漪 {{ Number(item.ripple_count || 0) }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
     </el-dialog>
   </div>
 </template>
@@ -214,7 +296,7 @@ import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
-import { normalizeCollectionResponse } from '@/utils/collectionPayload'
+import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -225,12 +307,17 @@ import {
   createDeckOverviewCards,
   createDeckRhythmItems,
 } from '@/utils/opsDashboardDeck'
-import type { User } from '@/types'
+import type { AdvancedRecommendationItem, User } from '@/types'
 
 const loading = ref(false)
 const users = ref<User[]>([])
 const detailVisible = ref(false)
 const currentUser = ref<User | null>(null)
+const advancedRecommendationsLoading = ref(false)
+const advancedRecommendations = ref<AdvancedRecommendationItem[]>([])
+const advancedRecommendationsError = ref('')
+const advancedReferenceStoneId = ref('')
+const advancedReferenceSource = ref('')
 
 // 搜索输入防抖，昵称输入 300ms 后自动触发搜索
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -378,6 +465,83 @@ const getRegistrationNote = (value?: string) => {
 const getTravelerInitial = (user: User) => {
   const source = (user.nickname || user.username || user.user_id || '旅').trim()
   return source.charAt(0).toUpperCase()
+}
+
+const formatAlgorithmLabel = (value?: string) => {
+  switch (value) {
+    case 'emotion_temporal_resonance':
+      return '四维共鸣'
+    case 'emotion_resonance_hybrid':
+      return '混合共鸣'
+    case 'user_cf':
+      return '同频旅人'
+    case 'item_cf':
+      return '相似心声'
+    case 'content_based':
+      return '内容匹配'
+    case 'graph_walk':
+      return '关系扩散'
+    case 'multi_armed_bandit_mmr':
+      return '多路融合'
+    default:
+      return '高级推荐'
+  }
+}
+
+const formatRecommendationScore = (value?: number) => {
+  const normalized = Number(value || 0)
+  const score = normalized > 1 ? normalized : normalized * 100
+  return `${Math.round(score)} 分`
+}
+
+const formatMetricScore = (value?: number) => `${Math.round(Number(value || 0) * 100)}`
+
+const formatReferenceSource = (value: unknown) => {
+  switch (String(value || '')) {
+    case 'auto_latest_context':
+      return '自动参考最近上下文'
+    case 'explicit':
+      return '显式参考石头'
+    default:
+      return String(value || '')
+  }
+}
+
+const resetAdvancedRecommendations = () => {
+  advancedRecommendations.value = []
+  advancedRecommendationsError.value = ''
+  advancedReferenceStoneId.value = ''
+  advancedReferenceSource.value = ''
+}
+
+const loadAdvancedRecommendations = async (userId: string, showFeedback = false) => {
+  const hadData = advancedRecommendations.value.length > 0
+  advancedRecommendationsLoading.value = true
+  advancedRecommendationsError.value = ''
+
+  try {
+    const res = await api.getAdminAdvancedRecommendations({ user_id: userId, limit: 6 })
+    const { data, items } = normalizeCollectionResponse<AdvancedRecommendationItem>(res.data, [
+      'recommendations',
+    ])
+    const normalized = normalizePayloadRecord(data)
+
+    advancedRecommendations.value = items
+    advancedReferenceStoneId.value = String(normalized.reference_stone_id || '')
+    advancedReferenceSource.value = formatReferenceSource(normalized.reference_source)
+  } catch (e) {
+    if (isRequestCanceled(e)) return
+    const message = getErrorMessage(e, '加载高级推荐失败')
+    advancedRecommendationsError.value = message
+    if (!hadData) {
+      advancedRecommendations.value = []
+    }
+    if (showFeedback) {
+      ElMessage.warning(message)
+    }
+  } finally {
+    advancedRecommendationsLoading.value = false
+  }
 }
 
 const latestActiveMeta = computed(() => {
@@ -569,7 +733,9 @@ const {
 /** 查看用户详情 */
 const handleViewDetail = (row: User) => {
   currentUser.value = row
+  resetAdvancedRecommendations()
   detailVisible.value = true
+  void loadAdvancedRecommendations(row.user_id)
 }
 
 /** 封禁用户，弹窗输入原因后调用后端接口 */
@@ -868,6 +1034,140 @@ onMounted(() => {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
+  }
+
+  .advanced-preview {
+    margin-top: 22px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .advanced-preview__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+
+    strong {
+      display: block;
+      color: var(--hl-ink);
+      font-size: 15px;
+      font-weight: 760;
+    }
+
+    p {
+      margin-top: 4px;
+      color: var(--hl-ink-soft);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  }
+
+  .advanced-preview__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(235, 242, 255, 0.92);
+      color: #3d5d88;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--hl-font-mono);
+    }
+  }
+
+  .advanced-preview__list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .advanced-preview__item {
+    display: grid;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(246, 249, 255, 0.98), rgba(237, 243, 255, 0.96));
+    border: 1px solid rgba(149, 171, 214, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.88),
+      0 12px 20px rgba(129, 147, 183, 0.08);
+  }
+
+  .advanced-preview__item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    small {
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+  }
+
+  .advanced-preview__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .advanced-preview__chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .advanced-preview__chip.is-algorithm {
+    background: rgba(224, 243, 239, 0.96);
+    color: #1f7a69;
+  }
+
+  .advanced-preview__chip.is-score {
+    background: rgba(235, 242, 255, 0.96);
+    color: #3d5d88;
+  }
+
+  .advanced-preview__content {
+    color: var(--hl-ink);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .advanced-preview__reason {
+    color: #4a6a95;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .advanced-preview__metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--hl-ink-soft);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--hl-font-mono);
+    }
   }
 }
 </style>

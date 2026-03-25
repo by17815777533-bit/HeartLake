@@ -35,6 +35,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   List<Stone> _personalizedStones = [];
   List<Stone> _advancedStones = [];
   bool _loading = true;
+  String? _personalizedErrorMessage;
+  String? _advancedErrorMessage;
 
   @override
   void initState() {
@@ -57,23 +59,110 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     super.dispose();
   }
 
-  /// 并行请求个性化推荐和深层共鸣推荐
-  Future<void> _loadRecommendations() async {
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _resolveErrorMessage(Object error, String fallback) {
+    final message = error.toString().trim();
+    if (message.isEmpty) return fallback;
+    if (message.startsWith('Bad state: ')) {
+      return message.substring('Bad state: '.length).trim();
+    }
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length).trim();
+    }
+    return message;
+  }
+
+  Future<_RecommendationSectionLoadResult> _loadSection(
+    Future<List<Map<String, dynamic>>> Function() request,
+    String context,
+    String fallbackMessage,
+  ) async {
     try {
-      final results = await Future.wait([
-        _service.getPersonalizedRecommendations(limit: 10),
-        _service.getAdvancedRecommendations(limit: 10),
-      ]);
-      if (mounted) {
-        setState(() {
-          _personalizedStones = _parseStones(results[0]);
-          _advancedStones = _parseStones(results[1]);
-          _loading = false;
-        });
-        _fadeController.forward();
+      final payload = await request();
+      return _RecommendationSectionLoadResult.success(_parseStones(payload));
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, context);
+      return _RecommendationSectionLoadResult.failure(
+        _resolveErrorMessage(error, fallbackMessage),
+      );
+    }
+  }
+
+  /// 并行请求个性化推荐和深层共鸣推荐
+  Future<void> _loadRecommendations({bool showFeedback = false}) async {
+    final hadVisibleData =
+        _personalizedStones.isNotEmpty || _advancedStones.isNotEmpty;
+    if (!hadVisibleData && mounted) {
+      setState(() => _loading = true);
+    }
+
+    final results = await Future.wait<_RecommendationSectionLoadResult>([
+      _loadSection(
+        () => _service.getPersonalizedRecommendations(limit: 10),
+        'PersonalizedScreen._loadRecommendations.personalized',
+        '加载心灵共振失败',
+      ),
+      _loadSection(
+        () => _service.getAdvancedRecommendations(limit: 10),
+        'PersonalizedScreen._loadRecommendations.advanced',
+        '加载深层共鸣失败',
+      ),
+    ]);
+
+    if (!mounted) return;
+
+    final personalized = results[0];
+    final advanced = results[1];
+    final hasFreshData = personalized.items != null || advanced.items != null;
+
+    setState(() {
+      if (personalized.items != null) {
+        _personalizedStones = personalized.items!;
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (advanced.items != null) {
+        _advancedStones = advanced.items!;
+      }
+      _personalizedErrorMessage = personalized.errorMessage;
+      _advancedErrorMessage = advanced.errorMessage;
+      _loading = false;
+    });
+
+    if (hasFreshData) {
+      _fadeController.forward(from: 0);
+    }
+
+    if (!showFeedback) return;
+
+    final failureCount =
+        results.where((item) => item.errorMessage != null).length;
+    if (failureCount == 2) {
+      _showMessage('推荐刷新失败，请稍后再试');
+      return;
+    }
+    if (failureCount == 1) {
+      _showMessage('部分推荐未更新，已保留上次结果');
     }
   }
 
@@ -110,8 +199,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                     .withValues(alpha: 0.6),
                 size: 20),
             onPressed: () {
-              setState(() => _loading = true);
-              _loadRecommendations();
+              _loadRecommendations(showFeedback: true);
             },
           ),
         ],
@@ -182,14 +270,34 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
 
   /// 推荐内容主体：心灵共振 + 深层共鸣两个分区
   Widget _buildContent() {
+    final warningMessages = [
+      _personalizedErrorMessage,
+      _advancedErrorMessage,
+    ].whereType<String>().toList();
+
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         const SizedBox(height: 12),
+        if (warningMessages.isNotEmpty) ...[
+          _buildWarningCard(
+            title: warningMessages.length == 2 ? '推荐暂时未完全更新' : '部分推荐未更新',
+            message: warningMessages.join('；'),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (_personalizedStones.isNotEmpty) ...[
           _buildSectionTitle(
               '心灵共振', Icons.favorite_border, AppTheme.primaryLightColor),
+          if (_personalizedErrorMessage != null) ...[
+            const SizedBox(height: 8),
+            _buildWarningCard(
+              title: '心灵共振未完成刷新',
+              message: _personalizedErrorMessage!,
+              compact: true,
+            ),
+          ],
           const SizedBox(height: 12),
           ..._personalizedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key),
@@ -199,6 +307,14 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         if (_advancedStones.isNotEmpty) ...[
           _buildSectionTitle(
               '深层共鸣', Icons.auto_awesome, AppTheme.primaryLightColor),
+          if (_advancedErrorMessage != null) ...[
+            const SizedBox(height: 8),
+            _buildWarningCard(
+              title: '深层共鸣未完成刷新',
+              message: _advancedErrorMessage!,
+              compact: true,
+            ),
+          ],
           const SizedBox(height: 12),
           ..._advancedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key + 100),
@@ -208,6 +324,66 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
           _buildEmptyState(),
         const SizedBox(height: 40),
       ],
+    );
+  }
+
+  Widget _buildWarningCard({
+    required String title,
+    required String message,
+    bool compact = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark
+        ? const Color(0xFF2B2112).withValues(alpha: 0.92)
+        : const Color(0xFFFFF4DE);
+    final border = const Color(0xFFD39D2A).withValues(alpha: 0.32);
+    final titleColor =
+        isDark ? const Color(0xFFFFD27A) : const Color(0xFF8A5A00);
+    final textColor =
+        isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 10 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              size: compact ? 18 : 20, color: titleColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: compact ? 12 : 13,
+                    fontWeight: FontWeight.w600,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: compact ? 11 : 12,
+                    height: 1.45,
+                    color: textColor.withValues(alpha: 0.88),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -459,6 +635,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
   /// 推荐列表为空时的引导提示
   Widget _buildEmptyState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasError =
+        _personalizedErrorMessage != null || _advancedErrorMessage != null;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 0,
@@ -473,7 +651,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                         .withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
-              '投出更多石头，收获更多共鸣',
+              hasError ? '推荐暂时没有刷新出来' : '投出更多石头，收获更多共鸣',
               style: TextStyle(
                 color: (isDark
                         ? AppTheme.darkTextSecondary
@@ -483,6 +661,29 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                 letterSpacing: 1,
               ),
             ),
+            if (hasError) ...[
+              const SizedBox(height: 10),
+              Text(
+                [
+                  _personalizedErrorMessage,
+                  _advancedErrorMessage,
+                ].whereType<String>().join('；'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: (isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary)
+                      .withValues(alpha: 0.72),
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () => _loadRecommendations(showFeedback: true),
+                child: const Text('重新加载'),
+              ),
+            ],
           ],
         ),
       ),
@@ -516,5 +717,23 @@ class _InfoChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RecommendationSectionLoadResult {
+  final List<Stone>? items;
+  final String? errorMessage;
+
+  const _RecommendationSectionLoadResult._({
+    this.items,
+    this.errorMessage,
+  });
+
+  factory _RecommendationSectionLoadResult.success(List<Stone> items) {
+    return _RecommendationSectionLoadResult._(items: items);
+  }
+
+  factory _RecommendationSectionLoadResult.failure(String message) {
+    return _RecommendationSectionLoadResult._(errorMessage: message);
   }
 }
