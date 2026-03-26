@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <unordered_set>
 #include <ctime>
 
@@ -571,11 +572,14 @@ void RecommendationEngine::getRecommendations(
 /// User-based CF：找相似用户喜欢但当前用户未交互的石头
 std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
-    if (!dbClientProvider_) { LOG_ERROR << "userBasedCF: no DB provider"; return {}; }
+    if (!dbClientProvider_) {
+        LOG_ERROR << "userBasedCF: no DB provider";
+        throw std::runtime_error("recommendation db provider is not configured");
+    }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "userBasedCF: failed to get db client";
-        return {};
+        throw std::runtime_error("recommendation db client is unavailable");
     }
     return queryUserBasedCFCandidates(dbClient, userId, topK);
 }
@@ -583,11 +587,14 @@ std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
 /// Item-based CF：基于用户最近交互的 10 个石头，通过共现关系推荐相似内容
 std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
-    if (!dbClientProvider_) { LOG_ERROR << "itemBasedCF: no DB provider"; return {}; }
+    if (!dbClientProvider_) {
+        LOG_ERROR << "itemBasedCF: no DB provider";
+        throw std::runtime_error("recommendation db provider is not configured");
+    }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "itemBasedCF: failed to get db client";
-        return {};
+        throw std::runtime_error("recommendation db client is unavailable");
     }
     return queryItemBasedCFCandidates(dbClient, userId, topK);
 }
@@ -595,11 +602,14 @@ std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
 /// 基于情绪兼容性的内容推荐：用户当前心情 → 情绪矩阵 → 匹配石头
 std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend(
     const std::string& userId, const std::string& userMood, int topK) {
-    if (!dbClientProvider_) { LOG_ERROR << "contentBasedRecommend: no DB provider"; return {}; }
+    if (!dbClientProvider_) {
+        LOG_ERROR << "contentBasedRecommend: no DB provider";
+        throw std::runtime_error("recommendation db provider is not configured");
+    }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "contentBasedRecommend: failed to get db client";
-        return {};
+        throw std::runtime_error("recommendation db client is unavailable");
     }
     return queryContentBasedCandidates(
         dbClient,
@@ -624,11 +634,14 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     double cfWeight, double contentWeight, double exploreWeight) {
 
     topK = std::max(1, topK);
-    if (!dbClientProvider_) { LOG_ERROR << "hybridRecommend: no DB provider"; return {}; }
+    if (!dbClientProvider_) {
+        LOG_ERROR << "hybridRecommend: no DB provider";
+        throw std::runtime_error("recommendation db provider is not configured");
+    }
     auto dbClient = dbClientProvider_();
     if (!dbClient) {
         LOG_ERROR << "hybridRecommend: failed to get db client";
-        return {};
+        throw std::runtime_error("recommendation db client is unavailable");
     }
     std::string userMood = "neutral";
     auto moodResult = dbClient->execSqlSync(
