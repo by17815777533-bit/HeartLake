@@ -256,8 +256,8 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 | POST | `/api/vector/search` | Bearer | 语义向量搜索（返回相似度，并尽量回填 stone 内容预览） |
 | GET | `/api/vector/stats` | Bearer | 向量索引统计 |
 
-推荐引擎融合 User-CF / Item-CF / 内容匹配 / UCB 探索 / 图传播五种策略，通过 MMR 重排序保证结果多样性。
-高级共鸣推荐会在有参考石头时优先输出 `emotion_temporal_resonance` 结果，再补齐常规推荐候选；显式传入的 `stone_id` 必须是有效已发布石头，否则返回 `404`。管理端调试链路使用 `/api/admin/recommendations/advanced?user_id=...`，用于和移动端同口径核对算法产出。
+`/api/recommendations/stones` 是个性化推荐链，融合 User-CF / Item-CF / 内容匹配 / UCB 探索 / 图传播五种策略，并通过 MMR 重排序保证结果多样性。
+`/api/recommendations/advanced` 与 `/api/admin/recommendations/advanced` 是同口径的高级推荐链：有参考石头时先返回 `emotion_temporal_resonance` 结果，剩余名额再由 `multi_armed_bandit_mmr` 高级融合引擎补齐；显式传入的 `stone_id` 必须是有效已发布石头，否则返回 `404`。管理端用户详情固定使用 `/api/admin/recommendations/advanced?user_id=...` 核对 `algorithm / reference_stone_id / reference_source`，不再把普通推荐结果当成高级链路展示。
 
 ### 4.7 EdgeAI
 

@@ -224,8 +224,15 @@ void ResonanceSearchService::indexStone(const std::string& stoneId, const std::s
 }
 
 std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
-    const std::string& stoneId, const std::string& content, float threshold, int limit) {
+    const std::string& requesterUserId,
+    const std::string& stoneId,
+    const std::string& content,
+    float threshold,
+    int limit) {
 
+    if (requesterUserId.empty()) {
+        throw std::invalid_argument("searchResonance requires requester user id");
+    }
     if (content.empty()) {
         throw std::invalid_argument("searchResonance requires non-empty content");
     }
@@ -281,9 +288,14 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                 "       s.created_at::text AS created_at "
                 "FROM stone_embeddings se JOIN stones s ON se.stone_id = s.stone_id "
                 "WHERE se.stone_id != $1 "
+                "  AND s.user_id != $2 "
                 "  AND s.status = 'published' "
-                "  AND s.deleted_at IS NULL",
-                stoneId);
+                "  AND s.deleted_at IS NULL "
+                "  AND NOT EXISTS ("
+                "    SELECT 1 FROM user_interaction_history h "
+                "    WHERE h.user_id = $2 AND h.stone_id = s.stone_id"
+                "  )",
+                stoneId, requesterUserId);
 
             for (const auto& row : result) {
                 auto targetVec = parseEmbeddingCsv(row["embedding"].as<std::string>());
@@ -320,15 +332,16 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
     auto& resonanceEngine = ai::EmotionResonanceEngine::getInstance();
     auto db = drogon::app().getDbClient("default");
 
-    // 获取源石头的 mood 和当前用户ID
+    // 获取源石头的 mood
     std::string sourceMood = "neutral";
-    std::string sourceUserId;
     try {
         auto stoneRow = db->execSqlSync(
-            "SELECT user_id, mood_type FROM stones WHERE stone_id = $1",
+            "SELECT mood_type FROM stones "
+            "WHERE stone_id = $1 "
+            "  AND status = 'published' "
+            "  AND deleted_at IS NULL",
             stoneId);
         if (!stoneRow.empty()) {
-            sourceUserId = stoneRow[0]["user_id"].as<std::string>();
             if (!stoneRow[0]["mood_type"].isNull())
                 sourceMood = stoneRow[0]["mood_type"].as<std::string>();
         } else {
@@ -340,15 +353,12 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
 
     // 加载源用户的情绪轨迹（用于DTW计算）
     ai::EmotionTrajectory userTraj;
-    if (sourceUserId.empty()) {
-        throw std::runtime_error("Source stone owner is missing during resonance search");
-    }
     try {
         auto trajRows = db->execSqlSync(
             "SELECT score FROM emotion_tracking "
             "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
-            "ORDER BY created_at ASC", sourceUserId);
-        userTraj.userId = sourceUserId;
+            "ORDER BY created_at ASC", requesterUserId);
+        userTraj.userId = requesterUserId;
         for (const auto& r : trajRows) {
             userTraj.scores.push_back(r["score"].as<float>());
         }
@@ -358,7 +368,7 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         throw std::runtime_error(std::string("User trajectory load failed: ") + e.what());
     }
     if (userTraj.scores.empty()) {
-        throw std::runtime_error("Source user trajectory is unavailable for resonance search");
+        throw std::runtime_error("Requester trajectory is unavailable for resonance search");
     }
 
     std::vector<std::string> recommendedMoods;

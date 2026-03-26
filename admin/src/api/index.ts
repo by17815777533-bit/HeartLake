@@ -307,6 +307,7 @@ import type {
   AddSensitiveWordParams,
   UpdateSensitiveWordParams,
   BroadcastMessageParams,
+  AdminAdvancedRecommendationParams,
   SaveConfigPayload,
   FederatedAggregationParams,
   VectorSearchParams,
@@ -419,7 +420,7 @@ export default {
       skipLoading: true,
       skipAuthRedirect: true,
     } as CustomAxiosRequestConfig),
-  getAdminAdvancedRecommendations: (params: Params) =>
+  getAdminAdvancedRecommendations: (params: AdminAdvancedRecommendationParams) =>
     http.get('/admin/recommendations/advanced', {
       params,
       skipLoading: true,

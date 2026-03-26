@@ -228,8 +228,8 @@
       >
         <div class="advanced-preview__header">
           <div>
-            <strong>高级推荐预览</strong>
-            <p>直接核对高级算法对该旅人的真实产出，避免三端只看一边。</p>
+            <strong>高级推荐链路预览</strong>
+            <p>管理端直连高级推荐接口，核对真实算法产出与参考石头，不混入普通推荐结果。</p>
           </div>
           <el-button
             size="small"
@@ -241,9 +241,10 @@
         </div>
 
         <div
-          v-if="advancedReferenceStoneId || advancedReferenceSource"
+          v-if="advancedChainMode || advancedReferenceStoneId || advancedReferenceSource"
           class="advanced-preview__meta"
         >
+          <span v-if="advancedChainMode">{{ advancedChainMode }}</span>
           <span v-if="advancedReferenceStoneId">参考石头 {{ advancedReferenceStoneId }}</span>
           <span v-if="advancedReferenceSource">{{ advancedReferenceSource }}</span>
         </div>
@@ -259,7 +260,9 @@
         <el-empty
           v-if="!advancedRecommendationsLoading && !advancedRecommendations.length"
           :description="
-            advancedRecommendationsError ? '高级推荐暂未加载出来' : '当前没有可展示的高级推荐结果'
+            advancedRecommendationsError
+              ? '高级推荐链路未返回可核对结果'
+              : '当前高级算法没有产出可展示结果'
           "
         />
 
@@ -332,8 +335,14 @@ const usersError = ref('')
 const advancedRecommendationsLoading = ref(false)
 const advancedRecommendations = ref<AdvancedRecommendationItem[]>([])
 const advancedRecommendationsError = ref('')
+const advancedChainMode = ref('')
 const advancedReferenceStoneId = ref('')
 const advancedReferenceSource = ref('')
+
+const advancedResponseAlgorithms = new Set([
+  'emotion_resonance_hybrid',
+  'multi_armed_bandit_mmr',
+])
 
 // 搜索输入防抖，昵称输入 300ms 后自动触发搜索
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -500,7 +509,7 @@ const formatAlgorithmLabel = (value?: string) => {
     case 'multi_armed_bandit_mmr':
       return '多路融合'
     default:
-      return '高级推荐'
+      return '未知算法'
   }
 }
 
@@ -526,6 +535,7 @@ const formatReferenceSource = (value: unknown) => {
 const resetAdvancedRecommendations = () => {
   advancedRecommendations.value = []
   advancedRecommendationsError.value = ''
+  advancedChainMode.value = ''
   advancedReferenceStoneId.value = ''
   advancedReferenceSource.value = ''
 }
@@ -540,10 +550,28 @@ const loadAdvancedRecommendations = async (userId: string, showFeedback = false)
       'recommendations',
     ])
     const normalized = normalizePayloadRecord(data)
+    const responseAlgorithm = String(normalized.algorithm || '')
+    const responseUserId = String(normalized.user_id || '')
+    const referenceStoneId = String(normalized.reference_stone_id || '')
+    const referenceSource = String(normalized.reference_source || '')
+
+    if (!advancedResponseAlgorithms.has(responseAlgorithm)) {
+      throw new Error('高级推荐响应缺少有效链路算法标识')
+    }
+    if (responseUserId !== userId) {
+      throw new Error('高级推荐响应中的用户标识不匹配')
+    }
+    if (items.some((item) => !String(item.algorithm || '').trim())) {
+      throw new Error('高级推荐条目缺少算法标识')
+    }
+    if (responseAlgorithm === 'emotion_resonance_hybrid' && (!referenceStoneId || !referenceSource)) {
+      throw new Error('高级共鸣结果缺少参考石头元数据')
+    }
 
     advancedRecommendations.value = items
-    advancedReferenceStoneId.value = String(normalized.reference_stone_id || '')
-    advancedReferenceSource.value = formatReferenceSource(normalized.reference_source)
+    advancedChainMode.value = formatAlgorithmLabel(responseAlgorithm)
+    advancedReferenceStoneId.value = referenceStoneId
+    advancedReferenceSource.value = formatReferenceSource(referenceSource)
   } catch (e) {
     if (isRequestCanceled(e)) return
     const message = getErrorMessage(e, '加载高级推荐失败')

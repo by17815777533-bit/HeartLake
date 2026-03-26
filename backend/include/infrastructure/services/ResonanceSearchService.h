@@ -61,6 +61,7 @@ public:
 
     /**
      * @brief 搜索与指定石头共鸣的其他石头
+     * @param requesterUserId 发起搜索的用户 ID，用于加载情绪轨迹并过滤已交互内容
      * @param stoneId 查询石头 ID
      * @param content 查询石头内容
      * @param threshold 最低相似度阈值，默认 0.85
@@ -68,6 +69,7 @@ public:
      * @return 按综合共鸣分降序排列的匹配结果
      */
     std::vector<ResonanceMatch> searchResonance(
+        const std::string& requesterUserId,
         const std::string& stoneId,
         const std::string& content,
         float threshold = 0.85f,

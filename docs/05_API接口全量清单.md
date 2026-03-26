@@ -244,6 +244,11 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 | GET | `/api/recommendations/advanced` | Bearer | 高级共鸣推荐 |
 | GET | `/api/admin/recommendations/advanced` | Admin Bearer | 管理端查看指定用户高级推荐结果 |
 
+说明：
+- `/api/recommendations/stones` 是普通个性化推荐链，返回 `recommendation_reason / recommendation_type` 等字段。
+- `/api/recommendations/advanced` 与 `/api/admin/recommendations/advanced` 是同一条高级推荐链，响应顶层稳定返回 `algorithm / user_id / count`，条目稳定返回 `algorithm / score / reason`；有参考石头时还会补齐 `reference_stone_id / reference_source`。
+- 管理端用户详情弹窗只消费 `/api/admin/recommendations/advanced` 来核对高级算法真实产出，不再混入热门推荐或普通推荐结果。
+
 ---
 
 ## VectorSearchController — 语义搜索

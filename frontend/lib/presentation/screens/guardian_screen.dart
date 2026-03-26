@@ -109,6 +109,38 @@ class _GuardianScreenState extends State<GuardianScreen>
         });
         return;
       }
+      final isGuardian = normalized['is_guardian'];
+      final canTransferLamp = normalized['can_transfer_lamp'];
+      const numericKeys = [
+        'resonance_points',
+        'quality_ripples',
+        'warm_boats',
+      ];
+      final invalidNumericKeys = numericKeys.where((key) {
+        final value = normalized[key];
+        return value is! num &&
+            (value is! String || int.tryParse(value.trim()) == null);
+      }).toList();
+      if (isGuardian is! bool ||
+          canTransferLamp is! bool ||
+          invalidNumericKeys.isNotEmpty) {
+        _reportUiError(
+          StateError(
+            '守护者统计字段类型非法: '
+            'is_guardian=$isGuardian, '
+            'can_transfer_lamp=$canTransferLamp, '
+            'invalidNumericKeys=${invalidNumericKeys.join(', ')}',
+          ),
+          StackTrace.current,
+          'GuardianScreen._loadStats',
+        );
+        setState(() {
+          _loading = false;
+          _stats = null;
+          _statsError = '守护者数据不合法，请稍后重试';
+        });
+        return;
+      }
       setState(() {
         _stats = normalized;
         _loading = false;
@@ -140,6 +172,11 @@ class _GuardianScreenState extends State<GuardianScreen>
               _insights = normalized;
               _insightsError = null;
             } else {
+              _reportUiError(
+                StateError('情感洞察响应缺少有效内容'),
+                StackTrace.current,
+                'GuardianScreen._loadInsights',
+              );
               _insights = null;
               _insightsError = '情感洞察数据不完整，请稍后重试';
             }
@@ -184,6 +221,17 @@ class _GuardianScreenState extends State<GuardianScreen>
     return trend != null ||
         summary != null ||
         (suggestions is List && suggestions.isNotEmpty);
+  }
+
+  String _requiredNumericStatText(String key) {
+    final value = _stats?[key];
+    if (value is int) return value.toString();
+    if (value is num) return value.toInt().toString();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed.toString();
+    }
+    throw StateError('守护者统计字段 $key 不是合法数字');
   }
 
   Widget _buildInsightsCard() {
@@ -632,17 +680,18 @@ class _GuardianScreenState extends State<GuardianScreen>
                                 children: [
                                   _StatCard(
                                       label: '共鸣点数',
-                                      value:
-                                          '${_stats!['resonance_points'] ?? 0}'),
+                                      value: _requiredNumericStatText(
+                                          'resonance_points')),
                                   const SizedBox(width: 12),
                                   _StatCard(
                                       label: '优质涟漪',
-                                      value:
-                                          '${_stats!['quality_ripples'] ?? 0}'),
+                                      value: _requiredNumericStatText(
+                                          'quality_ripples')),
                                   const SizedBox(width: 12),
                                   _StatCard(
                                       label: '温暖纸船',
-                                      value: '${_stats!['warm_boats'] ?? 0}'),
+                                      value:
+                                          _requiredNumericStatText('warm_boats')),
                                 ],
                               ),
                               const SizedBox(height: 16),

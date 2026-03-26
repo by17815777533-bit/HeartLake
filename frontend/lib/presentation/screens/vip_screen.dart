@@ -537,16 +537,10 @@ class _VIPScreenState extends State<VIPScreen>
               Row(
                 children: [
                   _statusPill(
-                    !_hasConfirmedStatus
-                        ? '状态待确认'
-                        : _isLightActive
-                            ? '点亮中'
-                            : '待点亮',
-                    !_hasConfirmedStatus
-                        ? Icons.help_outline_rounded
-                        : _isLightActive
-                            ? Icons.flash_on_rounded
-                            : Icons.dark_mode_rounded,
+                    _isLightActive ? '点亮中' : '待点亮',
+                    _isLightActive
+                        ? Icons.flash_on_rounded
+                        : Icons.dark_mode_rounded,
                   ),
                   const Spacer(),
                   Transform.scale(
@@ -566,11 +560,9 @@ class _VIPScreenState extends State<VIPScreen>
                         ),
                       ),
                       child: Icon(
-                        !_hasConfirmedStatus
-                            ? Icons.sync_problem_rounded
-                            : _isLightActive
-                                ? Icons.lightbulb_rounded
-                                : Icons.lightbulb_outline_rounded,
+                        _isLightActive
+                            ? Icons.lightbulb_rounded
+                            : Icons.lightbulb_outline_rounded,
                         color: _isLightActive
                             ? const Color(0xFFE0A73D)
                             : Colors.white,
@@ -582,11 +574,7 @@ class _VIPScreenState extends State<VIPScreen>
               ),
               const SizedBox(height: 14),
               Text(
-                !_hasConfirmedStatus
-                    ? '灯火状态待确认'
-                    : _isLightActive
-                        ? '灯已点亮'
-                        : '灯未点亮',
+                _isLightActive ? '灯已点亮' : '灯未点亮',
                 style: TextStyle(
                   color: _primaryText,
                   fontSize: 30,
@@ -596,11 +584,9 @@ class _VIPScreenState extends State<VIPScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                !_hasConfirmedStatus
-                    ? '当前无法确认灯火状态，界面不会假设你已开通或未开通。'
-                    : _isLightActive
-                        ? '你当前处于灯火守护中，可直接使用完整守护权益。'
-                        : '当系统检测到你需要关怀时，会自动点亮灯火并开放权益。',
+                _isLightActive
+                    ? '你当前处于灯火守护中，可直接使用完整守护权益。'
+                    : '当系统检测到你需要关怀时，会自动点亮灯火并开放权益。',
                 style: TextStyle(
                   color: _secondaryText,
                   fontSize: 13,
@@ -614,11 +600,8 @@ class _VIPScreenState extends State<VIPScreen>
                     child: _heroMetric(
                       icon: Icons.schedule_rounded,
                       label: '剩余时长',
-                      value: !_hasConfirmedStatus
-                          ? '待确认'
-                          : _isLightActive
-                              ? (_isPermanentLight ? '长期点亮' : '$_daysLeft 天')
-                              : '-',
+                      value:
+                          _isLightActive ? (_isPermanentLight ? '长期点亮' : '$_daysLeft 天') : '-',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -626,11 +609,7 @@ class _VIPScreenState extends State<VIPScreen>
                     child: _heroMetric(
                       icon: Icons.verified_rounded,
                       label: '权益状态',
-                      value: !_hasConfirmedStatus
-                          ? '待确认'
-                          : _isLightActive
-                              ? '已解锁'
-                              : '未解锁',
+                      value: _isLightActive ? '已解锁' : '未解锁',
                     ),
                   ),
                 ],
@@ -738,11 +717,7 @@ class _VIPScreenState extends State<VIPScreen>
         Expanded(
           child: _summaryCard(
             '状态',
-            !_hasConfirmedStatus
-                ? '待确认'
-                : _isLightActive
-                    ? '守护中'
-                    : '未激活',
+            _isLightActive ? '守护中' : '未激活',
             Icons.favorite_rounded,
             _isLightActive ? _warmAccent : const Color(0xFF9AA7B4),
           ),
@@ -751,11 +726,7 @@ class _VIPScreenState extends State<VIPScreen>
         Expanded(
           child: _summaryCard(
             '时长',
-            !_hasConfirmedStatus
-                ? '待确认'
-                : _isLightActive
-                    ? (_isPermanentLight ? '长期' : '$_daysLeft天')
-                    : '-',
+            _isLightActive ? (_isPermanentLight ? '长期' : '$_daysLeft天') : '-',
             Icons.timelapse_rounded,
             const Color(0xFF70D6FF),
           ),
@@ -764,11 +735,7 @@ class _VIPScreenState extends State<VIPScreen>
         Expanded(
           child: _summaryCard(
             '权限',
-            !_hasConfirmedStatus
-                ? '待确认'
-                : _isLightActive
-                    ? '全开'
-                    : '待解锁',
+            _isLightActive ? '全开' : '待解锁',
             Icons.auto_awesome_rounded,
             const Color(0xFFC792EA),
           ),
@@ -848,11 +815,7 @@ class _VIPScreenState extends State<VIPScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            !_hasConfirmedStatus
-                ? '灯火状态暂未确认，权益展示只以服务端返回为准'
-                : _isLightActive
-                    ? '当前权益全部可用'
-                    : '点亮后自动解锁全部权益',
+            _isLightActive ? '当前权益全部可用' : '点亮后自动解锁全部权益',
             style: TextStyle(
               color: _secondaryText,
               fontSize: 12,
