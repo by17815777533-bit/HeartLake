@@ -30,6 +30,15 @@
         </nav>
 
         <div class="workspace-shell__tools">
+          <div
+            class="header-status"
+            :class="{ 'is-warning': Boolean(headerStatusWarning) }"
+            :title="headerStatusWarning || headerStatusText"
+          >
+            <strong>{{ headerStatusText }}</strong>
+            <span v-if="headerStatusWarning">{{ headerStatusWarning }}</span>
+          </div>
+
           <div class="shell-search">
             <el-input
               v-model="navSearch"
@@ -161,11 +170,14 @@ const routeNarrativeMap: Record<string, { kicker: string; summary: string }> = {
 const adminInfo = reactive({
   nickname: appStore.userInfo?.nickname || appStore.userInfo?.username || '管理员',
 })
+const adminInfoError = ref<string | null>(null)
 
 const realtimeStats = reactive({
   onlineCount: 0,
   todayStones: 0,
 })
+const realtimeStatsError = ref<string | null>(null)
+const hasRealtimeStats = ref(false)
 
 let statsInterval: ReturnType<typeof setInterval> | null = null
 
@@ -182,6 +194,15 @@ const filteredMenuItems = computed(() => {
     )
     .slice(0, 6)
 })
+
+const headerStatusText = computed(() => {
+  if (!hasRealtimeStats.value) {
+    return '实时统计待加载'
+  }
+  return `在线 ${Number(realtimeStats.onlineCount || 0)} · 今日投石 ${Number(realtimeStats.todayStones || 0)}`
+})
+
+const headerStatusWarning = computed(() => adminInfoError.value || realtimeStatsError.value)
 
 const navigateTo = (path: string) => {
   navSearch.value = ''
@@ -203,10 +224,11 @@ const fetchAdminInfo = async () => {
     const data = normalizePayloadRecord(res.data)
     if (data) {
       adminInfo.nickname = data.nickname || data.username || '管理员'
+      adminInfoError.value = null
     }
   } catch (e: unknown) {
     if (isRequestCanceled(e)) return
-    console.warn('获取管理员信息失败:', (e as Error).message)
+    adminInfoError.value = e instanceof Error && e.message ? e.message : '管理员信息未刷新'
   }
 }
 
@@ -217,10 +239,12 @@ const fetchRealtimeStats = async () => {
     if (data) {
       realtimeStats.onlineCount = data.online_count || data.online_users || 0
       realtimeStats.todayStones = data.today_stones || 0
+      hasRealtimeStats.value = true
+      realtimeStatsError.value = null
     }
   } catch (e: unknown) {
     if (isRequestCanceled(e)) return
-    console.warn('获取实时统计失败:', (e as Error).message)
+    realtimeStatsError.value = e instanceof Error && e.message ? e.message : '实时统计未刷新'
   }
 }
 
@@ -446,6 +470,35 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   position: relative;
+}
+
+.header-status {
+  display: grid;
+  gap: 2px;
+  min-width: 168px;
+  padding: 9px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(132, 160, 202, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+  color: #4f6670;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+
+  strong {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  span {
+    font-size: 11px;
+    line-height: 1.3;
+    color: #8a5a2b;
+  }
+
+  &.is-warning {
+    border-color: rgba(198, 138, 73, 0.3);
+    background: rgba(255, 244, 230, 0.86);
+  }
 }
 
 .shell-search {

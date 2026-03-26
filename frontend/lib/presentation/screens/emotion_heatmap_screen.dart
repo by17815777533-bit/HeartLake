@@ -37,6 +37,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   Map<String, Map<String, dynamic>> _heatmapData = {};
   List<String> _insights = [];
   bool _isLoading = true;
+  String? _loadErrorMessage;
   String? _currentUserId;
   late final void Function(Map<String, dynamic>) _onNewStoneListener;
   late final void Function(Map<String, dynamic>) _onStoneDeletedListener;
@@ -136,27 +137,34 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
       final result = await _userService.getEmotionHeatmap(days: 365);
       if (!mounted) return;
       if (result['success'] == true) {
-        final rawData =
-            (result['data'] as Map<String, dynamic>?)?['days'] ?? const {};
+        final rawData = (result['data'] as Map<String, dynamic>?)?['days'];
+        if (rawData is! Map) {
+          throw StateError('Emotion heatmap days payload is not a map');
+        }
         final parsed = <String, Map<String, dynamic>>{};
-        if (rawData is Map) {
-          for (final entry in rawData.entries) {
-            if (entry.value is Map) {
-              parsed[entry.key.toString()] = Map<String, dynamic>.from(
-                  (entry.value as Map).cast<String, dynamic>());
-            }
+        for (final entry in rawData.entries) {
+          if (entry.value is Map) {
+            parsed[entry.key.toString()] = Map<String, dynamic>.from(
+                (entry.value as Map).cast<String, dynamic>());
           }
         }
         setState(() {
           _heatmapData = parsed;
           _insights = _generateInsights(parsed);
           _isLoading = false;
+          _loadErrorMessage = null;
         });
         return;
       } else {
+        final message = result['message']?.toString().trim();
+        setState(() {
+          _isLoading = false;
+          _loadErrorMessage =
+              message == null || message.isEmpty ? '情绪热力图加载失败' : message;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']?.toString() ?? '情绪热力图加载失败'),
+            content: Text(_loadErrorMessage!),
           ),
         );
       }
@@ -164,6 +172,10 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
       _reportUiError(
           error, stackTrace, 'EmotionHeatmapScreen._loadHeatmapData');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadErrorMessage = '情绪热力图加载失败，请稍后重试';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('情绪热力图加载失败，请稍后重试')),
         );
@@ -173,7 +185,6 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     if (mounted) {
       setState(() {
         _isLoading = false;
-        _insights = _generateInsights(_heatmapData);
       });
     }
   }
@@ -272,6 +283,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
+            if (_loadErrorMessage != null) _buildLoadWarningCard(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -298,12 +310,76 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
                   ),
                 ),
               )
+            else if (_heatmapData.isEmpty && _loadErrorMessage != null)
+              _buildLoadErrorState()
             else
               EmotionHeatmap(data: _heatmapData),
             const SizedBox(height: 16),
             if (_insights.isNotEmpty) EmotionInsightsCard(insights: _insights),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadWarningCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7C79A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFB7791F)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _loadErrorMessage!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF7C5A1D),
+                height: 1.5,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadHeatmapData,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.insights_outlined,
+            color: AppTheme.errorColor,
+            size: 40,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _loadErrorMessage ?? '情绪热力图加载失败',
+            style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _loadHeatmapData,
+            child: const Text('重新加载'),
+          ),
+        ],
       ),
     );
   }

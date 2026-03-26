@@ -48,6 +48,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
   DateTime _currentMonth = DateTime.now();
   Map<String, dynamic> _emotionData = {};
   bool _isLoading = true;
+  String? _loadErrorMessage;
   late AnimationController _animController;
   Map<String, dynamic>? _cachedStats;
   String? _currentUserId;
@@ -158,13 +159,19 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
           _emotionData = _normalizeDays(rawDays);
           _cachedStats = null;
           _isLoading = false;
+          _loadErrorMessage = null;
         });
         _animController.forward(from: 0);
       } else if (mounted) {
-        setState(() => _isLoading = false);
+        final message = result['message']?.toString().trim();
+        setState(() {
+          _isLoading = false;
+          _loadErrorMessage =
+              message == null || message.isEmpty ? '情绪日历加载失败' : message;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']?.toString() ?? '情绪日历加载失败'),
+            content: Text(_loadErrorMessage!),
           ),
         );
       }
@@ -172,6 +179,10 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
       _reportUiError(
           error, stackTrace, 'EmotionCalendarScreen._loadEmotionData');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadErrorMessage = '情绪日历加载失败，请稍后重试';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('情绪日历加载失败，请稍后重试')),
         );
@@ -182,7 +193,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
 
   /// 标准化后端返回的日期数据，将 "2024-01-15" 格式的 key 转为纯天数 "15"
   Map<String, dynamic> _normalizeDays(dynamic rawDays) {
-    if (rawDays is! Map) return {};
+    if (rawDays is! Map) {
+      throw StateError('Emotion calendar days payload is not a map');
+    }
     final normalized = <String, dynamic>{};
     for (final entry in rawDays.entries) {
       final key = entry.key.toString();
@@ -248,6 +261,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
                   child: Column(
                     children: [
                       _buildMonthSelector(),
+                      if (_loadErrorMessage != null) _buildLoadWarningCard(),
                       _buildEmotionSummary(),
                       const SizedBox(height: 8),
                       _buildWeekdayHeader(),
@@ -261,10 +275,17 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
                                 '每一天都值得被记录...'
                               ])),
                             )
-                          : SizedBox(
-                              height: 300,
-                              child: _buildCalendarGrid(),
-                            ),
+                          : _emotionData.isEmpty && _loadErrorMessage != null
+                              ? SizedBox(
+                                  height: 300,
+                                  child: Center(
+                                    child: _buildLoadErrorState(),
+                                  ),
+                                )
+                              : SizedBox(
+                                  height: 300,
+                                  child: _buildCalendarGrid(),
+                                ),
                       _buildWeeklySummary(),
                       _buildLegend(),
                       _buildHeatmapEntryCard(),
@@ -277,6 +298,62 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoadWarningCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7C79A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFB7791F)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _loadErrorMessage!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF7C5A1D),
+                height: 1.5,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadEmotionData,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorState() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.event_busy_outlined,
+          color: AppTheme.errorColor,
+          size: 40,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _loadErrorMessage ?? '情绪日历加载失败',
+          style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _loadEmotionData,
+          child: const Text('重新加载'),
+        ),
+      ],
     );
   }
 
