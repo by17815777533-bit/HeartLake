@@ -126,7 +126,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
   bool _isCurrentUserEvent(Map<String, dynamic> payload) {
     final currentUserId = _currentUserId;
     if (currentUserId == null || currentUserId.isEmpty) {
-      return true;
+      return false;
     }
     return extractPayloadUserId(payload) == currentUserId;
   }

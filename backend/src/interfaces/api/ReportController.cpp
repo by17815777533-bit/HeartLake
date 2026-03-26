@@ -10,6 +10,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <ctime>
+#include <stdexcept>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -22,13 +23,11 @@ int extractWindowTotal(const drogon::orm::Result &result,
                : result[0][column].as<int>();
 }
 
-template <typename F>
-int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
-                                 F &&fallbackQuery) {
+int resolveWindowTotalOrFail(const drogon::orm::Result &result, int page) {
     if (!result.empty() || page <= 1) {
         return extractWindowTotal(result);
     }
-    return fallbackQuery();
+    throw std::runtime_error("分页结果为空，无法回退补查总数");
 }
 
 int64_t paginationOffset(int page, int pageSize) {
@@ -141,14 +140,7 @@ void ReportController::getMyReports(const HttpRequestPtr &req,
             "ORDER BY created_at DESC LIMIT $2 OFFSET $3",
             user_id, static_cast<int64_t>(page_size), offset
         );
-        const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-            auto countResult = dbClient->execSqlSync(
-                "SELECT COUNT(*)::INTEGER AS total_count "
-                "FROM reports WHERE reporter_id = $1",
-                user_id
-            );
-            return extractWindowTotal(countResult);
-        });
+        const int total = resolveWindowTotalOrFail(result, page);
         
         Json::Value reports(Json::arrayValue);
         for (const auto &row : result) {

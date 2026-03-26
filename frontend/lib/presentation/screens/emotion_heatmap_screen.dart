@@ -105,13 +105,10 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
   }
 
   /// 判断 WebSocket 事件是否由当前用户触发，用于过滤无关事件
-  ///
-  /// 用户ID读取失败时降级为始终刷新，避免页面长期不更新
   bool _isCurrentUserEvent(Map<String, dynamic> payload) {
     final currentUserId = _currentUserId;
     if (currentUserId == null || currentUserId.isEmpty) {
-      // 用户ID读取失败时，降级为刷新，避免页面长期不更新
-      return true;
+      return false;
     }
     return extractPayloadUserId(payload) == currentUserId;
   }
