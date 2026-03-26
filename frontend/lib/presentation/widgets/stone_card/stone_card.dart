@@ -566,12 +566,39 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                               );
                             }
                           }
-                        } catch (_) {
+                        } catch (error, stackTrace) {
+                          FlutterError.reportError(
+                            FlutterErrorDetails(
+                              exception: error,
+                              stack: stackTrace,
+                              library: 'stone_card',
+                              context: ErrorDescription(
+                                'while sending paper boat from stone card',
+                              ),
+                            ),
+                          );
                           rollbackTempBoat();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('网络错误，请检查网络连接'),
+                              SnackBar(
+                                content: Text(
+                                  error
+                                          .toString()
+                                          .replaceFirst(
+                                            RegExp(r'^Exception:\\s*'),
+                                            '',
+                                          )
+                                          .trim()
+                                          .isEmpty
+                                      ? '纸船发送失败，请稍后重试'
+                                      : error
+                                          .toString()
+                                          .replaceFirst(
+                                            RegExp(r'^Exception:\\s*'),
+                                            '',
+                                          )
+                                          .trim(),
+                                ),
                                 backgroundColor: AppTheme.errorColor,
                               ),
                             );

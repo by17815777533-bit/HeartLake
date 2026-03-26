@@ -38,7 +38,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   List<Stone> _semanticResults = [];
   List<Stone> _personalizedAIStones = [];
   List<Stone> _advancedAIStones = [];
-  List<Stone> _aiRecommendations = [];
   bool _trendingLoading = false;
   bool _searchLoading = false;
   bool _aiLoading = false;
@@ -106,20 +105,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       return message.substring('Exception: '.length).trim();
     }
     return message;
-  }
-
-  List<Stone> _mergeAIRecommendations({
-    required List<Stone> personalized,
-    required List<Stone> advanced,
-  }) {
-    final seen = <String>{};
-    final merged = <Stone>[];
-    for (final stone in [...personalized, ...advanced]) {
-      if (seen.add(stone.stoneId)) {
-        merged.add(stone);
-      }
-    }
-    return merged;
   }
 
   Future<_AIRecommendationLoadResult> _loadAIBranch(
@@ -198,7 +183,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   /// 加载湖神个性化推荐
   Future<void> _loadAIRecommendations({bool showFeedback = false}) async {
-    final hadVisibleData = _aiRecommendations.isNotEmpty;
+    final hadVisibleData =
+        _personalizedAIStones.isNotEmpty || _advancedAIStones.isNotEmpty;
     if (!hadVisibleData && mounted) {
       setState(() => _aiLoading = true);
     }
@@ -230,10 +216,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       }
       _personalizedAIErrorMessage = personalized.errorMessage;
       _advancedAIErrorMessage = advanced.errorMessage;
-      _aiRecommendations = _mergeAIRecommendations(
-        personalized: _personalizedAIStones,
-        advanced: _advancedAIStones,
-      );
       _aiLoading = false;
     });
 
@@ -433,8 +415,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       _personalizedAIErrorMessage,
       _advancedAIErrorMessage,
     ].whereType<String>().toList();
+    final hasVisibleResults =
+        _personalizedAIStones.isNotEmpty || _advancedAIStones.isNotEmpty;
     if (_aiLoading) return _buildLoadingIndicator();
-    if (_aiRecommendations.isEmpty) {
+    if (!hasVisibleResults) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics()),
@@ -494,63 +478,97 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       );
     }
 
-    return ListView.builder(
+    return ListView(
       physics:
           const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemCount:
-          _aiRecommendations.length + 2 + (warningMessages.isNotEmpty ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildResultSectionHeader(
-            '湖神为你准备',
-            Icons.auto_awesome,
-            '${_aiRecommendations.length}条',
-          );
-        }
-        if (warningMessages.isNotEmpty && index == 1) {
-          return Padding(
+      children: [
+        _buildResultSectionHeader(
+          '湖神为你准备',
+          Icons.auto_awesome,
+          '${_personalizedAIStones.length + _advancedAIStones.length}条',
+        ),
+        if (warningMessages.isNotEmpty)
+          Padding(
             padding:
                 const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 12),
             child: _buildWarningCard(warningMessages.join('；')),
-          );
-        }
-        final listOffset = warningMessages.isNotEmpty ? 2 : 1;
-        if (index == _aiRecommendations.length + listOffset) {
-          // 底部"查看更多"入口
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
-              ),
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('查看更多贴心内容'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white.withValues(alpha: 0.9),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          );
-        }
-        final stone = _aiRecommendations[index - listOffset];
-        return GestureDetector(
-          onTap: () {
-            _aiService.trackInteraction(
-                stoneId: stone.stoneId, interactionType: 'click');
-            Navigator.push(
+          ),
+        _buildAISection(
+          title: '个性化推荐',
+          subtitle: '基于你的互动和情绪轨迹',
+          stones: _personalizedAIStones,
+          errorMessage: _personalizedAIErrorMessage,
+        ),
+        _buildAISection(
+          title: '高级共鸣推荐',
+          subtitle: '仅展示高级算法真实产出',
+          stones: _advancedAIStones,
+          errorMessage: _advancedAIErrorMessage,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => StoneDetailScreen(stone: stone)),
-            );
-          },
-          child: StoneCard(stone: stone),
-        );
-      },
+              MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+            ),
+            icon: const Icon(Icons.arrow_forward, size: 16),
+            label: const Text('查看更多贴心内容'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white.withValues(alpha: 0.9),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAISection({
+    required String title,
+    required String subtitle,
+    required List<Stone> stones,
+    required String? errorMessage,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildResultSectionHeader(title, Icons.water_drop_outlined, subtitle),
+        if (errorMessage != null)
+          Padding(
+            padding:
+                const EdgeInsets.only(left: 8, right: 8, top: 4, bottom: 12),
+            child: _buildWarningCard(errorMessage),
+          ),
+        if (stones.isEmpty)
+          Padding(
+            padding:
+                const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 20),
+            child: Text(
+              errorMessage == null ? '当前没有可展示的结果' : '当前分支没有成功产出',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.68)),
+            ),
+          )
+        else
+          ...stones.map(
+            (stone) => GestureDetector(
+              onTap: () {
+                _aiService.trackInteraction(
+                    stoneId: stone.stoneId, interactionType: 'click');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => StoneDetailScreen(stone: stone)),
+                );
+              },
+              child: StoneCard(stone: stone),
+            ),
+          ),
+      ],
     );
   }
 

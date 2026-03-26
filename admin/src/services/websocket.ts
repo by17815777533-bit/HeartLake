@@ -8,7 +8,7 @@
  * - 最多重连 10 次，disconnect() 后不再自动重连
  *
  * 安全设计：
- * - 消息类型白名单校验，未知类型直接丢弃并 warn
+ * - 消息类型白名单校验，未知类型不会静默吞掉，而是转成 socket_error 事件
  * - token 从 Pinia store 读取，不持久化在 WebSocket 层
  */
 
@@ -53,11 +53,17 @@ const WS_MESSAGE_TYPE_LIST = [
   'friend_request',
   'new_notification',
   'ping',
+  'socket_status',
+  'socket_error',
 ] as const
 
 type WSMessageType = (typeof WS_MESSAGE_TYPE_LIST)[number]
 
 export const WS_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>(WS_MESSAGE_TYPE_LIST)
+
+function emit(type: WSMessageType, payload: Record<string, unknown>) {
+  listeners[type]?.forEach((fn) => fn(payload))
+}
 
 function resolveWsEndpoint(token: string): URL {
   const explicitUrl = import.meta.env.VITE_WS_URL?.trim()
@@ -80,7 +86,11 @@ function startHeartbeat() {
     if (ws && ws.readyState === WebSocket.OPEN) {
       // 超过2个心跳周期未收到 pong，判定连接已死
       if (Date.now() - lastPongTime > HEARTBEAT_INTERVAL * 2) {
-        console.warn('WebSocket pong 超时，强制重连')
+        emit('socket_error', {
+          type: 'socket_error',
+          message: 'WebSocket pong 超时，准备重连',
+          code: 'pong_timeout',
+        })
         ws.close(4000, 'pong timeout')
         return
       }
@@ -115,6 +125,7 @@ export default {
       hasEverConnected = true
       reconnectAttempts = 0
       lastPongTime = Date.now()
+      emit('socket_status', { type: 'socket_status', status: 'connected' })
       // 启动心跳保活
       startHeartbeat()
     }
@@ -129,20 +140,41 @@ export default {
         }
         // 消息类型白名单校验
         if (!WS_MESSAGE_TYPES.has(type)) {
-          console.warn('收到未知 WebSocket 消息类型:', type)
+          emit('socket_error', {
+            type: 'socket_error',
+            message: `收到未知 WebSocket 消息类型: ${type || 'unknown'}`,
+            code: 'unknown_message_type',
+            rawType: type,
+          })
           return
         }
         listeners[type]?.forEach((fn) => fn(parsed))
       } catch (err) {
-        console.error('WebSocket 消息解析失败:', err)
+        emit('socket_error', {
+          type: 'socket_error',
+          message: err instanceof Error ? err.message : 'WebSocket 消息解析失败',
+          code: 'message_parse_failed',
+        })
       }
     }
 
-    ws.onerror = () => {}
+    ws.onerror = () => {
+      emit('socket_error', {
+        type: 'socket_error',
+        message: 'WebSocket 底层连接出错',
+        code: 'socket_error',
+      })
+    }
 
     ws.onclose = (e: CloseEvent) => {
       ws = null
       stopHeartbeat()
+      emit('socket_status', {
+        type: 'socket_status',
+        status: 'closed',
+        code: e.code,
+        reason: e.reason,
+      })
       // 非主动关闭时自动重连（code 1000 为正常关闭），指数退避最大30秒
       if (e.code !== 1000 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         const baseDelay = Math.min(RECONNECT_BASE_INTERVAL * Math.pow(2, reconnectAttempts), 30000)
@@ -169,6 +201,7 @@ export default {
     stopHeartbeat()
     reconnectAttempts = MAX_RECONNECT_ATTEMPTS // 阻止自动重连
     hasEverConnected = false
+    emit('socket_status', { type: 'socket_status', status: 'disconnecting' })
     this._cleanup()
   },
 
