@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import '../../data/datasources/account_service.dart';
 import '../../data/datasources/auth_service.dart';
 import '../../di/service_locator.dart';
@@ -33,12 +32,16 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   bool _isSaving = false;
   bool _isExporting = false;
   bool _pendingSaveRequested = false;
+  String? _loadErrorMessage;
   Timer? _saveDebounceTimer;
 
   // 隐私设置项
   bool _showOnlineStatus = true;
   bool _allowStrangerBoat = true;
   bool _showProfileToStranger = true;
+  bool _savedShowOnlineStatus = true;
+  bool _savedAllowStrangerBoat = true;
+  bool _savedShowProfileToStranger = true;
 
   /// 将动态类型安全转换为 bool，兼容 String / num / bool 三种后端返回格式
   bool _asBool(dynamic value, {bool fallback = false}) {
@@ -64,6 +67,9 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   Future<void> _loadPrivacySettings() async {
     try {
       final result = await _accountService.getPrivacySettings();
+      if (result['success'] != true) {
+        throw Exception(_resolveErrorMessage(result, '加载隐私设置失败'));
+      }
       final data = result['data'] as Map<String, dynamic>? ?? {};
       if (mounted) {
         setState(() {
@@ -75,12 +81,27 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
             fallback: true,
           );
           _showProfileToStranger = visibility != 'private';
+          _savedShowOnlineStatus = _showOnlineStatus;
+          _savedAllowStrangerBoat = _allowStrangerBoat;
+          _savedShowProfileToStranger = _showProfileToStranger;
           _isLoading = false;
+          _loadErrorMessage = null;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'privacy_settings_screen',
+          context: ErrorDescription('while loading privacy settings'),
+        ),
+      );
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _loadErrorMessage = _extractErrorMessage(e, '加载隐私设置失败，请重试');
+        });
       }
     }
   }
@@ -99,6 +120,34 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   String _resolveErrorMessage(Map<String, dynamic> result, String fallback) {
     final message = result['message']?.toString().trim();
     return message == null || message.isEmpty ? fallback : message;
+  }
+
+  String _extractErrorMessage(Object error, String fallback) {
+    final raw = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final message = raw.trim();
+    return message.isEmpty ? fallback : message;
+  }
+
+  void _restoreSavedSettings() {
+    _showOnlineStatus = _savedShowOnlineStatus;
+    _allowStrangerBoat = _savedAllowStrangerBoat;
+    _showProfileToStranger = _savedShowProfileToStranger;
+  }
+
+  void _commitSavedSettings() {
+    _savedShowOnlineStatus = _showOnlineStatus;
+    _savedAllowStrangerBoat = _allowStrangerBoat;
+    _savedShowProfileToStranger = _showProfileToStranger;
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.errorColor,
+      ),
+    );
   }
 
   /// 延迟 350ms 后触发保存，合并短时间内的多次开关操作
@@ -121,21 +170,26 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       if (result['success'] != true) {
         throw Exception(_resolveErrorMessage(result, '保存失败，请检查网络后重试'));
       }
+      _commitSavedSettings();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('隐私设置已保存'), behavior: SnackBarBehavior.floating),
         );
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('隐私设置保存失败: $e');
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'privacy_settings_screen',
+          context: ErrorDescription('while saving privacy settings'),
+        ),
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('保存失败，请检查网络后重试'),
-              backgroundColor: AppTheme.errorColor),
-        );
+        setState(_restoreSavedSettings);
       }
+      _showErrorSnackBar(_extractErrorMessage(e, '保存失败，请检查网络后重试'));
     } finally {
       if (mounted) setState(() => _isSaving = false);
       if (_pendingSaveRequested) {
@@ -183,15 +237,16 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
               behavior: SnackBarBehavior.floating),
         );
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('数据导出失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('导出失败，请稍后重试'),
-              backgroundColor: AppTheme.errorColor),
-        );
-      }
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'privacy_settings_screen',
+          context: ErrorDescription('while exporting account data'),
+        ),
+      );
+      _showErrorSnackBar(_extractErrorMessage(e, '导出失败，请稍后重试'));
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -231,15 +286,16 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         );
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('账号停用失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('操作失败，请稍后重试'),
-              backgroundColor: AppTheme.errorColor),
-        );
-      }
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'privacy_settings_screen',
+          context: ErrorDescription('while deactivating account'),
+        ),
+      );
+      _showErrorSnackBar(_extractErrorMessage(e, '操作失败，请稍后重试'));
     }
   }
 
@@ -294,15 +350,16 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('账号删除失败: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('删除失败，请稍后重试'),
-              backgroundColor: AppTheme.errorColor),
-        );
-      }
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'privacy_settings_screen',
+          context: ErrorDescription('while deleting account permanently'),
+        ),
+      );
+      _showErrorSnackBar(_extractErrorMessage(e, '删除失败，请稍后重试'));
     }
   }
 
@@ -313,109 +370,138 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       appBar: AppBar(title: const Text('隐私与安全')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // 隐私设置
-                _buildSectionHeader('隐私设置'),
-                Card(
-                  child: Column(
-                    children: [
-                      _buildSwitch(
-                        icon: Icons.circle,
-                        iconColor: isDark ? Colors.greenAccent : Colors.green,
-                        title: '显示在线状态',
-                        subtitle: '其他用户可以看到你是否在线',
-                        value: _showOnlineStatus,
-                        onChanged: (v) {
-                          setState(() => _showOnlineStatus = v);
-                          _scheduleSave();
-                        },
-                      ),
-                      const Divider(height: 1),
-                      _buildSwitch(
-                        icon: Icons.mail_outline,
-                        iconColor: AppTheme.skyBlue,
-                        title: '允许陌生人发纸船',
-                        subtitle: '关闭后只有好友可以给你发纸船',
-                        value: _allowStrangerBoat,
-                        onChanged: (v) {
-                          setState(() => _allowStrangerBoat = v);
-                          _scheduleSave();
-                        },
-                      ),
-                      const Divider(height: 1),
-                      _buildSwitch(
-                        icon: Icons.person_outline,
-                        iconColor: AppTheme.skyBlue,
-                        title: '对陌生人可见',
-                        subtitle: '关闭后你的资料页仅好友可见',
-                        value: _showProfileToStranger,
-                        onChanged: (v) {
-                          setState(() => _showProfileToStranger = v);
-                          _scheduleSave();
-                        },
-                      ),
-                    ],
+          : _loadErrorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.errorColor,
+                          size: 40,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _loadErrorMessage!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: _loadPrivacySettings,
+                          child: const Text('重新加载'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // 隐私设置
+                    _buildSectionHeader('隐私设置'),
+                    Card(
+                      child: Column(
+                        children: [
+                          _buildSwitch(
+                            icon: Icons.circle,
+                            iconColor:
+                                isDark ? Colors.greenAccent : Colors.green,
+                            title: '显示在线状态',
+                            subtitle: '其他用户可以看到你是否在线',
+                            value: _showOnlineStatus,
+                            onChanged: (v) {
+                              setState(() => _showOnlineStatus = v);
+                              _scheduleSave();
+                            },
+                          ),
+                          const Divider(height: 1),
+                          _buildSwitch(
+                            icon: Icons.mail_outline,
+                            iconColor: AppTheme.skyBlue,
+                            title: '允许陌生人发纸船',
+                            subtitle: '关闭后只有好友可以给你发纸船',
+                            value: _allowStrangerBoat,
+                            onChanged: (v) {
+                              setState(() => _allowStrangerBoat = v);
+                              _scheduleSave();
+                            },
+                          ),
+                          const Divider(height: 1),
+                          _buildSwitch(
+                            icon: Icons.person_outline,
+                            iconColor: AppTheme.skyBlue,
+                            title: '对陌生人可见',
+                            subtitle: '关闭后你的资料页仅好友可见',
+                            value: _showProfileToStranger,
+                            onChanged: (v) {
+                              setState(() => _showProfileToStranger = v);
+                              _scheduleSave();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                // 数据管理
-                _buildSectionHeader('数据管理'),
-                Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.download_outlined,
-                            color: AppTheme.skyBlue),
-                        title: const Text('导出我的数据'),
-                        subtitle: const Text('下载你在心湖的所有数据'),
-                        trailing: _isExporting
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.chevron_right),
-                        onTap: _isExporting ? null : _exportData,
+                    // 数据管理
+                    _buildSectionHeader('数据管理'),
+                    Card(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.download_outlined,
+                                color: AppTheme.skyBlue),
+                            title: const Text('导出我的数据'),
+                            subtitle: const Text('下载你在心湖的所有数据'),
+                            trailing: _isExporting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Icon(Icons.chevron_right),
+                            onTap: _isExporting ? null : _exportData,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: 24),
 
-                // 账号管理（危险区域）
-                _buildSectionHeader('账号管理'),
-                Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.pause_circle_outline,
-                            color:
-                                isDark ? Colors.orangeAccent : Colors.orange),
-                        title: const Text('停用账号'),
-                        subtitle: const Text('暂时隐藏你的资料，30 天内可恢复'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _deactivateAccount,
+                    // 账号管理（危险区域）
+                    _buildSectionHeader('账号管理'),
+                    Card(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: Icon(Icons.pause_circle_outline,
+                                color: isDark
+                                    ? Colors.orangeAccent
+                                    : Colors.orange),
+                            title: const Text('停用账号'),
+                            subtitle: const Text('暂时隐藏你的资料，30 天内可恢复'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: _deactivateAccount,
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.delete_forever,
+                                color: AppTheme.errorColor),
+                            title: const Text('永久删除账号',
+                                style: TextStyle(color: AppTheme.errorColor)),
+                            subtitle: const Text('不可撤销，所有数据将被永久删除'),
+                            trailing: const Icon(Icons.chevron_right,
+                                color: AppTheme.errorColor),
+                            onTap: _deleteAccountPermanently,
+                          ),
+                        ],
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.delete_forever,
-                            color: AppTheme.errorColor),
-                        title: const Text('永久删除账号',
-                            style: TextStyle(color: AppTheme.errorColor)),
-                        subtitle: const Text('不可撤销，所有数据将被永久删除'),
-                        trailing: const Icon(Icons.chevron_right,
-                            color: AppTheme.errorColor),
-                        onTap: _deleteAccountPermanently,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                 ),
-                const SizedBox(height: 32),
-              ],
-            ),
     );
   }
 

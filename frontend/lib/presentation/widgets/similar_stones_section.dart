@@ -26,6 +26,7 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
   final AIRecommendationService _service = sl<AIRecommendationService>();
   List<Stone> _similarStones = [];
   bool _loading = true;
+  String? _errorMessage;
   late AnimationController _floatController;
 
   @override
@@ -45,16 +46,36 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
   }
 
   Future<void> _loadSimilarStones() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final list = await _service.getSimilarStones(widget.stoneId, limit: 6);
       if (mounted) {
         setState(() {
           _similarStones = list.map((e) => Stone.fromJson(e)).toList();
           _loading = false;
+          _errorMessage = null;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'similar_stones_section',
+          context: ErrorDescription('while loading similar stones'),
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _errorMessage = '共鸣之石加载失败，请稍后重试';
+        });
+      }
     }
   }
 
@@ -62,6 +83,38 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
   Widget build(BuildContext context) {
     if (_loading) {
       return _buildShimmer();
+    }
+    if (_errorMessage != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F3EC),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE4D6C3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome_outlined, color: Color(0xFF9C6B3F)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6A5A4A),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _loadSimilarStones,
+                child: const Text('重试'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     if (_similarStones.isEmpty) return const SizedBox.shrink();
 
@@ -120,8 +173,9 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
                   // 每张卡片有不同的飘浮相位
                   final phase = index * 0.4;
                   final floatY = math.sin(
-                    _floatController.value * math.pi * 2 + phase,
-                  ) * 4;
+                        _floatController.value * math.pi * 2 + phase,
+                      ) *
+                      4;
                   return Transform.translate(
                     offset: Offset(0, floatY),
                     child: _buildFloatingCard(_similarStones[index], index),

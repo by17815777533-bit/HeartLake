@@ -1,5 +1,12 @@
 <template>
   <div class="dashboard-bank ops-page">
+    <section v-if="dashboardWarnings.length" class="dashboard-warning-strip">
+      <strong>部分数据未刷新</strong>
+      <span>
+        {{ dashboardWarnings.map((item) => item.message).join('；') }}
+      </span>
+    </section>
+
     <section class="dashboard-grid">
       <article class="dashboard-card dashboard-card--overview">
         <div class="card-heading">
@@ -213,6 +220,7 @@ const {
   trendingTopics,
   aiTrendingContent,
   currentDateTime,
+  dashboardWarnings,
   formatNumber,
   stats,
   lakeWeather,
@@ -573,9 +581,31 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
+.dashboard-warning-strip {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(185, 117, 63, 0.24);
+  background: linear-gradient(135deg, rgba(255, 245, 231, 0.98), rgba(255, 236, 212, 0.98));
+  color: #7b4f23;
+  box-shadow: 0 12px 22px rgba(184, 128, 67, 0.12);
+
+  strong {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+}
+
 .dashboard-grid {
   display: grid;
-  height: 100%;
+  height: calc(100% - 74px);
   gap: var(--dashboard-gap);
   grid-template-columns: minmax(0, 1.48fr) minmax(230px, 0.82fr) minmax(292px, 0.94fr);
   grid-template-rows: minmax(182px, 0.98fr) minmax(138px, 0.74fr) minmax(228px, 1fr);

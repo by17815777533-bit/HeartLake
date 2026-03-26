@@ -2,7 +2,6 @@
 //
 // 应用启动时的闪屏页，负责认证状态检查和路由跳转。
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/water_background.dart';
@@ -36,6 +35,8 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   final AuthService _authService = sl<AuthService>();
+  bool _isCheckingSession = true;
+  String? _sessionErrorMessage;
 
   /// 兼容读取 SharedPreferences 中的 bool 值（可能存为 String）
   bool _readBoolCompat(SharedPreferences prefs, String key) {
@@ -68,6 +69,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   /// 启动分流：仅允许已登录会话直接进入首页，未登录统一进入认证页。
   Future<void> _checkLoginAndNavigate() async {
+    if (mounted) {
+      setState(() {
+        _isCheckingSession = true;
+        _sessionErrorMessage = null;
+      });
+    }
     await Future.delayed(const Duration(seconds: 2));
 
     final prefs = await SharedPreferences.getInstance();
@@ -104,20 +111,40 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
 
-      // 网络错误或服务器异常时，不强制退出当前会话。
-      if (kDebugMode) {
-        debugPrint('Token 刷新失败(code=$code)，保留登录状态进入首页');
-      }
-      if (!mounted) return;
-      context.go('/home');
-    } catch (e) {
-      // 网络不可达等异常：若本地已有会话则继续进入首页，避免启动阻塞。
-      if (kDebugMode) {
-        debugPrint('登录检查异常: $e');
-      }
-      if (!mounted) return;
-      context.go('/home');
+      _reportSessionError(
+        Exception('登录态刷新失败(code=$code): ${result['message'] ?? '未知错误'}'),
+      );
+      _showSessionError('暂时无法验证当前登录状态，请重试或重新登录');
+    } catch (e, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: stackTrace,
+          library: 'splash_screen',
+          context: ErrorDescription('while refreshing auth session'),
+        ),
+      );
+      _showSessionError('网络异常，暂时无法验证当前登录状态');
     }
+  }
+
+  void _reportSessionError(Object error, [StackTrace? stackTrace]) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'splash_screen',
+        context: ErrorDescription('while validating auth session'),
+      ),
+    );
+  }
+
+  void _showSessionError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _isCheckingSession = false;
+      _sessionErrorMessage = message;
+    });
   }
 
   @override
@@ -194,14 +221,58 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 48),
-                  const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  if (_isCheckingSession) ...[
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
                     ),
-                  ),
+                  ] else if (_sessionErrorMessage != null) ...[
+                    Container(
+                      width: 320,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _sessionErrorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: _checkLoginAndNavigate,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primaryColor,
+                            ),
+                            child: const Text('重试验证'),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () => context.go('/auth'),
+                            child: const Text(
+                              '返回登录',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

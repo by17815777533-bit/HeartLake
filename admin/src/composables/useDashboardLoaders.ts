@@ -1,12 +1,12 @@
 /**
- * Dashboard 数据拉取函数集合，统一处理接口兼容与异常回退。
+ * Dashboard 数据拉取函数集合，统一处理接口兼容与异常状态。
  *
  * 每个 loader 负责一个 API 端点，内部做了两层兼容：
  * 1. 响应结构兼容 -- 同时支持 { data: { data: ... } } 和 { data: ... } 两种后端格式
  * 2. 字段名兼容 -- 同时支持 snake_case 和 camelCase（后端迭代过程中两种都出现过）
  *
- * 异常策略：单个 loader 失败不影响其他数据加载，console.warn 记录后静默降级。
- * 关键接口（stats / growth / mood）额外弹 ElMessage 提示用户。
+ * 异常策略：单个 loader 失败不影响其他数据加载，但必须留下显式失败状态，
+ * 页面继续展示最近一次成功数据，同时提示哪些模块已经过期。
  */
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
@@ -72,6 +72,7 @@ interface LoaderDeps {
   moodTrendRange: Ref<number>
   trendingTopics: Ref<TrendingTopic[]>
   aiTrendingContent: Ref<TrendingContentItem[]>
+  loaderIssues: Record<string, string>
   privacyStats: PrivacyStats
   privacyLoading: Ref<boolean>
   resonanceStats: ResonanceStats
@@ -90,6 +91,7 @@ export function useDashboardLoaders({
   moodTrendRange,
   trendingTopics,
   aiTrendingContent,
+  loaderIssues,
   privacyStats,
   privacyLoading,
   resonanceStats,
@@ -104,23 +106,27 @@ export function useDashboardLoaders({
   const normalizeDashboardCollection = <T>(payload: unknown, semanticKeys: readonly string[]) =>
     normalizeCollectionResponse<T>(payload, semanticKeys).items
   const normalizeDashboardRecord = (payload: unknown) => normalizePayloadRecord(payload)
-  const rankFallbackTrendingStones = <
-    T extends {
-      ripple_count?: number
-      boat_count?: number
-    },
-  >(
-    items: T[],
-  ) =>
-    [...items].sort(
-      (left, right) =>
-        Number(right.ripple_count ?? 0) +
-        Number(right.boat_count ?? 0) -
-        (Number(left.ripple_count ?? 0) + Number(left.boat_count ?? 0)),
-    )
   const moodTrendRequests = new Map<number, Promise<MoodTrendItem[]>>()
   let emotionPulseRequest: Promise<Record<string, unknown>> | null = null
   let emotionPulseSnapshot: { at: number; data: Record<string, unknown> } | null = null
+
+  const clearLoaderIssue = (key: string) => {
+    delete loaderIssues[key]
+  }
+
+  const resolveErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message.trim()
+    }
+    return fallback
+  }
+
+  const markLoaderIssue = (key: string, message: string, notify = false) => {
+    loaderIssues[key] = message
+    if (notify) {
+      ElMessage.error(message)
+    }
+  }
 
   const fetchMoodTrendList = async (days: number) => {
     const cached = moodTrendRequests.get(days)
@@ -162,20 +168,40 @@ export function useDashboardLoaders({
   /** 读取核心统计信息。 */
   const loadStats = async () => {
     try {
-      const [dashRes, realtimeRes] = await Promise.all([
-        api.getDashboardStats().catch(() => ({ data: null })),
-        api.getRealtimeStats().catch(() => ({ data: null })),
+      const [dashResult, realtimeResult] = await Promise.allSettled([
+        api.getDashboardStats(),
+        api.getRealtimeStats(),
       ])
-      const d = normalizeDashboardRecord(dashRes.data)
-      const r = normalizeDashboardRecord(realtimeRes.data)
-      stats.totalUsers = r.total_users ?? d.total_users ?? 0
-      stats.todayStones = d.today_stones ?? r.today_stones ?? 0
-      stats.onlineCount = r.online_users ?? 0
-      stats.pendingReports = d.pending_reports ?? r.pending_reports ?? 0
+
+      const dashboardData =
+        dashResult.status === 'fulfilled' ? normalizeDashboardRecord(dashResult.value.data) : null
+      const realtimeData =
+        realtimeResult.status === 'fulfilled'
+          ? normalizeDashboardRecord(realtimeResult.value.data)
+          : null
+
+      if (!dashboardData && !realtimeData) {
+        throw new Error('统计接口全部请求失败')
+      }
+
+      if (realtimeData || dashboardData) {
+        stats.totalUsers =
+          realtimeData?.total_users ?? dashboardData?.total_users ?? stats.totalUsers
+        stats.todayStones =
+          dashboardData?.today_stones ?? realtimeData?.today_stones ?? stats.todayStones
+        stats.onlineCount = realtimeData?.online_users ?? stats.onlineCount
+        stats.pendingReports =
+          dashboardData?.pending_reports ?? realtimeData?.pending_reports ?? stats.pendingReports
+      }
+
+      if (dashResult.status === 'rejected' || realtimeResult.status === 'rejected') {
+        markLoaderIssue('stats', '核心统计部分加载失败，当前展示的是最近一次成功结果', true)
+        return
+      }
+      clearLoaderIssue('stats')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载统计数据失败:', (e as Error).message)
-      ElMessage.error('加载统计数据失败，请稍后重试')
+      markLoaderIssue('stats', `核心统计加载失败: ${resolveErrorMessage(e, '请稍后重试')}`, true)
     }
   }
 
@@ -202,10 +228,10 @@ export function useDashboardLoaders({
           userGrowthOption.value.series[1].data = createSoftBaseline(counts)
         }
       }
+      clearLoaderIssue('growth')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载增长数据失败:', (e as Error).message)
-      ElMessage.error('加载增长数据失败，请稍后重试')
+      markLoaderIssue('growth', `增长曲线加载失败: ${resolveErrorMessage(e, '请稍后重试')}`, true)
     }
   }
 
@@ -235,10 +261,14 @@ export function useDashboardLoaders({
           }),
         )
       }
+      clearLoaderIssue('moodDistribution')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载情绪分布失败:', (e as Error).message)
-      ElMessage.error('加载情绪分布失败，请稍后重试')
+      markLoaderIssue(
+        'moodDistribution',
+        `情绪分布加载失败: ${resolveErrorMessage(e, '请稍后重试')}`,
+        true,
+      )
     }
   }
 
@@ -258,9 +288,10 @@ export function useDashboardLoaders({
           })
         })
       }
+      clearLoaderIssue('moodTrend')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载情绪趋势失败:', (e as Error).message)
+      markLoaderIssue('moodTrend', `情绪趋势加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     }
   }
 
@@ -277,9 +308,10 @@ export function useDashboardLoaders({
           ...item,
           keyword: item.keyword || item.topic || '',
         }))
+      clearLoaderIssue('trendingTopics')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载热门话题失败:', (e as Error).message)
+      markLoaderIssue('trendingTopics', `热门话题加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     }
   }
 
@@ -291,10 +323,14 @@ export function useDashboardLoaders({
       if (list.length) {
         activeTimeOption.value.series[0].data = list.map((item: ActiveTimeItem) => item.count)
       }
+      clearLoaderIssue('activeTime')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载活跃时段失败:', (e as Error).message)
-      ElMessage.error('加载活跃时段失败，请稍后重试')
+      markLoaderIssue(
+        'activeTime',
+        `活跃时段加载失败: ${resolveErrorMessage(e, '请稍后重试')}`,
+        true,
+      )
     }
   }
 
@@ -308,9 +344,10 @@ export function useDashboardLoaders({
       privacyStats.epsilonUsed = d.epsilon_used ?? d.epsilonUsed ?? d.consumed ?? 0
       privacyStats.epsilonTotal = d.epsilon_total ?? d.epsilonTotal ?? d.total_budget ?? 1.0
       privacyStats.protectedUsers = d.protected_users ?? d.protectedUsers ?? 0
+      clearLoaderIssue('privacyStats')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载隐私统计失败:', (e as Error).message)
+      markLoaderIssue('privacyStats', `隐私预算加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     } finally {
       privacyLoading.value = false
     }
@@ -325,9 +362,10 @@ export function useDashboardLoaders({
       resonanceStats.avgScore = d.avg_score ?? d.avgScore ?? 0
       resonanceStats.topMood = d.top_mood ?? d.dominant_mood ?? ''
       resonanceStats.successRate = d.top_mood_share_percent ?? d.success_rate ?? 0
+      clearLoaderIssue('resonanceStats')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载共鸣统计失败:', (e as Error).message)
+      markLoaderIssue('resonanceStats', `共鸣统计加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     } finally {
       resonanceLoading.value = false
     }
@@ -340,9 +378,10 @@ export function useDashboardLoaders({
       const temp =
         d.temperature ?? (d.normalized_score != null ? Number(d.normalized_score) * 100 : 50)
       emotionPulseOption.value.series[0].data = [{ value: temp, name: '情绪温度' }]
+      clearLoaderIssue('emotionPulse')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载情绪温度失败:', (e as Error).message)
+      markLoaderIssue('emotionPulse', `情绪温度加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     }
   }
 
@@ -386,9 +425,10 @@ export function useDashboardLoaders({
           (date) => bucket.get(date)?.negative ?? 0,
         )
       }
+      clearLoaderIssue('emotionTrends')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载情绪趋势失败:', (e as Error).message)
+      markLoaderIssue('emotionTrends', `情绪折线加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     }
   }
 
@@ -404,21 +444,12 @@ export function useDashboardLoaders({
       }
 
       let list: TrendingStonePayload[] = []
-
-      try {
-        const res = await api.getTrendingContent?.({ limit: 6 })
-        list = normalizeDashboardCollection<TrendingStonePayload>(res?.data, ['trending_stones'])
-      } catch (e: unknown) {
-        if (isRequestCanceled(e)) return
-        console.warn('热门内容接口不可用，回退到石头热度榜:', (e as Error).message)
+      if (typeof api.getTrendingContent !== 'function') {
+        throw new Error('缺少热门内容接口')
       }
 
-      if (!list.length && typeof api.getStones === 'function') {
-        const fallbackRes = await api.getStones({ page: 1, page_size: 20 })
-        list = rankFallbackTrendingStones(
-          normalizeDashboardCollection<TrendingStonePayload>(fallbackRes?.data, ['stones']),
-        )
-      }
+      const res = await api.getTrendingContent({ limit: 6 })
+      list = normalizeDashboardCollection<TrendingStonePayload>(res?.data, ['trending_stones'])
 
       const maxScore = Math.max(
         1,
@@ -434,9 +465,13 @@ export function useDashboardLoaders({
           score: maxScore > 0 ? score / maxScore : 0,
         }
       })
+      clearLoaderIssue('aiTrendingContent')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
-      console.warn('加载AI热门内容失败:', (e as Error).message)
+      markLoaderIssue(
+        'aiTrendingContent',
+        `高级热门内容加载失败: ${resolveErrorMessage(e, '请稍后重试')}`,
+      )
     }
   }
 
