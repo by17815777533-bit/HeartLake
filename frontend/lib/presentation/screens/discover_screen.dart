@@ -208,12 +208,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final advanced = results[1];
 
     setState(() {
-      if (personalized.items != null) {
-        _personalizedAIStones = personalized.items!;
-      }
-      if (advanced.items != null) {
-        _advancedAIStones = advanced.items!;
-      }
+      _personalizedAIStones = personalized.items ?? [];
+      _advancedAIStones = advanced.items ?? [];
       _personalizedAIErrorMessage = personalized.errorMessage;
       _advancedAIErrorMessage = advanced.errorMessage;
       _aiLoading = false;
@@ -228,7 +224,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       return;
     }
     if (failureCount == 1) {
-      _showMessage('部分湖神陪伴内容未更新，已保留上次结果');
+      _showMessage('部分湖神陪伴内容加载失败');
     }
   }
 
@@ -496,7 +492,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             padding:
                 const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 20),
             child: Text(
-              errorMessage == null ? '当前没有可展示的真实结果' : '该分区加载失败，当前没有可展示的真实结果',
+              errorMessage == null ? '当前没有可展示的真实结果' : '该分区加载失败，没有可展示的真实结果',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.68)),
             ),
           )

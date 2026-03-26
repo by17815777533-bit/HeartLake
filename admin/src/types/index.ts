@@ -194,6 +194,13 @@ export interface TrendingContentItem {
   score?: number
 }
 
+/** 管理端查看指定用户高级推荐结果的查询参数 */
+export interface AdminAdvancedRecommendationParams {
+  user_id: string
+  limit?: number
+  stone_id?: string
+}
+
 /** 管理端查看指定用户的高级推荐结果 */
 export interface AdvancedRecommendationItem {
   stone_id: string
@@ -212,6 +219,7 @@ export interface AdvancedRecommendationItem {
   temporal_score?: number
   diversity_score?: number
   reference_stone_id?: string
+  reference_source?: string
 }
 
 // ── 隐私 ──

@@ -68,8 +68,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _statsErrorMessage;
   String? _profileErrorMessage;
   String? _vipErrorMessage;
+  bool _vipStatusLoaded = false;
   bool _hasLight = false; // 灯是否点亮
-  int _vipDaysLeft = 0;
+  int? _vipDaysLeft;
   String? _currentUserId;
   final ImagePicker _picker = ImagePicker();
 
@@ -151,6 +152,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return value.toString();
   }
 
+  int? _extractVipDaysLeft(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
   bool _matchesCurrentUserId(dynamic value) {
     final currentUserId = _currentUserId?.trim();
     if (currentUserId == null || currentUserId.isEmpty) return false;
@@ -205,25 +213,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _showMessage(message);
         }
         if (mounted) {
-          setState(() => _vipErrorMessage = message);
+          setState(() {
+            _vipStatusLoaded = false;
+            _vipErrorMessage = message;
+          });
         }
         return;
       }
 
-      final payload = (status['data'] is Map<String, dynamic>)
-          ? status['data'] as Map<String, dynamic>
-          : const <String, dynamic>{};
+      final rawPayload = status['data'];
+      if (rawPayload is! Map) {
+        const message = '灯火状态响应缺少 data 对象';
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadVIPStatus',
+        );
+        if (showFeedback && mounted) {
+          _showMessage(message);
+        }
+        if (mounted) {
+          setState(() {
+            _vipStatusLoaded = false;
+            _vipErrorMessage = message;
+          });
+        }
+        return;
+      }
+
+      final payload =
+          Map<String, dynamic>.from(rawPayload.cast<String, dynamic>());
+      final isVip = payload['is_vip'];
+      final daysLeft = _extractVipDaysLeft(payload['days_left']);
+      if (isVip is! bool || daysLeft == null) {
+        const message = '灯火状态响应缺少 is_vip 或 days_left';
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadVIPStatus',
+        );
+        if (showFeedback && mounted) {
+          _showMessage(message);
+        }
+        if (mounted) {
+          setState(() {
+            _vipStatusLoaded = false;
+            _vipErrorMessage = message;
+          });
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
-          _hasLight = payload['is_vip'] == true;
-          _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
+          _vipStatusLoaded = true;
+          _hasLight = isVip;
+          _vipDaysLeft = daysLeft;
           _vipErrorMessage = null;
         });
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._loadVIPStatus');
       if (mounted) {
-        setState(() => _vipErrorMessage = '加载灯火状态失败，请稍后重试');
+        setState(() {
+          _vipStatusLoaded = false;
+          _vipErrorMessage = '加载灯火状态失败，请稍后重试';
+        });
       }
       if (showFeedback && mounted) {
         _showMessage('加载灯火状态失败，请稍后重试');
@@ -475,7 +529,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userData =
           Map<String, dynamic>.from(payload.cast<String, dynamic>());
       final resolvedNickname = userData['nickname']?.toString().trim();
-      final resolvedAvatarUrl = userData['avatar_url']?.toString();
+      final resolvedUsername = userData['username']?.toString().trim();
+      if ((resolvedNickname == null || resolvedNickname.isEmpty) &&
+          (resolvedUsername == null || resolvedUsername.isEmpty)) {
+        const message = '个人资料响应缺少 username 或 nickname';
+        _reportUiError(
+          StateError(message),
+          StackTrace.current,
+          'ProfileScreen._loadFullProfile',
+        );
+        if (showFeedback && mounted) {
+          _showMessage(message);
+        }
+        if (mounted) {
+          setState(() => _profileErrorMessage = message);
+        }
+        return;
+      }
+      final resolvedAvatarUrl = userData['avatar_url']?.toString().trim();
       final resolvedBio = userData['bio']?.toString();
       if (resolvedNickname != null && resolvedNickname.isNotEmpty) {
         await StorageUtil.saveNickname(resolvedNickname);
@@ -483,12 +554,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
       setState(() {
-        _username = userData['username']?.toString() ?? _username;
+        _username =
+            resolvedUsername?.isNotEmpty == true ? resolvedUsername : null;
         _avatarUrl =
-            resolvedAvatarUrl?.isNotEmpty == true ? resolvedAvatarUrl : null;
+            resolvedAvatarUrl != null && resolvedAvatarUrl.isNotEmpty
+                ? resolvedAvatarUrl
+                : null;
         _bio = resolvedBio;
         _nickname =
-            resolvedNickname?.isNotEmpty == true ? resolvedNickname : _nickname;
+            resolvedNickname?.isNotEmpty == true ? resolvedNickname : null;
         _profileErrorMessage = null;
       });
       Provider.of<UserProvider>(context, listen: false).updateUser(
@@ -650,7 +724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ? _nickname!
         : (_username?.trim().isNotEmpty == true)
             ? _username!
-            : (_profileErrorMessage != null ? '资料未加载' : '心湖用户');
+            : (_profileErrorMessage != null ? '资料未加载' : '身份待确认');
     final bioText =
         _bio ?? (_profileErrorMessage != null ? '个人资料暂未刷新' : '点击添加个性签名...');
 
@@ -864,12 +938,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       ListTile(
                         leading: Icon(
-                            _hasLight
-                                ? Icons.lightbulb
-                                : Icons.lightbulb_outline,
-                            color: _hasLight
-                                ? const Color(0xFFFFD54F)
-                                : Colors.grey),
+                            !_vipStatusLoaded
+                                ? Icons.help_outline
+                                : _hasLight
+                                    ? Icons.lightbulb
+                                    : Icons.lightbulb_outline,
+                            color: !_vipStatusLoaded
+                                ? Colors.orange
+                                : _hasLight
+                                    ? const Color(0xFFFFD54F)
+                                    : Colors.grey),
                         title: Text(
                           _vipErrorMessage != null
                               ? '灯火状态未刷新'
@@ -879,7 +957,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _vipErrorMessage != null
                                 ? _vipErrorMessage!
                                 : (_hasLight
-                                    ? '灯火将燃$_vipDaysLeft天'
+                                    ? (_vipDaysLeft != null
+                                        ? '灯火将燃${_vipDaysLeft!}天'
+                                        : '灯火时长待确认')
                                     : '温暖时刻自动点亮'),
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),

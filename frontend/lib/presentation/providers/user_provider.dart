@@ -62,9 +62,10 @@ class UserProvider with ChangeNotifier {
     bool refreshProfileAfter = false,
   }) {
     final isAnonymous = session.isAnonymous ?? true;
+    final nickname = session.nickname?.trim() ?? '';
     _user = User(
       userId: session.userId,
-      nickname: session.nickname ?? '用户',
+      nickname: nickname,
       isAnonymous: isAnonymous,
     );
     _isAnonymous = isAnonymous;
@@ -161,6 +162,16 @@ class UserProvider with ChangeNotifier {
     _user = User.fromJson(
       Map<String, dynamic>.from(userPayload.cast<String, dynamic>()),
     );
+    if (_user!.userId.trim().isEmpty) {
+      const message = '用户资料响应缺少 user_id';
+      _setErrorMessage(message, notify: true);
+      _reportProviderError(
+        StateError(message),
+        StackTrace.current,
+        'UserProvider._reloadProfileFromServer',
+      );
+      return false;
+    }
     final nickname = _user?.nickname.trim();
     if (nickname != null && nickname.isNotEmpty) {
       await StorageUtil.saveNickname(nickname);

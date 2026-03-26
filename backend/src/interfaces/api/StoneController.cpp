@@ -12,7 +12,7 @@
 #include "utils/ContentFilter.h"
 #include "utils/RealtimeEvent.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
-#include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "infrastructure/services/ResonanceSearchService.h"
 #include <memory>
 #include <regex>
 #include <set>
@@ -59,6 +59,27 @@ static bool isValidStoneId(const std::string& id) {
 static bool isValidColor(const std::string& color) {
     static const std::regex colorPattern("^#[0-9a-fA-F]{6}$");
     return std::regex_match(color, colorPattern);
+}
+
+static std::string loadRequiredStoneContentForResonance(const std::string& stoneId) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto result = dbClient->execSqlSync(
+        "SELECT content FROM stones "
+        "WHERE stone_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "LIMIT 1",
+        stoneId);
+
+    if (result.empty() || result[0]["content"].isNull()) {
+        throw std::runtime_error("Source stone content is unavailable for resonance search");
+    }
+
+    const auto content = result[0]["content"].as<std::string>();
+    if (content.empty()) {
+        throw std::runtime_error("Source stone content is empty for resonance search");
+    }
+    return content;
 }
 
 // 白名单常量
@@ -512,9 +533,16 @@ void StoneController::searchResonance(
         if (limit < 1) limit = 1;
         if (limit > 50) limit = 50;
 
-        // 使用情绪感知时序共鸣引擎
-        auto& resonanceEngine = heartlake::ai::EmotionResonanceEngine::getInstance();
-        auto matches = resonanceEngine.findResonance(userId, stoneId, limit);
+        const auto sourceContent = loadRequiredStoneContentForResonance(stoneId);
+
+        // 共鸣搜索必须走真实检索链：向量候选召回 + 四维重排序
+        auto& resonanceSearchService =
+            heartlake::infrastructure::ResonanceSearchService::getInstance();
+        auto matches = resonanceSearchService.searchResonance(
+            stoneId,
+            sourceContent,
+            0.85f,
+            limit);
 
         Json::Value result(Json::arrayValue);
         for (const auto& match : matches) {

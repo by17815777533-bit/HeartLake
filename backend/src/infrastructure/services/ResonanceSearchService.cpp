@@ -340,21 +340,25 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
 
     // 加载源用户的情绪轨迹（用于DTW计算）
     ai::EmotionTrajectory userTraj;
-    if (!sourceUserId.empty()) {
-        try {
-            auto trajRows = db->execSqlSync(
-                "SELECT score FROM emotion_tracking "
-                "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
-                "ORDER BY created_at ASC", sourceUserId);
-            userTraj.userId = sourceUserId;
-            for (const auto& r : trajRows) {
-                userTraj.scores.push_back(r["score"].as<float>());
-            }
-            if (!userTraj.scores.empty())
-                userTraj.currentScore = userTraj.scores.back();
-        } catch (const std::exception& e) {
-            throw std::runtime_error(std::string("User trajectory load failed: ") + e.what());
+    if (sourceUserId.empty()) {
+        throw std::runtime_error("Source stone owner is missing during resonance search");
+    }
+    try {
+        auto trajRows = db->execSqlSync(
+            "SELECT score FROM emotion_tracking "
+            "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
+            "ORDER BY created_at ASC", sourceUserId);
+        userTraj.userId = sourceUserId;
+        for (const auto& r : trajRows) {
+            userTraj.scores.push_back(r["score"].as<float>());
         }
+        if (!userTraj.scores.empty())
+            userTraj.currentScore = userTraj.scores.back();
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("User trajectory load failed: ") + e.what());
+    }
+    if (userTraj.scores.empty()) {
+        throw std::runtime_error("Source user trajectory is unavailable for resonance search");
     }
 
     std::vector<std::string> recommendedMoods;
@@ -380,24 +384,20 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         // 维度2: DTW 情绪轨迹相似度
         ai::EmotionTrajectory candTraj;
         auto candidateTrajectoryIt = trajectoryScoresByUser.find(m.userId);
-        if (candidateTrajectoryIt != trajectoryScoresByUser.end()) {
-            candTraj.scores = candidateTrajectoryIt->second;
-            if (!candTraj.scores.empty()) {
-                candTraj.currentScore = candTraj.scores.back();
-            }
+        if (candidateTrajectoryIt == trajectoryScoresByUser.end() ||
+            candidateTrajectoryIt->second.empty()) {
+            continue;
         }
-
-        if (!userTraj.scores.empty() && !candTraj.scores.empty()) {
-            m.trajectoryScore = resonanceEngine.trajectorySimDTW(userTraj.scores, candTraj.scores);
-        } else {
-            float scoreDiff = std::abs(userTraj.currentScore - candTraj.currentScore);
-            m.trajectoryScore = std::exp(-scoreDiff);
-        }
+        candTraj.scores = candidateTrajectoryIt->second;
+        candTraj.currentScore = candTraj.scores.back();
+        m.trajectoryScore =
+            resonanceEngine.trajectorySimDTW(userTraj.scores, candTraj.scores);
 
         // 维度3: 时间衰减
-        m.temporalScore = candidate.createdAt.empty()
-            ? 0.5f
-            : resonanceEngine.temporalDecay(candidate.createdAt);
+        if (candidate.createdAt.empty()) {
+            continue;
+        }
+        m.temporalScore = resonanceEngine.temporalDecay(candidate.createdAt);
 
         // 维度4: 多样性奖励
         m.diversityScore = resonanceEngine.diversityBonus(sourceMood, candidate.mood, recommendedMoods);

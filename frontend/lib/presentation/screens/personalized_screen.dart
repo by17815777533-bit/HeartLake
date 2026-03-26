@@ -138,12 +138,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     final hasFreshData = personalized.items != null || advanced.items != null;
 
     setState(() {
-      if (personalized.items != null) {
-        _personalizedStones = personalized.items!;
-      }
-      if (advanced.items != null) {
-        _advancedStones = advanced.items!;
-      }
+      _personalizedStones = personalized.items ?? [];
+      _advancedStones = advanced.items ?? [];
       _personalizedErrorMessage = personalized.errorMessage;
       _advancedErrorMessage = advanced.errorMessage;
       _loading = false;
@@ -162,7 +158,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
       return;
     }
     if (failureCount == 1) {
-      _showMessage('部分推荐未更新，已保留上次结果');
+      _showMessage('部分推荐加载失败');
     }
   }
 
@@ -282,7 +278,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         const SizedBox(height: 12),
         if (warningMessages.isNotEmpty) ...[
           _buildWarningCard(
-            title: warningMessages.length == 2 ? '推荐暂时未完全更新' : '部分推荐未更新',
+            title: warningMessages.length == 2 ? '推荐加载失败' : '部分推荐加载失败',
             message: warningMessages.join('；'),
           ),
           const SizedBox(height: 16),
@@ -290,14 +286,6 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         if (_personalizedStones.isNotEmpty) ...[
           _buildSectionTitle(
               '心灵共振', Icons.favorite_border, AppTheme.primaryLightColor),
-          if (_personalizedErrorMessage != null) ...[
-            const SizedBox(height: 8),
-            _buildWarningCard(
-              title: '心灵共振未完成刷新',
-              message: _personalizedErrorMessage!,
-              compact: true,
-            ),
-          ],
           const SizedBox(height: 12),
           ..._personalizedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key),
@@ -307,14 +295,6 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         if (_advancedStones.isNotEmpty) ...[
           _buildSectionTitle(
               '深层共鸣', Icons.auto_awesome, AppTheme.primaryLightColor),
-          if (_advancedErrorMessage != null) ...[
-            const SizedBox(height: 8),
-            _buildWarningCard(
-              title: '深层共鸣未完成刷新',
-              message: _advancedErrorMessage!,
-              compact: true,
-            ),
-          ],
           const SizedBox(height: 12),
           ..._advancedStones.asMap().entries.map(
                 (e) => _buildDriftingCard(e.value, e.key + 100),

@@ -4,7 +4,7 @@
 #include "interfaces/api/RecommendationController.h"
 #include "infrastructure/cache/RedisCache.h"
 #include "infrastructure/ai/RecommendationEngine.h"
-#include "infrastructure/ai/EmotionResonanceEngine.h"
+#include "infrastructure/services/ResonanceSearchService.h"
 #include "utils/BusinessRules.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
@@ -131,6 +131,28 @@ std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
     return (*row)["stone_id"].as<std::string>();
 }
 
+std::string loadRequiredRecommendationReferenceStoneContent(
+    const std::string &stoneId) {
+    auto dbClient = drogon::app().getDbClient("default");
+    auto result = dbClient->execSqlSync(
+        "SELECT content FROM stones "
+        "WHERE stone_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "LIMIT 1",
+        stoneId);
+    const auto row = safeRow(result);
+    if (!row || (*row)["content"].isNull()) {
+        throw std::runtime_error("Reference stone content is unavailable");
+    }
+
+    const auto content = (*row)["content"].as<std::string>();
+    if (content.empty()) {
+        throw std::runtime_error("Reference stone content is empty");
+    }
+    return content;
+}
+
 bool doesRecommendationTargetUserExist(const std::string &userId) {
     auto dbClient = drogon::app().getDbClient("default");
     auto result = dbClient->execSqlSync(
@@ -182,6 +204,9 @@ void respondWithAdvancedRecommendations(
         : requestedStoneId;
     const bool usedAutoReference =
         requestedStoneId.empty() && !referenceStoneId.empty();
+    const std::string referenceStoneContent = referenceStoneId.empty()
+        ? ""
+        : loadRequiredRecommendationReferenceStoneContent(referenceStoneId);
 
     auto &engine = heartlake::ai::RecommendationEngine::getInstance();
     engine.getRecommendations(
@@ -191,6 +216,7 @@ void respondWithAdvancedRecommendations(
         [callback = std::move(callback),
          userId,
          referenceStoneId,
+         referenceStoneContent,
          usedAutoReference,
          limit,
          extraData = std::move(extraData)](
@@ -207,11 +233,12 @@ void respondWithAdvancedRecommendations(
                 bool hasResonanceResults = false;
 
                 if (!referenceStoneId.empty()) {
-                    auto &resonanceEngine =
-                        heartlake::ai::EmotionResonanceEngine::getInstance();
-                    auto resonanceResults = resonanceEngine.findResonance(
-                        userId,
+                    auto &resonanceSearchService =
+                        heartlake::infrastructure::ResonanceSearchService::getInstance();
+                    auto resonanceResults = resonanceSearchService.searchResonance(
                         referenceStoneId,
+                        referenceStoneContent,
+                        0.85f,
                         std::max(1, limit / 2));
 
                     for (const auto &res : resonanceResults) {

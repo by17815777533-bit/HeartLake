@@ -21,6 +21,15 @@ class AIRecommendationService extends BaseService {
   String get serviceName => '湖神陪伴服务';
 
   static const _trendListKeys = ['trends', 'items', 'list', 'results'];
+  static const _advancedEndpointAlgorithms = {
+    'emotion_resonance_hybrid',
+    'multi_armed_bandit_mmr',
+  };
+  static const _advancedItemAlgorithms = {
+    'emotion_temporal_resonance',
+    'emotion_resonance_hybrid',
+    'multi_armed_bandit_mmr',
+  };
 
   String _resolveServiceError(
       ServiceResponse<dynamic> response, String action) {
@@ -29,6 +38,12 @@ class AIRecommendationService extends BaseService {
       return message;
     }
     return '$action失败';
+  }
+
+  bool _hasValue(dynamic value) {
+    if (value == null) return false;
+    if (value is String) return value.trim().isNotEmpty;
+    return true;
   }
 
   bool _containsListCandidate(dynamic value) {
@@ -50,6 +65,21 @@ class AIRecommendationService extends BaseService {
     throw StateError('$action响应缺少推荐集合');
   }
 
+  Map<String, dynamic> _requireResponseDataMap(
+    ServiceResponse<dynamic> response,
+    String action,
+  ) {
+    if (!response.success) {
+      throw StateError(_resolveServiceError(response, action));
+    }
+    if (response.data is! Map) {
+      throw StateError('$action响应缺少 data');
+    }
+    return normalizePayloadContract(
+      Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+    );
+  }
+
   List<Map<String, dynamic>> _extractRecommendationList(
     ServiceResponse<dynamic> response,
     String action,
@@ -62,6 +92,39 @@ class AIRecommendationService extends BaseService {
     }
     _requireRecommendationCollection(response.data, action);
     return RecommendationResponseParser.extractList(response.data);
+  }
+
+  bool _isAdvancedRecommendationItem(Map<String, dynamic> item) {
+    final algorithm = item['algorithm']?.toString().trim();
+    if (algorithm != null && _advancedItemAlgorithms.contains(algorithm)) {
+      return true;
+    }
+    return _hasValue(item['reference_stone_id']) ||
+        _hasValue(item['semantic_score']) ||
+        _hasValue(item['trajectory_score']) ||
+        _hasValue(item['temporal_score']) ||
+        _hasValue(item['diversity_score']);
+  }
+
+  List<Map<String, dynamic>> _extractAdvancedRecommendationList(
+    ServiceResponse<dynamic> response,
+  ) {
+    final payload = _requireResponseDataMap(response, '获取高级共鸣推荐');
+    final envelopeAlgorithm = payload['algorithm']?.toString().trim();
+    if (envelopeAlgorithm == null ||
+        !_advancedEndpointAlgorithms.contains(envelopeAlgorithm)) {
+      throw StateError('获取高级共鸣推荐响应缺少有效 algorithm');
+    }
+
+    _requireRecommendationCollection(payload, '获取高级共鸣推荐');
+    final items = RecommendationResponseParser.extractList(payload)
+        .map(normalizePayloadContract)
+        .where(_isAdvancedRecommendationItem)
+        .toList();
+    if (items.isEmpty) {
+      throw StateError('获取高级共鸣推荐未返回任何高级算法结果');
+    }
+    return items;
   }
 
   int? _toInt(dynamic value) {
@@ -190,7 +253,7 @@ class AIRecommendationService extends BaseService {
     InputValidator.requirePositive(limit, '推荐数量');
     final resp = await get<dynamic>('/recommendations/advanced',
         queryParameters: {'limit': limit});
-    return _extractRecommendationList(resp, '获取高级共鸣推荐');
+    return _extractAdvancedRecommendationList(resp);
   }
 
   /// 获取情绪趋势数据

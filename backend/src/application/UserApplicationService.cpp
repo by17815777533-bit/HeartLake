@@ -80,15 +80,6 @@ int extractWindowTotal(const drogon::orm::Result &result,
              : result[0][column].as<int>();
 }
 
-template <typename F>
-int resolveWindowTotalOrFallback(const drogon::orm::Result &result, int page,
-                                 F &&fallbackQuery) {
-  if (!result.empty() || page <= 1) {
-    return extractWindowTotal(result);
-  }
-  return fallbackQuery();
-}
-
 void addUserAliases(Json::Value &user) {
   if (user.isMember("user_id")) {
     user["id"] = user["user_id"];
@@ -362,28 +353,11 @@ Json::Value UserApplicationService::searchUsers(const std::string &keyword,
       users.append(user);
     }
 
-    const int total = resolveWindowTotalOrFallback(result, page, [&]() {
-      if (!excludeUserId.empty()) {
-        auto countResult = dbClient->execSqlSync(
-            "SELECT COUNT(*)::INTEGER AS total_count "
-            "FROM users "
-            "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
-            "'\\') "
-            "AND status = 'active' "
-            "AND user_id != $2",
-            searchPattern, excludeUserId);
-        return extractWindowTotal(countResult);
-      }
+    if (result.empty() && page > 1) {
+      throw std::out_of_range("搜索页码超出范围");
+    }
 
-      auto countResult = dbClient->execSqlSync(
-          "SELECT COUNT(*)::INTEGER AS total_count "
-          "FROM users "
-          "WHERE (username ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE "
-          "'\\') "
-          "AND status = 'active'",
-          searchPattern);
-      return extractWindowTotal(countResult);
-    });
+    const int total = extractWindowTotal(result);
 
     return buildPaginatedUsersResponse(users, total, page, pageSize);
 

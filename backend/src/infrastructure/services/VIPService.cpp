@@ -39,6 +39,47 @@ bool isLegacyPermanentVip(const std::time_t expiresAt) {
 bool isVipActiveByExpiry(const std::time_t expiresAt) {
     return isLegacyPermanentVip(expiresAt) || expiresAt > std::time(nullptr);
 }
+
+bool resolveVipPrivilege(
+    const drogon::orm::DbClientPtr& dbClient,
+    const std::string& userId,
+    const std::string& privilegeKey
+) {
+    auto userResult = dbClient->execSqlSync(
+        "SELECT vip_level, vip_expires_at FROM users WHERE user_id = $1",
+        userId
+    );
+
+    if (userResult.empty()) {
+        return false;
+    }
+
+    const auto vipLevel = userResult[0]["vip_level"].as<int>();
+    if (vipLevel == 0) {
+        return false;
+    }
+
+    if (!userResult[0]["vip_expires_at"].isNull()) {
+        const auto expiresAt = userResult[0]["vip_expires_at"].as<std::time_t>();
+        if (!isVipActiveByExpiry(expiresAt)) {
+            return false;
+        }
+    }
+
+    auto privilegeResult = dbClient->execSqlSync(
+        "SELECT vip_level_required, is_active FROM vip_privileges WHERE privilege_key = $1",
+        privilegeKey
+    );
+
+    if (privilegeResult.empty()) {
+        LOG_WARN << "Unknown privilege key: " << privilegeKey;
+        return false;
+    }
+
+    const bool isActive = privilegeResult[0]["is_active"].as<bool>();
+    const int requiredLevel = privilegeResult[0]["vip_level_required"].as<int>();
+    return isActive && (vipLevel >= requiredLevel);
+}
 }  // namespace
 
 bool VIPService::checkEmotionAndGrantVIP(
@@ -75,21 +116,18 @@ bool VIPService::checkEmotionAndGrantVIP(
         );
 
         if (percentileResult.size() == 0 || percentileResult[0]["p20"].isNull()) {
-            LOG_WARN << "Cannot calculate emotion percentile, using default threshold";
-            // 使用默认阈值
-            if (emotionScore >= -0.3f) {
-                return false;
-            }
-        } else {
-            float p20Threshold = percentileResult[0]["p20"].as<float>();
-            LOG_DEBUG << "Emotion 20% percentile threshold: " << p20Threshold;
+            LOG_ERROR << "Cannot calculate emotion percentile for VIP auto grant";
+            return false;
+        }
 
-            // 如果用户情绪值不在最低20%，不发放VIP
-            if (emotionScore > p20Threshold) {
-                LOG_DEBUG << "User " << userId << " emotion score " << emotionScore
-                         << " is above 20% threshold " << p20Threshold;
-                return false;
-            }
+        float p20Threshold = percentileResult[0]["p20"].as<float>();
+        LOG_DEBUG << "Emotion 20% percentile threshold: " << p20Threshold;
+
+        // 如果用户情绪值不在最低20%，不发放VIP
+        if (emotionScore > p20Threshold) {
+            LOG_DEBUG << "User " << userId << " emotion score " << emotionScore
+                     << " is above 20% threshold " << p20Threshold;
+            return false;
         }
 
         // 3. 发放VIP（30天有效期）
@@ -133,45 +171,7 @@ bool VIPService::hasPrivilege(
     auto dbClient = app().getDbClient();
 
     try {
-        // 查询用户VIP等级
-        auto userResult = dbClient->execSqlSync(
-            "SELECT vip_level, vip_expires_at FROM users WHERE user_id = $1",
-            userId
-        );
-
-        if (userResult.size() == 0) {
-            return false;
-        }
-
-        int vipLevel = userResult[0]["vip_level"].as<int>();
-
-        // 检查VIP是否过期
-        if (!userResult[0]["vip_expires_at"].isNull()) {
-            auto expiresAt = userResult[0]["vip_expires_at"].as<std::time_t>();
-            if (!isVipActiveByExpiry(expiresAt)) {
-                return false;  // VIP已过期
-            }
-        }
-
-        if (vipLevel == 0) {
-            return false;  // 不是VIP
-        }
-
-        // 查询特权所需等级
-        auto privilegeResult = dbClient->execSqlSync(
-            "SELECT vip_level_required, is_active FROM vip_privileges WHERE privilege_key = $1",
-            privilegeKey
-        );
-
-        if (privilegeResult.size() == 0) {
-            LOG_WARN << "Unknown privilege key: " << privilegeKey;
-            return false;
-        }
-
-        bool isActive = privilegeResult[0]["is_active"].as<bool>();
-        int requiredLevel = privilegeResult[0]["vip_level_required"].as<int>();
-
-        return isActive && (vipLevel >= requiredLevel);
+        return resolveVipPrivilege(dbClient, userId, privilegeKey);
     } catch (const std::exception& e) {
         LOG_ERROR << "Error checking privilege for user " << userId << ": " << e.what();
         return false;
@@ -487,7 +487,7 @@ bool VIPService::checkAndRecordPrivilegeUsage(
 
     try {
         // 1. 检查用户是否有该权益
-        if (!hasPrivilege(userId, privilegeKey)) {
+        if (!resolveVipPrivilege(dbClient, userId, privilegeKey)) {
             return false;
         }
 
@@ -553,7 +553,7 @@ float VIPService::getAICommentFrequency(const std::string& userId) {
 
     try {
         // 检查用户是否是VIP
-        if (!hasPrivilege(userId, "ai_comment_frequent")) {
+        if (!resolveVipPrivilege(dbClient, userId, "ai_comment_frequent")) {
             // 普通用户：2小时一次
             return 2.0f;
         }
@@ -562,7 +562,7 @@ float VIPService::getAICommentFrequency(const std::string& userId) {
         return 0.5f;
     } catch (const std::exception& e) {
         LOG_ERROR << "Error getting AI comment frequency for user " << userId << ": " << e.what();
-        return 2.0f;  // 默认返回普通用户频率
+        throw;
     }
 }
 
@@ -571,7 +571,7 @@ bool VIPService::hasFreeCounselingQuota(const std::string& userId) {
 
     try {
         // 1. 检查用户是否有免费咨询权益
-        if (!hasPrivilege(userId, "free_counseling")) {
+        if (!resolveVipPrivilege(dbClient, userId, "free_counseling")) {
             return false;
         }
 

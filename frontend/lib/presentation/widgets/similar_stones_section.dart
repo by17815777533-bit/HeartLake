@@ -45,6 +45,18 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
     super.dispose();
   }
 
+  String _resolveErrorMessage(Object error, String fallback) {
+    final message = error.toString().trim();
+    if (message.isEmpty) return fallback;
+    if (message.startsWith('Bad state: ')) {
+      return message.substring('Bad state: '.length).trim();
+    }
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length).trim();
+    }
+    return message;
+  }
+
   Future<void> _loadSimilarStones() async {
     if (mounted) {
       setState(() {
@@ -72,8 +84,12 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
       );
       if (mounted) {
         setState(() {
+          _similarStones = [];
           _loading = false;
-          _errorMessage = '共鸣之石加载失败，请稍后重试';
+          _errorMessage = _resolveErrorMessage(
+            e,
+            '共鸣之石加载失败，请稍后重试',
+          );
         });
       }
     }
@@ -121,38 +137,6 @@ class _SimilarStonesSectionState extends State<SimilarStonesSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F3EC),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE4D6C3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 18, color: Color(0xFF9C6B3F)),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      '共鸣之石暂未更新，当前展示上次成功结果',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF6A5A4A),
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _loadSimilarStones,
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            ),
-          ),
         // 标题 - 星光连线风格
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
