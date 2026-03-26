@@ -264,11 +264,23 @@ class ApiClient {
       }
       completer.complete(false);
       return false;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'api_client',
+          context: ErrorDescription('while refreshing unauthorized session'),
+        ),
+      );
+      if (!_hasTriggeredUnauthorized) {
+        _hasTriggeredUnauthorized = true;
+        _onUnauthorized?.call();
+      }
       if (!completer.isCompleted) {
         completer.complete(false);
       }
-      rethrow;
+      return false;
     } finally {
       _refreshCompleter = null;
     }

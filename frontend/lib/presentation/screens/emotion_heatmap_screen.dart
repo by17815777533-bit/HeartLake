@@ -141,13 +141,7 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
         if (rawData is! Map) {
           throw StateError('Emotion heatmap days payload is not a map');
         }
-        final parsed = <String, Map<String, dynamic>>{};
-        for (final entry in rawData.entries) {
-          if (entry.value is Map) {
-            parsed[entry.key.toString()] = Map<String, dynamic>.from(
-                (entry.value as Map).cast<String, dynamic>());
-          }
-        }
+        final parsed = _normalizeHeatmapDays(rawData);
         setState(() {
           _heatmapData = parsed;
           _insights = _generateInsights(parsed);
@@ -189,6 +183,66 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     }
   }
 
+  Map<String, Map<String, dynamic>> _normalizeHeatmapDays(Map rawData) {
+    final parsed = <String, Map<String, dynamic>>{};
+    for (final entry in rawData.entries) {
+      if (entry.value is! Map) {
+        continue;
+      }
+      final dayData = Map<String, dynamic>.from(
+          (entry.value as Map).cast<String, dynamic>());
+      final mood = _normalizeMood(dayData['mood']);
+      final score = _extractNormalizedScore(dayData);
+      final rawScore = _extractSentimentScore(dayData);
+      if (mood == null && score == null && rawScore == null) {
+        continue;
+      }
+      if (mood != null) {
+        dayData['mood'] = mood;
+      }
+      if (score != null) {
+        dayData['score'] = score;
+      }
+      if (rawScore != null) {
+        dayData['raw_score'] = rawScore;
+      }
+      parsed[entry.key.toString()] = dayData;
+    }
+    return parsed;
+  }
+
+  String? _normalizeMood(dynamic mood) {
+    final text = mood?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+    return text;
+  }
+
+  double? _extractNormalizedScore(Map<String, dynamic> dayData) {
+    final score = dayData['score'];
+    if (score is num) {
+      return score.toDouble().clamp(0.0, 1.0);
+    }
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return ((rawScore.toDouble().clamp(-1.0, 1.0) + 1) / 2).clamp(0.0, 1.0);
+    }
+    return null;
+  }
+
+  double? _extractSentimentScore(Map<String, dynamic> dayData) {
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return rawScore.toDouble().clamp(-1.0, 1.0);
+    }
+    final score = dayData['score'];
+    if (score is num) {
+      return (score.toDouble().clamp(0.0, 1.0) * 2 - 1).clamp(-1.0, 1.0);
+    }
+    return null;
+  }
+
   /// 根据热力图数据生成情绪洞察文案
   ///
   /// 分析维度：近7天均值趋势、连续积极天数、一周中情绪最佳的星期几
@@ -205,7 +259,9 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final dayData = data[key];
       if (dayData != null) {
-        recentTotal += (dayData['score'] ?? 0.5) as num;
+        final score = _extractNormalizedScore(dayData);
+        if (score == null) continue;
+        recentTotal += score;
         recentCount++;
       }
     }
@@ -226,7 +282,8 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
       final key =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final dayData = data[key];
-      if (dayData != null && (dayData['score'] as num? ?? 0) >= 0.6) {
+      final score = dayData != null ? _extractNormalizedScore(dayData) : null;
+      if (score != null && score >= 0.6) {
         positiveStreak++;
       } else {
         break;
@@ -240,8 +297,11 @@ class _EmotionHeatmapScreenState extends State<EmotionHeatmapScreen> {
     for (final entry in data.entries) {
       try {
         final date = DateTime.parse(entry.key);
-        final score = (entry.value['score'] ?? 0.5) as num;
-        weekdayScores.putIfAbsent(date.weekday, () => []).add(score.toDouble());
+        final score = _extractNormalizedScore(entry.value);
+        if (score == null) {
+          continue;
+        }
+        weekdayScores.putIfAbsent(date.weekday, () => []).add(score);
       } catch (error, stackTrace) {
         _reportUiError(
           error,

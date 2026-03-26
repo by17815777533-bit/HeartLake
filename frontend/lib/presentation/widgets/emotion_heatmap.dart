@@ -89,28 +89,42 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
     final mood = dayData['mood'] as String?;
     final moodType = mood != null
         ? MoodColors.fromString(mood)
-        : MoodColors.fromSentimentScore(sentimentScore);
+        : sentimentScore != null
+            ? MoodColors.fromSentimentScore(sentimentScore)
+            : null;
+    if (moodType == null) return Colors.grey.shade200;
 
     final config = MoodColors.getConfig(moodType);
+    if (score == null) {
+      return config.primary;
+    }
     // 用 score 控制饱和度
     final intensity = score.clamp(0.2, 1.0);
     return Color.lerp(Colors.grey.shade100, config.primary, intensity)!;
   }
 
-  double _normalizedScore(Map<String, dynamic> dayData) {
+  double? _normalizedScore(Map<String, dynamic> dayData) {
     final score = dayData['score'];
     if (score is num) {
       return score.toDouble().clamp(0.0, 1.0);
     }
-    return 0.5;
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return ((rawScore.toDouble().clamp(-1.0, 1.0) + 1) / 2).clamp(0.0, 1.0);
+    }
+    return null;
   }
 
-  double _sentimentScore(Map<String, dynamic> dayData) {
+  double? _sentimentScore(Map<String, dynamic> dayData) {
     final rawScore = dayData['raw_score'];
     if (rawScore is num) {
       return rawScore.toDouble().clamp(-1.0, 1.0);
     }
-    return (_normalizedScore(dayData) * 2 - 1).clamp(-1.0, 1.0);
+    final score = _normalizedScore(dayData);
+    if (score == null) {
+      return null;
+    }
+    return (score * 2 - 1).clamp(-1.0, 1.0);
   }
 
   /// 格式化日期为 YYYY-MM-DD
@@ -400,7 +414,18 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
     final mood = dayData['mood'] as String?;
     final moodType = mood != null
         ? MoodColors.fromString(mood)
-        : MoodColors.fromSentimentScore(sentimentScore);
+        : sentimentScore != null
+            ? MoodColors.fromSentimentScore(sentimentScore)
+            : null;
+    if (moodType == null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          '$_hoveredDate · 记录不完整',
+          style: const TextStyle(fontSize: 12, color: AppTheme.textTertiary),
+        ),
+      );
+    }
     final config = MoodColors.getConfig(moodType);
 
     return Container(
@@ -431,7 +456,7 @@ class _EmotionHeatmapState extends State<EmotionHeatmap>
           ),
           const SizedBox(width: 8),
           Text(
-            '${(score * 100).toInt()}%',
+            score != null ? '${(score * 100).toInt()}%' : '未提供指数',
             style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
         ],

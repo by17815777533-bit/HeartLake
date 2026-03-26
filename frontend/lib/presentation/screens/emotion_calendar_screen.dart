@@ -213,11 +213,70 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
       final value = entry.value;
       if (value is Map) {
         final dayData = Map<String, dynamic>.from(value);
-        dayData['mood'] ??= _pickDominantMood(dayData['moods']);
+        final resolvedMood = _normalizeMood(dayData['mood']) ??
+            _pickDominantMood(dayData['moods']);
+        final score = _extractNormalizedScore(dayData);
+        final rawScore = _extractSentimentScore(dayData);
+        if (resolvedMood == null && score == null && rawScore == null) {
+          continue;
+        }
+        if (resolvedMood != null) {
+          dayData['mood'] = resolvedMood;
+        }
+        if (score != null) {
+          dayData['score'] = score;
+        }
+        if (rawScore != null) {
+          dayData['raw_score'] = rawScore;
+        }
         normalized[dayKey] = dayData;
       }
     }
     return normalized;
+  }
+
+  String? _normalizeMood(dynamic mood) {
+    final text = mood?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+    return text;
+  }
+
+  double? _extractNormalizedScore(Map<String, dynamic> dayData) {
+    final score = dayData['score'];
+    if (score is num) {
+      return score.toDouble().clamp(0.0, 1.0);
+    }
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return ((rawScore.toDouble().clamp(-1.0, 1.0) + 1) / 2).clamp(0.0, 1.0);
+    }
+    return null;
+  }
+
+  double? _extractSentimentScore(Map<String, dynamic> dayData) {
+    final rawScore = dayData['raw_score'];
+    if (rawScore is num) {
+      return rawScore.toDouble().clamp(-1.0, 1.0);
+    }
+    final score = dayData['score'];
+    if (score is num) {
+      return (score.toDouble().clamp(0.0, 1.0) * 2 - 1).clamp(-1.0, 1.0);
+    }
+    return null;
+  }
+
+  MoodType? _resolveMoodType(Map<String, dynamic> dayData) {
+    final mood = _normalizeMood(dayData['mood']);
+    if (mood != null) {
+      return MoodColors.fromString(mood);
+    }
+    final rawScore = _extractSentimentScore(dayData);
+    if (rawScore == null) {
+      return null;
+    }
+    return MoodColors.fromSentimentScore(rawScore);
   }
 
   /// 从 moods 分布中选出出现次数最多的情绪类型
@@ -455,7 +514,11 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
           _statItem(
               '${stats['sad']}', '低落', MoodColors.getConfig(MoodType.sad).icon),
           _statItem(
-              '${stats['avg'].toStringAsFixed(0)}%', '平均', Icons.analytics),
+              stats['avg'] is num
+                  ? '${(stats['avg'] as num).toStringAsFixed(0)}%'
+                  : '--',
+              '平均',
+              Icons.analytics),
         ],
       ),
     );
@@ -486,7 +549,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
     double total = 0;
     int count = 0;
     for (var entry in _emotionData.entries) {
-      final score = (entry.value['score'] ?? 0.5) as num;
+      if (entry.value is! Map<String, dynamic>) continue;
+      final score = _extractNormalizedScore(entry.value);
+      if (score == null) continue;
       total += score;
       count++;
       if (score >= 0.7) {
@@ -501,7 +566,7 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
       'happy': happy,
       'calm': calm,
       'sad': sad,
-      'avg': count > 0 ? (total / count) * 100 : 50
+      'avg': count > 0 ? (total / count) * 100 : null
     };
     return _cachedStats!;
   }
@@ -551,20 +616,23 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
           final day = index - startWeekday + 1;
           final dateKey = '$day';
           final emotion = _emotionData[dateKey];
-          final score = (emotion?['score'] ?? 0.5) as num;
-          final mood = emotion?['mood'] as String?;
+          final score = emotion is Map<String, dynamic>
+              ? _extractNormalizedScore(emotion)
+              : null;
+          final moodType = emotion is Map<String, dynamic>
+              ? _resolveMoodType(emotion)
+              : null;
           final isToday = _currentMonth.year == today.year &&
               _currentMonth.month == today.month &&
               day == today.day;
-          final moodType = mood != null
-              ? MoodColors.fromString(mood)
-              : MoodColors.fromSentimentScore(score.toDouble());
-          final config = MoodColors.getConfig(moodType);
-          final hasData = emotion != null;
+          final hasData = emotion is Map<String, dynamic> && moodType != null;
+          final config = MoodColors.getConfig(moodType ?? MoodType.neutral);
 
           final rippleColor = hasData
-              ? Color.lerp(
-                  _kRippleColorLow, _kRippleColorHigh, score.toDouble())!
+              ? (score != null
+                  ? Color.lerp(
+                      _kRippleColorLow, _kRippleColorHigh, score.toDouble())!
+                  : config.primary)
               : (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
           return FadeTransition(
             opacity: Tween<double>(begin: 0, end: 1).animate(
@@ -645,11 +713,11 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
 
   /// 弹出指定日期的情绪详情 BottomSheet，展示情绪图标、名称、描述和指数
   void _showDayDetail(int day, Map<String, dynamic> emotion) {
-    final score = (emotion['score'] ?? 0.5) as num;
-    final mood = emotion['mood'] as String?;
-    final moodType = mood != null
-        ? MoodColors.fromString(mood)
-        : MoodColors.fromSentimentScore(score.toDouble());
+    final score = _extractNormalizedScore(emotion);
+    final moodType = _resolveMoodType(emotion);
+    if (moodType == null) {
+      return;
+    }
     final config = MoodColors.getConfig(moodType);
 
     showModalBottomSheet(
@@ -698,7 +766,10 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
               decoration: BoxDecoration(
                   color: config.cardColor,
                   borderRadius: BorderRadius.circular(20)),
-              child: Text('情绪指数: ${(score * 100).toInt()}%',
+              child: Text(
+                  score != null
+                      ? '情绪指数: ${(score * 100).toInt()}%'
+                      : '情绪指数: 未提供',
                   style: TextStyle(
                       color: config.textColor, fontWeight: FontWeight.w500)),
             ),
@@ -721,7 +792,9 @@ class _EmotionCalendarScreenState extends State<EmotionCalendarScreen>
       if (day.month == _currentMonth.month) {
         final data = _emotionData['${day.day}'];
         if (data != null) {
-          weekTotal += (data['score'] ?? 0.5) as num;
+          final score = _extractNormalizedScore(data);
+          if (score == null) continue;
+          weekTotal += score;
           weekCount++;
         }
       }

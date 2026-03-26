@@ -77,7 +77,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
           _showOnlineStatus =
               _asBool(data['show_online_status'], fallback: true);
           _allowStrangerBoat = _asBool(
-            data['allow_message_from_stranger'] ?? data['allow_stranger_boat'],
+            data['allow_message_from_stranger'],
             fallback: true,
           );
           _showProfileToStranger = visibility != 'private';
@@ -113,7 +113,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       'profile_visibility': visibility,
       'show_online_status': _showOnlineStatus,
       'allow_message_from_stranger': _allowStrangerBoat,
-      'allow_stranger_boat': _allowStrangerBoat,
     };
   }
 

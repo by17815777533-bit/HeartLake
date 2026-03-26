@@ -198,7 +198,11 @@ class AuthService extends BaseService implements AuthDataSource {
   /// 检查本地是否存有有效token。
   Future<bool> isLoggedIn() async {
     final token = await StorageUtil.getToken();
-    return token != null;
+    final userId = await StorageUtil.getUserId();
+    return token != null &&
+        token.trim().isNotEmpty &&
+        userId != null &&
+        userId.trim().isNotEmpty;
   }
 
   /// 退出登录
@@ -226,25 +230,45 @@ class AuthService extends BaseService implements AuthDataSource {
     if (!response.success) return toMap(response);
 
     final data = response.data;
-    if (data != null && data['token'] != null) {
-      final resolvedUserId =
-          (data['user_id'] as String?) ?? await StorageUtil.getUserId() ?? '';
-      await _saveAuthData(
-        token: data['token'],
-        userId: resolvedUserId,
-        refreshToken: data['refresh_token'] ?? refreshTk,
-        sessionId: data['session_id'] as String?,
-        isAnonymous: await StorageUtil.getIsAnonymous(),
-      );
+    if (data is! Map<String, dynamic>) {
+      return {
+        'success': false,
+        'message': '刷新令牌响应格式错误',
+      };
     }
+
+    final token = data['token']?.toString().trim();
+    if (token == null || token.isEmpty) {
+      return {
+        'success': false,
+        'message': '刷新令牌响应缺少 token',
+      };
+    }
+
+    final storedUserId = await StorageUtil.getUserId();
+    final resolvedUserId = data['user_id']?.toString().trim() ?? storedUserId;
+    if (resolvedUserId == null || resolvedUserId.isEmpty) {
+      return {
+        'success': false,
+        'message': '刷新令牌响应缺少 user_id',
+      };
+    }
+
+    await _saveAuthData(
+      token: token,
+      userId: resolvedUserId,
+      refreshToken: data['refresh_token']?.toString() ?? refreshTk,
+      sessionId: data['session_id']?.toString(),
+      isAnonymous: await StorageUtil.getIsAnonymous(),
+    );
     return {
       'success': true,
-      'token': data?['token'],
-      'refresh_token': data?['refresh_token'] ?? refreshTk,
-      'refresh_expires_at': data?['refresh_expires_at'],
-      'user_id': data?['user_id'],
-      'session_id': data?['session_id'],
-      'expires_at': data?['expires_at'],
+      'token': token,
+      'refresh_token': data['refresh_token'] ?? refreshTk,
+      'refresh_expires_at': data['refresh_expires_at'],
+      'user_id': resolvedUserId,
+      'session_id': data['session_id'],
+      'expires_at': data['expires_at'],
     };
   }
 

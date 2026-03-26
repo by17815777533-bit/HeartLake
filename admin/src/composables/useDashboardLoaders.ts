@@ -114,6 +114,13 @@ export function useDashboardLoaders({
     delete loaderIssues[key]
   }
 
+  const requireDashboardApi = <T>(fn: T | undefined, name: string): T => {
+    if (fn == null) {
+      throw new Error(`缺少 ${name} 接口`)
+    }
+    return fn
+  }
+
   const resolveErrorMessage = (error: unknown, fallback: string) => {
     if (error instanceof Error && error.message.trim()) {
       return error.message.trim()
@@ -132,7 +139,8 @@ export function useDashboardLoaders({
     const cached = moodTrendRequests.get(days)
     if (cached) return cached
 
-    const request = Promise.resolve(api.getMoodTrend?.(String(days)) ?? { data: null })
+    const getMoodTrend = requireDashboardApi(api.getMoodTrend, '情绪趋势')
+    const request = Promise.resolve(getMoodTrend(String(days)))
       .then((res) => normalizeDashboardCollection<MoodTrendItem>(res.data, ['trends']))
       .finally(() => {
         moodTrendRequests.delete(days)
@@ -227,6 +235,14 @@ export function useDashboardLoaders({
         if (userGrowthOption.value.series[1]) {
           userGrowthOption.value.series[1].data = createSoftBaseline(counts)
         }
+      } else {
+        userGrowthOption.value.xAxis.data = []
+        userGrowthOption.value.series[0].data = []
+        userGrowthOption.value.series[0].markPoint = { data: [] }
+        userGrowthOption.value.series[0].markLine = { data: [] }
+        if (userGrowthOption.value.series[1]) {
+          userGrowthOption.value.series[1].data = []
+        }
       }
       clearLoaderIssue('growth')
     } catch (e: unknown) {
@@ -240,27 +256,25 @@ export function useDashboardLoaders({
     try {
       const res = await api.getMoodDistribution()
       const list = normalizeDashboardCollection<MoodDistributionItem>(res.data, ['moods'])
-      if (list.length) {
-        moodDistributionOption.value.series[0].data = list.map(
-          (item: MoodDistributionItem, i: number) => ({
-            name: item.mood_type || item.mood,
-            value: item.count,
-            itemStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 1,
-                y2: 1,
-                colorStops: [
-                  { offset: 0, color: moodGradients[i % moodGradients.length].start },
-                  { offset: 1, color: moodGradients[i % moodGradients.length].end },
-                ],
-              },
+      moodDistributionOption.value.series[0].data = list.map(
+        (item: MoodDistributionItem, i: number) => ({
+          name: item.mood_type || item.mood,
+          value: item.count,
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 1,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: moodGradients[i % moodGradients.length].start },
+                { offset: 1, color: moodGradients[i % moodGradients.length].end },
+              ],
             },
-          }),
-        )
-      }
+          },
+        }),
+      )
       clearLoaderIssue('moodDistribution')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -287,6 +301,11 @@ export function useDashboardLoaders({
             return found?.count ?? 0
           })
         })
+      } else {
+        moodTrendOption.value.xAxis.data = []
+        moodNames.forEach((_, i) => {
+          moodTrendOption.value.series[i].data = []
+        })
       }
       clearLoaderIssue('moodTrend')
     } catch (e: unknown) {
@@ -298,7 +317,8 @@ export function useDashboardLoaders({
   /** 读取热门话题。 */
   const loadTrendingTopics = async () => {
     try {
-      const res = (await api.getTrendingTopics?.()) || { data: null }
+      const getTrendingTopics = requireDashboardApi(api.getTrendingTopics, '热门话题')
+      const res = await getTrendingTopics()
       const sourceList = normalizeDashboardCollection<
         TrendingTopic & { topic?: string; keyword?: string }
       >(res.data, ['topics'])
@@ -318,11 +338,10 @@ export function useDashboardLoaders({
   /** 读取活跃时段。 */
   const loadActiveTimeStats = async () => {
     try {
-      const res = (await api.getActiveTimeStats?.()) || { data: null }
+      const getActiveTimeStats = requireDashboardApi(api.getActiveTimeStats, '活跃时段')
+      const res = await getActiveTimeStats()
       const list = normalizeDashboardCollection<ActiveTimeItem>(res.data, ['hours'])
-      if (list.length) {
-        activeTimeOption.value.series[0].data = list.map((item: ActiveTimeItem) => item.count)
-      }
+      activeTimeOption.value.series[0].data = list.map((item: ActiveTimeItem) => item.count)
       clearLoaderIssue('activeTime')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -424,6 +443,11 @@ export function useDashboardLoaders({
         emotionTrendsOption.value.series[2].data = dates.map(
           (date) => bucket.get(date)?.negative ?? 0,
         )
+      } else {
+        emotionTrendsOption.value.xAxis.data = []
+        emotionTrendsOption.value.series[0].data = []
+        emotionTrendsOption.value.series[1].data = []
+        emotionTrendsOption.value.series[2].data = []
       }
       clearLoaderIssue('emotionTrends')
     } catch (e: unknown) {
@@ -443,13 +467,9 @@ export function useDashboardLoaders({
         boat_count?: number
       }
 
-      let list: TrendingStonePayload[] = []
-      if (typeof api.getTrendingContent !== 'function') {
-        throw new Error('缺少热门内容接口')
-      }
-
-      const res = await api.getTrendingContent({ limit: 6 })
-      list = normalizeDashboardCollection<TrendingStonePayload>(res?.data, ['trending_stones'])
+      const getTrendingContent = requireDashboardApi(api.getTrendingContent, '高级热门内容')
+      const res = await getTrendingContent({ limit: 6 })
+      const list = normalizeDashboardCollection<TrendingStonePayload>(res.data, ['trending_stones'])
 
       const maxScore = Math.max(
         1,

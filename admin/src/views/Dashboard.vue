@@ -84,7 +84,7 @@
         <div class="spending-stage">
           <span class="spending-badge">{{ spendingPeakLabel }}</span>
 
-          <div class="spending-bars">
+          <div v-if="spendingColumns.length" class="spending-bars">
             <article
               v-for="item in spendingColumns"
               :key="item.label"
@@ -96,6 +96,9 @@
               </div>
               <small>{{ item.label }}</small>
             </article>
+          </div>
+          <div v-else class="dashboard-card__empty">
+            当前窗口没有有效增长数据，未再展示历史占位柱形。
           </div>
         </div>
       </article>
@@ -109,7 +112,7 @@
           <button type="button" class="text-action" @click="jumpToContent">查看全部</button>
         </div>
 
-        <div class="transaction-list">
+        <div v-if="activityRows.length" class="transaction-list">
           <article v-for="row in activityRows" :key="row.id" class="transaction-item">
             <div class="transaction-item__icon" :class="row.iconTone">
               {{ row.badge }}
@@ -122,6 +125,9 @@
               {{ row.amount }}
             </div>
           </article>
+        </div>
+        <div v-else class="dashboard-card__empty">
+          当前没有可展示的动态内容，未再回退成统计概览卡片。
         </div>
       </article>
 
@@ -285,13 +291,9 @@ const highlightCards = computed(() => [
 ])
 
 const spendingColumns = computed(() => {
-  const defaultLabels = ['6月', '7月', '8月', '9月', '10月', '11月', '12月']
-  const sourceValues = growthValues.value.length
-    ? growthValues.value.slice(-7)
-    : [64, 48, 46, 76, 40, 84, 34]
-  const sourceLabels = growthLabels.value.length
-    ? growthLabels.value.slice(-7).map((item) => formatCompactDate(item))
-    : defaultLabels
+  const sourceValues = growthValues.value.slice(-7)
+  const sourceLabels = growthLabels.value.slice(-7).map((item) => formatCompactDate(item))
+  if (!sourceValues.length || !sourceLabels.length) return []
   const max = Math.max(...sourceValues, 1)
   const peakValue = Math.max(...sourceValues)
   const peakIndex = sourceValues.indexOf(peakValue)
@@ -308,7 +310,7 @@ const spendingPeakLabel = computed(() => {
   const peak = spendingColumns.value.find((item) => item.isPeak) || spendingColumns.value[0]
   return peak
     ? `近 ${chartRange.value} 天最高单日新增 ${formatNumber(peak.value)} 位`
-    : '暂无新增波峰'
+    : `近 ${chartRange.value} 天暂无有效增长数据`
 })
 
 const activityRows = computed(() => {
@@ -343,53 +345,7 @@ const activityRows = computed(() => {
     }))
   }
 
-  return [
-    {
-      id: 'traveler-count',
-      badge: '旅',
-      title: '累计旅人',
-      meta: '当前账户池',
-      amount: `${formattedTravelerCount.value} 位`,
-      tone: 'is-neutral',
-      iconTone: 'is-blue',
-    },
-    {
-      id: 'online-count',
-      badge: '活',
-      title: '在线陪伴',
-      meta: '湖面实时活跃',
-      amount: `${formatNumber(Number(stats.onlineCount || 0))} 人`,
-      tone: 'is-positive',
-      iconTone: 'is-mint',
-    },
-    {
-      id: 'report-count',
-      badge: '报',
-      title: '待处理提醒',
-      meta: '守护队列待办',
-      amount: `${formatNumber(Number(stats.pendingReports || 0))} 项`,
-      tone: 'is-negative',
-      iconTone: 'is-blue',
-    },
-    {
-      id: 'stone-count',
-      badge: '石',
-      title: '今日投石',
-      meta: '公开表达条数',
-      amount: `${formatNumber(Number(stats.todayStones || 0))} 条`,
-      tone: 'is-positive',
-      iconTone: 'is-mint',
-    },
-    {
-      id: 'weather-state',
-      badge: lakeWeather.value.label.charAt(0),
-      title: `湖面${lakeWeather.value.label}`,
-      meta: lakeWeather.value.desc,
-      amount: formattedHeatIndex.value,
-      tone: 'is-neutral',
-      iconTone: 'is-blue',
-    },
-  ]
+  return []
 })
 
 const guideCopy = computed(() => {
@@ -422,10 +378,7 @@ const guideHeadline = computed(() => {
 
 const trendPeakInfo = computed(() => {
   if (!growthLabels.value.length || !growthValues.value.length) {
-    return {
-      dateLabel: `${chartRange.value}天窗口`,
-      valueLabel: `${formatNumber(Number(stats.totalUsers || 0))} 位`,
-    }
+    return null
   }
 
   const peakValue = Math.max(...growthValues.value)
@@ -439,7 +392,7 @@ const trendPeakInfo = computed(() => {
 const guidePulseValue = computed(() => `${communityScore.value} 分`)
 const guidePulseNote = computed(
   () =>
-    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 峰值 ${trendPeakInfo.value.valueLabel} · 最近刷新 ${lastUpdateTime.value}`,
+    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · ${trendPeakInfo.value ? `峰值 ${trendPeakInfo.value.valueLabel}` : '峰值未加载'} · 最近刷新 ${lastUpdateTime.value}`,
 )
 
 const guideSignals = computed(() => {
@@ -449,8 +402,10 @@ const guideSignals = computed(() => {
   return [
     {
       label: '峰值窗口',
-      badge: trendPeakInfo.value.dateLabel,
-      note: `最近高点 ${trendPeakInfo.value.valueLabel}，适合回看节律是否突增。`,
+      badge: trendPeakInfo.value?.dateLabel || '未加载',
+      note: trendPeakInfo.value
+        ? `最近高点 ${trendPeakInfo.value.valueLabel}，适合回看节律是否突增。`
+        : '增长曲线还没有有效数据，当前不再展示伪造峰值。',
     },
     pendingCount > 0
       ? {
@@ -468,10 +423,14 @@ const guideSignals = computed(() => {
   ]
 })
 
-const trendHeadline = computed(() => `峰值 ${trendPeakInfo.value.valueLabel}`)
+const trendHeadline = computed(() =>
+  trendPeakInfo.value ? `峰值 ${trendPeakInfo.value.valueLabel}` : '暂无有效波峰数据',
+)
 const trendChipLabel = computed(() => `近 ${chartRange.value} 天`)
-const trendContext = computed(
-  () => `峰值日 ${trendPeakInfo.value.dateLabel} · 最近刷新 ${lastUpdateTime.value}`,
+const trendContext = computed(() =>
+  trendPeakInfo.value
+    ? `峰值日 ${trendPeakInfo.value.dateLabel} · 最近刷新 ${lastUpdateTime.value}`
+    : `最近刷新 ${lastUpdateTime.value}`,
 )
 
 const creditScoreValue = computed(() => communityScore.value)
@@ -628,6 +587,20 @@ onUnmounted(() => {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.96),
     0 22px 42px rgba(105, 131, 183, 0.1);
+}
+
+.dashboard-card__empty {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px dashed rgba(130, 152, 186, 0.24);
+  color: #627684;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.36);
 }
 
 .dashboard-card--overview {

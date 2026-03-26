@@ -84,14 +84,6 @@ class AccountService extends BaseService {
       if (data['items'] == null && blockedUsers is List) {
         data['items'] = blockedUsers;
       }
-      final allowStranger = data['allow_message_from_stranger'] ??
-          data['allow_stranger_boat'] ??
-          data['allow_stranger_message'];
-      if (allowStranger != null) {
-        data['allow_message_from_stranger'] = allowStranger;
-        data['allow_stranger_boat'] = allowStranger;
-        data['allow_stranger_message'] = allowStranger;
-      }
       normalized['data'] = data;
     }
     return normalized;
@@ -204,13 +196,11 @@ class AccountService extends BaseService {
     return item;
   }
 
-  /// 隐私设置白名单，仅保留当前后端真实支持的字段与必要别名。
+  /// 隐私设置白名单，仅保留当前后端真实支持的字段。
   static const _allowedPrivacyKeys = [
     'profile_visibility',
     'show_online_status',
     'allow_message_from_stranger',
-    'allow_stranger_boat',
-    'allow_stranger_message',
   ];
 
   /// 个人资料白名单，限制可修改的字段范围
@@ -307,7 +297,7 @@ class AccountService extends BaseService {
   /// 返回当前用户的隐私设置配置。
   Future<Map<String, dynamic>> getPrivacySettings() async {
     final response = await get('/account/privacy');
-    return _normalizeResponseWithFallbackData(response);
+    return _normalizePayload(toMap(response));
   }
 
   /// 更新隐私设置
@@ -318,16 +308,8 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> updatePrivacySettings(
       Map<String, dynamic> settings) async {
     settings = InputValidator.validateMapKeys(settings, _allowedPrivacyKeys);
-    final allowStranger = settings['allow_message_from_stranger'] ??
-        settings['allow_stranger_message'] ??
-        settings['allow_stranger_boat'];
-    if (allowStranger != null) {
-      settings['allow_message_from_stranger'] = allowStranger;
-      settings['allow_stranger_message'] = allowStranger;
-      settings['allow_stranger_boat'] = allowStranger;
-    }
     final response = await put('/account/privacy', data: settings);
-    return _normalizeResponseWithFallbackData(response, fallbackData: settings);
+    return _normalizePayload(toMap(response));
   }
 
   /// 获取黑名单列表
@@ -403,7 +385,8 @@ class AccountService extends BaseService {
 
     final payload = response.data is Map
         ? _normalizeExportTaskPayload(
-            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+            Map<String, dynamic>.from(
+                (response.data as Map).cast<String, dynamic>()),
           )
         : const <String, dynamic>{};
     return {
@@ -468,7 +451,8 @@ class AccountService extends BaseService {
 
     final payload = response.data is Map
         ? _normalizeExportTaskPayload(
-            Map<String, dynamic>.from((response.data as Map).cast<String, dynamic>()),
+            Map<String, dynamic>.from(
+                (response.data as Map).cast<String, dynamic>()),
           )
         : const <String, dynamic>{};
     return {

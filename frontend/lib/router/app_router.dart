@@ -34,7 +34,6 @@ import '../presentation/screens/user_detail_screen.dart';
 import '../presentation/screens/discover_screen.dart';
 import '../presentation/screens/lake_feed_screen.dart';
 import '../utils/storage_util.dart';
-import '../data/datasources/api_client.dart';
 
 /// 全局navigatorKey
 ///
@@ -243,7 +242,7 @@ GoRouter createRouter() {
 /// 路由守卫
 ///
 /// 控制未登录用户的访问权限。启动页、引导页、认证页始终放行，
-/// 其他页面检查token，无token则重定向到启动页。
+/// 其他页面检查持久化会话，无有效会话则重定向到启动页。
 Future<String?> _routeGuard(BuildContext context, GoRouterState state) async {
   final path = state.matchedLocation;
 
@@ -255,18 +254,25 @@ Future<String?> _routeGuard(BuildContext context, GoRouterState state) async {
   ];
   if (publicPaths.contains(path)) return null;
 
-  String? token;
   try {
-    token = await StorageUtil.getToken();
-  } catch (_) {
-    // Web环境安全存储不可用时，回退到内存态token
-    token = ApiClient().token;
-  }
-
-  token ??= ApiClient().token;
-  if (token == null || token.isEmpty) {
+    final token = await StorageUtil.getToken();
+    final userId = await StorageUtil.getUserId();
+    if (token == null ||
+        token.trim().isEmpty ||
+        userId == null ||
+        userId.trim().isEmpty) {
+      return AppRoutes.splash;
+    }
+    return null;
+  } catch (error, stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'app_router',
+        context: ErrorDescription('while reading persisted auth state'),
+      ),
+    );
     return AppRoutes.splash;
   }
-
-  return null;
 }

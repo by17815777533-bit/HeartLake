@@ -120,29 +120,38 @@ class StoneCardController {
     localRipplesCount++;
     onStateChanged?.call();
 
-    final result = await _interactionService.createRipple(stone.stoneId);
-    if (!result['success']) {
+    try {
+      final result = await _interactionService.createRipple(stone.stoneId);
+      if (!result['success']) {
+        hasRippled = false;
+        if (localRipplesCount > 0) {
+          localRipplesCount--;
+        }
+        onStateChanged?.call();
+        return result;
+      }
+
+      final dynamic serverCount = result['ripple_count'] ??
+          (result['data'] is Map ? result['data']['ripple_count'] : null);
+      if (serverCount is int) {
+        localRipplesCount = serverCount;
+      }
+
+      final alreadyRippled = result['already_rippled'] == true ||
+          (result['data'] is Map && result['data']['already_rippled'] == true);
+      if (alreadyRippled) {
+        hasRippled = true;
+      }
+      onStateChanged?.call();
+      return result;
+    } catch (_) {
       hasRippled = false;
       if (localRipplesCount > 0) {
         localRipplesCount--;
       }
       onStateChanged?.call();
-      return result;
+      rethrow;
     }
-
-    final dynamic serverCount = result['ripple_count'] ??
-        (result['data'] is Map ? result['data']['ripple_count'] : null);
-    if (serverCount is int) {
-      localRipplesCount = serverCount;
-    }
-
-    final alreadyRippled = result['already_rippled'] == true ||
-        (result['data'] is Map && result['data']['already_rippled'] == true);
-    if (alreadyRippled) {
-      hasRippled = true;
-    }
-    onStateChanged?.call();
-    return result;
   }
 
   Future<Map<String, dynamic>> deleteStone() async {

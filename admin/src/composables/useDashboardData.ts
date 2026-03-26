@@ -14,7 +14,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import type { TrendingTopic, TrendingContentItem } from '@/types'
-import { useChartOptions, moodColors, moodNames } from './useChartOptions'
+import { useChartOptions } from './useChartOptions'
 import { useDashboardLoaders } from './useDashboardLoaders'
 
 export function useDashboardData() {
@@ -182,13 +182,7 @@ export function useDashboardData() {
             label: { show: true, fontSize: 12, fontWeight: '600', color: '#1C1B1F' },
             itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.16)' },
           },
-          data: moodData.length
-            ? moodData
-            : moodNames.map((name, i) => ({
-                value: [30, 25, 20, 15, 10][i],
-                name,
-                itemStyle: { color: moodColors[i] },
-              })),
+          data: moodData,
         },
       ],
     }
