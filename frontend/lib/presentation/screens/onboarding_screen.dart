@@ -25,31 +25,58 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
   bool _isNavigating = false;
+  String? _persistError;
 
-  /// 完成引导流程，写入 SharedPreferences 标记并跳转首页
-  ///
-  /// 即使持久化失败也不阻塞用户进入应用
+  /// 完成引导流程，写入 SharedPreferences 标记并跳转首页。
   Future<void> _completeOnboarding() async {
     if (_isNavigating) return;
-    setState(() => _isNavigating = true);
+    setState(() {
+      _isNavigating = true;
+      _persistError = null;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('onboarding_done', true);
       final userId = await StorageUtil.getUserId();
+      final onboardingSaved = await prefs.setBool('onboarding_done', true);
+      if (!onboardingSaved) {
+        throw StateError('failed to persist onboarding_done');
+      }
       if (userId != null && userId.isNotEmpty) {
-        await prefs.setBool('onboarding_done_user_$userId', true);
+        final userOnboardingSaved =
+            await prefs.setBool('onboarding_done_user_$userId', true);
+        if (!userOnboardingSaved) {
+          throw StateError('failed to persist onboarding_done_user_$userId');
+        }
       }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'OnboardingScreen',
+          context: ErrorDescription('while persisting onboarding completion'),
+        ),
+      );
       if (!mounted) return;
-      context.go('/home');
-    } catch (_) {
-      if (!mounted) return;
-      // 即使本地持久化失败，也允许继续进入应用，避免按钮卡死。
-      context.go('/home');
-    } finally {
-      if (mounted) {
-        setState(() => _isNavigating = false);
-      }
+      setState(() {
+        _isNavigating = false;
+        _persistError = '引导状态保存失败，请检查存储后重试';
+      });
+      return;
     }
+    if (!mounted) return;
+    context.go('/home');
+  }
+
+  VoidCallback? _buildPrimaryAction() {
+    if (_isNavigating) return null;
+    if (_currentPage == _pages.length - 1) {
+      return _completeOnboarding;
+    }
+    return () => _controller.nextPage(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
   }
 
   /// 引导页内容数据，每项对应一个滑动页面
@@ -103,7 +130,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Align(
                   alignment: Alignment.topRight,
                   child: TextButton(
-                    onPressed: _completeOnboarding,
+                    onPressed: _isNavigating ? null : _completeOnboarding,
                     child: Text('跳过',
                         style: TextStyle(
                             color: isDark ? Colors.white70 : Colors.white)),
@@ -123,11 +150,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _currentPage == _pages.length - 1
-                          ? _completeOnboarding
-                          : () => _controller.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOut),
+                      onPressed: _buildPrimaryAction(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _pages[_currentPage].color,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -137,6 +160,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
+                if (_persistError != null)
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+                    child: Text(
+                      _persistError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

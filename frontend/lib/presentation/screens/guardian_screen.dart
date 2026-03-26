@@ -86,8 +86,31 @@ class _GuardianScreenState extends State<GuardianScreen>
         });
         return;
       }
+      final normalized = normalizePayloadContract(stats['data'] as Map);
+      const requiredKeys = [
+        'is_guardian',
+        'can_transfer_lamp',
+        'resonance_points',
+        'quality_ripples',
+        'warm_boats',
+      ];
+      final missingKeys =
+          requiredKeys.where((key) => !normalized.containsKey(key)).toList();
+      if (missingKeys.isNotEmpty) {
+        _reportUiError(
+          StateError('守护者统计缺少字段: ${missingKeys.join(', ')}'),
+          StackTrace.current,
+          'GuardianScreen._loadStats',
+        );
+        setState(() {
+          _loading = false;
+          _stats = null;
+          _statsError = '守护者数据不完整，请稍后重试';
+        });
+        return;
+      }
       setState(() {
-        _stats = Map<String, dynamic>.from(stats['data'] as Map);
+        _stats = normalized;
         _loading = false;
         _statsError = null;
       });
@@ -111,9 +134,17 @@ class _GuardianScreenState extends State<GuardianScreen>
       if (mounted) {
         setState(() {
           if (insights['success'] == true && insights['data'] is Map) {
-            _insights = Map<String, dynamic>.from(insights['data'] as Map);
-            _insightsError = null;
+            final normalized =
+                normalizePayloadContract(insights['data'] as Map);
+            if (_hasInsightContent(normalized)) {
+              _insights = normalized;
+              _insightsError = null;
+            } else {
+              _insights = null;
+              _insightsError = '情感洞察数据不完整，请稍后重试';
+            }
           } else {
+            _insights = null;
             _insightsError = insights['message']?.toString().isNotEmpty == true
                 ? insights['message'].toString()
                 : '加载情感洞察失败';
@@ -125,11 +156,34 @@ class _GuardianScreenState extends State<GuardianScreen>
       _reportUiError(error, stackTrace, 'GuardianScreen._loadInsights');
       if (mounted) {
         setState(() {
+          _insights = null;
           _insightsLoading = false;
           _insightsError = '加载情感洞察失败';
         });
       }
     }
+  }
+
+  bool _hasInsightContent(Map<String, dynamic> insights) {
+    final profile = insights['profile'];
+    final longTermProfile = insights['long_term_profile'];
+    final profileMap = profile is Map
+        ? normalizePayloadContract(profile)
+        : const <String, dynamic>{};
+    final longTermMap = longTermProfile is Map
+        ? normalizePayloadContract(longTermProfile)
+        : const <String, dynamic>{};
+    final trend = profileMap['emotion_trend'] ??
+        longTermMap['emotion_trend'] ??
+        insights['emotion_trend'] ??
+        insights['trend'];
+    final summary = insights['summary'] ??
+        insights['emotion_summary'] ??
+        insights['trend_description'];
+    final suggestions = insights['suggestions'] ?? insights['advice'];
+    return trend != null ||
+        summary != null ||
+        (suggestions is List && suggestions.isNotEmpty);
   }
 
   Widget _buildInsightsCard() {
@@ -229,7 +283,6 @@ class _GuardianScreenState extends State<GuardianScreen>
   }
 
   List<Widget> _buildInsightsContent() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final List<Widget> widgets = [];
     final profile = _insights?['profile'] is Map
         ? Map<String, dynamic>.from(_insights!['profile'] as Map)
@@ -314,20 +367,6 @@ class _GuardianScreenState extends State<GuardianScreen>
           ),
         );
       }
-    }
-
-    // 如果没有任何内容，显示默认提示
-    if (widgets.isEmpty) {
-      widgets.add(
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('暂无洞察数据',
-                style: TextStyle(
-                    color: isDark ? const Color(0xFF9AA0A6) : Colors.grey)),
-          ),
-        ),
-      );
     }
 
     return widgets;

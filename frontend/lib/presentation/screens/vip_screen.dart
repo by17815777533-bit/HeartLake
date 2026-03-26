@@ -25,34 +25,31 @@ class _VIPScreenState extends State<VIPScreen>
   static const Color _darkPanelBase = Color(0xFF1A3042);
 
   bool _isLoading = true;
+  bool _hasConfirmedStatus = false;
   bool _hasLight = false;
   int _daysLeft = 0;
+  String? _statusErrorMessage;
   bool _privilegesLoading = true;
+  String? _privilegesErrorMessage;
   List<_PrivilegeItem> _privileges = [];
   late AnimationController _animController;
 
-  Color get _panelBase => _hasLight ? const Color(0xFFFFF3DD) : _darkPanelBase;
+  bool get _isLightActive => _hasConfirmedStatus && _hasLight;
+
+  bool get _isPermanentLight => _isLightActive && _daysLeft <= 0;
+
+  Color get _panelBase =>
+      _isLightActive ? const Color(0xFFFFF3DD) : _darkPanelBase;
 
   Color get _screenBackground =>
-      _hasLight ? const Color(0xFFFFF8EA) : AppTheme.nightDeep;
+      _isLightActive ? const Color(0xFFFFF8EA) : AppTheme.nightDeep;
 
-  Color get _primaryText => _hasLight ? const Color(0xFF5E3D12) : Colors.white;
+  Color get _primaryText =>
+      _isLightActive ? const Color(0xFF5E3D12) : Colors.white;
 
-  Color get _secondaryText => _hasLight
+  Color get _secondaryText => _isLightActive
       ? const Color(0xFF8A6A38)
       : Colors.white.withValues(alpha: 0.74);
-
-  static final List<_PrivilegeItem> _defaultPrivileges = [
-    _PrivilegeItem(
-        Icons.water_drop, '湖神回应', '更高频的温暖回复', const Color(0xFFFFB74D)),
-    _PrivilegeItem(
-        Icons.psychology, '心理咨询', '每月 1 次免费咨询', const Color(0xFF81C784)),
-    _PrivilegeItem(Icons.local_fire_department, '专属灯火', '专属守护标识与提醒',
-        const Color(0xFFFF8A65)),
-    _PrivilegeItem(Icons.people, '优先匹配', '更快匹配可交流伙伴', const Color(0xFF64B5F6)),
-    _PrivilegeItem(
-        Icons.auto_awesome, '专属特效', '解锁灯火主题视觉', const Color(0xFFBA68C8)),
-  ];
 
   static final Map<String, IconData> _iconMap = {
     'water_drop': Icons.water_drop,
@@ -89,60 +86,140 @@ class _VIPScreenState extends State<VIPScreen>
     super.dispose();
   }
 
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
+  String _resolveMessage(
+    Object error, {
+    required String fallback,
+  }) {
+    final message = error.toString().trim();
+    return message.isEmpty ? fallback : message;
+  }
+
+  _PrivilegeItem _parsePrivilegeItem(dynamic raw) {
+    if (raw is! Map) {
+      throw const FormatException('灯火权益项格式错误');
+    }
+
+    final item = Map<String, dynamic>.from(raw.cast<String, dynamic>());
+    final title = item['title']?.toString().trim() ?? '';
+    final desc = item['desc']?.toString().trim() ?? '';
+    if (title.isEmpty || desc.isEmpty) {
+      throw const FormatException('灯火权益项缺少标题或描述');
+    }
+
+    final iconName = item['icon']?.toString() ?? 'star';
+    final colorValue = item['color'];
+    final resolvedColor = colorValue is int
+        ? Color(colorValue)
+        : colorValue is num
+            ? Color(colorValue.toInt())
+            : _warmAccent;
+
+    return _PrivilegeItem(
+      _iconMap[iconName] ?? Icons.star,
+      title,
+      desc,
+      resolvedColor,
+    );
+  }
+
   Future<void> _loadLightData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _statusErrorMessage = null;
+    });
     try {
       final status = await _vipService.getVIPStatus();
-      final payload = (status['data'] is Map<String, dynamic>)
-          ? status['data'] as Map<String, dynamic>
-          : const <String, dynamic>{};
+      if (status['success'] != true) {
+        throw StateError(status['message']?.toString() ?? '加载灯火状态失败');
+      }
+
+      final payload = status['data'];
+      if (payload is! Map<String, dynamic>) {
+        throw const FormatException('灯火状态响应格式错误');
+      }
+
+      final isVip = payload['is_vip'];
+      if (isVip is! bool) {
+        throw const FormatException('灯火状态缺少 is_vip');
+      }
+
+      final daysLeftRaw = payload['days_left'];
+      if (daysLeftRaw != null && daysLeftRaw is! num) {
+        throw const FormatException('灯火状态中的 days_left 非数字');
+      }
+
       if (!mounted) return;
       setState(() {
-        _hasLight = payload['is_vip'] == true;
-        _daysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
+        _hasConfirmedStatus = true;
+        _hasLight = isVip;
+        _daysLeft = (daysLeftRaw as num?)?.toInt() ?? 0;
+        _statusErrorMessage = null;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'loading vip status');
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _statusErrorMessage = _resolveMessage(
+          error,
+          fallback: '加载灯火状态失败，请重试',
+        );
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _loadPrivileges() async {
-    setState(() => _privilegesLoading = true);
+    setState(() {
+      _privilegesLoading = true;
+      _privilegesErrorMessage = null;
+    });
     try {
       final result = await _vipService.getPrivileges();
-      final payload = (result['data'] is Map<String, dynamic>)
-          ? result['data'] as Map<String, dynamic>
-          : const <String, dynamic>{};
-      final List<dynamic> items = payload['privileges'] as List<dynamic>? ?? [];
-      if (!mounted) return;
-
-      if (items.isEmpty) {
-        setState(() {
-          _privileges = _defaultPrivileges;
-          _privilegesLoading = false;
-        });
-        return;
+      if (result['success'] != true) {
+        throw StateError(result['message']?.toString() ?? '加载灯火权益失败');
       }
 
-      setState(() {
-        _privileges = items.map((item) {
-          final iconName = item['icon'] as String? ?? 'star';
-          final colorValue = item['color'] as int? ?? 0xFFFFB74D;
-          return _PrivilegeItem(
-            _iconMap[iconName] ?? Icons.star,
-            item['title'] as String? ?? '',
-            item['desc'] as String? ?? '',
-            Color(colorValue),
-          );
-        }).toList();
-        _privilegesLoading = false;
-      });
-    } catch (_) {
+      final payload = result['data'];
+      if (payload is! Map<String, dynamic>) {
+        throw const FormatException('灯火权益响应格式错误');
+      }
+
+      final items = payload['privileges'];
+      if (items is! List) {
+        throw const FormatException('灯火权益响应缺少 privileges');
+      }
+
+      final privileges = items.map(_parsePrivilegeItem).toList();
       if (!mounted) return;
       setState(() {
-        _privileges = _defaultPrivileges;
+        _privileges = privileges;
+        _privilegesErrorMessage = null;
+        _privilegesLoading = false;
+      });
+    } catch (error, stackTrace) {
+      _reportUiError(error, stackTrace, 'loading vip privileges');
+      if (!mounted) return;
+      setState(() {
+        _privilegesErrorMessage = _resolveMessage(
+          error,
+          fallback: '加载灯火权益失败，请重试',
+        );
         _privilegesLoading = false;
       });
     }
@@ -164,40 +241,78 @@ class _VIPScreenState extends State<VIPScreen>
                 ? const Center(
                     child: CircularProgressIndicator(color: AppTheme.vipGold),
                   )
-                : RefreshIndicator(
-                    onRefresh: _refreshAll,
-                    color: AppTheme.vipGoldDark,
-                    backgroundColor: _hasLight
-                        ? const Color(0xFFFFF7E5)
-                        : const Color(0xFF102131),
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-                      children: [
-                        _buildTopBar(),
-                        if (_hasLight) ...[
-                          const SizedBox(height: 6),
-                          _buildLitBanner(),
-                        ],
-                        const SizedBox(height: 14),
-                        _buildHeroCard(),
-                        const SizedBox(height: 16),
-                        _buildSummaryRow(),
-                        const SizedBox(height: 20),
-                        _buildPrivilegesSection(),
-                        const SizedBox(height: 20),
-                        _buildGuideSection(),
-                      ],
-                    ),
-                  ),
+                : !_hasConfirmedStatus
+                    ? _buildStatusFailureState()
+                    : RefreshIndicator(
+                        onRefresh: _refreshAll,
+                        color: AppTheme.vipGoldDark,
+                        backgroundColor: _isLightActive
+                            ? const Color(0xFFFFF7E5)
+                            : const Color(0xFF102131),
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+                          children: [
+                            _buildTopBar(),
+                            if (_statusErrorMessage != null) ...[
+                              const SizedBox(height: 8),
+                              _buildMessageBanner(
+                                icon: Icons.error_outline,
+                                color: Colors.orangeAccent,
+                                message: _statusErrorMessage!,
+                                onRetry: _loadLightData,
+                              ),
+                            ],
+                            if (_isLightActive) ...[
+                              const SizedBox(height: 6),
+                              _buildLitBanner(),
+                            ],
+                            const SizedBox(height: 14),
+                            _buildHeroCard(),
+                            const SizedBox(height: 16),
+                            _buildSummaryRow(),
+                            const SizedBox(height: 20),
+                            _buildPrivilegesSection(),
+                            const SizedBox(height: 20),
+                            _buildGuideSection(),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildStatusFailureState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _statusErrorMessage ?? '加载灯火状态失败',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _primaryText, fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _refreshAll,
+              style: FilledButton.styleFrom(
+                backgroundColor: _warmAccent,
+                foregroundColor: const Color(0xFF5E3D12),
+              ),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackground() {
-    final backgroundColors = _hasLight
+    final backgroundColors = _isLightActive
         ? const [Color(0xFFFFF5CB), Color(0xFFFFE8B0), Color(0xFFE2F5FF)]
         : const [Color(0xFF142F43), Color(0xFF1B3D56), Color(0xFF172D40)];
 
@@ -211,7 +326,7 @@ class _VIPScreenState extends State<VIPScreen>
       ),
       child: Stack(
         children: [
-          if (_hasLight)
+          if (_isLightActive)
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _animController,
@@ -239,7 +354,9 @@ class _VIPScreenState extends State<VIPScreen>
             right: -80,
             child: _glowCircle(
               300,
-              _hasLight ? const Color(0x90FFE2A8) : const Color(0x2CE8BC72),
+              _isLightActive
+                  ? const Color(0x90FFE2A8)
+                  : const Color(0x2CE8BC72),
             ),
           ),
           Positioned(
@@ -247,10 +364,12 @@ class _VIPScreenState extends State<VIPScreen>
             left: -90,
             child: _glowCircle(
               240,
-              _hasLight ? const Color(0x75BDEBFF) : const Color(0x3043B4E8),
+              _isLightActive
+                  ? const Color(0x75BDEBFF)
+                  : const Color(0x3043B4E8),
             ),
           ),
-          if (_hasLight)
+          if (_isLightActive)
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -300,7 +419,7 @@ class _VIPScreenState extends State<VIPScreen>
           onPressed: () => Navigator.pop(context),
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: _hasLight ? const Color(0xFF7A5A26) : Colors.white,
+            color: _isLightActive ? const Color(0xFF7A5A26) : Colors.white,
           ),
         ),
         Expanded(
@@ -319,7 +438,7 @@ class _VIPScreenState extends State<VIPScreen>
           onPressed: _refreshAll,
           icon: Icon(
             Icons.refresh_rounded,
-            color: _hasLight ? const Color(0xFF8A6A38) : Colors.white70,
+            color: _isLightActive ? const Color(0xFF8A6A38) : Colors.white70,
           ),
         ),
       ],
@@ -365,15 +484,14 @@ class _VIPScreenState extends State<VIPScreen>
   }
 
   Widget _buildHeroCard() {
-    final isPermanent = _hasLight && _daysLeft <= 0;
     return AnimatedBuilder(
       animation: _animController,
       builder: (context, _) {
-        final glow = _hasLight
+        final glow = _isLightActive
             ? 0.22 + (_animController.value * 0.22)
             : 0.08 + (_animController.value * 0.1);
         final pulse = 0.92 + (_animController.value * 0.12);
-        final cardColors = _hasLight
+        final cardColors = _isLightActive
             ? const [Color(0xFFFFFCE8), Color(0xFFFFE8AF), Color(0xFFFFD37C)]
             : const [Color(0xFF1C2E42), Color(0xFF2A3E54), Color(0xFF364E67)];
 
@@ -387,25 +505,25 @@ class _VIPScreenState extends State<VIPScreen>
               colors: cardColors,
             ),
             border: Border.all(
-              color: _hasLight
+              color: _isLightActive
                   ? const Color(0xFFE7C072)
                   : Colors.white.withValues(alpha: 0.14),
             ),
             boxShadow: [
               BoxShadow(
-                color: _hasLight
+                color: _isLightActive
                     ? const Color(0x55E7B85E)
                     : Colors.black.withValues(alpha: 0.2),
                 offset: const Offset(0, 10),
-                blurRadius: _hasLight ? 24 : 18,
+                blurRadius: _isLightActive ? 24 : 18,
               ),
-              if (_hasLight)
+              if (_isLightActive)
                 BoxShadow(
                   color: const Color(0x88FFD98B).withValues(alpha: glow),
                   blurRadius: 48,
                   spreadRadius: 6,
                 ),
-              if (_hasLight)
+              if (_isLightActive)
                 BoxShadow(
                   color: const Color(0x8894D7FF).withValues(alpha: glow * 0.62),
                   blurRadius: 24,
@@ -419,10 +537,16 @@ class _VIPScreenState extends State<VIPScreen>
               Row(
                 children: [
                   _statusPill(
-                    _hasLight ? '点亮中' : '待点亮',
-                    _hasLight
-                        ? Icons.flash_on_rounded
-                        : Icons.dark_mode_rounded,
+                    !_hasConfirmedStatus
+                        ? '状态待确认'
+                        : _isLightActive
+                            ? '点亮中'
+                            : '待点亮',
+                    !_hasConfirmedStatus
+                        ? Icons.help_outline_rounded
+                        : _isLightActive
+                            ? Icons.flash_on_rounded
+                            : Icons.dark_mode_rounded,
                   ),
                   const Spacer(),
                   Transform.scale(
@@ -432,21 +556,24 @@ class _VIPScreenState extends State<VIPScreen>
                       height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _hasLight
+                        color: _isLightActive
                             ? const Color(0xFFFFF6DE)
                             : Colors.white.withValues(alpha: 0.14),
                         border: Border.all(
-                          color: _hasLight
+                          color: _isLightActive
                               ? const Color(0xFFE6BF72)
                               : Colors.white.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Icon(
-                        _hasLight
-                            ? Icons.lightbulb_rounded
-                            : Icons.lightbulb_outline_rounded,
-                        color:
-                            _hasLight ? const Color(0xFFE0A73D) : Colors.white,
+                        !_hasConfirmedStatus
+                            ? Icons.sync_problem_rounded
+                            : _isLightActive
+                                ? Icons.lightbulb_rounded
+                                : Icons.lightbulb_outline_rounded,
+                        color: _isLightActive
+                            ? const Color(0xFFE0A73D)
+                            : Colors.white,
                         size: 38,
                       ),
                     ),
@@ -455,7 +582,11 @@ class _VIPScreenState extends State<VIPScreen>
               ),
               const SizedBox(height: 14),
               Text(
-                _hasLight ? '灯已点亮' : '灯未点亮',
+                !_hasConfirmedStatus
+                    ? '灯火状态待确认'
+                    : _isLightActive
+                        ? '灯已点亮'
+                        : '灯未点亮',
                 style: TextStyle(
                   color: _primaryText,
                   fontSize: 30,
@@ -465,9 +596,11 @@ class _VIPScreenState extends State<VIPScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                _hasLight
-                    ? '你当前处于灯火守护中，可直接使用完整守护权益。'
-                    : '当系统检测到你需要关怀时，会自动点亮灯火并开放权益。',
+                !_hasConfirmedStatus
+                    ? '当前无法确认灯火状态，界面不会假设你已开通或未开通。'
+                    : _isLightActive
+                        ? '你当前处于灯火守护中，可直接使用完整守护权益。'
+                        : '当系统检测到你需要关怀时，会自动点亮灯火并开放权益。',
                 style: TextStyle(
                   color: _secondaryText,
                   fontSize: 13,
@@ -481,9 +614,11 @@ class _VIPScreenState extends State<VIPScreen>
                     child: _heroMetric(
                       icon: Icons.schedule_rounded,
                       label: '剩余时长',
-                      value: _hasLight
-                          ? (isPermanent ? '长期点亮' : '$_daysLeft 天')
-                          : '-',
+                      value: !_hasConfirmedStatus
+                          ? '待确认'
+                          : _isLightActive
+                              ? (_isPermanentLight ? '长期点亮' : '$_daysLeft 天')
+                              : '-',
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -491,7 +626,11 @@ class _VIPScreenState extends State<VIPScreen>
                     child: _heroMetric(
                       icon: Icons.verified_rounded,
                       label: '权益状态',
-                      value: _hasLight ? '已解锁' : '未解锁',
+                      value: !_hasConfirmedStatus
+                          ? '待确认'
+                          : _isLightActive
+                              ? '已解锁'
+                              : '未解锁',
                     ),
                   ),
                 ],
@@ -508,11 +647,11 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0x33FFFFFF)
             : Colors.black.withValues(alpha: 0.2),
         border: Border.all(
-          color: _hasLight
+          color: _isLightActive
               ? const Color(0xFFE5BF74)
               : Colors.white.withValues(alpha: 0.24),
         ),
@@ -525,7 +664,7 @@ class _VIPScreenState extends State<VIPScreen>
           Text(
             text,
             style: TextStyle(
-              color: _hasLight ? const Color(0xFF6D4A18) : Colors.white,
+              color: _isLightActive ? const Color(0xFF6D4A18) : Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
@@ -545,11 +684,11 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0x73FFFFFF)
             : Colors.black.withValues(alpha: 0.14),
         border: Border.all(
-          color: _hasLight
+          color: _isLightActive
               ? const Color(0xFFE6C273)
               : Colors.white.withValues(alpha: 0.2),
         ),
@@ -559,7 +698,7 @@ class _VIPScreenState extends State<VIPScreen>
           Icon(
             icon,
             size: 16,
-            color: _hasLight ? const Color(0xFF8F6A2A) : Colors.white,
+            color: _isLightActive ? const Color(0xFF8F6A2A) : Colors.white,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -569,7 +708,7 @@ class _VIPScreenState extends State<VIPScreen>
                 Text(
                   label,
                   style: TextStyle(
-                    color: _hasLight
+                    color: _isLightActive
                         ? const Color(0xFF8D6A33)
                         : Colors.white.withValues(alpha: 0.84),
                     fontSize: 11,
@@ -594,22 +733,29 @@ class _VIPScreenState extends State<VIPScreen>
   }
 
   Widget _buildSummaryRow() {
-    final isPermanent = _hasLight && _daysLeft <= 0;
     return Row(
       children: [
         Expanded(
           child: _summaryCard(
             '状态',
-            _hasLight ? '守护中' : '未激活',
+            !_hasConfirmedStatus
+                ? '待确认'
+                : _isLightActive
+                    ? '守护中'
+                    : '未激活',
             Icons.favorite_rounded,
-            _hasLight ? _warmAccent : const Color(0xFF9AA7B4),
+            _isLightActive ? _warmAccent : const Color(0xFF9AA7B4),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _summaryCard(
             '时长',
-            _hasLight ? (isPermanent ? '长期' : '$_daysLeft天') : '-',
+            !_hasConfirmedStatus
+                ? '待确认'
+                : _isLightActive
+                    ? (_isPermanentLight ? '长期' : '$_daysLeft天')
+                    : '-',
             Icons.timelapse_rounded,
             const Color(0xFF70D6FF),
           ),
@@ -618,7 +764,11 @@ class _VIPScreenState extends State<VIPScreen>
         Expanded(
           child: _summaryCard(
             '权限',
-            _hasLight ? '全开' : '待解锁',
+            !_hasConfirmedStatus
+                ? '待确认'
+                : _isLightActive
+                    ? '全开'
+                    : '待解锁',
             Icons.auto_awesome_rounded,
             const Color(0xFFC792EA),
           ),
@@ -633,11 +783,11 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0xD9FFFFFF)
             : _panelBase.withValues(alpha: 0.48),
         border: Border.all(
-          color: _hasLight
+          color: _isLightActive
               ? const Color(0xFFE6C171)
               : Colors.white.withValues(alpha: 0.16),
         ),
@@ -650,7 +800,7 @@ class _VIPScreenState extends State<VIPScreen>
           Text(
             title,
             style: TextStyle(
-              color: _hasLight
+              color: _isLightActive
                   ? const Color(0xFF8D6A33)
                   : Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
@@ -672,17 +822,15 @@ class _VIPScreenState extends State<VIPScreen>
   }
 
   Widget _buildPrivilegesSection() {
-    final privileges =
-        _privileges.isNotEmpty ? _privileges : _defaultPrivileges;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0xD9FFFFFF)
             : _panelBase.withValues(alpha: 0.52),
         border: Border.all(
-          color: _hasLight
+          color: _isLightActive
               ? const Color(0xFFE6C171)
               : Colors.white.withValues(alpha: 0.16),
         ),
@@ -700,13 +848,26 @@ class _VIPScreenState extends State<VIPScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            _hasLight ? '当前权益全部可用' : '点亮后自动解锁全部权益',
+            !_hasConfirmedStatus
+                ? '灯火状态暂未确认，权益展示只以服务端返回为准'
+                : _isLightActive
+                    ? '当前权益全部可用'
+                    : '点亮后自动解锁全部权益',
             style: TextStyle(
               color: _secondaryText,
               fontSize: 12,
             ),
           ),
           const SizedBox(height: 14),
+          if (_privilegesErrorMessage != null) ...[
+            _buildMessageBanner(
+              icon: Icons.warning_amber_rounded,
+              color: Colors.orangeAccent,
+              message: _privilegesErrorMessage!,
+              onRetry: _loadPrivileges,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_privilegesLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -717,11 +878,24 @@ class _VIPScreenState extends State<VIPScreen>
                 ),
               ),
             )
+          else if (_privileges.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  '当前没有可展示的灯火权益配置',
+                  style: TextStyle(
+                    color: _secondaryText,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            )
           else
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: privileges.length,
+              itemCount: _privileges.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
@@ -729,7 +903,7 @@ class _VIPScreenState extends State<VIPScreen>
                 childAspectRatio: 1.26,
               ),
               itemBuilder: (context, index) {
-                final item = privileges[index];
+                final item = _privileges[index];
                 return _privilegeCard(item);
               },
             ),
@@ -744,7 +918,7 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0xF2FFF8E9)
             : Colors.white.withValues(alpha: 0.07),
         border: Border.all(color: item.color.withValues(alpha: 0.35)),
@@ -757,11 +931,12 @@ class _VIPScreenState extends State<VIPScreen>
               Icon(item.icon, size: 20, color: item.color),
               const Spacer(),
               Icon(
-                _hasLight
+                _isLightActive
                     ? Icons.check_circle_rounded
                     : Icons.lock_outline_rounded,
                 size: 16,
-                color: _hasLight ? const Color(0xFFD79A34) : Colors.white54,
+                color:
+                    _isLightActive ? const Color(0xFFD79A34) : Colors.white54,
               ),
             ],
           ),
@@ -797,11 +972,11 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0xE6FFF7E4)
             : _panelBase.withValues(alpha: 0.58),
         border: Border.all(
-          color: _hasLight
+          color: _isLightActive
               ? const Color(0xFFE3BB6C)
               : _warmAccent.withValues(alpha: 0.3),
         ),
@@ -811,9 +986,11 @@ class _VIPScreenState extends State<VIPScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.tips_and_updates_rounded,
-                  color: _hasLight ? const Color(0xFFD69A35) : _warmAccent,
-                  size: 20),
+              Icon(
+                Icons.tips_and_updates_rounded,
+                color: _isLightActive ? const Color(0xFFD69A35) : _warmAccent,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 '点亮机制说明',
@@ -848,6 +1025,44 @@ class _VIPScreenState extends State<VIPScreen>
     );
   }
 
+  Widget _buildMessageBanner({
+    required IconData icon,
+    required Color color,
+    required String message,
+    required Future<void> Function() onRetry,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.34)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: _primaryText,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              onRetry();
+            },
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _stepItem({
     required IconData icon,
     required String title,
@@ -857,7 +1072,7 @@ class _VIPScreenState extends State<VIPScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: _hasLight
+        color: _isLightActive
             ? const Color(0xF2FFFFFF)
             : Colors.white.withValues(alpha: 0.05),
       ),
@@ -867,7 +1082,7 @@ class _VIPScreenState extends State<VIPScreen>
           Icon(
             icon,
             size: 18,
-            color: _hasLight ? const Color(0xFFD69A35) : _warmAccent,
+            color: _isLightActive ? const Color(0xFFD69A35) : _warmAccent,
           ),
           const SizedBox(width: 8),
           Expanded(

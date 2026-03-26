@@ -153,6 +153,24 @@ bool doesRecommendationReferenceStoneExist(const std::string &stoneId) {
     return !result.empty();
 }
 
+std::string resolveRequiredRecommendationMood(
+    const std::string &userId,
+    const drogon::orm::DbClientPtr &dbClient) {
+    auto userEmotionResult = dbClient->execSqlSync(
+        "SELECT mood_type FROM user_emotion_profile "
+        "WHERE user_id = $1 "
+        "ORDER BY date DESC "
+        "LIMIT 1",
+        userId);
+
+    if (userEmotionResult.empty() || userEmotionResult[0]["mood_type"].isNull()) {
+        return "";
+    }
+
+    const auto mood = userEmotionResult[0]["mood_type"].as<std::string>();
+    return mood.empty() ? "" : mood;
+}
+
 void respondWithAdvancedRecommendations(
     const std::string &userId,
     int limit,
@@ -325,48 +343,52 @@ void RecommendationController::calculateStoneRecommendations(
     const orm::DbClientPtr &dbClient,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
-    // 1. 获取用户最近的情绪状态（容错：表不存在时使用默认值）
-    std::string userMood = "calm"; // 默认
+    // 1. 获取用户最近的情绪状态。没有真实画像时直接失败，不再默认 calm。
+    std::string userMood;
     try {
-        auto userEmotionResult = dbClient->execSqlSync(
-            "SELECT mood_type, avg_emotion_score FROM user_emotion_profile "
-            "WHERE user_id = $1 ORDER BY date DESC LIMIT 7",
-            userId
-        );
-        if (!userEmotionResult.empty()) {
-            userMood = userEmotionResult[0]["mood_type"].as<std::string>();
-        }
+        userMood = resolveRequiredRecommendationMood(userId, dbClient);
+    } catch (const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Failed to load recommendation mood for user " << userId
+                  << ": " << e.base().what();
+        callback(ResponseUtil::internalError("读取用户情绪画像失败"));
+        return;
     } catch (const std::exception &e) {
-        LOG_WARN << "获取用户情绪档案失败(降级为默认mood): " << e.what();
+        LOG_ERROR << "Failed to resolve recommendation mood for user " << userId
+                  << ": " << e.what();
+        callback(ResponseUtil::internalError("读取用户情绪画像失败"));
+        return;
     }
 
-    // 6. 合并结果并添加推荐理由
-    Json::Value recommendations(Json::arrayValue);
-    std::unordered_set<std::string> addedStones;
+    if (userMood.empty()) {
+        LOG_WARN << "Recommendation mood missing for user " << userId;
+        callback(ResponseUtil::conflict("用户情绪画像不存在，无法生成推荐"));
+        return;
+    }
 
-    // 辅助lambda：将查询行转为Json并去重添加
-    auto appendStone = [&](const drogon::orm::Row &row,
-                           const std::string &reason,
-                           const std::string &type) {
-        std::string stoneId = row["stone_id"].as<std::string>();
-        if (addedStones.find(stoneId) == addedStones.end()) {
-            Json::Value stone;
-            stone["stone_id"] = stoneId;
-            stone["content"] = row["content"].as<std::string>();
-            stone["mood_type"] = row["mood_type"].as<std::string>();
-            stone["emotion_score"] = row["emotion_score"].as<double>();
-            stone["author_name"] = row["author_name"].as<std::string>();
-            stone["ripple_count"] = row["ripple_count"].as<int>();
-            stone["created_at"] = row["created_at"].as<std::string>();
-            stone["recommendation_reason"] = reason;
-            stone["recommendation_type"] = type;
-            recommendations.append(stone);
-            addedStones.insert(stoneId);
-        }
-    };
-
-    // 2. 协同过滤：找到相似用户喜欢的内容（40%）
     try {
+        Json::Value recommendations(Json::arrayValue);
+        std::unordered_set<std::string> addedStones;
+
+        auto appendStone = [&](const drogon::orm::Row &row,
+                               const std::string &reason,
+                               const std::string &type) {
+            std::string stoneId = row["stone_id"].as<std::string>();
+            if (addedStones.find(stoneId) == addedStones.end()) {
+                Json::Value stone;
+                stone["stone_id"] = stoneId;
+                stone["content"] = row["content"].as<std::string>();
+                stone["mood_type"] = row["mood_type"].as<std::string>();
+                stone["emotion_score"] = row["emotion_score"].as<double>();
+                stone["author_name"] = row["author_name"].as<std::string>();
+                stone["ripple_count"] = row["ripple_count"].as<int>();
+                stone["created_at"] = row["created_at"].as<std::string>();
+                stone["recommendation_reason"] = reason;
+                stone["recommendation_type"] = type;
+                recommendations.append(stone);
+                addedStones.insert(stoneId);
+            }
+        };
+
         auto collaborativeStones = dbClient->execSqlSync(
             "SELECT DISTINCT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
             "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
@@ -386,18 +408,12 @@ void RecommendationController::calculateStoneRecommendations(
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
             "LIMIT 20",
-            userId
-        );
+            userId);
         for (size_t i = 0; i < collaborativeStones.size() && recommendations.size() < 8; ++i) {
             appendStone(collaborativeStones[i],
                         "和你有相似感受的人也喜欢这个", "collaborative");
         }
-    } catch (const std::exception &e) {
-        LOG_WARN << "协同过滤查询失败(跳过): " << e.what();
-    }
 
-    // 4. 内容过滤：基于情绪兼容性的内容（40%）
-    try {
         auto contentStones = dbClient->execSqlSync(
             "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
             "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
@@ -416,8 +432,7 @@ void RecommendationController::calculateStoneRecommendations(
             "AND ec.compatibility_score > 0.6 "
             "ORDER BY ec.compatibility_score DESC, s.created_at DESC "
             "LIMIT 20",
-            userId, userMood
-        );
+            userId, userMood);
         for (size_t i = 0; i < contentStones.size() && recommendations.size() < 16; ++i) {
             auto row = contentStones[i];
             std::string relationshipType = row["relationship_type"].as<std::string>();
@@ -425,12 +440,7 @@ void RecommendationController::calculateStoneRecommendations(
                 userMood, row["mood_type"].as<std::string>(), relationshipType);
             appendStone(row, reason, "emotion_compatible");
         }
-    } catch (const std::exception &e) {
-        LOG_WARN << "内容过滤查询失败(跳过): " << e.what();
-    }
 
-    // 5. 随机探索：发现新内容（20%）
-    try {
         auto explorationStones = dbClient->execSqlSync(
             "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
             "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
@@ -445,12 +455,11 @@ void RecommendationController::calculateStoneRecommendations(
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY s.created_at DESC "
             "LIMIT 160",
-            userId
-        );
+            userId);
 
         std::vector<orm::Row> explorationCandidates;
         explorationCandidates.reserve(explorationStones.size());
-        for (const auto& row : explorationStones) {
+        for (const auto &row : explorationStones) {
             explorationCandidates.push_back(row);
         }
         const auto bucket = static_cast<long long>(std::time(nullptr) / 1800);
@@ -462,55 +471,28 @@ void RecommendationController::calculateStoneRecommendations(
             appendStone(explorationCandidates[i],
                         "也许你会喜欢这个意外的发现", "exploration");
         }
+
+        Json::Value responseData;
+        responseData["recommendations"] = recommendations;
+        responseData["total"] = static_cast<int>(recommendations.size());
+        responseData["user_mood"] = userMood;
+
+        auto &cache = RedisCache::getInstance();
+        std::string cacheKey = "recommendations:stones:" + userId;
+        Json::StreamWriterBuilder builder;
+        std::string jsonStr = Json::writeString(builder, responseData);
+        cache.setEx(cacheKey, jsonStr, 300);
+
+        callback(ResponseUtil::success(responseData, "为你精心挑选的内容"));
+    } catch (const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Recommendation query failed for user " << userId
+                  << ": " << e.base().what();
+        callback(ResponseUtil::internalError("生成推荐失败"));
     } catch (const std::exception &e) {
-        LOG_WARN << "随机探索查询失败(尝试降级查询): " << e.what();
-        // 降级：不依赖 user_interaction_history 表
-        try {
-            auto fallbackStones = dbClient->execSqlSync(
-                "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-                "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-                "s.created_at, u.nickname AS author_name, "
-                "COALESCE(s.ripple_count, 0) AS ripple_count "
-                "FROM stones s "
-                "JOIN users u ON s.user_id = u.user_id "
-                "WHERE s.user_id != $1 "
-                "AND s.status = 'published' "
-                "AND s.deleted_at IS NULL "
-                "ORDER BY s.created_at DESC "
-                "LIMIT 160",
-                userId
-            );
-            std::vector<orm::Row> fallbackCandidates;
-            fallbackCandidates.reserve(fallbackStones.size());
-            for (const auto& row : fallbackStones) {
-                fallbackCandidates.push_back(row);
-            }
-            const auto bucket = static_cast<long long>(std::time(nullptr) / 1800);
-            std::mt19937 rng(static_cast<uint32_t>(
-                std::hash<std::string>{}(userId + ":" + std::to_string(bucket) + ":fallback")));
-            std::shuffle(fallbackCandidates.begin(), fallbackCandidates.end(), rng);
-            for (size_t i = 0; i < fallbackCandidates.size() && recommendations.size() < 20; ++i) {
-                appendStone(fallbackCandidates[i],
-                            "也许你会喜欢这个意外的发现", "exploration");
-            }
-        } catch (const std::exception &e2) {
-            LOG_WARN << "随机探索降级查询也失败(跳过): " << e2.what();
-        }
+        LOG_ERROR << "Recommendation assembly failed for user " << userId
+                  << ": " << e.what();
+        callback(ResponseUtil::internalError("生成推荐失败"));
     }
-
-    Json::Value responseData;
-    responseData["recommendations"] = recommendations;
-    responseData["total"] = static_cast<int>(recommendations.size());
-    responseData["user_mood"] = userMood;
-
-    // 缓存结果（5分钟）
-    auto& cache = RedisCache::getInstance();
-    std::string cacheKey = "recommendations:stones:" + userId;
-    Json::StreamWriterBuilder builder;
-    std::string jsonStr = Json::writeString(builder, responseData);
-    cache.setEx(cacheKey, jsonStr, 300);
-
-    callback(ResponseUtil::success(responseData, "为你精心挑选的内容"));
 }
 
 /**

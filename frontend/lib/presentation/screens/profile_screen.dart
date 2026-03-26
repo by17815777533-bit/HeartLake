@@ -128,6 +128,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return fallback;
   }
 
+  int? _extractIntField(String key) {
+    final rawValue = _stats?[key];
+    if (rawValue is int) return rawValue;
+    if (rawValue is num) return rawValue.toInt();
+    if (rawValue is String) return int.tryParse(rawValue.trim());
+    return null;
+  }
+
+  String _statText(String key) {
+    final value = _extractIntField(key);
+    if (value == null) return '—';
+    return value.toString();
+  }
+
   bool _matchesCurrentUserId(dynamic value) {
     final currentUserId = _currentUserId?.trim();
     if (currentUserId == null || currentUserId.isEmpty) return false;
@@ -645,10 +659,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasAvatar = _avatarUrl?.trim().isNotEmpty == true;
-    final stonesCount = _stats?['stones_count']?.toString() ?? '0';
-    final boatsReceived = _stats?['boats_received']?.toString() ?? '0';
-    final boatsSent = _stats?['boats_sent']?.toString() ?? '0';
-    final joinDays = (_stats?['join_days']?.toString() ?? '0');
+    final stonesCount = _statText('stones_count');
+    final boatsReceived = _statText('boats_received');
+    final boatsSent = _statText('boats_sent');
+    final joinDaysValue = _extractIntField('join_days');
+    final joinDays = joinDaysValue == null ? '—' : '$joinDaysValue天';
+    final displayName = (_nickname?.trim().isNotEmpty == true)
+        ? _nickname!
+        : (_username?.trim().isNotEmpty == true)
+            ? _username!
+            : (_profileErrorMessage != null ? '资料未加载' : '心湖用户');
+    final bioText =
+        _bio ?? (_profileErrorMessage != null ? '个人资料暂未刷新' : '点击添加个性签名...');
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -785,7 +807,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _nickname ?? _username ?? '心湖用户',
+                                displayName,
                                 style: const TextStyle(
                                     fontSize: 20, fontWeight: FontWeight.bold),
                               ),
@@ -800,7 +822,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         GestureDetector(
                           onTap: _showEditBioDialog,
                           child: Text(
-                            _bio ?? '点击添加个性签名...',
+                            bioText,
                             style: TextStyle(
                               color: _bio != null
                                   ? AppTheme.textSecondary
@@ -866,9 +888,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: _hasLight
                                 ? const Color(0xFFFFD54F)
                                 : Colors.grey),
-                        title: Text(_hasLight ? '灯已点亮' : '灯'),
+                        title: Text(
+                          _vipErrorMessage != null
+                              ? '灯火状态未刷新'
+                              : (_hasLight ? '灯已点亮' : '灯'),
+                        ),
                         subtitle: Text(
-                            _hasLight ? '灯火将燃$_vipDaysLeft天' : '温暖时刻自动点亮',
+                            _vipErrorMessage != null
+                                ? _vipErrorMessage!
+                                : (_hasLight
+                                    ? '灯火将燃$_vipDaysLeft天'
+                                    : '温暖时刻自动点亮'),
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(

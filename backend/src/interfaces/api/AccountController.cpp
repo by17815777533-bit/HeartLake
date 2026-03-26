@@ -692,9 +692,6 @@ void AccountController::getPrivacySettings(
       data["allow_message_from_stranger"] =
           row["allow_message_from_stranger"].as<bool>();
     }
-    data["allow_stranger_boat"] = data["allow_message_from_stranger"];
-    data["allow_stranger_message"] = data["allow_message_from_stranger"];
-
     callback(ResponseUtil::success(data));
   } catch (const std::exception &e) {
     LOG_ERROR << "getPrivacySettings error: " << e.what();
@@ -724,10 +721,8 @@ void AccountController::updatePrivacySettings(
     std::string visibility = parseVisibilityCompat(*json);
     bool showOnline = parseBoolCompat(*json, "show_online_status", true);
     bool allowFriend = parseBoolCompat(*json, "allow_friend_request", true);
-    // 兼容 allow_stranger_boat / allow_stranger_message 历史字段
-    bool allowStranger = parseBoolCompat(*json, "allow_message_from_stranger",
-                                         parseBoolCompat(*json, "allow_stranger_message",
-                                                         parseBoolCompat(*json, "allow_stranger_boat", false)));
+    bool allowStranger =
+        parseBoolCompat(*json, "allow_message_from_stranger", false);
 
     dbClient->execSqlSync(
         "INSERT INTO user_privacy_settings (user_id, profile_visibility, "
@@ -744,8 +739,6 @@ void AccountController::updatePrivacySettings(
     data["show_online_status"] = showOnline;
     data["allow_friend_request"] = allowFriend;
     data["allow_message_from_stranger"] = allowStranger;
-    data["allow_stranger_boat"] = allowStranger;
-    data["allow_stranger_message"] = allowStranger;
     callback(ResponseUtil::success(data, "隐私设置已更新"));
   } catch (const std::exception &e) {
     LOG_ERROR << "updatePrivacySettings error: " << e.what();

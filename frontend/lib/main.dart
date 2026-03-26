@@ -30,25 +30,38 @@ import 'router/app_router.dart';
 /// 应用主入口
 ///
 /// 使用runZonedGuarded捕获所有未处理的异常，配置全局错误处理器。
+void _presentUnhandledError(
+  Object error,
+  StackTrace stack, {
+  required String library,
+}) {
+  FlutterError.presentError(
+    FlutterErrorDetails(
+      exception: error,
+      stack: stack,
+      library: library,
+      context: ErrorDescription('while starting or running HeartLake'),
+    ),
+  );
+}
+
 void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
 
     // 捕获Flutter框架内的同步错误
     FlutterError.onError = (details) {
-      if (kDebugMode) {
-        FlutterError.presentError(details);
-        debugPrint('Flutter Error: ${details.exceptionAsString()}');
-      }
+      FlutterError.presentError(details);
     };
 
     // 捕获异步错误
     WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-      if (kDebugMode) {
-        debugPrint('Unhandled async error: $error');
-        debugPrint(stack.toString());
-      }
-      return true;
+      _presentUnhandledError(
+        error,
+        stack,
+        library: 'platform dispatcher',
+      );
+      return false;
     };
 
     // 自定义错误页面，避免白屏
@@ -89,10 +102,11 @@ void main() {
 
     runApp(const HeartLakeApp());
   }, (error, stack) {
-    if (kDebugMode) {
-      debugPrint('runZonedGuarded caught: $error');
-      debugPrint(stack.toString());
-    }
+    _presentUnhandledError(
+      error,
+      stack,
+      library: 'runZonedGuarded',
+    );
   });
 }
 
