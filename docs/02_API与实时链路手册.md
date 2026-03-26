@@ -148,6 +148,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 - `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则接受 `DEACTIVATE` 和历史值 `DELETE`
 - `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 - 二进制头像上传统一走 `POST /api/media/upload`，返回 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/users/my/profile`
+- 移动端登录恢复链现在只接受完整持久化会话；客户端若只剩 `token`、缺失 `user_id`，或 `POST /api/auth/refresh` 成功包缺少 `token/user_id`，都会按失败处理，不再继续放行首页
 
 ### 4.2 石头（核心内容）
 
@@ -172,6 +173,7 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 查询参数说明：
 - `sort` 支持兼容别名 `latest` / `hot`，也支持显式排序值 `created_at` / `ripple_count` / `boat_count` / `view_count`
 - `hot` 当前映射到 `ripple_count`，`latest` 映射到 `created_at`
+- `emotion-calendar` / `emotion-heatmap` 的 `days` 必须是对象映射；客户端不再把坏载荷、缺失分数或缺失情绪类型的数据伪装成空日历、空热力图或默认中性记录
 
 `POST /api/stones` 推荐请求体：
 
@@ -348,6 +350,11 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | GET | `/api/admin/stats/active-time` | 活跃时段统计 |
 | GET | `/api/admin/risk/high-risk-users` | 高风险用户列表 |
 | GET | `/api/admin/risk/events` | 风险事件列表 |
+
+说明：
+
+- Dashboard 与主布局实时状态在接口失败时保留最近一次成功结果，但必须同时暴露 stale / warning 状态；管理端不再把接口失败静默降级成“看起来正常”
+- `stats/dashboard`、`stats/realtime` 与 WebSocket `stats_update` 共同构成后台统计链；客户端若收到未知消息类型、解析失败或心跳超时，会进入显式 `socket_error/socket_status` 事件流，而不是只在控制台打印
 | GET | `/api/admin/risk/user/{user_id}/history` | 用户风险历史 |
 | POST | `/api/admin/risk/event/{event_id}/handle` | 处置风险事件 |
 | GET | `/api/admin/security/audit` | 安全审计日志 |
