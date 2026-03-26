@@ -681,7 +681,8 @@ void AIService::generateReply(
                 std::string reply = response["choices"][0]["message"]["content"].asString();
                 if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos ||
                     isGenericLakeGodReply(reply)) {
-                    callback(buildLakeGodFallbackReply(userMessage), "");
+                    callback(buildLakeGodFallbackReply(userMessage),
+                             "AI reply is empty or generic");
                     return;
                 }
                 // 存入语义缓存
@@ -729,7 +730,8 @@ void AIService::generateBoatReply(
             try {
                 std::string reply = response["choices"][0]["message"]["content"].asString();
                 if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos) {
-                    callback("收到你的纸船了，愿你一切安好。", "");
+                    callback("收到你的纸船了，愿你一切安好。",
+                             "AI boat reply is empty");
                     return;
                 }
                 callback(reply, "");
@@ -773,7 +775,8 @@ void AIService::generateStoneComment(
             try {
                 std::string comment = response["choices"][0]["message"]["content"].asString();
                 if (comment.empty() || comment.find_first_not_of(" \t\n\r") == std::string::npos) {
-                    callback("看到你的分享了，愿你今天也能有好心情。", "");
+                    callback("看到你的分享了，愿你今天也能有好心情。",
+                             "AI stone comment is empty");
                     return;
                 }
                 callback(comment, "");
