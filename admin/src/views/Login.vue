@@ -13,9 +13,7 @@
     <div class="login-shell">
       <section class="login-intro">
         <span class="intro-kicker">心湖 / 后台入口</span>
-        <h1 class="intro-title">
-          面向值守与处置的后台入口
-        </h1>
+        <h1 class="intro-title">面向值守与处置的后台入口</h1>
         <p class="intro-copy">
           这里不是展示页，而是处理旅人内容、求助工单、实时告警和社区秩序的工作台。
         </p>
@@ -40,24 +38,16 @@
 
         <div class="intro-note">
           <span>内部入口</span>
-          <span>低配服务器已部署</span>
-          <span>公网 HTTP 可访问</span>
+          <span>分级权限</span>
+          <span>操作留痕</span>
         </div>
       </section>
 
       <section class="login-card">
         <div class="logo-area">
-          <img
-            src="@/assets/logo.svg"
-            alt="HeartLake"
-            class="logo-icon"
-          >
-          <h1 class="title">
-            心湖管理后台
-          </h1>
-          <p class="subtitle">
-            值守与处置工作台
-          </p>
+          <img src="@/assets/logo.svg" alt="HeartLake" class="logo-icon" />
+          <h1 class="title">心湖管理后台</h1>
+          <p class="subtitle">值守与处置工作台</p>
         </div>
 
         <div class="trust-strip">
@@ -65,6 +55,33 @@
           <span>操作留痕</span>
           <span>实时看板</span>
         </div>
+
+        <el-alert
+          v-if="connectionWarning"
+          class="login-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          :title="connectionWarning"
+        />
+
+        <el-alert
+          v-if="loginError"
+          class="login-alert"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="loginError"
+        />
+
+        <el-alert
+          v-if="cooldownSeconds > 0"
+          class="login-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          :title="`连续登录失败过多，请 ${cooldownSeconds} 秒后再试`"
+        />
 
         <el-form
           ref="formRef"
@@ -106,13 +123,9 @@
           </el-button>
         </el-form>
 
-        <p class="security-note">
-          建议仅在可信网络中登录，敏感操作请在完成后主动退出会话。
-        </p>
+        <p class="security-note">建议仅在可信网络中登录，敏感操作请在完成后主动退出会话。</p>
 
-        <div class="footer">
-          &copy; 2026 HeartLake
-        </div>
+        <div class="footer">&copy; 2026 HeartLake</div>
       </section>
     </div>
   </div>
@@ -126,11 +139,14 @@ import api from '@/api'
 import { useAppStore } from '@/stores'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { normalizePayloadRecord } from '@/utils/collectionPayload'
+import type { FormInstance } from 'element-plus'
 
 const router = useRouter()
 const appStore = useAppStore()
-const formRef = ref(null)
+const formRef = ref<FormInstance | null>(null)
 const loading = ref(false)
+const loginError = ref('')
+const connectionWarning = ref('')
 
 const form = reactive({
   username: '',
@@ -161,11 +177,17 @@ function startCooldown(seconds: number) {
 
 const handleLogin = async () => {
   if (cooldownSeconds.value > 0) {
-    ElMessage.warning(`操作过于频繁，请 ${cooldownSeconds.value} 秒后重试`)
+    loginError.value = `操作过于频繁，请 ${cooldownSeconds.value} 秒后重试`
     return
   }
 
-  const valid = await formRef.value?.validate().catch(() => false)
+  loginError.value = ''
+  const formInstance = formRef.value
+  if (!formInstance) return
+  const valid = await formInstance.validate().then(
+    () => true,
+    () => false,
+  )
   if (!valid) return
 
   loading.value = true
@@ -181,18 +203,19 @@ const handleLogin = async () => {
     const user = resData.user || resData.admin || { username: form.username }
     appStore.setUserInfo(user)
     failCount.value = 0
+    loginError.value = ''
     ElMessage.success('登录成功')
     router.push('/dashboard')
   } catch (e) {
-    console.error('登录失败:', e)
     failCount.value++
+    const message = getErrorMessage(e, '登录失败，请检查用户名和密码')
     // 连续失败3次后启动30秒冷却，配合后端429速率限制
     if (failCount.value >= 3 && cooldownSeconds.value <= 0) {
       startCooldown(30)
-      ElMessage.warning('连续登录失败多次，请 30 秒后重试')
+      loginError.value = '连续登录失败多次，请 30 秒后重试'
+    } else {
+      loginError.value = message
     }
-    // 统一错误处理
-    ElMessage.error(getErrorMessage(e, '登录失败，请检查用户名和密码'))
   } finally {
     loading.value = false
   }
@@ -200,11 +223,13 @@ const handleLogin = async () => {
 
 // 非 HTTPS 环境安全警告
 onMounted(() => {
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    ElMessage.warning({
-      message: '当前非 HTTPS 连接，数据传输可能存在安全风险',
-      duration: 6000,
-    })
+  if (
+    location.protocol !== 'https:' &&
+    location.hostname !== 'localhost' &&
+    location.hostname !== '127.0.0.1'
+  ) {
+    connectionWarning.value =
+      '当前不是 HTTPS 连接，登录凭证传输存在风险，请尽快切换到受信任的加密入口。'
   }
 })
 </script>
@@ -448,6 +473,10 @@ onMounted(() => {
     font-size: 12px;
     font-weight: 600;
   }
+}
+
+.login-alert {
+  margin-bottom: 16px;
 }
 
 .login-form {

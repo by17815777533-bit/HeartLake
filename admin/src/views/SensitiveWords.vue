@@ -15,7 +15,7 @@
       compact
       eyebrow="词典"
       title="风险词典"
-      :heading-chip="`${sensitiveScore} 分 ${sensitiveLabel}`"
+      :heading-chip="sensitiveHeadingChip"
       metric-label="词条总量"
       :metric-value="summaryItems[0]?.value || '0'"
       metric-unit="条"
@@ -25,8 +25,8 @@
       :focus-card="sensitiveFocusCard"
       rhythm-eyebrow="级别"
       rhythm-title="级别分布"
-      :rhythm-chip="`${highRiskWordCount} 高风险`"
-      :rhythm-badge="`${formatCount(wordList.length)} 条词条`"
+      :rhythm-chip="sensitiveRhythmChip"
+      :rhythm-badge="sensitiveRhythmBadge"
       :rhythm-items="sensitiveRhythmItems"
       activity-title="词典动态"
       :activity-chip="latestSensitiveMeta.value"
@@ -36,7 +36,7 @@
       :guide-headline="sensitiveGuideHeadline"
       :guide-copy="sensitiveGuideCopy"
       guide-pulse-label="当前词典评分"
-      :guide-pulse-value="`${sensitiveScore} 分`"
+      :guide-pulse-value="sensitiveGuidePulseValue"
       :guide-pulse-note="sensitiveGuidePulseNote"
       :guide-items="sensitiveGuideItems"
     >
@@ -83,6 +83,16 @@
         </div>
       </div>
 
+      <el-alert v-if="wordsError" class="ops-inline-alert" type="error" :closable="false" show-icon>
+        <template #title>风险词典加载失败</template>
+        <template #default>
+          <div class="ops-inline-alert__body">
+            <span>{{ wordsError }}</span>
+            <el-button type="danger" link @click="fetchWords">重新加载</el-button>
+          </div>
+        </template>
+      </el-alert>
+
       <div v-if="selectedWords.length > 0" class="batch-bar">
         <span>已选 {{ selectedWords.length }} 项</span>
         <el-popconfirm title="确定批量删除选中的敏感词？" @confirm="handleBatchDelete">
@@ -126,6 +136,9 @@
             </el-popconfirm>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty :description="emptyDescription" :image-size="88" />
+        </template>
       </el-table>
 
       <div class="pagination-wrapper">
@@ -189,12 +202,7 @@ import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 
 import { normalizeCollectionResponse } from '@/utils/collectionPayload'
-import {
-  normalizeAdminPayload,
-  pickBoolean,
-  pickNumber,
-  pickString,
-} from '@/utils/adminPayload'
+import { normalizeAdminPayload, pickBoolean, pickNumber, pickString } from '@/utils/adminPayload'
 import { getErrorMessage } from '@/utils/errorHelper'
 import { useTablePagination } from '@/composables/useTablePagination'
 import {
@@ -213,6 +221,7 @@ type SensitiveWordRow = SensitiveWord & {
 const loading = ref(false)
 const submitting = ref(false)
 const wordList = ref<SensitiveWordRow[]>([])
+const wordsError = ref('')
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref<FormInstance | null>(null)
@@ -299,8 +308,13 @@ const rules = {
 const getLevelType = (level: string) =>
   ({ low: 'info', medium: 'warning', high: 'danger' })[level] || 'info'
 const getLevelLabel = (level: string) => ({ low: '低', medium: '中', high: '高' })[level] || level
-const getActionLabel = (action?: string) => ({ allow: '放行', block: '拦截' })[action || 'block'] || '拦截'
+const getActionLabel = (action?: string) =>
+  ({ allow: '放行', block: '拦截' })[action || 'block'] || '拦截'
 const formatCount = (value: number) => value.toLocaleString()
+const hasStaleWords = computed(() => !!wordsError.value && wordList.value.length > 0)
+const emptyDescription = computed(() =>
+  wordsError.value ? '风险词典加载失败，请重试' : '当前筛选下暂无敏感词',
+)
 
 const summaryItems = computed(() => {
   const highRiskCount = highRiskWordCount.value
@@ -379,8 +393,41 @@ const sensitiveLabel = computed(() => {
   if (sensitiveScore.value >= 60) return '稳定'
   return '松散'
 })
+const sensitiveHeadingChip = computed(() =>
+  wordsError.value
+    ? hasStaleWords.value
+      ? '显示旧词典'
+      : '加载失败'
+    : `${sensitiveScore.value} 分 ${sensitiveLabel.value}`,
+)
+const sensitiveRhythmChip = computed(() =>
+  wordsError.value
+    ? hasStaleWords.value
+      ? '词典未刷新'
+      : '等待恢复'
+    : `${highRiskWordCount.value} 高风险`,
+)
+const sensitiveRhythmBadge = computed(() =>
+  wordsError.value
+    ? hasStaleWords.value
+      ? '陈旧数据'
+      : '无可用数据'
+    : `${formatCount(wordList.value.length)} 条词条`,
+)
+const sensitiveGuidePulseValue = computed(() =>
+  wordsError.value ? (hasStaleWords.value ? '陈旧' : '失败') : `${sensitiveScore.value} 分`,
+)
 
 const latestSensitiveMeta = computed(() => {
+  if (wordsError.value) {
+    return {
+      value: hasStaleWords.value ? '显示旧词典' : '加载失败',
+      note: hasStaleWords.value
+        ? '最近一次词典刷新失败，当前展示的是上次成功获取的结果。'
+        : '当前没有可用的词典数据，请先修复加载错误后再维护。',
+    }
+  }
+
   const latestItem = wordList.value.reduce<SensitiveWord | null>((latest, item) => {
     if (!latest) return item
     return new Date(item.created_at).getTime() > new Date(latest.created_at).getTime()
@@ -433,16 +480,12 @@ const sensitiveSignals = computed(() => {
   ]
 })
 
-const sensitiveHeroDescription =
-  '把风险词、处置策略和批量操作集中到同一张维护台面里，先判断级别密度，再决定是新增、调整，还是批量清理。'
-
-const sensitiveHeroChips = computed(() => [
-  `${summaryItems.value[0]?.value || 0} 条词条`,
-  `${highRiskWordCount.value} 条高风险`,
-  `${sensitiveScore.value} 分 ${sensitiveLabel.value}`,
-])
-
 const sensitiveGuideHeadline = computed(() => {
+  if (wordsError.value) {
+    return hasStaleWords.value
+      ? '词典刷新失败，先确认当前陈旧结果是否还能支撑处置判断'
+      : '词典未加载成功，先恢复数据链路再做维护'
+  }
   if (selectedWords.value.length > 0) return '当前已经选中一批词条，先确认误删风险再执行批量操作'
   if (highRiskWordCount.value > mediumRiskWordCount.value)
     return '高风险词条偏多，优先回看处置策略和误伤边界'
@@ -450,6 +493,11 @@ const sensitiveGuideHeadline = computed(() => {
 })
 
 const sensitiveGuideCopy = computed(() => {
+  if (wordsError.value) {
+    return hasStaleWords.value
+      ? `最近一次刷新失败，页面仍显示 ${formatCount(wordList.value.length)} 条上次成功获取的词条，请勿把它当作最新词典。`
+      : '当前没有成功加载到任何词典数据，请先修复接口或登录态，再继续维护敏感词。'
+  }
   if (selectedWords.value.length > 0) {
     return `当前已选中 ${formatCount(selectedWords.value.length)} 条词条，建议先复核级别和处置策略，再进行批量删除。`
   }
@@ -459,13 +507,12 @@ const sensitiveGuideCopy = computed(() => {
   return '当前词典没有明显堆积，适合继续补充新出现的表达并保持规则整洁。'
 })
 
-const sensitiveGuideMetrics = computed(() => [
-  { label: '高风险词条', value: `${formatCount(highRiskWordCount.value)} 条` },
-  { label: '放行策略', value: `${formatCount(allowStrategyCount.value)} 条` },
-  { label: '词典评分', value: `${sensitiveScore.value} 分` },
-])
-
 const sensitiveOverviewDescription = computed(() => {
+  if (wordsError.value) {
+    return hasStaleWords.value
+      ? '词典刷新失败，当前卡片和列表展示的是最近一次成功拉取到的旧结果。'
+      : '风险词典暂时无法加载，当前页面没有可供维护的词条数据。'
+  }
   if (selectedWords.value.length > 0) {
     return `维护敏感词与风险等级，统一管理处置策略和批量删除，当前已有 ${formatCount(selectedWords.value.length)} 条词条待确认批量操作。`
   }
@@ -480,8 +527,12 @@ const sensitiveFocusCard = computed(() =>
 )
 const sensitiveRhythmItems = computed(() => createDeckRhythmItems(sensitiveVizBars.value))
 const sensitiveActivityRows = computed(() => createDeckActivityRows(sensitiveSignals.value))
-const sensitiveGuidePulseNote = computed(
-  () => `高风险 ${formatCount(highRiskWordCount.value)} 条 · ${sensitiveLabel.value}`,
+const sensitiveGuidePulseNote = computed(() =>
+  wordsError.value
+    ? hasStaleWords.value
+      ? '当前展示的是上次成功获取的词典结果。'
+      : '当前没有可用的词典数据。'
+    : `高风险 ${formatCount(highRiskWordCount.value)} 条 · ${sensitiveLabel.value}`,
 )
 const sensitiveGuideItems = computed(() =>
   createDeckGuideItems([
@@ -538,6 +589,7 @@ const normalizeSensitiveWord = (item: unknown): SensitiveWordRow => {
 
 async function fetchWords() {
   loading.value = true
+  wordsError.value = ''
   try {
     const res = await api.getSensitiveWords(buildParams(filters))
     const { items, total } = normalizeCollectionResponse<unknown>(res.data, ['words'])
@@ -545,10 +597,9 @@ async function fetchWords() {
     pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取敏感词列表失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取敏感词列表失败'))
-    wordList.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取敏感词列表失败')
+    wordsError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }
@@ -572,7 +623,12 @@ const showEditDialog = (row: SensitiveWordRow) => {
 }
 
 const handleSubmit = async () => {
-  const valid = await formRef.value?.validate().catch(() => false)
+  const formInstance = formRef.value
+  if (!formInstance) return
+  const valid = await formInstance.validate().then(
+    () => true,
+    () => false,
+  )
   if (!valid) return
   submitting.value = true
   try {
@@ -587,7 +643,6 @@ const handleSubmit = async () => {
     dialogVisible.value = false
     fetchWords()
   } catch (e) {
-    console.error('敏感词操作失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
   } finally {
     submitting.value = false
@@ -600,7 +655,6 @@ const handleDelete = async (row: { id: number }) => {
     ElMessage.success('删除成功')
     fetchWords()
   } catch (e) {
-    console.error('删除敏感词失败:', e)
     ElMessage.error(getErrorMessage(e, '删除失败'))
   }
 }
@@ -671,6 +725,17 @@ onMounted(() => fetchWords())
     border-radius: 16px;
     font-size: 13px;
     color: var(--hl-ink-soft);
+  }
+
+  .ops-inline-alert {
+    margin-bottom: 14px;
+  }
+
+  .ops-inline-alert__body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .pagination-wrapper {

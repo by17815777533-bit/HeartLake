@@ -13,7 +13,7 @@
       compact
       eyebrow="审计"
       title="服务记录"
-      :heading-chip="`${auditScore} 分 ${auditLabel}`"
+      :heading-chip="logsHeadingChip"
       metric-label="记录总量"
       :metric-value="summaryItems[0]?.value || '0'"
       metric-unit="条"
@@ -23,8 +23,8 @@
       :focus-card="logsFocusCard"
       rhythm-eyebrow="节律"
       rhythm-title="动作频次"
-      :rhythm-chip="`${loginCount} 次登录`"
-      :rhythm-badge="`${formatCount(logList.length)} 条审计`"
+      :rhythm-chip="logsRhythmChip"
+      :rhythm-badge="logsRhythmBadge"
       :rhythm-items="logRhythmItems"
       activity-title="审计动态"
       :activity-chip="latestLogMeta.value"
@@ -34,7 +34,7 @@
       :guide-headline="logsGuideHeadline"
       :guide-copy="logsGuideCopy"
       guide-pulse-label="当前审计评分"
-      :guide-pulse-value="`${auditScore} / 100`"
+      :guide-pulse-value="logsGuidePulseValue"
       :guide-pulse-note="logsGuidePulseNote"
       :guide-items="logsGuideItems"
     >
@@ -93,6 +93,16 @@
         </el-form>
       </div>
 
+      <el-alert v-if="logsError" class="ops-inline-alert" type="error" :closable="false" show-icon>
+        <template #title>审计记录加载失败</template>
+        <template #default>
+          <div class="ops-inline-alert__body">
+            <span>{{ logsError }}</span>
+            <el-button type="danger" link @click="fetchLogs">重新加载</el-button>
+          </div>
+        </template>
+      </el-alert>
+
       <el-table v-loading="loading" :data="logList" stripe aria-label="操作日志列表">
         <el-table-column prop="id" label="编号" width="88" />
         <el-table-column label="操作人" min-width="180">
@@ -135,7 +145,7 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无操作日志" :image-size="88" />
+          <el-empty :description="emptyDescription" :image-size="88" />
         </template>
       </el-table>
 
@@ -173,6 +183,7 @@ import type { OperationLog } from '@/types'
 
 const loading = ref(false)
 const logList = ref<OperationLog[]>([])
+const logsError = ref('')
 const filters = reactive({ operator: '', action: '', dateRange: null as string[] | null })
 
 // 日期范围限制最大90天，且不能选择未来日期
@@ -261,6 +272,11 @@ const getTimeNote = (value?: string) => {
   if (diffMinutes <= 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时前`
   return `${Math.floor(diffMinutes / (24 * 60))} 天前`
 }
+
+const hasStaleLogs = computed(() => !!logsError.value && logList.value.length > 0)
+const emptyDescription = computed(() =>
+  logsError.value ? '审计记录加载失败，请重试' : '当前筛选下暂无操作日志',
+)
 
 const logPageStats = computed(() => {
   let loginCount = 0
@@ -352,8 +368,37 @@ const auditLabel = computed(() => {
   if (auditScore.value >= 58) return '可追'
   return '稀疏'
 })
+const logsHeadingChip = computed(() =>
+  logsError.value
+    ? hasStaleLogs.value
+      ? '显示旧记录'
+      : '加载失败'
+    : `${auditScore.value} 分 ${auditLabel.value}`,
+)
+const logsRhythmChip = computed(() =>
+  logsError.value ? (hasStaleLogs.value ? '审计未刷新' : '等待恢复') : `${loginCount.value} 次登录`,
+)
+const logsRhythmBadge = computed(() =>
+  logsError.value
+    ? hasStaleLogs.value
+      ? '陈旧数据'
+      : '无可用数据'
+    : `${formatCount(logList.value.length)} 条审计`,
+)
+const logsGuidePulseValue = computed(() =>
+  logsError.value ? (hasStaleLogs.value ? '陈旧' : '失败') : `${auditScore.value} / 100`,
+)
 
 const latestLogMeta = computed(() => {
+  if (logsError.value) {
+    return {
+      value: hasStaleLogs.value ? '显示旧记录' : '加载失败',
+      note: hasStaleLogs.value
+        ? '最新一次审计刷新失败，当前展示的是上次成功获取的记录。'
+        : '当前没有可用的审计记录，请先修复加载错误后再查看。',
+    }
+  }
+
   const latestItem = logPageStats.value.latestItem
 
   if (!latestItem) {
@@ -401,12 +446,22 @@ const logSignals = computed(() => {
 })
 
 const logsGuideHeadline = computed(() => {
+  if (logsError.value) {
+    return hasStaleLogs.value
+      ? '审计刷新失败，先确认当前陈旧数据是否还能支撑值守判断'
+      : '审计记录未加载成功，先恢复数据链路再做核查'
+  }
   if (configActionCount.value > 0) return '最近存在配置改动，先核对参数变更是否符合预期'
   if (contentActionCount.value > 0) return '内容处置链路活跃，建议回看动作细节和时间顺序'
   return '当前以常规留痕为主，继续盯住登录和最新写入即可'
 })
 
 const logsGuideCopy = computed(() => {
+  if (logsError.value) {
+    return hasStaleLogs.value
+      ? `最近一次刷新失败，页面仍显示 ${formatCount(logList.value.length)} 条上次成功获取的记录，请勿把它当作最新审计结果。`
+      : '当前没有成功加载到任何审计记录，请先修复接口或登录态，再继续核查后台动作链路。'
+  }
   if (configActionCount.value > 0) {
     return `当前页包含 ${formatCount(configActionCount.value)} 次配置改动，建议优先核查改动时间、操作人和对应的后续动作是否匹配。`
   }
@@ -417,6 +472,11 @@ const logsGuideCopy = computed(() => {
 })
 
 const logsOverviewDescription = computed(() => {
+  if (logsError.value) {
+    return hasStaleLogs.value
+      ? '审计刷新失败，当前卡片和列表展示的是最近一次成功拉取到的旧数据。'
+      : '审计记录暂时无法加载，当前页面没有可供核查的数据。'
+  }
   if (configActionCount.value > 0) {
     return `按操作人、动作类型和时间范围回看后台处理过程，当前优先核查 ${formatCount(configActionCount.value)} 次配置改动及其后续链路。`
   }
@@ -429,8 +489,12 @@ const logsFocusCard = computed(() =>
 )
 const logRhythmItems = computed(() => createDeckRhythmItems(logVizBars.value))
 const logActivityRows = computed(() => createDeckActivityRows(logSignals.value))
-const logsGuidePulseNote = computed(
-  () => `内容处置 ${formatCount(contentActionCount.value)} 次 · ${auditLabel.value}`,
+const logsGuidePulseNote = computed(() =>
+  logsError.value
+    ? hasStaleLogs.value
+      ? '当前展示的是上次成功获取的审计结果。'
+      : '当前没有可用的审计数据。'
+    : `内容处置 ${formatCount(contentActionCount.value)} 次 · ${auditLabel.value}`,
 )
 const logsGuideItems = computed(() =>
   createDeckGuideItems([
@@ -454,6 +518,7 @@ const logsGuideItems = computed(() =>
 
 async function fetchLogs() {
   loading.value = true
+  logsError.value = ''
   try {
     const { dateRange, ...rest } = { ...filters }
     const extra: Record<string, unknown> = { ...rest }
@@ -471,10 +536,9 @@ async function fetchLogs() {
     pagination.total = total
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取操作日志失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取操作日志失败'))
-    logList.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取操作日志失败')
+    logsError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }
@@ -495,6 +559,17 @@ onMounted(() => fetchLogs())
     display: grid;
     grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
     gap: 14px;
+  }
+
+  .ops-inline-alert {
+    margin-bottom: 14px;
+  }
+
+  .ops-inline-alert__body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .logs-inline-filter {
