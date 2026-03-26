@@ -119,6 +119,49 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> _reloadProfileFromServer() async {
+    if (_user == null) {
+      _setErrorMessage('用户状态缺失', notify: true);
+      return false;
+    }
+
+    final result = await _authService.getUserProfile(_user!.userId);
+    if (result['success'] != true) {
+      final message = result['message']?.toString() ?? '刷新资料失败';
+      _setErrorMessage(message, notify: true);
+      _reportProviderError(
+        StateError(message),
+        StackTrace.current,
+        'UserProvider._reloadProfileFromServer',
+      );
+      return false;
+    }
+
+    final userPayload = result['user'];
+    if (userPayload is! Map) {
+      const message = '用户资料响应缺少 user 对象';
+      _setErrorMessage(message, notify: true);
+      _reportProviderError(
+        StateError(message),
+        StackTrace.current,
+        'UserProvider._reloadProfileFromServer',
+      );
+      return false;
+    }
+
+    _user = User.fromJson(
+      Map<String, dynamic>.from(userPayload.cast<String, dynamic>()),
+    );
+    final nickname = _user?.nickname.trim();
+    if (nickname != null && nickname.isNotEmpty) {
+      await StorageUtil.saveNickname(nickname);
+    }
+    _isAnonymous = _user?.isAnonymous ?? false;
+    _errorMessage = null;
+    notifyListeners();
+    return true;
+  }
+
   /// 释放资源，断开WebSocket连接
   @override
   void dispose() {
@@ -183,40 +226,7 @@ class UserProvider with ChangeNotifier {
     if (!hasLocalUser || _user == null) return;
 
     try {
-      final result = await _authService.getUserProfile(_user!.userId);
-      if (result['success'] != true) {
-        final message = result['message']?.toString() ?? '刷新资料失败';
-        _setErrorMessage(message, notify: true);
-        _reportProviderError(
-          StateError(message),
-          StackTrace.current,
-          'UserProvider.refreshProfile',
-        );
-        return;
-      }
-
-      final userPayload = result['user'];
-      if (userPayload is! Map) {
-        const message = '用户资料响应缺少 user 对象';
-        _setErrorMessage(message, notify: true);
-        _reportProviderError(
-          StateError(message),
-          StackTrace.current,
-          'UserProvider.refreshProfile',
-        );
-        return;
-      }
-
-      _user = User.fromJson(
-        Map<String, dynamic>.from(userPayload.cast<String, dynamic>()),
-      );
-      final nickname = _user?.nickname.trim();
-      if (nickname != null && nickname.isNotEmpty) {
-        await StorageUtil.saveNickname(nickname);
-      }
-      _isAnonymous = _user?.isAnonymous ?? false;
-      _errorMessage = null;
-      notifyListeners();
+      await _reloadProfileFromServer();
     } catch (error, stackTrace) {
       _setErrorMessage('刷新资料失败，请稍后重试', notify: true);
       _reportProviderError(
@@ -248,23 +258,7 @@ class UserProvider with ChangeNotifier {
         );
         return false;
       }
-
-      final data = result['data'] is Map
-          ? Map<String, dynamic>.from(
-              (result['data'] as Map).cast<String, dynamic>(),
-            )
-          : const <String, dynamic>{};
-      final resolvedNickname =
-          data['nickname']?.toString().trim().isNotEmpty == true
-              ? data['nickname'].toString().trim()
-              : nickname.trim();
-      await StorageUtil.saveNickname(resolvedNickname);
-      _user = _user!.copyWith(
-        nickname: resolvedNickname,
-      );
-      _errorMessage = null;
-      notifyListeners();
-      return true;
+      return await _reloadProfileFromServer();
     } catch (error, stackTrace) {
       _setErrorMessage('更新昵称失败，请稍后重试', notify: true);
       _reportProviderError(
@@ -312,38 +306,7 @@ class UserProvider with ChangeNotifier {
         );
         return false;
       }
-
-      final data = result['data'] is Map
-          ? Map<String, dynamic>.from(
-              (result['data'] as Map).cast<String, dynamic>(),
-            )
-          : const <String, dynamic>{};
-      final resolvedNickname =
-          data['nickname']?.toString().trim().isNotEmpty == true
-              ? data['nickname'].toString().trim()
-              : nickname?.trim();
-      if (resolvedNickname != null && resolvedNickname.isNotEmpty) {
-        await StorageUtil.saveNickname(resolvedNickname);
-      }
-
-      String? resolvedBio;
-      if (data.containsKey('bio')) {
-        resolvedBio = data['bio']?.toString() ?? '';
-      } else if (bio != null) {
-        resolvedBio = bio;
-      }
-
-      final resolvedAvatarUrl = data['avatar_url']?.toString() ??
-          data['avatarUrl']?.toString() ??
-          avatarUrl;
-      _user = _user!.copyWith(
-        nickname: resolvedNickname,
-        avatarUrl: resolvedAvatarUrl,
-        bio: resolvedBio,
-      );
-      _errorMessage = null;
-      notifyListeners();
-      return true;
+      return await _reloadProfileFromServer();
     } catch (error, stackTrace) {
       _setErrorMessage('更新资料失败，请稍后重试', notify: true);
       _reportProviderError(
@@ -358,7 +321,11 @@ class UserProvider with ChangeNotifier {
   /// 仅更新本地用户信息（不调用后端，用于其他页面编辑后同步状态）
   void updateUser({String? nickname, String? avatarUrl, String? bio}) {
     if (_user == null) return;
-    _user = _user!.copyWith(nickname: nickname, avatarUrl: avatarUrl, bio: bio);
+    _user = _user!.copyWith(
+      nickname: nickname ?? _user!.nickname,
+      avatarUrl: avatarUrl ?? _user!.avatarUrl,
+      bio: bio ?? _user!.bio,
+    );
     _errorMessage = null;
     notifyListeners();
   }

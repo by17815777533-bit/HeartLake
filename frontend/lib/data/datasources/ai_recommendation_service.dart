@@ -31,6 +31,25 @@ class AIRecommendationService extends BaseService {
     return '$action失败';
   }
 
+  bool _containsListCandidate(dynamic value) {
+    if (value is List) return true;
+    if (value is! Map) return false;
+    final source = Map<String, dynamic>.from(value.cast<String, dynamic>());
+    for (final key in recommendationResponseKeys) {
+      final nested = source[key];
+      if (nested is List) return true;
+      if (nested is Map && _containsListCandidate(nested)) return true;
+    }
+    return false;
+  }
+
+  void _requireRecommendationCollection(dynamic data, String action) {
+    if (_containsListCandidate(data)) {
+      return;
+    }
+    throw StateError('$action响应缺少推荐集合');
+  }
+
   List<Map<String, dynamic>> _extractRecommendationList(
     ServiceResponse<dynamic> response,
     String action,
@@ -41,6 +60,7 @@ class AIRecommendationService extends BaseService {
     if (response.data == null) {
       throw StateError('$action响应缺少 data');
     }
+    _requireRecommendationCollection(response.data, action);
     return RecommendationResponseParser.extractList(response.data);
   }
 

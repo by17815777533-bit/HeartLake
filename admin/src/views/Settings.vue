@@ -15,21 +15,21 @@
       compact
       eyebrow="控制台"
       title="系统偏好"
-      :heading-chip="tabLabelMap[activeTab] || activeTab"
-      metric-label="配置评分"
-      :metric-value="String(settingsScore)"
-      metric-unit="分"
+      :heading-chip="settingsHeadingChip"
+      :metric-label="settingsMetricLabel"
+      :metric-value="settingsMetricValue"
+      :metric-unit="settingsMetricUnit"
       :metric-description="settingsOverviewDescription"
       section-note="配置重点"
       :overview-cards="settingsOverviewCards"
       :focus-card="settingsFocusCard"
       rhythm-eyebrow="概览"
       rhythm-title="当前开关"
-      :rhythm-chip="providerLabelMap[aiConfig.provider] || aiConfig.provider"
-      :rhythm-badge="settingsSignals[1]?.badge || '自动回复关闭'"
+      :rhythm-chip="settingsRhythmChip"
+      :rhythm-badge="settingsRhythmBadge"
       :rhythm-items="settingsRhythmItems"
       activity-title="配置动态"
-      :activity-chip="settingsSignals[1]?.value || activeTab"
+      :activity-chip="settingsActivityChip"
       :activity-rows="settingsActivityRows"
       guide-title="配置建议"
       :guide-chip="settingsLabel"
@@ -47,21 +47,36 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <el-alert
+        v-if="configLoadError"
+        :title="configLoadError"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ops-inline-alert"
+      />
+
       <div class="ops-soft-toolbar">
         <div class="settings-table-copy">
           <h3>高权限配置</h3>
           <p>系统、智能回复、限流和广播统一在这里配置。</p>
           <div class="ops-toolbar-meta">
             <span class="ops-toolbar-meta__item">{{ tabLabelMap[activeTab] || activeTab }}</span>
-            <span class="ops-toolbar-meta__item">{{
-              providerLabelMap[aiConfig.provider] || aiConfig.provider
-            }}</span>
-            <span class="ops-toolbar-meta__item">配置评分 {{ settingsScore }} 分</span>
+            <span class="ops-toolbar-meta__item">{{ settingsProviderMeta }}</span>
+            <span class="ops-toolbar-meta__item">{{ settingsScoreMeta }}</span>
           </div>
         </div>
       </div>
 
-      <el-tabs v-model="activeTab">
+      <div v-if="configLoading" class="settings-loading">
+        <el-skeleton animated :rows="8" />
+      </div>
+
+      <el-empty v-else-if="!configReady" description="系统配置暂未加载出来" :image-size="88">
+        <el-button type="primary" @click="loadConfig">重新加载</el-button>
+      </el-empty>
+
+      <el-tabs v-else v-model="activeTab">
         <el-tab-pane label="系统配置" name="system">
           <el-form
             ref="systemFormRef"
@@ -227,6 +242,9 @@ const activeTab = ref('system')
 const saving = ref(false)
 const testing = ref(false)
 const broadcasting = ref(false)
+const configLoading = ref(false)
+const configReady = ref(false)
+const configLoadError = ref('')
 const aiFormRef = ref<FormInstance | null>(null)
 const rateFormRef = ref<FormInstance | null>(null)
 const systemFormRef = ref<FormInstance | null>(null)
@@ -238,7 +256,8 @@ let rawApiKey = ''
 
 // API Key 脱敏：仅显示最后4位，其余用 * 替代
 function maskApiKey(key: string): string {
-  if (!key || key.length <= 4) return '****'
+  if (!key) return ''
+  if (key.length <= 4) return '*'.repeat(key.length)
   return '****' + key.slice(-4)
 }
 
@@ -253,20 +272,20 @@ const systemRules = {
 
 // 系统配置
 const systemConfig = reactive({
-  name: '心湖',
-  description: '一个温暖治愈的情感交流社区',
-  allowRegister: true,
-  allowAnonymous: true,
+  name: '',
+  description: '',
+  allowRegister: false,
+  allowAnonymous: false,
 })
 
 // 智能回复
 const aiConfig = reactive({
-  provider: 'deepseek',
+  provider: '',
   apiKey: '',
-  baseUrl: 'https://api.deepseek.com',
-  model: 'deepseek-chat',
-  enableSentiment: true,
-  enableAutoReply: true,
+  baseUrl: '',
+  model: '',
+  enableSentiment: false,
+  enableAutoReply: false,
 })
 
 // API Key 聚焦时清空脱敏值，让用户输入新 Key
@@ -310,10 +329,10 @@ const aiRules = {
 
 // 限流配置
 const rateConfig = reactive({
-  stonePerHour: 15,
-  boatPerHour: 50,
-  messagePerMinute: 60,
-  maxContentLength: 2000,
+  stonePerHour: 0,
+  boatPerHour: 0,
+  messagePerMinute: 0,
+  maxContentLength: 0,
 })
 
 // 限流配置验证规则
@@ -341,49 +360,86 @@ const levelLabelMap: Record<string, string> = {
   error: '错误',
 }
 
-const summaryItems = computed(() => [
-  {
-    label: '开放注册',
-    value: systemConfig.allowRegister ? '开启' : '关闭',
-    note: systemConfig.allowRegister ? '新旅人可以自行加入' : '当前仅允许内部导入或邀请',
-    tone: systemConfig.allowRegister ? ('sage' as const) : ('rose' as const),
-  },
-  {
-    label: '匿名进入',
-    value: systemConfig.allowAnonymous ? '允许' : '关闭',
-    note: systemConfig.allowAnonymous ? '保持低门槛表达入口' : '当前要求更明确的身份绑定',
-    tone: systemConfig.allowAnonymous ? ('lake' as const) : ('amber' as const),
-  },
-  {
-    label: '回复方案',
-    value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
-    note: `模型 ${aiConfig.model || '未设置'} · 当前页签 ${activeTab.value}`,
-    tone: 'amber' as const,
-  },
-  {
-    label: '内容上限',
-    value: `${rateConfig.maxContentLength}`,
-    note: `广播级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
-    tone: 'lake' as const,
-  },
-])
+const summaryItems = computed(() => {
+  if (!configReady.value) {
+    const statusTone = configLoadError.value ? ('rose' as const) : ('amber' as const)
+    const statusNote = configLoadError.value || '等待系统配置返回真实值后再展示开关和限流。'
+    return [
+      {
+        label: '配置状态',
+        value: settingsLabel.value,
+        note: statusNote,
+        tone: statusTone,
+      },
+      {
+        label: '系统模块',
+        value: '未加载',
+        note: 'system 配置尚未确认，注册和匿名入口暂不展示默认值。',
+        tone: 'amber' as const,
+      },
+      {
+        label: 'AI 模块',
+        value: '未加载',
+        note: 'ai 配置尚未确认，回复方案和密钥状态不做猜测。',
+        tone: 'amber' as const,
+      },
+      {
+        label: '限流模块',
+        value: '未加载',
+        note: 'rate 配置尚未确认，请先刷新配置后再判断阈值。',
+        tone: 'amber' as const,
+      },
+    ]
+  }
 
-const settingsVizBars = computed(() => [
-  { label: '投石', value: rateConfig.stonePerHour, display: String(rateConfig.stonePerHour) },
-  { label: '纸船', value: rateConfig.boatPerHour, display: String(rateConfig.boatPerHour) },
-  {
-    label: '消息',
-    value: rateConfig.messagePerMinute,
-    display: String(rateConfig.messagePerMinute),
-  },
-  {
-    label: '长度',
-    value: rateConfig.maxContentLength,
-    display: String(rateConfig.maxContentLength),
-  },
-])
+  return [
+    {
+      label: '开放注册',
+      value: systemConfig.allowRegister ? '开启' : '关闭',
+      note: systemConfig.allowRegister ? '新旅人可以自行加入' : '当前仅允许内部导入或邀请',
+      tone: systemConfig.allowRegister ? ('sage' as const) : ('rose' as const),
+    },
+    {
+      label: '匿名进入',
+      value: systemConfig.allowAnonymous ? '允许' : '关闭',
+      note: systemConfig.allowAnonymous ? '保持低门槛表达入口' : '当前要求更明确的身份绑定',
+      tone: systemConfig.allowAnonymous ? ('lake' as const) : ('amber' as const),
+    },
+    {
+      label: '回复方案',
+      value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
+      note: `模型 ${aiConfig.model} · 当前页签 ${activeTab.value}`,
+      tone: 'amber' as const,
+    },
+    {
+      label: '内容上限',
+      value: `${rateConfig.maxContentLength}`,
+      note: `广播级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
+      tone: 'lake' as const,
+    },
+  ]
+})
+
+const settingsVizBars = computed(() => {
+  if (!configReady.value) return []
+  return [
+    { label: '投石', value: rateConfig.stonePerHour, display: String(rateConfig.stonePerHour) },
+    { label: '纸船', value: rateConfig.boatPerHour, display: String(rateConfig.boatPerHour) },
+    {
+      label: '消息',
+      value: rateConfig.messagePerMinute,
+      display: String(rateConfig.messagePerMinute),
+    },
+    {
+      label: '长度',
+      value: rateConfig.maxContentLength,
+      display: String(rateConfig.maxContentLength),
+    },
+  ]
+})
 
 const settingsScore = computed(() => {
+  if (!configReady.value) return 0
   let score = 54
   if (systemConfig.allowRegister) score += 10
   if (systemConfig.allowAnonymous) score += 8
@@ -394,6 +450,9 @@ const settingsScore = computed(() => {
 })
 
 const settingsLabel = computed(() => {
+  if (configLoading.value) return '加载中'
+  if (configLoadError.value) return '加载失败'
+  if (!configReady.value) return '未加载'
   if (settingsScore.value >= 82) return '完整'
   if (settingsScore.value >= 60) return '已配置'
   return '待完善'
@@ -406,43 +465,104 @@ const tabLabelMap: Record<string, string> = {
   broadcast: '广播',
 }
 
-const settingsSignals = computed(() => [
-  {
-    label: '当前页签',
-    value: tabLabelMap[activeTab.value] || activeTab.value,
-    note: `当前主要处理 ${tabLabelMap[activeTab.value] || activeTab.value} 相关配置。`,
-    badge: summaryItems.value[2]?.value || '系统',
-  },
-  {
-    label: '回复方案',
-    value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
-    note: `模型 ${aiConfig.model || '未设置'} · 情感分析 ${aiConfig.enableSentiment ? '开启' : '关闭'}`,
-    badge: aiConfig.enableAutoReply ? '自动回复开启' : '自动回复关闭',
-  },
-  {
-    label: '广播准备',
-    value: `${broadcastForm.message.length} / 500`,
-    note: `当前级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
-    badge: `上限 ${rateConfig.maxContentLength}`,
-  },
-])
+const settingsSignals = computed(() => {
+  if (!configReady.value) {
+    return [
+      {
+        label: '当前页签',
+        value: tabLabelMap[activeTab.value] || activeTab.value,
+        note: '配置未完成加载前，只展示控制台当前视角，不渲染任何默认配置值。',
+        badge: settingsLabel.value,
+        tone: configLoadError.value ? ('rose' as const) : ('amber' as const),
+      },
+      {
+        label: '配置状态',
+        value: settingsLabel.value,
+        note: configLoadError.value || '等待 /admin/config 返回 system、ai、rate 三个模块。',
+        badge: configLoadError.value ? '请重试' : '未就绪',
+        tone: configLoadError.value ? ('rose' as const) : ('amber' as const),
+      },
+      {
+        label: '广播准备',
+        value: `${broadcastForm.message.length} / 500`,
+        note: '广播文案可以先编辑，但发送前必须先确认系统配置已经成功加载。',
+        badge: levelLabelMap[broadcastForm.level] || broadcastForm.level,
+        tone: 'lake' as const,
+      },
+    ]
+  }
 
-const settingsHeroDescription =
-  '把站点开关、智能回复、限流与广播收进同一张控制台里，先判断当前页签和回复方案，再决定是否保存、测试或发出广播。'
+  return [
+    {
+      label: '当前页签',
+      value: tabLabelMap[activeTab.value] || activeTab.value,
+      note: `当前主要处理 ${tabLabelMap[activeTab.value] || activeTab.value} 相关配置。`,
+      badge: summaryItems.value[2]?.value || '系统',
+    },
+    {
+      label: '回复方案',
+      value: providerLabelMap[aiConfig.provider] || aiConfig.provider,
+      note: `模型 ${aiConfig.model} · 情感分析 ${aiConfig.enableSentiment ? '开启' : '关闭'}`,
+      badge: aiConfig.enableAutoReply ? '自动回复开启' : '自动回复关闭',
+    },
+    {
+      label: '广播准备',
+      value: `${broadcastForm.message.length} / 500`,
+      note: `当前级别 ${levelLabelMap[broadcastForm.level] || broadcastForm.level} · 每分钟消息 ${rateConfig.messagePerMinute}`,
+      badge: `上限 ${rateConfig.maxContentLength}`,
+    },
+  ]
+})
 
-const settingsHeroChips = computed(() => [
-  tabLabelMap[activeTab.value] || activeTab.value,
-  providerLabelMap[aiConfig.provider] || aiConfig.provider,
-  `${settingsScore.value} 分 ${settingsLabel.value}`,
-])
+const settingsHeadingChip = computed(() =>
+  configReady.value ? tabLabelMap[activeTab.value] || activeTab.value : settingsLabel.value,
+)
+const settingsMetricLabel = computed(() => (configReady.value ? '配置评分' : '配置状态'))
+const settingsMetricValue = computed(() =>
+  configReady.value ? String(settingsScore.value) : settingsLabel.value,
+)
+const settingsMetricUnit = computed(() => (configReady.value ? '分' : ''))
+const settingsRhythmChip = computed(() =>
+  configReady.value
+    ? providerLabelMap[aiConfig.provider] || aiConfig.provider
+    : settingsLabel.value,
+)
+const settingsRhythmBadge = computed(() => {
+  if (configReady.value) return settingsSignals.value[1]?.badge || '自动回复关闭'
+  return configLoadError.value ? '请重新加载' : '等待返回'
+})
+const settingsActivityChip = computed(() =>
+  configReady.value ? settingsSignals.value[1]?.value || activeTab.value : settingsLabel.value,
+)
+const settingsProviderMeta = computed(() =>
+  configReady.value
+    ? providerLabelMap[aiConfig.provider] || aiConfig.provider
+    : configLoadError.value
+      ? '配置未就绪'
+      : '等待加载',
+)
+const settingsScoreMeta = computed(() =>
+  configReady.value ? `配置评分 ${settingsScore.value} 分` : `配置状态 ${settingsLabel.value}`,
+)
 
 const settingsGuideHeadline = computed(() => {
+  if (!configReady.value) {
+    return configLoadError.value
+      ? '配置加载失败，先恢复真实配置再继续高权限操作'
+      : '等待系统配置返回后再判断开关和限流'
+  }
   if (!aiConfig.enableAutoReply) return '自动回复当前关闭，先确认这是主动策略还是遗漏配置'
   if (broadcastForm.message.trim()) return '广播内容已经写入，发送前先确认级别和文案长度'
   return '当前配置较完整，继续围绕限流阈值和系统开关做细调即可'
 })
 
 const settingsGuideCopy = computed(() => {
+  if (!configReady.value) {
+    if (configLoadError.value) {
+      return `当前无法确认 system、ai、rate 的真实状态：${configLoadError.value}。先重试加载，避免拿默认值或旧值继续操作。`
+    }
+    return '配置尚未返回时，这个页面不会再用默认站点名、默认模型或默认限流值伪装成真实配置。'
+  }
   if (!aiConfig.enableAutoReply) {
     return '当前自动回复未开启，如果比赛现场需要演示完整链路，建议先确认是否要启用并测试连接。'
   }
@@ -452,13 +572,12 @@ const settingsGuideCopy = computed(() => {
   return '当前核心配置已经齐备，可以优先回看限流阈值、匿名入口和注册开关是否符合比赛演示策略。'
 })
 
-const settingsGuideMetrics = computed(() => [
-  { label: '匿名进入', value: systemConfig.allowAnonymous ? '允许' : '关闭' },
-  { label: '自动回复', value: aiConfig.enableAutoReply ? '开启' : '关闭' },
-  { label: '配置评分', value: `${settingsScore.value} 分` },
-])
-
 const settingsOverviewDescription = computed(() => {
+  if (!configReady.value) {
+    return configLoadError.value
+      ? '系统配置加载失败，当前页面只显示显式错误，不再用默认开关、默认模型或默认限流伪装成真实状态。'
+      : '系统配置尚未返回前，页面不会再展示任何默认配置值，只提示等待真实配置加载。'
+  }
   if (!aiConfig.enableAutoReply) {
     return '集中管理站点开关、智能回复、速率限制与全站广播，当前优先确认自动回复关闭是否符合比赛演示策略。'
   }
@@ -473,62 +592,150 @@ const settingsFocusCard = computed(() =>
 )
 const settingsRhythmItems = computed(() => createDeckRhythmItems(settingsVizBars.value))
 const settingsActivityRows = computed(() => createDeckActivityRows(settingsSignals.value))
-const settingsGuidePulseNote = computed(
-  () => `${tabLabelMap[activeTab.value] || activeTab.value} · ${settingsLabel.value}`,
+const settingsGuidePulseNote = computed(() =>
+  configReady.value
+    ? `${tabLabelMap[activeTab.value] || activeTab.value} · ${settingsLabel.value}`
+    : configLoadError.value || '等待配置返回真实数据',
 )
 const settingsGuideItems = computed(() =>
-  createDeckGuideItems([
-    {
-      label: '匿名进入',
-      value: systemConfig.allowAnonymous ? '允许' : '关闭',
-      note: '比赛演示若需要低门槛体验，这个入口要保持和说明一致。',
-    },
-    {
-      label: '自动回复',
-      value: aiConfig.enableAutoReply ? '开启' : '关闭',
-      note: '关闭时要确认是否仍满足客户端到后端的完整演示链路。',
-    },
-    {
-      label: '配置评分',
-      value: `${settingsScore.value} 分`,
-      note: '综合核心开关、回复能力和广播准备形成当前判断。',
-    },
-  ]),
+  createDeckGuideItems(
+    !configReady.value
+      ? [
+          {
+            label: '配置状态',
+            value: settingsLabel.value,
+            note: configLoadError.value || '等待真实配置返回后再展示值守建议。',
+          },
+          {
+            label: '返回模块',
+            value: 'system / ai / rate',
+            note: '三块缺一不可，缺模块就直接视为失败。',
+          },
+          {
+            label: '广播草稿',
+            value: `${broadcastForm.message.length} / 500`,
+            note: '发送前仍需先确认配置加载完成。',
+          },
+        ]
+      : [
+          {
+            label: '匿名进入',
+            value: systemConfig.allowAnonymous ? '允许' : '关闭',
+            note: '比赛演示若需要低门槛体验，这个入口要保持和说明一致。',
+          },
+          {
+            label: '自动回复',
+            value: aiConfig.enableAutoReply ? '开启' : '关闭',
+            note: '关闭时要确认是否仍满足客户端到后端的完整演示链路。',
+          },
+          {
+            label: '配置评分',
+            value: `${settingsScore.value} 分`,
+            note: '综合核心开关、回复能力和广播准备形成当前判断。',
+          },
+        ],
+  ),
 )
+
+const resetConfigState = () => {
+  systemConfig.name = ''
+  systemConfig.description = ''
+  systemConfig.allowRegister = false
+  systemConfig.allowAnonymous = false
+
+  aiConfig.provider = ''
+  aiConfig.apiKey = ''
+  aiConfig.baseUrl = ''
+  aiConfig.model = ''
+  aiConfig.enableSentiment = false
+  aiConfig.enableAutoReply = false
+
+  rateConfig.stonePerHour = 0
+  rateConfig.boatPerHour = 0
+  rateConfig.messagePerMinute = 0
+  rateConfig.maxContentLength = 0
+
+  rawApiKey = ''
+  apiKeyEdited.value = false
+  apiKeyVisible.value = false
+}
 
 // 加载配置（snake_case → camelCase 转换）
 const loadConfig = async () => {
+  configLoading.value = true
   try {
     const res = await api.getSystemConfig()
     const data = normalizePayloadRecord(res.data)
-    if (data) {
-      const sys = data.system || {}
-      systemConfig.name = sys.name ?? sys.site_name ?? '心湖'
-      systemConfig.description = sys.description ?? '一个温暖治愈的情感交流社区'
-      systemConfig.allowRegister = sys.allow_register ?? sys.allowRegister ?? true
-      systemConfig.allowAnonymous = sys.allow_anonymous ?? sys.allowAnonymous ?? true
-
-      const ai = data.ai || {}
-      aiConfig.provider = ai.provider ?? 'deepseek'
-      aiConfig.apiKey = maskApiKey(ai.api_key ?? ai.apiKey ?? '')
-      rawApiKey = '' // 加载时不保留原始 key，仅展示掩码
-      apiKeyEdited.value = false
-      apiKeyVisible.value = false
-      aiConfig.baseUrl = ai.base_url ?? ai.baseUrl ?? 'https://api.deepseek.com'
-      aiConfig.model = ai.model ?? 'deepseek-chat'
-      aiConfig.enableSentiment = ai.enable_sentiment ?? ai.enableSentiment ?? true
-      aiConfig.enableAutoReply = ai.enable_auto_reply ?? ai.enableAutoReply ?? true
-
-      const rate = data.rate || {}
-      rateConfig.stonePerHour = rate.stone_per_hour ?? rate.stonePerHour ?? 15
-      rateConfig.boatPerHour = rate.boat_per_hour ?? rate.boatPerHour ?? 50
-      rateConfig.messagePerMinute = rate.message_per_minute ?? rate.messagePerMinute ?? 60
-      rateConfig.maxContentLength = rate.max_content_length ?? rate.maxContentLength ?? 2000
+    if (!data.system || !data.ai || !data.rate) {
+      throw new Error('配置响应缺少 system/ai/rate 模块')
     }
+
+    const sys = normalizePayloadRecord(data.system)
+    const ai = normalizePayloadRecord(data.ai)
+    const rate = normalizePayloadRecord(data.rate)
+
+    const name = String(sys.name ?? sys.site_name ?? '').trim()
+    const description = String(sys.description ?? '')
+    const allowRegister = sys.allow_register ?? sys.allowRegister
+    const allowAnonymous = sys.allow_anonymous ?? sys.allowAnonymous
+    const provider = String(ai.provider ?? '').trim()
+    const apiKey = String(ai.api_key ?? ai.apiKey ?? '')
+    const baseUrl = String(ai.base_url ?? ai.baseUrl ?? '').trim()
+    const model = String(ai.model ?? '').trim()
+    const enableSentiment = ai.enable_sentiment ?? ai.enableSentiment
+    const enableAutoReply = ai.enable_auto_reply ?? ai.enableAutoReply
+    const stonePerHour = Number(rate.stone_per_hour ?? rate.stonePerHour)
+    const boatPerHour = Number(rate.boat_per_hour ?? rate.boatPerHour)
+    const messagePerMinute = Number(rate.message_per_minute ?? rate.messagePerMinute)
+    const maxContentLength = Number(rate.max_content_length ?? rate.maxContentLength)
+
+    if (
+      !name ||
+      allowRegister == null ||
+      allowAnonymous == null ||
+      !provider ||
+      !baseUrl ||
+      !model ||
+      enableSentiment == null ||
+      enableAutoReply == null ||
+      !Number.isFinite(stonePerHour) ||
+      !Number.isFinite(boatPerHour) ||
+      !Number.isFinite(messagePerMinute) ||
+      !Number.isFinite(maxContentLength)
+    ) {
+      throw new Error('配置响应缺少必要字段')
+    }
+
+    systemConfig.name = name
+    systemConfig.description = description
+    systemConfig.allowRegister = Boolean(allowRegister)
+    systemConfig.allowAnonymous = Boolean(allowAnonymous)
+
+    aiConfig.provider = provider
+    aiConfig.apiKey = maskApiKey(apiKey)
+    rawApiKey = '' // 加载时不保留原始 key，仅展示掩码
+    apiKeyEdited.value = false
+    apiKeyVisible.value = false
+    aiConfig.baseUrl = baseUrl
+    aiConfig.model = model
+    aiConfig.enableSentiment = Boolean(enableSentiment)
+    aiConfig.enableAutoReply = Boolean(enableAutoReply)
+
+    rateConfig.stonePerHour = stonePerHour
+    rateConfig.boatPerHour = boatPerHour
+    rateConfig.messagePerMinute = messagePerMinute
+    rateConfig.maxContentLength = maxContentLength
+    configReady.value = true
+    configLoadError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('加载配置失败:', e)
-    ElMessage.error(getErrorMessage(e, '加载配置失败'))
+    const message = getErrorMessage(e, '加载配置失败')
+    resetConfigState()
+    configReady.value = false
+    configLoadError.value = message
+    ElMessage.error(message)
+  } finally {
+    configLoading.value = false
   }
 }
 
@@ -577,7 +784,6 @@ const saveConfig = async (type: 'system' | 'ai' | 'rate') => {
     await api.updateSystemConfig({ [type]: configMap[type] })
     ElMessage.success('配置保存成功')
   } catch (e) {
-    console.error('配置保存失败:', e)
     ElMessage.error(getErrorMessage(e, '配置保存失败'))
   } finally {
     saving.value = false
@@ -591,7 +797,6 @@ const testAI = async () => {
     await api.getEdgeAIStatus()
     ElMessage.success('回复服务连接正常')
   } catch (e) {
-    console.error('回复服务连接失败:', e)
     ElMessage.error(getErrorMessage(e, '回复服务连接失败'))
   } finally {
     testing.value = false
@@ -638,7 +843,6 @@ const sendBroadcast = async () => {
     ElMessage.success('广播已发送')
     broadcastForm.message = ''
   } catch (e) {
-    console.error('广播发送失败:', e)
     ElMessage.error(getErrorMessage(e, '广播发送失败'))
   } finally {
     broadcasting.value = false

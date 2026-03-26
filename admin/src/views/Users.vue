@@ -46,6 +46,15 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <el-alert
+        v-if="usersError"
+        :title="usersError"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ops-inline-alert"
+      />
+
       <div class="ops-soft-toolbar users-table-toolbar">
         <div class="users-table-copy">
           <h3>旅人列表</h3>
@@ -155,6 +164,12 @@
             <el-button v-else type="success" link @click="handleUnban(row)"> 解封 </el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty
+            :description="usersError ? '旅人列表暂未刷新出来' : '当前没有符合条件的旅人'"
+            :image-size="88"
+          />
+        </template>
       </el-table>
 
       <div class="pagination-wrapper">
@@ -313,6 +328,7 @@ const loading = ref(false)
 const users = ref<User[]>([])
 const detailVisible = ref(false)
 const currentUser = ref<User | null>(null)
+const usersError = ref('')
 const advancedRecommendationsLoading = ref(false)
 const advancedRecommendations = ref<AdvancedRecommendationItem[]>([])
 const advancedRecommendationsError = ref('')
@@ -515,9 +531,8 @@ const resetAdvancedRecommendations = () => {
 }
 
 const loadAdvancedRecommendations = async (userId: string, showFeedback = false) => {
-  const hadData = advancedRecommendations.value.length > 0
   advancedRecommendationsLoading.value = true
-  advancedRecommendationsError.value = ''
+  resetAdvancedRecommendations()
 
   try {
     const res = await api.getAdminAdvancedRecommendations({ user_id: userId, limit: 6 })
@@ -533,9 +548,6 @@ const loadAdvancedRecommendations = async (userId: string, showFeedback = false)
     if (isRequestCanceled(e)) return
     const message = getErrorMessage(e, '加载高级推荐失败')
     advancedRecommendationsError.value = message
-    if (!hadData) {
-      advancedRecommendations.value = []
-    }
     if (showFeedback) {
       ElMessage.warning(message)
     }
@@ -695,12 +707,12 @@ const fetchUsers = async () => {
     const { items, total } = normalizeCollectionResponse<User>(res.data, ['users'])
     users.value = items
     pagination.total = total
+    usersError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取用户列表失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取用户列表失败'))
-    users.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取用户列表失败')
+    usersError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }

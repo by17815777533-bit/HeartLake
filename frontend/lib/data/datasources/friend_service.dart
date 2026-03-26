@@ -147,18 +147,18 @@ class FriendService extends BaseService implements FriendDataSource {
       'content': content,
     });
     if (!response.success) return toMap(response);
-
-    final payload = response.data is Map
-        ? normalizeMessagePayload(response.data as Map)
-        : _normalizeFriendActionPayload(
-            const <String, dynamic>{},
-            peerId: friendId,
-            content: content,
-          );
+    if (response.data is! Map) {
+      throw StateError('Friend message success payload is not a map');
+    }
+    final payload = normalizeMessagePayload(response.data as Map);
+    if ((payload['message_id']?.toString().isEmpty ?? true) &&
+        (payload['id']?.toString().isEmpty ?? true)) {
+      throw StateError('Friend message success payload is missing message_id');
+    }
     return {
       ...toMap(response),
       'data': payload,
-      'message': payload,
+      'message': response.message,
     };
   }
 }

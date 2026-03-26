@@ -146,18 +146,13 @@ class ConsultationService extends BaseService {
           'encrypted': encrypted,
         });
         if (!resp.success) return toMap(resp);
+        if (resp.data is! Map) {
+          throw StateError('咨询消息发送响应缺少 data');
+        }
 
-        final payload = resp.data is Map
-            ? normalizeMessagePayload(
-                Map<String, dynamic>.from(
-                    (resp.data as Map).cast<String, dynamic>()),
-              )
-            : <String, dynamic>{
-                'session_id': sessionId,
-                'content': content,
-                'status': 'sent',
-                'encrypted': true,
-              };
+        final payload = normalizeMessagePayload(
+          Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>()),
+        );
         return {
           ...toMap(resp),
           'data': payload,
@@ -325,9 +320,11 @@ class ConsultationService extends BaseService {
       'client_public_key': clientPublicKey,
     });
     if (!resp.success) return toMap(resp);
-    final payload = resp.data is Map
-        ? Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>())
-        : <String, dynamic>{};
+    if (resp.data is! Map) {
+      throw StateError('密钥交换响应缺少 data');
+    }
+    final payload =
+        Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>());
     if (payload['server_public_key'] != null) {
       payload['serverPublicKey'] = payload['server_public_key'];
     }

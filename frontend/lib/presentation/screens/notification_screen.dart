@@ -276,9 +276,41 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: notifications.length,
+                      itemCount:
+                          notifications.length + (errorMessage != null ? 1 : 0),
                       itemBuilder: (context, index) {
-                        final notification = notifications[index];
+                        if (errorMessage != null && index == 0) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4E5),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFE6B56C)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Color(0xFFB26A00),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    '$errorMessage 当前展示的是最近一次成功加载的通知。',
+                                    style: const TextStyle(
+                                      color: Color(0xFF7A4A00),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        final notification = notifications[
+                            errorMessage != null ? index - 1 : index];
                         final isRead = notification['is_read'] == true;
 
                         return Card(

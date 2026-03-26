@@ -28,6 +28,7 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
   List<Map<String, dynamic>> _hotlines = [];
   String _prompt = '';
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -93,9 +94,10 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
               widget.helpTip ??
               '需要有人陪伴吗？我们在这里倾听你。';
           _loading = false;
+          _error = failures.isNotEmpty ? failures.join('；') : null;
         });
         if (failures.isNotEmpty) {
-          _showMessage(failures.join('；'));
+          _showMessage(_error!);
         }
       }
     } catch (error, stackTrace) {
@@ -106,8 +108,9 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
               ? _prompt
               : (widget.helpTip ?? '需要有人陪伴吗？我们在这里倾听你。');
           _loading = false;
+          _error = '心理支持信息加载失败，请稍后重试';
         });
-        _showMessage('心理支持信息加载失败，请稍后重试');
+        _showMessage(_error!);
       }
     }
   }
@@ -119,6 +122,9 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
     }
     final uri = Uri.parse('tel:$phone');
     try {
+      await _service.recordAccess(
+        resourceId: 'hotline_${phone.replaceAll(RegExp(r'\D'), '')}',
+      );
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
       } else {
@@ -163,6 +169,17 @@ class _PsychSupportDialogState extends State<PsychSupportDialog> {
                 Text(_prompt,
                     style: const TextStyle(
                         fontSize: 15, height: 1.6, color: Color(0xFF6D4C41))),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB85C38),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 ..._hotlines.take(2).map((h) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),

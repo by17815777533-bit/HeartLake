@@ -64,6 +64,14 @@
 
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="待审核" name="pending">
+          <el-alert
+            v-if="pendingError"
+            :title="pendingError"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ops-inline-alert"
+          />
           <el-table v-loading="loading" :data="pendingList" stripe aria-label="待审核内容列表">
             <el-table-column prop="moderation_id" label="ID" width="80" />
             <el-table-column label="类型" width="80">
@@ -111,6 +119,12 @@
                 <el-button type="primary" link @click="viewDetail(row)"> 详情 </el-button>
               </template>
             </el-table-column>
+            <template #empty>
+              <el-empty
+                :description="pendingError ? '待审核队列暂未刷新出来' : '当前没有待审核内容'"
+                :image-size="88"
+              />
+            </template>
           </el-table>
           <div class="pagination-wrapper">
             <el-pagination
@@ -126,6 +140,14 @@
         </el-tab-pane>
 
         <el-tab-pane label="审核历史" name="history">
+          <el-alert
+            v-if="historyError"
+            :title="historyError"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="ops-inline-alert"
+          />
           <div class="moderation-history-filter">
             <el-form :model="historyFilters" inline aria-label="审核历史筛选">
               <el-form-item label="结果">
@@ -156,6 +178,12 @@
             </el-table-column>
             <el-table-column prop="moderator" label="操作人" width="100" />
             <el-table-column prop="moderated_at" label="处理时间" width="170" />
+            <template #empty>
+              <el-empty
+                :description="historyError ? '审核历史暂未刷新出来' : '当前没有审核历史'"
+                :image-size="88"
+              />
+            </template>
           </el-table>
           <div class="pagination-wrapper">
             <el-pagination
@@ -231,6 +259,8 @@ const pendingList = ref<ModerationItem[]>([])
 const historyList = ref<ModerationItem[]>([])
 const detailVisible = ref(false)
 const currentItem = ref<ModerationItem | null>(null)
+const pendingError = ref('')
+const historyError = ref('')
 
 const historyFilters = reactive({ result: '' })
 
@@ -497,12 +527,12 @@ async function fetchPending() {
     const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['pending'])
     pendingList.value = items
     pagination.total = total
+    pendingError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取待审核列表失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取待审核列表失败'))
-    pendingList.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取待审核列表失败')
+    pendingError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }
@@ -515,12 +545,12 @@ async function fetchHistory() {
     const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['history'])
     historyList.value = items
     historyPagination.total = total
+    historyError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取审核历史失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取审核历史失败'))
-    historyList.value = []
-    historyPagination.total = 0
+    const message = getErrorMessage(e, '获取审核历史失败')
+    historyError.value = message
+    ElMessage.error(message)
   } finally {
     historyLoading.value = false
   }
@@ -545,23 +575,13 @@ const handleApprove = async (row: ModerationItem) => {
   } catch {
     return
   }
-  // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
-  const removedIndex = pendingList.value.findIndex(
-    (item) => (item.moderation_id || item.content_id) === itemId,
-  )
-  const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
     await api.approveContent(itemId)
     ElMessage.success('已通过')
     fetchPending() // 异步刷新获取最新数据
   } catch (e) {
-    console.error('审核通过操作失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
-    // 回滚：操作失败时恢复被移除的项
-    if (removedItem && removedIndex >= 0) {
-      pendingList.value.splice(removedIndex, 0, removedItem)
-    }
   }
 }
 
@@ -573,22 +593,13 @@ const handleReject = async (row: ModerationItem) => {
     inputErrorMessage: '请输入原因',
   }).catch(() => ({ value: null }))
   if (!reason) return
-  // 乐观更新：先从本地列表移除，再异步请求后端
   const itemId = row.moderation_id || row.content_id
-  const removedIndex = pendingList.value.findIndex(
-    (item) => (item.moderation_id || item.content_id) === itemId,
-  )
-  const removedItem = removedIndex >= 0 ? pendingList.value.splice(removedIndex, 1)[0] : null
   try {
     await api.rejectContent(itemId, reason)
     ElMessage.success('已拒绝')
     fetchPending()
   } catch (e) {
-    console.error('审核拒绝操作失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
-    if (removedItem && removedIndex >= 0) {
-      pendingList.value.splice(removedIndex, 0, removedItem)
-    }
   }
 }
 

@@ -218,11 +218,11 @@ class NotificationProvider with ChangeNotifier {
     try {
       final result = await _notificationService.markAsRead(notificationId);
       if (result['success'] == true) {
-        final changed = _markNotificationReadLocal(notificationId);
+        _markNotificationReadLocal(notificationId);
         if (result['unread_count'] != null) {
           _unreadCount = result['unread_count'] as int;
-        } else if (changed && _unreadCount > 0) {
-          _unreadCount--;
+        } else {
+          await forceRefreshUnreadCount();
         }
         _errorMessage = null;
         notifyListeners();
@@ -345,7 +345,7 @@ class NotificationProvider with ChangeNotifier {
         for (final item in newItems) {
           merged = _upsertNotification(item, rebuildIndex: false) || merged;
         }
-        if (merged || newItems.isNotEmpty) {
+        if (refresh || merged || newItems.isNotEmpty) {
           _rebuildNotificationIndex();
         }
         final explicitHasMore = result['has_more'] ?? result['hasMore'];

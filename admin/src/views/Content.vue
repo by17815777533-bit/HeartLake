@@ -47,6 +47,15 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <el-alert
+        v-if="contentError"
+        :title="contentError"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ops-inline-alert"
+      />
+
       <div class="ops-soft-toolbar content-table-toolbar">
         <div class="content-table-copy">
           <h3>内容列表</h3>
@@ -143,7 +152,10 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无内容数据" :image-size="88" />
+          <el-empty
+            :description="contentError ? '内容暂未刷新出来' : '暂无内容数据'"
+            :image-size="88"
+          />
         </template>
       </el-table>
 
@@ -217,6 +229,7 @@ const loading = ref(false)
 const contentList = ref<ContentItem[]>([])
 const detailVisible = ref(false)
 const currentContent = ref<ContentItem | null>(null)
+const contentError = ref('')
 
 // 搜索关键词输入防抖，避免每次按键都触发请求
 let keywordDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -509,6 +522,7 @@ async function fetchContent() {
       const { items, total } = normalizeContentCollection(res.data, 'boat', ['boats'])
       contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
+      contentError.value = ''
       return
     }
 
@@ -519,6 +533,7 @@ async function fetchContent() {
       const { items, total } = normalizeContentCollection(res.data, 'stone', ['stones'])
       contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
+      contentError.value = ''
       return
     }
 
@@ -527,6 +542,7 @@ async function fetchContent() {
       const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
       contentList.value = sortByCreatedAtDesc(items)
       pagination.total = total
+      contentError.value = ''
       return
     }
 
@@ -538,12 +554,12 @@ async function fetchContent() {
       pagination.pageSize,
     )
     pagination.total = stones.total + boats.total
+    contentError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取内容列表失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取内容列表失败'))
-    contentList.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取内容列表失败')
+    contentError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }
@@ -578,7 +594,6 @@ const deleteContent = async (row: { id: string; type: string }) => {
     ElMessage.success('删除成功')
     fetchContent()
   } catch (e) {
-    console.error('删除内容失败:', e)
     ElMessage.error(getErrorMessage(e, '删除失败'))
   }
 }

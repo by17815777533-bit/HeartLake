@@ -65,6 +65,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _nickname;
   String? _avatarUrl;
   String? _bio;
+  String? _statsErrorMessage;
+  String? _profileErrorMessage;
+  String? _vipErrorMessage;
   bool _hasLight = false; // 灯是否点亮
   int _vipDaysLeft = 0;
   String? _currentUserId;
@@ -132,12 +135,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   bool _shouldRefreshStatsForEvent(
-    Map<String, dynamic> payload, {
-    bool fallbackWhenOwnerContextMissing = false,
-  }) {
+    Map<String, dynamic> payload,
+  ) {
     final currentUserId = _currentUserId?.trim();
     if (currentUserId == null || currentUserId.isEmpty) {
-      return true;
+      return false;
     }
 
     final normalized = normalizePayloadContract(payload);
@@ -162,18 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (candidateIds.any(_matchesCurrentUserId)) {
       return true;
     }
-
-    if (!fallbackWhenOwnerContextMissing) {
-      return false;
-    }
-
-    final hasOwnershipContext = [
-      normalized['stone_owner_id'],
-      normalized['stone_user_id'],
-      stone['stone_owner_id'],
-      stone['stone_user_id'],
-    ].any((value) => value?.toString().trim().isNotEmpty == true);
-    return !hasOwnershipContext;
+    return false;
   }
 
   /// 查询灯火（VIP）状态：是否点亮、剩余天数
@@ -190,6 +181,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (showFeedback && mounted) {
           _showMessage(message);
         }
+        if (mounted) {
+          setState(() => _vipErrorMessage = message);
+        }
         return;
       }
 
@@ -200,10 +194,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _hasLight = payload['is_vip'] == true;
           _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
+          _vipErrorMessage = null;
         });
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._loadVIPStatus');
+      if (mounted) {
+        setState(() => _vipErrorMessage = '加载灯火状态失败，请稍后重试');
+      }
       if (showFeedback && mounted) {
         _showMessage('加载灯火状态失败，请稍后重试');
       }
@@ -244,7 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!mounted) return;
         if (_shouldRefreshStatsForEvent(
           data,
-          fallbackWhenOwnerContextMissing: true,
         )) {
           unawaited(_loadUserStats(silent: true));
         }
@@ -256,7 +253,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!mounted) return;
         if (_shouldRefreshStatsForEvent(
           data,
-          fallbackWhenOwnerContextMissing: true,
         )) {
           unawaited(_loadUserStats(silent: true));
         }
@@ -276,7 +272,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!mounted) return;
         if (_shouldRefreshStatsForEvent(
           data,
-          fallbackWhenOwnerContextMissing: true,
         )) {
           unawaited(_loadUserStats(silent: true));
         }
@@ -287,7 +282,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!mounted) return;
         if (_shouldRefreshStatsForEvent(
           data,
-          fallbackWhenOwnerContextMissing: true,
         )) {
           unawaited(_loadUserStats(silent: true));
         }
@@ -377,6 +371,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!silent && mounted) {
           _showMessage('登录状态异常，请重新进入页面');
         }
+        if (mounted) {
+          setState(() => _statsErrorMessage = '登录状态异常，无法刷新个人统计');
+        }
         return;
       }
 
@@ -391,6 +388,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!silent && mounted) {
           _showMessage(message);
         }
+        if (mounted) {
+          setState(() => _statsErrorMessage = message);
+        }
         return;
       }
 
@@ -404,17 +404,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!silent && mounted) {
           _showMessage('加载个人统计失败，请稍后重试');
         }
+        if (mounted) {
+          setState(() => _statsErrorMessage = '加载个人统计失败，请稍后重试');
+        }
         return;
       }
 
       if (mounted) {
         setState(
-          () => _stats =
-              Map<String, dynamic>.from(payload.cast<String, dynamic>()),
+          () {
+            _stats = Map<String, dynamic>.from(payload.cast<String, dynamic>());
+            _statsErrorMessage = null;
+          },
         );
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._loadUserStats');
+      if (mounted) {
+        setState(() => _statsErrorMessage = '加载个人统计失败，请稍后重试');
+      }
       if (!silent && mounted) {
         _showMessage('加载个人统计失败，请稍后重试');
       }
@@ -435,6 +443,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (showFeedback && mounted) {
           _showMessage(message);
         }
+        if (mounted) {
+          setState(() => _profileErrorMessage = message);
+        }
         return;
       }
 
@@ -447,6 +458,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         if (showFeedback && mounted) {
           _showMessage('加载个人资料失败，请稍后重试');
+        }
+        if (mounted) {
+          setState(() => _profileErrorMessage = '加载个人资料失败，请稍后重试');
         }
         return;
       }
@@ -468,6 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bio = resolvedBio;
         _nickname =
             resolvedNickname?.isNotEmpty == true ? resolvedNickname : _nickname;
+        _profileErrorMessage = null;
       });
       Provider.of<UserProvider>(context, listen: false).updateUser(
         nickname:
@@ -477,6 +492,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._loadFullProfile');
+      if (mounted) {
+        setState(() => _profileErrorMessage = '加载个人资料失败，请稍后重试');
+      }
       if (showFeedback && mounted) {
         _showMessage('加载个人资料失败，请稍后重试');
       }
@@ -672,6 +690,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 right: 16,
               ),
               children: [
+                if (_statsErrorMessage != null ||
+                    _profileErrorMessage != null ||
+                    _vipErrorMessage != null)
+                  Card(
+                    color: const Color(0xFFFFF4E5),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  color: Color(0xFFB26A00)),
+                              SizedBox(width: 8),
+                              Text(
+                                '部分资料未刷新',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF7A4A00),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (_profileErrorMessage != null)
+                            Text(_profileErrorMessage!,
+                                style:
+                                    const TextStyle(color: Color(0xFF7A4A00))),
+                          if (_statsErrorMessage != null)
+                            Text(_statsErrorMessage!,
+                                style:
+                                    const TextStyle(color: Color(0xFF7A4A00))),
+                          if (_vipErrorMessage != null)
+                            Text(_vipErrorMessage!,
+                                style:
+                                    const TextStyle(color: Color(0xFF7A4A00))),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_statsErrorMessage != null ||
+                    _profileErrorMessage != null ||
+                    _vipErrorMessage != null)
+                  const SizedBox(height: 12),
                 // 个人信息卡片
                 Card(
                   color: isDark

@@ -27,6 +27,7 @@ class _GuardianScreenState extends State<GuardianScreen>
   final _service = sl<GuardianService>();
   Map<String, dynamic>? _stats;
   bool _loading = true;
+  String? _statsError;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
@@ -78,17 +79,26 @@ class _GuardianScreenState extends State<GuardianScreen>
     try {
       final stats = await _service.getStats();
       if (!mounted) return;
+      if (stats['success'] != true || stats['data'] is! Map) {
+        setState(() {
+          _loading = false;
+          _statsError = stats['message']?.toString() ?? '加载守护者数据失败';
+        });
+        return;
+      }
       setState(() {
-        _stats = (stats['success'] == true && stats['data'] is Map)
-            ? Map<String, dynamic>.from(stats['data'] as Map)
-            : null;
+        _stats = Map<String, dynamic>.from(stats['data'] as Map);
         _loading = false;
+        _statsError = null;
       });
       _animController.forward();
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'GuardianScreen._loadStats');
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _statsError = '加载守护者数据失败，请稍后重试';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('加载守护者数据失败，请稍后重试')),
       );
@@ -100,14 +110,14 @@ class _GuardianScreenState extends State<GuardianScreen>
       final insights = await _service.getEmotionInsights();
       if (mounted) {
         setState(() {
-          _insights = (insights['success'] == true && insights['data'] is Map)
-              ? Map<String, dynamic>.from(insights['data'] as Map)
-              : null;
-          _insightsError = _insights == null
-              ? (insights['message']?.toString().isNotEmpty == true
-                  ? insights['message'].toString()
-                  : '暂无情感洞察数据')
-              : null;
+          if (insights['success'] == true && insights['data'] is Map) {
+            _insights = Map<String, dynamic>.from(insights['data'] as Map);
+            _insightsError = null;
+          } else {
+            _insightsError = insights['message']?.toString().isNotEmpty == true
+                ? insights['message'].toString()
+                : '加载情感洞察失败';
+          }
           _insightsLoading = false;
         });
       }
@@ -510,9 +520,25 @@ class _GuardianScreenState extends State<GuardianScreen>
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white))
                 : _stats == null
-                    ? const Center(
-                        child:
-                            Text('暂无数据', style: TextStyle(color: Colors.white)))
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _statsError ?? '加载守护者数据失败',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() => _loading = true);
+                                _loadStats();
+                              },
+                              child: const Text('重试'),
+                            ),
+                          ],
+                        ),
+                      )
                     : FadeTransition(
                         opacity: _fadeAnim,
                         child: ScaleTransition(

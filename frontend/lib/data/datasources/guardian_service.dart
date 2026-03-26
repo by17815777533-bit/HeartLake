@@ -10,7 +10,9 @@ class GuardianService extends BaseService {
   String get serviceName => 'GuardianService';
 
   Map<String, dynamic> _normalizeGuardianPayload(dynamic raw) {
-    if (raw is! Map) return const <String, dynamic>{};
+    if (raw is! Map) {
+      throw StateError('Guardian success payload is not a map');
+    }
 
     final payload = normalizePayloadContract(
       Map<String, dynamic>.from(raw.cast<String, dynamic>()),
@@ -31,6 +33,9 @@ class GuardianService extends BaseService {
     if (!response.success) return toMap(response);
 
     final payload = _normalizeGuardianPayload(response.data);
+    if (payload.isEmpty) {
+      throw StateError('Guardian stats success payload is empty');
+    }
     return {
       ...toMap(response),
       'data': payload,

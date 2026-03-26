@@ -15,7 +15,7 @@ import 'stone_detail_screen.dart';
 /// 三个 Tab 组成的内容发现入口：
 /// - 热门：按热度排序的石头列表，使用 [DeepDiveSpace] 深潜式布局
 /// - 找心声：关键词搜索石头（语义搜索仅管理端可用，前端返回空）
-/// - 湖神陪伴：AI 个性化推荐 + 高级共鸣推荐，合并去重后展示
+/// - 湖神陪伴：个性化推荐与高级共鸣推荐分区展示，失败按分区显式暴露
 ///
 /// 切换 Tab 时自动加载对应数据，支持下拉刷新。
 /// 点击推荐石头会上报 click 交互事件，用于推荐引擎在线学习。
@@ -419,63 +419,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
         _personalizedAIStones.isNotEmpty || _advancedAIStones.isNotEmpty;
     if (_aiLoading) return _buildLoadingIndicator();
     if (!hasVisibleResults) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics()),
-        children: [
-          const SizedBox(height: 120),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_awesome,
-                    size: 64, color: Colors.white.withValues(alpha: 0.5)),
-                const SizedBox(height: 16),
-                Text('暂时还没有更贴合你的内容，多投石头会更懂你',
-                    style:
-                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-                if (warningMessages.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildWarningCard(warningMessages.join('；')),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _loadAIRecommendations(showFeedback: true),
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('重试加载'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white.withValues(alpha: 0.9),
-                      side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.4)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const PersonalizedScreen()),
-                  ),
-                  icon: const Icon(Icons.explore, size: 18),
-                  label: const Text('看看为你准备的内容'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white.withValues(alpha: 0.9),
-                    side:
-                        BorderSide(color: Colors.white.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
+      if (warningMessages.isNotEmpty) {
+        return _buildAIHardFailureState(warningMessages);
+      }
+      return _buildAIEmptyState();
     }
 
     return ListView(
@@ -549,7 +496,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             padding:
                 const EdgeInsets.only(left: 16, right: 16, top: 4, bottom: 20),
             child: Text(
-              errorMessage == null ? '当前没有可展示的结果' : '当前分支没有成功产出',
+              errorMessage == null ? '当前没有可展示的真实结果' : '该分区加载失败，当前没有可展示的真实结果',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.68)),
             ),
           )
@@ -568,6 +515,87 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               child: StoneCard(stone: stone),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildAIHardFailureState(List<String> warningMessages) {
+    return ListView(
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      children: [
+        const SizedBox(height: 120),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome,
+                    size: 64, color: Colors.white.withValues(alpha: 0.5)),
+                const SizedBox(height: 16),
+                Text(
+                  '湖神陪伴加载失败',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
+                ),
+                const SizedBox(height: 12),
+                _buildWarningCard(warningMessages.join('；')),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _loadAIRecommendations(showFeedback: true),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('重试加载'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white.withValues(alpha: 0.9),
+                    side:
+                        BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAIEmptyState() {
+    return ListView(
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      children: [
+        const SizedBox(height: 120),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome,
+                  size: 64, color: Colors.white.withValues(alpha: 0.5)),
+              const SizedBox(height: 16),
+              Text(
+                '暂时还没有更贴合你的内容，多投石头会更懂你',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PersonalizedScreen()),
+                ),
+                icon: const Icon(Icons.explore, size: 18),
+                label: const Text('看看为你准备的内容'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white.withValues(alpha: 0.9),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

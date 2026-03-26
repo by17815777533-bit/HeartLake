@@ -29,7 +29,7 @@ class FriendChatScreen extends StatefulWidget {
 /// 好友聊天页面的状态管理
 ///
 /// 通过 [FriendService] 收发消息，[WebSocketManager] 实时接收新消息。
-/// 采用乐观更新策略：发送消息时立即追加到本地列表，失败后回滚并恢复输入。
+/// 仅在服务端确认成功后写入本地列表，避免乐观状态漂移。
 class _FriendChatScreenState extends State<FriendChatScreen> {
   final FriendService _friendService = sl<FriendService>();
   final WebSocketManager _wsManager = WebSocketManager();
@@ -196,7 +196,7 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     });
   }
 
-  /// 发送消息，采用乐观更新：先追加到本地列表，失败后回滚并恢复输入框内容
+  /// 发送消息，只在服务端确认成功后写入本地列表
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
@@ -208,35 +208,16 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
     }
 
     setState(() => _isSending = true);
-    _controller.clear();
     FocusScope.of(context).unfocus();
-
-    // 乐观更新：立即追加消息到本地列表
-    final optimisticMessage = {
-      'content': content,
-      'sender_id': _currentUserId,
-      'receiver_id': widget.friendId,
-      'created_at': DateTime.now().toIso8601String(),
-      'is_mine': true,
-    };
-    if (mounted) {
-      setState(() {
-        _messages.add(optimisticMessage);
-      });
-      _scrollToBottom();
-    }
 
     try {
       final result = await _friendService.sendMessage(widget.friendId, content);
 
       if (mounted) {
-        if (result['success'] != true) {
-          // 发送失败，移除乐观消息并恢复输入
+        if (result['success'] != true || result['data'] is! Map) {
           setState(() {
             _isSending = false;
-            _messages.remove(optimisticMessage);
           });
-          _controller.text = content;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text(result['message'] ?? '发送失败'),
@@ -245,28 +226,28 @@ class _FriendChatScreenState extends State<FriendChatScreen> {
           return;
         }
 
-        final payload = result['data'] is Map
-            ? _normalizeChatMessage(result['data'] as Map, isMine: true)
-            : null;
+        final payload =
+            _normalizeChatMessage(result['data'] as Map, isMine: true);
         setState(() {
           _isSending = false;
-          if (payload != null) {
-            optimisticMessage.addAll(payload);
-            optimisticMessage['is_mine'] = true;
-          }
+          _messages.add(payload);
         });
+        _controller.clear();
+        _scrollToBottom();
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'FriendChatScreen._sendMessage');
       if (mounted) {
         setState(() {
           _isSending = false;
-          _messages.remove(optimisticMessage);
         });
-        _controller.text = content;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('网络异常，请稍后再试'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              error.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }

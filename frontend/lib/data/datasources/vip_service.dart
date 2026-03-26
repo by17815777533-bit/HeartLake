@@ -9,7 +9,9 @@ class VIPService extends BaseService {
   String get serviceName => '灯火服务';
 
   Map<String, dynamic> _normalizeVipPayload(dynamic raw) {
-    if (raw is! Map) return const <String, dynamic>{};
+    if (raw is! Map) {
+      throw StateError('VIP payload is not a map');
+    }
 
     final payload = normalizePayloadContract(
       Map<String, dynamic>.from(raw.cast<String, dynamic>()),
@@ -47,9 +49,7 @@ class VIPService extends BaseService {
       ),
       listKeys: const ['privileges'],
     );
-    final payload = response.data is Map
-        ? _normalizeVipPayload(response.data)
-        : const <String, dynamic>{};
+    final payload = _normalizeVipPayload(response.data);
 
     return {
       ...toMap(response),
@@ -80,12 +80,6 @@ class VIPService extends BaseService {
     };
   }
 
-  /// 检查是否有免费心理咨询额度
-  Future<bool> hasFreeCounselingQuota() async {
-    final result = await getCounselingQuotaStatus();
-    return result['success'] == true && result['has_quota'] == true;
-  }
-
   /// 预约心理咨询
   Future<Map<String, dynamic>> bookCounseling({
     required String appointmentTime,
@@ -104,37 +98,5 @@ class VIPService extends BaseService {
       'data': payload,
       ...payload,
     };
-  }
-
-  /// 获取AI评论频率（小时）
-  Future<double> getAICommentFrequency() async {
-    final response = await get('/vip/ai-comment-frequency');
-    if (response.success) {
-      final payload = _normalizeVipPayload(response.data);
-      final frequency = payload['frequency_hours'];
-      if (frequency is num) return frequency.toDouble();
-      return double.tryParse(frequency?.toString() ?? '') ?? 2.0;
-    }
-    return 2.0;
-  }
-
-  /// 检查用户是否是VIP
-  Future<bool> isVIP() async {
-    final result = await getVIPStatus();
-    if (result['success'] == true) {
-      final data = result['data'];
-      return (data is Map) ? (data['is_vip'] ?? false) : false;
-    }
-    return false;
-  }
-
-  /// 获取VIP剩余天数
-  Future<int> getVIPDaysLeft() async {
-    final result = await getVIPStatus();
-    if (result['success'] == true) {
-      final data = result['data'];
-      return (data is Map) ? (data['days_left'] ?? 0) : 0;
-    }
-    return 0;
   }
 }

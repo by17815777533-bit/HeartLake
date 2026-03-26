@@ -37,6 +37,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
   bool _isLoadingHistory = false;
+  String? _historyError;
 
   // 情绪脉搏数据
   Map<String, dynamic>? _emotionPulse;
@@ -72,11 +73,11 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 初始化会话：并行加载历史消息和情绪脉搏，历史加载失败时降级只加载脉搏
   Future<void> _initSession() async {
-    await Future.wait([
+    final results = await Future.wait([
       _loadHistory(),
       _loadEmotionPulse(),
     ]);
-    if (_messages.isEmpty && mounted) {
+    if (results.first == true && _messages.isEmpty && mounted) {
       _addWelcome();
     }
   }
@@ -88,9 +89,12 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
       final result = await _service.getMessages();
       if (!mounted) return false;
       if (result['success'] != true) {
+        setState(() {
+          _historyError = result['message']?.toString() ?? '历史消息加载失败';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']?.toString() ?? '历史消息加载失败'),
+            content: Text(_historyError!),
           ),
         );
         return false;
@@ -112,6 +116,7 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         _messages
           ..clear()
           ..addAll(history);
+        _historyError = null;
       });
       if (history.isNotEmpty) {
         _scrollToBottom();
@@ -120,6 +125,9 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'LakeGodChatScreen._loadHistory');
       if (mounted) {
+        setState(() {
+          _historyError = '历史消息加载失败，请稍后重试';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('历史消息加载失败，请稍后重试')),
         );
@@ -154,11 +162,11 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
 
   /// 下拉刷新 - 重新加载历史消息和情绪脉搏
   Future<void> _onRefresh() async {
-    await Future.wait([
+    final results = await Future.wait([
       _loadHistory(),
       _loadEmotionPulse(),
     ]);
-    if (_messages.isEmpty) {
+    if (results.first == true && _messages.isEmpty) {
       _addWelcome();
     }
   }
@@ -190,74 +198,55 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSending) return;
-    final optimisticMessage = <String, dynamic>{
-      'content': content,
-      'is_mine': true,
-    };
-
-    _controller.clear();
     FocusScope.of(context).unfocus();
 
     setState(() => _isSending = true);
 
     try {
       final messenger = ScaffoldMessenger.of(context);
-      // 1. 添加用户消息到列表
-      setState(() {
-        _messages.add(optimisticMessage);
-      });
-      _scrollToBottom();
-
-      // 2. 发送消息给湖神（后端 lakeGodChat 内部会做内容审核+情感分析+AI回复）
       final result = await _service.sendMessage(content);
 
       if (mounted) {
+        if (result['success'] != true || result['data'] is! Map) {
+          setState(() => _isSending = false);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? '消息发送失败，请稍后再试'),
+            ),
+          );
+          return;
+        }
+        final data = result['data'] as Map<String, dynamic>;
+        final reply = data['reply']?.toString();
+        final mood = data['mood']?.toString();
         setState(() {
           _isSending = false;
-          if (result['success'] == true && result['data'] != null) {
-            final data = result['data'] as Map<String, dynamic>;
-            final reply = data['reply'] ??
-                data['response'] ??
-                data['content'] ??
-                '我在倾听...';
-            final mood = data['mood']?.toString();
-            if (_messages.isNotEmpty && mood != null) {
-              _messages[_messages.length - 1]['mood'] = mood;
-            }
-            _messages.add({
-              'content': reply,
-              'is_mine': false,
-              'mood': mood,
-            });
-          } else {
-            _messages.remove(optimisticMessage);
-            _controller.text = content;
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(result['message'] ?? '消息发送失败，请稍后再试'),
-              ),
-            );
-          }
+          _messages.add({
+            'content': content,
+            'is_mine': true,
+            if (mood != null) 'mood': mood,
+          });
+          _messages.add({
+            'content': reply,
+            'is_mine': false,
+            if (mood != null) 'mood': mood,
+          });
         });
-        if (result['success'] == true) {
-          _scrollToBottom();
-        }
+        _controller.clear();
+        _scrollToBottom();
       }
 
-      // 3. 异步刷新情绪脉搏
-      _loadEmotionPulse();
+      await _loadEmotionPulse();
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'LakeGodChatScreen._sendMessage');
       if (mounted) {
         final messenger = ScaffoldMessenger.of(context);
-        setState(() {
-          _isSending = false;
-          _messages.remove(optimisticMessage);
-        });
-        _controller.text = content;
+        setState(() => _isSending = false);
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('网络不太好，稍后再试试吧'),
+          SnackBar(
+            content: Text(
+              error.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+            ),
           ),
         );
       }
@@ -342,14 +331,44 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
                               color: Colors.white70,
                             ),
                           )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) =>
-                                _buildMessageBubble(_messages[index]),
-                          ),
+                        : _historyError != null && _messages.isEmpty
+                            ? ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                children: [
+                                  const SizedBox(height: 140),
+                                  Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24),
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            _historyError!,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          ElevatedButton(
+                                            onPressed: _loadHistory,
+                                            child: const Text('重试'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : ListView.builder(
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _messages.length,
+                                itemBuilder: (context, index) =>
+                                    _buildMessageBubble(_messages[index]),
+                              ),
                   ),
                 ),
                 _buildInputBar(),

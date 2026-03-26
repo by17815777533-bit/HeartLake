@@ -24,6 +24,8 @@ class FriendProvider with ChangeNotifier {
   final Map<String, int> _tempFriendIndexById = {};
   bool _isLoading = false;
   bool _wsRegistered = false;
+  String? _error;
+  String? _tempFriendsError;
 
   late void Function(Map<String, dynamic>) _onFriendOnline;
   late void Function(Map<String, dynamic>) _onFriendOffline;
@@ -36,6 +38,8 @@ class FriendProvider with ChangeNotifier {
   List<Map<String, dynamic>> get tempFriends => List.unmodifiable(_tempFriends);
   bool get isLoading => _isLoading;
   int get friendCount => _friends.length;
+  String? get error => _error;
+  String? get tempFriendsError => _tempFriendsError;
 
   FriendProvider({
     FriendDataSource? friendService,
@@ -53,11 +57,7 @@ class FriendProvider with ChangeNotifier {
         item['friend_user_id'] ??
         item['userId'] ??
         item['friendId'] ??
-        item['friendUserId'] ??
-        item['peer_id'] ??
-        item['from_user_id'] ??
-        item['to_user_id'] ??
-        item['target_user_id'];
+        item['friendUserId'];
     final userId = candidate?.toString();
     if (userId == null || userId.isEmpty) {
       return null;
@@ -236,6 +236,9 @@ class FriendProvider with ChangeNotifier {
             listKeys: const ['friends'],
           ),
         );
+        _error = null;
+      } else {
+        _error = result['message']?.toString() ?? '好友列表加载失败';
       }
       return result;
     } catch (error, stackTrace) {
@@ -259,6 +262,9 @@ class FriendProvider with ChangeNotifier {
           ),
         );
         notifyListeners();
+        _tempFriendsError = null;
+      } else {
+        _tempFriendsError = result['message']?.toString() ?? '临时好友列表加载失败';
       }
       return result;
     } catch (error, stackTrace) {

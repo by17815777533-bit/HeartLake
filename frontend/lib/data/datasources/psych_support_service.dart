@@ -179,13 +179,10 @@ class PsychSupportService extends BaseService {
         await post('/safe-harbor/access', data: {'resource_id': resourceId});
     if (!response.success) return toMap(response);
 
-    final payload = response.data is Map
-        ? _normalizeSupportItem(response.data as Map)
-        : <String, dynamic>{
-            'resource_id': resourceId,
-            'resourceId': resourceId,
-            'status': 'recorded',
-          };
+    if (response.data is! Map) {
+      throw StateError('安全港湾访问记录响应缺少 data');
+    }
+    final payload = _normalizeSupportItem(response.data as Map);
     return {
       ...toMap(response),
       'data': payload,

@@ -91,24 +91,34 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _recordAccessSilently(String resourceId) {
-    unawaited(() async {
-      try {
-        final result = await _service.recordAccess(resourceId: resourceId);
-        if (result['success'] != true) {
-          _reportUiError(
-            StateError(result['message']?.toString() ?? '记录安全港湾访问失败'),
-            StackTrace.current,
-            'SafeHarborScreen._recordAccessSilently',
-          );
-        }
-      } catch (error, stackTrace) {
-        _reportUiError(
-          error,
-          stackTrace,
-          'SafeHarborScreen._recordAccessSilently',
-        );
+  Future<void> _recordAccess(
+    String resourceId, {
+    bool notifyOnFailure = true,
+  }) async {
+    try {
+      final result = await _service.recordAccess(resourceId: resourceId);
+      if (result['success'] == true) {
+        return;
       }
+      throw StateError(result['message']?.toString() ?? '记录安全港湾访问失败');
+    } catch (error, stackTrace) {
+      _reportUiError(
+        error,
+        stackTrace,
+        'SafeHarborScreen._recordAccess($resourceId)',
+      );
+      if (notifyOnFailure && mounted) {
+        _showMessage('访问记录同步失败，请稍后重试');
+      }
+    }
+  }
+
+  void _recordAccessLater(
+    String resourceId, {
+    bool notifyOnFailure = true,
+  }) {
+    unawaited(() async {
+      await _recordAccess(resourceId, notifyOnFailure: notifyOnFailure);
     }());
   }
 
@@ -159,7 +169,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
       ]);
 
       // 记录访问
-      _recordAccessSilently('page_view');
+      _recordAccessLater('page_view', notifyOnFailure: false);
 
       if (mounted) {
         final promptSuccess =
@@ -266,7 +276,9 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
     );
 
     if (confirmed == true) {
-      _recordAccessSilently('hotline_${phone.replaceAll(RegExp(r'\D'), '')}');
+      _recordAccessLater(
+        'hotline_${phone.replaceAll(RegExp(r'\D'), '')}',
+      );
       final uri = Uri(scheme: 'tel', path: phone);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -512,7 +524,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                             _expandedTools.add(i);
                           }
                         });
-                        _recordAccessSilently(toolId);
+                        _recordAccessLater(toolId);
                       }
                     : null,
                 child: Column(
@@ -643,7 +655,7 @@ class _SafeHarborScreenState extends State<SafeHarborScreen>
                   : null,
               onTap: url.toString().isNotEmpty
                   ? () async {
-                      _recordAccessSilently(resourceId);
+                      _recordAccessLater(resourceId);
                       final uri = Uri.tryParse(url);
                       if (uri != null && await canLaunchUrl(uri)) {
                         await launchUrl(uri,

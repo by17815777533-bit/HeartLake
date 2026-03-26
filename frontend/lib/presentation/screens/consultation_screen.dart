@@ -112,11 +112,13 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
 
   bool _isLoadingStatus = true;
   bool _isBooking = false;
+  bool _statusReady = false;
   bool _hasFreeQuota = false;
   bool _isVip = false;
   int _vipDaysLeft = 0;
   DateTime? _selectedTime;
   String? _lastAppointmentId;
+  String? _statusError;
 
   void _reportUiError(
     Object error,
@@ -170,25 +172,27 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
 
       if (!mounted) return;
       setState(() {
-        if (status['success'] == true) {
+        _statusReady = status['success'] == true && quota['success'] == true;
+        if (_statusReady) {
           _isVip = payload['is_vip'] == true;
           _vipDaysLeft = (payload['days_left'] as num?)?.toInt() ?? 0;
-        }
-        if (quota['success'] == true) {
           _hasFreeQuota = quota['has_quota'] == true;
         }
+        _statusError = failures.isEmpty ? null : failures.join('；');
         _isLoadingStatus = false;
       });
-      if (failures.isNotEmpty) {
-        _showMessage(failures.join('；'));
+      if (_statusError != null) {
+        _showMessage(_statusError!);
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ConsultationBookingTab._loadStatus');
       if (!mounted) return;
       setState(() {
+        _statusReady = false;
         _isLoadingStatus = false;
+        _statusError = '预约状态加载失败，请稍后重试';
       });
-      _showMessage('预约状态加载失败，请稍后重试');
+      _showMessage(_statusError!);
     }
   }
 
@@ -234,6 +238,10 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请先选择预约时间')),
       );
+      return;
+    }
+    if (!_statusReady) {
+      _showMessage(_statusError ?? '预约状态未准备好，请先刷新');
       return;
     }
 
@@ -340,12 +348,16 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
               title: Text(
                 _isLoadingStatus
                     ? '正在加载预约状态...'
-                    : (_hasFreeQuota ? '当前可用一次免费咨询' : '当前走普通预约'),
+                    : (_statusReady
+                        ? (_hasFreeQuota ? '当前可用一次免费咨询' : '当前走普通预约')
+                        : '预约状态未就绪'),
               ),
               subtitle: Text(
                 _isLoadingStatus
                     ? '请稍候'
-                    : (_isVip ? '灯火剩余 $_vipDaysLeft 天' : '未检测到免费灯火额度'),
+                    : (_statusReady
+                        ? (_isVip ? '灯火剩余 $_vipDaysLeft 天' : '未检测到免费灯火额度')
+                        : (_statusError ?? '请刷新后再试')),
               ),
               trailing: IconButton(
                 onPressed: _isLoadingStatus ? null : _loadStatus,
@@ -376,7 +388,7 @@ class _ConsultationBookingTabState extends State<_ConsultationBookingTab> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isBooking || _isLoadingStatus
+                      onPressed: _isBooking || _isLoadingStatus || !_statusReady
                           ? null
                           : _bookAppointment,
                       style: ElevatedButton.styleFrom(
@@ -589,6 +601,8 @@ class _SessionListTabState extends State<_SessionListTab> {
           final lastMessage = s['last_message'] as String? ?? '暂无消息';
           final time = s['updated_at'] as String? ?? '';
           final sessionId = s['session_id'] as String? ?? '';
+          final hasVerifiedE2E =
+              s['is_ready'] == true || s['encrypted'] == true;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
@@ -629,10 +643,12 @@ class _SessionListTabState extends State<_SessionListTab> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_outline,
-                      size: 14,
-                      color: AppTheme.successColor.withValues(alpha: 0.7)),
-                  const SizedBox(width: 4),
+                  if (hasVerifiedE2E) ...[
+                    Icon(Icons.lock_outline,
+                        size: 14,
+                        color: AppTheme.successColor.withValues(alpha: 0.7)),
+                    const SizedBox(width: 4),
+                  ],
                   const Icon(Icons.chevron_right, color: AppTheme.textTertiary),
                 ],
               ),

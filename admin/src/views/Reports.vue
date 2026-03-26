@@ -46,6 +46,15 @@
     </OpsDashboardDeck>
 
     <el-card shadow="never" class="table-card ops-table-card">
+      <el-alert
+        v-if="reportsError"
+        :title="reportsError"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="ops-inline-alert"
+      />
+
       <div class="ops-soft-toolbar reports-table-toolbar">
         <div class="reports-table-copy">
           <h3>求助列表</h3>
@@ -120,7 +129,10 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无举报数据" :image-size="88" />
+          <el-empty
+            :description="reportsError ? '举报列表暂未刷新出来' : '暂无举报数据'"
+            :image-size="88"
+          />
         </template>
       </el-table>
 
@@ -158,6 +170,7 @@ import type { Report } from '@/types'
 
 const loading = ref(false)
 const reportList = ref<Report[]>([])
+const reportsError = ref('')
 
 const filters = reactive({
   status: '',
@@ -426,12 +439,12 @@ async function fetchReports() {
     const { items, total } = normalizeCollectionResponse<Report>(res.data, ['reports'])
     reportList.value = items
     pagination.total = total
+    reportsError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return
-    console.error('获取举报列表失败:', e)
-    ElMessage.error(getErrorMessage(e, '获取举报列表失败'))
-    reportList.value = []
-    pagination.total = 0
+    const message = getErrorMessage(e, '获取举报列表失败')
+    reportsError.value = message
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }

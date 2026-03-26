@@ -651,7 +651,7 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
                         .withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
-              hasError ? '推荐暂时没有刷新出来' : '投出更多石头，收获更多共鸣',
+              hasError ? '推荐加载失败' : '投出更多石头，收获更多共鸣',
               style: TextStyle(
                 color: (isDark
                         ? AppTheme.darkTextSecondary

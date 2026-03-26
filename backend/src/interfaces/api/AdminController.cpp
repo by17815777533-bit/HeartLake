@@ -14,6 +14,7 @@
 #include "utils/BusinessRules.h"
 #include "utils/PasswordUtil.h"
 #include "utils/SecurityLogger.h"
+#include "utils/AdminRealtimeNotifier.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <algorithm>
@@ -322,62 +323,12 @@ void AdminController::getInfo([[maybe_unused]] const HttpRequestPtr &req,
 void AdminController::getRealtimeStats([[maybe_unused]] const HttpRequestPtr &req,
                                       std::function<void(const HttpResponsePtr &)> &&callback) {
     try {
-        auto dbClient = drogon::app().getDbClient("default");
-
-        auto result = dbClient->execSqlSync(
-            "WITH user_stats AS ("
-            "  SELECT "
-            "    COUNT(*)::INTEGER AS total_users, "
-            "    COUNT(*) FILTER ("
-            "      WHERE last_active_at > NOW() - INTERVAL '5 minutes' "
-            "        AND status = 'active'"
-            "    )::INTEGER AS active_online_users "
-            "  FROM users"
-            "), stone_stats AS ("
-            "  SELECT "
-            "    COUNT(*) FILTER ("
-            "      WHERE status = 'published' AND deleted_at IS NULL"
-            "    )::INTEGER AS total_stones, "
-            "    COUNT(*) FILTER ("
-            "      WHERE created_at >= CURRENT_DATE "
-            "        AND created_at < CURRENT_DATE + INTERVAL '1 day'"
-            "    )::INTEGER AS today_stones "
-            "  FROM stones"
-            "), session_stats AS ("
-            "  SELECT "
-            "    COUNT(DISTINCT user_id)::INTEGER AS session_online_users "
-            "  FROM user_sessions "
-            "  WHERE created_at > NOW() - INTERVAL '5 minutes'"
-            ") "
-            "SELECT "
-            "  us.total_users, "
-            "  ss.total_stones, "
-            "  ss.today_stones, "
-            "  GREATEST("
-            "    COALESCE(sess.session_online_users, 0), "
-            "    COALESCE(us.active_online_users, 0)"
-            "  ) AS online_users "
-            "FROM user_stats us "
-            "CROSS JOIN stone_stats ss "
-            "CROSS JOIN session_stats sess");
-
-        if (result.empty()) {
-            LOG_ERROR << "Database query returned empty results in getRealtimeStats";
-            callback(ResponseUtil::internalError("Failed to fetch statistics"));
-            return;
-        }
-
-        const auto row = *safeRow(result);
-        Json::Value data;
-        data["total_users"] = row["total_users"].as<int>();
-        data["total_stones"] = row["total_stones"].as<int>();
-        data["today_stones"] = row["today_stones"].as<int>();
-        data["online_users"] = row["online_users"].as<int>();
+        const auto snapshot = heartlake::utils::queryAdminRealtimeStatsSnapshot();
+        Json::Value data = snapshot.toJson();
 
         callback(ResponseUtil::success(data));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getRealtimeStats: " << e.what();
-        // VUL-16 修复：生产环境不返回 e.what()，仅记录到日志
         callback(ResponseUtil::internalError("获取实时统计失败"));
     }
 }

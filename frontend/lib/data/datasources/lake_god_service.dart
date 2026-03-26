@@ -31,16 +31,18 @@ class LakeGodService extends BaseService {
       if (emotionScore != null) 'emotion_score': emotionScore,
     });
     if (!resp.success) return toMap(resp);
-
-    final payload = resp.data is Map
-        ? Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>())
-        : <String, dynamic>{};
-    final reply = payload['reply'] ?? payload['response'] ?? payload['content'];
-    if (reply != null) {
-      payload['reply'] = reply;
-      payload['response'] = reply;
-      payload['content'] = reply;
+    if (resp.data is! Map) {
+      throw StateError('Lake god chat success payload is not a map');
     }
+    final payload =
+        Map<String, dynamic>.from((resp.data as Map).cast<String, dynamic>());
+    final reply = payload['reply'] ?? payload['response'] ?? payload['content'];
+    if (reply == null || reply.toString().trim().isEmpty) {
+      throw StateError('Lake god chat success payload is missing reply');
+    }
+    payload['reply'] = reply;
+    payload['response'] = reply;
+    payload['content'] = reply;
 
     return {
       ...toMap(resp),
@@ -60,6 +62,9 @@ class LakeGodService extends BaseService {
       itemNormalizer: normalizeMessagePayload,
       listKeys: const ['messages'],
     );
+    if (messages.isEmpty && resp.data is! Map) {
+      throw StateError('Lake god history success payload is not a map');
+    }
     return {
       ...toMap(resp),
       'data': {
