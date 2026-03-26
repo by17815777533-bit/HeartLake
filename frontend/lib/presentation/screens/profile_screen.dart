@@ -724,7 +724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ? _nickname!
         : (_username?.trim().isNotEmpty == true)
             ? _username!
-            : (_profileErrorMessage != null ? '资料未加载' : '身份待确认');
+            : (_profileErrorMessage != null ? '资料未加载' : '未命名旅人');
     final bioText =
         _bio ?? (_profileErrorMessage != null ? '个人资料暂未刷新' : '点击添加个性签名...');
 
@@ -957,9 +957,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _vipErrorMessage != null
                                 ? _vipErrorMessage!
                                 : (_hasLight
-                                    ? (_vipDaysLeft != null
-                                        ? '灯火将燃${_vipDaysLeft!}天'
-                                        : '灯火时长待确认')
+                                    ? '灯火将燃${_vipDaysLeft!}天'
                                     : '温暖时刻自动点亮'),
                             style: const TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
