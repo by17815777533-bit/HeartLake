@@ -22,7 +22,6 @@
 #include <map>
 #include <optional>
 #include <sstream>
-#include <stdexcept>
 
 using namespace heartlake::controllers;
 using namespace heartlake::utils;
@@ -92,13 +91,6 @@ int extractWindowTotal(const drogon::orm::Result &result,
   return result.empty() || result[0][column].isNull()
              ? 0
              : result[0][column].as<int>();
-}
-
-int resolveWindowTotalOrFail(const drogon::orm::Result &result, int page) {
-  if (!result.empty() || page <= 1) {
-    return extractWindowTotal(result);
-  }
-  throw std::runtime_error("分页结果为空，无法回退补查总数");
 }
 
 int64_t paginationOffset(int page, int pageSize) {
@@ -873,7 +865,11 @@ void UserController::getMyBoats(
         "WHERE s.user_id = $1 AND b.sender_id <> $1 "
         "ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
         user_id, static_cast<int64_t>(page_size), offset);
-    const int total = resolveWindowTotalOrFail(result, page);
+    if (result.empty() && page > 1) {
+      callback(ResponseUtil::badRequest("页码超出范围，请返回上一页重试"));
+      return;
+    }
+    const int total = extractWindowTotal(result);
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {

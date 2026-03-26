@@ -146,13 +146,15 @@ void LakeGodGuardianService::sendAutoBoat(const std::string& stoneId, const std:
 
     aiService.generateStoneComment(stoneContent, mood, [stoneId, boatId](const std::string& comment, const std::string& error) {
         auto db = drogon::app().getDbClient("default");
-        if (!error.empty() && comment.empty()) {
-            LOG_ERROR << "LakeGod AI generation failed without fallback comment: " << error;
+        if (!error.empty()) {
+            LOG_ERROR << "LakeGod AI generation failed: " << error;
             db->execSqlSync("DELETE FROM paper_boats WHERE boat_id = $1", boatId);
             return;
         }
-        if (!error.empty()) {
-            LOG_WARN << "LakeGod AI generation failed, using fallback comment: " << error;
+        if (comment.empty()) {
+            LOG_ERROR << "LakeGod AI generation returned empty comment";
+            db->execSqlSync("DELETE FROM paper_boats WHERE boat_id = $1", boatId);
+            return;
         }
 
         try {
