@@ -163,9 +163,12 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                               padding: const EdgeInsets.only(bottom: 15),
                               child: StoneCard(
                                 stone: stone,
-                                onRippleSuccess: () {
-                                  _stoneProvider.applyRippleSuccess(
+                                onInteractionCountsChanged:
+                                    (rippleCount, boatCount) {
+                                  _stoneProvider.applyServerInteractionCounts(
                                     stone.stoneId,
+                                    rippleCount: rippleCount,
+                                    boatCount: boatCount,
                                   );
                                 },
                                 onDeleted: () {

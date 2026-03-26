@@ -110,48 +110,28 @@ class StoneCardController {
   Future<Map<String, dynamic>> createRipple() async {
     if (hasRippled) {
       return {
-        'success': true,
+        'success': false,
         'already_rippled': true,
+        'message': '你已经在这里泛起过涟漪了 ~',
         'ripple_count': localRipplesCount,
       };
     }
 
-    hasRippled = true;
-    localRipplesCount++;
-    onStateChanged?.call();
-
-    try {
-      final result = await _interactionService.createRipple(stone.stoneId);
-      if (!result['success']) {
-        hasRippled = false;
-        if (localRipplesCount > 0) {
-          localRipplesCount--;
-        }
-        onStateChanged?.call();
-        return result;
-      }
-
-      final dynamic serverCount = result['ripple_count'] ??
-          (result['data'] is Map ? result['data']['ripple_count'] : null);
-      if (serverCount is int) {
-        localRipplesCount = serverCount;
-      }
-
-      final alreadyRippled = result['already_rippled'] == true ||
-          (result['data'] is Map && result['data']['already_rippled'] == true);
-      if (alreadyRippled) {
-        hasRippled = true;
-      }
-      onStateChanged?.call();
+    final result = await _interactionService.createRipple(stone.stoneId);
+    if (!result['success']) {
       return result;
-    } catch (_) {
-      hasRippled = false;
-      if (localRipplesCount > 0) {
-        localRipplesCount--;
-      }
-      onStateChanged?.call();
-      rethrow;
     }
+
+    final dynamic serverCount = result['ripple_count'] ??
+        (result['data'] is Map ? result['data']['ripple_count'] : null);
+    if (serverCount is! int) {
+      throw StateError('涟漪响应缺少 ripple_count');
+    }
+
+    localRipplesCount = serverCount;
+    hasRippled = true;
+    onStateChanged?.call();
+    return result;
   }
 
   Future<Map<String, dynamic>> deleteStone() async {
@@ -159,10 +139,31 @@ class StoneCardController {
   }
 
   Future<Map<String, dynamic>> createBoat(String content) async {
-    return await _interactionService.createBoat(
+    final result = await _interactionService.createBoat(
       stoneId: stone.stoneId,
       content: content,
     );
+    if (result['success'] != true) {
+      return result;
+    }
+
+    final payload = result['data'];
+    if (payload is! Map<String, dynamic>) {
+      throw StateError('纸船响应缺少 data');
+    }
+
+    final boatId = payload['boat_id'] ?? result['boat_id'];
+    if (boatId == null || boatId.toString().trim().isEmpty) {
+      throw StateError('纸船响应缺少 boat_id');
+    }
+
+    final serverCount = payload['boat_count'] ?? result['boat_count'];
+    if (serverCount is int) {
+      localBoatsCount = serverCount;
+      onStateChanged?.call();
+    }
+
+    return result;
   }
 
   Future<Map<String, dynamic>> getBoats(

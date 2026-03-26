@@ -16,13 +16,14 @@ import 'stone_card_controller.dart';
 
 class StoneCard extends StatefulWidget {
   final Stone stone;
-  final VoidCallback? onRippleSuccess;
+  final void Function(int rippleCount, int boatCount)?
+      onInteractionCountsChanged;
   final VoidCallback? onDeleted;
 
   const StoneCard({
     super.key,
     required this.stone,
-    this.onRippleSuccess,
+    this.onInteractionCountsChanged,
     this.onDeleted,
   });
 
@@ -115,8 +116,11 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
             content: Text(result['message'] ?? '涟漪失败'),
             backgroundColor: AppTheme.errorColor),
       );
-    } else if (result['success'] && widget.onRippleSuccess != null) {
-      widget.onRippleSuccess!();
+    } else if (result['success'] && widget.onInteractionCountsChanged != null) {
+      widget.onInteractionCountsChanged!(
+        _cardController.localRipplesCount,
+        _cardController.localBoatsCount,
+      );
     }
   }
 
@@ -215,6 +219,7 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
     bool initialized = false;
     bool dialogActive = true;
     bool loading = true;
+    bool sendingBoat = false;
     String? errorMessage;
     List<Map<String, dynamic>> boats = [];
     StateSetter? modalStateSetter;
@@ -492,119 +497,101 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final content = boatController.text.trim();
-                        if (content.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('纸船上需要写点什么哦'),
-                                backgroundColor: AppTheme.warningColor),
-                          );
-                          return;
-                        }
+                      onPressed: sendingBoat
+                          ? null
+                          : () async {
+                              final content = boatController.text.trim();
+                              if (content.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('纸船上需要写点什么哦'),
+                                      backgroundColor: AppTheme.warningColor),
+                                );
+                                return;
+                              }
 
-                        final tempBoat = {
-                          'boat_id':
-                              'temp_${DateTime.now().millisecondsSinceEpoch}',
-                          'content': content,
-                          'created_at': DateTime.now().toIso8601String(),
-                          'author': {'nickname': '我', 'is_anonymous': false},
-                          '_isTemp': true,
-                        };
-
-                        setModalState(() => boats.insert(0, tempBoat));
-                        _cardController.localBoatsCount++;
-                        _cardController.onStateChanged?.call();
-                        boatController.clear();
-
-                        void rollbackTempBoat() {
-                          final tempIndex = boats.indexWhere(
-                            (boat) => boat['_isTemp'] == true,
-                          );
-                          if (tempIndex >= 0) {
-                            setModalState(() => boats.removeAt(tempIndex));
-                          }
-                          _cardController.localBoatsCount =
-                              (_cardController.localBoatsCount - 1).clamp(
-                            0,
-                            99999,
-                          );
-                          _cardController.onStateChanged?.call();
-                        }
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('纸船正在漂向湖心... 🚣'),
-                            backgroundColor: AppTheme.primaryColor,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-
-                        try {
-                          final result =
-                              await _cardController.createBoat(content);
-                          if (result['success'] == true) {
-                            if (mounted) {
+                              setModalState(() => sendingBoat = true);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('纸船已成功漂出~ ⛵'),
-                                  backgroundColor: AppTheme.successColor,
+                                  content: Text('纸船正在漂向湖心... 🚣'),
+                                  backgroundColor: AppTheme.primaryColor,
                                   duration: Duration(seconds: 2),
                                 ),
                               );
-                            }
-                            await loadBoats(setModalState);
-                          } else {
-                            rollbackTempBoat();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(result['message'] ?? '纸船发送失败'),
-                                  backgroundColor: AppTheme.errorColor,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          }
-                        } catch (error, stackTrace) {
-                          FlutterError.reportError(
-                            FlutterErrorDetails(
-                              exception: error,
-                              stack: stackTrace,
-                              library: 'stone_card',
-                              context: ErrorDescription(
-                                'while sending paper boat from stone card',
-                              ),
-                            ),
-                          );
-                          rollbackTempBoat();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  error
-                                          .toString()
-                                          .replaceFirst(
-                                            RegExp(r'^Exception:\\s*'),
-                                            '',
-                                          )
-                                          .trim()
-                                          .isEmpty
-                                      ? '纸船发送失败，请稍后重试'
-                                      : error
-                                          .toString()
-                                          .replaceFirst(
-                                            RegExp(r'^Exception:\\s*'),
-                                            '',
-                                          )
-                                          .trim(),
-                                ),
-                                backgroundColor: AppTheme.errorColor,
-                              ),
-                            );
-                          }
-                        }
-                      },
+
+                              try {
+                                final result =
+                                    await _cardController.createBoat(content);
+                                if (result['success'] == true) {
+                                  boatController.clear();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('纸船已成功漂出~ ⛵'),
+                                        backgroundColor: AppTheme.successColor,
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                  widget.onInteractionCountsChanged?.call(
+                                    _cardController.localRipplesCount,
+                                    _cardController.localBoatsCount,
+                                  );
+                                  await loadBoats(setModalState);
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content:
+                                            Text(result['message'] ?? '纸船发送失败'),
+                                        backgroundColor: AppTheme.errorColor,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (error, stackTrace) {
+                                FlutterError.reportError(
+                                  FlutterErrorDetails(
+                                    exception: error,
+                                    stack: stackTrace,
+                                    library: 'stone_card',
+                                    context: ErrorDescription(
+                                      'while sending paper boat from stone card',
+                                    ),
+                                  ),
+                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        error
+                                                .toString()
+                                                .replaceFirst(
+                                                  RegExp(r'^Exception:\\s*'),
+                                                  '',
+                                                )
+                                                .trim()
+                                                .isEmpty
+                                            ? '纸船发送失败，请稍后重试'
+                                            : error
+                                                .toString()
+                                                .replaceFirst(
+                                                  RegExp(r'^Exception:\\s*'),
+                                                  '',
+                                                )
+                                                .trim(),
+                                      ),
+                                      backgroundColor: AppTheme.errorColor,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (dialogActive) {
+                                  setModalState(() => sendingBoat = false);
+                                }
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.borderCyan,
                         foregroundColor: Colors.white,
@@ -612,7 +599,17 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('放出纸船', style: TextStyle(fontSize: 16)),
+                      child: sendingBoat
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text('放出纸船', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],
@@ -677,7 +674,10 @@ class _StoneCardState extends State<StoneCard> with TickerProviderStateMixin {
                       ? result['boatCount']
                       : _cardController.localBoatsCount,
                 );
-                widget.onRippleSuccess?.call();
+                widget.onInteractionCountsChanged?.call(
+                  _cardController.localRipplesCount,
+                  _cardController.localBoatsCount,
+                );
               }
             },
             borderRadius: BorderRadius.circular(16),

@@ -154,51 +154,30 @@ class StoneProvider with ChangeNotifier {
     _wsRegistered = true;
 
     _onNewStone = (Map<String, dynamic> data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 new_stone');
-      }
       _handleNewStone(data);
     };
 
     _onBoatUpdate = (Map<String, dynamic> data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 boat_update');
-      }
       _handleBoatUpdate(data);
     };
 
     _onRippleUpdate = (Map<String, dynamic> data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 ripple_update');
-      }
       _handleRippleUpdate(data);
     };
 
     _onStoneDeleted = (Map<String, dynamic> data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 stone_deleted');
-      }
       _handleStoneDeleted(data);
     };
 
     _onBoatDeleted = (data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 boat_deleted');
-      }
       _handleBoatDeleted(data);
     };
 
     _onRippleDeleted = (data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] 收到 ripple_deleted');
-      }
       _handleRippleDeleted(data);
     };
 
     _onReconnected = (data) {
-      if (kDebugMode) {
-        debugPrint('[StoneProvider] WebSocket重连，刷新石头列表');
-      }
       if (_lakeSubscribers == 0) return;
       _wsManager.joinRoom('lake');
       unawaited(refreshFeed(includeWeather: _weather != null));
@@ -245,9 +224,17 @@ class StoneProvider with ChangeNotifier {
     if (stoneId == null) return;
 
     final boatCount = extractBoatCount(data);
+    if (boatCount == null) {
+      _reportProviderError(
+        StateError('boat_update payload 缺少 boat_count'),
+        StackTrace.current,
+        'StoneProvider._handleBoatUpdate',
+      );
+      return;
+    }
     if (_updateStoneById(stoneId, (stone) {
       return stone.copyWith(
-        boatCount: boatCount ?? stone.boatCount + 1,
+        boatCount: boatCount,
       );
     })) {
       notifyListeners();
@@ -260,9 +247,17 @@ class StoneProvider with ChangeNotifier {
     if (stoneId == null) return;
 
     final rippleCount = extractRippleCount(data);
+    if (rippleCount == null) {
+      _reportProviderError(
+        StateError('ripple_update payload 缺少 ripple_count'),
+        StackTrace.current,
+        'StoneProvider._handleRippleUpdate',
+      );
+      return;
+    }
     if (_updateStoneById(stoneId, (stone) {
       return stone.copyWith(
-        rippleCount: rippleCount ?? stone.rippleCount + 1,
+        rippleCount: rippleCount,
       );
     })) {
       notifyListeners();
@@ -286,9 +281,17 @@ class StoneProvider with ChangeNotifier {
     if (stoneId == null) return;
 
     final boatCount = extractBoatCount(data);
+    if (boatCount == null) {
+      _reportProviderError(
+        StateError('boat_deleted payload 缺少 boat_count'),
+        StackTrace.current,
+        'StoneProvider._handleBoatDeleted',
+      );
+      return;
+    }
     if (_updateStoneById(stoneId, (stone) {
       return stone.copyWith(
-        boatCount: boatCount ?? (stone.boatCount > 0 ? stone.boatCount - 1 : 0),
+        boatCount: boatCount,
       );
     })) {
       notifyListeners();
@@ -301,10 +304,17 @@ class StoneProvider with ChangeNotifier {
     if (stoneId == null) return;
 
     final rippleCount = extractRippleCount(data);
+    if (rippleCount == null) {
+      _reportProviderError(
+        StateError('ripple_deleted payload 缺少 ripple_count'),
+        StackTrace.current,
+        'StoneProvider._handleRippleDeleted',
+      );
+      return;
+    }
     if (_updateStoneById(stoneId, (stone) {
       return stone.copyWith(
-        rippleCount:
-            rippleCount ?? (stone.rippleCount > 0 ? stone.rippleCount - 1 : 0),
+        rippleCount: rippleCount,
       );
     })) {
       notifyListeners();
@@ -558,7 +568,7 @@ class StoneProvider with ChangeNotifier {
         stackTrace,
         'StoneProvider.throwStone',
       );
-      return {'success': false, 'message': '投石失败，请稍后再试'};
+      rethrow;
     }
   }
 
@@ -579,13 +589,20 @@ class StoneProvider with ChangeNotifier {
         stackTrace,
         'StoneProvider.deleteStone',
       );
-      return {'success': false, 'message': '删除失败，请稍后再试'};
+      rethrow;
     }
   }
 
-  void applyRippleSuccess(String stoneId) {
+  void applyServerInteractionCounts(
+    String stoneId, {
+    required int rippleCount,
+    required int boatCount,
+  }) {
     if (_updateStoneById(stoneId, (stone) {
-      return stone.copyWith(rippleCount: stone.rippleCount + 1);
+      return stone.copyWith(
+        rippleCount: rippleCount,
+        boatCount: boatCount,
+      );
     })) {
       _invalidateCache();
       notifyListeners();

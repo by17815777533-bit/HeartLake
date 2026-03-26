@@ -14,7 +14,7 @@
  *   - 时间衰减权重（指数半衰期，默认 24 小时）
  *
  * 依赖注入：通过 setDbClientProvider() 注入数据库客户端，
- * 不设置时 DB 相关方法返回空结果，方便单元测试。
+ * 不设置时 DB 相关方法会显式失败，避免把基础设施异常伪装成“无推荐”。
  */
 
 #pragma once
@@ -72,7 +72,7 @@ struct UserProfile {
  * - 指数半衰期时间衰减（默认 24 小时）
  *
  * 依赖注入：通过 setDbClientProvider() 注入数据库客户端，
- * 不设置时 DB 相关方法返回空结果，方便单元测试。
+ * 不设置时 DB 相关方法会显式失败，避免把基础设施异常伪装成“无推荐”。
  */
 class RecommendationEngine {
 public:
@@ -88,7 +88,7 @@ public:
     /**
      * @brief 注入数据库客户端提供者（依赖注入）
      * @details 生产环境中注入 [](){ return app().getDbClient("default"); }，
-     *          不设置则 DB 相关方法返回空结果，方便单元测试。
+     *          不设置则 DB 相关方法会显式失败。
      * @param provider 返回 DbClient 共享指针的工厂函数
      */
     using DbClientPtr = std::shared_ptr<drogon::orm::DbClient>;

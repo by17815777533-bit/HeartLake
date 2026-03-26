@@ -276,10 +276,12 @@ class LakeScreenState extends State<LakeScreen> {
               child: StoneCard(
                 key: ValueKey(stones[index].stoneId),
                 stone: stones[index],
-                onRippleSuccess: () {
-                  context
-                      .read<StoneProvider>()
-                      .applyRippleSuccess(stones[index].stoneId);
+                onInteractionCountsChanged: (rippleCount, boatCount) {
+                  context.read<StoneProvider>().applyServerInteractionCounts(
+                        stones[index].stoneId,
+                        rippleCount: rippleCount,
+                        boatCount: boatCount,
+                      );
                 },
                 onDeleted: () {
                   context

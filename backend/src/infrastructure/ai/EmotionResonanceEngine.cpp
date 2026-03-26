@@ -21,6 +21,7 @@
 #include <cmath>
 #include <chrono>
 #include <deque>
+#include <stdexcept>
 #include <sstream>
 #include <limits>
 #include <unordered_map>
@@ -30,6 +31,15 @@ using namespace drogon;
 namespace heartlake::ai {
 
 namespace {
+
+float parseFloatTokenStrict(const std::string& token) {
+    size_t processed = 0;
+    const float value = std::stof(token, &processed);
+    if (processed != token.size()) {
+        throw std::invalid_argument("Unexpected trailing characters in float token: " + token);
+    }
+    return value;
+}
 
 std::vector<float> parsePgFloatArray(const std::string& raw) {
     std::vector<float> values;
@@ -43,10 +53,7 @@ std::vector<float> parsePgFloatArray(const std::string& raw) {
         const char ch = raw[i];
         if (ch == ',') {
             if (!token.empty() && token != "NULL") {
-                try {
-                    values.push_back(std::stof(token));
-                } catch (const std::exception&) {
-                }
+                values.push_back(parseFloatTokenStrict(token));
             }
             token.clear();
             continue;
@@ -57,10 +64,7 @@ std::vector<float> parsePgFloatArray(const std::string& raw) {
     }
 
     if (!token.empty() && token != "NULL") {
-        try {
-            values.push_back(std::stof(token));
-        } catch (const std::exception&) {
-        }
+        values.push_back(parseFloatTokenStrict(token));
     }
 
     return values;
@@ -492,6 +496,7 @@ EmotionTrajectory EmotionResonanceEngine::loadTrajectory(const std::string& user
         }
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "loadTrajectory failed for user " << userId << ": " << e.base().what();
+        throw std::runtime_error(std::string("loadTrajectory failed: ") + e.base().what());
     }
 
     return traj;
@@ -516,9 +521,14 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
             "WHERE stone_id = $1 AND status = 'published' AND deleted_at IS NULL",
             stoneId
         );
-        if (stoneRow.empty()) return results;
+        if (stoneRow.empty()) {
+            throw std::runtime_error("Source stone not found for resonance computation");
+        }
 
         std::string sourceContent = stoneRow[0]["content"].as<std::string>();
+        if (sourceContent.empty()) {
+            throw std::runtime_error("Source stone content is empty for resonance computation");
+        }
         std::string sourceMood = stoneRow[0]["mood_type"].isNull()
             ? "neutral" : stoneRow[0]["mood_type"].as<std::string>();
 
@@ -528,6 +538,9 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
         // 3. 生成源石头的embedding用于语义相似度
         auto& embEngine = AdvancedEmbeddingEngine::getInstance();
         auto sourceEmb = embEngine.generateEmbedding(sourceContent);
+        if (sourceEmb.empty()) {
+            throw std::runtime_error("Failed to generate source embedding for resonance computation");
+        }
 
         // 4. 获取候选石头，并批量带出作者近 7 天轨迹，避免按候选逐条查库。
         auto candidates = db->execSqlSync(
@@ -691,8 +704,10 @@ std::vector<ResonanceResult> EmotionResonanceEngine::findResonance(
 
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "EmotionResonanceEngine::findResonance DB error: " << e.base().what();
+        throw std::runtime_error(std::string("EmotionResonanceEngine::findResonance DB error: ") + e.base().what());
     } catch (const std::exception& e) {
         LOG_ERROR << "EmotionResonanceEngine::findResonance error: " << e.what();
+        throw;
     }
 
     return results;

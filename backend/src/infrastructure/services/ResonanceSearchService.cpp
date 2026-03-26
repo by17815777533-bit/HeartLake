@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -217,6 +218,7 @@ void ResonanceSearchService::indexStone(const std::string& stoneId, const std::s
                 stoneId, vecStr);
         } catch (const drogon::orm::DrogonDbException& e) {
             LOG_ERROR << "Failed to index stone: " << e.base().what();
+            throw std::runtime_error(std::string("Failed to index stone embedding: ") + e.base().what());
         }
     }
 }
@@ -224,8 +226,13 @@ void ResonanceSearchService::indexStone(const std::string& stoneId, const std::s
 std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
     const std::string& stoneId, const std::string& content, float threshold, int limit) {
 
+    if (content.empty()) {
+        throw std::invalid_argument("searchResonance requires non-empty content");
+    }
     auto queryVec = ai::AdvancedEmbeddingEngine::getInstance().generateEmbedding(content);
-    if (queryVec.empty()) return {};
+    if (queryVec.empty()) {
+        throw std::runtime_error("Failed to generate query embedding for resonance search");
+    }
 
     // Phase 1: 收集 cosine similarity 候选（宽松阈值，多取候选供重排序）
     const float candidateThreshold = std::max(0.5f, threshold - 0.2f);
@@ -262,7 +269,7 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                 candidates.push_back(std::move(context));
             }
         } catch (const std::exception& e) {
-            LOG_WARN << "HNSW candidate batch lookup failed: " << e.what();
+            throw std::runtime_error(std::string("Resonance candidate lookup failed: ") + e.what());
         }
     } else {
         // Fallback: DB-based search
@@ -302,6 +309,7 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             }
         } catch (const drogon::orm::DrogonDbException& e) {
             LOG_ERROR << "Resonance search failed: " << e.base().what();
+            throw std::runtime_error(std::string("Resonance DB search failed: ") + e.base().what());
         }
     }
 
@@ -323,9 +331,11 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             sourceUserId = stoneRow[0]["user_id"].as<std::string>();
             if (!stoneRow[0]["mood_type"].isNull())
                 sourceMood = stoneRow[0]["mood_type"].as<std::string>();
+        } else {
+            throw std::runtime_error("Source stone not found during resonance search");
         }
     } catch (const std::exception& e) {
-        LOG_WARN << "Source stone lookup failed: " << e.what();
+        throw std::runtime_error(std::string("Source stone lookup failed: ") + e.what());
     }
 
     // 加载源用户的情绪轨迹（用于DTW计算）
@@ -343,7 +353,7 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             if (!userTraj.scores.empty())
                 userTraj.currentScore = userTraj.scores.back();
         } catch (const std::exception& e) {
-            LOG_WARN << "User trajectory load failed: " << e.what();
+            throw std::runtime_error(std::string("User trajectory load failed: ") + e.what());
         }
     }
 
@@ -447,6 +457,7 @@ void ResonanceSearchService::removeStone(const std::string& stoneId) {
         db->execSqlSync("DELETE FROM stone_embeddings WHERE stone_id = $1", stoneId);
     } catch (const drogon::orm::DrogonDbException& e) {
         LOG_ERROR << "Failed to remove stone: " << e.base().what();
+        throw std::runtime_error(std::string("Failed to remove stone embedding: ") + e.base().what());
     }
 }
 

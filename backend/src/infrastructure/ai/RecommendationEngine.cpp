@@ -35,6 +35,20 @@ namespace {
 
 using DbClientPtr = RecommendationEngine::DbClientPtr;
 
+DbClientPtr requireDbClient(
+    const RecommendationEngine::DbClientProvider& provider,
+    const char* caller
+) {
+    if (!provider) {
+        throw std::runtime_error(std::string(caller) + ": no DB provider");
+    }
+    auto dbClient = provider();
+    if (!dbClient) {
+        throw std::runtime_error(std::string(caller) + ": failed to get db client");
+    }
+    return dbClient;
+}
+
 RecommendationCandidate buildStoneCandidate(
     const drogon::orm::Row& row,
     double score,
@@ -572,45 +586,21 @@ void RecommendationEngine::getRecommendations(
 /// User-based CF：找相似用户喜欢但当前用户未交互的石头
 std::vector<RecommendationCandidate> RecommendationEngine::userBasedCF(
     const std::string& userId, int topK) {
-    if (!dbClientProvider_) {
-        LOG_ERROR << "userBasedCF: no DB provider";
-        throw std::runtime_error("recommendation db provider is not configured");
-    }
-    auto dbClient = dbClientProvider_();
-    if (!dbClient) {
-        LOG_ERROR << "userBasedCF: failed to get db client";
-        throw std::runtime_error("recommendation db client is unavailable");
-    }
+    auto dbClient = requireDbClient(dbClientProvider_, "userBasedCF");
     return queryUserBasedCFCandidates(dbClient, userId, topK);
 }
 
 /// Item-based CF：基于用户最近交互的 10 个石头，通过共现关系推荐相似内容
 std::vector<RecommendationCandidate> RecommendationEngine::itemBasedCF(
     const std::string& userId, int topK) {
-    if (!dbClientProvider_) {
-        LOG_ERROR << "itemBasedCF: no DB provider";
-        throw std::runtime_error("recommendation db provider is not configured");
-    }
-    auto dbClient = dbClientProvider_();
-    if (!dbClient) {
-        LOG_ERROR << "itemBasedCF: failed to get db client";
-        throw std::runtime_error("recommendation db client is unavailable");
-    }
+    auto dbClient = requireDbClient(dbClientProvider_, "itemBasedCF");
     return queryItemBasedCFCandidates(dbClient, userId, topK);
 }
 
 /// 基于情绪兼容性的内容推荐：用户当前心情 → 情绪矩阵 → 匹配石头
 std::vector<RecommendationCandidate> RecommendationEngine::contentBasedRecommend(
     const std::string& userId, const std::string& userMood, int topK) {
-    if (!dbClientProvider_) {
-        LOG_ERROR << "contentBasedRecommend: no DB provider";
-        throw std::runtime_error("recommendation db provider is not configured");
-    }
-    auto dbClient = dbClientProvider_();
-    if (!dbClient) {
-        LOG_ERROR << "contentBasedRecommend: failed to get db client";
-        throw std::runtime_error("recommendation db client is unavailable");
-    }
+    auto dbClient = requireDbClient(dbClientProvider_, "contentBasedRecommend");
     return queryContentBasedCandidates(
         dbClient,
         userId,
@@ -634,15 +624,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
     double cfWeight, double contentWeight, double exploreWeight) {
 
     topK = std::max(1, topK);
-    if (!dbClientProvider_) {
-        LOG_ERROR << "hybridRecommend: no DB provider";
-        throw std::runtime_error("recommendation db provider is not configured");
-    }
-    auto dbClient = dbClientProvider_();
-    if (!dbClient) {
-        LOG_ERROR << "hybridRecommend: failed to get db client";
-        throw std::runtime_error("recommendation db client is unavailable");
-    }
+    auto dbClient = requireDbClient(dbClientProvider_, "hybridRecommend");
     std::string userMood = "neutral";
     auto moodResult = dbClient->execSqlSync(
         "SELECT mood_type FROM user_emotion_profile WHERE user_id = $1 "
@@ -651,26 +633,20 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
         userMood = moodResult[0]["mood_type"].as<std::string>();
     }
 
-    // 各算法获取候选（单个失败不影响整体）
+    // 各算法获取候选：任一路基础设施失败都应显式暴露，不再伪装成“无推荐”。
     int cfCount = std::max(2, static_cast<int>(topK * cfWeight * 2));
     int contentCount = std::max(2, static_cast<int>(topK * contentWeight * 2));
 
-    std::vector<RecommendationCandidate> userCFResults, itemCFResults, contentResults;
-    try { userCFResults = queryUserBasedCFCandidates(dbClient, userId, cfCount / 2); }
-    catch (const std::exception& e) { LOG_WARN << "userBasedCF failed: " << e.what(); }
-    try { itemCFResults = queryItemBasedCFCandidates(dbClient, userId, cfCount / 2); }
-    catch (const std::exception& e) { LOG_WARN << "itemBasedCF failed: " << e.what(); }
-    try {
-        contentResults = queryContentBasedCandidates(
-            dbClient,
-            userId,
-            userMood,
-            [this](const std::string& moodA, const std::string& moodB) {
-                return emotionCompatibilityScore(moodA, moodB);
-            },
-            contentCount);
-    }
-    catch (const std::exception& e) { LOG_WARN << "contentBasedRecommend failed: " << e.what(); }
+    auto userCFResults = queryUserBasedCFCandidates(dbClient, userId, cfCount / 2);
+    auto itemCFResults = queryItemBasedCFCandidates(dbClient, userId, cfCount / 2);
+    auto contentResults = queryContentBasedCandidates(
+        dbClient,
+        userId,
+        userMood,
+        [this](const std::string& moodA, const std::string& moodB) {
+            return emotionCompatibilityScore(moodA, moodB);
+        },
+        contentCount);
 
     // 合并并加权
     std::unordered_map<std::string, RecommendationCandidate> merged;
