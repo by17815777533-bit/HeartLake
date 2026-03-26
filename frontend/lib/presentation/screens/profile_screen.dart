@@ -128,6 +128,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return fallback;
   }
 
+  String _extractErrorMessage(Object error, String fallback) {
+    final raw = error
+        .toString()
+        .replaceFirst(RegExp(r'^Bad state:\s*'), '')
+        .replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final message = raw.trim();
+    return message.isEmpty ? fallback : message;
+  }
+
   int? _extractIntField(String key) {
     final rawValue = _stats?[key];
     if (rawValue is int) return rawValue;
@@ -447,22 +456,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadFullProfile({bool showFeedback = false}) async {
     try {
       final result = await _accountService.getAccountInfo();
-      if (result['success'] != true) {
-        final message = _resolveMessage(result, '加载个人资料失败');
-        _reportUiError(
-          StateError(message),
-          StackTrace.current,
-          'ProfileScreen._loadFullProfile',
-        );
-        if (showFeedback && mounted) {
-          _showMessage(message);
-        }
-        if (mounted) {
-          setState(() => _profileErrorMessage = message);
-        }
-        return;
-      }
-
       final payload = result['data'];
       if (payload is! Map) {
         _reportUiError(
@@ -506,11 +499,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._loadFullProfile');
+      final message = _extractErrorMessage(error, '加载个人资料失败，请稍后重试');
       if (mounted) {
-        setState(() => _profileErrorMessage = '加载个人资料失败，请稍后重试');
+        setState(() => _profileErrorMessage = message);
       }
       if (showFeedback && mounted) {
-        _showMessage('加载个人资料失败，请稍后重试');
+        _showMessage(message);
       }
     }
   }
@@ -539,19 +533,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         filename: file.path.split('/').last,
         fileSize: fileSize,
       );
-
-      if (result['success'] != true) {
-        final message = _resolveMessage(result, '上传头像失败');
-        _reportUiError(
-          StateError(message),
-          StackTrace.current,
-          'ProfileScreen._pickAndUploadAvatar',
-        );
-        if (mounted) {
-          _showMessage(message);
-        }
-        return;
-      }
 
       final payload = result['data'];
       if (payload is! Map) {
@@ -592,8 +573,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (error, stackTrace) {
       _reportUiError(error, stackTrace, 'ProfileScreen._pickAndUploadAvatar');
+      final message = _extractErrorMessage(error, '选择或上传图片失败，请稍后重试');
       if (mounted) {
-        _showMessage('选择或上传图片失败，请稍后重试');
+        _showMessage(message);
       }
     }
   }

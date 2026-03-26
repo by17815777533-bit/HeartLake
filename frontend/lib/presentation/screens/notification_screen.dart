@@ -28,6 +28,21 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
+  void _reportUiError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'heartlake',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,19 +98,34 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'boat':
       case 'ai_reply':
         if (targetId != null) {
-          final result = await sl<StoneService>().getStoneDetail(targetId);
-          if (result['success'] == true && result['stone'] != null && mounted) {
-            final stone = Stone.fromJson(result['stone']);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => StoneDetailScreen(stone: stone),
-              ),
+          try {
+            final result = await sl<StoneService>().getStoneDetail(targetId);
+            if (result['success'] == true &&
+                result['stone'] != null &&
+                mounted) {
+              final stone = Stone.fromJson(result['stone']);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StoneDetailScreen(stone: stone),
+                ),
+              );
+            } else if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('相关石头已不可用')),
+              );
+            }
+          } catch (error, stackTrace) {
+            _reportUiError(
+              error,
+              stackTrace,
+              'NotificationScreen._navigateToContent',
             );
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('相关石头已不可用')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('相关石头数据损坏，暂时无法打开')),
+              );
+            }
           }
         }
         break;

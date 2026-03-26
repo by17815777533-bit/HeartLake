@@ -3,7 +3,6 @@
 // 代表用户投入心湖的情感内容载体，包含基本信息、互动数据、
 // AI分析结果和媒体文件等。
 
-import 'package:flutter/foundation.dart';
 import '../../utils/payload_contract.dart';
 
 /// 石头模型
@@ -76,24 +75,6 @@ class Stone {
   factory Stone.fromJson(Map<String, dynamic> json) {
     try {
       final normalized = normalizePayloadContract(json);
-
-      // 解析 media_ids
-      List<String>? mediaIds;
-      if (normalized['media_ids'] != null) {
-        if (normalized['media_ids'] is List) {
-          mediaIds = List<String>.from(normalized['media_ids']);
-        } else if (normalized['media_ids'] is String) {
-          // 处理 PostgreSQL 数组格式 "{id1,id2}"
-          final str = normalized['media_ids'] as String;
-          if (str.startsWith('{') && str.endsWith('}')) {
-            final inner = str.substring(1, str.length - 1);
-            if (inner.isNotEmpty) {
-              mediaIds = inner.split(',').map((e) => e.trim()).toList();
-            }
-          }
-        }
-      }
-
       final author = normalized['author'];
       final legacyUser = normalized['user'];
       final authorMap = author is Map
@@ -101,62 +82,102 @@ class Stone {
           : legacyUser is Map
               ? normalizePayloadContract(legacyUser)
               : null;
+      final mediaIds = _parseMediaIds(normalized['media_ids']);
 
       return Stone(
-        stoneId: normalized['stone_id'] ?? normalized['id'] ?? '',
-        userId: normalized['user_id'] ?? normalized['author_id'] ?? '',
-        content: normalized['content'] ?? normalized['stone_content'] ?? '',
-        stoneType: normalized['stone_type'] ?? 'medium',
-        stoneColor: normalized['stone_color'] ?? '#7A92A3',
-        isAnonymous: parseBool(normalized['is_anonymous'], defaultValue: true),
-        status: normalized['status'] ?? 'published',
-        viewCount: normalized['view_count'] is int
-            ? normalized['view_count']
-            : int.tryParse(normalized['view_count']?.toString() ?? '0') ?? 0,
-        rippleCount: normalized['ripple_count'] is int
-            ? normalized['ripple_count']
-            : int.tryParse(normalized['ripple_count']?.toString() ?? '0') ?? 0,
-        boatCount: normalized['boat_count'] is int
-            ? normalized['boat_count']
-            : int.tryParse(normalized['boat_count']?.toString() ?? '0') ?? 0,
-        tags: normalized['tags'] is List
-            ? (normalized['tags'] as List).map((e) => e.toString()).toList()
-            : [],
-        createdAt: _parseDate(normalized['created_at']),
+        stoneId: _requireNonEmptyString(
+          normalized['stone_id'] ?? normalized['id'],
+          field: 'stone_id',
+        ),
+        userId: _requireNonEmptyString(
+          normalized['user_id'] ?? normalized['author_id'],
+          field: 'user_id',
+        ),
+        content: _requireNonEmptyString(
+          normalized['content'] ?? normalized['stone_content'],
+          field: 'content',
+        ),
+        stoneType: _requireNonEmptyString(
+          normalized['stone_type'],
+          field: 'stone_type',
+        ),
+        stoneColor: _requireNonEmptyString(
+          normalized['stone_color'],
+          field: 'stone_color',
+        ),
+        isAnonymous: _parseBoolField(
+          normalized['is_anonymous'],
+          field: 'is_anonymous',
+          defaultValue: true,
+        ),
+        status: _optionalNonEmptyString(normalized['status']) ?? 'published',
+        viewCount: _parseIntField(
+          normalized['view_count'],
+          field: 'view_count',
+          defaultValue: 0,
+        ),
+        rippleCount: _parseIntField(
+          normalized['ripple_count'],
+          field: 'ripple_count',
+          defaultValue: 0,
+        ),
+        boatCount: _parseIntField(
+          normalized['boat_count'],
+          field: 'boat_count',
+          defaultValue: 0,
+        ),
+        tags: _parseStringList(
+          normalized['tags'],
+          field: 'tags',
+          defaultValue: const [],
+        ),
+        createdAt: _parseRequiredDate(
+          normalized['created_at'],
+          field: 'created_at',
+        ),
         // 兼容推荐API的平铺 author_name 和标准API的嵌套 author.nickname
-        authorNickname: authorMap?['nickname'] ??
-            normalized['author_name'] ??
-            normalized['nickname'],
+        authorNickname: _optionalNonEmptyString(authorMap?['nickname']) ??
+            _optionalNonEmptyString(normalized['author_name']) ??
+            _optionalNonEmptyString(normalized['nickname']),
         // AI 分析字段 - 兼容 emotion_score 和 sentiment_score
-        moodType: normalized['mood_type'],
-        sentimentScore: _parseDouble(
+        moodType: _optionalNonEmptyString(normalized['mood_type']),
+        sentimentScore: _parseOptionalDouble(
             normalized['sentiment_score'] ?? normalized['emotion_score']),
-        aiTags: normalized['ai_tags'] != null
-            ? List<String>.from(normalized['ai_tags'])
-            : null,
+        aiTags:
+            _parseOptionalStringList(normalized['ai_tags'], field: 'ai_tags'),
         recommendationAlgorithm:
-            normalized['algorithm'] ?? normalized['recommendation_algorithm'],
+            _optionalNonEmptyString(normalized['algorithm']) ??
+                _optionalNonEmptyString(normalized['recommendation_algorithm']),
         recommendationReason:
-            normalized['recommendation_reason'] ?? normalized['reason'],
-        recommendationScore:
-            _parseDouble(normalized['score'] ?? normalized['relevance_score']),
-        semanticScore: _parseDouble(normalized['semantic_score']),
-        trajectoryScore: _parseDouble(normalized['trajectory_score']),
-        temporalScore: _parseDouble(normalized['temporal_score']),
-        diversityScore: _parseDouble(normalized['diversity_score']),
+            _optionalNonEmptyString(normalized['recommendation_reason']) ??
+                _optionalNonEmptyString(normalized['reason']),
+        recommendationScore: _parseOptionalDouble(
+          normalized['score'] ?? normalized['relevance_score'],
+        ),
+        semanticScore: _parseOptionalDouble(normalized['semantic_score']),
+        trajectoryScore: _parseOptionalDouble(normalized['trajectory_score']),
+        temporalScore: _parseOptionalDouble(normalized['temporal_score']),
+        diversityScore: _parseOptionalDouble(normalized['diversity_score']),
         // 媒体字段
         mediaIds: mediaIds,
-        hasMedia: parseBool(normalized['has_media']) ||
+        hasMedia: _parseBoolField(
+              normalized['has_media'],
+              field: 'has_media',
+              defaultValue: false,
+            ) ||
             (mediaIds != null && mediaIds.isNotEmpty),
-        hasRippled: parseBool(normalized['has_rippled']),
+        hasRippled: _parseBoolField(
+          normalized['has_rippled'],
+          field: 'has_rippled',
+          defaultValue: false,
+        ),
       );
-    } catch (e, stackTrace) {
-      // 记录详细错误信息，包含原始JSON便于排查
-      debugPrint('Stone.fromJson 解析失败: $e');
-      debugPrint('  原始数据: ${json.keys.toList()}');
-      debugPrint('  堆栈: $stackTrace');
-      throw FormatException(
-        'Stone JSON 解析失败: $e, keys=${json.keys.toList()}',
+    } catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        FormatException(
+          'Stone JSON 解析失败: $error, keys=${json.keys.toList()}',
+        ),
+        stackTrace,
       );
     }
   }
@@ -171,8 +192,8 @@ class Stone {
       'stone_id': normalized['stone_id'],
       'user_id': normalized['stone_user_id'] ?? normalized['user_id'],
       'content': normalized['stone_content'] ?? normalized['content'],
-      'stone_type': normalized['stone_type'] ?? 'medium',
-      'stone_color': normalized['stone_color'] ?? '#7A92A3',
+      'stone_type': normalized['stone_type'],
+      'stone_color': normalized['stone_color'],
       'created_at': normalized['stone_created_at'] ?? normalized['created_at'],
       'mood_type': normalized['stone_mood_type'] ?? normalized['mood_type'],
       'ripple_count': normalized['stone_ripple_count'],
@@ -198,28 +219,149 @@ class Stone {
     return defaultValue;
   }
 
-  static double? _parseDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
+  static String _requireNonEmptyString(
+    dynamic value, {
+    required String field,
+  }) {
+    final candidate = _optionalNonEmptyString(value);
+    if (candidate != null) return candidate;
+    throw FormatException('Stone payload 缺少必填字段: $field');
   }
 
-  static DateTime _parseDate(dynamic date) {
-    if (date == null) return DateTime.now();
-    if (date is int) return DateTime.fromMillisecondsSinceEpoch(date * 1000);
-    if (date is String) {
-      // 先尝试按数字时间戳字符串解析
-      final numVal = int.tryParse(date);
-      if (numVal != null) {
-        return DateTime.fromMillisecondsSinceEpoch(numVal * 1000);
+  static String? _optionalNonEmptyString(dynamic value) {
+    if (value == null) return null;
+    final candidate = value.toString().trim();
+    if (candidate.isEmpty) return null;
+    return candidate;
+  }
+
+  static bool _parseBoolField(
+    dynamic value, {
+    required String field,
+    required bool defaultValue,
+  }) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
       }
-      // 再尝试按 ISO 时间字符串解析
-      try {
-        return DateTime.parse(date);
-      } catch (_) {}
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
     }
-    return DateTime.now();
+    throw FormatException('Stone payload 字段 $field 不是合法布尔值: $value');
+  }
+
+  static int _parseIntField(
+    dynamic value, {
+    required String field,
+    required int defaultValue,
+  }) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+    throw FormatException('Stone payload 字段 $field 不是合法整数: $value');
+  }
+
+  static List<String> _parseStringList(
+    dynamic value, {
+    required String field,
+    required List<String> defaultValue,
+  }) {
+    if (value == null) return defaultValue;
+    if (value is! List) {
+      throw FormatException('Stone payload 字段 $field 不是列表: $value');
+    }
+    return value
+        .map((item) => _requireNonEmptyString(item, field: field))
+        .toList();
+  }
+
+  static List<String>? _parseOptionalStringList(
+    dynamic value, {
+    required String field,
+  }) {
+    if (value == null) return null;
+    return _parseStringList(value, field: field, defaultValue: const []);
+  }
+
+  static double? _parseOptionalDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+    throw FormatException('Stone payload 包含非法数字: $value');
+  }
+
+  static DateTime _parseRequiredDate(
+    dynamic date, {
+    required String field,
+  }) {
+    if (date == null) {
+      throw FormatException('Stone payload 缺少必填字段: $field');
+    }
+    if (date is int) {
+      return _parseUnixTimestamp(date);
+    }
+    if (date is num) {
+      return _parseUnixTimestamp(date.toInt());
+    }
+    if (date is String) {
+      final trimmed = date.trim();
+      if (trimmed.isEmpty) {
+        throw FormatException('Stone payload 字段 $field 不能为空字符串');
+      }
+      final numVal = int.tryParse(trimmed);
+      if (numVal != null) {
+        return _parseUnixTimestamp(numVal);
+      }
+      final parsedDate = DateTime.tryParse(trimmed);
+      if (parsedDate != null) {
+        return parsedDate;
+      }
+      throw FormatException('Stone payload 字段 $field 不是合法时间: $date');
+    }
+    throw FormatException('Stone payload 字段 $field 不是合法时间: $date');
+  }
+
+  static DateTime _parseUnixTimestamp(int value) {
+    final isMilliseconds = value.abs() >= 100000000000;
+    return DateTime.fromMillisecondsSinceEpoch(
+      isMilliseconds ? value : value * 1000,
+    );
+  }
+
+  static List<String>? _parseMediaIds(dynamic value) {
+    if (value == null) return null;
+    if (value is List) {
+      return value
+          .map((item) => _requireNonEmptyString(item, field: 'media_ids'))
+          .toList();
+    }
+    if (value is String) {
+      final normalized = value.trim();
+      if (normalized.isEmpty || normalized == '{}') {
+        return const [];
+      }
+      if (normalized.startsWith('{') && normalized.endsWith('}')) {
+        final inner = normalized.substring(1, normalized.length - 1).trim();
+        if (inner.isEmpty) return const [];
+        return inner
+            .split(',')
+            .map((item) => _requireNonEmptyString(item, field: 'media_ids'))
+            .toList();
+      }
+    }
+    throw FormatException('Stone payload 字段 media_ids 格式非法: $value');
   }
 
   Map<String, dynamic> toJson() {

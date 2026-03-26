@@ -98,6 +98,15 @@ class UserProvider with ChangeNotifier {
     }
   }
 
+  String _extractErrorMessage(Object error, String fallback) {
+    final raw = error
+        .toString()
+        .replaceFirst(RegExp(r'^Bad state:\s*'), '')
+        .replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final message = raw.trim();
+    return message.isEmpty ? fallback : message;
+  }
+
   Future<bool> _ensureLocalUserLoaded() async {
     if (_user != null) return true;
 
@@ -245,22 +254,15 @@ class UserProvider with ChangeNotifier {
     if (!hasLocalUser || _user == null) return false;
 
     try {
-      final result = await _accountService.updateProfile({
+      await _accountService.updateProfile({
         'nickname': nickname,
       });
-      if (result['success'] != true) {
-        final message = result['message']?.toString() ?? '更新昵称失败';
-        _setErrorMessage(message, notify: true);
-        _reportProviderError(
-          StateError(message),
-          StackTrace.current,
-          'UserProvider.updateNickname',
-        );
-        return false;
-      }
       return await _reloadProfileFromServer();
     } catch (error, stackTrace) {
-      _setErrorMessage('更新昵称失败，请稍后重试', notify: true);
+      _setErrorMessage(
+        _extractErrorMessage(error, '更新昵称失败，请稍后重试'),
+        notify: true,
+      );
       _reportProviderError(
         error,
         stackTrace,
@@ -295,20 +297,13 @@ class UserProvider with ChangeNotifier {
         return true;
       }
 
-      final result = await _accountService.updateProfile(payload);
-      if (result['success'] != true) {
-        final message = result['message']?.toString() ?? '更新资料失败';
-        _setErrorMessage(message, notify: true);
-        _reportProviderError(
-          StateError(message),
-          StackTrace.current,
-          'UserProvider.updateProfile',
-        );
-        return false;
-      }
+      await _accountService.updateProfile(payload);
       return await _reloadProfileFromServer();
     } catch (error, stackTrace) {
-      _setErrorMessage('更新资料失败，请稍后重试', notify: true);
+      _setErrorMessage(
+        _extractErrorMessage(error, '更新资料失败，请稍后重试'),
+        notify: true,
+      );
       _reportProviderError(
         error,
         stackTrace,

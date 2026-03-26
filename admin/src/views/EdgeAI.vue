@@ -13,7 +13,9 @@
       <article class="edge-card edge-card--engine">
         <div class="edge-head">
           <div>
-            <span class="edge-eyebrow">{{ engineStatus.enabled ? '已启用' : '已暂停' }}</span>
+            <span class="edge-eyebrow" :class="{ 'edge-eyebrow--warning': edgeIssues.length > 0 }">
+              {{ engineEyebrow }}
+            </span>
             <h2>智能辅助引擎</h2>
           </div>
           <span class="edge-chip">{{ currentTime }}</span>
@@ -22,10 +24,15 @@
         <div class="engine-total">
           <span>在线节点</span>
           <div class="engine-total__value">
-            {{ engineStatus.activeNodes }}
-            <small>个</small>
+            {{ activeNodesDisplay }}
+            <small v-if="activeNodesDisplay !== '--'">个</small>
           </div>
           <p>{{ heroDescription }}</p>
+        </div>
+
+        <div v-if="edgeIssues.length" class="edge-status-banner" :class="edgeIssueTone">
+          <strong>{{ edgeIssueTitle }}</strong>
+          <p>{{ edgeIssueSummary }}</p>
         </div>
 
         <div class="engine-actions">
@@ -33,7 +40,12 @@
             <el-icon><RefreshRight /></el-icon>
             <span>刷新状态</span>
           </button>
-          <button type="button" class="engine-action" @click="triggerAggregation">
+          <button
+            type="button"
+            class="engine-action"
+            :disabled="federated.aggregating"
+            @click="triggerAggregation"
+          >
             <span>触发聚合</span>
           </button>
         </div>
@@ -41,17 +53,21 @@
         <div class="engine-stack">
           <article class="engine-mini-card is-blue">
             <span>平均响应</span>
-            <strong>{{ engineStatus.avgLatency }}ms</strong>
-            <small>当前吞吐 {{ engineStatus.throughput }} req/s</small>
+            <strong>{{ avgLatencyDisplay }}</strong>
+            <small>{{ throughputDisplay }}</small>
           </article>
           <article class="engine-mini-card is-mint">
             <span>保护余量</span>
-            <strong>ε {{ privacy.epsilonRemaining }}</strong>
-            <small>剩余查询 {{ privacy.queriesRemaining }}</small>
+            <strong>{{ privacyRemainingDisplay }}</strong>
+            <small>{{ privacyQueriesDisplay }}</small>
           </article>
-          <button type="button" class="engine-mini-card engine-mini-card--more" @click="loadConfig">
+          <button
+            type="button"
+            class="engine-mini-card engine-mini-card--more"
+            @click="loadConfig({ notify: true })"
+          >
             <strong>配置</strong>
-            <small>查看参数</small>
+            <small>{{ configCardLabel }}</small>
           </button>
         </div>
       </article>
@@ -64,7 +80,8 @@
           </div>
         </div>
 
-        <OpsMiniBars :items="performanceMetrics" />
+        <OpsMiniBars v-if="canShowPerformance" :items="performanceMetrics" />
+        <p v-else class="edge-empty-copy">{{ performanceEmptyCopy }}</p>
       </article>
 
       <article class="edge-card edge-card--queue">
@@ -73,10 +90,12 @@
             <span class="edge-eyebrow">链路</span>
             <h3>节点与链路</h3>
           </div>
-          <button type="button" class="text-action" @click="loadConfig">查看配置</button>
+          <button type="button" class="text-action" @click="loadConfig({ notify: true })">
+            查看配置
+          </button>
         </div>
 
-        <div class="queue-list">
+        <div v-if="engineRows.length" class="queue-list">
           <article v-for="row in engineRows" :key="row.id" class="queue-item">
             <div class="queue-item__avatar">
               {{ row.badge }}
@@ -90,6 +109,7 @@
             </div>
           </article>
         </div>
+        <p v-else class="edge-empty-copy">{{ queueEmptyCopy }}</p>
       </article>
 
       <article class="edge-card edge-card--guide">
@@ -113,16 +133,18 @@
             <span class="edge-eyebrow">情绪</span>
             <h3>情绪脉搏曲线</h3>
           </div>
-          <span class="edge-chip">最近刷新 {{ lastUpdateTime }}</span>
+          <span class="edge-chip">{{ lastUpdateDisplay }}</span>
         </div>
 
         <v-chart
+          v-if="canShowEmotionChart"
           :option="emotionPulseLineOption"
           autoresize
           class="edge-chart"
           role="img"
           aria-label="情绪脉搏曲线"
         />
+        <p v-else class="edge-empty-copy">{{ emotionEmptyCopy }}</p>
       </article>
 
       <article class="edge-card edge-card--score">
@@ -133,13 +155,16 @@
           </div>
         </div>
 
-        <OpsGaugeMeter :value="edgeHealthScore" :max="100" :label="edgeHealthLabel" />
+        <template v-if="canShowHealthScore">
+          <OpsGaugeMeter :value="edgeHealthScore" :max="100" :label="edgeHealthLabel" />
 
-        <div class="score-meta">
-          <span>缓存命中 {{ engineStatus.cacheHitRate }}%</span>
-          <span>本轮协同 {{ federated.currentRound }}</span>
-          <span>噪声级别 {{ privacyNoiseLabel }}</span>
-        </div>
+          <div class="score-meta">
+            <span>缓存命中 {{ engineStatus.cacheHitRate }}%</span>
+            <span>本轮协同 {{ federated.currentRound }}</span>
+            <span>噪声级别 {{ privacyNoiseLabel }}</span>
+          </div>
+        </template>
+        <p v-else class="edge-empty-copy">{{ healthScoreEmptyCopy }}</p>
       </article>
     </section>
   </div>
@@ -153,19 +178,19 @@ import VChart from 'vue-echarts'
 import api from '@/api'
 import dayjs from 'dayjs'
 import { getErrorMessage } from '@/utils/errorHelper'
-import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
+import { normalizePayloadRecord } from '@/utils/collectionPayload'
 import OpsMiniBars from '@/components/OpsMiniBars.vue'
 import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import { createSoftBaseline } from '@/utils/chartSignals'
 
 const loading = ref(false)
-const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
+const lastUpdateTime = ref('')
 const edgeTimeFormat = 'MM月DD日 HH:mm'
 const currentTime = ref(dayjs().format(edgeTimeFormat))
 
+type EdgeLoaderKey = 'status' | 'metrics' | 'emotion' | 'federated' | 'privacy' | 'config'
+
 const normalizeEdgePayload = (payload: unknown) => normalizePayloadRecord(payload)
-const normalizeVectorSearchResults = (payload: unknown) =>
-  normalizeCollectionResponse<Record<string, unknown>>(payload, ['results', 'matches', 'documents']).items
 let edgeMetricsRequest: Promise<Record<string, unknown>> | null = null
 let edgeMetricsSnapshot: { at: number; data: Record<string, unknown> } | null = null
 
@@ -189,14 +214,59 @@ const fetchEdgeMetricsPayload = async () => {
   return edgeMetricsRequest
 }
 
-const techBadges = [
-  { icon: '建议', label: '内容建议' },
-  { icon: '检查', label: '内容检查' },
-  { icon: '情绪', label: '情绪观察' },
-  { icon: '参考', label: '历史参考' },
-  { icon: '整理', label: '自动整理' },
-  { icon: '支持', label: '处理支持' },
-]
+const edgeLoaderLabels: Record<EdgeLoaderKey, string> = {
+  status: '引擎状态',
+  metrics: '性能指标',
+  emotion: '情绪脉搏',
+  federated: '联邦状态',
+  privacy: '隐私预算',
+  config: '引擎配置',
+}
+
+const edgeLoaders = reactive<Record<EdgeLoaderKey, { loaded: boolean; error: string }>>({
+  status: { loaded: false, error: '' },
+  metrics: { loaded: false, error: '' },
+  emotion: { loaded: false, error: '' },
+  federated: { loaded: false, error: '' },
+  privacy: { loaded: false, error: '' },
+  config: { loaded: false, error: '' },
+})
+
+function markLoaderSuccess(key: EdgeLoaderKey) {
+  edgeLoaders[key].loaded = true
+  edgeLoaders[key].error = ''
+}
+
+function markLoaderFailure(key: EdgeLoaderKey, error: unknown, fallbackMessage: string) {
+  edgeLoaders[key].error = getErrorMessage(error, fallbackMessage)
+}
+
+const edgeIssues = computed(() =>
+  (Object.entries(edgeLoaderLabels) as Array<[EdgeLoaderKey, string]>).flatMap(([key, label]) => {
+    const state = edgeLoaders[key]
+    if (!state.error) return []
+    return [
+      {
+        key,
+        stale: state.loaded,
+        summary: state.loaded
+          ? `${label}刷新失败，当前显示上次成功结果。`
+          : `${label}加载失败。`,
+        detail: state.error,
+      },
+    ]
+  }),
+)
+
+const hasBlockingIssue = computed(() => edgeIssues.value.some((issue) => !issue.stale))
+const hasStaleIssue = computed(() => edgeIssues.value.some((issue) => issue.stale))
+const edgeIssueTone = computed(() => (hasBlockingIssue.value ? 'is-error' : 'is-stale'))
+const edgeIssueTitle = computed(() =>
+  hasBlockingIssue.value ? '部分模块加载失败' : '部分模块显示旧数据',
+)
+const edgeIssueSummary = computed(() =>
+  edgeIssues.value.map((issue) => `${issue.summary}${issue.detail}`).join('；'),
+)
 
 const engineStatus = reactive({
   enabled: false,
@@ -213,22 +283,22 @@ const engineStatus = reactive({
 const performanceMetrics = computed(() => [
   {
     label: '响应速度',
-    value: Math.max(18, 100 - Math.round((engineStatus.avgLatency / 220) * 100)),
+    value: Math.max(0, 100 - Math.round((engineStatus.avgLatency / 220) * 100)),
     display: `${engineStatus.avgLatency}ms`,
   },
   {
     label: '命中效率',
-    value: Math.max(18, engineStatus.cacheHitRate),
+    value: Math.max(0, engineStatus.cacheHitRate),
     display: `${engineStatus.cacheHitRate}%`,
   },
   {
     label: '处理速度',
-    value: Math.max(18, Math.min(100, Math.round((engineStatus.throughput / 500) * 100))),
+    value: Math.max(0, Math.min(100, Math.round((engineStatus.throughput / 500) * 100))),
     display: `${engineStatus.throughput} req/s`,
   },
   {
     label: '累计调用',
-    value: Math.max(18, Math.min(100, Math.round((engineStatus.inferenceCount / 10000) * 100))),
+    value: Math.max(0, Math.min(100, Math.round((engineStatus.inferenceCount / 10000) * 100))),
     display: engineStatus.inferenceCount.toLocaleString(),
   },
 ])
@@ -249,56 +319,6 @@ const emotionTrendLabel = computed(() => {
   }
   return map[emotionPulse.trend] || emotionPulse.trend || '平稳'
 })
-
-const emotionGaugeOption = computed(() => ({
-  series: [
-    {
-      type: 'gauge',
-      center: ['50%', '58%'],
-      radius: '92%',
-      startAngle: 210,
-      endAngle: -30,
-      min: 0,
-      max: 100,
-      splitNumber: 8,
-      axisLine: {
-        lineStyle: {
-          width: 18,
-          color: [
-            [0.25, '#6f9dab'],
-            [0.5, '#4d8f6b'],
-            [0.75, '#d09a54'],
-            [1, '#a35f5f'],
-          ],
-        },
-      },
-      pointer: {
-        icon: 'path://M10 0 L20 42 L0 42 Z',
-        length: '54%',
-        width: 10,
-        offsetCenter: [0, '-10%'],
-        itemStyle: { color: '#1f3942' },
-      },
-      anchor: {
-        show: true,
-        size: 14,
-        itemStyle: { color: '#f6fafb', borderColor: '#1f3942', borderWidth: 3 },
-      },
-      axisTick: { length: 7, lineStyle: { color: 'auto', width: 1.4 } },
-      splitLine: { length: 14, lineStyle: { color: 'auto', width: 2.4 } },
-      axisLabel: { color: '#5f7882', fontSize: 10, distance: -42 },
-      title: { offsetCenter: [0, '22%'], fontSize: 13, color: '#5f7882' },
-      detail: {
-        fontSize: 30,
-        offsetCenter: [0, '48%'],
-        valueAnimation: true,
-        color: '#213840',
-        formatter: '{value}/100',
-      },
-      data: [{ value: emotionPulse.temperature, name: '情绪温度' }],
-    },
-  ],
-}))
 
 const emotionPulseLineOption = computed(() => ({
   tooltip: {
@@ -386,68 +406,7 @@ const privacy = reactive({
   allocation: [] as Array<{ value: number; name: string; itemStyle: { color: string } }>,
 })
 
-const privacyBudgetColor = computed(() => {
-  if (privacy.epsilonPercent < 50) return '#4d8f6b'
-  if (privacy.epsilonPercent < 80) return '#b67a42'
-  return '#a35f5f'
-})
-
-const privacyPieOption = computed(() => ({
-  tooltip: {
-    trigger: 'item',
-    backgroundColor: 'rgba(15, 28, 34, 0.92)',
-    borderColor: 'rgba(208, 221, 226, 0.16)',
-    borderWidth: 1,
-    textStyle: { color: '#edf5f7', fontSize: 12 },
-    padding: [10, 12],
-    formatter: '{b}: ε={c} ({d}%)',
-  },
-  legend: {
-    bottom: 0,
-    icon: 'circle',
-    itemGap: 16,
-    textStyle: { color: '#5f7882', fontSize: 11 },
-  },
-  series: [
-    {
-      type: 'pie',
-      radius: ['50%', '74%'],
-      center: ['50%', '42%'],
-      avoidLabelOverlap: true,
-      itemStyle: { borderRadius: 12, borderColor: '#f8fbfc', borderWidth: 3 },
-      label: { show: false },
-      emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' } },
-      data:
-        privacy.allocation.length > 0
-          ? privacy.allocation
-          : [
-              { value: 3, name: '情绪判断', itemStyle: { color: '#315b6f' } },
-              { value: 2, name: '内容检查', itemStyle: { color: '#4d8f6b' } },
-              { value: 2.5, name: '智能回复', itemStyle: { color: '#b67a42' } },
-              { value: 1.5, name: '内容检索', itemStyle: { color: '#a35f5f' } },
-              { value: 1, name: '预留', itemStyle: { color: '#5d6d77' } },
-            ],
-    },
-  ],
-}))
-
-const vectorSearch = reactive({
-  query: '',
-  searching: false,
-  results: [] as Array<Record<string, unknown>>,
-})
-const vectorSearched = ref(false)
-const vectorQuery = computed({
-  get: () => vectorSearch.query,
-  set: (value: string) => {
-    vectorSearch.query = value
-  },
-})
-const vectorSearching = computed(() => vectorSearch.searching)
-const vectorResults = computed(() => vectorSearch.results)
-
-const edgeNodes = ref<Array<Record<string, any>>>([])
-const ragStats = ref<Record<string, any>>({})
+const edgeNodes = ref<Array<Record<string, unknown>>>([])
 
 const edgeConfig = reactive({
   inferenceEngine: 'onnx',
@@ -464,31 +423,99 @@ const edgeConfig = reactive({
   federatedEnabled: true,
   privacyEpsilon: 1.0,
 })
-const configLoading = ref(false)
-const configSaving = ref(false)
-
-const sentimentTool = reactive({
-  text: '',
-  loading: false,
-  result: null as null | Record<string, any>,
-})
-const moderationTool = reactive({
-  text: '',
-  loading: false,
-  result: null as null | Record<string, any>,
-})
-
-const formatCount = (value: number) => value.toLocaleString()
 const privacyNoiseLabel = computed(() => {
   const map: Record<string, string> = {
     low: '轻度扰动',
     medium: '中等扰动',
     high: '高强度扰动',
   }
-  return map[privacy.noiseLevel] || privacy.noiseLevel || '中等扰动'
+  return map[privacy.noiseLevel] || privacy.noiseLevel || '--'
+})
+
+const engineEyebrow = computed(() => {
+  if (hasBlockingIssue.value) return '部分异常'
+  if (hasStaleIssue.value) return '显示旧数据'
+  return engineStatus.enabled ? '已启用' : '已暂停'
+})
+
+const activeNodesDisplay = computed(() =>
+  edgeLoaders.status.loaded ? String(engineStatus.activeNodes) : '--',
+)
+
+const avgLatencyDisplay = computed(() =>
+  edgeLoaders.metrics.loaded ? `${engineStatus.avgLatency}ms` : '--',
+)
+
+const throughputDisplay = computed(() =>
+  edgeLoaders.metrics.loaded ? `当前吞吐 ${engineStatus.throughput} req/s` : '当前吞吐 --',
+)
+
+const privacyRemainingDisplay = computed(() =>
+  edgeLoaders.privacy.loaded ? `ε ${privacy.epsilonRemaining}` : 'ε --',
+)
+
+const privacyQueriesDisplay = computed(() =>
+  edgeLoaders.privacy.loaded ? `剩余查询 ${privacy.queriesRemaining}` : '剩余查询 --',
+)
+
+const configCardLabel = computed(() => {
+  if (edgeLoaders.config.error) {
+    return edgeLoaders.config.loaded ? '配置陈旧' : '配置异常'
+  }
+  return '查看参数'
+})
+
+const lastUpdateDisplay = computed(() =>
+  lastUpdateTime.value ? `最近完整刷新 ${lastUpdateTime.value}` : '尚未成功刷新',
+)
+
+const canShowPerformance = computed(() => edgeLoaders.metrics.loaded)
+const performanceEmptyCopy = computed(() => {
+  if (edgeLoaders.metrics.error) {
+    return edgeLoaders.metrics.loaded ? '性能指标刷新失败，当前仅保留上次成功快照。' : '性能指标不可用。'
+  }
+  return '正在加载性能指标。'
+})
+
+const canShowEmotionChart = computed(() => edgeLoaders.emotion.loaded && emotionPulse.history.length > 0)
+const emotionEmptyCopy = computed(() => {
+  if (edgeLoaders.emotion.error) {
+    return edgeLoaders.emotion.loaded ? '情绪脉搏刷新失败，当前仅保留摘要状态。' : '情绪脉搏不可用。'
+  }
+  if (edgeLoaders.emotion.loaded) {
+    return '暂无情绪脉搏历史。'
+  }
+  return '正在加载情绪脉搏。'
+})
+
+const queueEmptyCopy = computed(() => {
+  if (edgeLoaders.metrics.error) {
+    return edgeLoaders.metrics.loaded ? '节点与链路刷新失败，当前无可展示的节点快照。' : '节点与链路数据不可用。'
+  }
+  if (edgeLoaders.metrics.loaded) {
+    return '暂无节点数据。'
+  }
+  return '正在加载节点与链路。'
+})
+
+const canShowHealthScore = computed(
+  () => edgeLoaders.status.loaded && edgeLoaders.metrics.loaded && edgeLoaders.privacy.loaded,
+)
+
+const healthScoreEmptyCopy = computed(() => {
+  if (edgeIssues.value.length) {
+    return hasBlockingIssue.value
+      ? '缺少关键状态，暂时无法计算引擎评分。'
+      : '评分依赖的数据已陈旧，请先完成一次成功刷新。'
+  }
+  return '正在计算引擎评分。'
 })
 
 const heroDescription = computed(() => {
+  if (edgeIssues.value.length) {
+    return edgeIssueSummary.value
+  }
+
   const statusText = engineStatus.enabled
     ? `当前有 ${engineStatus.activeNodes} 个服务节点在线`
     : '当前辅助引擎未处于运行状态'
@@ -496,104 +523,26 @@ const heroDescription = computed(() => {
   return `${currentTime.value} 的陪伴链路以${emotionTrendLabel.value}为主，${statusText}，平均响应 ${engineStatus.avgLatency}ms，剩余保护预算 ε ${privacy.epsilonRemaining} / ${privacy.epsilonTotal}。`
 })
 
-const heroChips = computed(() =>
-  [...techBadges.map(({ label }) => label), `情绪温度 ${emotionPulse.temperature}/100`].slice(0, 5),
-)
-
-const summaryItems = computed(() => [
-  {
-    label: '服务状态',
-    value: engineStatus.enabled ? '运行中' : '已停止',
-    note: `已加载 ${engineStatus.modulesLoaded}/${engineStatus.totalModules} 个功能`,
-    tone: 'lake' as const,
-  },
-  {
-    label: '平均响应',
-    value: `${engineStatus.avgLatency}ms`,
-    note: `当前吞吐 ${engineStatus.throughput} req/s`,
-    tone: 'amber' as const,
-  },
-  {
-    label: '协同节点',
-    value: formatCount(federated.participatingNodes),
-    note: `第 ${federated.currentRound} 轮 · 准确度 ${federated.modelAccuracy}`,
-    tone: 'sage' as const,
-  },
-  {
-    label: '保护余量',
-    value: `ε ${privacy.epsilonRemaining} / ${privacy.epsilonTotal}`,
-    note: `已使用 ${privacy.epsilonPercent}% · ${privacyNoiseLabel.value}`,
-    tone: 'rose' as const,
-  },
-])
-
-const edgeSignals = computed(() => [
-  {
-    label: '最后巡看',
-    value: lastUpdateTime.value,
-    note: `${currentTime.value} 已同步关键面板`,
-    badge: '巡看完成',
-    tone: 'lake' as const,
-  },
-  {
-    label: '情绪水温',
-    value: `${emotionPulse.temperature}/100`,
-    note: `${emotionTrendLabel.value} · 最近波动持续观察中`,
-    badge: '每 30 秒更新',
-    tone: 'amber' as const,
-  },
-  {
-    label: '在线节点',
-    value: formatCount(engineStatus.activeNodes),
-    note: `累计调用 ${formatCount(engineStatus.inferenceCount)} 次`,
-    badge: engineStatus.enabled ? '引擎运行中' : '需要检查',
-    tone: 'sage' as const,
-  },
-])
-
 const engineRows = computed(() => {
-  if (edgeNodes.value.length) {
-    return edgeNodes.value.slice(0, 5).map((node, index) => ({
-      id: node.id ?? index,
-      badge: String(node.name ?? node.node_id ?? `N${index + 1}`)
-        .slice(0, 1)
-        .toUpperCase(),
-      title: node.name ?? node.node_id ?? `边缘节点 ${index + 1}`,
-      meta: node.status ?? '在线',
-      value: node.latency ? `${node.latency}ms` : `${node.load ?? node.qps ?? '--'}`,
-      tone: node.status === 'running' || node.status === 'online' ? 'is-up' : 'is-neutral',
-    }))
-  }
-
-  return [
-    {
-      id: 'federated',
-      badge: 'F',
-      title: '联邦训练',
-      meta: `第 ${federated.currentRound} 轮`,
-      value: federated.modelAccuracy || '0%',
-      tone: 'is-up',
-    },
-    {
-      id: 'rag',
-      badge: 'R',
-      title: 'RAG 检索',
-      meta: '上下文召回',
-      value: `${ragStats.value.hit_rate ?? ragStats.value.hitRate ?? 0}%`,
-      tone: 'is-neutral',
-    },
-    {
-      id: 'privacy',
-      badge: 'P',
-      title: '隐私预算',
-      meta: privacyNoiseLabel.value,
-      value: `${privacy.epsilonRemaining}`,
-      tone: 'is-up',
-    },
-  ]
+  return edgeNodes.value.slice(0, 5).map((node, index) => ({
+    id: node.id ?? index,
+    badge: String(node.name ?? node.node_id ?? `N${index + 1}`)
+      .slice(0, 1)
+      .toUpperCase(),
+    title: node.name ?? node.node_id ?? `边缘节点 ${index + 1}`,
+    meta: node.status ?? '未知状态',
+    value: node.latency ? `${node.latency}ms` : `${node.load ?? node.qps ?? '--'}`,
+    tone: node.status === 'running' || node.status === 'online' ? 'is-up' : 'is-neutral',
+  }))
 })
 
 const edgeGuideCopy = computed(() => {
+  if (hasBlockingIssue.value) {
+    return '当前面板存在未恢复的模块错误，先处理加载失败项，再触发新的聚合任务。'
+  }
+  if (hasStaleIssue.value) {
+    return '当前展示包含旧数据，先完成一次成功刷新，再决定是否继续放大自动化处理能力。'
+  }
   if (privacy.epsilonPercent >= 80) {
     return '当前预算接近上限，建议先压低高频调用，再安排下一轮聚合，避免保护额度被快速吃空。'
   }
@@ -609,7 +558,7 @@ const edgeHealthScore = computed(() => {
   score -= Math.min(20, Math.round(engineStatus.avgLatency / 18))
   score -= Math.min(14, Math.max(0, 80 - engineStatus.cacheHitRate) / 4)
   score -= Math.min(18, Math.max(0, privacy.epsilonPercent - 60) / 2)
-  return Math.max(36, Math.min(98, Math.round(score)))
+  return Math.max(0, Math.min(100, Math.round(score)))
 })
 
 const edgeHealthLabel = computed(() => {
@@ -633,8 +582,11 @@ async function loadStatus() {
       throughput: s.throughput ?? 0,
       activeNodes: s.activeNodes ?? s.active_nodes ?? 0,
     })
-  } catch {
-    // 静默降级
+    markLoaderSuccess('status')
+    return true
+  } catch (error) {
+    markLoaderFailure('status', error, '加载引擎状态失败')
+    return false
   }
 }
 
@@ -648,14 +600,12 @@ async function loadMetrics() {
     if (m.throughput != null) engineStatus.throughput = Number(m.throughput) || 0
     if (m.inferenceCount != null || m.inference_count != null)
       engineStatus.inferenceCount = Number(m.inferenceCount ?? m.inference_count) || 0
-    if (Array.isArray(m.nodes)) {
-      edgeNodes.value = m.nodes
-    }
-    if (m.dual_memory_rag) {
-      ragStats.value = m.dual_memory_rag
-    }
-  } catch {
-    // 静默降级
+    edgeNodes.value = Array.isArray(m.nodes) ? m.nodes : []
+    markLoaderSuccess('metrics')
+    return true
+  } catch (error) {
+    markLoaderFailure('metrics', error, '加载性能指标失败')
+    return false
   }
 }
 
@@ -670,16 +620,35 @@ async function loadEmotionPulse() {
     emotionPulse.trend = ep.dominant_mood ?? ep.dominantMood ?? ep.trend ?? 'stable'
 
     if (Array.isArray(ep.history)) {
-      emotionPulse.history = ep.history.map((item: any) => Number(item.value ?? item) || 0)
-      emotionPulse.timestamps = ep.history.map((item: any) => item.time ?? item.timestamp ?? '')
+      const history = ep.history as Array<Record<string, unknown> | number | string>
+      emotionPulse.history = history.map((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const entry = item as Record<string, unknown>
+          return Number(entry.value ?? item) || 0
+        }
+        return Number(item) || 0
+      })
+      emotionPulse.timestamps = history.map((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const entry = item as Record<string, unknown>
+          return String(entry.time ?? entry.timestamp ?? '')
+        }
+        return ''
+      })
     } else if (ep.mood_distribution && typeof ep.mood_distribution === 'object') {
       const values = Object.values(ep.mood_distribution).map((value) => Number(value) || 0)
       const sum = values.reduce((acc, curr) => acc + curr, 0)
       emotionPulse.history = sum > 0 ? values.map((value) => Math.round((value / sum) * 100)) : []
       emotionPulse.timestamps = Object.keys(ep.mood_distribution)
+    } else {
+      emotionPulse.history = []
+      emotionPulse.timestamps = []
     }
-  } catch {
-    // 静默降级
+    markLoaderSuccess('emotion')
+    return true
+  } catch (error) {
+    markLoaderFailure('emotion', error, '加载情绪脉搏失败')
+    return false
   }
 }
 
@@ -696,9 +665,21 @@ async function loadFederatedStatus() {
         aggregationProgress:
           m.federated.aggregationProgress ?? m.federated.aggregation_progress ?? 0,
       })
+    } else {
+      Object.assign(federated, {
+        status: 'idle',
+        currentRound: 0,
+        participatingNodes: 0,
+        modelAccuracy: '0%',
+        convergenceRate: '0%',
+        aggregationProgress: 0,
+      })
     }
-  } catch {
-    // 静默降级
+    markLoaderSuccess('federated')
+    return true
+  } catch (error) {
+    markLoaderFailure('federated', error, '加载联邦状态失败')
+    return false
   }
 }
 
@@ -724,21 +705,22 @@ async function loadPrivacyBudget() {
       queriesRemaining: p.queriesRemaining ?? p.queries_remaining ?? p.query_count ?? 0,
     })
 
-    if (Array.isArray(p.allocation)) {
-      const colors = ['#315b6f', '#4d8f6b', '#b67a42', '#a35f5f', '#5d6d77', '#7c6975']
-      privacy.allocation = p.allocation.map((item: any, index: number) => ({
-        value: Number(item.value ?? item.epsilon) || 0,
-        name: item.name ?? item.label ?? `模块 ${index + 1}`,
-        itemStyle: { color: colors[index % colors.length] },
-      }))
-    }
-  } catch {
-    // 静默降级
+    privacy.allocation = Array.isArray(p.allocation)
+      ? (p.allocation as Array<Record<string, unknown>>).map((item, index: number) => ({
+          value: Number(item.value ?? item.epsilon) || 0,
+          name: item.name ?? item.label ?? `模块 ${index + 1}`,
+          itemStyle: { color: ['#315b6f', '#4d8f6b', '#b67a42', '#a35f5f', '#5d6d77', '#7c6975'][index % 6] },
+        }))
+      : []
+    markLoaderSuccess('privacy')
+    return true
+  } catch (error) {
+    markLoaderFailure('privacy', error, '加载隐私预算失败')
+    return false
   }
 }
 
-async function loadConfig() {
-  configLoading.value = true
+async function loadConfig(options: { notify?: boolean } = {}) {
   try {
     const { data } = await api.getEdgeAIConfig()
     const c = normalizeEdgePayload(data)
@@ -763,10 +745,17 @@ async function loadConfig() {
       federatedEnabled: c.federatedEnabled ?? c.federated_enabled ?? true,
       privacyEpsilon: c.privacyEpsilon ?? c.privacy_epsilon ?? c.maxEpsilon ?? c.max_epsilon ?? 1.0,
     })
-  } catch {
-    // 静默降级
-  } finally {
-    configLoading.value = false
+    markLoaderSuccess('config')
+    if (options.notify) {
+      ElMessage.success('配置已同步')
+    }
+    return true
+  } catch (error) {
+    markLoaderFailure('config', error, '加载引擎配置失败')
+    if (options.notify) {
+      ElMessage.error(getErrorMessage(error, '加载引擎配置失败'))
+    }
+    return false
   }
 }
 
@@ -775,85 +764,16 @@ async function triggerAggregation() {
   try {
     await api.triggerFederatedAggregation({ round: federated.currentRound + 1 })
     federated.status = 'aggregating'
-    await loadFederatedStatus()
-  } catch {
-    // 静默降级
+    const refreshed = await loadFederatedStatus()
+    if (!refreshed) {
+      ElMessage.warning('聚合已触发，但联邦状态刷新失败，页面显示为旧数据')
+      return
+    }
+    ElMessage.success('已触发聚合')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '触发聚合失败'))
   } finally {
     federated.aggregating = false
-  }
-}
-
-async function doSentimentAnalysis() {
-  if (!sentimentTool.text.trim()) return
-  sentimentTool.loading = true
-  sentimentTool.result = null
-  try {
-    const { data } = await api.analyzeText(sentimentTool.text)
-    const result = normalizeEdgePayload(data)
-    sentimentTool.result = {
-      score: result.score ?? result.sentiment_score ?? 0,
-      sentiment: result.emotion ?? result.sentiment ?? 'neutral',
-      confidence: result.confidence ?? result.conf ?? 0,
-      emotions: result.emotions ?? [],
-    }
-  } catch {
-    sentimentTool.result = null
-  } finally {
-    sentimentTool.loading = false
-  }
-}
-
-async function doContentModeration() {
-  if (!moderationTool.text.trim()) return
-  moderationTool.loading = true
-  moderationTool.result = null
-  try {
-    const { data } = await api.moderateText(moderationTool.text)
-    const result = normalizeEdgePayload(data)
-    moderationTool.result = {
-      pass: result.pass ?? result.passed ?? result.approved ?? true,
-      risk: result.risk ?? result.risk_level ?? 'low',
-      reason: result.reason ?? result.reject_reason ?? '',
-    }
-  } catch {
-    moderationTool.result = null
-  } finally {
-    moderationTool.loading = false
-  }
-}
-
-async function doVectorSearch() {
-  if (!vectorSearch.query.trim()) return
-  vectorSearched.value = false
-  vectorSearch.searching = true
-  try {
-    const { data } = await api.edgeAIVectorSearch({
-      query: vectorSearch.query,
-      topK: 10,
-    })
-    const raw = normalizeVectorSearchResults(data)
-    vectorSearch.results = raw.map((item: any) => ({
-      ...item,
-      score: Number(item.score ?? item.similarity ?? 0),
-      content: item.content ?? item.text ?? item.id ?? '未知内容',
-    }))
-  } catch {
-    vectorSearch.results = []
-  } finally {
-    vectorSearched.value = true
-    vectorSearch.searching = false
-  }
-}
-
-async function saveConfig() {
-  configSaving.value = true
-  try {
-    await api.updateEdgeAIConfig(edgeConfig)
-    ElMessage.success('配置保存成功')
-  } catch (error) {
-    ElMessage.error(getErrorMessage(error, '保存配置失败'))
-  } finally {
-    configSaving.value = false
   }
 }
 
@@ -861,7 +781,7 @@ async function refreshAll() {
   loading.value = true
   currentTime.value = dayjs().format(edgeTimeFormat)
   try {
-    await Promise.allSettled([
+    const results = await Promise.all([
       loadStatus(),
       loadMetrics(),
       loadEmotionPulse(),
@@ -869,7 +789,9 @@ async function refreshAll() {
       loadPrivacyBudget(),
       loadConfig(),
     ])
-    lastUpdateTime.value = dayjs().format('HH:mm:ss')
+    if (results.every(Boolean)) {
+      lastUpdateTime.value = dayjs().format('HH:mm:ss')
+    }
   } finally {
     loading.value = false
   }
@@ -1003,6 +925,11 @@ onUnmounted(() => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
+.edge-eyebrow--warning {
+  background: rgba(255, 240, 220, 0.88);
+  color: #8d4f26;
+}
+
 .edge-chip {
   background: rgba(255, 255, 255, 0.8);
   color: var(--hl-ink);
@@ -1025,6 +952,38 @@ onUnmounted(() => {
     font-size: 13px;
     line-height: 1.7;
   }
+}
+
+.edge-status-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(163, 95, 95, 0.14);
+  background: rgba(255, 247, 244, 0.9);
+
+  strong {
+    display: block;
+    color: #8d4f26;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: #7a5a49;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+}
+
+.edge-status-banner.is-stale {
+  border-color: rgba(182, 122, 66, 0.16);
+  background: rgba(255, 249, 240, 0.9);
+}
+
+.edge-status-banner.is-error {
+  border-color: rgba(163, 95, 95, 0.18);
+  background: rgba(255, 244, 241, 0.92);
 }
 
 .engine-total__value {
@@ -1219,6 +1178,13 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.edge-empty-copy {
+  margin: 18px 0 0;
+  color: var(--hl-ink-soft);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .edge-card--guide::before,

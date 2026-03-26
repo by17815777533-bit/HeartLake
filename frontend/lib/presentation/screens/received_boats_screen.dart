@@ -295,14 +295,27 @@ class _ReceivedBoatsScreenState extends State<ReceivedBoatsScreen> {
                             onTap: () {
                               final stoneId = boat['stone_id']?.toString();
                               if (stoneId != null && stoneId.isNotEmpty) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => StoneDetailScreen(
-                                      stone: Stone.fromBoatReference(boat),
+                                try {
+                                  final stone = Stone.fromBoatReference(boat);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          StoneDetailScreen(stone: stone),
                                     ),
-                                  ),
-                                );
+                                  );
+                                } catch (error, stackTrace) {
+                                  _reportUiError(
+                                    error,
+                                    stackTrace,
+                                    'ReceivedBoatsScreen.openStoneDetail',
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('关联石头数据损坏，暂时无法打开'),
+                                    ),
+                                  );
+                                }
                               }
                             },
                             child: Padding(

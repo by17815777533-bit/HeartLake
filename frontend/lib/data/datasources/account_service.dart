@@ -19,6 +19,12 @@ class AccountService extends BaseService {
   @override
   String get serviceName => 'AccountService';
 
+  bool _hasValue(dynamic value) {
+    if (value == null) return false;
+    if (value is String) return value.trim().isNotEmpty;
+    return true;
+  }
+
   String? _resolveMediaUrl(dynamic value) {
     final raw = value?.toString().trim();
     if (raw == null || raw.isEmpty) return null;
@@ -62,45 +68,130 @@ class AccountService extends BaseService {
     );
   }
 
+  Map<String, dynamic> _normalizeDataMap(Map<String, dynamic> payload) {
+    final data = normalizePayloadContract(payload);
+    final avatar = data['avatar'];
+    if ((data['avatar_url'] == null || data['avatar_url'].toString().isEmpty) &&
+        avatar != null) {
+      data['avatar_url'] = avatar;
+    }
+    final resolvedAvatarUrl = _resolveMediaUrl(data['avatar_url']);
+    if (resolvedAvatarUrl != null) {
+      data['avatar_url'] = resolvedAvatarUrl;
+      data['avatarUrl'] = resolvedAvatarUrl;
+    }
+    final blockedUsers = data['blocked_users'];
+    if (data['items'] == null && blockedUsers is List) {
+      data['items'] = blockedUsers;
+    }
+    return data;
+  }
+
   Map<String, dynamic> _normalizePayload(Map<String, dynamic> payload) {
     final normalized = Map<String, dynamic>.from(payload);
     final rawData = normalized['data'];
     if (rawData is Map) {
-      final data = normalizePayloadContract(
+      normalized['data'] = _normalizeDataMap(
         Map<String, dynamic>.from(rawData.cast<String, dynamic>()),
       );
-      final avatar = data['avatar'];
-      if ((data['avatar_url'] == null ||
-              data['avatar_url'].toString().isEmpty) &&
-          avatar != null) {
-        data['avatar_url'] = avatar;
-      }
-      final resolvedAvatarUrl = _resolveMediaUrl(data['avatar_url']);
-      if (resolvedAvatarUrl != null) {
-        data['avatar_url'] = resolvedAvatarUrl;
-        data['avatarUrl'] = resolvedAvatarUrl;
-      }
-      final blockedUsers = data['blocked_users'];
-      if (data['items'] == null && blockedUsers is List) {
-        data['items'] = blockedUsers;
-      }
-      normalized['data'] = data;
     }
     return normalized;
   }
 
-  Map<String, dynamic> _normalizeResponseWithFallbackData(
-    ServiceResponse<dynamic> response, {
-    Map<String, dynamic> fallbackData = const <String, dynamic>{},
+  String _resolveServiceError(
+    ServiceResponse<dynamic> response,
+    String action,
+  ) {
+    final message = response.message?.trim();
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+    return '$action失败';
+  }
+
+  void _ensureSuccess(ServiceResponse<dynamic> response, String action) {
+    if (!response.success) {
+      throw StateError(_resolveServiceError(response, action));
+    }
+  }
+
+  dynamic _requireResponseData(
+      ServiceResponse<dynamic> response, String action) {
+    _ensureSuccess(response, action);
+    if (response.data == null) {
+      throw StateError('$action响应缺少 data');
+    }
+    return response.data;
+  }
+
+  Map<String, dynamic> _requireResponseDataMap(
+    ServiceResponse<dynamic> response,
+    String action,
+  ) {
+    final rawData = _requireResponseData(response, action);
+    if (rawData is! Map) {
+      throw StateError('$action响应 data 不是对象');
+    }
+    return _normalizeDataMap(
+      Map<String, dynamic>.from(rawData.cast<String, dynamic>()),
+    );
+  }
+
+  dynamic _requireCollectionSource(
+    ServiceResponse<dynamic> response,
+    String action,
+  ) {
+    final rawData = _requireResponseData(response, action);
+    if (rawData is Map || rawData is List) {
+      return rawData;
+    }
+    throw StateError('$action响应 data 不是有效集合');
+  }
+
+  Map<String, dynamic> _normalizeSuccessResponse(
+    ServiceResponse<dynamic> response,
+    String action, {
+    bool requireDataMap = false,
   }) {
-    final rawData = response.data;
-    final data = rawData is Map
-        ? Map<String, dynamic>.from(rawData.cast<String, dynamic>())
-        : Map<String, dynamic>.from(fallbackData);
-    return _normalizePayload({
+    _ensureSuccess(response, action);
+    if (requireDataMap) {
+      return {
+        ...toMap(response),
+        'data': _requireResponseDataMap(response, action),
+      };
+    }
+    if (response.data is Map) {
+      return {
+        ...toMap(response),
+        'data': _normalizeDataMap(
+          Map<String, dynamic>.from(
+              (response.data as Map).cast<String, dynamic>()),
+        ),
+      };
+    }
+    return toMap(response);
+  }
+
+  Map<String, dynamic> _normalizeResponseWithRequiredData(
+    ServiceResponse<dynamic> response,
+    String action, {
+    required List<String> requiredKeys,
+    Map<String, dynamic> Function(Map<String, dynamic>)? dataNormalizer,
+  }) {
+    _ensureSuccess(response, action);
+    var data = _requireResponseDataMap(response, action);
+    if (dataNormalizer != null) {
+      data = dataNormalizer(data);
+    }
+    for (final key in requiredKeys) {
+      if (!_hasValue(data[key])) {
+        throw StateError('$action响应缺少 $key');
+      }
+    }
+    return {
       ...toMap(response),
       'data': data,
-    });
+    };
   }
 
   Map<String, dynamic> _normalizeDevicePayload(Map raw) {
@@ -220,7 +311,7 @@ class AccountService extends BaseService {
   /// 返回当前用户的基本账号信息。
   Future<Map<String, dynamic>> getAccountInfo() async {
     final response = await get('/account/info');
-    return _normalizePayload(toMap(response));
+    return _normalizeSuccessResponse(response, '获取账号信息', requireDataMap: true);
   }
 
   /// 获取账号统计
@@ -228,7 +319,7 @@ class AccountService extends BaseService {
   /// 返回账号的统计数据，如发布石头数、好友数等。
   Future<Map<String, dynamic>> getAccountStats() async {
     final response = await get('/account/stats');
-    return _normalizeResponseWithFallbackData(response);
+    return _normalizeSuccessResponse(response, '获取账号统计', requireDataMap: true);
   }
 
   /// 获取登录设备列表
@@ -242,10 +333,10 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    if (!response.success) return toMap(response);
+    final rawData = _requireCollectionSource(response, '获取登录设备列表');
 
     final devices = extractNormalizedList(
-      response.data,
+      rawData,
       itemNormalizer: _normalizeDevicePayload,
       listKeys: const ['devices'],
     );
@@ -253,7 +344,7 @@ class AccountService extends BaseService {
     return {
       ...toMap(response),
       ...buildCollectionEnvelope(
-        response.data,
+        rawData,
         primaryKey: 'devices',
         items: devices,
       ),
@@ -274,10 +365,10 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    if (!response.success) return toMap(response);
+    final rawData = _requireCollectionSource(response, '获取登录日志');
 
     final logs = extractNormalizedList(
-      response.data,
+      rawData,
       itemNormalizer: _normalizeLoginLogPayload,
       listKeys: const ['logs'],
     );
@@ -285,7 +376,7 @@ class AccountService extends BaseService {
     return {
       ...toMap(response),
       ...buildCollectionEnvelope(
-        response.data,
+        rawData,
         primaryKey: 'logs',
         items: logs,
       ),
@@ -297,7 +388,7 @@ class AccountService extends BaseService {
   /// 返回当前用户的隐私设置配置。
   Future<Map<String, dynamic>> getPrivacySettings() async {
     final response = await get('/account/privacy');
-    return _normalizePayload(toMap(response));
+    return _normalizeSuccessResponse(response, '获取隐私设置', requireDataMap: true);
   }
 
   /// 更新隐私设置
@@ -309,7 +400,11 @@ class AccountService extends BaseService {
       Map<String, dynamic> settings) async {
     settings = InputValidator.validateMapKeys(settings, _allowedPrivacyKeys);
     final response = await put('/account/privacy', data: settings);
-    return _normalizePayload(toMap(response));
+    return _normalizeSuccessResponse(
+      response,
+      '更新隐私设置',
+      requireDataMap: true,
+    );
   }
 
   /// 获取黑名单列表
@@ -324,12 +419,10 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    if (!response.success) {
-      return _normalizePayload(toMap(response));
-    }
+    final rawData = _requireCollectionSource(response, '获取黑名单列表');
 
     final blockedUsers = extractNormalizedList(
-      response.data,
+      rawData,
       itemNormalizer: normalizeFriendPayload,
       listKeys: const ['blocked_users'],
     );
@@ -337,7 +430,7 @@ class AccountService extends BaseService {
     return {
       ..._normalizePayload(toMap(response)),
       ...buildCollectionEnvelope(
-        response.data,
+        rawData,
         primaryKey: 'blocked_users',
         items: blockedUsers,
       ),
@@ -350,13 +443,10 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> blockUser(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await post('/account/block/$userId');
-    return _normalizeResponseWithFallbackData(
+    return _normalizeResponseWithRequiredData(
       response,
-      fallbackData: {
-        'blocked_user_id': userId,
-        'target_user_id': userId,
-        'status': response.success ? 'blocked' : null,
-      },
+      '拉黑用户',
+      requiredKeys: const ['blocked_user_id', 'status'],
     );
   }
 
@@ -366,13 +456,10 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> unblockUser(String userId) async {
     InputValidator.validateUUID(userId, '用户ID');
     final response = await delete('/account/unblock/$userId');
-    return _normalizeResponseWithFallbackData(
+    return _normalizeResponseWithRequiredData(
       response,
-      fallbackData: {
-        'blocked_user_id': userId,
-        'target_user_id': userId,
-        'status': response.success ? 'unblocked' : null,
-      },
+      '取消拉黑用户',
+      requiredKeys: const ['blocked_user_id', 'status'],
     );
   }
 
@@ -381,14 +468,12 @@ class AccountService extends BaseService {
   /// 创建数据导出任务，返回任务ID用于查询导出状态。
   Future<Map<String, dynamic>> exportData() async {
     final response = await post('/account/export');
-    if (!response.success) return toMap(response);
-
-    final payload = response.data is Map
-        ? _normalizeExportTaskPayload(
-            Map<String, dynamic>.from(
-                (response.data as Map).cast<String, dynamic>()),
-          )
-        : const <String, dynamic>{};
+    final payload = _normalizeExportTaskPayload(
+      _requireResponseDataMap(response, '创建数据导出任务'),
+    );
+    if (!_hasValue(payload['task_id']) || !_hasValue(payload['status'])) {
+      throw StateError('创建数据导出任务响应缺少 task_id 或 status');
+    }
     return {
       ...toMap(response),
       'data': payload,
@@ -403,12 +488,10 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> removeDevice(String sessionId) async {
     InputValidator.validateUUID(sessionId, '会话ID');
     final response = await delete('/account/devices/$sessionId');
-    return _normalizeResponseWithFallbackData(
+    return _normalizeResponseWithRequiredData(
       response,
-      fallbackData: {
-        'session_id': sessionId,
-        'status': response.success ? 'removed' : null,
-      },
+      '移除登录设备',
+      requiredKeys: const ['session_id', 'status'],
     );
   }
 
@@ -423,10 +506,10 @@ class AccountService extends BaseService {
       'page': page,
       'page_size': pageSize,
     });
-    if (!response.success) return toMap(response);
+    final rawData = _requireCollectionSource(response, '获取安全事件');
 
     final events = extractNormalizedList(
-      response.data,
+      rawData,
       itemNormalizer: _normalizeSecurityEventPayload,
       listKeys: const ['events'],
     );
@@ -434,7 +517,7 @@ class AccountService extends BaseService {
     return {
       ...toMap(response),
       ...buildCollectionEnvelope(
-        response.data,
+        rawData,
         primaryKey: 'events',
         items: events,
       ),
@@ -447,14 +530,12 @@ class AccountService extends BaseService {
   Future<Map<String, dynamic>> getExportStatus(String taskId) async {
     InputValidator.validateUUID(taskId, '任务ID');
     final response = await get('/account/export/$taskId');
-    if (!response.success) return toMap(response);
-
-    final payload = response.data is Map
-        ? _normalizeExportTaskPayload(
-            Map<String, dynamic>.from(
-                (response.data as Map).cast<String, dynamic>()),
-          )
-        : const <String, dynamic>{};
+    final payload = _normalizeExportTaskPayload(
+      _requireResponseDataMap(response, '获取导出任务状态'),
+    );
+    if (!_hasValue(payload['task_id']) || !_hasValue(payload['status'])) {
+      throw StateError('获取导出任务状态响应缺少 task_id 或 status');
+    }
     return {
       ...toMap(response),
       'data': payload,
@@ -486,47 +567,37 @@ class AccountService extends BaseService {
       final response = await post('/account/avatar', data: {
         'avatar_url': avatarData,
       });
-      return _normalizeResponseWithFallbackData(response);
-    }
-
-    try {
-      final uploadResponse = await client.uploadFile('/media/upload',
-          file: avatarData, filename: filename);
-      final uploadPayload = uploadResponse.data;
-      final avatarUrl = _extractUploadedUrl(uploadPayload);
-      final success = uploadResponse.statusCode == 200 &&
-          uploadPayload is Map &&
-          uploadPayload['code'] == 0 &&
-          avatarUrl != null &&
-          avatarUrl.isNotEmpty;
-      if (!success) {
-        return {
-          'success': false,
-          'message': uploadPayload is Map
-              ? uploadPayload['message']?.toString() ?? '头像上传失败'
-              : '头像上传失败',
-        };
-      }
-
-      final response = await post('/account/avatar', data: {
-        'avatar_url': avatarUrl,
-      });
-      final normalized = _normalizeResponseWithFallbackData(
+      return _normalizeResponseWithRequiredData(
         response,
-        fallbackData: {'avatar_url': avatarUrl},
+        '更新头像',
+        requiredKeys: const ['avatar_url'],
       );
-      if (normalized['data'] is Map) {
-        final data = Map<String, dynamic>.from(
-          (normalized['data'] as Map).cast<String, dynamic>(),
-        );
-        data['avatar_url'] = avatarUrl;
-        data['avatarUrl'] = avatarUrl;
-        normalized['data'] = data;
-      }
-      return normalized;
-    } catch (e) {
-      return {'success': false, 'message': '头像上传失败: $e'};
     }
+
+    final uploadResponse = await client.uploadFile('/media/upload',
+        file: avatarData, filename: filename);
+    final uploadPayload = uploadResponse.data;
+    final avatarUrl = _extractUploadedUrl(uploadPayload);
+    final success = uploadResponse.statusCode == 200 &&
+        uploadPayload is Map &&
+        uploadPayload['code'] == 0 &&
+        avatarUrl != null &&
+        avatarUrl.isNotEmpty;
+    if (!success) {
+      final message = uploadPayload is Map
+          ? uploadPayload['message']?.toString().trim() ?? '头像上传失败'
+          : '头像上传失败';
+      throw StateError(message);
+    }
+
+    final response = await post('/account/avatar', data: {
+      'avatar_url': avatarUrl,
+    });
+    return _normalizeResponseWithRequiredData(
+      response,
+      '更新头像',
+      requiredKeys: const ['avatar_url'],
+    );
   }
 
   /// 更新个人资料
@@ -555,20 +626,24 @@ class AccountService extends BaseService {
       profile['bio'] = InputValidator.sanitizeText(profile['bio'] as String);
     }
     final response = await put('/account/profile', data: profile);
-    return _normalizeResponseWithFallbackData(response, fallbackData: profile);
+    return _normalizeSuccessResponse(
+      response,
+      '更新个人资料',
+      requireDataMap: true,
+    );
   }
 
   /// 停用账号
   ///
   /// 临时停用账号，可以恢复。
   Future<Map<String, dynamic>> deactivateAccount() async {
-    final response = await post('/account/deactivate');
-    return _normalizeResponseWithFallbackData(
+    final response = await post('/account/deactivate', data: {
+      'confirmation': 'DEACTIVATE',
+    });
+    return _normalizeResponseWithRequiredData(
       response,
-      fallbackData: const {
-        'status': 'deactivated',
-        'recovery_window_days': 30,
-      },
+      '停用账号',
+      requiredKeys: const ['status', 'recovery_window_days'],
     );
   }
 
@@ -579,12 +654,10 @@ class AccountService extends BaseService {
     final response = await post('/account/delete-permanent', data: {
       'confirmation': 'DELETE',
     });
-    return _normalizeResponseWithFallbackData(
+    return _normalizeResponseWithRequiredData(
       response,
-      fallbackData: const {
-        'status': 'deleted',
-        'deleted': true,
-      },
+      '永久删除账号',
+      requiredKeys: const ['status', 'deleted'],
     );
   }
 }

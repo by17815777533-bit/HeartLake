@@ -67,10 +67,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   Future<void> _loadPrivacySettings() async {
     try {
       final result = await _accountService.getPrivacySettings();
-      if (result['success'] != true) {
-        throw Exception(_resolveErrorMessage(result, '加载隐私设置失败'));
+      final payload = result['data'];
+      if (payload is! Map) {
+        throw StateError('隐私设置响应缺少 data');
       }
-      final data = result['data'] as Map<String, dynamic>? ?? {};
+      final data = Map<String, dynamic>.from(payload.cast<String, dynamic>());
       if (mounted) {
         setState(() {
           final visibility = data['profile_visibility']?.toString() ?? 'public';
@@ -116,11 +117,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     };
   }
 
-  String _resolveErrorMessage(Map<String, dynamic> result, String fallback) {
-    final message = result['message']?.toString().trim();
-    return message == null || message.isEmpty ? fallback : message;
-  }
-
   String _extractErrorMessage(Object error, String fallback) {
     final raw = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
     final message = raw.trim();
@@ -164,11 +160,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     }
     setState(() => _isSaving = true);
     try {
-      final result =
-          await _accountService.updatePrivacySettings(_buildPrivacyPayload());
-      if (result['success'] != true) {
-        throw Exception(_resolveErrorMessage(result, '保存失败，请检查网络后重试'));
-      }
+      await _accountService.updatePrivacySettings(_buildPrivacyPayload());
       _commitSavedSettings();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -225,10 +217,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
     setState(() => _isExporting = true);
     try {
-      final result = await _accountService.exportData();
-      if (result['success'] != true) {
-        throw Exception(_resolveErrorMessage(result, '导出失败，请稍后重试'));
-      }
+      await _accountService.exportData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -273,10 +262,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     if (confirm != true) return;
 
     try {
-      final result = await _accountService.deactivateAccount();
-      if (result['success'] != true) {
-        throw Exception(_resolveErrorMessage(result, '操作失败，请稍后重试'));
-      }
+      await _accountService.deactivateAccount();
       await sl<AuthService>().logout();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -341,10 +327,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     if (secondConfirm != true) return;
 
     try {
-      final result = await _accountService.deleteAccountPermanently();
-      if (result['success'] != true) {
-        throw Exception(_resolveErrorMessage(result, '删除失败，请稍后重试'));
-      }
+      await _accountService.deleteAccountPermanently();
       await sl<AuthService>().logout();
       if (mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
