@@ -133,43 +133,6 @@ bool isGenericLakeGodReply(const std::string& reply) {
     return false;
 }
 
-std::string briefUserHint(const std::string& userMessage) {
-    std::string hint = trimCopy(userMessage);
-    if (hint.size() > 20) {
-        hint = hint.substr(0, 20);
-    }
-    for (char& c : hint) {
-        if (c == '\n' || c == '\r' || c == '\t') {
-            c = ' ';
-        }
-    }
-    return hint;
-}
-
-std::string buildLakeGodFallbackReply(const std::string& userMessage) {
-    static const std::vector<std::string> opening = {
-        "我在，先陪你把这段感受放稳。",
-        "你这段话我认真看完了，我们慢慢说。",
-        "湖神在这儿，先和你一起把心口这块石头放下。"
-    };
-    static const std::vector<std::string> nextStep = {
-        "如果你愿意，先说说现在最刺痛你的那一件事。",
-        "我们先不求一次解决，先把最难受的那一层讲清楚就好。",
-        "你可以先告诉我：此刻最想被理解的是哪一句话。"
-    };
-
-    const size_t openIdx = std::hash<std::string>{}(userMessage + "|open") % opening.size();
-    const size_t stepIdx = std::hash<std::string>{}(userMessage + "|step") % nextStep.size();
-    std::ostringstream oss;
-    oss << opening[openIdx];
-    const auto hint = briefUserHint(userMessage);
-    if (!hint.empty()) {
-        oss << "你刚刚提到“" << hint << "”，这件事对你很重要。";
-    }
-    oss << nextStep[stepIdx];
-    return oss.str();
-}
-
 bool parseJsonObjectLenient(const std::string& raw, Json::Value& parsed) {
     Json::Reader reader;
     auto cleaned = sanitizeModelText(raw);
@@ -678,9 +641,9 @@ void AIService::generateReply(
     payload["max_tokens"] = 320;
 
     callAIAPI("/v1/chat/completions", payload,
-        [callback, userMessage, queryEmbedding, useSemanticCache](const Json::Value& response, const std::string& error) {
+        [callback, queryEmbedding, useSemanticCache](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                callback(buildLakeGodFallbackReply(userMessage), error);
+                callback("", error);
                 return;
             }
 
@@ -688,8 +651,7 @@ void AIService::generateReply(
                 std::string reply = response["choices"][0]["message"]["content"].asString();
                 if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos ||
                     isGenericLakeGodReply(reply)) {
-                    callback(buildLakeGodFallbackReply(userMessage),
-                             "AI reply is empty or generic");
+                    callback("", "AI reply is empty or generic");
                     return;
                 }
                 // 存入语义缓存
@@ -698,7 +660,7 @@ void AIService::generateReply(
                 }
                 callback(reply, "");
             } catch (const std::exception& e) {
-                callback(buildLakeGodFallbackReply(userMessage), e.what());
+                callback("", e.what());
             }
         }
     );
@@ -730,20 +692,19 @@ void AIService::generateBoatReply(
     callAIAPI("/v1/chat/completions", payload,
         [callback](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                callback("收到你的纸船了，愿你一切安好。", error);
+                callback("", error);
                 return;
             }
 
             try {
                 std::string reply = response["choices"][0]["message"]["content"].asString();
                 if (reply.empty() || reply.find_first_not_of(" \t\n\r") == std::string::npos) {
-                    callback("收到你的纸船了，愿你一切安好。",
-                             "AI boat reply is empty");
+                    callback("", "AI boat reply is empty");
                     return;
                 }
                 callback(reply, "");
             } catch (const std::exception& e) {
-                callback("收到你的纸船了，愿你一切安好。", e.what());
+                callback("", e.what());
             }
         }
     );
@@ -775,20 +736,19 @@ void AIService::generateStoneComment(
     callAIAPI("/v1/chat/completions", payload,
         [callback](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                callback("看到你的分享了，愿你今天也能有好心情。", error);
+                callback("", error);
                 return;
             }
 
             try {
                 std::string comment = response["choices"][0]["message"]["content"].asString();
                 if (comment.empty() || comment.find_first_not_of(" \t\n\r") == std::string::npos) {
-                    callback("看到你的分享了，愿你今天也能有好心情。",
-                             "AI stone comment is empty");
+                    callback("", "AI stone comment is empty");
                     return;
                 }
                 callback(comment, "");
             } catch (const std::exception& e) {
-                callback("看到你的分享了，愿你今天也能有好心情。", e.what());
+                callback("", e.what());
             }
         }
     );
