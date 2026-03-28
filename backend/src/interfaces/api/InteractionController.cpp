@@ -127,7 +127,7 @@ void InteractionController::deleteRipple(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in deleteRipple: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in deleteRipple: " << e.what();
     callback(ResponseUtil::internalError("删除涟漪失败"));
@@ -243,7 +243,7 @@ void InteractionController::createBoat(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createBoat: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in createBoat: " << e.what();
     callback(ResponseUtil::internalError("纸船发送失败"));
@@ -305,7 +305,7 @@ void InteractionController::deleteBoat(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in deleteBoat: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in deleteBoat: " << e.what();
     callback(ResponseUtil::internalError("删除纸船失败"));
@@ -378,7 +378,7 @@ void InteractionController::markNotificationRead(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in markNotificationRead: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in markNotificationRead: " << e.what();
     callback(ResponseUtil::internalError("标记已读失败"));
@@ -588,7 +588,7 @@ void InteractionController::createConnectionMessage(
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createConnectionMessage: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in createConnectionMessage: " << e.what();
     callback(ResponseUtil::internalError("发送消息失败"));
