@@ -74,6 +74,7 @@ class LakeGodService extends BaseService {
         resp.data,
         primaryKey: 'messages',
         items: messages,
+        requireExplicitTotal: true,
       ),
     };
   }

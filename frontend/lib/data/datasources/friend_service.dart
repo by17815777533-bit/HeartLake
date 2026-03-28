@@ -100,6 +100,7 @@ class FriendService extends BaseService implements FriendDataSource {
         response.data,
         primaryKey: 'friends',
         items: friends,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -129,6 +130,7 @@ class FriendService extends BaseService implements FriendDataSource {
         response.data,
         primaryKey: 'messages',
         items: messages,
+        requireExplicitTotal: true,
       ),
     };
   }

@@ -79,6 +79,7 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
         response.data,
         primaryKey: 'temp_friends',
         items: tempFriends,
+        requireExplicitTotal: true,
       ),
     };
   }
