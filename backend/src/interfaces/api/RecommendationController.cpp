@@ -227,7 +227,7 @@ void respondWithAdvancedRecommendations(
                     for (const auto &res : resonanceResults) {
                         Json::Value item;
                         item["stone_id"] = res.stoneId;
-                        item["score"] = res.totalScore;
+                        item["score"] = res.resonanceTotal;
                         item["reason"] = res.resonanceReason;
                         item["algorithm"] = "emotion_temporal_resonance";
                         item["semantic_score"] = res.semanticScore;
@@ -235,12 +235,9 @@ void respondWithAdvancedRecommendations(
                         item["temporal_score"] = res.temporalScore;
                         item["diversity_score"] = res.diversityScore;
                         item["content"] = res.content;
-                        item["mood_type"] = res.moodType;
-                        item["emotion_score"] = res.emotionScore;
                         item["author_id"] = res.userId;
-                        item["author_name"] = res.authorName;
-                        item["ripple_count"] = res.rippleCount;
-                        item["created_at"] = res.createdAt;
+                        item["similarity"] = res.similarity;
+                        item["delivery_delay_seconds"] = res.deliveryDelaySeconds;
                         item["reference_stone_id"] = referenceStoneId;
                         recommendations.append(item);
                         addedIds.insert(res.stoneId);
