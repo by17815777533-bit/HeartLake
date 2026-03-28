@@ -57,6 +57,32 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     return fallback;
   }
 
+  bool _requireBoolField(Map<String, dynamic> data, String key) {
+    if (!data.containsKey(key)) {
+      throw StateError('隐私设置缺少 $key');
+    }
+    final value = data[key];
+    if (value is bool) return value;
+    if (value is String || value is num) {
+      return _asBool(value);
+    }
+    throw StateError('隐私设置字段 $key 格式错误');
+  }
+
+  String _requireVisibilityField(Map<String, dynamic> data) {
+    if (!data.containsKey('profile_visibility')) {
+      throw StateError('隐私设置缺少 profile_visibility');
+    }
+    final visibility = data['profile_visibility']?.toString().trim();
+    if (visibility == null || visibility.isEmpty) {
+      throw StateError('隐私设置中的 profile_visibility 为空');
+    }
+    if (visibility != 'public' && visibility != 'private' && visibility != 'friends') {
+      throw StateError('隐私设置中的 profile_visibility 无效');
+    }
+    return visibility;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -74,13 +100,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       final data = Map<String, dynamic>.from(payload.cast<String, dynamic>());
       if (mounted) {
         setState(() {
-          final visibility = data['profile_visibility']?.toString() ?? 'public';
-          _showOnlineStatus =
-              _asBool(data['show_online_status'], fallback: true);
-          _allowStrangerBoat = _asBool(
-            data['allow_message_from_stranger'],
-            fallback: true,
-          );
+          final visibility = _requireVisibilityField(data);
+          _showOnlineStatus = _requireBoolField(data, 'show_online_status');
+          _allowStrangerBoat =
+              _requireBoolField(data, 'allow_message_from_stranger');
           _showProfileToStranger = visibility != 'private';
           _savedShowOnlineStatus = _showOnlineStatus;
           _savedAllowStrangerBoat = _allowStrangerBoat;
