@@ -178,9 +178,13 @@ Map<String, dynamic> buildCollectionEnvelope<T>(
   required String primaryKey,
   required List<T> items,
   int? totalOverride,
+  bool requireExplicitTotal = false,
   Map<String, dynamic> extra = const <String, dynamic>{},
 }) {
   final basePagination = extractPaginationPayload(raw, itemCount: items.length);
+  if (requireExplicitTotal && basePagination['_has_explicit_total'] != true) {
+    throw StateError('$primaryKey 响应缺少 total');
+  }
   final total = totalOverride ?? basePagination['total'] as int;
   final page = basePagination['page'] as int;
   final pageSize = basePagination['page_size'] as int;

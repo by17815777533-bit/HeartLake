@@ -200,6 +200,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
         response.data,
         primaryKey: 'boats',
         items: boats,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -293,6 +294,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
         response.data,
         primaryKey: 'messages',
         items: messages,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -362,6 +364,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
         response.data,
         primaryKey: 'ripples',
         items: ripples,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -393,6 +396,7 @@ class InteractionService extends BaseService implements InteractionDataSource {
         response.data,
         primaryKey: 'boats',
         items: myBoats,
+        requireExplicitTotal: true,
       ),
     };
   }

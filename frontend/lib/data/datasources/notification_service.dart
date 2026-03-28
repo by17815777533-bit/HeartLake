@@ -18,39 +18,6 @@ class NotificationService extends BaseService
   @override
   String get serviceName => 'NotificationService';
 
-  Map<String, dynamic> _applyHasMoreFallback(
-    Map<String, dynamic> envelope, {
-    required dynamic raw,
-    required int pageSize,
-    required int itemCount,
-  }) {
-    bool? explicitHasMore;
-    if (raw is Map<String, dynamic>) {
-      explicitHasMore = raw['has_more'] as bool? ??
-          raw['hasMore'] as bool? ??
-          (raw['pagination'] is Map
-              ? (raw['pagination']['has_more'] as bool? ??
-                  raw['pagination']['hasMore'] as bool?)
-              : null) ??
-          (raw['data'] is Map
-              ? (raw['data']['has_more'] as bool? ??
-                  raw['data']['hasMore'] as bool?)
-              : null);
-    }
-
-    final hasMore = explicitHasMore ?? itemCount >= pageSize;
-    final pagination = Map<String, dynamic>.from(
-      envelope['pagination'] as Map<String, dynamic>? ?? const {},
-    )..['has_more'] = hasMore;
-
-    return {
-      ...envelope,
-      'has_more': hasMore,
-      'hasMore': hasMore,
-      'pagination': pagination,
-    };
-  }
-
   /// 分页获取通知列表，同时返回未读数
   @override
   Future<Map<String, dynamic>> getNotifications(
@@ -68,8 +35,13 @@ class NotificationService extends BaseService
       itemNormalizer: normalizeNotificationPayload,
       listKeys: const ['notifications'],
     );
+    final pagination = extractPaginationPayload(response.data, itemCount: items.length);
+    if (pagination['_has_explicit_total'] != true &&
+        pagination['_has_explicit_has_more'] != true) {
+      throw StateError('通知列表响应缺少 total/has_more');
+    }
     final unreadCount = extractUnreadCount(response.data, items: items);
-    final envelope = {
+    return {
       ...toMap(response),
       ...buildCollectionEnvelope(
         response.data,
@@ -81,12 +53,6 @@ class NotificationService extends BaseService
         },
       ),
     };
-    return _applyHasMoreFallback(
-      envelope,
-      raw: response.data,
-      pageSize: pageSize,
-      itemCount: items.length,
-    );
   }
 
   /// 获取未读通知数量

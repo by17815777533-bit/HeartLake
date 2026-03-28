@@ -347,6 +347,7 @@ class AccountService extends BaseService {
         rawData,
         primaryKey: 'devices',
         items: devices,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -379,6 +380,7 @@ class AccountService extends BaseService {
         rawData,
         primaryKey: 'logs',
         items: logs,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -433,6 +435,7 @@ class AccountService extends BaseService {
         rawData,
         primaryKey: 'blocked_users',
         items: blockedUsers,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -520,6 +523,7 @@ class AccountService extends BaseService {
         rawData,
         primaryKey: 'events',
         items: events,
+        requireExplicitTotal: true,
       ),
     };
   }

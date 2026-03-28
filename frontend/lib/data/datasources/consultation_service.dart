@@ -269,6 +269,7 @@ class ConsultationService extends BaseService {
         envelopeWithMessages,
         primaryKey: 'messages',
         items: normalizedMessages,
+        requireExplicitTotal: true,
       ),
     };
   }
@@ -302,6 +303,7 @@ class ConsultationService extends BaseService {
         resp.data,
         primaryKey: 'sessions',
         items: sessions,
+        requireExplicitTotal: true,
       ),
     };
   }

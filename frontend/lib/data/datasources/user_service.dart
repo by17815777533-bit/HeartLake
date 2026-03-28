@@ -112,7 +112,7 @@ class UserPayloadNormalizer {
     ).where((item) => item.isNotEmpty).toList();
   }
 
-  static int extractTotal(dynamic payload, {int fallback = 0}) {
+  static int? extractExplicitTotal(dynamic payload) {
     for (final source in _candidateSources(payload)) {
       final direct = _toInt(source['total']) ??
           _toInt(source['count']) ??
@@ -121,7 +121,12 @@ class UserPayloadNormalizer {
           _toInt(asMap(source['meta'])?['total']);
       if (direct != null) return direct;
     }
+    return null;
+  }
 
+  static int extractTotal(dynamic payload, {int fallback = 0}) {
+    final direct = extractExplicitTotal(payload);
+    if (direct != null) return direct;
     final users = extractUserList(payload);
     return users.isEmpty ? fallback : users.length;
   }
@@ -296,6 +301,11 @@ class UserService extends BaseService {
     });
 
     if (!response.success) return toMap(response);
+
+    final explicitTotal = UserPayloadNormalizer.extractExplicitTotal(response.data);
+    if (explicitTotal == null) {
+      throw StateError('搜索用户响应缺少 total');
+    }
 
     final collection = UserPayloadNormalizer.buildUserCollection(response.data);
 

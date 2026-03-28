@@ -63,13 +63,13 @@ class ReportService extends BaseService {
       itemNormalizer: (item) => item,
       listKeys: const ['reports', 'results'],
     );
-
     return {
       ...toMap(response),
       ...buildCollectionEnvelope(
         response.data,
         primaryKey: 'reports',
         items: reports,
+        requireExplicitTotal: true,
       ),
     };
   }

@@ -590,8 +590,7 @@ void AIService::moderateText(
     callAIAPI("/v1/chat/completions", payload,
         [callback, textHash, this](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
-                // AI审核失败时，默认放行但标记为待人工审核
-                callback(true, {"pending_review"}, 0.0f, error);
+                callback(false, {"pending_review"}, 0.0f, error);
                 return;
             }
 
@@ -600,7 +599,12 @@ void AIService::moderateText(
 
                 Json::Value parsed;
                 if (parseJsonObjectLenient(content, parsed)) {
-                    bool passed = parsed.get("safe", true).asBool();
+                    if (!parsed.isMember("safe") || !parsed["safe"].isBool()) {
+                        callback(false, {"pending_review"}, 0.0f, "AI审核响应缺少 safe 字段");
+                        return;
+                    }
+
+                    bool passed = parsed["safe"].asBool();
                     float confidence = parsed.get("confidence", 0.9f).asFloat();
                     std::string reason = parsed.get("reason", "").asString();
 
@@ -622,10 +626,10 @@ void AIService::moderateText(
 
                     callback(passed, categories, confidence, reason);
                 } else {
-                    callback(true, {}, 0.8f, "");
+                    callback(false, {"pending_review"}, 0.0f, "AI审核响应无法解析");
                 }
             } catch (const std::exception& e) {
-                callback(true, {"error"}, 0.0f, e.what());
+                callback(false, {"pending_review"}, 0.0f, e.what());
             }
         }
     );

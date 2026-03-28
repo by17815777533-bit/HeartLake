@@ -107,16 +107,6 @@ int extractWindowTotal(const drogon::orm::Result &result) {
   return result[0]["total_count"].as<int>();
 }
 
-int resolveWindowTotalOrFallbackCount(
-    const drogon::orm::DbClientPtr &dbClient, const drogon::orm::Result &result,
-    int page, const std::string &countSql, const std::string &userId) {
-  const int total = extractWindowTotal(result);
-  if (!result.empty() || page <= 1) {
-    return total;
-  }
-  return safeCount(dbClient->execSqlSync(countSql, userId));
-}
-
 ValidationResult validateAvatarUrlOrMediaPath(const std::string &avatarUrl) {
   if (avatarUrl.empty()) {
     return ValidationResult::valid();
@@ -510,11 +500,12 @@ void AccountController::getLoginDevices(
       devices.append(device);
     }
 
-    const int total = resolveWindowTotalOrFallbackCount(
-        dbClient, result, page,
-        "SELECT COUNT(*) AS total FROM user_sessions "
-        "WHERE user_id = $1 AND is_active = true",
-        userId);
+    if (result.empty() && page > 1) {
+      callback(ResponseUtil::badRequest("页码超出范围"));
+      return;
+    }
+
+    const int total = extractWindowTotal(result);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "devices", devices, total, page, pageSize)));
@@ -596,9 +587,12 @@ void AccountController::getLoginLogs(
       logs.append(log);
     }
 
-    const int total = resolveWindowTotalOrFallbackCount(
-        dbClient, result, page,
-        "SELECT COUNT(*) AS total FROM login_logs WHERE user_id = $1", userId);
+    if (result.empty() && page > 1) {
+      callback(ResponseUtil::badRequest("页码超出范围"));
+      return;
+    }
+
+    const int total = extractWindowTotal(result);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "logs", logs, total, page, pageSize)));
@@ -644,10 +638,12 @@ void AccountController::getSecurityEvents(
       events.append(event);
     }
 
-    const int total = resolveWindowTotalOrFallbackCount(
-        dbClient, result, page,
-        "SELECT COUNT(*) AS total FROM security_events WHERE user_id = $1",
-        userId);
+    if (result.empty() && page > 1) {
+      callback(ResponseUtil::badRequest("页码超出范围"));
+      return;
+    }
+
+    const int total = extractWindowTotal(result);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "events", events, total, page, pageSize)));
@@ -780,10 +776,12 @@ void AccountController::getBlockedUsers(
       users.append(user);
     }
 
-    const int total = resolveWindowTotalOrFallbackCount(
-        dbClient, result, page,
-        "SELECT COUNT(*) AS total FROM user_blocks WHERE user_id = $1",
-        userId);
+    if (result.empty() && page > 1) {
+      callback(ResponseUtil::badRequest("页码超出范围"));
+      return;
+    }
+
+    const int total = extractWindowTotal(result);
 
     callback(ResponseUtil::success(ResponseUtil::buildCollectionPayload(
         "blocked_users", users, total, page, pageSize)));
