@@ -23,6 +23,7 @@
 #include <cmath>
 #include <drogon/drogon.h>
 #include <json/json.h>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -97,7 +98,31 @@ bool parseJsonBoolValue(const Json::Value &value, bool fallback) {
   return fallback;
 }
 
-int parseJsonIntValue(const Json::Value &value, int fallback) {
+bool requireJsonBoolValue(const Json::Value &value,
+                          const std::string &fieldName) {
+  if (value.isBool()) {
+    return value.asBool();
+  }
+  if (value.isIntegral()) {
+    return value.asInt() != 0;
+  }
+  if (value.isString()) {
+    auto normalized = trimAscii(value.asString());
+    std::transform(
+        normalized.begin(), normalized.end(), normalized.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (normalized == "1" || normalized == "true" || normalized == "on") {
+      return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "off") {
+      return false;
+    }
+  }
+  throw std::invalid_argument(fieldName + " 必须为布尔值");
+}
+
+int requireJsonIntValue(const Json::Value &value,
+                        const std::string &fieldName) {
   if (value.isInt()) {
     return value.asInt();
   }
@@ -106,26 +131,37 @@ int parseJsonIntValue(const Json::Value &value, int fallback) {
   }
   if (value.isString()) {
     try {
-      return std::stoi(value.asString());
-    } catch (...) {
-      return fallback;
+      const auto normalized = trimAscii(value.asString());
+      size_t parsedLength = 0;
+      const int parsed = std::stoi(normalized, &parsedLength);
+      if (parsedLength == normalized.size()) {
+        return parsed;
+      }
+    } catch (const std::exception &e) {
+      throw std::invalid_argument(fieldName + " 必须为整数: " + e.what());
     }
   }
-  return fallback;
+  throw std::invalid_argument(fieldName + " 必须为整数");
 }
 
-double parseJsonDoubleValue(const Json::Value &value, double fallback) {
+double requireJsonDoubleValue(const Json::Value &value,
+                              const std::string &fieldName) {
   if (value.isDouble() || value.isInt() || value.isUInt()) {
     return value.asDouble();
   }
   if (value.isString()) {
     try {
-      return std::stod(value.asString());
-    } catch (...) {
-      return fallback;
+      const auto normalized = trimAscii(value.asString());
+      size_t parsedLength = 0;
+      const double parsed = std::stod(normalized, &parsedLength);
+      if (parsedLength == normalized.size()) {
+        return parsed;
+      }
+    } catch (const std::exception &e) {
+      throw std::invalid_argument(fieldName + " 必须为数字: " + e.what());
     }
   }
-  return fallback;
+  throw std::invalid_argument(fieldName + " 必须为数字");
 }
 
 std::string parseJsonStringValue(const Json::Value &value,
@@ -1010,50 +1046,50 @@ void EdgeAIController::updateAdminConfig(
 
       if (key == "enabled" || key == "edge_ai_enabled" ||
           key == "edgeAIEnabled") {
-        const bool enabled = parseJsonBoolValue(value, true);
+        const bool enabled = requireJsonBoolValue(value, key);
         persistedAiConfig["edge_ai_enabled"] = enabled;
         runtimeConfig["enabled"] = enabled;
         appliedKeys.append(key);
       } else if (key == "hnsw_m" || key == "hnswM") {
-        const int parsed = parseJsonIntValue(value, 16);
+        const int parsed = requireJsonIntValue(value, key);
         persistedAiConfig["hnsw_m"] = parsed;
         runtimeConfig["hnsw_m"] = parsed;
         appliedKeys.append(key);
       } else if (key == "hnsw_ef_construction" || key == "hnswEfConstruction") {
-        const int parsed = parseJsonIntValue(value, 200);
+        const int parsed = requireJsonIntValue(value, key);
         persistedAiConfig["hnsw_ef_construction"] = parsed;
         runtimeConfig["hnsw_ef_construction"] = parsed;
         appliedKeys.append(key);
       } else if (key == "hnsw_ef_search" || key == "hnswEfSearch") {
-        const int parsed = parseJsonIntValue(value, 50);
+        const int parsed = requireJsonIntValue(value, key);
         persistedAiConfig["hnsw_ef_search"] = parsed;
         runtimeConfig["hnsw_ef_search"] = parsed;
         appliedKeys.append(key);
       } else if (key == "dp_epsilon" || key == "dpEpsilon" ||
                  key == "maxEpsilon" || key == "privacyEpsilon" ||
                  key == "max_epsilon" || key == "privacy_epsilon") {
-        const double parsed = parseJsonDoubleValue(value, 1.0);
+        const double parsed = requireJsonDoubleValue(value, key);
         persistedAiConfig["dp_epsilon"] = parsed;
         runtimeConfig["dp_epsilon"] = parsed;
         appliedKeys.append(key);
       } else if (key == "dp_delta" || key == "dpDelta") {
-        const double parsed = parseJsonDoubleValue(value, 1e-5);
+        const double parsed = requireJsonDoubleValue(value, key);
         persistedAiConfig["dp_delta"] = parsed;
         runtimeConfig["dp_delta"] = parsed;
         appliedKeys.append(key);
       } else if (key == "pulse_window_seconds" || key == "pulseWindowSeconds") {
-        const int parsed = parseJsonIntValue(value, 300);
+        const int parsed = requireJsonIntValue(value, key);
         persistedAiConfig["pulse_window_seconds"] = parsed;
         runtimeConfig["pulse_window_seconds"] = parsed;
         appliedKeys.append(key);
       } else if (key == "cacheTTL" || key == "cache_ttl" ||
                  key == "sentiment_cache_ttl") {
-        const int parsed = parseJsonIntValue(value, 300);
+        const int parsed = requireJsonIntValue(value, key);
         persistedAiConfig["sentiment_cache_ttl"] = parsed;
         runtimeConfig["sentiment_cache_ttl"] = parsed;
         appliedKeys.append(key);
       } else if (key == "sentimentCacheMax" || key == "sentiment_cache_max") {
-        const int parsed = std::max(1, parseJsonIntValue(value, 4096));
+        const int parsed = std::max(1, requireJsonIntValue(value, key));
         persistedAiConfig["sentiment_cache_max"] = parsed;
         runtimeConfig["sentiment_cache_max"] = parsed;
         appliedKeys.append(key);
@@ -1072,7 +1108,7 @@ void EdgeAIController::updateAdminConfig(
         persistedAiConfig["vocab_path"] = parseJsonStringValue(value);
         restartRequiredKeys.append(key);
       } else if (key == "onnx_threads" || key == "onnxThreads") {
-        persistedAiConfig["onnx_threads"] = parseJsonIntValue(value, 2);
+        persistedAiConfig["onnx_threads"] = requireJsonIntValue(value, key);
         restartRequiredKeys.append(key);
       } else if (key == "cacheStrategy" || key == "cache_strategy" ||
                  key == "maxBatchSize" || key == "max_batch_size" ||
@@ -1125,6 +1161,9 @@ void EdgeAIController::updateAdminConfig(
     data["config"] = config;
 
     callback(ResponseUtil::success(data, "边缘AI配置更新成功"));
+  } catch (const std::invalid_argument &e) {
+    LOG_WARN << "EdgeAI updateAdminConfig bad request: " << e.what();
+    callback(ResponseUtil::badRequest(e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "EdgeAI updateAdminConfig error: " << e.what();
     callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "更新配置失败"));
