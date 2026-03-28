@@ -29,7 +29,6 @@ class FriendProvider with ChangeNotifier {
 
   late void Function(Map<String, dynamic>) _onFriendOnline;
   late void Function(Map<String, dynamic>) _onFriendOffline;
-  late void Function(Map<String, dynamic>) _onFriendAccepted;
   late void Function(Map<String, dynamic>) _onFriendRemoved;
   late void Function(Map<String, dynamic>) _onTempFriendCreated;
   late void Function(Map<String, dynamic>) _onTempFriendExpired;
@@ -91,18 +90,6 @@ class FriendProvider with ChangeNotifier {
   void _replaceTempFriends(List<Map<String, dynamic>> tempFriends) {
     _tempFriends = tempFriends;
     _rebuildTempFriendIndex();
-  }
-
-  Future<void> _refreshFriendsFromRealtime() async {
-    try {
-      await fetchFriends();
-    } catch (error, stackTrace) {
-      _reportProviderError(
-        error,
-        stackTrace,
-        'FriendProvider._refreshFriendsFromRealtime',
-      );
-    }
   }
 
   Future<void> _refreshTempFriendsFromRealtime() async {
@@ -174,10 +161,6 @@ class FriendProvider with ChangeNotifier {
       notifyListeners();
     };
 
-    _onFriendAccepted = (_) {
-      unawaited(_refreshFriendsFromRealtime());
-    };
-
     _onFriendRemoved = (data) {
       final userId = _friendUserId(data);
       if (userId == null) return;
@@ -203,7 +186,6 @@ class FriendProvider with ChangeNotifier {
 
     _wsManager.on('friend_online', _onFriendOnline);
     _wsManager.on('friend_offline', _onFriendOffline);
-    _wsManager.on('friend_accepted', _onFriendAccepted);
     _wsManager.on('friend_removed', _onFriendRemoved);
     _wsManager.on('temp_friend_created', _onTempFriendCreated);
     _wsManager.on('temp_friend_expired', _onTempFriendExpired);
@@ -215,7 +197,6 @@ class FriendProvider with ChangeNotifier {
     if (_wsRegistered) {
       _wsManager.off('friend_online', _onFriendOnline);
       _wsManager.off('friend_offline', _onFriendOffline);
-      _wsManager.off('friend_accepted', _onFriendAccepted);
       _wsManager.off('friend_removed', _onFriendRemoved);
       _wsManager.off('temp_friend_created', _onTempFriendCreated);
       _wsManager.off('temp_friend_expired', _onTempFriendExpired);
@@ -287,24 +268,6 @@ class FriendProvider with ChangeNotifier {
       return result;
     } catch (error, stackTrace) {
       _reportProviderError(error, stackTrace, 'FriendProvider.removeFriend');
-      rethrow;
-    }
-  }
-
-  Future<Map<String, dynamic>> upgradeToPermanent(String tempFriendId) async {
-    try {
-      final result = await _tempFriendService.upgradeToPermanent(tempFriendId);
-      if (result['success'] == true) {
-        _removeTempFriendById(tempFriendId);
-        await fetchFriends();
-      }
-      return result;
-    } catch (error, stackTrace) {
-      _reportProviderError(
-        error,
-        stackTrace,
-        'FriendProvider.upgradeToPermanent',
-      );
       rethrow;
     }
   }

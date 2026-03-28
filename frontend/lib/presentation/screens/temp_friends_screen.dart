@@ -1,6 +1,6 @@
 // 临时好友列表界面
 //
-// 展示24小时限时好友列表，支持升级为永久好友。
+// 展示24小时限时好友列表。
 
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -13,10 +13,8 @@ import 'friend_chat_screen.dart';
 /// 临时好友列表页面
 ///
 /// 临时好友是通过纸船互动建立的 24 小时有效期关系。
-/// 页面展示所有临时好友及剩余有效时间，支持：
-/// - 点击进入聊天
-/// - 升级为永久好友
-/// - 到期自动移除（定时器刷新）
+/// 页面展示所有临时好友及剩余有效时间，支持点击进入聊天，
+/// 并在到期后自动移除（定时器刷新）。
 class TempFriendsScreen extends StatefulWidget {
   const TempFriendsScreen({super.key});
 
@@ -143,60 +141,6 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     }
   }
 
-  /// 确认后将临时好友升级为永久好友
-  Future<void> _upgradeToPermanent(
-      String tempFriendId, String friendName) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('升级为永久好友'),
-        content: Text('确定要将 $friendName 升级为永久好友吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      try {
-        final result = await context
-            .read<FriendProvider>()
-            .upgradeToPermanent(tempFriendId);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['success'] ? '升级成功！' : result['message']),
-              backgroundColor: result['success']
-                  ? AppTheme.successColor
-                  : AppTheme.errorColor,
-            ),
-          );
-        }
-      } catch (error, stackTrace) {
-        _reportUiError(
-          error,
-          stackTrace,
-          'TempFriendsScreen._upgradeToPermanent',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('操作失败，请稍后再试'),
-                backgroundColor: AppTheme.errorColor),
-          );
-        }
-      }
-    }
-  }
-
   /// 确认后删除临时好友关系
   Future<void> _deleteTempFriend(String tempFriendId, String friendName) async {
     final confirm = await showDialog<bool>(
@@ -275,7 +219,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                     '临时好友是通过互动（评论、纸船）自动建立的24小时好友关系。\n\n'
                     '• 临时好友可以私聊\n'
                     '• 24小时后自动失效\n'
-                    '• 可以升级为永久好友\n\n'
+                    '• 持续互动会影响后续关系判定\n\n'
                     '在心湖中多互动，遇见更多朋友吧！',
                   ),
                   actions: [
@@ -426,10 +370,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                 final status = tempFriend['status'] ?? 'active';
                 final expiresAt = tempFriend['expires_at'] ?? '';
                 final isExpired = status == 'expired';
-                final isUpgraded = tempFriend['upgraded_to_friend'] == true;
 
-                return _buildFriendCard(friendIndex, tempFriend, isExpired,
-                    isUpgraded, expiresAt, isDark);
+                return _buildFriendCard(
+                  friendIndex,
+                  tempFriend,
+                  isExpired,
+                  expiresAt,
+                  isDark,
+                );
               },
             ),
           ),
@@ -438,9 +386,14 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
     );
   }
 
-  /// 构建单个好友卡片，带交错淡入动画和过期/已升级状态标记
-  Widget _buildFriendCard(int index, dynamic tempFriend, bool isExpired,
-      bool isUpgraded, String expiresAt, bool isDark) {
+  /// 构建单个好友卡片，带交错淡入动画和过期状态标记
+  Widget _buildFriendCard(
+    int index,
+    dynamic tempFriend,
+    bool isExpired,
+    String expiresAt,
+    bool isDark,
+  ) {
     return AnimatedBuilder(
       animation: _listAnimController,
       builder: (context, child) {
@@ -496,7 +449,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                       fontSize: 20),
                 ),
               ),
-              if (!isExpired && !isUpgraded)
+              if (!isExpired)
                 Positioned(
                   right: 0,
                   bottom: 0,
@@ -523,19 +476,6 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                               : (isDark
                                   ? AppTheme.darkTextPrimary
                                   : AppTheme.darkBlue)))),
-              if (isUpgraded)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                      color: AppTheme.successColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const Text('已升级',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.successColor,
-                          fontWeight: FontWeight.bold)),
-                ),
             ],
           ),
           subtitle: Column(
@@ -563,7 +503,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
               ),
             ],
           ),
-          trailing: !isExpired && !isUpgraded
+          trailing: !isExpired
               ? PopupMenuButton(
                   icon: const Icon(Icons.more_vert),
                   itemBuilder: (context) => [
@@ -573,15 +513,6 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                           Icon(Icons.chat, size: 20),
                           SizedBox(width: 8),
                           Text('私聊')
-                        ])),
-                    const PopupMenuItem(
-                        value: 'upgrade',
-                        child: Row(children: [
-                          Icon(Icons.upgrade,
-                              color: AppTheme.successColor, size: 20),
-                          SizedBox(width: 8),
-                          Text('升级为永久好友',
-                              style: TextStyle(color: AppTheme.successColor))
                         ])),
                     const PopupMenuItem(
                         value: 'delete',
@@ -604,10 +535,6 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                                     friendName: tempFriend['friend_nickname'] ??
                                         '未知')));
                         break;
-                      case 'upgrade':
-                        _upgradeToPermanent(tempFriend['temp_friend_id'],
-                            tempFriend['friend_nickname'] ?? '未知');
-                        break;
                       case 'delete':
                         _deleteTempFriend(tempFriend['temp_friend_id'],
                             tempFriend['friend_nickname'] ?? '未知');
@@ -616,7 +543,7 @@ class _TempFriendsScreenState extends State<TempFriendsScreen>
                   },
                 )
               : null,
-          onTap: !isExpired && !isUpgraded
+          onTap: !isExpired
               ? () => Navigator.push(
                   context,
                   MaterialPageRoute(

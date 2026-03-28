@@ -213,6 +213,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 | POST | `/api/friends/{friendId}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
 
 删除好友返回 `mode: intimacy_auto_hidden`，重新请求该入口可恢复关系显示。已删除好友间发送消息返回 403。
+`POST /api/friends/accept/{id}`、`POST /api/friends/reject/{id}`、`GET /api/friends/requests/pending` 已下线，固定返回 400。
 
 ---
 
@@ -220,16 +221,16 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/temp-friends/connect` | Bearer | 创建临时连接 |
 | GET | `/api/temp-friends` | Bearer | 临时好友列表 |
+| GET | `/api/temp-friends/{id}` | Bearer | 临时好友详情 |
 | DELETE | `/api/temp-friends/{id}` | Bearer | 断开临时连接 |
+| GET | `/api/temp-friends/check/{userId}` | Bearer | 检查临时好友状态 |
 
 说明：
-- 临时连接过期后，以及连接已升级为正式好友后，对应 connection 的消息读取和发送入口都会返回拒绝访问
-- `/api/temp-friends/connect` 仅用于手动陌生人直连，服务端会规范化为 `source = chat`
-- 若目标用户未开启 `allow_message_from_stranger`，陌生人不能新建手动临时连接；已是好友时不受该限制
-- 石头回复链和纸船链派生的临时连接保留原业务来源（如 `stone` / `boat`），不受陌生人直连开关阻断
-- 手动直连产生的 connection 历史读取和发送入口继续受 `allow_message_from_stranger` 约束；石头/纸船派生 connection 不受该开关影响
+- 临时连接过期后，对应 connection 的消息读取和发送入口都会返回拒绝访问
+- 手动临时连接入口 `POST /api/temp-friends`（历史文档中曾写作 `/api/temp-friends/connect`）已下线，固定返回 400
+- 手动升级永久好友入口 `POST /api/temp-friends/{id}/upgrade` 已下线，固定返回 400
+- 石头回复链和纸船链派生的临时连接保留原业务来源（如 `stone` / `boat`）
 
 ---
 

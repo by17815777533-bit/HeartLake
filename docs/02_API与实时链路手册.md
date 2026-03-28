@@ -220,28 +220,29 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/friends/request` | Bearer | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
-| POST | `/api/friends/accept/{id}` | Bearer | 兼容入口：返回自动关系说明 |
-| POST | `/api/friends/reject/{id}` | Bearer | 兼容入口：返回自动关系说明 |
+| POST | `/api/friends/accept/{id}` | Bearer | 已下线，固定返回 400 |
+| POST | `/api/friends/reject/{id}` | Bearer | 已下线，固定返回 400 |
 | GET | `/api/friends` | Bearer | 自动关系好友列表 |
-| GET | `/api/friends/requests/pending` | Bearer | 待处理请求（当前固定为空集合） |
+| GET | `/api/friends/requests/pending` | Bearer | 已下线，固定返回 400 |
 | DELETE | `/api/friends/{id}` | Bearer | 删除好友（软删除，返回 `mode: intimacy_auto_hidden`） |
 | GET | `/api/friends/{id}/messages` | Bearer | 聊天记录 |
 | POST | `/api/friends/{id}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
-| POST | `/api/temp-friends/connect` | Bearer | 创建临时连接 |
 | GET | `/api/temp-friends` | Bearer | 临时好友列表 |
+| GET | `/api/temp-friends/{id}` | Bearer | 临时好友详情 |
 | DELETE | `/api/temp-friends/{id}` | Bearer | 断开临时连接 |
+| GET | `/api/temp-friends/check/{userId}` | Bearer | 检查临时好友状态 |
 
 好友删除机制说明：
 - 删除操作为软删除，返回 `mode: intimacy_auto_hidden`
 - 重新发送好友请求可恢复关系
-- `accept` / `reject` 仅保留兼容语义，不会生成待处理请求
-- `GET /api/friends/requests/pending` 在自动关系模式下固定返回空集合与 `mode: intimacy_auto`
+- `accept` / `reject` 历史兼容入口已下线，固定返回 400
+- `GET /api/friends/requests/pending` 历史待处理入口已下线，固定返回 400
 - 已删除好友间发送消息返回 403
-- 临时连接一旦过期或升级为正式好友，对应的 connection 历史读取与发消息入口都会拒绝访问
-- 任一方建立拉黑关系后，手动临时连接、石头派生 connection、纸船派生 connection 的后续建连、历史读取、发消息和升级好友都会统一返回 403
-- `/api/temp-friends/connect` 创建的是手动陌生人直连，服务端会规范化为 `source = chat`，并受 `allow_message_from_stranger` 开关约束
-- 石头回复链和纸船链派生的临时连接会保留业务来源（如 `stone` / `boat`），不受陌生人直连开关阻断
-- 手动直连产生的 connection 历史读取与发消息同样受 `allow_message_from_stranger` 约束；石头/纸船派生 connection 不受该开关影响
+- 临时连接一旦过期，对应的 connection 历史读取与发消息入口都会拒绝访问
+- 任一方建立拉黑关系后，石头派生 connection、纸船派生 connection 的后续建连、历史读取、发消息都会统一返回 403
+- 手动临时连接入口 `POST /api/temp-friends`（历史文档中曾写作 `/api/temp-friends/connect`）已下线，固定返回 400
+- 手动升级永久好友入口 `POST /api/temp-friends/{id}/upgrade` 已下线，固定返回 400
+- 石头回复链和纸船链派生的临时连接会保留业务来源（如 `stone` / `boat`）
 
 ### 4.6 推荐与搜索
 

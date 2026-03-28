@@ -48,7 +48,6 @@ const WS_MESSAGE_TYPE_LIST = [
   'boat_deleted',
   'new_boat',
   'stone_deleted',
-  'friend_accepted',
   'friend_removed',
   'friend_request',
   'new_notification',
