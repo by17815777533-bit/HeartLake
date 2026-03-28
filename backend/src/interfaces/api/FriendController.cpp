@@ -129,11 +129,20 @@ void FriendController::sendFriendRequest(
         data["can_chat"] = score >= kIntimacyThreshold;
         data["restored_hidden_friend"] = restoredHiddenFriend;
 
-        callback(ResponseUtil::success(
-            data,
-            restoredHiddenFriend
-                ? "已恢复该好友显示，关系由亲密分自动判定"
-                : "已切换为亲密分自动关系，无需发送好友请求"
+        if (restoredHiddenFriend) {
+            callback(ResponseUtil::success(
+                data,
+                "已恢复该好友显示，关系由亲密分自动判定"
+            ));
+            return;
+        }
+
+        data["operation_performed"] = false;
+        data["manual_request_supported"] = false;
+        callback(ResponseUtil::error(
+            409,
+            "手动好友申请已下线，请改用亲密分自动关系",
+            data
         ));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in sendFriendRequest(auto mode): " << e.what();
@@ -166,7 +175,13 @@ void FriendController::acceptFriendRequest(
         data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
         data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
         data["can_chat"] = score >= kIntimacyThreshold;
-        callback(ResponseUtil::success(data, "无需接受：关系由互动亲密分自动判定"));
+        data["operation_performed"] = false;
+        data["manual_request_supported"] = false;
+        callback(ResponseUtil::error(
+            409,
+            "手动接受好友申请已下线，关系由互动亲密分自动判定",
+            data
+        ));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in acceptFriendRequest(auto mode): " << e.what();
         callback(ResponseUtil::internalError("获取亲密分失败"));
@@ -186,14 +201,25 @@ void FriendController::rejectFriendRequest(
     auto currentUserId = *currentUserIdOpt;
 
     try {
+        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
+        const double score = intimacy.getIntimacyScore(currentUserId, userId);
         Json::Value data;
         data["mode"] = "intimacy_auto";
         data["peer_id"] = userId;
         data["user_id"] = userId;
         data["friend_id"] = userId;
         data["friend_user_id"] = userId;
-        data["note"] = "系统不再使用手动同意/拒绝流程";
-        callback(ResponseUtil::success(data, "无需拒绝：系统按互动亲密分自动判断关系"));
+        data["intimacy_score"] = score;
+        data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
+        data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
+        data["can_chat"] = score >= kIntimacyThreshold;
+        data["operation_performed"] = false;
+        data["manual_request_supported"] = false;
+        callback(ResponseUtil::error(
+            409,
+            "手动拒绝好友申请已下线，系统按互动亲密分自动判断关系",
+            data
+        ));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in rejectFriendRequest(auto mode): " << e.what();
         callback(ResponseUtil::internalError("自动关系处理失败"));
@@ -364,7 +390,13 @@ void FriendController::getPendingRequests(
         1
     );
     data["mode"] = "intimacy_auto";
-    callback(ResponseUtil::success(data, "手动好友申请已下线，关系由互动亲密分自动判定"));
+    data["operation_performed"] = false;
+    data["manual_request_supported"] = false;
+    callback(ResponseUtil::error(
+        409,
+        "手动好友申请已下线，关系由互动亲密分自动判定",
+        data
+    ));
 }
 
 // ==================== 好友消息相关 ====================
