@@ -457,7 +457,7 @@ void InteractionController::createConnectionForStone(
     auto service = getInteractionService();
     auto result = service->createConnectionForStone(stoneId, userId);
 
-    callback(ResponseUtil::success(result, "创建连接成功"));
+    callback(ResponseUtil::success(result, "连接已就绪"));
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createConnectionForStone: " << e.what();
@@ -499,7 +499,7 @@ void InteractionController::createConnection(
     auto service = getInteractionService();
     auto result = service->createConnection(targetUserId, userId);
 
-    callback(ResponseUtil::success(result, "创建连接成功"));
+    callback(ResponseUtil::success(result, "连接已就绪"));
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in createConnection: " << e.what();
@@ -514,24 +514,12 @@ void InteractionController::upgradeConnectionToFriend(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &connectionId) {
-  auto userIdOpt = Validator::getUserId(req);
-  if (!userIdOpt) {
+  (void)connectionId;
+  if (!Validator::getUserId(req)) {
     callback(ResponseUtil::unauthorized("未登录"));
     return;
   }
-  auto userId = *userIdOpt;
-  try {
-    auto service = getInteractionService();
-    auto result = service->upgradeConnectionToFriend(connectionId, userId);
-    callback(ResponseUtil::success(result));
-
-  } catch (const std::runtime_error &e) {
-    LOG_ERROR << "Error in upgradeConnectionToFriend: " << e.what();
-    callback(ResponseUtil::error(400, e.what()));
-  } catch (const std::exception &e) {
-    LOG_ERROR << "Unexpected error in upgradeConnectionToFriend: " << e.what();
-    callback(ResponseUtil::internalError("升级为好友失败"));
-  }
+  callback(ResponseUtil::badRequest("当前关系模式不支持手动升级好友"));
 }
 
 void InteractionController::getConnectionMessages(

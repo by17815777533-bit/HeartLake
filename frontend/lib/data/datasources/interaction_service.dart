@@ -245,26 +245,6 @@ class InteractionService extends BaseService implements InteractionDataSource {
     };
   }
 
-  /// 将限时连接升级为正式好友关系
-  ///
-  /// 双方在限时会话期间可选择升级为永久好友。
-  Future<Map<String, dynamic>> upgradeConnectionToFriend(
-      String connectionId) async {
-    InputValidator.validateUUID(connectionId, '连接ID');
-    final response = await post('/connections/$connectionId/friend');
-    if (!response.success) return toMap(response);
-
-    final payload = _normalizeConnectionResponse(response.data);
-    return {
-      ...toMap(response),
-      'data': payload,
-      'friendship_id': payload['friendship_id'],
-      'friendshipId': payload['friendshipId'],
-      'friend_id': payload['friend_id'],
-      'friendId': payload['friendId'],
-    };
-  }
-
   /// 获取会话消息列表
   ///
   /// 返回指定连接下的所有聊天消息，兼容后端返回 List 或 Map 两种格式。

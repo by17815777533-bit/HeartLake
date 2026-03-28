@@ -252,19 +252,6 @@ public:
     );
 
     /**
-     * @brief 将临时连接升级为正式好友关系
-     * @details 双方都需要同意才能升级。升级后连接不会立即关闭，
-     *          而是等 TTL 自然过期，好友关系独立于连接存在。
-     * @param connectionId 连接 ID
-     * @param userId 操作者用户 ID
-     * @return 升级结果 JSON（含新建的 friendship_id）
-     */
-    Json::Value upgradeConnectionToFriend(
-        const std::string& connectionId,
-        const std::string& userId
-    );
-
-    /**
      * @brief 获取当前用户点过的涟漪列表
      * @param userId 用户 ID
      * @param page 页码

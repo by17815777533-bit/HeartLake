@@ -7,7 +7,7 @@
  * 涟漪（Ripple）：类似"点赞"，每个用户对同一石头只能涟漪一次（唯一约束幂等）
  *   - 纸船（Boat）：类似"评论"，支持匿名发送，附带情感暖意评分
  *   - 通知（Notification）：系统推送，支持单条/全部已读
- *   - 临时连接（Connection）：24h 有效的匿名聊天通道，可升级为好友
+ *   - 临时连接（Connection）：24h 有效的匿名聊天通道
  *
  * 事务策略：涟漪/纸船的创建和计数器更新在同一事务内完成，保证一致性。
  * 缓存策略：每次写操作后主动失效对应石头缓存，确保前端读到最新计数。
@@ -1725,13 +1725,6 @@ Json::Value InteractionApplicationService::getConnectionMessages(
     LOG_ERROR << "Failed to get connection messages: " << e.base().what();
     throw std::runtime_error("获取连接消息失败");
   }
-}
-
-Json::Value InteractionApplicationService::upgradeConnectionToFriend(
-    const std::string &connectionId, const std::string &userId) {
-  (void)connectionId;
-  (void)userId;
-  throw std::runtime_error("当前关系模式不支持手动升级好友");
 }
 
 } // namespace application
