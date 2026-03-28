@@ -134,11 +134,10 @@ void syncStoneCollectionAliases(Json::Value &response) {
   response["list"] = response["stones"];
 }
 
-std::unordered_map<std::string, bool>
-loadRippleStates(const std::shared_ptr<heartlake::core::cache::CacheManager>
-                     &cacheManager,
-                 const std::string &currentUserId,
-                 const std::vector<std::string> &stoneIds) {
+std::unordered_map<std::string, bool> loadRippleStates(
+    const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
+    const std::string &currentUserId,
+    const std::vector<std::string> &stoneIds) {
   std::unordered_map<std::string, bool> states;
   if (stoneIds.empty()) {
     return states;
@@ -221,8 +220,7 @@ void applyRippleStates(Json::Value &stones,
 
 void invalidateStoneListCaches(
     const std::shared_ptr<heartlake::core::cache::CacheManager> &cacheManager,
-    const std::string &ownerUserId = "",
-    const std::string &moodType = "") {
+    const std::string &ownerUserId = "", const std::string &moodType = "") {
   if (!cacheManager) {
     return;
   }
@@ -232,8 +230,9 @@ void invalidateStoneListCaches(
 
 int resolveStoneListTotalOrFail(const drogon::orm::Result &result, int page) {
   if (!result.empty()) {
-    return result[0]["total_count"].isNull() ? 0
-                                             : result[0]["total_count"].as<int>();
+    return result[0]["total_count"].isNull()
+               ? 0
+               : result[0]["total_count"].as<int>();
   }
   if (page <= 1) {
     return 0;
@@ -241,8 +240,8 @@ int resolveStoneListTotalOrFail(const drogon::orm::Result &result, int page) {
   throw std::out_of_range("页码超出范围");
 }
 
-std::string serializeRiskFactors(
-    const std::vector<heartlake::utils::RiskFactor> &factors) {
+std::string
+serializeRiskFactors(const std::vector<heartlake::utils::RiskFactor> &factors) {
   Json::Value payload(Json::arrayValue);
   for (const auto &factor : factors) {
     Json::Value item(Json::objectValue);
@@ -460,8 +459,8 @@ StoneApplicationService::getStoneDetail(const std::string &stoneId,
   }
 
   try {
-    const auto states =
-        loadRippleStates(cacheManager_, currentUserId, std::vector<std::string>{stoneId});
+    const auto states = loadRippleStates(cacheManager_, currentUserId,
+                                         std::vector<std::string>{stoneId});
     auto it = states.find(stoneId);
     result["has_rippled"] = it != states.end() ? it->second : false;
   } catch (const std::exception &e) {
@@ -484,8 +483,8 @@ Json::Value StoneApplicationService::getStoneList(
     const auto limitValue = static_cast<int64_t>(pageSize);
     const auto offsetValue = static_cast<int64_t>(offset);
     const std::string normalizedSort = normalizeStoneSort(sortBy);
-    const std::string cacheKey =
-        buildStoneListCacheKey(page, pageSize, normalizedSort, filterMood, userId);
+    const std::string cacheKey = buildStoneListCacheKey(
+        page, pageSize, normalizedSort, filterMood, userId);
     Json::Value response;
 
     if (cacheManager_) {
@@ -502,7 +501,8 @@ Json::Value StoneApplicationService::getStoneList(
           "s.stone_color, "
           "s.mood_type, s.is_anonymous, s.created_at, s.view_count, "
           "s.ripple_count, s.boat_count, "
-          "u.username, u.nickname, u.avatar_url, COUNT(*) OVER() AS total_count "
+          "u.username, u.nickname, u.avatar_url, COUNT(*) OVER() AS "
+          "total_count "
           "FROM stones s "
           "LEFT JOIN users u ON s.user_id = u.user_id "
           "WHERE s.deleted_at IS NULL AND s.status = 'published' ";
@@ -548,8 +548,8 @@ Json::Value StoneApplicationService::getStoneList(
         stones.append(buildStoneJson(row));
       }
       const int total = resolveStoneListTotalOrFail(result, page);
-      response = ResponseUtil::buildCollectionPayload("stones", stones, total, page,
-                                                      pageSize);
+      response = ResponseUtil::buildCollectionPayload("stones", stones, total,
+                                                      page, pageSize);
 
       if (cacheManager_) {
         cacheManager_->setJson(cacheKey, response, kStoneListCacheTtlSeconds);
@@ -591,9 +591,10 @@ void StoneApplicationService::deleteStone(const std::string &stoneId,
     if (cacheManager_) {
       cacheManager_->invalidate(buildStoneDetailCacheKey(stoneId));
       cacheManager_->invalidate("user:" + userId);
-      invalidateStoneListCaches(
-          cacheManager_, userId,
-          result[0]["mood_type"].isNull() ? "" : result[0]["mood_type"].as<std::string>());
+      invalidateStoneListCaches(cacheManager_, userId,
+                                result[0]["mood_type"].isNull()
+                                    ? ""
+                                    : result[0]["mood_type"].as<std::string>());
     }
 
   } catch (const drogon::orm::DrogonDbException &e) {
@@ -682,8 +683,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
   auto cacheManagerCopy = cacheManager_;
   aiService.analyzeSentiment(content, [stoneId, userId, content, initialMood,
                                        cacheManagerCopy](
-                                          float score,
-                                          const std::string &mood,
+                                          float score, const std::string &mood,
                                           const std::string &error) {
     if (!error.empty()) {
       LOG_WARN << "AI sentiment analysis failed for stone " << stoneId << ": "
@@ -752,7 +752,9 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
             riskResult.supportMessage);
 
         const auto assessmentId =
-            assessmentResult.empty() ? 0 : assessmentResult[0]["assessment_id"].as<int64_t>();
+            assessmentResult.empty()
+                ? 0
+                : assessmentResult[0]["assessment_id"].as<int64_t>();
 
         if (static_cast<int>(riskResult.riskLevel) >=
             static_cast<int>(heartlake::utils::RiskLevel::HIGH)) {
@@ -768,8 +770,10 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
             trans->execSqlSync(
                 "INSERT INTO high_risk_events "
                 "(user_id, content_id, content_type, risk_level, risk_score, "
-                "intervention_sent, admin_notified, status, assessment_id, created_at) "
-                "VALUES ($1, $2, 'stone', $3, $4, $5, false, 'pending', $6, NOW())",
+                "intervention_sent, admin_notified, status, assessment_id, "
+                "created_at) "
+                "VALUES ($1, $2, 'stone', $3, $4, $5, false, 'pending', $6, "
+                "NOW())",
                 userId, stoneId, static_cast<int>(riskResult.riskLevel),
                 riskResult.overallScore, !riskResult.supportMessage.empty(),
                 assessmentId);
@@ -888,8 +892,16 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
                      asyncCacheManager]() -> drogon::Task<void> {
     try {
       auto &dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
-      std::string comment = dualMemory.generateResponse(
+      auto replyResult = dualMemory.generateResponseResult(
           userId, content, normalizeMoodType(moodType), 0.0f);
+      if (replyResult.degraded) {
+        LOG_WARN << "Skip degraded lake god auto-reply for stone " << stoneId
+                 << ": "
+                 << (replyResult.error.empty() ? "unknown fallback reason"
+                                               : replyResult.error);
+        co_return;
+      }
+      std::string comment = replyResult.reply;
 
       if (comment.empty()) {
         LOG_WARN << "DualMemoryRAG returned empty for stone " << stoneId;
