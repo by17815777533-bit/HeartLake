@@ -137,13 +137,7 @@ void FriendController::sendFriendRequest(
             return;
         }
 
-        data["operation_performed"] = false;
-        data["manual_request_supported"] = false;
-        callback(ResponseUtil::error(
-            409,
-            "手动好友申请已下线，请改用亲密分自动关系",
-            data
-        ));
+        callback(ResponseUtil::badRequest("当前关系模式不支持好友申请"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in sendFriendRequest(auto mode): " << e.what();
         callback(ResponseUtil::internalError("获取亲密分失败"));
@@ -155,37 +149,12 @@ void FriendController::acceptFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    auto currentUserIdOpt = Validator::getUserId(req);
-    if (!currentUserIdOpt) {
+    (void)userId;
+    if (!Validator::getUserId(req)) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
-    auto currentUserId = *currentUserIdOpt;
-
-    try {
-        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
-        const double score = intimacy.getIntimacyScore(currentUserId, userId);
-        Json::Value data;
-        data["mode"] = "intimacy_auto";
-        data["peer_id"] = userId;
-        data["user_id"] = userId;
-        data["friend_id"] = userId;
-        data["friend_user_id"] = userId;
-        data["intimacy_score"] = score;
-        data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
-        data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
-        data["can_chat"] = score >= kIntimacyThreshold;
-        data["operation_performed"] = false;
-        data["manual_request_supported"] = false;
-        callback(ResponseUtil::error(
-            409,
-            "手动接受好友申请已下线，关系由互动亲密分自动判定",
-            data
-        ));
-    } catch (const std::exception& e) {
-        LOG_ERROR << "Error in acceptFriendRequest(auto mode): " << e.what();
-        callback(ResponseUtil::internalError("获取亲密分失败"));
-    }
+    callback(ResponseUtil::badRequest("当前关系模式不支持接受好友申请"));
 }
 
 void FriendController::rejectFriendRequest(
@@ -193,37 +162,12 @@ void FriendController::rejectFriendRequest(
     std::function<void(const HttpResponsePtr&)>&& callback,
     const std::string& userId
 ) {
-    auto currentUserIdOpt = Validator::getUserId(req);
-    if (!currentUserIdOpt) {
+    (void)userId;
+    if (!Validator::getUserId(req)) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
-    auto currentUserId = *currentUserIdOpt;
-
-    try {
-        auto& intimacy = heartlake::infrastructure::IntimacyService::getInstance();
-        const double score = intimacy.getIntimacyScore(currentUserId, userId);
-        Json::Value data;
-        data["mode"] = "intimacy_auto";
-        data["peer_id"] = userId;
-        data["user_id"] = userId;
-        data["friend_id"] = userId;
-        data["friend_user_id"] = userId;
-        data["intimacy_score"] = score;
-        data["intimacy_level"] = heartlake::infrastructure::IntimacyService::levelFromScore(score);
-        data["intimacy_label"] = intimacyLevelZh(data["intimacy_level"].asString());
-        data["can_chat"] = score >= kIntimacyThreshold;
-        data["operation_performed"] = false;
-        data["manual_request_supported"] = false;
-        callback(ResponseUtil::error(
-            409,
-            "手动拒绝好友申请已下线，系统按互动亲密分自动判断关系",
-            data
-        ));
-    } catch (const std::exception& e) {
-        LOG_ERROR << "Error in rejectFriendRequest(auto mode): " << e.what();
-        callback(ResponseUtil::internalError("自动关系处理失败"));
-    }
+    callback(ResponseUtil::badRequest("当前关系模式不支持拒绝好友申请"));
 }
 
 void FriendController::removeFriend(
@@ -375,28 +319,11 @@ void FriendController::getPendingRequests(
     const HttpRequestPtr& req,
     std::function<void(const HttpResponsePtr&)>&& callback
 ) {
-    auto userIdOpt = Validator::getUserId(req);
-    if (!userIdOpt) {
+    if (!Validator::getUserId(req)) {
         callback(ResponseUtil::unauthorized("用户未认证"));
         return;
     }
-    const auto userId = *userIdOpt;
-
-    Json::Value data = ResponseUtil::buildCollectionPayload(
-        "requests",
-        Json::Value(Json::arrayValue),
-        0,
-        1,
-        1
-    );
-    data["mode"] = "intimacy_auto";
-    data["operation_performed"] = false;
-    data["manual_request_supported"] = false;
-    callback(ResponseUtil::error(
-        409,
-        "手动好友申请已下线，关系由互动亲密分自动判定",
-        data
-    ));
+    callback(ResponseUtil::badRequest("当前关系模式不提供待处理好友申请列表"));
 }
 
 // ==================== 好友消息相关 ====================
