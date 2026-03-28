@@ -20,6 +20,7 @@
 #include <drogon/orm/Exception.h>
 #include <json/json.h>
 #include <ctime>
+#include <stdexcept>
 
 using namespace drogon;
 using namespace heartlake::utils;
@@ -129,17 +130,13 @@ drogon::orm::Result execSqlWithStringParamsAndPagination(
     }
 }
 
-int resolveWindowTotalOrFallbackCount(
-    const drogon::orm::DbClientPtr &dbClient,
-    const drogon::orm::Result &result,
-    int64_t offset,
-    const std::string &countSql,
-    const std::vector<std::string> &params) {
+int resolveWindowTotalOrFallbackCount(const drogon::orm::Result &result,
+                                      int64_t offset) {
     const int total = extractWindowTotal(result);
     if (!result.empty() || offset <= 0) {
         return total;
     }
-    return safeCount(execSqlWithStringParams(dbClient, countSql, params));
+    throw std::out_of_range("页码超出范围");
 }
 }
 
@@ -246,8 +243,7 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
             }
         };
         auto result = execWithParams();
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value users(Json::arrayValue);
         for (const auto &row : result) {
@@ -264,6 +260,8 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(users, "users", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getUsers error: " << e.what();
         callback(ResponseUtil::internalError("获取用户列表失败"));
@@ -461,8 +459,7 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -491,6 +488,8 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "contents", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getContents error: " << e.what();
         callback(ResponseUtil::internalError("获取内容列表失败"));
@@ -550,8 +549,7 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -570,6 +568,8 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "stones", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getStones error: " << e.what();
         callback(ResponseUtil::internalError("获取石头列表失败"));
@@ -687,8 +687,7 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -704,6 +703,8 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "boats", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "Admin getBoats error: " << e.what();
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
@@ -765,9 +766,7 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset,
-            "SELECT COUNT(*) as total FROM reports WHERE status = 'pending'", {});
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -788,6 +787,8 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "pending", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getPendingModeration error: " << e.what();
@@ -937,8 +938,7 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -954,6 +954,8 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "history", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getModerationHistory error: " << e.what();
@@ -1004,8 +1006,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1026,6 +1027,8 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "reports", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getReports error: " << e.what();
@@ -1151,8 +1154,7 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value words(Json::arrayValue);
         for (const auto &row : result) {
@@ -1167,6 +1169,8 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(words, "words", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         // QUALITY-2 修复：错误时返回 500 而非伪装成功
         LOG_ERROR << "Admin getSensitiveWords error: " << e.what();
@@ -1338,8 +1342,7 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
             static_cast<int64_t>(pageSize), static_cast<int64_t>((page - 1) * pageSize)
         );
         const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, static_cast<int64_t>(page - 1) * pageSize,
-            "SELECT COUNT(*) as total FROM broadcast_messages", {});
+            result, static_cast<int64_t>(page - 1) * pageSize);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1353,6 +1356,8 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "broadcasts", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "getBroadcastHistory error: " << e.what();
         callback(ResponseUtil::internalError("获取广播历史失败"));
@@ -1417,8 +1422,7 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(
-            dbClient, result, offset, countSql, params);
+        const int total = resolveWindowTotalOrFallbackCount(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1434,6 +1438,8 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
         }
 
         callback(collectionResponse(list, "logs", total, page, pageSize));
+    } catch (const std::out_of_range &e) {
+        callback(ResponseUtil::badRequest(e.what()));
     } catch (const std::exception &e) {
         LOG_ERROR << "getOperationLogs error: " << e.what();
         callback(ResponseUtil::internalError("获取操作日志失败"));
