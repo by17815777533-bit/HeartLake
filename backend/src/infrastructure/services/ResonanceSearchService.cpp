@@ -32,6 +32,17 @@ namespace heartlake::infrastructure {
 
 namespace {
 
+std::string trimAscii(std::string value) {
+    const auto begin = value.find_first_not_of(" \t\n\r");
+    if (begin == std::string::npos) {
+        return "";
+    }
+    const auto end = value.find_last_not_of(" \t\n\r");
+    return value.substr(begin, end - begin + 1);
+}
+
+std::vector<float> parsePgFloatArray(const std::string& raw);
+
 struct CandidateContext {
     ResonanceMatch match;
     std::string mood = "neutral";
@@ -39,10 +50,20 @@ struct CandidateContext {
 };
 
 std::vector<float> parseEmbeddingCsv(const std::string& raw) {
+    const auto normalized = trimAscii(raw);
+    if (!normalized.empty() &&
+        ((normalized.front() == '{' && normalized.back() == '}') ||
+         (normalized.front() == '[' && normalized.back() == ']'))) {
+        return parsePgFloatArray(normalized.front() == '['
+            ? "{" + normalized.substr(1, normalized.size() - 2) + "}"
+            : normalized);
+    }
+
     std::vector<float> values;
-    std::stringstream ss(raw);
+    std::stringstream ss(normalized);
     std::string token;
     while (std::getline(ss, token, ',')) {
+        token = trimAscii(token);
         if (!token.empty()) {
             values.push_back(std::stof(token));
         }
@@ -60,6 +81,7 @@ std::vector<float> parsePgFloatArray(const std::string& raw) {
     std::stringstream ss(body);
     std::string token;
     while (std::getline(ss, token, ',')) {
+        token = trimAscii(token);
         if (!token.empty() && token != "NULL") {
             values.push_back(std::stof(token));
         }
