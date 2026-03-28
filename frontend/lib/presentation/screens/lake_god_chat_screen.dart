@@ -221,9 +221,10 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         final mood = data['mood']?.toString();
         final responseSource =
             data['response_source']?.toString() ?? data['source']?.toString();
-        final degraded = data['degraded'] == true ||
-            responseSource == 'local_fallback';
-        final warning = data['warning']?.toString() ?? data['ai_error']?.toString();
+        final degraded =
+            data['degraded'] == true || responseSource == 'local_fallback';
+        final warning =
+            data['warning']?.toString() ?? data['ai_error']?.toString();
         setState(() {
           _isSending = false;
           _messages.add({

@@ -48,8 +48,8 @@ class LakeGodService extends BaseService {
     if (responseSource != null && responseSource.isNotEmpty) {
       payload['response_source'] = responseSource;
       payload['source'] = responseSource;
-      payload['degraded'] = payload['degraded'] == true ||
-          responseSource == 'local_fallback';
+      payload['degraded'] =
+          payload['degraded'] == true || responseSource == 'local_fallback';
     }
 
     return {
