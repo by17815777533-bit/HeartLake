@@ -69,24 +69,6 @@ int resolveRecommendationLimit(const HttpRequestPtr &req,
     return std::clamp(limit, 1, maxLimit);
 }
 
-int resolveSearchTotal(const drogon::orm::DbClientPtr &dbClient,
-                       const drogon::orm::Result &result,
-                       int page,
-                       const std::string &userId,
-                       const std::string &searchPattern) {
-    const int total = extractWindowTotal(result);
-    if (!result.empty() || page <= 1) {
-        return total;
-    }
-    return safeCount(dbClient->execSqlSync(
-        "SELECT COUNT(*) as total FROM stones s "
-        "WHERE s.status = 'published' "
-        "AND s.deleted_at IS NULL "
-        "AND s.user_id != $1 "
-        "AND s.content ILIKE $2 ESCAPE '\\'",
-        userId, searchPattern));
-}
-
 std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
     auto dbClient = drogon::app().getDbClient("default");
     auto result = dbClient->execSqlSync(
@@ -1007,6 +989,10 @@ void RecommendationController::searchRecommendations(
 
         // 执行搜索
         auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, pageSize, offset);
+        if (searchResult.empty() && page > 1) {
+            callback(ResponseUtil::badRequest("页码超出范围"));
+            return;
+        }
 
         Json::Value results(Json::arrayValue);
         for (size_t i = 0; i < searchResult.size(); ++i) {
@@ -1025,8 +1011,7 @@ void RecommendationController::searchRecommendations(
             stone["recommendation_type"] = "search";
             results.append(stone);
         }
-        const int total = resolveSearchTotal(
-            dbClient, searchResult, page, userId, searchPattern);
+        const int total = extractWindowTotal(searchResult);
 
         callback(ResponseUtil::success(
             ResponseUtil::buildCollectionPayload("results", results, total,

@@ -2,6 +2,7 @@
  * VectorSearchController 模块实现
  */
 #include "interfaces/api/VectorSearchController.h"
+#include "interfaces/api/RecommendationController.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "infrastructure/ai/EdgeAIEngine.h"
 #include "utils/RequestHelper.h"
@@ -136,69 +137,9 @@ void VectorSearchController::getSimilarStones(
 void VectorSearchController::getPersonalizedRecommendations(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-    auto userIdOpt = Validator::getUserId(req);
-    if (!userIdOpt) {
-        Json::Value resp;
-        resp["code"] = 401;
-        resp["message"] = "未登录";
-        auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-        httpResp->setStatusCode(k401Unauthorized);
-        callback(httpResp);
-        return;
-    }
-    auto &userId = *userIdOpt;
-
-    auto dbClient = drogon::app().getDbClient("default");
-
-    dbClient->execSqlAsync(
-        "SELECT s.stone_id, s.content, s.mood_type, s.ripple_count, s.boat_count, "
-        "s.created_at, u.nickname, u.username "
-        "FROM stones s "
-        "LEFT JOIN users u ON s.user_id = u.user_id "
-        "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
-        "ORDER BY s.created_at DESC "
-        "LIMIT 20",
-        [callback](const drogon::orm::Result &r) {
-            Json::Value resp;
-            resp["code"] = 0;
-            resp["message"] = "成功";
-
-            Json::Value data;
-            Json::Value stones = Json::arrayValue;
-
-            for (const auto &row : r) {
-                Json::Value stone;
-                stone["stone_id"] = row["stone_id"].as<std::string>();
-                stone["content"] = row["content"].as<std::string>();
-                stone["mood"] = row["mood_type"].isNull()
-                    ? "neutral"
-                    : row["mood_type"].as<std::string>();
-                stone["ripple_count"] = row["ripple_count"].as<int>();
-                stone["boat_count"] = row["boat_count"].as<int>();
-                stone["created_at"] = row["created_at"].as<std::string>();
-                stone["nickname"] = row["nickname"].isNull()
-                    ? ""
-                    : row["nickname"].as<std::string>();
-                stones.append(stone);
-            }
-
-            data["stones"] = stones;
-            data["total"] = static_cast<int>(stones.size());
-            resp["data"] = data;
-
-            callback(HttpResponse::newHttpJsonResponse(resp));
-        },
-        [callback](const drogon::orm::DrogonDbException &e) {
-            LOG_ERROR << "Error in getPersonalizedRecommendations: "
-                      << e.base().what();
-            Json::Value resp;
-            resp["code"] = 500;
-            resp["message"] = "查询失败";
-            auto httpResp = HttpResponse::newHttpJsonResponse(resp);
-            httpResp->setStatusCode(k500InternalServerError);
-            callback(httpResp);
-        },
-        userId);
+    RecommendationController().getRecommendedStones(
+        req,
+        std::move(callback));
 }
 
 void VectorSearchController::updateStoneEmbedding(
