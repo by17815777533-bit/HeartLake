@@ -69,7 +69,7 @@ curl -X POST http://localhost:8080/api/auth/refresh \
   -d '{"refresh_token":"rt_xxx..."}'
 ```
 
-兼容旧客户端时，仍可带 `Authorization: Bearer <current_token>` 请求该接口；服务端会在访问令牌仍有效时回补 `refresh_token` 和 `user_sessions` 记录。
+该接口可直接用请求体里的 `refresh_token` 调用，也接受 `Authorization: Bearer <current_token>` 头；访问令牌仍有效时，服务端会同步回补 `refresh_token` 和 `user_sessions` 记录。
 
 ### 2.4 管理后台认证
 
@@ -114,7 +114,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 - 分页字段 `total/page/page_size/has_more`
 - 聚合分页对象 `pagination`
 
-管理端与移动端统一按“`data` → 语义键 / `items` / `list`”的优先级解析，旧版裸数组仅保留兼容用途，不再作为推荐契约。
+管理端与移动端统一按“`data` → 语义键 / `items` / `list`”的优先级解析，文档基线只认这套集合契约。
 
 ## 4. API 分组
 
@@ -123,9 +123,9 @@ curl -X POST http://localhost:8080/api/admin/login \
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/auth/anonymous` | 无 | 匿名登录 |
-| POST | `/api/auth/refresh` | 无（支持 Bearer 兼容） | 刷新令牌 / 回补会话 |
+| POST | `/api/auth/refresh` | 无（也接受 Bearer） | 刷新令牌 / 回补会话 |
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
-| POST | `/api/auth/delete-account` | Bearer | 兼容旧客户端的账号停用别名（30 天内可恢复） |
+| POST | `/api/auth/delete-account` | Bearer | 账号停用别名路由（30 天内可恢复） |
 | GET | `/api/account/info` | Bearer | 获取个人资料 |
 | PUT | `/api/account/profile` | Bearer | 更新个人资料 |
 | POST | `/api/account/avatar` | Bearer | 写入头像 URL（通常配合媒体上传使用） |
@@ -145,7 +145,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 
 说明：
 
-- `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，接受 `DEACTIVATE` 和历史值 `DELETE`
+- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，接受 `DEACTIVATE` 和 `DELETE`
 - `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 - 二进制头像上传统一走 `POST /api/media/upload`，返回 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/users/my/profile`
 - 移动端登录恢复链现在只接受完整持久化会话；客户端若只剩 `token`、缺失 `user_id`，或 `POST /api/auth/refresh` 成功包缺少 `token/user_id`，都会按失败处理，不再继续放行首页
@@ -171,7 +171,7 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 ```
 
 查询参数说明：
-- `sort` 支持兼容别名 `latest` / `hot`，也支持显式排序值 `created_at` / `ripple_count` / `boat_count` / `view_count`
+- `sort` 接受 `latest` / `hot`，也接受 `created_at` / `ripple_count` / `boat_count` / `view_count`
 - `hot` 当前映射到 `ripple_count`，`latest` 映射到 `created_at`
 - `emotion-calendar` / `emotion-heatmap` 的 `days` 必须是对象映射；客户端不再把坏载荷、缺失分数或缺失情绪类型的数据伪装成空日历、空热力图或默认中性记录
 
@@ -219,11 +219,11 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/friends/request` | Bearer | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
-| POST | `/api/friends/accept/{id}` | Bearer | 已下线，固定返回 400 |
-| POST | `/api/friends/reject/{id}` | Bearer | 已下线，固定返回 400 |
+| POST | `/api/friends/request` | Bearer | 恢复隐藏关系 / 返回亲密分状态 |
+| POST | `/api/friends/accept/{id}` | Bearer | 不可用，固定返回 400 |
+| POST | `/api/friends/reject/{id}` | Bearer | 不可用，固定返回 400 |
 | GET | `/api/friends` | Bearer | 自动关系好友列表 |
-| GET | `/api/friends/requests/pending` | Bearer | 已下线，固定返回 400 |
+| GET | `/api/friends/requests/pending` | Bearer | 不可用，固定返回 400 |
 | DELETE | `/api/friends/{id}` | Bearer | 删除好友（软删除，返回 `mode: intimacy_auto_hidden`） |
 | GET | `/api/friends/{id}/messages` | Bearer | 聊天记录 |
 | POST | `/api/friends/{id}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
@@ -235,13 +235,11 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 好友删除机制说明：
 - 删除操作为软删除，返回 `mode: intimacy_auto_hidden`
 - 重新发送好友请求可恢复关系
-- `accept` / `reject` 历史兼容入口已下线，固定返回 400
-- `GET /api/friends/requests/pending` 历史待处理入口已下线，固定返回 400
+- `POST /api/friends/accept/{id}`、`POST /api/friends/reject/{id}` 与 `GET /api/friends/requests/pending` 当前不可用，固定返回 400
 - 已删除好友间发送消息返回 403
 - 临时连接一旦过期，对应的 connection 历史读取与发消息入口都会拒绝访问
 - 任一方建立拉黑关系后，石头派生 connection、纸船派生 connection 的后续建连、历史读取、发消息都会统一返回 403
-- 手动临时连接入口 `POST /api/temp-friends`（历史文档中曾写作 `/api/temp-friends/connect`）已下线，固定返回 400
-- 手动升级永久好友入口 `POST /api/temp-friends/{id}/upgrade` 已下线，固定返回 400
+- `POST /api/temp-friends` 与 `POST /api/temp-friends/{id}/upgrade` 当前不可用，固定返回 400
 - 石头回复链和纸船链派生的临时连接会保留业务来源（如 `stone` / `boat`）
 
 ### 4.6 推荐与搜索
@@ -300,7 +298,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | POST | `/api/safe-harbor/resources` | Bearer | 添加关怀资源 |
 | PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
 | DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
-| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，兼容 `emotion` / `mood` |
+| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，请求参数接受 `emotion` 或 `mood` |
 | GET | `/api/guardian/stats` | Bearer | 守望统计 |
 | GET | `/api/guardian` | Bearer | 守望统计简写 |
 | POST | `/api/guardian/transfer-lamp` | Bearer | 转赠灯火 |
@@ -317,7 +315,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 - `key-exchange` 发送 `client_public_key`，服务端返回 `server_public_key + salt`
 - `message` 发送结构化 AES-GCM envelope：`encrypted.ciphertext / encrypted.iv / encrypted.tag`
 - `messages` / `sessions` 都保留标准分页字段，客户端按集合载荷解析
-- `sessions` 额外返回 `counselor_name/counselor_avatar_url/last_message/updated_at`，并补齐 `counterpart_id` 兼容用户端与咨询师端同一套会话列表
+- `sessions` 额外返回 `counselor_name/counselor_avatar_url/last_message/updated_at`，并补齐 `counterpart_id`，便于用户端与咨询师端使用同一套会话列表结构
 - `guardian/chat` 与 `/api/lake-god/chat` 在本地降级时会显式返回 `response_source=local_fallback`、`degraded=true` 与 `warning/ai_error`，不再把本地陪伴回复伪装成远端 AI 成功
 
 ### 4.9 其他
@@ -388,7 +386,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 | POST | `/api/admin/broadcast` | 发送全站广播 |
 | GET | `/api/admin/broadcast/history` | 广播历史 |
 
-管理端 `stats/*`、`risk/*` 与后台分页接口已开始统一向集合响应契约收敛。前端推荐按 `data` 节点中的语义键、`items`、`list` 顺序读取，避免与历史字段耦合。
+管理端 `stats/*`、`risk/*` 与后台分页接口统一按集合响应契约输出。前端按 `data` 节点中的语义键、`items`、`list` 顺序读取。
 
 ## 5. WebSocket 实时通信
 
@@ -421,7 +419,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 
 服务端定期发送 `ping`，客户端须回复 `pong`。超时未回复则服务端断开连接并清理资源。
 客户端只有在收到 `auth_success` 后才应视为“连接成功”，再回放房间订阅和离线消息。
-当前版本只支持握手阶段 URL `token` 鉴权，连接建立后发送 `auth` 首包不会再触发兼容认证逻辑。
+当前版本只支持握手阶段 URL `token` 鉴权，连接建立后发送 `auth` 首包不会触发认证。
 
 ### 5.4 事件类型
 
@@ -491,7 +489,7 @@ ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
 - 广播事件统一为扁平结构，核心字段至少包含 `type / event / timestamp`
 - 常见标识会镜像 snake / camel 别名，例如 `stone_id / stoneId`
 - `new_notification.type` 固定为事件名，实际通知语义请读取 `notification_type`
-- 管理端与移动端应直接消费标准事件，不再依赖历史 `data/payload` 嵌套结构
+- 管理端与移动端应直接消费标准事件，不依赖额外的 `data/payload` 嵌套结构
 
 好友消息：
 

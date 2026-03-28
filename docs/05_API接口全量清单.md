@@ -42,7 +42,7 @@
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | POST | `/api/auth/anonymous` | 无 | 匿名登录 |
-| POST | `/api/auth/refresh` | 无（支持 Bearer 兼容） | 刷新令牌 / 回补会话 |
+| POST | `/api/auth/refresh` | 无（也接受 Bearer） | 刷新令牌 / 回补会话 |
 | POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
 | GET | `/api/users/my/emotion-calendar` | Bearer | 情绪日历 |
 | GET | `/api/users/my/emotion-heatmap` | Bearer | 情绪热力图 |
@@ -100,7 +100,7 @@ POST `/api/auth/anonymous`
 | GET | `/api/account/export/{taskId}` | 查询导出任务状态 |
 | POST | `/api/account/deactivate` | 停用账号（30 天内可恢复） |
 | POST | `/api/account/delete-permanent` | 永久删除账号及全部数据 |
-| POST | `/api/auth/delete-account` | 兼容旧客户端的账号停用别名（30 天内可恢复） |
+| POST | `/api/auth/delete-account` | 账号停用别名路由（30 天内可恢复） |
 
 PUT `/api/account/profile` 请求体（所有字段可选）：
 
@@ -119,9 +119,9 @@ POST `/api/account/delete-permanent` 请求体：
 {"confirmation": "DELETE"}
 ```
 
-兼容说明：
+补充说明：
 
-- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，兼容 `DEACTIVATE` / `DELETE`
+- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，接受 `DEACTIVATE` / `DELETE`
 - `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 
 ---
@@ -170,7 +170,7 @@ POST `/api/stones` 请求体：
 
 GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
-- `sort` 支持 `latest` / `hot` 兼容别名，以及 `created_at` / `ripple_count` / `boat_count` / `view_count`
+- `sort` 接受 `latest` / `hot`，也接受 `created_at` / `ripple_count` / `boat_count` / `view_count`
 - `hot` 映射到 `ripple_count`，`latest` 映射到 `created_at`
 - `stone_type / stone_color / mood_type` 在请求中省略时，服务端默认回落到 `medium / #7A92A3 / calm`
 
@@ -206,14 +206,14 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/friends/request` | Bearer | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
+| POST | `/api/friends/request` | Bearer | 恢复隐藏关系 / 返回亲密分状态 |
 | GET | `/api/friends` | Bearer | 好友列表 |
 | DELETE | `/api/friends/{friendId}` | Bearer | 删除好友（软删除，可恢复） |
 | GET | `/api/friends/{friendId}/messages` | Bearer | 聊天记录 |
 | POST | `/api/friends/{friendId}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
 
 删除好友返回 `mode: intimacy_auto_hidden`，重新请求该入口可恢复关系显示。已删除好友间发送消息返回 403。
-`POST /api/friends/accept/{id}`、`POST /api/friends/reject/{id}`、`GET /api/friends/requests/pending` 已下线，固定返回 400。
+`POST /api/friends/accept/{id}`、`POST /api/friends/reject/{id}`、`GET /api/friends/requests/pending` 当前不可用，固定返回 400。
 
 ---
 
@@ -228,8 +228,7 @@ GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
 
 说明：
 - 临时连接过期后，对应 connection 的消息读取和发送入口都会返回拒绝访问
-- 手动临时连接入口 `POST /api/temp-friends`（历史文档中曾写作 `/api/temp-friends/connect`）已下线，固定返回 400
-- 手动升级永久好友入口 `POST /api/temp-friends/{id}/upgrade` 已下线，固定返回 400
+- `POST /api/temp-friends` 与 `POST /api/temp-friends/{id}/upgrade` 当前不可用，固定返回 400
 - 石头回复链和纸船链派生的临时连接保留原业务来源（如 `stone` / `boat`）
 
 ---
@@ -307,7 +306,7 @@ POST `/api/edge-ai/analyze` 请求体：
 | POST | `/api/safe-harbor/resources` | Bearer | 添加关怀资源 |
 | PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
 | DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
-| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，兼容 `emotion` / `mood` |
+| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，请求参数接受 `emotion` 或 `mood` |
 
 ---
 
@@ -335,7 +334,7 @@ POST `/api/edge-ai/analyze` 请求体：
 
 咨询密钥交换与消息契约：
 
-- `POST /api/consultation/key-exchange` 请求体使用 `session_id + client_public_key`；兼容旧客户端 `public_key`
+- `POST /api/consultation/key-exchange` 请求体使用 `session_id + client_public_key`；`public_key` 也可作为请求键名
 - 响应体返回稳定的 `server_public_key + salt + status`，客户端据此派生会话密钥
 - `POST /api/consultation/message` 请求体使用 `encrypted = { ciphertext, iv, tag }`
 - 消息与会话列表均返回标准分页集合载荷，客户端不应丢弃 `total/page/page_size/has_more`
@@ -384,7 +383,7 @@ POST `/api/edge-ai/analyze` 请求体：
 - URL 参数：`?token=<url_encoded_token>`（推荐）
 - 鉴权成功回包：`{"type":"auth_success","user_id":"...","authenticated":true}`
 - 房间消息：客户端需先 `join` 对应房间；私有房间会校验参与者身份，服务端会重写 `sender_id/timestamp/type`
-- 当前仅支持握手阶段 `token` 鉴权；连接建立后发送 `auth` 首包不会再触发兼容认证
+- 当前仅支持握手阶段 `token` 鉴权；连接建立后发送 `auth` 首包不会触发认证
 
 事件类型：`new_stone` / `ripple_update` / `boat_update` / `new_friend_message` / `new_notification`
 

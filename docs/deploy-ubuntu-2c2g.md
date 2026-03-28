@@ -111,7 +111,7 @@ curl -fsS http://127.0.0.1/api/health
 curl -I http://127.0.0.1/admin/
 ```
 
-如果只做轻量烟测，避免跑整套历史测试：
+如果只做轻量烟测，可以先跑这组：
 
 ```bash
 GATEWAY_PORT=80 RUN_EXISTING_TESTS=0 ./scripts/docker-test.sh
