@@ -546,6 +546,7 @@ void StoneController::searchResonance(
         auto& resonanceSearchService =
             heartlake::infrastructure::ResonanceSearchService::getInstance();
         auto matches = resonanceSearchService.searchResonance(
+            userId,
             stoneId,
             sourceContent,
             0.85f,

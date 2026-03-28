@@ -218,6 +218,7 @@ void respondWithAdvancedRecommendations(
                     auto &resonanceSearchService =
                         heartlake::infrastructure::ResonanceSearchService::getInstance();
                     auto resonanceResults = resonanceSearchService.searchResonance(
+                        userId,
                         referenceStoneId,
                         referenceStoneContent,
                         0.85f,
