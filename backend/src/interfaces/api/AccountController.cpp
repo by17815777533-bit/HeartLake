@@ -8,6 +8,7 @@
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 #include <thread>
 
 using namespace heartlake::controllers;
@@ -59,34 +60,39 @@ bool hasCompatibleConfirmation(const Json::Value *json,
                      });
 }
 
-bool parseBoolCompat(const Json::Value &json, const char *key,
-                     bool defaultValue) {
-  if (!json.isMember(key)) return defaultValue;
+bool requireBoolField(const Json::Value &json, const char *key) {
+  if (!json.isMember(key)) {
+    throw std::invalid_argument(std::string("缺少字段: ") + key);
+  }
   const auto &v = json[key];
   if (v.isBool()) return v.asBool();
   if (v.isInt() || v.isUInt()) return v.asInt() != 0;
   if (v.isString()) {
-    auto s = v.asString();
+    auto s = trimAscii(v.asString());
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
       return static_cast<char>(std::tolower(c));
     });
     if (s == "true" || s == "1" || s == "yes" || s == "on") return true;
     if (s == "false" || s == "0" || s == "no" || s == "off") return false;
   }
-  return defaultValue;
+  throw std::invalid_argument(std::string("字段格式错误: ") + key);
 }
 
-std::string parseVisibilityCompat(const Json::Value &json) {
-  std::string visibility = "public";
-  if (json.isMember("profile_visibility")) {
-    const auto &value = json["profile_visibility"];
-    if (value.isString()) {
-      visibility = value.asString();
-    } else if (value.isBool()) {
-      visibility = value.asBool() ? "public" : "private";
-    } else if (value.isInt() || value.isUInt()) {
-      visibility = value.asInt() == 0 ? "private" : "public";
-    }
+std::string requireVisibilityField(const Json::Value &json) {
+  if (!json.isMember("profile_visibility")) {
+    throw std::invalid_argument("缺少字段: profile_visibility");
+  }
+
+  std::string visibility;
+  const auto &value = json["profile_visibility"];
+  if (value.isString()) {
+    visibility = trimAscii(value.asString());
+  } else if (value.isBool()) {
+    visibility = value.asBool() ? "public" : "private";
+  } else if (value.isInt() || value.isUInt()) {
+    visibility = value.asInt() == 0 ? "private" : "public";
+  } else {
+    throw std::invalid_argument("字段格式错误: profile_visibility");
   }
 
   std::transform(visibility.begin(), visibility.end(), visibility.begin(),
@@ -95,7 +101,7 @@ std::string parseVisibilityCompat(const Json::Value &json) {
                  });
   if (visibility != "public" && visibility != "private" &&
       visibility != "friends") {
-    return "public";
+    throw std::invalid_argument("字段取值无效: profile_visibility");
   }
   return visibility;
 }
@@ -714,11 +720,18 @@ void AccountController::updatePrivacySettings(
 
     auto dbClient = app().getDbClient("default");
 
-    std::string visibility = parseVisibilityCompat(*json);
-    bool showOnline = parseBoolCompat(*json, "show_online_status", true);
-    bool allowFriend = parseBoolCompat(*json, "allow_friend_request", true);
+    std::string visibility = requireVisibilityField(*json);
+    bool showOnline = requireBoolField(*json, "show_online_status");
     bool allowStranger =
-        parseBoolCompat(*json, "allow_message_from_stranger", false);
+        requireBoolField(*json, "allow_message_from_stranger");
+
+    bool allowFriend = true;
+    auto existing = dbClient->execSqlSync(
+        "SELECT allow_friend_request FROM user_privacy_settings WHERE user_id = $1",
+        userId);
+    if (!existing.empty() && !existing[0]["allow_friend_request"].isNull()) {
+      allowFriend = existing[0]["allow_friend_request"].as<bool>();
+    }
 
     dbClient->execSqlSync(
         "INSERT INTO user_privacy_settings (user_id, profile_visibility, "
@@ -736,6 +749,9 @@ void AccountController::updatePrivacySettings(
     data["allow_friend_request"] = allowFriend;
     data["allow_message_from_stranger"] = allowStranger;
     callback(ResponseUtil::success(data, "隐私设置已更新"));
+  } catch (const std::invalid_argument &e) {
+    LOG_WARN << "updatePrivacySettings validation error: " << e.what();
+    callback(ResponseUtil::badRequest(e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "updatePrivacySettings error: " << e.what();
     callback(ResponseUtil::internalError());
