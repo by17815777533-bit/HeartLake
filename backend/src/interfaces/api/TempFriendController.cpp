@@ -128,7 +128,7 @@ void TempFriendController::getMyTempFriends(
 
     const int total = static_cast<int>(result.size());
     Json::Value data = ResponseUtil::buildCollectionPayload(
-        "temp_friends", friends, total, 1, total > 0 ? total : 1);
+        "temp_friends", friends, total, 1, total);
     data["friends"] = friends;
     callback(ResponseUtil::success(data, "获取成功"));
 
