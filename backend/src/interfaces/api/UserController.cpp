@@ -72,7 +72,7 @@ std::string normalizeUpperToken(const std::string &raw) {
 bool hasCompatibleConfirmation(const Json::Value *json,
                                std::initializer_list<const char *> accepted) {
   if (json == nullptr || !json->isMember("confirmation")) {
-    return true;
+    return false;
   }
   if (!(*json)["confirmation"].isString()) {
     return false;

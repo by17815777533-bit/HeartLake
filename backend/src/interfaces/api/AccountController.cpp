@@ -45,7 +45,7 @@ std::string normalizeUpperToken(const std::string &raw) {
 
 bool hasCompatibleConfirmation(const Json::Value *json,
                                std::initializer_list<const char *> accepted,
-                               bool allowMissing = true) {
+                               bool allowMissing = false) {
   if (json == nullptr || !json->isMember("confirmation")) {
     return allowMissing;
   }
