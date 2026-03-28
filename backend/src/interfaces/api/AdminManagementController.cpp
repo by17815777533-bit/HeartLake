@@ -130,8 +130,8 @@ drogon::orm::Result execSqlWithStringParamsAndPagination(
     }
 }
 
-int resolveWindowTotalOrFallbackCount(const drogon::orm::Result &result,
-                                      int64_t offset) {
+int resolveWindowTotalOrFail(const drogon::orm::Result &result,
+                             int64_t offset) {
     const int total = extractWindowTotal(result);
     if (!result.empty() || offset <= 0) {
         return total;
@@ -243,7 +243,7 @@ void AdminManagementController::getUsers(const HttpRequestPtr &req,
             }
         };
         auto result = execWithParams();
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value users(Json::arrayValue);
         for (const auto &row : result) {
@@ -459,7 +459,7 @@ void AdminManagementController::getContents(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -549,7 +549,7 @@ void AdminManagementController::getStones(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = resolveWindowTotalOrFallbackCount(result, offset);
+        int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -687,7 +687,7 @@ void AdminManagementController::getBoats(const HttpRequestPtr &req,
         };
 
         auto result = execWithParams();
-        int total = resolveWindowTotalOrFallbackCount(result, offset);
+        int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -766,7 +766,7 @@ void AdminManagementController::getPendingModeration(const HttpRequestPtr &req,
             "ORDER BY r.created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>(offset)
         );
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -938,7 +938,7 @@ void AdminManagementController::getModerationHistory(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1006,7 +1006,7 @@ void AdminManagementController::getReports(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
@@ -1154,7 +1154,7 @@ void AdminManagementController::getSensitiveWords(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value words(Json::arrayValue);
         for (const auto &row : result) {
@@ -1341,7 +1341,7 @@ void AdminManagementController::getBroadcastHistory(const HttpRequestPtr &req,
             "FROM broadcast_messages ORDER BY created_at DESC LIMIT $1 OFFSET $2",
             static_cast<int64_t>(pageSize), static_cast<int64_t>((page - 1) * pageSize)
         );
-        const int total = resolveWindowTotalOrFallbackCount(
+        const int total = resolveWindowTotalOrFail(
             result, static_cast<int64_t>(page - 1) * pageSize);
 
         Json::Value list(Json::arrayValue);
@@ -1422,7 +1422,7 @@ void AdminManagementController::getOperationLogs(const HttpRequestPtr &req,
 
         auto result = execSqlWithStringParamsAndPagination(
             dbClient, querySql, params, static_cast<int64_t>(pageSize), offset);
-        const int total = resolveWindowTotalOrFallbackCount(result, offset);
+        const int total = resolveWindowTotalOrFail(result, offset);
 
         Json::Value list(Json::arrayValue);
         for (const auto &row : result) {
