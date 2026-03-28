@@ -1832,7 +1832,8 @@ void EdgeAIController::lakeGodChat(
 
             // 生成湖神回复
             auto &rag = heartlake::ai::DualMemoryRAG::getInstance();
-            auto aiReply = rag.generateResponse(userId, content, sentiment.mood, sentiment.score);
+            auto ragReply =
+                rag.generateResponseResult(userId, content, sentiment.mood, sentiment.score);
 
             // 异步存入数据库
             auto db = drogon::app().getDbClient("default");
@@ -1850,16 +1851,26 @@ void EdgeAIController::lakeGodChat(
                 [](const drogon::orm::DrogonDbException &e) {
                     LOG_ERROR << "Insert lake_god_messages (assistant) failed: " << e.base().what();
                 },
-                userId, "assistant", aiReply, sentiment.mood, sentiment.score
+                userId, "assistant", ragReply.reply, sentiment.mood, sentiment.score
             );
 
             Json::Value data;
-            data["reply"] = aiReply;
+            data["reply"] = ragReply.reply;
             data["mood"] = sentiment.mood;
             data["score"] = sentiment.score;
             data["agent"] = "lake_god";
             data["agent_name"] = "湖神";
-            callback(ResponseUtil::success(data, "湖神回复成功"));
+            data["response_source"] = ragReply.source;
+            data["degraded"] = ragReply.degraded;
+            if (!ragReply.error.empty()) {
+                data["warning"] = ragReply.error;
+                data["ai_error"] = ragReply.error;
+                LOG_WARN << "lakeGodChat degraded for user " << userId
+                         << ": " << ragReply.error;
+            }
+            callback(ResponseUtil::success(
+                data,
+                ragReply.degraded ? "湖神本地陪伴回复" : "湖神回复成功"));
         } catch (const std::exception &e) {
             LOG_ERROR << "lakeGodChat error: " << e.what();
             callback(ResponseUtil::error(ErrorCode::AI_SERVICE_ERROR, "湖神对话服务暂时不可用"));

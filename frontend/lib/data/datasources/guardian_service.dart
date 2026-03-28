@@ -98,10 +98,19 @@ class GuardianService extends BaseService {
 
     final payload = _normalizeGuardianPayload(response.data);
     final reply = payload['reply'] ?? payload['response'] ?? payload['content'];
-    if (reply != null) {
-      payload['reply'] = reply;
-      payload['response'] = reply;
-      payload['content'] = reply;
+    if (reply == null || reply.toString().trim().isEmpty) {
+      throw StateError('Guardian chat success payload is missing reply');
+    }
+    payload['reply'] = reply;
+    payload['response'] = reply;
+    payload['content'] = reply;
+    final responseSource =
+        payload['response_source']?.toString() ?? payload['source']?.toString();
+    if (responseSource != null && responseSource.isNotEmpty) {
+      payload['response_source'] = responseSource;
+      payload['source'] = responseSource;
+      payload['degraded'] =
+          payload['degraded'] == true || responseSource == 'local_fallback';
     }
 
     return {
@@ -109,6 +118,8 @@ class GuardianService extends BaseService {
       'data': payload,
       'reply': payload['reply'],
       'response': payload['response'],
+      'response_source': payload['response_source'],
+      'degraded': payload['degraded'],
     };
   }
 }

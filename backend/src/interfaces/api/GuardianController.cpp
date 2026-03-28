@@ -122,13 +122,24 @@ void GuardianController::chat(const HttpRequestPtr& req, std::function<void(cons
         float emotionScore = jsonBody->get("emotion_score", 0.5f).asFloat();
 
         auto& dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
-        std::string reply = dualMemory.generateResponse(*userId, content, emotion, emotionScore);
+        auto replyResult =
+            dualMemory.generateResponseResult(*userId, content, emotion, emotionScore);
 
         Json::Value response;
-        response["reply"] = reply;
+        response["reply"] = replyResult.reply;
         response["agent"] = "lake_god";
         response["agent_name"] = "湖神";
-        callback(ResponseUtil::success(response));
+        response["response_source"] = replyResult.source;
+        response["degraded"] = replyResult.degraded;
+        if (!replyResult.error.empty()) {
+            response["warning"] = replyResult.error;
+            response["ai_error"] = replyResult.error;
+            LOG_WARN << "GuardianController chat degraded for user " << *userId
+                     << ": " << replyResult.error;
+        }
+        callback(ResponseUtil::success(
+            response,
+            replyResult.degraded ? "湖神本地陪伴回复" : "湖神回复成功"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Failed to chat with lake god for user " << *userId << ": " << e.what();
         callback(ResponseUtil::internalError("湖神暂时无法回应"));

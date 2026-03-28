@@ -766,7 +766,7 @@ std::string DualMemoryRAG::buildRAGPrompt(
     return prompt.str();
 }
 
-std::string DualMemoryRAG::generateResponse(
+RagReplyResult DualMemoryRAG::generateResponseResult(
     const std::string& userId,
     const std::string& currentContent,
     const std::string& currentEmotion,
@@ -809,6 +809,7 @@ std::string DualMemoryRAG::generateResponse(
     auto waitState = std::make_shared<ReplyWaitState>();
     std::string result;
     std::string aiError;
+    RagReplyResult replyResult;
 
     auto& aiService = AIService::getInstance();
     aiService.generateReply(currentContent, ragPrompt,
@@ -844,6 +845,7 @@ std::string DualMemoryRAG::generateResponse(
     }
 
     if (!completed) {
+        aiError = "AI response timed out";
         LOG_WARN << "DualMemoryRAG AI response timeout(" << timeoutSec
                  << "s), fallback to local companion reply";
     }
@@ -853,16 +855,41 @@ std::string DualMemoryRAG::generateResponse(
     }
 
     if (!completed || !aiError.empty() || result.empty() || isGenericTemplateReply(result)) {
-        result = buildLocalCompanionReply(
+        replyResult.reply = buildLocalCompanionReply(
             memoryCopy.longTerm,
             userId,
             currentContent,
             currentEmotion,
             emotionScore
         );
+        replyResult.source = "local_fallback";
+        replyResult.degraded = true;
+        if (!aiError.empty()) {
+            replyResult.error = aiError;
+        } else if (result.empty()) {
+            replyResult.error = "AI response is empty";
+        } else {
+            replyResult.error = "AI response is generic";
+        }
+        return replyResult;
     }
 
-    return result;
+    replyResult.reply = result;
+    return replyResult;
+}
+
+std::string DualMemoryRAG::generateResponse(
+    const std::string& userId,
+    const std::string& currentContent,
+    const std::string& currentEmotion,
+    float emotionScore
+) {
+    return generateResponseResult(
+               userId,
+               currentContent,
+               currentEmotion,
+               emotionScore)
+        .reply;
 }
 
 Json::Value DualMemoryRAG::getEmotionInsights(const std::string& userId) {

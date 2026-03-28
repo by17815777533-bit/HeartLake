@@ -592,7 +592,9 @@ async function fetchWords() {
   wordsError.value = ''
   try {
     const res = await api.getSensitiveWords(buildParams(filters))
-    const { items, total } = normalizeCollectionResponse<unknown>(res.data, ['words'])
+    const { items, total } = normalizeCollectionResponse<unknown>(res.data, ['words'], {
+      requireExplicitTotal: true,
+    })
     wordList.value = items.map((item) => normalizeSensitiveWord(item))
     pagination.total = total
   } catch (e) {

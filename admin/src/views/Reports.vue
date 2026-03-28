@@ -436,7 +436,9 @@ async function fetchReports() {
   loading.value = true
   try {
     const res = await api.getReports(buildParams(filters))
-    const { items, total } = normalizeCollectionResponse<Report>(res.data, ['reports'])
+    const { items, total } = normalizeCollectionResponse<Report>(res.data, ['reports'], {
+      requireExplicitTotal: true,
+    })
     reportList.value = items
     pagination.total = total
     reportsError.value = ''

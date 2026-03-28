@@ -219,6 +219,11 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         final data = result['data'] as Map<String, dynamic>;
         final reply = data['reply']?.toString();
         final mood = data['mood']?.toString();
+        final responseSource =
+            data['response_source']?.toString() ?? data['source']?.toString();
+        final degraded = data['degraded'] == true ||
+            responseSource == 'local_fallback';
+        final warning = data['warning']?.toString() ?? data['ai_error']?.toString();
         setState(() {
           _isSending = false;
           _messages.add({
@@ -234,6 +239,18 @@ class _LakeGodChatScreenState extends State<LakeGodChatScreen> {
         });
         _controller.clear();
         _scrollToBottom();
+        if (degraded) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                warning == null || warning.trim().isEmpty
+                    ? '远端湖神暂不可用，当前为本地陪伴回复'
+                    : '远端湖神暂不可用，当前为本地陪伴回复: $warning',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
 
       await _loadEmotionPulse();

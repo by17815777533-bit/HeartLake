@@ -43,12 +43,22 @@ class LakeGodService extends BaseService {
     payload['reply'] = reply;
     payload['response'] = reply;
     payload['content'] = reply;
+    final responseSource =
+        payload['response_source']?.toString() ?? payload['source']?.toString();
+    if (responseSource != null && responseSource.isNotEmpty) {
+      payload['response_source'] = responseSource;
+      payload['source'] = responseSource;
+      payload['degraded'] = payload['degraded'] == true ||
+          responseSource == 'local_fallback';
+    }
 
     return {
       ...toMap(resp),
       'data': payload,
       'reply': payload['reply'],
       'response': payload['response'],
+      'response_source': payload['response_source'],
+      'degraded': payload['degraded'],
     };
   }
 

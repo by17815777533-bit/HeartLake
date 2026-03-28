@@ -19,6 +19,13 @@
 
 namespace heartlake::ai {
 
+struct RagReplyResult {
+    std::string reply;
+    std::string source = "ai";
+    std::string error;
+    bool degraded = false;
+};
+
 /**
  * @brief 用户情绪记忆体，包含短期交互记忆和长期情绪画像
  * @details 所有记忆使用 shadow_id 存储，不关联真实身份，保护用户隐私。
@@ -84,6 +91,13 @@ public:
      * @return AI生成的个性化回复
      */
     std::string generateResponse(
+        const std::string& userId,
+        const std::string& currentContent,
+        const std::string& currentEmotion,
+        float emotionScore
+    );
+
+    RagReplyResult generateResponseResult(
         const std::string& userId,
         const std::string& currentContent,
         const std::string& currentEmotion,
