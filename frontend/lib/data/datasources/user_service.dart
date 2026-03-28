@@ -124,16 +124,15 @@ class UserPayloadNormalizer {
     return null;
   }
 
-  static int extractTotal(dynamic payload, {int fallback = 0}) {
+  static int extractTotal(dynamic payload) {
     final direct = extractExplicitTotal(payload);
     if (direct != null) return direct;
-    final users = extractUserList(payload);
-    return users.isEmpty ? fallback : users.length;
+    throw StateError('用户集合响应缺少 total');
   }
 
   static Map<String, dynamic> buildUserCollection(dynamic payload) {
     final users = extractUserList(payload);
-    final total = extractTotal(payload, fallback: users.length);
+    final total = extractTotal(payload);
     return buildCollectionEnvelope(
       payload,
       primaryKey: 'users',
@@ -409,6 +408,7 @@ class UserService extends BaseService {
         response.data,
         primaryKey: 'boats',
         items: boats,
+        requireExplicitTotal: true,
       ),
     };
   }
