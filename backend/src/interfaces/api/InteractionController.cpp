@@ -523,30 +523,11 @@ void InteractionController::upgradeConnectionToFriend(
   try {
     auto service = getInteractionService();
     auto result = service->upgradeConnectionToFriend(connectionId, userId);
-
-    // 广播好友升级事件
-    if (result.isMember("friend_id")) {
-      const auto friendId = result["friend_id"].asString();
-      Json::Value broadcastMsg;
-      broadcastMsg["friendship_id"] = result["friendship_id"].asString();
-      broadcastMsg["from_user_id"] = userId;
-      broadcastMsg["friend_id"] = friendId;
-      broadcastMsg["peer_id"] = friendId;
-      BroadcastWebSocketController::sendToUser(
-          friendId, buildRealtimeEvent("friend_accepted", broadcastMsg));
-
-      Json::Value selfMsg = broadcastMsg;
-      selfMsg["friend_id"] = friendId;
-      selfMsg["peer_id"] = friendId;
-      BroadcastWebSocketController::sendToUser(
-          userId, buildRealtimeEvent("friend_accepted", std::move(selfMsg)));
-    }
-
-    callback(ResponseUtil::success(result, "升级为好友成功"));
+    callback(ResponseUtil::success(result));
 
   } catch (const std::runtime_error &e) {
     LOG_ERROR << "Error in upgradeConnectionToFriend: " << e.what();
-    callback(ResponseUtil::error(400, "操作失败"));
+    callback(ResponseUtil::error(400, e.what()));
   } catch (const std::exception &e) {
     LOG_ERROR << "Unexpected error in upgradeConnectionToFriend: " << e.what();
     callback(ResponseUtil::internalError("升级为好友失败"));

@@ -1727,69 +1727,11 @@ Json::Value InteractionApplicationService::getConnectionMessages(
   }
 }
 
-/// 将临时连接升级为正式好友关系，同时将连接状态标记为 'upgraded'
 Json::Value InteractionApplicationService::upgradeConnectionToFriend(
     const std::string &connectionId, const std::string &userId) {
-  auto dbClient = drogon::app().getDbClient("default");
-  try {
-    auto trans = dbClient->newTransaction();
-
-    auto connResult = trans->execSqlSync(
-        "SELECT connection_id, user_id, target_user_id, status, expires_at "
-        "FROM connections "
-        "WHERE connection_id = $1 "
-        "AND (user_id = $2 OR target_user_id = $2) "
-        "AND status IN ('pending', 'active') "
-        "AND NOT EXISTS(SELECT 1 FROM user_blocks ub "
-        "               WHERE (ub.user_id = connections.user_id "
-        "                      AND ub.blocked_user_id = connections.target_user_id) "
-        "                  OR (ub.user_id = connections.target_user_id "
-        "                      AND ub.blocked_user_id = connections.user_id)) "
-        "AND (expires_at IS NULL OR expires_at > NOW())",
-        connectionId, userId);
-    if (connResult.empty()) {
-      throw std::runtime_error("连接不存在或已过期");
-    }
-
-    const auto row = connResult[0];
-    const auto ownerUserId = row["user_id"].as<std::string>();
-    const auto targetUserId = row["target_user_id"].as<std::string>();
-    const std::string otherUserId =
-        ownerUserId == userId ? targetUserId : ownerUserId;
-
-    auto existingFriendship =
-        trans->execSqlSync("SELECT friendship_id FROM friends "
-                           "WHERE ((user_id = $1 AND friend_id = $2) "
-                           "   OR (user_id = $2 AND friend_id = $1)) "
-                           "AND status = 'accepted' "
-                           "LIMIT 1",
-                           userId, otherUserId);
-
-    std::string friendshipId;
-    if (!existingFriendship.empty()) {
-      friendshipId = existingFriendship[0]["friendship_id"].as<std::string>();
-    } else {
-      friendshipId = utils::IdGenerator::generateUUID();
-      trans->execSqlSync(
-          "INSERT INTO friends (friendship_id, user_id, friend_id, status, "
-          "created_at) VALUES ($1, $2, $3, 'accepted', NOW())",
-          friendshipId, ownerUserId, targetUserId);
-    }
-
-    // 更新连接状态
-    trans->execSqlSync(
-        "UPDATE connections SET status = 'upgraded' WHERE connection_id = $1",
-        connectionId);
-
-    Json::Value result;
-    result["friendship_id"] = friendshipId;
-    result["friend_id"] = otherUserId;
-    return result;
-
-  } catch (const drogon::orm::DrogonDbException &e) {
-    LOG_ERROR << "Failed to upgrade connection: " << e.base().what();
-    throw std::runtime_error("升级好友失败");
-  }
+  (void)connectionId;
+  (void)userId;
+  throw std::runtime_error("当前关系模式不支持手动升级好友");
 }
 
 } // namespace application
