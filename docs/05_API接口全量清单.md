@@ -121,7 +121,7 @@ POST `/api/account/delete-permanent` 请求体：
 
 兼容说明：
 
-- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则兼容 `DEACTIVATE` / `DELETE`
+- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，兼容 `DEACTIVATE` / `DELETE`
 - `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 
 ---

@@ -145,7 +145,7 @@ curl -X POST http://localhost:8080/api/admin/login \
 
 说明：
 
-- `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 允许空请求体；如提供 `confirmation`，则接受 `DEACTIVATE` 和历史值 `DELETE`
+- `POST /api/account/deactivate` 与兼容路由 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，接受 `DEACTIVATE` 和历史值 `DELETE`
 - `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
 - 二进制头像上传统一走 `POST /api/media/upload`，返回 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/users/my/profile`
 - 移动端登录恢复链现在只接受完整持久化会话；客户端若只剩 `token`、缺失 `user_id`，或 `POST /api/auth/refresh` 成功包缺少 `token/user_id`，都会按失败处理，不再继续放行首页
