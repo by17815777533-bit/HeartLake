@@ -833,9 +833,6 @@ void RecommendationController::getTrendingContent(
             } catch (const std::exception &e) {
                 LOG_ERROR << "Error in getTrendingContent Redis callback: " << e.what();
                 (*cb)(ResponseUtil::internalError("获取热门内容失败"));
-            } catch (...) {
-                LOG_ERROR << "Non-std exception in getTrendingContent Redis callback";
-                (*cb)(ResponseUtil::internalError("获取热门内容失败"));
             }
         });
 
