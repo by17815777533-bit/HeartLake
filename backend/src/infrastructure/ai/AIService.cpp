@@ -380,9 +380,12 @@ void AIService::analyzeSentiment(
         return;
     }
 
-    auto fanout = [this, sentimentKey](float score, const std::string& mood, const std::string& error) {
+    auto fanout = [this, sentimentKey](float score,
+                                       const std::string& mood,
+                                       const std::string& error,
+                                       bool cacheable = true) {
         const std::string canonicalMood = canonicalizeMood(mood);
-        if (error.empty()) {
+        if (error.empty() && cacheable) {
             putSentimentToCache(sentimentKey, score, canonicalMood);
         }
         completeSentimentInFlight(sentimentKey, score, canonicalMood, error);
@@ -411,7 +414,7 @@ void AIService::analyzeSentiment(
                 if (adaptiveBypass && local.confidence < localSentimentConfidenceThreshold_) {
                     LOG_WARN << "Adaptive sentiment bypass triggered, confidence=" << local.confidence;
                 }
-                fanout(local.score, local.mood, "");
+                fanout(local.score, local.mood, "", false);
                 return;
             }
         }
@@ -447,14 +450,14 @@ void AIService::analyzeSentiment(
     auto fallback = [text, fanout, hasLocalCandidate, localScoreCandidate, localMoodCandidate]() {
         if (hasLocalCandidate) {
             LOG_WARN << "Sentiment fallback to local candidate";
-            fanout(localScoreCandidate, localMoodCandidate, "");
+            fanout(localScoreCandidate, localMoodCandidate, "", false);
             return;
         }
         LOG_WARN << "Sentiment fallback to local model";
         runLocalSentimentFallback(
             text,
             [fanout](float score, const std::string& mood, const std::string& error) {
-                fanout(score, mood, error);
+                fanout(score, mood, error, false);
             }
         );
     };
