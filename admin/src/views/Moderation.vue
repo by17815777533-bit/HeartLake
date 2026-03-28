@@ -524,7 +524,9 @@ async function fetchPending() {
   loading.value = true
   try {
     const res = await api.getPendingModeration(buildPendingParams())
-    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['pending'])
+    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['pending'], {
+      requireExplicitTotal: true,
+    })
     pendingList.value = items
     pagination.total = total
     pendingError.value = ''
@@ -542,7 +544,9 @@ async function fetchHistory() {
   historyLoading.value = true
   try {
     const res = await api.getModerationHistory(buildHistoryParams(historyFilters))
-    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['history'])
+    const { items, total } = normalizeCollectionResponse<ModerationItem>(res.data, ['history'], {
+      requireExplicitTotal: true,
+    })
     historyList.value = items
     historyPagination.total = total
     historyError.value = ''

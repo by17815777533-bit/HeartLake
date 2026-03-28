@@ -198,9 +198,12 @@ const handleLogin = async () => {
     if (!token) {
       throw new Error('登录返回缺少token')
     }
+    const user = resData.user || resData.admin
+    if (!user || typeof user !== 'object') {
+      throw new Error('登录返回缺少管理员信息')
+    }
     appStore.setToken(token)
     // PASETO token 不可客户端解码，直接存储登录响应中的用户信息
-    const user = resData.user || resData.admin || { username: form.username }
     appStore.setUserInfo(user)
     failCount.value = 0
     loginError.value = ''

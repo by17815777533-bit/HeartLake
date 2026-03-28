@@ -339,10 +339,7 @@ const advancedChainMode = ref('')
 const advancedReferenceStoneId = ref('')
 const advancedReferenceSource = ref('')
 
-const advancedResponseAlgorithms = new Set([
-  'emotion_resonance_hybrid',
-  'multi_armed_bandit_mmr',
-])
+const advancedResponseAlgorithms = new Set(['emotion_resonance_hybrid', 'multi_armed_bandit_mmr'])
 
 // 搜索输入防抖，昵称输入 300ms 后自动触发搜索
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -564,7 +561,10 @@ const loadAdvancedRecommendations = async (userId: string, showFeedback = false)
     if (items.some((item) => !String(item.algorithm || '').trim())) {
       throw new Error('高级推荐条目缺少算法标识')
     }
-    if (responseAlgorithm === 'emotion_resonance_hybrid' && (!referenceStoneId || !referenceSource)) {
+    if (
+      responseAlgorithm === 'emotion_resonance_hybrid' &&
+      (!referenceStoneId || !referenceSource)
+    ) {
       throw new Error('高级共鸣结果缺少参考石头元数据')
     }
 
@@ -732,7 +732,9 @@ const fetchUsers = async () => {
     const params = buildParams(extra)
 
     const res = await api.getUsers(params)
-    const { items, total } = normalizeCollectionResponse<User>(res.data, ['users'])
+    const { items, total } = normalizeCollectionResponse<User>(res.data, ['users'], {
+      requireExplicitTotal: true,
+    })
     users.value = items
     pagination.total = total
     usersError.value = ''

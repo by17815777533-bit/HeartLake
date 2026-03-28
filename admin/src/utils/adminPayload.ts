@@ -108,13 +108,17 @@ export function toTimestamp(value: unknown): number {
 }
 
 export function sortByCreatedAtDesc<T extends { created_at?: string }>(items: T[]): T[] {
-  return [...items].sort((left, right) => toTimestamp(right.created_at) - toTimestamp(left.created_at))
+  return [...items].sort(
+    (left, right) => toTimestamp(right.created_at) - toTimestamp(left.created_at),
+  )
 }
 
 export function toStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
-      .filter((item): item is string | number => typeof item === 'string' || typeof item === 'number')
+      .filter(
+        (item): item is string | number => typeof item === 'string' || typeof item === 'number',
+      )
       .map((item) => String(item))
       .filter(Boolean)
   }
@@ -136,15 +140,16 @@ export function toStringList(value: unknown): string[] {
 export function normalizeContentItem(payload: unknown, typeHint?: ContentType): ContentItem {
   const source = normalizeAdminPayload(payload)
   const inferredType =
-    typeHint
-    ?? (hasValue(source.boat_id) ? 'boat' : hasValue(source.stone_id) ? 'stone' : undefined)
-    ?? (pickString(source, ['type', 'content_type', 'target_type']) === 'boat' ? 'boat' : 'stone')
+    typeHint ??
+    (hasValue(source.boat_id) ? 'boat' : hasValue(source.stone_id) ? 'stone' : undefined) ??
+    (pickString(source, ['type', 'content_type', 'target_type']) === 'boat' ? 'boat' : 'stone')
   const contentType = inferredType as ContentType
   const nickname = pickString(source, ['author_nickname', 'nickname', 'user_nickname'])
   const rawStatus = pickString(source, ['status']) ?? 'published'
 
   return {
-    id: pickIdentifier(source, contentType === 'boat' ? ['boat_id', 'id'] : ['stone_id', 'id']) ?? '',
+    id:
+      pickIdentifier(source, contentType === 'boat' ? ['boat_id', 'id'] : ['stone_id', 'id']) ?? '',
     user_id: pickString(source, ['user_id', 'author_id', 'sender_id']) ?? '',
     nickname,
     user: nickname ? { nickname } : undefined,
@@ -163,7 +168,9 @@ export function normalizeContentCollection(
   type: ContentType | undefined,
   semanticKeys: readonly string[],
 ): { items: ContentItem[]; total: number } {
-  const { items, total } = normalizeCollectionResponse<AdminRecord>(payload, semanticKeys)
+  const { items, total } = normalizeCollectionResponse<AdminRecord>(payload, semanticKeys, {
+    requireExplicitTotal: true,
+  })
   return {
     items: items.map((item) => normalizeContentItem(item, type)),
     total,

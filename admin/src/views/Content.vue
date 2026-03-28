@@ -538,22 +538,9 @@ async function fetchContent() {
     }
 
     const res = await api.getContents(params)
-    if (res?.data) {
-      const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
-      contentList.value = sortByCreatedAtDesc(items)
-      pagination.total = total
-      contentError.value = ''
-      return
-    }
-
-    const [stonesRes, boatsRes] = await Promise.all([api.getStones(params), api.getBoats(params)])
-    const stones = normalizeContentCollection(stonesRes?.data, 'stone', ['stones'])
-    const boats = normalizeContentCollection(boatsRes?.data, 'boat', ['boats'])
-    contentList.value = sortByCreatedAtDesc([...stones.items, ...boats.items]).slice(
-      0,
-      pagination.pageSize,
-    )
-    pagination.total = stones.total + boats.total
+    const { items, total } = normalizeContentCollection(res.data, undefined, ['contents'])
+    contentList.value = sortByCreatedAtDesc(items)
+    pagination.total = total
     contentError.value = ''
   } catch (e) {
     if (isRequestCanceled(e)) return

@@ -531,7 +531,9 @@ async function fetchLogs() {
     }
     const params = buildParams(extra)
     const res = await api.getOperationLogs(params)
-    const { items, total } = normalizeCollectionResponse<OperationLog>(res.data, ['logs'])
+    const { items, total } = normalizeCollectionResponse<OperationLog>(res.data, ['logs'], {
+      requireExplicitTotal: true,
+    })
     logList.value = items
     pagination.total = total
   } catch (e) {

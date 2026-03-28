@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <drogon/drogon.h>
 #include <json/json.h>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -229,10 +230,7 @@ void invalidateStoneListCaches(
                                                                  moodType);
 }
 
-int resolveStoneListTotal(const drogon::orm::DbClientPtr &dbClient,
-                          const drogon::orm::Result &result, int page,
-                          const std::string &userId,
-                          const std::string &filterMood) {
+int resolveStoneListTotalOrFail(const drogon::orm::Result &result, int page) {
   if (!result.empty()) {
     return result[0]["total_count"].isNull() ? 0
                                              : result[0]["total_count"].as<int>();
@@ -240,36 +238,7 @@ int resolveStoneListTotal(const drogon::orm::DbClientPtr &dbClient,
   if (page <= 1) {
     return 0;
   }
-
-  std::string countSql =
-      "SELECT COUNT(*)::INTEGER AS total_count "
-      "FROM stones s "
-      "WHERE s.deleted_at IS NULL AND s.status = 'published' ";
-  int paramIndex = 1;
-  if (!userId.empty()) {
-    countSql += "AND s.user_id = $" + std::to_string(paramIndex++) + " ";
-  }
-  if (!filterMood.empty()) {
-    countSql += "AND s.mood_type = $" + std::to_string(paramIndex++) + " ";
-  }
-
-  auto countResult = [&]() -> drogon::orm::Result {
-    if (!userId.empty() && !filterMood.empty()) {
-      return dbClient->execSqlSync(countSql, userId, filterMood);
-    }
-    if (!userId.empty()) {
-      return dbClient->execSqlSync(countSql, userId);
-    }
-    if (!filterMood.empty()) {
-      return dbClient->execSqlSync(countSql, filterMood);
-    }
-    return dbClient->execSqlSync(countSql);
-  }();
-
-  if (countResult.empty() || countResult[0]["total_count"].isNull()) {
-    return 0;
-  }
-  return countResult[0]["total_count"].as<int>();
+  throw std::out_of_range("页码超出范围");
 }
 
 std::string serializeRiskFactors(
@@ -575,14 +544,10 @@ Json::Value StoneApplicationService::getStoneList(
       }();
 
       Json::Value stones(Json::arrayValue);
-      int total = 0;
       for (const auto &row : result) {
-        if (total == 0 && !row["total_count"].isNull()) {
-          total = row["total_count"].as<int>();
-        }
         stones.append(buildStoneJson(row));
       }
-      total = resolveStoneListTotal(dbClient, result, page, userId, filterMood);
+      const int total = resolveStoneListTotalOrFail(result, page);
       response = ResponseUtil::buildCollectionPayload("stones", stones, total, page,
                                                       pageSize);
 

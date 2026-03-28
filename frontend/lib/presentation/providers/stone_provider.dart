@@ -91,7 +91,6 @@ class StoneProvider with ChangeNotifier {
   bool _resolveHasMore(
     Map<String, dynamic> result, {
     required int page,
-    required int itemCount,
   }) {
     final pagination = result['pagination'];
     if (pagination is Map<String, dynamic>) {
@@ -114,8 +113,7 @@ class StoneProvider with ChangeNotifier {
     if (hasMore is bool) {
       return hasMore;
     }
-
-    return itemCount > 0;
+    throw StateError('石头列表响应缺少显式分页信息');
   }
 
   void _rebuildStoneIndex() {
@@ -415,22 +413,30 @@ class StoneProvider with ChangeNotifier {
         final cached = _cache.get<Map<String, dynamic>>(cacheKey);
         final cachedStones = (cached?['stones'] as List?)?.cast<Stone>();
         if (cached != null && cachedStones != null) {
-          if (page == 1) {
-            _stones = List<Stone>.from(cachedStones);
-          } else {
-            _stones.addAll(cachedStones);
+          try {
+            final resolvedHasMore = _resolveHasMore(
+              cached,
+              page: page,
+            );
+            if (page == 1) {
+              _stones = List<Stone>.from(cachedStones);
+            } else {
+              _stones.addAll(cachedStones);
+            }
+            _rebuildStoneIndex();
+            _currentPage = page;
+            _hasMore = resolvedHasMore;
+            _errorMessage = null;
+            _isLoading = false;
+            notifyListeners();
+            return;
+          } catch (error, stackTrace) {
+            _reportProviderError(
+              error,
+              stackTrace,
+              'StoneProvider.loadStones.invalidCache',
+            );
           }
-          _rebuildStoneIndex();
-          _currentPage = page;
-          _hasMore = _resolveHasMore(
-            cached,
-            page: page,
-            itemCount: cachedStones.length,
-          );
-          _errorMessage = null;
-          _isLoading = false;
-          notifyListeners();
-          return;
         }
       }
 
@@ -449,7 +455,6 @@ class StoneProvider with ChangeNotifier {
         _hasMore = _resolveHasMore(
           result,
           page: page,
-          itemCount: newStones.length,
         );
         _errorMessage = null;
 
@@ -498,7 +503,6 @@ class StoneProvider with ChangeNotifier {
         _hasMore = _resolveHasMore(
           result,
           page: page,
-          itemCount: newStones.length,
         );
 
         if (newStones.isNotEmpty) {

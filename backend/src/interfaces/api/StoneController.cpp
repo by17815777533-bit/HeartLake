@@ -16,6 +16,7 @@
 #include <memory>
 #include <regex>
 #include <set>
+#include <stdexcept>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -291,6 +292,9 @@ void StoneController::getStones(
 
         callback(ResponseUtil::success(result));
 
+    } catch (const std::out_of_range& e) {
+        LOG_WARN << "Stone page out of range: " << e.what();
+        callback(ResponseUtil::badRequest("页码超出范围"));
     } catch (const std::exception& e) {
         LOG_ERROR << "Error in getStones: " << e.what();
         callback(ResponseUtil::internalError("获取石头列表失败"));
@@ -359,6 +363,9 @@ void StoneController::getMyStones(
 
         callback(ResponseUtil::success(result));
 
+    } catch (const std::out_of_range& e) {
+        LOG_WARN << "My stones page out of range: " << e.what();
+        callback(ResponseUtil::badRequest("页码超出范围"));
     } catch (const std::runtime_error& e) {
         LOG_ERROR << "Error in getMyStones: " << e.what();
         // SEC-XSS: 转义错误消息

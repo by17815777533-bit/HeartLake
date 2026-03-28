@@ -65,7 +65,12 @@ class StoneService extends BaseService implements StoneDataSource {
         );
       }
     }
-    return buildCollectionEnvelope(data, primaryKey: 'stones', items: stones);
+    return buildCollectionEnvelope(
+      data,
+      primaryKey: 'stones',
+      items: stones,
+      requireExplicitTotal: true,
+    );
   }
 
   String _normalizeSort(String sort) {

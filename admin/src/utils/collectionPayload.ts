@@ -6,6 +6,10 @@ export interface NormalizedCollectionResponse<T = unknown> {
   total: number
 }
 
+interface NormalizeCollectionOptions {
+  requireExplicitTotal?: boolean
+}
+
 function isRecordLike(value: unknown): value is RecordLike {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -21,32 +25,23 @@ function pickNumber(value: unknown): number | null {
   return null
 }
 
-function buildArrayPayload<T>(items: T[], fallback: RecordLike = {}): RecordLike {
-  const pagination = isRecordLike(fallback.pagination) ? fallback.pagination : null
-  return {
-    ...fallback,
-    data: items,
-    list: items,
-    items,
-    total:
-      pickNumber(fallback.total) ??
-      pickNumber(fallback.count) ??
-      pickNumber(fallback.total_count) ??
-      (pagination ? pickNumber(pagination.total) : null) ??
-      items.length,
-    count: pickNumber(fallback.count) ?? items.length,
-  }
-}
-
 function unwrapPayload(payload: unknown): RecordLike {
   if (Array.isArray(payload)) {
-    return buildArrayPayload(payload)
+    return {
+      data: payload,
+      list: payload,
+      items: payload,
+    }
   }
   if (!isRecordLike(payload)) return {}
 
   const nested = payload.data
   if (Array.isArray(nested)) {
-    return buildArrayPayload(nested, payload)
+    return {
+      ...payload,
+      list: nested,
+      items: nested,
+    }
   }
   if (isRecordLike(nested) && nested !== payload) {
     return { ...payload, ...unwrapPayload(nested) }
@@ -71,16 +66,22 @@ export function normalizePayloadRecord(payload: unknown): RecordLike {
 export function normalizeCollectionResponse<T = unknown>(
   payload: unknown,
   semanticKeys: readonly string[] = [],
+  options: NormalizeCollectionOptions = {},
 ): NormalizedCollectionResponse<T> {
   const data = normalizePayloadRecord(payload)
   const items = pickArray<T>(data, [...semanticKeys, 'list', 'items'])
   const pagination = isRecordLike(data.pagination) ? data.pagination : null
-  const total =
+  const explicitTotal =
     pickNumber(data.total) ??
     pickNumber(data.count) ??
     pickNumber(data.total_count) ??
-    (pagination ? pickNumber(pagination.total) : null) ??
-    items.length
+    (pagination ? pickNumber(pagination.total) : null)
+
+  if (options.requireExplicitTotal && explicitTotal == null) {
+    throw new Error('集合响应缺少显式 total/count/pagination.total')
+  }
+
+  const total = explicitTotal ?? items.length
 
   return { data, items, total }
 }
