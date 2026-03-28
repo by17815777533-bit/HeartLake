@@ -18,6 +18,7 @@
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <algorithm>
+#include <stdexcept>
 #include <array>
 #include <memory>
 
@@ -58,21 +59,13 @@ static int extractWindowTotal(const drogon::orm::Result& result,
         : result[0][column].as<int>();
 }
 
-static int resolveHighRiskTotal(const drogon::orm::DbClientPtr &dbClient,
-                                const drogon::orm::Result &result,
-                                int offset,
-                                const std::string &status) {
+static int resolveHighRiskTotalOrFail(const drogon::orm::Result &result,
+                                      int offset) {
     const int total = extractWindowTotal(result);
     if (!result.empty() || offset <= 0) {
         return total;
     }
-    return safeCount(
-        !status.empty()
-            ? dbClient->execSqlSync(
-                  "SELECT COUNT(*) as total FROM high_risk_events WHERE status = $1",
-                  status)
-            : dbClient->execSqlSync(
-                  "SELECT COUNT(*) as total FROM high_risk_events"));
+    throw std::out_of_range("页码超出范围");
 }
 
 static bool isValidHighRiskEventStatus(const std::string &status) {
@@ -659,7 +652,7 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
             data.append(event);
         }
 
-        const int total = resolveHighRiskTotal(dbClient, result, offset, status);
+        const int total = resolveHighRiskTotalOrFail(result, offset);
         const int page = limit > 0 ? (offset / limit) + 1 : 1;
 
         Json::Value response = ResponseUtil::buildCollectionPayload(
@@ -668,6 +661,9 @@ void AdminController::getHighRiskEvents(const HttpRequestPtr &req,
         response["offset"] = offset;
 
         callback(ResponseUtil::success(response));
+    } catch (const std::out_of_range &e) {
+        LOG_WARN << "High risk events page out of range: " << e.what();
+        callback(ResponseUtil::badRequest("页码超出范围"));
     } catch (const std::exception &e) {
         LOG_ERROR << "Error in getHighRiskEvents: " << e.what();
         callback(ResponseUtil::internalError("获取高风险事件失败"));
