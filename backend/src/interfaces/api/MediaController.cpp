@@ -247,6 +247,7 @@ void MediaController::serve(
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &category, const std::string &filename) {
   try {
+    (void)req;
     static const std::array<std::string_view, 3> allowedCategories = {
         "images", "audio", "video"};
     if (std::find(allowedCategories.begin(), allowedCategories.end(),
@@ -269,8 +270,8 @@ void MediaController::serve(
       return;
     }
 
-    auto response = HttpResponse::newFileResponse(path.string(), "", CT_NONE,
-                                                  "", req);
+    auto response =
+        HttpResponse::newFileResponse(path.string(), "", CT_NONE, "");
     response->addHeader("Cache-Control", "public, max-age=86400");
     callback(response);
   } catch (const std::exception &e) {
