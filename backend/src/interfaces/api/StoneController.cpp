@@ -556,7 +556,7 @@ void StoneController::searchResonance(
         for (const auto& match : matches) {
             Json::Value item;
             item["stone_id"] = match.stoneId;
-            item["total_score"] = match.totalScore;
+            item["total_score"] = match.resonanceTotal;
             item["semantic_score"] = match.semanticScore;
             item["trajectory_score"] = match.trajectoryScore;
             item["temporal_score"] = match.temporalScore;
