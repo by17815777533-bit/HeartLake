@@ -6,7 +6,6 @@ abstract class TempFriendDataSource {
   Future<Map<String, dynamic>> getMyTempFriends();
   Future<Map<String, dynamic>> getTempFriendDetail(String tempFriendId);
   Future<Map<String, dynamic>> deleteTempFriend(String tempFriendId);
-  Future<Map<String, dynamic>> createTempFriend(String userId);
   Future<Map<String, dynamic>> checkTempFriendStatus(String userId);
 }
 
@@ -43,19 +42,6 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
     if (createdAt != null) {
       item['created_at'] = createdAt;
       item['createdAt'] = createdAt;
-    }
-
-    final friendshipId = item['friendship_id'] ?? item['friendshipId'];
-    if (friendshipId != null) {
-      item['friendship_id'] = friendshipId.toString();
-      item['friendshipId'] = friendshipId.toString();
-    }
-
-    final upgradedToFriend =
-        item['upgraded_to_friend'] ?? item['upgradedToFriend'];
-    if (upgradedToFriend != null) {
-      item['upgraded_to_friend'] = upgradedToFriend;
-      item['upgradedToFriend'] = upgradedToFriend;
     }
 
     return item;
@@ -107,29 +93,6 @@ class TempFriendService extends BaseService implements TempFriendDataSource {
   Future<Map<String, dynamic>> deleteTempFriend(String tempFriendId) async {
     InputValidator.validateUUID(tempFriendId, '临时好友ID');
     return toMap(await delete('/temp-friends/$tempFriendId'));
-  }
-
-  /// 创建临时好友
-  @override
-  Future<Map<String, dynamic>> createTempFriend(String userId) async {
-    InputValidator.validateUUID(userId, '用户ID');
-    final response = await post('/temp-friends', data: {
-      'target_user_id': userId,
-    });
-    if (!response.success) return toMap(response);
-
-    final payload = response.data is Map
-        ? _normalizeTempFriend(
-            Map<String, dynamic>.from(
-                (response.data as Map).cast<String, dynamic>()),
-          )
-        : const <String, dynamic>{};
-    return {
-      ...toMap(response),
-      'data': payload,
-      'temp_friend_id': payload['temp_friend_id'],
-      'tempFriendId': payload['tempFriendId'],
-    };
   }
 
   /// 检查临时好友状态

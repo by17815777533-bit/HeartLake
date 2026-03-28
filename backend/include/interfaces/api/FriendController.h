@@ -3,7 +3,7 @@
  *
  * 当前好友系统不再使用传统“申请 / 同意 / 拒绝”流程，而是：
  * - 通过互动亲密分自动决定是否视为可聊天好友
- * - 保留 request/accept/reject 路由作为兼容入口，返回自动关系说明
+ * - 仅保留 request 路由用于恢复隐藏关系；accept/reject/pending 已下线
  * - 删除好友仅对当前用户隐藏，不破坏整体互动图
  * - 私信读写统一受亲密分阈值与隐藏状态约束
  *
@@ -27,11 +27,11 @@ namespace controllers {
  * | 方法   | 路径                            | 说明               |
  * |--------|--------------------------------|-------------------|
  * | POST   | /api/friends/request            | 兼容入口：恢复隐藏关系 / 返回亲密分状态 |
- * | POST   | /api/friends/accept/{userId}    | 兼容入口：返回自动关系说明 |
- * | POST   | /api/friends/reject/{userId}    | 兼容入口：返回自动关系说明 |
+ * | POST   | /api/friends/accept/{userId}    | 已下线，固定返回 400 |
+ * | POST   | /api/friends/reject/{userId}    | 已下线，固定返回 400 |
  * | DELETE | /api/friends/{friendId}         | 对当前用户隐藏好友   |
  * | GET    | /api/friends                    | 获取自动关系好友列表 |
- * | GET    | /api/friends/requests/pending   | 获取待处理请求（当前固定为空） |
+ * | GET    | /api/friends/requests/pending   | 已下线，固定返回 400 |
  * | POST   | /api/friends/{friendId}/messages| 发送私信（需达亲密分阈值） |
  * | GET    | /api/friends/{friendId}/messages| 获取私信记录（需达亲密分阈值） |
  */
@@ -72,10 +72,10 @@ public:
                           std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 接受好友请求
+     * @brief 接受好友请求（已下线）
      * @details POST /api/friends/accept/{userId}
      *
-     * 当前实现不会执行“同意”写操作，仅返回自动关系说明。
+     * 当前关系模式不支持该操作，接口固定返回 400。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -86,10 +86,10 @@ public:
                             const std::string &userId);
 
     /**
-     * @brief 拒绝好友请求（兼容入口）
+     * @brief 拒绝好友请求（已下线）
      * @details POST /api/friends/reject/{userId}
      *
-     * 当前实现不会执行“拒绝”写操作，仅返回自动关系说明。
+     * 当前关系模式不支持该操作，接口固定返回 400。
      *
      * @param req HTTP 请求
      * @param callback 响应回调
@@ -125,12 +125,12 @@ public:
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
     /**
-     * @brief 获取待处理的好友请求
+     * @brief 获取待处理的好友请求（已下线）
      * @details GET /api/friends/requests/pending
      *
      * @param req HTTP 请求
      * @param callback 响应回调
-     * @return 待处理请求列表；当前自动关系模式下固定为空集合
+     * @return 当前关系模式不支持该操作，接口固定返回 400
      */
     void getPendingRequests(const HttpRequestPtr &req,
                            std::function<void(const HttpResponsePtr &)> &&callback);
