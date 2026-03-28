@@ -318,7 +318,7 @@ POST `/api/edge-ai/analyze` 请求体：
 | GET | `/api/guardian` | Bearer | 守望统计简写 |
 | POST | `/api/guardian/transfer-lamp` | Bearer | 转赠灯火 |
 | GET | `/api/guardian/insights` | Bearer | 获取情绪洞察 |
-| POST | `/api/guardian/chat` | Bearer | 湖神陪伴对话 |
+| POST | `/api/guardian/chat` | Bearer | 湖神陪伴对话，降级时显式返回 `response_source/degraded` |
 
 ---
 

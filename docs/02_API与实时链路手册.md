@@ -317,6 +317,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 - `message` 发送结构化 AES-GCM envelope：`encrypted.ciphertext / encrypted.iv / encrypted.tag`
 - `messages` / `sessions` 都保留标准分页字段，客户端按集合载荷解析
 - `sessions` 额外返回 `counselor_name/counselor_avatar_url/last_message/updated_at`，并补齐 `counterpart_id` 兼容用户端与咨询师端同一套会话列表
+- `guardian/chat` 与 `/api/lake-god/chat` 在本地降级时会显式返回 `response_source=local_fallback`、`degraded=true` 与 `warning/ai_error`，不再把本地陪伴回复伪装成远端 AI 成功
 
 ### 4.9 其他
 
