@@ -641,7 +641,7 @@ void AIService::generateReply(
     payload["max_tokens"] = 320;
 
     callAIAPI("/v1/chat/completions", payload,
-        [callback, queryEmbedding, useSemanticCache](const Json::Value& response, const std::string& error) {
+        [callback, queryEmbedding, useSemanticCache, userMessage](const Json::Value& response, const std::string& error) {
             if (!error.empty()) {
                 callback("", error);
                 return;
