@@ -1,448 +1,250 @@
 # API 接口全量清单
 
-> 本文档列出 HeartLake 后端全部 HTTP 接口，按 Controller 分组。当前云端接口基地址为 `http://121.41.195.165/api`。
-
-## 统一响应格式
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": { ... }
-}
-```
-
-错误码定义：
-
-| 错误码 | 含义 |
-|--------|------|
-| `0` | 成功 |
-| `400` | 参数错误 |
-| `401` | 未认证（令牌缺失、过期或无效） |
-| `403` | 无权限 |
-| `404` | 资源不存在 |
-| `429` | 请求限流 |
-| `500` | 服务端错误 |
-
-认证方式：`Authorization: Bearer <paseto_token>`
-
----
-
-## HealthController — 健康检查
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/health` | 无 | 基础健康检查 |
-| GET | `/api/health/detailed` | 无 | 详细健康检查（含数据库 / Redis / AI 状态） |
-
----
-
-## UserController — 用户认证
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/auth/anonymous` | 无 | 匿名登录 |
-| POST | `/api/auth/refresh` | 无（也接受 Bearer） | 刷新令牌 / 回补会话 |
-| POST | `/api/auth/recover` | 无 | 关键词恢复账号 |
-| GET | `/api/users/my/emotion-calendar` | Bearer | 情绪日历 |
-| GET | `/api/users/my/emotion-heatmap` | Bearer | 情绪热力图 |
-| GET | `/api/users/my/boats` | Bearer | 我收到的纸船（来自我发布的石头） |
-| GET | `/api/users/my/received-boats` | Bearer | 收到的纸船 |
-
-POST `/api/auth/anonymous`
-
-请求体：
-
-```json
-{"device_id": "设备唯一标识"}
-```
-
-响应：
-
-```json
-{
-  "token": "v4.local.xxx",
-  "user_id": "anonymous_xxx",
-  "is_new_user": true,
-  "keyword": "星辰-湖畔-微风"
-}
-```
-
-| 字段 | 说明 |
-|------|------|
-| `token` | PASETO v4 令牌，后续请求的认证凭据 |
-| `user_id` | 系统分配的匿名用户标识 |
-| `is_new_user` | 是否为新创建的用户 |
-| `keyword` | 账号恢复关键词，用于跨设备找回账号 |
-
----
-
-## AccountController — 账号管理
-
-所有端点需要 Bearer 认证。
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/account/info` | 获取个人资料 |
-| POST | `/api/account/avatar` | 写入头像 URL（通常配合媒体上传使用） |
-| PUT | `/api/account/profile` | 更新个人资料 |
-| GET | `/api/account/stats` | 账号统计（石头数 / 好友数 / 涟漪数） |
-| GET | `/api/account/devices` | 登录设备列表 |
-| DELETE | `/api/account/devices/{sessionId}` | 移除登录设备 |
-| GET | `/api/account/login-logs` | 分页登录日志 |
-| GET | `/api/account/security-events` | 分页安全事件 |
-| GET | `/api/account/privacy` | 隐私设置 |
-| PUT | `/api/account/privacy` | 更新隐私设置 |
-| GET | `/api/account/blocked-users` | 拉黑用户列表 |
-| POST | `/api/account/block/{targetUserId}` | 拉黑用户（幂等） |
-| DELETE | `/api/account/unblock/{targetUserId}` | 取消拉黑 |
-| POST | `/api/account/export` | 创建数据导出任务（GDPR） |
-| GET | `/api/account/export/{taskId}` | 查询导出任务状态 |
-| POST | `/api/account/deactivate` | 停用账号（30 天内可恢复） |
-| POST | `/api/account/delete-permanent` | 永久删除账号及全部数据 |
-| POST | `/api/auth/delete-account` | 账号停用别名路由（30 天内可恢复） |
-
-PUT `/api/account/profile` 请求体（所有字段可选）：
-
-```json
-{
-  "nickname": "新昵称",
-  "bio": "个性签名",
-  "gender": "male",
-  "birthday": "2000-01-01"
-}
-```
-
-POST `/api/account/delete-permanent` 请求体：
-
-```json
-{"confirmation": "DELETE"}
-```
-
-补充说明：
-
-- `POST /api/account/deactivate` 与 `POST /api/auth/delete-account` 必须显式提供 `confirmation`，接受 `DEACTIVATE` / `DELETE`
-- `POST /api/account/delete-permanent` 需要请求体携带 `{"confirmation":"DELETE"}`；服务端不再接受空确认
-
----
-
-## MediaController — 媒体上传
-
-上传接口需要 Bearer 认证；媒体访问接口为公开读取。
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/media/upload` | Bearer | 上传头像 / 图片 / 音视频 |
-| GET | `/api/media/{category}/{filename}` | 无 | 访问已上传媒体文件 |
-
-说明：
-
-- 上传成功后统一返回稳定的 `url / relative_url / path / filename / category / media_type / size_bytes`
-- 头像更新链路应先调用 `POST /api/media/upload`，拿到 URL 后再调用 `POST /api/account/avatar` 或 `PUT /api/account/profile`
-- 当前媒体分类由服务端自动判定为 `images / audio / video`
-
----
-
-## StoneController — 石头（核心内容）
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/stones` | Bearer | 发布石头 |
-| GET | `/api/lake/stones` | 无 | 湖面石头流（分页） |
-| GET | `/api/stones/my` | Bearer | 我的石头列表 |
-| GET | `/api/stones/{stoneId}` | 无 | 石头详情 |
-| DELETE | `/api/stones/{stoneId}` | Bearer | 删除自己的石头 |
-| GET | `/api/lake/weather` | 无 | 湖面天气（全站情绪氛围统计） |
-| GET | `/api/stones/{stoneId}/resonance` | Bearer | 情绪共鸣搜索 |
-
-POST `/api/stones` 请求体：
-
-```json
-{
-  "content": "心事内容",
-  "stone_type": "medium",
-  "stone_color": "#7A92A3",
-  "mood_type": "calm|happy|sad|anxious|angry|confused|surprised|neutral",
-  "tags": ["标签1", "标签2"],
-  "is_anonymous": true
-}
-```
-
-GET `/api/lake/stones` 查询参数：`page`、`page_size`、`mood`、`sort`
-
-- `sort` 接受 `latest` / `hot`，也接受 `created_at` / `ripple_count` / `boat_count` / `view_count`
-- `hot` 映射到 `ripple_count`，`latest` 映射到 `created_at`
-- `stone_type / stone_color / mood_type` 在请求中省略时，服务端默认回落到 `medium / #7A92A3 / calm`
-
----
-
-## InteractionController — 互动
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/stones/{stoneId}/ripples` | Bearer | 点涟漪（幂等） |
-| GET | `/api/interactions/my/ripples` | Bearer | 我发出的涟漪 |
-| POST | `/api/stones/{stoneId}/collect` | Bearer | 收藏石头 |
-| DELETE | `/api/stones/{stoneId}/collect` | Bearer | 取消收藏 |
-| GET | `/api/interactions/my/collections` | Bearer | 我的收藏 |
-
-涟漪接口为幂等设计：重复操作返回 `already_rippled: true`，不返回错误。
-
----
-
-## PaperBoatController — 纸船
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/boats/reply` | Bearer | 语义化纸船回复入口 |
-| POST | `/api/stones/{stoneId}/boats` | Bearer | 互动主链纸船回复入口 |
-| GET | `/api/boats/sent` | Bearer | 我发出的纸船 |
-| GET | `/api/boats/received` | Bearer | 收到的纸船 |
-| GET | `/api/boats/{boatId}` | Bearer | 纸船详情 |
-
----
-
-## FriendController — 好友
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/friends/request` | Bearer | 恢复隐藏关系 / 返回亲密分状态 |
-| GET | `/api/friends` | Bearer | 好友列表 |
-| DELETE | `/api/friends/{friendId}` | Bearer | 删除好友（软删除，可恢复） |
-| GET | `/api/friends/{friendId}/messages` | Bearer | 聊天记录 |
-| POST | `/api/friends/{friendId}/messages` | Bearer | 发送消息（要求亲密度 >= 12） |
-
-删除好友返回 `mode: intimacy_auto_hidden`，重新请求该入口可恢复关系显示。已删除好友间发送消息返回 403。
-`POST /api/friends/accept/{id}`、`POST /api/friends/reject/{id}`、`GET /api/friends/requests/pending` 当前不可用，固定返回 400。
-
----
-
-## TempFriendController — 临时连接
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/temp-friends` | Bearer | 临时好友列表 |
-| GET | `/api/temp-friends/{id}` | Bearer | 临时好友详情 |
-| DELETE | `/api/temp-friends/{id}` | Bearer | 断开临时连接 |
-| GET | `/api/temp-friends/check/{userId}` | Bearer | 检查临时好友状态 |
-
-说明：
-- 临时连接过期后，对应 connection 的消息读取和发送入口都会返回拒绝访问
-- `POST /api/temp-friends` 与 `POST /api/temp-friends/{id}/upgrade` 当前不可用，固定返回 400
-- 石头回复链和纸船链派生的临时连接保留原业务来源（如 `stone` / `boat`）
-
----
-
-## RecommendationController — 推荐
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/recommendations/trending` | Bearer | 热门推荐 |
-| GET | `/api/recommendations/similar-stones/{stoneId}` | Bearer | 相似石头推荐 |
-| GET | `/api/recommendations/emotion-trends` | Bearer | 情绪趋势 |
-| GET | `/api/recommendations/stones` | Bearer | 个性化推荐 |
-| GET | `/api/recommendations/advanced` | Bearer | 高级共鸣推荐 |
-| GET | `/api/admin/recommendations/advanced` | Admin Bearer | 管理端查看指定用户高级推荐结果 |
-
-说明：
-- `/api/recommendations/stones` 是普通个性化推荐链，返回 `recommendation_reason / recommendation_type` 等字段。
-- `/api/recommendations/advanced` 与 `/api/admin/recommendations/advanced` 是同一条高级推荐链，响应顶层稳定返回 `algorithm / user_id / count`，条目稳定返回 `algorithm / score / reason`；有参考石头时还会补齐 `reference_stone_id / reference_source`。
-- 管理端用户详情弹窗只消费 `/api/admin/recommendations/advanced` 来核对高级算法真实产出，不再混入热门推荐或普通推荐结果。
-
----
-
-## VectorSearchController — 语义搜索
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/vector/search` | Bearer | 语义向量搜索（返回相似度，并尽量回填 stone 内容预览） |
-| GET | `/api/vector/stats` | Bearer | 向量索引统计 |
-
----
-
-## EdgeAIController — AI 引擎
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/edge-ai/analyze` | Bearer | 文本情感分析 |
-| GET | `/api/edge-ai/emotion-pulse` | Bearer | 实时情绪脉搏 |
-| GET | `/api/edge-ai/privacy-budget` | Bearer | 差分隐私预算查询 |
-| GET | `/api/edge-ai/stats` | Bearer | 引擎统计信息 |
-| GET | `/api/edge-ai/federated/status` | Bearer | 联邦学习状态 |
-
-POST `/api/edge-ai/analyze` 请求体：
-
-```json
-{"text": "待分析文本"}
-```
-
-响应：
-
-```json
-{
-  "score": 0.65,
-  "mood": "happy",
-  "confidence": 0.82,
-  "method": "lexicon+rule+statistical"
-}
-```
-
-| 字段 | 说明 |
-|------|------|
-| `score` | 情感分数，范围 [-1.0, 1.0] |
-| `mood` | 情绪类型（happy / sad / angry / anxious / neutral 等） |
-| `confidence` | 置信度，范围 [0.0, 1.0] |
-| `method` | 使用的分析方法 |
-
----
-
-## SafeHarborController — 安全港
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/safe-harbor/hotlines` | Bearer | 心理援助热线 |
-| GET | `/api/safe-harbor/self-help` | Bearer | 自助工具 |
-| GET | `/api/safe-harbor/resources` | Bearer | 关怀资源列表 |
-| POST | `/api/safe-harbor/resources` | Bearer | 添加关怀资源 |
-| PUT | `/api/safe-harbor/resources/{id}` | Bearer | 更新关怀资源 |
-| DELETE | `/api/safe-harbor/resources/{id}` | Bearer | 删除关怀资源 |
-| GET | `/api/safe-harbor/recommend` | Bearer | 按情绪类型推荐资源，请求参数接受 `emotion` 或 `mood` |
-
----
-
-## GuardianController — 守护者
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/guardian/stats` | Bearer | 守望统计 |
-| GET | `/api/guardian` | Bearer | 守望统计简写 |
-| POST | `/api/guardian/transfer-lamp` | Bearer | 转赠灯火 |
-| GET | `/api/guardian/insights` | Bearer | 获取情绪洞察 |
-| POST | `/api/guardian/chat` | Bearer | 湖神陪伴对话，降级时显式返回 `response_source/degraded` |
-
----
-
-## ConsultationController — 心理咨询
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/consultation/session` | Bearer | 创建咨询会话 |
-| POST | `/api/consultation/key-exchange` | Bearer | 完成咨询会话密钥交换 |
-| POST | `/api/consultation/message` | Bearer | 发送咨询消息 |
-| GET | `/api/consultation/messages/{sessionId}` | Bearer | 获取咨询消息列表 |
-| GET | `/api/consultation/sessions` | Bearer | 获取当前用户咨询会话列表 |
-
-咨询密钥交换与消息契约：
-
-- `POST /api/consultation/key-exchange` 请求体使用 `session_id + client_public_key`；`public_key` 也可作为请求键名
-- 响应体返回稳定的 `server_public_key + salt + status`，客户端据此派生会话密钥
-- `POST /api/consultation/message` 请求体使用 `encrypted = { ciphertext, iv, tag }`
-- 消息与会话列表均返回标准分页集合载荷，客户端不应丢弃 `total/page/page_size/has_more`
-- `GET /api/consultation/sessions` 同时返回 `counselor_name/counselor_avatar_url/last_message/updated_at/counterpart_id`，列表排序基于最新消息时间而不是会话创建时间
-
----
-
-## ReportController — 举报
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| POST | `/api/reports` | Bearer | 提交举报 |
-| GET | `/api/reports/my` | Bearer | 我的举报记录 |
-
----
-
-## PrivacyController — 隐私设置
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/privacy/settings` | Bearer | 获取隐私设置 |
-| PUT | `/api/privacy/settings` | Bearer | 更新隐私设置 |
-
----
-
-## VIPController — 会员
-
-| 方法 | 路径 | 认证 | 说明 |
-|------|------|------|------|
-| GET | `/api/vip/status` | Bearer | 灯火状态查询 |
-| GET | `/api/vip/privileges` | Bearer | 灯火权益列表 |
-| GET | `/api/vip/counseling/check` | Bearer | 免费咨询额度检查 |
-| POST | `/api/vip/counseling/book` | Bearer | 预约心理咨询 |
-| GET | `/api/vip/ai-comment-frequency` | Bearer | AI 评论频率配置 |
-
----
-
-## BroadcastWebSocketController — WebSocket 实时通信
-
-| 路径 | 说明 |
-|------|------|
-| `ws://121.41.195.165/ws/broadcast` | 当前云端实时消息推送 |
-
-鉴权方式：
-
-- URL 参数：`?token=<url_encoded_token>`（推荐）
-- 鉴权成功回包：`{"type":"auth_success","user_id":"...","authenticated":true}`
-- 房间消息：客户端需先 `join` 对应房间；私有房间会校验参与者身份，服务端会重写 `sender_id/timestamp/type`
-- 当前仅支持握手阶段 `token` 鉴权；连接建立后发送 `auth` 首包不会触发认证
-
-事件类型：`new_stone` / `ripple_update` / `boat_update` / `new_friend_message` / `new_notification`
-
----
-
-## 管理后台接口
-
-### AdminController — 管理数据
-
-所有端点需要 Admin Bearer 认证（独立签名密钥）。
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/admin/login` | 管理员登录 |
-| POST | `/api/admin/logout` | 管理员登出 |
-| GET | `/api/admin/info` | 当前管理员信息 |
-| GET | `/api/admin/stats/dashboard` | 仪表盘综合统计 |
-| GET | `/api/admin/stats/realtime` | 实时统计 |
-| GET | `/api/admin/stats/user-growth` | 用户增长趋势 |
-| GET | `/api/admin/stats/mood-distribution` | 情绪分布 |
-| GET | `/api/admin/stats/mood-trend` | 情绪趋势 |
-| GET | `/api/admin/stats/trending-topics` | 热门话题 |
-| GET | `/api/admin/stats/active-time` | 活跃时段统计 |
-| GET | `/api/admin/risk/high-risk-users` | 高风险用户列表 |
-| GET | `/api/admin/risk/events` | 风险事件列表 |
-| GET | `/api/admin/risk/user/{user_id}/history` | 用户风险历史 |
-| POST | `/api/admin/risk/event/{event_id}/handle` | 处置风险事件 |
-| GET | `/api/admin/security/audit` | 安全审计日志 |
-
-### AdminManagementController — 管理操作
-
-分页型后台接口当前统一向集合响应契约收敛：推荐从 `data` 节点中的语义键、`items`、`list` 读取列表，并使用 `pagination` 或顶层分页字段读取页码信息。
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/users` | 用户列表（分页 / 搜索） |
-| GET | `/api/admin/users/{id}` | 用户详情 |
-| PUT | `/api/admin/users/{id}/status` | 更新用户状态 |
-| POST | `/api/admin/users/{id}/ban` | 封禁用户 |
-| POST | `/api/admin/users/{id}/unban` | 解封用户 |
-| GET | `/api/admin/content` | 统一内容列表（石头 + 纸船，数据库统一分页） |
-| GET | `/api/admin/stones` | 石头列表 |
-| GET | `/api/admin/stones/{id}` | 石头详情 |
-| DELETE | `/api/admin/stones/{id}` | 删除石头 |
-| GET | `/api/admin/boats` | 纸船列表 |
-| DELETE | `/api/admin/boats/{id}` | 删除纸船 |
-| GET | `/api/admin/moderation/pending` | 待审核队列 |
-| GET | `/api/admin/moderation/history` | 审核历史 |
-| POST | `/api/admin/moderation/{id}/approve` | 审核通过 |
-| POST | `/api/admin/moderation/{id}/reject` | 审核拒绝 |
-| GET | `/api/admin/sensitive-words` | 敏感词列表 |
-| POST | `/api/admin/sensitive-words` | 添加敏感词 |
-| PUT | `/api/admin/sensitive-words/{id}` | 更新敏感词 |
-| DELETE | `/api/admin/sensitive-words/{id}` | 删除敏感词 |
-| GET | `/api/admin/reports` | 举报列表 |
-| GET | `/api/admin/reports/{id}` | 举报详情 |
-| POST | `/api/admin/reports/{id}/handle` | 处理举报 |
-| GET | `/api/admin/config` | 系统配置 |
-| PUT | `/api/admin/config` | 更新系统配置 |
-| POST | `/api/admin/broadcast` | 发送全站广播 |
-| GET | `/api/admin/broadcast/history` | 广播历史 |
-| GET | `/api/admin/logs` | 操作日志 |
+本文只列当前主要业务会使用的有效入口，不列内部别名和不可用路由。
+
+当前基地址：
+
+- 用户 API：`http://121.41.195.165/api`
+- 管理 API：`http://121.41.195.165/api/admin`
+- WebSocket：`ws://121.41.195.165/ws/broadcast`
+
+## 1. 通用约定
+
+- 用户接口默认使用 Bearer PASETO。
+- 管理接口默认使用管理员 Bearer PASETO。
+- 集合接口统一返回 `items / total / page / page_size`。
+- 失败接口统一返回明确 `code / message`。
+
+## 2. 健康检查
+
+- `GET /api/health`
+- `GET /api/health/detailed`
+
+## 3. 认证与用户
+
+- `POST /api/auth/anonymous`
+- `POST /api/auth/recover`
+- `POST /api/auth/refresh`
+- `GET /api/users/{id}`
+- `GET /api/users/{id}/stats`
+- `GET /api/users/search`
+- `GET /api/users/my/boats`
+- `PUT /api/users/my/profile`
+- `GET /api/users/my/emotion-calendar`
+- `GET /api/users/my/emotion-heatmap`
+
+## 4. 账号与隐私
+
+- `GET /api/account/info`
+- `POST /api/account/avatar`
+- `PUT /api/account/profile`
+- `GET /api/account/stats`
+- `GET /api/account/devices`
+- `DELETE /api/account/devices/{sessionId}`
+- `GET /api/account/login-logs`
+- `GET /api/account/security-events`
+- `GET /api/account/privacy`
+- `PUT /api/account/privacy`
+- `GET /api/account/blocked-users`
+- `POST /api/account/block/{targetUserId}`
+- `DELETE /api/account/unblock/{targetUserId}`
+- `POST /api/account/export`
+- `GET /api/account/export/{taskId}`
+- `POST /api/account/deactivate`
+- `POST /api/account/delete-permanent`
+- `GET /api/lake/privacy-stats`
+- `GET /api/lake/privacy-report`
+
+## 5. 媒体
+
+- `POST /api/media/upload`
+- `GET /api/media/{category}/{filename}`
+
+## 6. 石头与湖面
+
+- `POST /api/stones`
+- `GET /api/lake/stones`
+- `GET /api/stones/my`
+- `GET /api/stones/{stoneId}`
+- `DELETE /api/stones/{stoneId}`
+- `GET /api/lake/weather`
+- `GET /api/stones/{stoneId}/resonance`
+
+## 7. 互动
+
+- `POST /api/stones/{stoneId}/ripples`
+- `POST /api/stones/{stoneId}/boats`
+- `GET /api/stones/{stoneId}/boats`
+- `GET /api/interactions/my/ripples`
+- `GET /api/interactions/my/boats`
+- `DELETE /api/ripples/{rippleId}`
+- `DELETE /api/boats/{boatId}`
+- `GET /api/boats/{boatId}`
+- `GET /api/boats/sent`
+- `GET /api/boats/received`
+- `POST /api/boats/reply`
+- `GET /api/notifications`
+- `POST /api/notifications/{notificationId}/read`
+- `POST /api/notifications/read-all`
+- `GET /api/notifications/unread-count`
+- `POST /api/stones/{stoneId}/connections`
+- `POST /api/connections`
+- `GET /api/connections/{connectionId}/messages`
+- `POST /api/connections/{connectionId}/messages`
+
+## 8. 好友与临时好友
+
+- `POST /api/friends/request`
+- `DELETE /api/friends/{friendId}`
+- `GET /api/friends`
+- `POST /api/friends/{friendId}/messages`
+- `GET /api/friends/{friendId}/messages`
+- `GET /api/temp-friends`
+- `GET /api/temp-friends/{tempFriendId}`
+- `DELETE /api/temp-friends/{tempFriendId}`
+- `GET /api/temp-friends/check/{targetUserId}`
+
+## 9. 关怀与增值
+
+- `GET /api/vip/status`
+- `GET /api/vip/privileges`
+- `GET /api/vip/counseling/check`
+- `POST /api/vip/counseling/book`
+- `GET /api/vip/ai-comment-frequency`
+- `GET /api/safe-harbor/hotlines`
+- `GET /api/safe-harbor/tools`
+- `GET /api/safe-harbor/prompt`
+- `GET /api/safe-harbor/resources`
+- `GET /api/safe-harbor/recommend`
+- `POST /api/safe-harbor/resources`
+- `PUT /api/safe-harbor/resources/{id}`
+- `DELETE /api/safe-harbor/resources/{id}`
+- `POST /api/safe-harbor/access`
+- `GET /api/safe-harbor/access/history`
+- `POST /api/consultation/session`
+- `POST /api/consultation/key-exchange`
+- `POST /api/consultation/message`
+- `GET /api/consultation/messages/{sessionId}`
+- `GET /api/consultation/sessions`
+- `POST /api/reports`
+- `GET /api/reports/my`
+
+## 10. 推荐与 AI
+
+- `GET /api/recommendations/stones`
+- `GET /api/recommendations/discover/{mood}`
+- `POST /api/recommendations/track`
+- `POST /api/recommendations/track-batch`
+- `GET /api/recommendations/emotion-trends`
+- `GET /api/recommendations/trending`
+- `POST /api/recommendations/search`
+- `GET /api/recommendations/advanced`
+- `GET /api/admin/recommendations/advanced`
+- `GET /api/recommendations/similar-stones/{id}`
+- `GET /api/recommendations/personalized`
+- `POST /api/admin/stones/{id}/embedding`
+- `GET /api/edge-ai/status`
+- `GET /api/edge-ai/metrics`
+- `POST /api/edge-ai/analyze`
+- `POST /api/edge-ai/moderate`
+- `GET /api/edge-ai/emotion-pulse`
+- `POST /api/edge-ai/federated/aggregate`
+- `GET /api/edge-ai/privacy-budget`
+- `POST /api/edge-ai/vector-search`
+- `POST /api/edge-ai/vector-insert`
+- `POST /api/edge-ai/emotion-sample`
+- `GET /api/edge-ai/pulse-history`
+- `POST /api/edge-ai/federated/submit`
+- `POST /api/edge-ai/privacy/reset`
+- `POST /api/edge-ai/nodes/register`
+- `PUT /api/edge-ai/nodes/status`
+- `GET /api/edge-ai/nodes/best`
+- `POST /api/edge-ai/quantized-forward`
+- `POST /api/edge-ai/privacy/add-noise`
+- `GET /api/edge-ai/config`
+- `PUT /api/edge-ai/config`
+- `POST /api/edge-ai/summary`
+- `POST /api/lake-god/chat`
+- `GET /api/lake-god/history`
+
+## 11. 管理后台
+
+### 认证与基础信息
+
+- `POST /api/admin/login`
+- `POST /api/admin/logout`
+- `GET /api/admin/info`
+
+### 统计与风控
+
+- `GET /api/admin/stats/realtime`
+- `GET /api/admin/stats/dashboard`
+- `GET /api/admin/stats/trending-topics`
+- `GET /api/admin/stats/user-growth`
+- `GET /api/admin/stats/mood-distribution`
+- `GET /api/admin/stats/mood-trend`
+- `GET /api/admin/stats/active-time`
+- `GET /api/admin/risk/high-risk-users`
+- `GET /api/admin/risk/events`
+- `GET /api/admin/risk/user/{user_id}/history`
+- `POST /api/admin/risk/event/{event_id}/handle`
+- `GET /api/admin/security/audit`
+
+### 内容与用户治理
+
+- `GET /api/admin/users`
+- `GET /api/admin/users/{id}`
+- `PUT /api/admin/users/{id}/status`
+- `POST /api/admin/users/{id}/ban`
+- `POST /api/admin/users/{id}/unban`
+- `GET /api/admin/content`
+- `GET /api/admin/stones`
+- `GET /api/admin/stones/{id}`
+- `DELETE /api/admin/stones/{id}`
+- `GET /api/admin/boats`
+- `DELETE /api/admin/boats/{id}`
+- `GET /api/admin/moderation/pending`
+- `POST /api/admin/moderation/{id}/approve`
+- `POST /api/admin/moderation/{id}/reject`
+- `GET /api/admin/moderation/history`
+- `GET /api/admin/reports`
+- `GET /api/admin/reports/{id}`
+- `POST /api/admin/reports/{id}/handle`
+- `GET /api/admin/sensitive-words`
+- `POST /api/admin/sensitive-words`
+- `PUT /api/admin/sensitive-words/{id}`
+- `DELETE /api/admin/sensitive-words/{id}`
+- `GET /api/admin/config`
+- `PUT /api/admin/config`
+- `POST /api/admin/broadcast`
+- `GET /api/admin/broadcast/history`
+- `GET /api/admin/logs`
+
+### 管理端 EdgeAI 镜像路由
+
+- `GET /api/admin/edge-ai/status`
+- `GET /api/admin/edge-ai/metrics`
+- `POST /api/admin/edge-ai/analyze`
+- `POST /api/admin/edge-ai/moderate`
+- `GET /api/admin/edge-ai/emotion-pulse`
+- `POST /api/admin/edge-ai/federated/aggregate`
+- `GET /api/admin/edge-ai/privacy-budget`
+- `POST /api/admin/edge-ai/vector-search`
+- `POST /api/admin/edge-ai/vector-insert`
+- `POST /api/admin/edge-ai/emotion-sample`
+- `GET /api/admin/edge-ai/pulse-history`
+- `POST /api/admin/edge-ai/federated/submit`
+- `POST /api/admin/edge-ai/privacy/reset`
+- `POST /api/admin/edge-ai/nodes/register`
+- `PUT /api/admin/edge-ai/nodes/status`
+- `GET /api/admin/edge-ai/nodes/best`
+- `POST /api/admin/edge-ai/quantized-forward`
+- `POST /api/admin/edge-ai/privacy/add-noise`
+- `GET /api/admin/edge-ai/config`
+- `PUT /api/admin/edge-ai/config`
+
+## 12. WebSocket
+
+- `GET /ws/broadcast`
+
+当前 WebSocket 接受 `join`、`leave`、`room_message`、`ping`，并返回 `auth_success`、`pong`、`error` 与业务广播事件。

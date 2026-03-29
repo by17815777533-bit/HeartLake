@@ -34,7 +34,7 @@ public:
     static std::string base64urlDecode(const std::string& input);
 
     /// 从环境变量 PASETO_KEY 获取普通用户 token 密钥
-    static std::string getKey();
+    static const std::string& getKey();
 
     /**
      * @brief 生成普通用户的 PASETO v4.local token
@@ -57,7 +57,7 @@ public:
     static std::string extractToken(const drogon::HttpRequestPtr& req);
 
     /// 从环境变量 ADMIN_PASETO_KEY 获取管理员 token 密钥
-    static std::string getAdminKey();
+    static const std::string& getAdminKey();
 
     /**
      * @brief 生成管理员 token，payload 中额外携带 role 字段
@@ -88,12 +88,6 @@ private:
     static std::string encrypt(const std::string& payload, const std::string& key);
     /// 解密 Base64URL 编码的密文，返回明文 JSON
     static std::string decrypt(const std::string& encoded, const std::string& key);
-    /// 将时间点格式化为 ISO 8601 字符串
-    static std::string formatTime(std::chrono::system_clock::time_point tp);
-    /// 解析 ISO 8601 时间字符串
-    static std::chrono::system_clock::time_point parseTime(const std::string& s);
-    /// 从 JSON 字符串中提取指定字段值（轻量解析，避免引入完整 JSON 库依赖）
-    static std::string extractJsonField(const std::string& json, const std::string& field);
 };
 
 } // namespace utils

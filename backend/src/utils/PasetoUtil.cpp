@@ -17,6 +17,67 @@
 namespace heartlake {
 namespace utils {
 
+namespace {
+
+const std::string& cachedUserKey() {
+    static const std::string key = []() {
+        const char* envKey = std::getenv("PASETO_KEY");
+        if (!envKey || std::string(envKey).length() < PasetoUtil::KEY_SIZE) {
+            throw std::runtime_error("PASETO_KEY must be at least 32 bytes");
+        }
+        return std::string(envKey).substr(0, PasetoUtil::KEY_SIZE);
+    }();
+    return key;
+}
+
+const std::string& cachedAdminKey() {
+    static const std::string key = []() {
+        const char* envKey = std::getenv("ADMIN_PASETO_KEY");
+        if (!envKey || std::string(envKey).length() < PasetoUtil::KEY_SIZE) {
+            throw std::runtime_error("ADMIN_PASETO_KEY must be at least 32 bytes");
+        }
+        return std::string(envKey).substr(0, PasetoUtil::KEY_SIZE);
+    }();
+    return key;
+}
+
+Json::Value parsePayloadObject(const std::string& payload) {
+    Json::Value root;
+    Json::CharReaderBuilder builder;
+    std::string errs;
+    std::istringstream stream(payload);
+    if (!Json::parseFromStream(builder, stream, &root, &errs) || !root.isObject()) {
+        throw std::runtime_error("Invalid JSON payload: " + errs);
+    }
+    return root;
+}
+
+std::string requireStringField(const Json::Value& root, const char* field) {
+    if (!root.isMember(field) || !root[field].isString()) {
+        throw std::runtime_error(std::string("Field not found: ") + field);
+    }
+    return root[field].asString();
+}
+
+std::chrono::system_clock::time_point parseTimeClaim(const Json::Value& value) {
+    if (value.isInt64() || value.isUInt64() || value.isInt() || value.isUInt()) {
+        const auto seconds = value.asLargestInt();
+        return std::chrono::system_clock::time_point{std::chrono::seconds(seconds)};
+    }
+    if (value.isString()) {
+        std::tm tm = {};
+        std::istringstream ss(value.asString());
+        ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+        if (ss.fail()) {
+            throw std::runtime_error("Invalid exp claim time format");
+        }
+        return std::chrono::system_clock::from_time_t(timegm(&tm));
+    }
+    throw std::runtime_error("Invalid exp claim type");
+}
+
+} // namespace
+
 std::string PasetoUtil::base64urlEncode(const std::string& input) {
     static const char* table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     std::string result;
@@ -56,12 +117,8 @@ std::string PasetoUtil::base64urlDecode(const std::string& input) {
     return result;
 }
 
-std::string PasetoUtil::getKey() {
-    const char* env_key = std::getenv("PASETO_KEY");
-    if (!env_key || std::string(env_key).length() < KEY_SIZE) {
-        throw std::runtime_error("PASETO_KEY must be at least 32 bytes");
-    }
-    return std::string(env_key).substr(0, KEY_SIZE);
+const std::string& PasetoUtil::getKey() {
+    return cachedUserKey();
 }
 
 std::string PasetoUtil::generateToken(const std::string& userId, const std::string& key, int expireHours) {
@@ -72,8 +129,10 @@ std::string PasetoUtil::generateToken(const std::string& userId, const std::stri
     Json::Value payloadJson;
     payloadJson["sub"] = userId;
     payloadJson["iss"] = "heart_lake";
-    payloadJson["iat"] = formatTime(now);
-    payloadJson["exp"] = formatTime(exp);
+    payloadJson["iat"] = static_cast<Json::Int64>(
+        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+    payloadJson["exp"] = static_cast<Json::Int64>(
+        std::chrono::duration_cast<std::chrono::seconds>(exp.time_since_epoch()).count());
 
     Json::StreamWriterBuilder writer;
     writer["indentation"] = "";
@@ -88,13 +147,14 @@ std::string PasetoUtil::verifyToken(const std::string& token, const std::string&
     }
 
     std::string payload = decrypt(token.substr(strlen(HEADER)), key);
-
-    // 解析JSON获取userId和过期时间
-    auto sub = extractJsonField(payload, "sub");
-    auto exp = extractJsonField(payload, "exp");
+    const Json::Value root = parsePayloadObject(payload);
+    const std::string sub = requireStringField(root, "sub");
 
     // 检查过期
-    auto expTime = parseTime(exp);
+    if (!root.isMember("exp")) {
+        throw std::runtime_error("Field not found: exp");
+    }
+    auto expTime = parseTimeClaim(root["exp"]);
     if (std::chrono::system_clock::now() > expTime) {
         throw std::runtime_error("Token expired");
     }
@@ -109,12 +169,8 @@ std::string PasetoUtil::extractToken(const drogon::HttpRequestPtr& req) {
     throw std::runtime_error("Invalid authorization format");
 }
 
-std::string PasetoUtil::getAdminKey() {
-    const char* env_key = std::getenv("ADMIN_PASETO_KEY");
-    if (!env_key || std::string(env_key).length() < KEY_SIZE) {
-        throw std::runtime_error("ADMIN_PASETO_KEY must be at least 32 bytes");
-    }
-    return std::string(env_key).substr(0, KEY_SIZE);
+const std::string& PasetoUtil::getAdminKey() {
+    return cachedAdminKey();
 }
 
 std::string PasetoUtil::generateAdminToken(const std::string& adminId, const std::string& role,
@@ -127,8 +183,10 @@ std::string PasetoUtil::generateAdminToken(const std::string& adminId, const std
     payloadJson["sub"] = adminId;
     payloadJson["role"] = role;
     payloadJson["iss"] = "heart_lake_admin";
-    payloadJson["iat"] = formatTime(now);
-    payloadJson["exp"] = formatTime(exp);
+    payloadJson["iat"] = static_cast<Json::Int64>(
+        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count());
+    payloadJson["exp"] = static_cast<Json::Int64>(
+        std::chrono::duration_cast<std::chrono::seconds>(exp.time_since_epoch()).count());
 
     Json::StreamWriterBuilder writer;
     writer["indentation"] = "";
@@ -143,12 +201,13 @@ std::string PasetoUtil::verifyAdminToken(const std::string& token, const std::st
     }
 
     std::string payload = decrypt(token.substr(strlen(HEADER)), key);
+    const Json::Value root = parsePayloadObject(payload);
+    const std::string sub = requireStringField(root, "sub");
 
-    auto sub = extractJsonField(payload, "sub");
-    auto role = extractJsonField(payload, "role");
-    auto exp = extractJsonField(payload, "exp");
-
-    auto expTime = parseTime(exp);
+    if (!root.isMember("exp")) {
+        throw std::runtime_error("Field not found: exp");
+    }
+    auto expTime = parseTimeClaim(root["exp"]);
     if (std::chrono::system_clock::now() > expTime) {
         throw std::runtime_error("Admin token expired");
     }
@@ -226,45 +285,16 @@ std::string PasetoUtil::decrypt(const std::string& encoded, const std::string& k
     return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext_len);
 }
 
-std::string PasetoUtil::formatTime(std::chrono::system_clock::time_point tp) {
-    auto t = std::chrono::system_clock::to_time_t(tp);
-    std::tm tm_buf{};
-    gmtime_r(&t, &tm_buf);
-    std::ostringstream ss;
-    ss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
-    return ss.str();
-}
-
-std::chrono::system_clock::time_point PasetoUtil::parseTime(const std::string& s) {
-    std::tm tm = {};
-    std::istringstream ss(s);
-    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return std::chrono::system_clock::from_time_t(timegm(&tm));
-}
-
-std::string PasetoUtil::extractJsonField(const std::string& json, const std::string& field) {
-    Json::Value root;
-    Json::CharReaderBuilder builder;
-    std::string errs;
-    std::istringstream stream(json);
-    if (!Json::parseFromStream(builder, stream, &root, &errs)) {
-        throw std::runtime_error("Invalid JSON payload: " + errs);
-    }
-    if (!root.isMember(field) || !root[field].isString()) {
-        throw std::runtime_error("Field not found: " + field);
-    }
-    return root[field].asString();
-}
-
 bool PasetoUtil::verifyAdminToken(const std::string& token, const std::string& key,
                                   std::string& adminId, std::string& role) {
     try {
         if (token.find(HEADER) != 0) return false;
         std::string payload = decrypt(token.substr(strlen(HEADER)), key);
-        adminId = extractJsonField(payload, "sub");
-        role = extractJsonField(payload, "role");
-        auto exp = extractJsonField(payload, "exp");
-        if (std::chrono::system_clock::now() > parseTime(exp)) return false;
+        const Json::Value root = parsePayloadObject(payload);
+        adminId = requireStringField(root, "sub");
+        role = requireStringField(root, "role");
+        if (!root.isMember("exp")) return false;
+        if (std::chrono::system_clock::now() > parseTimeClaim(root["exp"])) return false;
         return true;
     } catch (const std::exception& e) {
         LOG_WARN << "PASETO admin token verification failed: " << e.what();

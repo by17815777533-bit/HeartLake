@@ -21,18 +21,20 @@ namespace {
 void sendAuthSuccess(const drogon::WebSocketConnectionPtr &conn,
                      const std::string &userId) {
     Json::Value ok;
+    ok["type"] = "auth_success";
     ok["user_id"] = userId;
     ok["authenticated"] = true;
-    conn->send(Json::FastWriter().write(
-        heartlake::utils::buildRealtimeEvent("auth_success", std::move(ok))));
+    ok["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+    conn->send(Json::FastWriter().write(ok));
 }
 
 void sendWsError(const drogon::WebSocketConnectionPtr &conn,
                  const std::string &message) {
     Json::Value err;
+    err["type"] = "error";
     err["message"] = message;
-    conn->send(Json::FastWriter().write(
-        heartlake::utils::buildRealtimeEvent("error", std::move(err))));
+    err["timestamp"] = static_cast<Json::Int64>(time(nullptr));
+    conn->send(Json::FastWriter().write(err));
 }
 
 bool isPrivateRoomAuthorized(const std::string &room,

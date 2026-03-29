@@ -1,20 +1,15 @@
-# HeartLake ONNX 模型目录
+# 数据模型说明
 
-该目录默认不把大模型文件提交到 Git。
+`backend/models/` 当前只维护仍在运行时和迁移中使用的数据模型说明。
 
-恢复命令：
+## 当前用途
 
-```bash
-./scripts/restore-onnx-model.sh
-```
+- ORM 实体映射
+- 数据表结构对照
+- 代码和迁移的字段来源
 
-恢复后将生成：
+## 当前要求
 
-- `backend/models/sentiment_zh.onnx`
-- `backend/models/vocab.txt`
-- `backend/models/sentiment_domain_lexicon.tsv`
-
-默认下载源：
-
-- ONNX：`onnx-community/Erlangshen-Roberta-110M-Sentiment-ONNX` 的 `model_int8.onnx`
-- 词表：`IDEA-CCNL/Erlangshen-Roberta-110M-Sentiment` 的 `vocab.txt`
+- 模型字段必须和数据库当前表结构一致
+- 新字段要同时更新迁移和接口文档
+- 删除字段前必须确认运行时无引用
