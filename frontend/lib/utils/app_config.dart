@@ -59,6 +59,15 @@ class AppConfig {
     defaultValue: '',
   );
 
+  /// 当前线上网关 Origin。
+  ///
+  /// 发布版若未显式传入 `PUBLIC_ORIGIN` / `API_BASE_URL`，默认直连当前生产网关，
+  /// 避免打包后仍指向占位域名或本地地址导致三端断链。
+  static const String _productionPublicOrigin = String.fromEnvironment(
+    'PRODUCTION_PUBLIC_ORIGIN',
+    defaultValue: 'http://121.41.195.165',
+  );
+
   /// 获取API基础URL
   ///
   /// 根据当前环境返回对应的API地址。
@@ -82,9 +91,9 @@ class AppConfig {
       case AppEnvironment.development:
         return _getDevelopmentApiUrl();
       case AppEnvironment.staging:
-        return 'https://staging-api.heartlake.app/api';
+        return _originToApiBaseUrl(_productionPublicOrigin);
       case AppEnvironment.production:
-        return 'https://api.heartlake.app/api';
+        return _originToApiBaseUrl(_productionPublicOrigin);
     }
   }
 

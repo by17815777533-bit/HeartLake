@@ -185,12 +185,17 @@ flutter run --dart-define=IOS_API_HOST=192.168.1.10
 # 统一指定公网/内网网关 Origin（会同时推导 /api 和 /ws）
 flutter run --dart-define=PUBLIC_ORIGIN=http://192.168.1.10:3000
 
-# 构建发布版
+# 构建发布版（默认直连当前生产网关 http://121.41.195.165）
 flutter build apk --release    # Android
 flutter build ios --release    # iOS
+
+# 如需覆盖发布目标，显式指定公网 Origin
+flutter build apk --release --dart-define=PUBLIC_ORIGIN=http://121.41.195.165
 ```
 
 默认情况下，移动端与桌面端都会优先连接 `http://<host>:3000` 网关，而不是直接访问后端 `:8080`。这样 `/api`、`/ws`、`/api/media/*` 三条链路会统一走 Nginx 代理，更适合本项目的三端联调和 `server-lite` 部署。
+
+发布版若未显式传入 `PUBLIC_ORIGIN` / `API_BASE_URL`，会默认连接当前生产网关 `http://121.41.195.165`。
 
 ## 统计
 

@@ -137,9 +137,11 @@ VERIFY_ONNX_SMOKE=1 ./scripts/verify-onnx-smoke.sh
 
 ## 6. 访问入口
 
-- 管理后台：`http://服务器IP/admin/`
-- API：`http://服务器IP/api/`
-- WebSocket：`ws://服务器IP/ws/broadcast`
+- 管理后台：`http://121.41.195.165/admin/`
+- API：`http://121.41.195.165/api/`
+- WebSocket：`ws://121.41.195.165/ws/broadcast`
+
+移动端发布版如果不额外传 `PUBLIC_ORIGIN` / `API_BASE_URL`，默认也会直连这组生产入口。
 
 ## 7. 后续升级到 HTTPS
 
