@@ -2,6 +2,12 @@
 
 HeartLake 社交应用的管理后台，基于 Vue 3 构建，提供用户管理、内容审核、数据统计、边缘 AI 监控等功能。通过 RESTful API 与 C++ Drogon 后端通信，采用 PASETO v4 认证机制。
 
+当前云端访问入口：
+
+- 管理后台：`http://121.41.195.165/admin/`
+- 管理端 API：`http://121.41.195.165/api/admin`
+- 服务器目录：`/root/HeartLake`
+
 ## 技术栈
 
 | 类别 | 技术 | 版本 |
@@ -46,7 +52,7 @@ src/
 # 安装依赖
 npm install
 
-# 启动开发服务器（端口 5173，自动代理 /api 到后端 8080）
+# 启动开发服务器（端口 5173，自动代理 /api 到当前网关）
 npm run dev
 
 # 生产构建
@@ -59,10 +65,10 @@ npm run preview
 npm run test
 ```
 
-开发服务器代理配置（`vite.config.js`）：
+开发服务器代理配置（`vite.config.ts`）：
 
-- `/api` -> `http://127.0.0.1:8080`（HTTP API）
-- `/ws` -> `ws://127.0.0.1:8080`（WebSocket）
+- `/api` -> `http://127.0.0.1:3000/api`（经由本地 gateway）
+- `/ws` -> `ws://127.0.0.1:3000/ws`（经由本地 gateway）
 
 ## 页面功能
 
@@ -146,8 +152,11 @@ npm run test
 
 ## 部署
 
-1. 执行 `npm run build`，产物输出到 `dist/` 目录
-2. 通过 nginx 提供静态文件服务，参考配置：
+当前云端管理后台通过主 gateway 以 `/admin/` 子路径提供服务，仓库位于 `/root/HeartLake`。静态资源的实际发布入口是：
+
+- `http://121.41.195.165/admin/`
+
+如果单独部署静态产物，参考配置：
 
 ```nginx
 server {

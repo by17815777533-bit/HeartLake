@@ -1,6 +1,6 @@
 # API 接口全量清单
 
-> 本文档列出 HeartLake 后端全部 HTTP 接口，按 Controller 分组。所有接口基地址为 `http://localhost:8080`。
+> 本文档列出 HeartLake 后端全部 HTTP 接口，按 Controller 分组。当前云端接口基地址为 `http://121.41.195.165/api`。
 
 ## 统一响应格式
 
@@ -376,7 +376,7 @@ POST `/api/edge-ai/analyze` 请求体：
 
 | 路径 | 说明 |
 |------|------|
-| `ws://localhost:8080/ws/broadcast` | 实时消息推送 |
+| `ws://121.41.195.165/ws/broadcast` | 当前云端实时消息推送 |
 
 鉴权方式：
 

@@ -6,9 +6,9 @@
 
 | 链路 | 地址 | 说明 |
 |------|------|------|
-| REST API | `http://localhost:8080/api` | HTTP 接口 |
-| WebSocket | `ws://localhost:8080/ws/broadcast` | 实时事件推送 |
-| 管理后台 API | `http://localhost:8080/api/admin` | 管理端接口（独立认证） |
+| REST API | `http://121.41.195.165/api` | 当前云端 HTTP 接口 |
+| WebSocket | `ws://121.41.195.165/ws/broadcast` | 当前云端实时事件推送 |
+| 管理后台 API | `http://121.41.195.165/api/admin` | 当前云端管理端接口（独立认证） |
 
 ## 2. 认证机制
 
@@ -29,7 +29,7 @@ Authorization: Bearer <paseto_token>
 系统采用匿名登录机制，用户无需注册即可使用：
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/anonymous \
+curl -X POST http://121.41.195.165/api/auth/anonymous \
   -H 'Content-Type: application/json' \
   -d '{"device_id":"my_device_001"}'
 ```
@@ -64,7 +64,7 @@ curl -X POST http://localhost:8080/api/auth/anonymous \
 ### 2.3 令牌刷新
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/refresh \
+curl -X POST http://121.41.195.165/api/auth/refresh \
   -H 'Content-Type: application/json' \
   -d '{"refresh_token":"rt_xxx..."}'
 ```
@@ -76,7 +76,7 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 管理后台使用独立的认证体系（`AdminAuthFilter` + 独立签名密钥），与用户端完全隔离：
 
 ```bash
-curl -X POST http://localhost:8080/api/admin/login \
+curl -X POST http://121.41.195.165/api/admin/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"<ADMIN_PASSWORD>"}'
 ```
@@ -271,7 +271,7 @@ StonePublishedEvent → AI 情感分析 → 情绪追踪 → 心理风险评估 
 情感分析请求示例：
 
 ```bash
-curl -X POST http://localhost:8080/api/edge-ai/analyze \
+curl -X POST http://121.41.195.165/api/edge-ai/analyze \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"text":"待分析文本"}'
@@ -395,7 +395,7 @@ curl -X POST http://localhost:8080/api/edge-ai/analyze \
 方式一（推荐）：URL 参数鉴权
 
 ```
-ws://localhost:8080/ws/broadcast?token=<url_encoded_token>
+ws://121.41.195.165/ws/broadcast?token=<url_encoded_token>
 ```
 
 服务端鉴权成功后会主动回：

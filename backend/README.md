@@ -2,6 +2,13 @@
 
 HeartLake 匿名情感社交平台的后端服务，基于 C++20 + Drogon 异步框架构建，采用 DDD 分层架构 + 事件驱动 + ServiceLocator 模式，内置 8 个边缘 AI 子系统。
 
+当前云端部署事实：
+
+- 仓库目录：`/root/HeartLake`
+- 对外 API：`http://121.41.195.165/api`
+- 对外 WebSocket：`ws://121.41.195.165/ws/broadcast`
+- 服务器模式：`./scripts/docker-up.sh server-lite`
+
 ---
 
 ## 技术栈

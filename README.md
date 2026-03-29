@@ -112,12 +112,12 @@ cp .env.example .env
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 统一网关 | `http://localhost:3000` | Nginx 反向代理入口 |
-| 后端 API | `http://localhost:8080` | Drogon REST API + WebSocket |
-| 管理后台 | `http://localhost:5173` | Vue 3 管理面板 |
-| PostgreSQL | `localhost:5432` | 数据库（账号密码见 `.env`） |
-| Redis | `localhost:6379` | 缓存（认证密码见 `.env`） |
-| Ollama | `localhost:11434` | LLM 推理服务 |
+| 统一网关 | `http://121.41.195.165` | 当前云端公网入口 |
+| 后端 API | `http://121.41.195.165/api` | 当前云端 API 入口 |
+| 管理后台 | `http://121.41.195.165/admin/` | 当前云端管理后台 |
+| WebSocket | `ws://121.41.195.165/ws/broadcast` | 当前云端实时入口 |
+| 服务器目录 | `/root/HeartLake` | 当前云端仓库路径 |
+| PostgreSQL / Redis | `127.0.0.1` 绑定 | 仅服务器本机访问 |
 
 ### 数据初始化
 
