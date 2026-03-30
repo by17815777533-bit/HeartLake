@@ -198,6 +198,35 @@ cmake --build build-2c2g -j2
 - `StonePublishedEvent -> StonePublishedHandler`
 - `BoatSentEvent -> BoatSentHandler`
 
+## 认证、加密与隐私
+
+### 用户认证
+
+- `UserController` 负责 `/api/auth/anonymous`、`/api/auth/recover`、`/api/auth/refresh`。
+- 匿名登录和恢复密钥找回都会下发 `token`、`refresh_token`、`session_id`；首次匿名登录还会返回 `recovery_key`。
+- `user_sessions` 是 refresh session、设备管理、登录日志和会话续期的底层表。
+
+### PASETO 与权限
+
+- `utils/PasetoUtil.*` 提供用户端和管理端两套 PASETO 令牌能力。
+- 用户令牌使用 `PASETO_KEY`，管理员令牌使用 `ADMIN_PASETO_KEY`。
+- `SecurityAuditFilter` 校验用户 Bearer token 并注入 `user_id`。
+- `AdminAuthFilter` 校验管理员 Bearer token，并结合 `RBACManager` 做路径级权限检查。
+
+### 咨询端到端加密
+
+- `interfaces/api/ConsultationController.*` 负责创建会话、密钥交换和密文消息读写。
+- `utils/E2EEncryption.*` 使用 `X25519 + HKDF-SHA256 + AES-256-GCM`。
+- `consultation_messages` 只保存 `ciphertext / iv / tag`，不保存明文。
+- `IdentityShadowMap` 把咨询消息发送方映射为阴影身份，避免直接暴露真实用户 ID。
+
+### 限流、审计与隐私
+
+- `RateLimitFilter` 普通 API 默认 `100` 次/分钟，AI API 默认 `20` 次/分钟。
+- `SecurityAuditFilter` 会做路径规范化、拒绝路径遍历并记录安全审计日志。
+- `AccountController` 覆盖设备列表、登录日志、安全事件、隐私设置、导出、停用和永久删除。
+- `PrivacyController` 提供差分隐私统计和预算报告，底层依赖 `DifferentialPrivacyEngine`。
+
 ## AI 与后台任务
 
 ### 八大 Edge AI 子系统

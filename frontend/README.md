@@ -187,10 +187,37 @@ flutter build apk --release
 
 ## 网络与存储
 
-- `api_client.dart`：Dio base URL、token 注入、401 刷新、缓存配合、证书 pinning。
-- `websocket_manager.dart`：query `token` 鉴权、离线队列、房间引用计数、自动重连、心跳。
+- `api_client.dart`：Dio base URL、token 注入、401 刷新、缓存配合、证书 pinning、请求 ID。
+- `websocket_manager.dart`：query `token` 鉴权、`auth_success` 握手确认、离线队列、房间引用计数、自动重连、心跳。
 - `payload_contract.dart`：字段镜像、ID 提取、事件 payload 归一。
 - `storage_util.dart`：敏感数据走 `FlutterSecureStorage`，普通数据走 `SharedPreferences`。
+
+## 认证、恢复与咨询加密
+
+### 认证链
+
+- `auth_service.dart` 负责匿名登录、恢复密钥找回、refresh session 续期和登出。
+- 匿名登录时，后端会返回 `token`、`refresh_token`、`session_id`、`recovery_key`；恢复链会返回新的访问令牌和 refresh session。
+- `auth_screen.dart` 会强制用户先保存恢复密钥，再进入主页。
+
+### 本地存储与网络安全
+
+- `storage_util.dart` 把 `token`、`refresh_token`、`user_id`、`session_id` 放进 `FlutterSecureStorage`。
+- 设备号、昵称、匿名态和偏好设置走 `SharedPreferences`。
+- `api_client.dart` 在 401 时统一触发 refresh，不让页面各自重登。
+- 当 `ENABLE_CERT_PINNING=true` 且配置了 `CERT_SHA256_PINS` 时，客户端会按证书 SHA-256 指纹校验服务端证书。
+
+### 咨询端到端加密
+
+- `e2e_encryption.dart` 提供 `X25519 + HKDF-SHA256 + AES-256-GCM` 会话加密。
+- `consultation_service.dart` 在安全通道未就绪时拒绝发送明文消息。
+- 咨询消息采用 `ciphertext / iv / tag` 信封格式，历史记录会在客户端解密，失败会标记为 `[无法解密]`。
+
+### 隐私与账号安全
+
+- `privacy_settings_screen.dart` 管理 `profile_visibility`、`show_online_status`、`allow_message_from_stranger` 三个真实生效字段。
+- `account_service.dart` 负责设备列表、登录日志、安全事件、数据导出、停用和永久删除。
+- `profile_screen.dart`、`auth_screen.dart`、`privacy_settings_screen.dart` 一起构成账号安全与隐私入口。
 
 ## AI 功能
 
@@ -225,6 +252,8 @@ flutter build apk --release
 - 数据源负责协议归一和错误抛出。
 - Provider 负责状态编排，不在页面里拼接口分叉。
 - WebSocket 建连必须携带 token。
+- 咨询消息不降级成明文发送。
+- 敏感凭证只走安全存储。
 
 ## 相关手册
 

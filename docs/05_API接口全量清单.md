@@ -1,8 +1,8 @@
 # API 接口全量清单
 
-本文只列当前主要业务会使用的有效入口，不列内部别名和不可用路由。
+本文只列主要业务会使用的有效入口，不列内部别名和不可用路由。
 
-当前基地址：
+基地址：
 
 - 用户 API：`http://121.41.195.165/api`
 - 管理 API：`http://121.41.195.165/api/admin`
@@ -33,6 +33,12 @@
 - `GET /api/users/my/emotion-calendar`
 - `GET /api/users/my/emotion-heatmap`
 
+认证返回要点：
+
+- `/api/auth/anonymous`：返回 `token`、`refresh_token`、`session_id`、`recovery_key`
+- `/api/auth/recover`：返回 `token`、`refresh_token`、`session_id`
+- `/api/auth/refresh`：返回新的 `token`，可回补 `refresh_token` 和 `session_id`
+
 ## 4. 账号与隐私
 
 - `GET /api/account/info`
@@ -54,6 +60,12 @@
 - `POST /api/account/delete-permanent`
 - `GET /api/lake/privacy-stats`
 - `GET /api/lake/privacy-report`
+
+隐私字段约定：
+
+- `profile_visibility`
+- `show_online_status`
+- `allow_message_from_stranger`
 
 ## 5. 媒体
 
@@ -128,6 +140,13 @@
 - `GET /api/consultation/sessions`
 - `POST /api/reports`
 - `GET /api/reports/my`
+
+咨询链约定：
+
+- `POST /api/consultation/session`：创建会话
+- `POST /api/consultation/key-exchange`：获取 `server_public_key` 和 `salt`
+- `POST /api/consultation/message`：提交 `encrypted = { ciphertext, iv, tag }`
+- `GET /api/consultation/messages/{sessionId}`：返回密文消息集合
 
 ## 10. 推荐与 AI
 
@@ -247,4 +266,4 @@
 
 - `GET /ws/broadcast`
 
-当前 WebSocket 接受 `join`、`leave`、`room_message`、`ping`，并返回 `auth_success`、`pong`、`error` 与业务广播事件。
+WebSocket 接受 `join`、`leave`、`room_message`、`ping`，并返回 `auth_success`、`pong`、`error` 与业务广播事件。握手 URL 必须携带 query `token`。
