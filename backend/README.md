@@ -61,3 +61,8 @@ cmake --build build-2c2g -j2
 - token 验证路径按当前实现只解析一次 JSON payload。
 - WebSocket 鉴权成功和错误消息使用最小 JSON 载荷。
 - 现网基准见 [../docs/06_测试验证与压测手册.md](../docs/06_测试验证与压测手册.md)。
+
+## 详细代码手册
+
+- [../docs/11_后端代码地图与启动链手册.md](../docs/11_后端代码地图与启动链手册.md)
+- [../docs/05_API接口全量清单.md](../docs/05_API接口全量清单.md)

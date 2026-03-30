@@ -48,3 +48,8 @@ flutter build apk --release
 - 数据源负责协议归一和错误抛出。
 - Provider 负责状态编排，不在页面里拼接口分叉。
 - WebSocket 建连必须携带 token。
+
+## 详细代码手册
+
+- [../docs/12_移动端代码地图与状态链手册.md](../docs/12_移动端代码地图与状态链手册.md)
+- [../docs/02_API与实时链路手册.md](../docs/02_API与实时链路手册.md)
