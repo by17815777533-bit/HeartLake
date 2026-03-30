@@ -17,16 +17,15 @@
 3. [本地启动与运行手册](01_本地启动与运行手册.md)
 4. [API 与实时链路手册](02_API与实时链路手册.md)
 5. [技术实现全景手册](04_技术实现全景手册.md)
-6. [后端代码地图与启动链手册](11_后端代码地图与启动链手册.md)
-7. [移动端代码地图与状态链手册](12_移动端代码地图与状态链手册.md)
-8. [管理端代码地图与运营链手册](13_管理端代码地图与运营链手册.md)
-9. [数据模型与迁移手册](14_数据模型与迁移手册.md)
-10. [配置与环境变量手册](15_配置与环境变量手册.md)
-11. [AI、推荐与后台任务手册](16_AI推荐与后台任务手册.md)
-12. [API 接口全量清单](05_API接口全量清单.md)
-13. [测试验证与压测手册](06_测试验证与压测手册.md)
-14. [上线检查清单](10_上线检查清单.md)
-15. [Ubuntu 2C2G 部署手册](deploy-ubuntu-2c2g.md)
+6. [后端说明](../backend/README.md)
+7. [移动端说明](../frontend/README.md)
+8. [管理端说明](../admin/README.md)
+9. [数据迁移说明](../backend/migrations/README.md)
+10. [模型资源说明](../backend/models/README.md)
+11. [API 接口全量清单](05_API接口全量清单.md)
+12. [测试验证与压测手册](06_测试验证与压测手册.md)
+13. [上线检查清单](10_上线检查清单.md)
+14. [Ubuntu 2C2G 部署手册](deploy-ubuntu-2c2g.md)
 
 ## 文档清单
 
@@ -41,13 +40,15 @@
 - [08_参考文献.md](08_参考文献.md)
 - [09_架构修补与性能治理方案.md](09_架构修补与性能治理方案.md)
 - [10_上线检查清单.md](10_上线检查清单.md)
-- [11_后端代码地图与启动链手册.md](11_后端代码地图与启动链手册.md)
-- [12_移动端代码地图与状态链手册.md](12_移动端代码地图与状态链手册.md)
-- [13_管理端代码地图与运营链手册.md](13_管理端代码地图与运营链手册.md)
-- [14_数据模型与迁移手册.md](14_数据模型与迁移手册.md)
-- [15_配置与环境变量手册.md](15_配置与环境变量手册.md)
-- [16_AI推荐与后台任务手册.md](16_AI推荐与后台任务手册.md)
 - [deploy-ubuntu-2c2g.md](deploy-ubuntu-2c2g.md)
+
+## 代码侧配套手册
+
+- [../backend/README.md](../backend/README.md)
+- [../frontend/README.md](../frontend/README.md)
+- [../admin/README.md](../admin/README.md)
+- [../backend/migrations/README.md](../backend/migrations/README.md)
+- [../backend/models/README.md](../backend/models/README.md)
 
 ## 当前文档约束
 

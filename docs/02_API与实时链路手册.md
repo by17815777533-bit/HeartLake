@@ -8,20 +8,25 @@
 
 ## 1. 链路总览
 
-```mermaid
-sequenceDiagram
-  participant App as Flutter / Admin
-  participant Gate as Gateway
-  participant Api as Drogon API
-  participant DB as PostgreSQL / Redis
-  participant WS as WebSocketHub
-
-  App->>Gate: HTTP / WebSocket
-  Gate->>Api: /api /ws
-  Api->>DB: 查询 / 写入 / 缓存
-  Api-->>App: code / message / data
-  Api->>WS: buildRealtimeEvent()
-  WS-->>App: 实时事件广播
+```text
++----------------------+      +----------------------+      +----------------------+
+| Flutter / Admin      |----->| Gateway              |----->| Drogon API / WS      |
+| HTTP / WebSocket     |      | /api /ws             |      | Controllers          |
++----------------------+      +----------------------+      +----------+-----------+
+                                                                        |
+                                         +------------------------------+------------------------------+
+                                         |                                                             |
+                                         v                                                             v
+                               +----------------------+                                     +----------------------+
+                               | PostgreSQL / Redis   |                                     | WebSocketHub         |
+                               | 查询 / 写入 / 缓存   |                                     | buildRealtimeEvent() |
+                               +----------------------+                                     +----------+-----------+
+                                                                                                      |
+                                                                                                      v
+                                                                                           +----------------------+
+                                                                                           | Flutter / Admin      |
+                                                                                           | 实时事件广播         |
+                                                                                           +----------------------+
 ```
 
 ## 2. 认证
