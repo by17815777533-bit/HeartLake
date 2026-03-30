@@ -1,8 +1,8 @@
 # 文档索引
 
-这套文档只写 HeartLake 当前现状。所有地址、命令、接口和性能指标都按当前云端事实维护。
+这套文档只写 HeartLake 的现行实现。地址、命令、接口和性能指标都以云端部署事实为准。
 
-## 当前云端事实
+## 云端信息
 
 - 公网入口：`http://121.41.195.165`
 - API：`http://121.41.195.165/api`
@@ -42,7 +42,7 @@
 - [10_上线检查清单.md](10_上线检查清单.md)
 - [deploy-ubuntu-2c2g.md](deploy-ubuntu-2c2g.md)
 
-## 代码侧配套手册
+## 配套代码手册
 
 - [../backend/README.md](../backend/README.md)
 - [../frontend/README.md](../frontend/README.md)
@@ -50,9 +50,9 @@
 - [../backend/migrations/README.md](../backend/migrations/README.md)
 - [../backend/models/README.md](../backend/models/README.md)
 
-## 当前文档约束
+## 文档约束
 
-- 只写当前能力和当前限制。
-- 不写历史版本、不写迁移叙述。
-- 文档中的内链统一使用相对路径。
-- 云端事实和仓库事实不允许漂移。
+- 只写可用能力和现行限制。
+- 不写历史版本和迁移叙述。
+- 文档内链统一使用相对路径。
+- 云端事实和仓库事实必须一致。

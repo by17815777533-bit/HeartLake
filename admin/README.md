@@ -1,12 +1,32 @@
 # 管理端说明
 
-当前管理端是 Vue 3 + Vite 运营控制台，直接服务于现网运营、审核、配置和实时治理。
+管理端是 Vue 3 + Vite 运营控制台，服务于运营、审核、配置和实时治理。
 
-## 当前入口
+## 入口
 
 - 页面：`http://121.41.195.165/admin/`
 - API：`http://121.41.195.165/api`
 - WebSocket：`ws://121.41.195.165/ws/broadcast`
+
+## 文件结构
+
+```text
+admin/src/
+|-- api/
+|-- components/
+|-- composables/
+|-- layouts/
+|-- router/
+|-- services/
+|-- stores/
+|-- styles/
+|-- types/
+|-- utils/
+|-- views/
+|   |-- dashboard/
+|   `-- edge-ai/
+`-- __tests__/
+```
 
 ## 本地开发
 
@@ -24,12 +44,12 @@ npm run lint
 npm run build
 ```
 
-## 当前环境变量
+## 环境变量
 
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 
-## 当前入口链
+## 入口链
 
 ### 关键文件
 
@@ -39,7 +59,7 @@ npm run build
 - `src/api/index.ts`
 - `src/services/websocket.ts`
 
-### 当前路由与角色
+### 路由与角色
 
 | 路径 | 页面 | 最低角色 |
 |---|---|---|
@@ -56,13 +76,13 @@ npm run build
 | `/forbidden` | `Forbidden.vue` | 公开 |
 | `/:pathMatch(.*)*` | `NotFound.vue` | 公开 |
 
-当前角色层级：
+角色层级：
 
 - `viewer = 1`
 - `admin = 2`
 - `super_admin = 3`
 
-## 当前状态与通信
+## 状态与通信
 
 ### `stores/index.ts`
 
@@ -89,33 +109,24 @@ npm run build
 - 最大 `10` 次重连
 - 未知消息转为 `socket_error`
 
-## 当前页面
+## 页面与职责
 
-- Dashboard
-- Users
-- Content
-- Moderation
-- Reports
-- SensitiveWords
-- Logs
-- Settings
-- EdgeAI
+- `Dashboard.vue`：平台统计和图表
+- `Users.vue`：用户列表、详情、封禁和高级推荐查看
+- `Content.vue`：内容水位和治理动作
+- `Moderation.vue`：审核队列和审核结果
+- `Reports.vue`：举报和求助处理
+- `SensitiveWords.vue`：敏感词维护
+- `Logs.vue`：管理员和系统日志
+- `Settings.vue`：高权限配置管理
+- `EdgeAI.vue`：边缘 AI 状态和节点信息
 
-## 当前组件职责
-
-### 布局
-
-- `MainLayout.vue`：顶部导航、搜索、管理员信息、实时摘要、warning 保留
-
-### 组合式函数
+## 组合式函数与工具
 
 - `useChartOptions.ts`
 - `useDashboardData.ts`
 - `useDashboardLoaders.ts`
 - `useTablePagination.ts`
-
-### 工具与类型
-
 - `utils/adminPayload.ts`
 - `utils/collectionPayload.ts`
 - `utils/errorHelper.ts`
@@ -124,10 +135,36 @@ npm run build
 - `utils/adminRoutes.ts`
 - `types/index.ts`
 
-## 当前约束
+## AI 与运营能力
 
-- 管理端只消费后端当前集合壳。
-- Dashboard 和图表刷新失败时必须保留 stale 状态。
+### `EdgeAI.vue`
+
+- 引擎状态总览
+- 性能指标
+- 情绪脉搏曲线
+- 联邦学习状态
+- 隐私预算
+- 配置摘要和聚合触发
+
+### `Users.vue`
+
+- 查看指定用户的高级推荐结果
+- 核对参考石头、算法标识和链路产出
+
+### `Dashboard`
+
+- 读取情绪脉搏、隐私预算、共鸣统计等 AI 指标
+
+### `types/index.ts`
+
+- `EdgeAISubsystem`
+- `EdgeAIStatus`
+- `EdgeAIMetrics`
+
+## 约束
+
+- 只消费后端集合壳。
+- Dashboard 和图表刷新失败时保留 stale 状态。
 - 实时链只处理白名单事件类型。
 - 页面失败不能静默落成空表或默认配置。
 

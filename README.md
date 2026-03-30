@@ -1,8 +1,8 @@
 # HeartLake
 
-HeartLake 是一套运行中的匿名情绪社区系统。当前项目由 Flutter 移动端、Vue 3 管理端、Drogon + C++20 后端组成，统一承载内容互动、关系链、情绪链、推荐链、AI 链、后台治理和实时广播。
+HeartLake 是一套匿名情绪社区系统，包含 Flutter 移动端、Vue 3 管理端和 Drogon + C++20 后端，承载内容互动、关系链、情绪链、推荐链、AI 链、后台治理和实时广播。
 
-## 当前线上事实
+## 线上信息
 
 - 公网入口：`http://121.41.195.165`
 - API：`http://121.41.195.165/api`
@@ -10,90 +10,155 @@ HeartLake 是一套运行中的匿名情绪社区系统。当前项目由 Flutte
 - WebSocket：`ws://121.41.195.165/ws/broadcast`
 - 云端仓库目录：`/root/HeartLake`
 - 部署别名：`heartlake-server`
-- 移动端 release 包：`frontend/build/app/outputs/flutter-apk/app-release.apk`
-- 当前 APK SHA-256：`9654d5facf294ab1c0d21e6ce6f73728d346977994fe911a23be1de02553ac31`
+- Android release 包：`frontend/build/app/outputs/flutter-apk/app-release.apk`
+- APK SHA-256：`9654d5facf294ab1c0d21e6ce6f73728d346977994fe911a23be1de02553ac31`
 
-## 当前架构
+## 运行架构
 
 ```text
-+---------------------------+      +-----------------------------+
-| Flutter 移动端            |----->|                             |
-| Vue 3 管理端              |      | Nginx Gateway               |
-| curl / SSH / 压测脚本     |----->| /api /admin /ws /healthz    |
-+---------------------------+      +-------------+---------------+
-                                                  |
-                                                  v
-                                 +-------------------------------------------+
-                                 | Drogon 后端                               |
-                                 | Controllers -> Application -> Domain      |
-                                 | -> Infrastructure / Realtime / AI         |
-                                 +----------+---------------+----------------+
-                                            |               |
-                         +------------------+               +------------------+
-                         |                                                     |
-                         v                                                     v
-              +-----------------------+                           +-----------------------+
-              | PostgreSQL 16         |                           | Redis 7               |
-              | 业务数据 / 统计 / 会话 |                           | 缓存 / 实时辅助       |
-              +-----------------------+                           +-----------------------+
-                                            |
-                                            v
-                                 +-------------------------------------------+
-                                 | 高级算法链                                |
-                                 | Recommendation / Resonance / EdgeAI       |
-                                 | ONNX / HNSW / LakeGod / Guardian          |
-                                 +-------------------------------------------+
++------------------+
+| Flutter App      |
++------------------+
+          |
+          v
++------------------+      +------------------+
+| Nginx Gateway    |----->| Vue Admin        |
+| /api /ws /admin  |      +------------------+
++---------+--------+
+          |
+          v
++------------------+
+| Drogon Backend   |
+| Controllers      |
+| Application      |
+| Domain           |
+| Infrastructure   |
++----+----+----+---+
+     |    |    |
+     |    |    +--------------------+
+     |    |                         |
+     v    v                         v
++--------+------+        +-----------------------+
+| PostgreSQL    |        | AI / Recommendation   |
+| content graph |        | Resonance / EdgeAI    |
+| sessions      |        | DualMemoryRAG         |
++---------------+        +-----------------------+
+          |
+          v
++------------------+
+| Redis            |
+| cache / realtime |
++------------------+
 ```
-
-## 当前能力
-
-| 模块 | 当前状态 |
-|---|---|
-| 石头 / 涟漪 / 纸船 | 统一走集合壳、写后确认和实时事件链 |
-| 好友 / 临时好友 / 守护 | 只保留当前自动关系模型和可用消息链 |
-| 情绪日历 / 热力图 / 趋势 / 脉搏 | 只消费真实情绪数据，失败显式暴露 |
-| 推荐 / 高级推荐 / 共鸣搜索 | 直接使用当前高级算法和向量检索结果 |
-| 湖神 / 安全港 / 咨询 / VIP | 保留显式降级语义，不伪装成功 |
-| 管理后台 | Dashboard、用户、内容、审核、举报、日志、配置、广播可用 |
 
 ## 仓库结构
 
-- `frontend/`：Flutter 移动端，包含启动入口、路由、数据源、Provider、页面和组件
-- `admin/`：Vue 3 管理端，包含路由、布局、Pinia 状态、HTTP 基座、WebSocket 和运营页面
-- `backend/`：Drogon + C++20 后端，包含控制器、应用服务、领域层、基础设施、迁移和模型资源
-- `docs/`：现行手册、接口说明、压测结果、部署和上线清单
-- `scripts/`：部署、校验、环境生成、联调、压测辅助脚本
-- `datasets/`：离线参考数据说明
+```text
+.
+|-- frontend/
+|   |-- lib/main.dart
+|   |-- lib/router/
+|   |-- lib/data/datasources/
+|   |-- lib/presentation/providers/
+|   |-- lib/presentation/screens/
+|   |-- lib/presentation/widgets/
+|   `-- lib/edge_ai/
+|-- admin/
+|   `-- src/
+|       |-- api/
+|       |-- router/
+|       |-- services/
+|       |-- stores/
+|       |-- layouts/
+|       |-- composables/
+|       |-- views/
+|       `-- utils/
+|-- backend/
+|   |-- src/main.cpp
+|   |-- include/interfaces/api/
+|   |-- src/interfaces/api/
+|   |-- src/application/
+|   |-- src/domain/
+|   |-- src/infrastructure/ai/
+|   |-- src/infrastructure/services/
+|   |-- src/utils/
+|   |-- migrations/
+|   `-- models/
+|-- docs/
+`-- scripts/
+```
 
-## 当前关键实现
+## 模块能力
+
+| 模块 | 说明 |
+|---|---|
+| 石头 / 涟漪 / 纸船 | 统一走集合壳、写后确认和实时事件链 |
+| 好友 / 临时好友 / 守护 | 自动关系模型、消息链、灯火与守护入口 |
+| 情绪日历 / 热力图 / 趋势 / 脉搏 | 消费真实情绪数据，失败显式暴露 |
+| 推荐 / 高级推荐 / 共鸣搜索 | 使用高级算法和向量检索结果 |
+| 湖神 / 安全港 / 咨询 / VIP | 保留显式降级语义，不伪装成功 |
+| 管理后台 | Dashboard、用户、内容、审核、举报、日志、配置、广播 |
+
+## 代码入口
 
 ### 后端
 
-- 入口：`backend/src/main.cpp`
-- 装配：`backend/include/infrastructure/ArchitectureBootstrap.h`
+- 启动入口：`backend/src/main.cpp`
+- 装配入口：`backend/include/infrastructure/ArchitectureBootstrap.h`
 - 应用服务工厂：`backend/src/application/ApplicationServiceFactory.cpp`
-- 控制器统一承载账号、内容、关系、AI、管理和 WebSocket 入口
-- 基础设施层统一承载 PostgreSQL、Redis、AI、向量检索、后台任务和实时事件
+- HTTP / WS 控制器：`backend/include/interfaces/api/` 和 `backend/src/interfaces/api/`
+- AI 实现：`backend/src/infrastructure/ai/`
+- 后台任务：`backend/src/infrastructure/services/`
 
 ### 移动端
 
-- 入口：`frontend/lib/main.dart`
+- 应用入口：`frontend/lib/main.dart`
 - 路由：`frontend/lib/router/app_router.dart`
 - 依赖注入：`frontend/lib/di/service_locator.dart`
-- Provider：`user`、`stone`、`friend`、`notification`、`edge_ai`
-- 数据源统一放在 `frontend/lib/data/datasources/`
+- 数据源：`frontend/lib/data/datasources/`
+- 状态管理：`frontend/lib/presentation/providers/`
+- 页面：`frontend/lib/presentation/screens/`
 
 ### 管理端
 
 - 路由：`admin/src/router/index.ts`
-- 主布局：`admin/src/layouts/MainLayout.vue`
+- 布局：`admin/src/layouts/MainLayout.vue`
 - HTTP：`admin/src/api/index.ts`
 - WebSocket：`admin/src/services/websocket.ts`
-- 页面：Dashboard、Users、Content、Moderation、Reports、SensitiveWords、Logs、Settings、EdgeAI
+- 页面：`admin/src/views/`
 
-## 当前性能快照
+## 八大 Edge AI 子系统
 
-最近一次云端压测直接在服务器本机执行，结果如下：
+`EdgeAIEngine` 是八大核心子系统的统一门面：
+
+1. `SentimentAnalyzer`：轻量级情感分析，融合规则、词典、统计和 ONNX 路径。
+2. `ContentModerator`：本地文本审核，负责敏感词和心理风险初筛。
+3. `EmotionPulseDetector`：实时情绪脉搏检测，维护社区情绪快照。
+4. `FederatedLearner`：联邦学习聚合器，负责模型汇总和 FedAvg。
+5. `EdgeDifferentialPrivacy`：差分隐私预算和噪声注入。
+6. `HNSWIndex`：本地向量近邻检索。
+7. `ModelQuantizer`：INT8 量化推理。
+8. `EdgeNodeMonitor`：边缘节点健康监控。
+
+## AI 功能
+
+- `AIService`：统一调度情感分析、内容审核、对话生成和嵌入生成。
+- `AdvancedEmbeddingEngine`：生成文本嵌入。
+- `RecommendationEngine`：个性化推荐和探索策略。
+- `EmotionResonanceEngine`：四维共鸣评分和 DTW 情绪轨迹匹配。
+- `DualMemoryRAG`：湖神双记忆系统，支持情绪洞察和陪伴对话。
+- `ResonanceSearchService`：向量召回和共鸣结果组装。
+- `LakeGodGuardianService`：零互动石头巡检和自动关怀。
+
+## AI 功能落点
+
+- 发布链：`publish_screen` 和 `ai_content_preview` 做情绪分析与提示。
+- 推荐链：`discover_screen` 和 `personalized_screen` 展示个性化推荐与高级共鸣推荐。
+- 情绪链：日历、热力图、趋势、脉搏页面消费 Edge AI 和推荐引擎结果。
+- 湖神链：`lake_god_chat_screen` 做陪伴对话，`guardian_screen` 做情绪洞察。
+- 管理链：`EdgeAI.vue` 展示引擎、脉搏、联邦、预算和配置；`Users.vue` 查看高级推荐产出。
+
+## 性能快照
 
 - 5 分钟混合 HTTP soak：`406572` 请求，整体 `1330.91 rps`
 - `GET /api/lake/stones`：平均 `8.52ms`，`p95 16.61ms`
@@ -102,21 +167,15 @@ HeartLake 是一套运行中的匿名情绪社区系统。当前项目由 Flutte
 - `GET /api/stones/{id}/resonance`：平均 `11.33ms`，`p95 19.45ms`
 - `POST /api/stones/{id}/ripples`：平均 `9.77ms`，`p95 17.77ms`
 - WebSocket `120` 并发连接：`120/120` 建连成功，握手平均 `42.67ms`，`p95 51.62ms`
-- 压测窗口内 PostgreSQL 没有出现超过 `20ms` 的慢 SQL
 
 ## 常用命令
 
 ```bash
-# 云端登录与健康检查
 ssh heartlake-server
 curl -fsS http://121.41.195.165/api/health
 curl -I -fsS http://121.41.195.165/admin/
-
-# 本地全量校验
 ./scripts/verify-2c2g.sh
 ./scripts/docker-test.sh
-
-# 云端部署
 ./scripts/docker-up.sh server-lite
 ./scripts/docker-up.sh server-lite-backend
 ./scripts/docker-up.sh server-lite-admin
