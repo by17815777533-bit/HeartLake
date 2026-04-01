@@ -19,6 +19,7 @@
 
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/MoodUtils.h"
 #include <drogon/orm/DbClient.h>
 #include <trantor/utils/Logger.h>
 #include <algorithm>
@@ -49,6 +50,66 @@ DbClientPtr requireDbClient(
     return dbClient;
 }
 
+std::string resolveRecommendationMoodFromSignals(
+    const DbClientPtr& dbClient,
+    const std::string& userId
+) {
+    auto moodResult = dbClient->execSqlSync(
+        "SELECT mood_type "
+        "FROM user_emotion_profile "
+        "WHERE user_id = $1 "
+        "ORDER BY date DESC "
+        "LIMIT 1",
+        userId);
+    if (!moodResult.empty() && !moodResult[0]["mood_type"].isNull()) {
+        const auto mood = moodResult[0]["mood_type"].as<std::string>();
+        if (!mood.empty()) {
+            return heartlake::utils::normalizeMood(mood);
+        }
+    }
+
+    auto authoredStoneMoodResult = dbClient->execSqlSync(
+        "SELECT mood_type "
+        "FROM stones "
+        "WHERE user_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "  AND mood_type IS NOT NULL "
+        "  AND mood_type <> '' "
+        "ORDER BY created_at DESC "
+        "LIMIT 1",
+        userId);
+    if (!authoredStoneMoodResult.empty() &&
+        !authoredStoneMoodResult[0]["mood_type"].isNull()) {
+        const auto mood = authoredStoneMoodResult[0]["mood_type"].as<std::string>();
+        if (!mood.empty()) {
+            return heartlake::utils::normalizeMood(mood);
+        }
+    }
+
+    auto interactedStoneMoodResult = dbClient->execSqlSync(
+        "SELECT COALESCE(s.mood_type, '') AS mood_type "
+        "FROM user_interaction_history h "
+        "JOIN stones s ON s.stone_id = h.stone_id "
+        "WHERE h.user_id = $1 "
+        "  AND s.status = 'published' "
+        "  AND s.deleted_at IS NULL "
+        "  AND s.mood_type IS NOT NULL "
+        "  AND s.mood_type <> '' "
+        "ORDER BY h.created_at DESC "
+        "LIMIT 1",
+        userId);
+    if (!interactedStoneMoodResult.empty() &&
+        !interactedStoneMoodResult[0]["mood_type"].isNull()) {
+        const auto mood = interactedStoneMoodResult[0]["mood_type"].as<std::string>();
+        if (!mood.empty()) {
+            return heartlake::utils::normalizeMood(mood);
+        }
+    }
+
+    return "neutral";
+}
+
 RecommendationCandidate buildStoneCandidate(
     const drogon::orm::Row& row,
     double score,
@@ -62,11 +123,12 @@ RecommendationCandidate buildStoneCandidate(
     cand.reason = reason;
     cand.algorithm = algorithm;
     cand.metadata["content"] = row["content"].as<std::string>();
-    cand.metadata["mood_type"] = row["mood_type"].isNull()
-        ? "neutral"
-        : row["mood_type"].as<std::string>();
+    const auto normalizedMood = row["mood_type"].isNull()
+        ? std::string("neutral")
+        : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
+    cand.metadata["mood_type"] = normalizedMood;
     cand.metadata["emotion_score"] = row["emotion_score"].isNull()
-        ? 0.0
+        ? heartlake::utils::scoreForMood(normalizedMood)
         : row["emotion_score"].as<double>();
     cand.metadata["author_name"] = row["nickname"].isNull()
         ? ""
@@ -74,9 +136,19 @@ RecommendationCandidate buildStoneCandidate(
     cand.metadata["author_id"] = row["author_id"].isNull()
         ? ""
         : row["author_id"].as<std::string>();
+    cand.metadata["user_id"] = cand.metadata["author_id"];
+    cand.metadata["stone_type"] = row["stone_type"].isNull()
+        ? "medium"
+        : row["stone_type"].as<std::string>();
+    cand.metadata["stone_color"] = row["stone_color"].isNull()
+        ? "#7A92A3"
+        : row["stone_color"].as<std::string>();
     cand.metadata["ripple_count"] = row["ripple_count"].isNull()
         ? 0
         : row["ripple_count"].as<int>();
+    cand.metadata["boat_count"] = row["boat_count"].isNull()
+        ? 0
+        : row["boat_count"].as<int>();
     cand.metadata["created_at"] = row["created_at"].isNull()
         ? ""
         : row["created_at"].as<std::string>();
@@ -92,11 +164,14 @@ std::vector<RecommendationCandidate> queryUserBasedCFCandidates(
     int topK
 ) {
     auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "SELECT s.stone_id, s.content, " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
+        + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+        "COALESCE(s.stone_type, 'medium') AS stone_type, "
+        "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
+        "COALESCE(s.boat_count, 0) AS boat_count, "
+        "s.created_at::text AS created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "AVG(us.similarity_score) as avg_sim "
         "FROM stones s "
@@ -106,7 +181,8 @@ std::vector<RecommendationCandidate> queryUserBasedCFCandidates(
         "WHERE us.similarity_score > 0.5 AND s.status = 'published' AND s.deleted_at IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "s.stone_type, s.stone_color, u.nickname, u.user_id, "
+        "s.ripple_count, s.boat_count, s.created_at "
         "ORDER BY avg_sim DESC, s.created_at DESC LIMIT $2",
         userId, static_cast<int64_t>(topK)
     );
@@ -135,11 +211,14 @@ std::vector<RecommendationCandidate> queryItemBasedCFCandidates(
         "  WHERE user_id = $1 AND interaction_weight >= 1.0 "
         "  ORDER BY created_at DESC LIMIT 10"
         ") "
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "SELECT s.stone_id, s.content, " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
+        + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+        "COALESCE(s.stone_type, 'medium') AS stone_type, "
+        "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
+        "COALESCE(s.boat_count, 0) AS boat_count, "
+        "s.created_at::text AS created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old, "
         "COUNT(*) as co_occur "
         "FROM stones s "
@@ -153,7 +232,8 @@ std::vector<RecommendationCandidate> queryItemBasedCFCandidates(
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "AND s.status = 'published' AND s.deleted_at IS NULL "
         "GROUP BY s.stone_id, s.content, s.mood_type, s.emotion_score, "
-        "u.nickname, u.user_id, s.ripple_count, s.created_at "
+        "s.stone_type, s.stone_color, u.nickname, u.user_id, "
+        "s.ripple_count, s.boat_count, s.created_at "
         "ORDER BY co_occur DESC, s.created_at DESC LIMIT $2",
         userId, static_cast<int64_t>(topK)
     );
@@ -178,18 +258,22 @@ std::vector<RecommendationCandidate> queryContentBasedCandidates(
     const std::function<double(const std::string&, const std::string&)>& scoreResolver,
     int topK
 ) {
+    const auto canonicalStoneMoodExpr = heartlake::utils::sqlCanonicalMoodExpr("s.mood_type");
     auto rows = dbClient->execSqlSync(
-        "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-        "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+        "SELECT s.stone_id, s.content, " + canonicalStoneMoodExpr + " AS mood_type, "
+        + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+        "COALESCE(s.stone_type, 'medium') AS stone_type, "
+        "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
         "u.nickname, u.user_id AS author_id, "
         "COALESCE(s.ripple_count, 0) AS ripple_count, "
-        "s.created_at, "
+        "COALESCE(s.boat_count, 0) AS boat_count, "
+        "s.created_at::text AS created_at, "
         "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
         "FROM stones s "
         "JOIN users u ON s.user_id = u.user_id "
         "LEFT JOIN emotion_compatibility ec ON "
-        "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
-        "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
+        "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = " + canonicalStoneMoodExpr + ") OR "
+        "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = " + canonicalStoneMoodExpr + ") "
         "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
         "ORDER BY COALESCE(ec.compatibility_score, 0.5) DESC, s.created_at DESC "
@@ -202,7 +286,7 @@ std::vector<RecommendationCandidate> queryContentBasedCandidates(
     for (const auto& row : rows) {
         const std::string itemMood = row["mood_type"].isNull()
             ? "neutral"
-            : row["mood_type"].as<std::string>();
+            : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
         results.push_back(buildStoneCandidate(
             row,
             scoreResolver(userMood, itemMood),
@@ -294,12 +378,17 @@ double RecommendationEngine::emotionCompatibilityScore(
         {"confused", {{"confused", 0.7}, {"hopeful", 0.85}, {"calm", 0.8}, {"neutral", 0.7}, {"grateful", 0.7}, {"happy", 0.6}, {"sad", 0.5}, {"anxious", 0.6}}}
     };
 
-    auto it1 = matrix.find(userMood);
+    const auto normalizedUserMood = heartlake::utils::normalizeMood(userMood);
+    const auto normalizedItemMood = heartlake::utils::normalizeMood(itemMood);
+
+    auto it1 = matrix.find(normalizedUserMood);
     if (it1 != matrix.end()) {
-        auto it2 = it1->second.find(itemMood);
+        auto it2 = it1->second.find(normalizedItemMood);
         if (it2 != it1->second.end()) return it2->second;
     }
-    return 0.5;
+    const auto userScore = heartlake::utils::scoreForMood(normalizedUserMood);
+    const auto itemScore = heartlake::utils::scoreForMood(normalizedItemMood);
+    return std::clamp(1.0 - std::abs(userScore - itemScore) / 2.0, 0.35, 0.85);
 }
 
 /**
@@ -625,13 +714,7 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
 
     topK = std::max(1, topK);
     auto dbClient = requireDbClient(dbClientProvider_, "hybridRecommend");
-    std::string userMood = "neutral";
-    auto moodResult = dbClient->execSqlSync(
-        "SELECT mood_type FROM user_emotion_profile WHERE user_id = $1 "
-        "ORDER BY date DESC LIMIT 1", userId);
-    if (!moodResult.empty()) {
-        userMood = moodResult[0]["mood_type"].as<std::string>();
-    }
+    const std::string userMood = resolveRecommendationMoodFromSignals(dbClient, userId);
 
     // 各算法获取候选：任一路基础设施失败都应显式暴露，不再伪装成“无推荐”。
     int cfCount = std::max(2, static_cast<int>(topK * cfWeight * 2));
@@ -703,11 +786,14 @@ std::vector<RecommendationCandidate> RecommendationEngine::hybridRecommend(
 
         const int exploreCandidateWindow = std::max(exploreCount * 8, 80);
         auto exploreRows = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
+            "SELECT s.stone_id, s.content, " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
             "u.nickname, u.user_id AS author_id, "
             "COALESCE(s.ripple_count, 0) AS ripple_count, "
-            "s.created_at, "
+            "COALESCE(s.boat_count, 0) AS boat_count, "
+            "s.created_at::text AS created_at, "
             "EXTRACT(EPOCH FROM (NOW() - s.created_at)) / 3600.0 AS hours_old "
             "FROM stones s JOIN users u ON s.user_id = u.user_id "
             "WHERE s.user_id != $1 AND s.status = 'published' AND s.deleted_at IS NULL "

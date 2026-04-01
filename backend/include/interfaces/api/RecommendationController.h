@@ -208,6 +208,7 @@ private:
      * @param callback 响应回调
      */
     void calculateStoneRecommendations(const std::string &userId,
+                                      int limit,
                                       const orm::DbClientPtr &dbClient,
                                       std::function<void(const HttpResponsePtr &)> &&callback);
 

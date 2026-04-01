@@ -6,6 +6,7 @@
 #include "infrastructure/ai/RecommendationEngine.h"
 #include "infrastructure/services/ResonanceSearchService.h"
 #include "utils/BusinessRules.h"
+#include "utils/MoodUtils.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 #include <algorithm>
@@ -69,6 +70,16 @@ int resolveRecommendationLimit(const HttpRequestPtr &req,
     return std::clamp(limit, 1, maxLimit);
 }
 
+std::string toPublicRecommendationAlgorithm(const std::string &algorithm) {
+    if (algorithm == "content_emotion") {
+        return "content_based";
+    }
+    if (algorithm == "exploration") {
+        return "ucb_explore";
+    }
+    return algorithm;
+}
+
 std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
     auto dbClient = drogon::app().getDbClient("default");
     auto result = dbClient->execSqlSync(
@@ -96,7 +107,7 @@ std::string resolveRecommendationReferenceStoneId(const std::string &userId) {
         "  SELECT b.stone_id, b.created_at, 3 AS priority "
         "  FROM paper_boats b "
         "  JOIN stones s ON s.stone_id = b.stone_id "
-        "  WHERE b.user_id = $1 "
+        "  WHERE b.sender_id = $1 "
         "    AND s.status = 'published' "
         "    AND s.deleted_at IS NULL "
         ") "
@@ -167,12 +178,55 @@ std::string resolveRequiredRecommendationMood(
         "LIMIT 1",
         userId);
 
-    if (userEmotionResult.empty() || userEmotionResult[0]["mood_type"].isNull()) {
-        return "";
+    if (!userEmotionResult.empty() && !userEmotionResult[0]["mood_type"].isNull()) {
+        const auto mood = userEmotionResult[0]["mood_type"].as<std::string>();
+        if (!mood.empty()) {
+            return heartlake::utils::normalizeMood(mood);
+        }
     }
 
-    const auto mood = userEmotionResult[0]["mood_type"].as<std::string>();
-    return mood.empty() ? "" : mood;
+    auto authoredStoneMoodResult = dbClient->execSqlSync(
+        "SELECT mood_type "
+        "FROM stones "
+        "WHERE user_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "  AND mood_type IS NOT NULL "
+        "  AND mood_type <> '' "
+        "ORDER BY created_at DESC "
+        "LIMIT 1",
+        userId);
+    if (!authoredStoneMoodResult.empty() &&
+        !authoredStoneMoodResult[0]["mood_type"].isNull()) {
+        const auto authoredMood =
+            authoredStoneMoodResult[0]["mood_type"].as<std::string>();
+        if (!authoredMood.empty()) {
+            return heartlake::utils::normalizeMood(authoredMood);
+        }
+    }
+
+    auto interactedStoneMoodResult = dbClient->execSqlSync(
+        "SELECT COALESCE(s.mood_type, '') AS mood_type "
+        "FROM user_interaction_history h "
+        "JOIN stones s ON s.stone_id = h.stone_id "
+        "WHERE h.user_id = $1 "
+        "  AND s.status = 'published' "
+        "  AND s.deleted_at IS NULL "
+        "  AND s.mood_type IS NOT NULL "
+        "  AND s.mood_type <> '' "
+        "ORDER BY h.created_at DESC "
+        "LIMIT 1",
+        userId);
+    if (!interactedStoneMoodResult.empty() &&
+        !interactedStoneMoodResult[0]["mood_type"].isNull()) {
+        const auto interactedMood =
+            interactedStoneMoodResult[0]["mood_type"].as<std::string>();
+        if (!interactedMood.empty()) {
+            return heartlake::utils::normalizeMood(interactedMood);
+        }
+    }
+
+    return "";
 }
 
 void respondWithAdvancedRecommendations(
@@ -213,6 +267,9 @@ void respondWithAdvancedRecommendations(
                 Json::Value recommendations(Json::arrayValue);
                 std::unordered_set<std::string> addedIds;
                 bool hasResonanceResults = false;
+                if (!referenceStoneId.empty()) {
+                    addedIds.insert(referenceStoneId);
+                }
 
                 if (!referenceStoneId.empty()) {
                     auto &resonanceSearchService =
@@ -227,18 +284,30 @@ void respondWithAdvancedRecommendations(
                     for (const auto &res : resonanceResults) {
                         Json::Value item;
                         item["stone_id"] = res.stoneId;
+                        item["user_id"] = res.userId;
+                        item["author_id"] = res.userId;
+                        item["stone_type"] = res.stoneType;
+                        item["stone_color"] = res.stoneColor;
+                        item["mood_type"] = res.moodType;
+                        item["emotion_score"] = res.emotionScore;
+                        item["author_name"] = res.authorName;
+                        item["boat_count"] = res.boatCount;
+                        item["created_at"] = res.createdAt;
                         item["score"] = res.resonanceTotal;
                         item["reason"] = res.resonanceReason;
+                        item["recommendation_reason"] = res.resonanceReason;
                         item["algorithm"] = "emotion_temporal_resonance";
+                        item["recommendation_algorithm"] =
+                            "emotion_temporal_resonance";
                         item["semantic_score"] = res.semanticScore;
                         item["trajectory_score"] = res.trajectoryScore;
                         item["temporal_score"] = res.temporalScore;
                         item["diversity_score"] = res.diversityScore;
                         item["content"] = res.content;
-                        item["author_id"] = res.userId;
                         item["similarity"] = res.similarity;
                         item["delivery_delay_seconds"] = res.deliveryDelaySeconds;
                         item["reference_stone_id"] = referenceStoneId;
+                        item["recommendation_type"] = item["algorithm"];
                         recommendations.append(item);
                         addedIds.insert(res.stoneId);
                         hasResonanceResults = true;
@@ -251,10 +320,21 @@ void respondWithAdvancedRecommendations(
 
                     Json::Value item;
                     item["stone_id"] = cand.itemId;
+                    item["user_id"] =
+                        cand.metadata.get("user_id", "").asString();
                     item["score"] = cand.score;
                     item["reason"] = cand.reason;
-                    item["algorithm"] = cand.algorithm;
+                    item["recommendation_reason"] = cand.reason;
+                    item["base_algorithm"] = cand.algorithm;
+                    item["algorithm"] = hasResonanceResults
+                        ? "emotion_resonance_hybrid"
+                        : "multi_armed_bandit_mmr";
+                    item["recommendation_algorithm"] = item["algorithm"];
                     item["content"] = cand.metadata.get("content", "").asString();
+                    item["stone_type"] =
+                        cand.metadata.get("stone_type", "medium").asString();
+                    item["stone_color"] =
+                        cand.metadata.get("stone_color", "#7A92A3").asString();
                     item["mood_type"] =
                         cand.metadata.get("mood_type", "").asString();
                     item["emotion_score"] =
@@ -265,8 +345,11 @@ void respondWithAdvancedRecommendations(
                         cand.metadata.get("author_name", "").asString();
                     item["ripple_count"] =
                         cand.metadata.get("ripple_count", 0).asInt();
+                    item["boat_count"] =
+                        cand.metadata.get("boat_count", 0).asInt();
                     item["created_at"] =
                         cand.metadata.get("created_at", "").asString();
+                    item["recommendation_type"] = item["algorithm"];
                     recommendations.append(item);
                 }
 
@@ -313,6 +396,7 @@ void RecommendationController::getRecommendedStones(
         return;
     }
     auto userId = *userIdOpt;
+    const int limit = resolveRecommendationLimit(req);
 
     auto cb = std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
     try {
@@ -320,9 +404,10 @@ void RecommendationController::getRecommendedStones(
 
         // 检查缓存
         auto& cache = RedisCache::getInstance();
-        std::string cacheKey = "recommendations:stones:" + userId;
+        std::string cacheKey =
+            "recommendations:stones:v2:" + userId + ":" + std::to_string(limit);
 
-        cache.get(cacheKey, [this, userId, dbClient, cb](const std::string& cachedData, bool exists) mutable {
+        cache.get(cacheKey, [this, userId, limit, dbClient, cb](const std::string& cachedData, bool exists) mutable {
             if (exists && !cachedData.empty()) {
                 Json::Value cached;
                 Json::Reader reader;
@@ -333,7 +418,11 @@ void RecommendationController::getRecommendedStones(
             }
 
             // 缓存未命中，计算推荐
-            this->calculateStoneRecommendations(userId, dbClient, [cb](const HttpResponsePtr &resp) { (*cb)(resp); });
+            this->calculateStoneRecommendations(
+                userId,
+                limit,
+                dbClient,
+                [cb](const HttpResponsePtr &resp) { (*cb)(resp); });
         });
 
     } catch (const std::exception &e) {
@@ -347,8 +436,11 @@ void RecommendationController::getRecommendedStones(
  */
 void RecommendationController::calculateStoneRecommendations(
     const std::string &userId,
+    int limit,
     const orm::DbClientPtr &dbClient,
     std::function<void(const HttpResponsePtr &)> &&callback) {
+
+    limit = std::clamp(limit, 1, 50);
 
     // 1. 获取用户最近的情绪状态。没有真实画像时直接失败，不再默认 calm。
     std::string userMood;
@@ -367,14 +459,72 @@ void RecommendationController::calculateStoneRecommendations(
     }
 
     if (userMood.empty()) {
-        LOG_WARN << "Recommendation mood missing for user " << userId;
-        callback(ResponseUtil::conflict("用户情绪画像不存在，无法生成推荐"));
+        auto &engine = heartlake::ai::RecommendationEngine::getInstance();
+        engine.getRecommendations(
+            userId,
+            "stone",
+            limit,
+            [callback = std::move(callback), userId](
+                const std::vector<heartlake::ai::RecommendationCandidate> &results,
+                const std::string &error) mutable {
+                if (!error.empty()) {
+                    LOG_ERROR << "Cold-start recommendation failed for user "
+                              << userId << ": " << error;
+                    callback(ResponseUtil::internalError("生成推荐失败"));
+                    return;
+                }
+
+                Json::Value recommendations(Json::arrayValue);
+                for (const auto &cand : results) {
+                    const auto publicAlgorithm =
+                        toPublicRecommendationAlgorithm(cand.algorithm);
+                    Json::Value stone;
+                    stone["stone_id"] = cand.itemId;
+                    stone["user_id"] =
+                        cand.metadata.get("user_id", "").asString();
+                    stone["content"] =
+                        cand.metadata.get("content", "").asString();
+                    stone["stone_type"] =
+                        cand.metadata.get("stone_type", "medium").asString();
+                    stone["stone_color"] =
+                        cand.metadata.get("stone_color", "#7A92A3").asString();
+                    stone["mood_type"] =
+                        cand.metadata.get("mood_type", "neutral").asString();
+                    stone["emotion_score"] =
+                        cand.metadata.get("emotion_score", 0.0).asDouble();
+                    stone["author_name"] =
+                        cand.metadata.get("author_name", "").asString();
+                    stone["author_id"] =
+                        cand.metadata.get("author_id", "").asString();
+                    stone["ripple_count"] =
+                        cand.metadata.get("ripple_count", 0).asInt();
+                    stone["boat_count"] =
+                        cand.metadata.get("boat_count", 0).asInt();
+                    stone["created_at"] =
+                        cand.metadata.get("created_at", "").asString();
+                    stone["recommendation_reason"] = cand.reason;
+                    stone["base_algorithm"] = cand.algorithm;
+                    stone["algorithm"] = publicAlgorithm;
+                    stone["recommendation_algorithm"] = publicAlgorithm;
+                    stone["recommendation_type"] = publicAlgorithm;
+                    stone["score"] = cand.score;
+                    recommendations.append(stone);
+                }
+
+                Json::Value responseData =
+                    buildStaticCollectionPayload("recommendations", recommendations);
+                responseData["user_mood"] = "neutral";
+                responseData["context_source"] = "cold_start_hybrid";
+                callback(ResponseUtil::success(responseData, "为你精心挑选的内容"));
+            });
         return;
     }
 
     try {
         Json::Value recommendations(Json::arrayValue);
         std::unordered_set<std::string> addedStones;
+        const auto canonicalStoneMoodExpr =
+            heartlake::utils::sqlCanonicalMoodExpr("s.mood_type");
 
         auto appendStone = [&](const drogon::orm::Row &row,
                                const std::string &reason,
@@ -383,13 +533,20 @@ void RecommendationController::calculateStoneRecommendations(
             if (addedStones.find(stoneId) == addedStones.end()) {
                 Json::Value stone;
                 stone["stone_id"] = stoneId;
+                stone["user_id"] = row["author_id"].as<std::string>();
+                stone["author_id"] = row["author_id"].as<std::string>();
                 stone["content"] = row["content"].as<std::string>();
+                stone["stone_type"] = row["stone_type"].as<std::string>();
+                stone["stone_color"] = row["stone_color"].as<std::string>();
                 stone["mood_type"] = row["mood_type"].as<std::string>();
                 stone["emotion_score"] = row["emotion_score"].as<double>();
                 stone["author_name"] = row["author_name"].as<std::string>();
                 stone["ripple_count"] = row["ripple_count"].as<int>();
+                stone["boat_count"] = row["boat_count"].as<int>();
                 stone["created_at"] = row["created_at"].as<std::string>();
                 stone["recommendation_reason"] = reason;
+                stone["algorithm"] = type;
+                stone["recommendation_algorithm"] = type;
                 stone["recommendation_type"] = type;
                 recommendations.append(stone);
                 addedStones.insert(stoneId);
@@ -397,10 +554,14 @@ void RecommendationController::calculateStoneRecommendations(
         };
 
         auto collaborativeStones = dbClient->execSqlSync(
-            "SELECT DISTINCT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname AS author_name, "
-            "COALESCE(s.ripple_count, 0) AS ripple_count "
+            "SELECT DISTINCT s.stone_id, s.content, " + canonicalStoneMoodExpr + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            "s.created_at::text AS created_at, u.nickname AS author_name, "
+            "u.user_id AS author_id, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "COALESCE(s.boat_count, 0) AS boat_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "JOIN user_interaction_history uih ON s.stone_id = uih.stone_id "
@@ -413,46 +574,65 @@ void RecommendationController::calculateStoneRecommendations(
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
-            "ORDER BY COALESCE(s.ripple_count, 0) DESC, s.created_at DESC "
-            "LIMIT 20",
-            userId);
-        for (size_t i = 0; i < collaborativeStones.size() && recommendations.size() < 8; ++i) {
+            "ORDER BY ripple_count DESC, created_at DESC "
+            "LIMIT $2",
+            userId, static_cast<int64_t>(std::max(limit * 4, 20)));
+        const size_t collaborativeTarget =
+            static_cast<size_t>(std::max(1, limit * 2 / 5));
+        for (size_t i = 0;
+             i < collaborativeStones.size() &&
+             recommendations.size() < collaborativeTarget;
+             ++i) {
             appendStone(collaborativeStones[i],
-                        "和你有相似感受的人也喜欢这个", "collaborative");
+                        "和你有相似感受的人也喜欢这个", "user_cf");
         }
 
         auto contentStones = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname AS author_name, "
+            "SELECT s.stone_id, s.content, " + canonicalStoneMoodExpr + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            "s.created_at::text AS created_at, u.nickname AS author_name, "
+            "u.user_id AS author_id, "
             "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "COALESCE(s.boat_count, 0) AS boat_count, "
             "ec.compatibility_score, ec.relationship_type "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "LEFT JOIN emotion_compatibility ec ON "
-            "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = s.mood_type) OR "
-            "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = s.mood_type) "
+            "  (ec.mood_type_1 = $2 AND ec.mood_type_2 = " + canonicalStoneMoodExpr + ") OR "
+            "  (ec.mood_type_2 = $2 AND ec.mood_type_1 = " + canonicalStoneMoodExpr + ") "
             "WHERE s.user_id != $1 "
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "AND ec.compatibility_score > 0.6 "
             "ORDER BY ec.compatibility_score DESC, s.created_at DESC "
-            "LIMIT 20",
-            userId, userMood);
-        for (size_t i = 0; i < contentStones.size() && recommendations.size() < 16; ++i) {
+            "LIMIT $3",
+            userId, userMood, static_cast<int64_t>(std::max(limit * 4, 20)));
+        const size_t contentTarget =
+            static_cast<size_t>(std::max<int>(
+                static_cast<int>(collaborativeTarget), limit * 4 / 5));
+        for (size_t i = 0;
+             i < contentStones.size() &&
+             recommendations.size() < contentTarget;
+             ++i) {
             auto row = contentStones[i];
             std::string relationshipType = row["relationship_type"].as<std::string>();
             std::string reason = generateRecommendationReason(
                 userMood, row["mood_type"].as<std::string>(), relationshipType);
-            appendStone(row, reason, "emotion_compatible");
+            appendStone(row, reason, "content_based");
         }
 
         auto explorationStones = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname AS author_name, "
-            "COALESCE(s.ripple_count, 0) AS ripple_count "
+            "SELECT s.stone_id, s.content, " + canonicalStoneMoodExpr + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            "s.created_at::text AS created_at, u.nickname AS author_name, "
+            "u.user_id AS author_id, "
+            "COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "COALESCE(s.boat_count, 0) AS boat_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
             "WHERE s.user_id != $1 "
@@ -461,8 +641,8 @@ void RecommendationController::calculateStoneRecommendations(
             "AND s.created_at >= NOW() - INTERVAL '14 days' "
             "AND NOT EXISTS (SELECT 1 FROM user_interaction_history h WHERE h.stone_id = s.stone_id AND h.user_id = $1) "
             "ORDER BY s.created_at DESC "
-            "LIMIT 160",
-            userId);
+            "LIMIT $2",
+            userId, static_cast<int64_t>(std::max(limit * 8, 40)));
 
         std::vector<orm::Row> explorationCandidates;
         explorationCandidates.reserve(explorationStones.size());
@@ -474,9 +654,12 @@ void RecommendationController::calculateStoneRecommendations(
             std::hash<std::string>{}(userId + ":" + std::to_string(bucket))));
         std::shuffle(explorationCandidates.begin(), explorationCandidates.end(), rng);
 
-        for (size_t i = 0; i < explorationCandidates.size() && recommendations.size() < 20; ++i) {
+        for (size_t i = 0;
+             i < explorationCandidates.size() &&
+             recommendations.size() < static_cast<size_t>(limit);
+             ++i) {
             appendStone(explorationCandidates[i],
-                        "也许你会喜欢这个意外的发现", "exploration");
+                        "也许你会喜欢这个意外的发现", "ucb_explore");
         }
 
         Json::Value responseData;
@@ -485,7 +668,8 @@ void RecommendationController::calculateStoneRecommendations(
         responseData["user_mood"] = userMood;
 
         auto &cache = RedisCache::getInstance();
-        std::string cacheKey = "recommendations:stones:" + userId;
+        std::string cacheKey =
+            "recommendations:stones:v2:" + userId + ":" + std::to_string(limit);
         Json::StreamWriterBuilder builder;
         std::string jsonStr = Json::writeString(builder, responseData);
         cache.setEx(cacheKey, jsonStr, 300);
@@ -618,7 +802,7 @@ void RecommendationController::updateUserPreferences(
         "    AND uih.interaction_weight >= 1.0"
         "), expanded AS ("
         "  SELECT "
-        "    COALESCE(s.mood_type, 'neutral') AS mood_type, "
+        "    " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
         "    tag "
         "  FROM recent_items ri "
         "  JOIN stones s ON ri.stone_id = s.stone_id "
@@ -663,32 +847,23 @@ void RecommendationController::getEmotionTrends(
     try {
         auto& userId = *userIdOpt;
         auto dbClient = drogon::app().getDbClient("default");
+        const int days = std::clamp(safeInt(req->getParameter("days"), 30), 1, 365);
+        const auto normalizedMoodExpr =
+            heartlake::utils::sqlCanonicalMoodExpr("mood_type");
+        const auto normalizedScoreExpr =
+            heartlake::utils::sqlMoodScoreExpr("mood_type", "emotion_score");
 
-        // 获取最近30天按“天”聚合的情绪数据，避免同一天返回多条趋势点。
+        // 获取最近 N 天按“天”聚合的情绪数据，避免同一天返回多条趋势点。
         auto trendsResult = dbClient->execSqlSync(
             "WITH scored_stones AS ("
             "  SELECT DATE(created_at) AS date, "
-            "         COALESCE(mood_type, 'neutral') AS mood_type, "
-            "         COALESCE(emotion_score, "
-            "           CASE COALESCE(mood_type, 'neutral') "
-            "             WHEN 'happy' THEN 0.75 "
-            "             WHEN 'calm' THEN 0.35 "
-            "             WHEN 'neutral' THEN 0.0 "
-            "             WHEN 'hopeful' THEN 0.55 "
-            "             WHEN 'grateful' THEN 0.65 "
-            "             WHEN 'sad' THEN -0.75 "
-            "             WHEN 'anxious' THEN -0.45 "
-            "             WHEN 'angry' THEN -0.65 "
-            "             WHEN 'lonely' THEN -0.55 "
-            "             WHEN 'confused' THEN -0.1 "
-            "             ELSE 0.0 "
-            "           END"
-            "         ) AS normalized_score "
+            "         " + normalizedMoodExpr + " AS mood_type, "
+            "         " + normalizedScoreExpr + " AS normalized_score "
             "  FROM stones "
             "  WHERE user_id = $1 "
             "    AND status = 'published' "
             "    AND deleted_at IS NULL "
-            "    AND created_at >= CURRENT_DATE - INTERVAL '30 days'"
+            "    AND created_at >= CURRENT_DATE - make_interval(days => $2)"
             "), daily_scores AS ("
             "  SELECT date, AVG(normalized_score) AS avg_emotion_score, COUNT(*) AS stone_count "
             "  FROM scored_stones "
@@ -710,7 +885,7 @@ void RecommendationController::getEmotionTrends(
             "FROM daily_scores ds "
             "LEFT JOIN ranked_moods rm ON rm.date = ds.date AND rm.rn = 1 "
             "ORDER BY ds.date ASC",
-            userId
+            userId, days
         );
 
         Json::Value trends(Json::arrayValue);
@@ -729,7 +904,7 @@ void RecommendationController::getEmotionTrends(
         }
 
         Json::Value responseData = buildStaticCollectionPayload("trends", trends);
-        responseData["period_days"] = 30;
+        responseData["period_days"] = days;
 
         callback(ResponseUtil::success(responseData, "你的情绪旅程"));
 
@@ -756,22 +931,34 @@ void RecommendationController::discoverByMood(
     try {
         auto& userId = *userIdOpt;
         auto dbClient = drogon::app().getDbClient("default");
+        const int limit = resolveRecommendationLimit(req);
+        const auto normalizedMood = heartlake::utils::normalizeMood(mood, "");
+        if (normalizedMood.empty()) {
+            callback(ResponseUtil::badRequest("无效的情绪类型"));
+            return;
+        }
+        const auto canonicalStoneMoodExpr =
+            heartlake::utils::sqlCanonicalMoodExpr("s.mood_type");
 
         // 查找当前处于该情绪的用户和内容
         auto stonesResult = dbClient->execSqlSync(
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname as author_name, "
-            "COALESCE(s.ripple_count, 0) as ripple_count "
+            "SELECT s.stone_id, s.user_id, s.content, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            + canonicalStoneMoodExpr + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "s.created_at::text AS created_at, u.nickname as author_name, "
+            "COALESCE(s.ripple_count, 0) as ripple_count, "
+            "COALESCE(s.boat_count, 0) as boat_count "
             "FROM stones s "
             "JOIN users u ON s.user_id = u.user_id "
-            "WHERE s.mood_type = $1 "
+            "WHERE " + canonicalStoneMoodExpr + " = $1 "
             "AND s.status = 'published' "
             "AND s.deleted_at IS NULL "
             "AND s.user_id != $2 "
             "ORDER BY s.created_at DESC "
-            "LIMIT 20",
-            mood, userId
+            "LIMIT $3",
+            normalizedMood, userId, static_cast<int64_t>(limit)
         );
 
         Json::Value stones(Json::arrayValue);
@@ -779,17 +966,22 @@ void RecommendationController::discoverByMood(
             auto row = stonesResult[i];
             Json::Value stone;
             stone["stone_id"] = row["stone_id"].as<std::string>();
+            stone["user_id"] = row["user_id"].as<std::string>();
+            stone["author_id"] = row["user_id"].as<std::string>();
             stone["content"] = row["content"].as<std::string>();
+            stone["stone_type"] = row["stone_type"].as<std::string>();
+            stone["stone_color"] = row["stone_color"].as<std::string>();
             stone["mood_type"] = row["mood_type"].as<std::string>();
             stone["emotion_score"] = row["emotion_score"].as<double>();
             stone["author_name"] = row["author_name"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
+            stone["boat_count"] = row["boat_count"].as<int>();
             stone["created_at"] = row["created_at"].as<std::string>();
             stones.append(stone);
         }
 
         Json::Value responseData = buildStaticCollectionPayload("stones", stones);
-        responseData["mood"] = mood;
+        responseData["mood"] = normalizedMood;
 
         callback(ResponseUtil::success(responseData, "发现同样感受的人"));
 
@@ -812,7 +1004,8 @@ void RecommendationController::getTrendingContent(
         const int limit = std::clamp(requestedLimit, 1, 50);
         // 检查缓存（热门内容缓存3分钟）
         auto& cache = RedisCache::getInstance();
-        std::string cacheKey = "recommendations:trending:" + std::to_string(limit);
+        std::string cacheKey =
+            "recommendations:trending:v2:" + std::to_string(limit);
 
         cache.get(cacheKey, [this, cb, limit](const std::string& cachedData, bool exists) mutable {
             try {
@@ -849,13 +1042,19 @@ void RecommendationController::calculateTrendingContent(
 
     try {
         auto dbClient = drogon::app().getDbClient("default");
+        const auto canonicalStoneMoodExpr =
+            heartlake::utils::sqlCanonicalMoodExpr("s.mood_type");
 
         auto result = dbClient->execSqlSync(
             "WITH recent_stones AS ("
-            "  SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "         COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "         s.created_at, u.nickname AS author_name, "
-            "         COALESCE(s.ripple_count, 0) AS ripple_count "
+            "  SELECT s.stone_id, s.user_id, s.content, "
+            "         COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "         COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            "         " + canonicalStoneMoodExpr + " AS mood_type, "
+            "         " + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "         s.created_at::text AS created_at, u.nickname AS author_name, "
+            "         COALESCE(s.ripple_count, 0) AS ripple_count, "
+            "         COALESCE(s.boat_count, 0) AS boat_count "
             "  FROM stones s "
             "  JOIN users u ON s.user_id = u.user_id "
             "  WHERE s.status = 'published' "
@@ -877,11 +1076,16 @@ void RecommendationController::calculateTrendingContent(
             "    SELECT json_agg("
             "      json_build_object("
             "        'stone_id', stone_id, "
+            "        'user_id', user_id, "
+            "        'author_id', user_id, "
             "        'content', content, "
+            "        'stone_type', stone_type, "
+            "        'stone_color', stone_color, "
             "        'mood_type', mood_type, "
             "        'emotion_score', emotion_score, "
             "        'author_name', author_name, "
             "        'ripple_count', ripple_count, "
+            "        'boat_count', boat_count, "
             "        'created_at', created_at"
             "      ) "
             "      ORDER BY ripple_count DESC, created_at DESC"
@@ -915,7 +1119,8 @@ void RecommendationController::calculateTrendingContent(
         auto& cache = RedisCache::getInstance();
         Json::StreamWriterBuilder builder;
         std::string jsonStr = Json::writeString(builder, responseData);
-        cache.setEx("recommendations:trending:" + std::to_string(limit), jsonStr, 180);
+        cache.setEx("recommendations:trending:v2:" + std::to_string(limit),
+                    jsonStr, 180);
 
         callback(ResponseUtil::success(responseData, "当前热门"));
 
@@ -958,12 +1163,16 @@ void RecommendationController::searchRecommendations(
         }
 
         auto dbClient = drogon::app().getDbClient("default");
+        const auto canonicalStoneMoodExpr =
+            heartlake::utils::sqlCanonicalMoodExpr("s.mood_type");
 
         // 构建搜索SQL
         std::string searchSql =
-            "SELECT s.stone_id, s.content, COALESCE(s.mood_type, 'neutral') AS mood_type, "
-            "COALESCE(s.emotion_score, 0.0) AS emotion_score, "
-            "s.created_at, u.nickname as author_name, u.user_id as author_id, "
+            "SELECT s.stone_id, s.content, " + canonicalStoneMoodExpr + " AS mood_type, "
+            + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+            "COALESCE(s.stone_type, 'medium') AS stone_type, "
+            "COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+            "s.created_at::text AS created_at, u.nickname as author_name, u.user_id as author_id, "
             "COALESCE(s.ripple_count, 0) AS ripple_count, "
             "COALESCE(s.boat_count, 0) AS boat_count, "
             "COUNT(*) OVER() AS total_count "
@@ -980,10 +1189,13 @@ void RecommendationController::searchRecommendations(
         searchSql += "ORDER BY s.created_at DESC ";
         searchSql += "LIMIT $3 OFFSET $4";
 
-        int offset = (page - 1) * pageSize;
+        const int64_t offset =
+            static_cast<int64_t>(page - 1) * static_cast<int64_t>(pageSize);
 
         // 执行搜索
-        auto searchResult = dbClient->execSqlSync(searchSql, userId, searchPattern, pageSize, offset);
+        auto searchResult = dbClient->execSqlSync(
+            searchSql, userId, searchPattern, static_cast<int64_t>(pageSize),
+            offset);
         if (searchResult.empty() && page > 1) {
             callback(ResponseUtil::badRequest("页码超出范围"));
             return;
@@ -994,15 +1206,20 @@ void RecommendationController::searchRecommendations(
             auto row = searchResult[i];
             Json::Value stone;
             stone["stone_id"] = row["stone_id"].as<std::string>();
+            stone["user_id"] = row["author_id"].as<std::string>();
+            stone["author_id"] = row["author_id"].as<std::string>();
             stone["content"] = row["content"].as<std::string>();
+            stone["stone_type"] = row["stone_type"].as<std::string>();
+            stone["stone_color"] = row["stone_color"].as<std::string>();
             stone["mood_type"] = row["mood_type"].as<std::string>();
             stone["emotion_score"] = row["emotion_score"].as<double>();
             stone["author_name"] = row["author_name"].as<std::string>();
-            stone["author_id"] = row["author_id"].as<std::string>();
             stone["ripple_count"] = row["ripple_count"].as<int>();
             stone["boat_count"] = row["boat_count"].as<int>();
             stone["created_at"] = row["created_at"].as<std::string>();
             stone["recommendation_reason"] = "搜索结果";
+            stone["algorithm"] = "search";
+            stone["recommendation_algorithm"] = "search";
             stone["recommendation_type"] = "search";
             results.append(stone);
         }

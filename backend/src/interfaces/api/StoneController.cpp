@@ -10,6 +10,7 @@
 #include "utils/Validator.h"
 #include "utils/AdminRealtimeNotifier.h"
 #include "utils/ContentFilter.h"
+#include "utils/MoodUtils.h"
 #include "utils/RealtimeEvent.h"
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "infrastructure/services/ResonanceSearchService.h"
@@ -85,40 +86,9 @@ static std::string loadRequiredStoneContentForResonance(const std::string& stone
 
 // 白名单常量
 static const std::set<std::string> VALID_STONE_TYPES = {"small", "medium", "large", "light", "heavy"};
-static const std::set<std::string> VALID_MOOD_TYPES = {
-    "calm", "happy", "sad", "angry", "anxious", "confused", "surprised", "neutral"
-};
 static const std::set<std::string> VALID_SORT_VALUES = {
     "latest", "hot", "created_at", "ripple_count", "boat_count", "view_count"
 };
-
-static std::string normalizeMoodType(std::string mood) {
-    std::transform(mood.begin(), mood.end(), mood.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-    static const std::unordered_map<std::string, std::string> aliases = {
-        {"peaceful", "calm"},
-        {"hopeful", "calm"},
-        {"grateful", "happy"},
-        {"lonely", "sad"},
-        {"joy", "happy"},
-        {"happiness", "happy"},
-        {"sadness", "sad"},
-        {"fear", "anxious"},
-        {"anger", "angry"},
-        {"surprise", "surprised"},
-        {"uncertain", "confused"},
-    };
-    auto it = aliases.find(mood);
-    if (it != aliases.end()) {
-        mood = it->second;
-    }
-
-    if (VALID_MOOD_TYPES.find(mood) == VALID_MOOD_TYPES.end()) {
-        return "";
-    }
-    return mood;
-}
 
 static std::string normalizeStoneSort(std::string sort) {
     std::transform(sort.begin(), sort.end(), sort.begin(),
@@ -190,7 +160,8 @@ void StoneController::createStone(
         }
 
         // SEC-MOOD: mood_type 白名单校验
-        std::string moodType = normalizeMoodType((*json).get("mood_type", "calm").asString());
+        std::string moodType =
+            heartlake::utils::normalizeMood((*json).get("mood_type", "calm").asString(), "");
         if (moodType.empty()) {
             callback(ResponseUtil::badRequest("无效的 mood_type"));
             return;
@@ -278,7 +249,7 @@ void StoneController::getStones(
 
         // SEC-WHITELIST: mood 参数白名单校验，防止 SQL 注入
         if (!filterMood.empty()) {
-            filterMood = normalizeMoodType(filterMood);
+            filterMood = heartlake::utils::normalizeMood(filterMood, "");
         }
         if (!req->getParameter("mood").empty() && filterMood.empty()) {
             callback(ResponseUtil::badRequest("无效的 mood 筛选值"));
@@ -556,12 +527,27 @@ void StoneController::searchResonance(
         for (const auto& match : matches) {
             Json::Value item;
             item["stone_id"] = match.stoneId;
+            item["user_id"] = match.userId;
+            item["author_id"] = match.userId;
+            item["content"] = match.content;
+            item["stone_type"] = match.stoneType;
+            item["stone_color"] = match.stoneColor;
+            item["mood_type"] = match.moodType;
+            item["emotion_score"] = match.emotionScore;
+            item["author_name"] = match.authorName;
+            item["boat_count"] = match.boatCount;
+            item["created_at"] = match.createdAt;
             item["total_score"] = match.resonanceTotal;
+            item["score"] = match.resonanceTotal;
             item["semantic_score"] = match.semanticScore;
             item["trajectory_score"] = match.trajectoryScore;
             item["temporal_score"] = match.temporalScore;
             item["diversity_score"] = match.diversityScore;
             item["resonance_reason"] = match.resonanceReason;
+            item["reason"] = match.resonanceReason;
+            item["algorithm"] = "emotion_temporal_resonance";
+            item["recommendation_algorithm"] = "emotion_temporal_resonance";
+            item["recommendation_type"] = "emotion_temporal_resonance";
             result.append(item);
         }
 

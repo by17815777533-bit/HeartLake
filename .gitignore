@@ -1,5 +1,6 @@
 # Environment files
 **/.env
+**/.env.*
 !**/.env.example
 .env.server-lite
 
@@ -59,6 +60,8 @@ Testing/
 .codex/
 .playwright-mcp/
 **/.playwright-cli/
+**/__pycache__/
+*.pyc
 output/
 admin/public/__dev_*.html
 papers/

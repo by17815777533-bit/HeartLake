@@ -127,7 +127,7 @@ void PaperBoatController::getBoatDetail(
     auto result = dbClient->execSqlSync(
         "SELECT b.boat_id, b.stone_id, b.sender_id, b.content, b.boat_style AS boat_color, "
         "b.is_anonymous, "
-        "b.is_ai_reply, b.status, "
+        "(b.sender_id IN ('ai_lakegod', 'lake_god')) AS is_ai_reply, b.status, "
         "EXTRACT(EPOCH FROM b.created_at) as created_at_ts, "
         "u.nickname "
         "FROM paper_boats b "

@@ -21,6 +21,7 @@
 #include "utils/ContentFilter.h"
 #include "utils/EmotionManager.h"
 #include "utils/EnvUtils.h"
+#include "utils/MoodUtils.h"
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
 #include <regex>
@@ -61,40 +62,6 @@ std::string sanitizeModelText(std::string content) {
     thread_local static const std::regex fenceRegex("```(?:json)?|```");
     content = std::regex_replace(content, fenceRegex, "");
     return trimCopy(content);
-}
-
-std::string canonicalizeMood(std::string moodRaw) {
-    auto mood = trimCopy(moodRaw);
-    std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-
-    if (mood == "joy" || mood == "excited" || mood == "love" || mood == "happiness") {
-        return "happy";
-    }
-    if (mood == "sadness" || mood == "depressed") {
-        return "sad";
-    }
-    if (mood == "fear" || mood == "fearful" || mood == "stressed" || mood == "worried") {
-        return "anxious";
-    }
-    if (mood == "surprise") {
-        return "surprised";
-    }
-    if (mood == "anger") {
-        return "angry";
-    }
-    if (mood == "peaceful") {
-        return "calm";
-    }
-    if (mood == "gratitude") {
-        return "grateful";
-    }
-    if (mood == "uncertain") {
-        return "confused";
-    }
-
-    return mood;
 }
 
 std::string normalizeForTemplateCheck(const std::string& raw) {
@@ -156,7 +123,7 @@ bool parseSentimentResult(const std::string& raw, float& score, std::string& moo
     }
 
     score = std::clamp(parsed.get("score", 0.0f).asFloat(), -1.0f, 1.0f);
-    mood = canonicalizeMood(parsed.get("mood", "neutral").asString());
+    mood = heartlake::utils::normalizeMood(parsed.get("mood", "neutral").asString());
 
     static const std::unordered_set<std::string> validMoods = {
         "happy", "calm", "neutral", "anxious", "sad", "angry",
@@ -347,7 +314,7 @@ void AIService::analyzeSentiment(
                                        const std::string& mood,
                                        const std::string& error,
                                        bool cacheable = true) {
-        const std::string canonicalMood = canonicalizeMood(mood);
+        const std::string canonicalMood = heartlake::utils::normalizeMood(mood);
         if (error.empty() && cacheable) {
             putSentimentToCache(sentimentKey, score, canonicalMood);
         }
@@ -1362,7 +1329,7 @@ void AIService::putSentimentToCache(const std::string& textHash, float score, co
 
     SentimentCacheEntry entry;
     entry.score = score;
-    entry.mood = canonicalizeMood(mood);
+    entry.mood = heartlake::utils::normalizeMood(mood);
     entry.timestamp = std::chrono::steady_clock::now();
     sentimentCache_[textHash] = std::move(entry);
 }

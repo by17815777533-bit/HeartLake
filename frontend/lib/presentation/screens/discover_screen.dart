@@ -208,8 +208,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final advanced = results[1];
 
     setState(() {
-      _personalizedAIStones = personalized.items ?? [];
-      _advancedAIStones = advanced.items ?? [];
+      _personalizedAIStones = personalized.items ?? _personalizedAIStones;
+      _advancedAIStones = advanced.items ?? _advancedAIStones;
       _personalizedAIErrorMessage = personalized.errorMessage;
       _advancedAIErrorMessage = advanced.errorMessage;
       _aiLoading = false;

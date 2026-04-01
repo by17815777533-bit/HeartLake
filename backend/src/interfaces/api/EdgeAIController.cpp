@@ -14,6 +14,7 @@
 #include "infrastructure/ai/SummaryService.h"
 #include "utils/AdminConfigStore.h"
 #include "utils/EnvUtils.h"
+#include "utils/MoodUtils.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
 
@@ -55,32 +56,56 @@ std::string trimAscii(const std::string &input) {
   return input.substr(start, end - start);
 }
 
-std::string normalizeMoodInput(std::string moodRaw) {
-  std::string mood = trimAscii(moodRaw);
-  std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
+std::string utf8Prefix(const std::string &input, size_t maxCodepoints) {
+  std::string output;
+  output.reserve(input.size());
+  size_t index = 0;
+  size_t count = 0;
+  while (index < input.size() && count < maxCodepoints) {
+    const unsigned char lead = static_cast<unsigned char>(input[index]);
+    size_t charLen = 1;
+    if ((lead & 0x80u) == 0) {
+      charLen = 1;
+    } else if ((lead & 0xE0u) == 0xC0u && index + 1 < input.size()) {
+      charLen = 2;
+    } else if ((lead & 0xF0u) == 0xE0u && index + 2 < input.size()) {
+      charLen = 3;
+    } else if ((lead & 0xF8u) == 0xF0u && index + 3 < input.size()) {
+      charLen = 4;
+    } else {
+      break;
+    }
+    output.append(input, index, charLen);
+    index += charLen;
+    ++count;
+  }
+  return output;
+}
 
-  static const std::unordered_map<std::string, std::string> aliases = {
-      {"joy", "happy"},         {"happiness", "happy"},
-      {"excited", "happy"},     {"sadness", "sad"},
-      {"depressed", "sad"},     {"fear", "anxious"},
-      {"fearful", "anxious"},   {"stressed", "anxious"},
-      {"worried", "anxious"},   {"anger", "angry"},
-      {"peaceful", "calm"},     {"gratitude", "grateful"},
-      {"uncertain", "confused"}};
-  auto it = aliases.find(mood);
-  if (it != aliases.end()) {
-    mood = it->second;
+std::string buildLocalSummary(const std::string &content,
+                              size_t maxLength = 50) {
+  std::string compact;
+  compact.reserve(content.size());
+  bool previousWhitespace = false;
+  for (unsigned char ch : content) {
+    if (std::isspace(ch)) {
+      if (!previousWhitespace && !compact.empty()) {
+        compact.push_back(' ');
+      }
+      previousWhitespace = true;
+      continue;
+    }
+    compact.push_back(static_cast<char>(ch));
+    previousWhitespace = false;
   }
 
-  static const std::unordered_set<std::string> validMoods = {
-      "happy",     "calm",     "neutral", "anxious",  "sad",   "angry",
-      "surprised", "confused", "hopeful", "grateful", "lonely"};
-  if (validMoods.find(mood) == validMoods.end()) {
-    return "neutral";
+  compact = trimAscii(compact);
+  const auto shortened = utf8Prefix(compact, maxLength + 1);
+  if (shortened == compact) {
+    return compact;
   }
-  return mood;
+
+  return trimAscii(utf8Prefix(compact, maxLength)) + "...";
 }
 
 float clampUnit(float value) { return std::clamp(value, 0.0f, 1.0f); }
@@ -1415,7 +1440,7 @@ void EdgeAIController::submitEmotionSample(
 
     float score = (*jsonPtr).get("score", 0.0f).asFloat();
     std::string mood =
-        normalizeMoodInput((*jsonPtr).get("mood", "neutral").asString());
+        heartlake::utils::normalizeMood((*jsonPtr).get("mood", "neutral").asString());
     float confidence =
         std::clamp((*jsonPtr).get("confidence", 1.0f).asFloat(), 0.0f, 1.0f);
     std::string scoreScale = (*jsonPtr).get("score_scale", "").asString();
@@ -1824,14 +1849,20 @@ void EdgeAIController::generateSummary(
         std::move(callback));
     heartlake::ai::SummaryService::getInstance().generateSummary(
         stoneId, content,
-        [cb](const std::string &summary, const std::string &error) {
+        [cb, content](const std::string &summary, const std::string &error) {
           if (!error.empty()) {
-            (*cb)(ResponseUtil::internalError("摘要生成失败: " + error));
+            Json::Value data;
+            data["summary"] = buildLocalSummary(content);
+            data["skipped"] = false;
+            data["degraded"] = true;
+            data["fallback_reason"] = error;
+            (*cb)(ResponseUtil::success(data, "摘要已生成（本地降级）"));
             return;
           }
           Json::Value data;
           data["summary"] = summary;
           data["skipped"] = false;
+          data["degraded"] = false;
           (*cb)(ResponseUtil::success(data, "摘要已生成"));
         });
   } catch (const std::exception &e) {

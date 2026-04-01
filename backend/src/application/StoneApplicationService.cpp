@@ -24,6 +24,7 @@
 #include "interfaces/api/BroadcastWebSocketController.h"
 #include "utils/AdminRealtimeNotifier.h"
 #include "utils/IdGenerator.h"
+#include "utils/MoodUtils.h"
 #include "utils/PsychologicalRiskAssessment.h"
 #include "utils/RealtimeEvent.h"
 #include "utils/RequestHelper.h"
@@ -52,33 +53,6 @@ constexpr int kStoneDetailCacheTtlSeconds = 300;
 constexpr int kStoneListCacheTtlSeconds = 60;
 constexpr int kStoneRippleStateCacheTtlSeconds = 60;
 constexpr const char *kLakeGodSenderId = "ai_lakegod";
-
-std::string normalizeMoodType(std::string mood) {
-  std::transform(mood.begin(), mood.end(), mood.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-
-  static const std::unordered_map<std::string, std::string> aliases = {
-      {"peaceful", "calm"},      {"hopeful", "calm"},
-      {"grateful", "happy"},     {"lonely", "sad"},
-      {"joy", "happy"},          {"happiness", "happy"},
-      {"sadness", "sad"},        {"fear", "anxious"},
-      {"anger", "angry"},        {"surprise", "surprised"},
-      {"uncertain", "confused"},
-  };
-  auto it = aliases.find(mood);
-  if (it != aliases.end()) {
-    mood = it->second;
-  }
-
-  static const std::unordered_set<std::string> validMoods = {
-      "calm",    "happy",    "sad",       "angry",
-      "anxious", "confused", "surprised", "neutral"};
-  if (validMoods.find(mood) == validMoods.end()) {
-    return "neutral";
-  }
-  return mood;
-}
 
 std::string safeString(const drogon::orm::Row &row, const char *column,
                        const std::string &fallback = "") {
@@ -323,7 +297,7 @@ Json::Value StoneApplicationService::publishStone(
     const std::vector<std::string> &tags) {
   auto dbClient = drogon::app().getDbClient("default");
   std::string stoneId = "stone_" + drogon::utils::getUuid();
-  const std::string normalizedMood = normalizeMoodType(moodType);
+  const std::string normalizedMood = normalizeMood(moodType);
   const std::string tagsLiteral = toPgTextArrayLiteral(tags);
 
   try {
@@ -677,7 +651,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
                                                 const std::string &content,
                                                 const std::string &moodType) {
   auto &aiService = heartlake::ai::AIService::getInstance();
-  const std::string initialMood = normalizeMoodType(moodType);
+  const std::string initialMood = normalizeMood(moodType);
 
   // 1. 情感分析 + 风险评估 + 通知
   auto cacheManagerCopy = cacheManager_;
@@ -690,7 +664,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
                << error;
       return;
     }
-    const std::string normalizedMood = normalizeMoodType(mood);
+    const std::string normalizedMood = normalizeMood(mood);
     auto db = drogon::app().getDbClient("default");
     db->execSqlAsync(
         "UPDATE stones SET emotion_score = $1, mood_type = $2, updated_at = "
@@ -893,7 +867,7 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
     try {
       auto &dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
       auto replyResult = dualMemory.generateResponseResult(
-          userId, content, normalizeMoodType(moodType), 0.0f);
+          userId, content, normalizeMood(moodType), 0.0f);
       if (replyResult.degraded) {
         LOG_WARN << "Skip degraded lake god auto-reply for stone " << stoneId
                  << ": "
@@ -913,8 +887,8 @@ void StoneApplicationService::processStoneAsync(const std::string &stoneId,
       auto transPtr = db->newTransaction();
       transPtr->execSqlSync(
           "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, "
-          "is_anonymous, is_ai_reply, status, created_at) "
-          "VALUES ($1, $2, $3, $4, false, true, 'active', NOW())",
+          "is_anonymous, status, created_at) "
+          "VALUES ($1, $2, $3, $4, false, 'active', NOW())",
           aiBoatId, stoneId, std::string(kLakeGodSenderId), comment);
       auto updateResult = transPtr->execSqlSync(
           "UPDATE stones SET boat_count = boat_count + 1, updated_at = NOW() "

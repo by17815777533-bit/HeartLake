@@ -123,8 +123,8 @@ void LakeGodGuardianService::processZeroInteractionStones() {
             try {
                 std::string boatId = utils::IdGenerator::generateBoatId();
                 db->execSqlSync(
-                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, is_ai_reply, status, created_at) "
-                    "VALUES ($1, $2, $3, '', false, true, 'pending', NOW())",
+                    "INSERT INTO paper_boats (boat_id, stone_id, sender_id, content, is_anonymous, status, created_at) "
+                    "VALUES ($1, $2, $3, '', false, 'pending', NOW())",
                     boatId, stoneId, std::string(kLakeGodSenderId)
                 );
                 sendAutoBoat(stoneId, content, mood, boatId);

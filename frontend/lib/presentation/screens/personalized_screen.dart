@@ -138,8 +138,8 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
     final hasFreshData = personalized.items != null || advanced.items != null;
 
     setState(() {
-      _personalizedStones = personalized.items ?? [];
-      _advancedStones = advanced.items ?? [];
+      _personalizedStones = personalized.items ?? _personalizedStones;
+      _advancedStones = advanced.items ?? _advancedStones;
       _personalizedErrorMessage = personalized.errorMessage;
       _advancedErrorMessage = advanced.errorMessage;
       _loading = false;
@@ -397,8 +397,10 @@ class _PersonalizedScreenState extends State<PersonalizedScreen>
         return '同频旅人';
       case 'item_cf':
         return '相似心声';
+      case 'content_emotion':
       case 'content_based':
         return '情绪匹配';
+      case 'exploration':
       case 'ucb_explore':
         return '探索发现';
       case 'graph_walk':

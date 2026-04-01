@@ -780,7 +780,8 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
         ") "
         "SELECT paged.boat_id, paged.stone_id, paged.sender_id, paged.receiver_id, "
         "       paged.content, paged.status, paged.created_at, "
-        "       paged.boat_color, paged.is_anonymous, paged.username, "
+        "       paged.boat_color, paged.is_anonymous, paged.is_ai_reply, "
+        "       paged.username, "
         "       paged.nickname, paged.avatar_url, paged.stone_content, "
         "       paged.stone_mood_type, tb.total_count "
         "FROM total_boats tb "
@@ -788,7 +789,7 @@ InteractionApplicationService::getReceivedBoats(const std::string &userId,
         "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.receiver_id, "
         "         pb.content, pb.status, pb.created_at, "
         "         pb.boat_style AS boat_color, pb.is_anonymous, "
-        "         pb.is_ai_reply, "
+        "         (pb.sender_id IN ('ai_lakegod', 'lake_god')) AS is_ai_reply, "
         "         u.username, u.nickname, u.avatar_url, "
         "         s.content as stone_content, s.mood_type AS stone_mood_type "
         "  FROM paper_boats pb "
@@ -1510,7 +1511,8 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
         "       paged.stone_user_id, paged.stone_status, tb.total_count "
         "FROM total_boats tb "
         "LEFT JOIN LATERAL ("
-        "  SELECT pb.boat_id, pb.stone_id, pb.content, pb.status, pb.created_at, "
+        "  SELECT pb.boat_id, pb.stone_id, pb.content, pb.status, "
+        "         pb.created_at::text AS created_at, "
         "         pb.boat_style AS boat_color, pb.is_anonymous, "
         "         s.content as stone_content, s.mood_type AS stone_mood_type, "
         "         s.user_id AS stone_user_id, s.status AS stone_status "
@@ -1520,7 +1522,7 @@ Json::Value InteractionApplicationService::getMyBoats(const std::string &userId,
         "        'deleted' "
         "  ORDER BY pb.created_at DESC LIMIT $2 OFFSET $3"
         ") paged ON TRUE",
-        userId, pageSize, offset);
+        userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value boats(Json::arrayValue);
     for (const auto &row : result) {
@@ -1585,7 +1587,9 @@ Json::Value InteractionApplicationService::getBoats(const std::string &stoneId,
         "LEFT JOIN LATERAL ("
         "  SELECT pb.boat_id, pb.stone_id, pb.sender_id, pb.content, "
         "         pb.created_at, pb.status, pb.boat_style AS boat_color, "
-        "         pb.is_anonymous, pb.is_ai_reply, u.username, "
+        "         pb.is_anonymous, "
+        "         (pb.sender_id IN ('ai_lakegod', 'lake_god')) AS is_ai_reply, "
+        "         u.username, "
         "         u.nickname as sender_nickname, u.avatar_url "
         "  FROM paper_boats pb "
         "  LEFT JOIN users u ON pb.sender_id = u.user_id "

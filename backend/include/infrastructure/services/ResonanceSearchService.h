@@ -31,6 +31,13 @@ struct ResonanceMatch {
     std::string stoneId;
     std::string userId;
     std::string content;
+    std::string stoneType = "medium";
+    std::string stoneColor = "#7A92A3";
+    std::string moodType = "neutral";
+    std::string authorName;
+    std::string createdAt;
+    float emotionScore = 0.0f;
+    int boatCount = 0;
     float similarity;              ///< 基础余弦相似度
     int deliveryDelaySeconds;      ///< 基于相似度计算的投递延迟（秒）
     // 四维共鸣分数

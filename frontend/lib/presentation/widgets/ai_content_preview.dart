@@ -422,15 +422,27 @@ class _AIContentPreviewState extends State<AIContentPreview>
     final key = mood.trim().toLowerCase();
     const moodMap = {
       'happy': '开心',
+      'joy': '开心',
+      'love': '开心',
+      'happiness': '开心',
       'calm': '平静',
       'neutral': '中性',
       'anxious': '焦虑',
-      'sad': '难过',
-      'angry': '愤怒',
-      'surprised': '惊讶',
-      'confused': '困惑',
       'fear': '焦虑',
       'fearful': '焦虑',
+      'stressed': '焦虑',
+      'worried': '焦虑',
+      'sad': '难过',
+      'sadness': '难过',
+      'lonely': '难过',
+      'angry': '愤怒',
+      'anger': '愤怒',
+      'surprised': '惊讶',
+      'surprise': '惊讶',
+      'confused': '困惑',
+      'hopeful': '有希望',
+      'grateful': '感恩',
+      'gratitude': '感恩',
     };
     return moodMap[key] ?? mood;
   }

@@ -20,6 +20,7 @@
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
 #include "infrastructure/ai/EmotionResonanceEngine.h"
 #include "infrastructure/vector/MilvusClient.h"
+#include "utils/MoodUtils.h"
 #include <drogon/drogon.h>
 #include <algorithm>
 #include <cmath>
@@ -118,13 +119,19 @@ std::unordered_map<std::string, CandidateContext> loadCandidateContexts(
     }
 
     auto rows = db->execSqlSync(
-        "SELECT stone_id, user_id, content, "
-        "       COALESCE(mood_type, 'neutral') AS mood_type, "
+        "SELECT s.stone_id, s.user_id, s.content, "
+        "       COALESCE(s.stone_type, 'medium') AS stone_type, "
+        "       COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+        "       " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
+        "       " + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+        "       COALESCE(s.boat_count, 0) AS boat_count, "
+        "       COALESCE(u.nickname, '') AS author_name, "
         "       created_at::text AS created_at "
-        "FROM stones "
-        "WHERE stone_id = ANY(string_to_array($1, ',')::text[]) "
-        "  AND status = 'published' "
-        "  AND deleted_at IS NULL",
+        "FROM stones s "
+        "LEFT JOIN users u ON s.user_id = u.user_id "
+        "WHERE s.stone_id = ANY(string_to_array($1, ',')::text[]) "
+        "  AND s.status = 'published' "
+        "  AND s.deleted_at IS NULL",
         joinedStoneIds);
 
     contexts.reserve(rows.size());
@@ -133,9 +140,30 @@ std::unordered_map<std::string, CandidateContext> loadCandidateContexts(
         context.match.stoneId = row["stone_id"].as<std::string>();
         context.match.userId = row["user_id"].as<std::string>();
         context.match.content = row["content"].as<std::string>();
+        context.match.stoneType = row["stone_type"].isNull()
+            ? "medium"
+            : row["stone_type"].as<std::string>();
+        context.match.stoneColor = row["stone_color"].isNull()
+            ? "#7A92A3"
+            : row["stone_color"].as<std::string>();
+        context.match.moodType = row["mood_type"].isNull()
+            ? "neutral"
+            : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
+        context.match.emotionScore = row["emotion_score"].isNull()
+            ? static_cast<float>(heartlake::utils::scoreForMood(context.match.moodType))
+            : row["emotion_score"].as<float>();
+        context.match.boatCount = row["boat_count"].isNull()
+            ? 0
+            : row["boat_count"].as<int>();
+        context.match.authorName = row["author_name"].isNull()
+            ? ""
+            : row["author_name"].as<std::string>();
+        context.match.createdAt = row["created_at"].isNull()
+            ? ""
+            : row["created_at"].as<std::string>();
         context.mood = row["mood_type"].isNull()
             ? "neutral"
-            : row["mood_type"].as<std::string>();
+            : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
         context.createdAt = row["created_at"].isNull()
             ? ""
             : row["created_at"].as<std::string>();
@@ -159,11 +187,37 @@ std::unordered_map<std::string, std::vector<float>> loadTrajectoryScores(
     }
 
     auto rows = db->execSqlSync(
-        "SELECT et.user_id, ARRAY_AGG(et.score ORDER BY et.created_at ASC)::text AS scores "
-        "FROM emotion_tracking et "
-        "WHERE et.user_id = ANY(string_to_array($1, ',')::text[]) "
-        "  AND et.created_at > NOW() - INTERVAL '7 days' "
-        "GROUP BY et.user_id",
+        "WITH requested_users AS ("
+        "  SELECT DISTINCT unnest(string_to_array($1, ',')) AS user_id"
+        "), tracking_scores AS ("
+        "  SELECT et.user_id, ARRAY_AGG(et.score ORDER BY et.created_at ASC)::text AS scores "
+        "  FROM emotion_tracking et "
+        "  JOIN requested_users ru ON ru.user_id = et.user_id "
+        "  WHERE et.created_at > NOW() - INTERVAL '7 days' "
+        "  GROUP BY et.user_id"
+        "), profile_scores AS ("
+        "  SELECT uep.user_id, ARRAY_AGG(COALESCE(uep.avg_emotion_score, 0.0) ORDER BY uep.date ASC)::text AS scores "
+        "  FROM user_emotion_profile uep "
+        "  JOIN requested_users ru ON ru.user_id = uep.user_id "
+        "  WHERE uep.date >= CURRENT_DATE - INTERVAL '7 days' "
+        "  GROUP BY uep.user_id"
+        "), stone_scores AS ("
+        "  SELECT s.user_id, ARRAY_AGG("
+        + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score")
+        + " ORDER BY s.created_at ASC)::text AS scores "
+        "  FROM stones s "
+        "  JOIN requested_users ru ON ru.user_id = s.user_id "
+        "  WHERE s.status = 'published' "
+        "    AND s.deleted_at IS NULL "
+        "    AND s.created_at > NOW() - INTERVAL '7 days' "
+        "  GROUP BY s.user_id"
+        ") "
+        "SELECT ru.user_id, "
+        "       COALESCE(ts.scores, ps.scores, ss.scores, '{}'::text) AS scores "
+        "FROM requested_users ru "
+        "LEFT JOIN tracking_scores ts ON ts.user_id = ru.user_id "
+        "LEFT JOIN profile_scores ps ON ps.user_id = ru.user_id "
+        "LEFT JOIN stone_scores ss ON ss.user_id = ru.user_id",
         joinedUserIds);
 
     trajectories.reserve(rows.size());
@@ -175,6 +229,98 @@ std::unordered_map<std::string, std::vector<float>> loadTrajectoryScores(
         trajectories.emplace(userId, parsePgFloatArray(rawScores));
     }
     return trajectories;
+}
+
+std::vector<float> loadRequesterTrajectoryScores(
+    const drogon::orm::DbClientPtr& db,
+    const std::string& requesterUserId,
+    const std::string& stoneId
+) {
+    std::vector<float> scores;
+
+    auto trackingRows = db->execSqlSync(
+        "SELECT score "
+        "FROM emotion_tracking "
+        "WHERE user_id = $1 "
+        "  AND created_at > NOW() - INTERVAL '7 days' "
+        "ORDER BY created_at ASC",
+        requesterUserId);
+    for (const auto& row : trackingRows) {
+        scores.push_back(row["score"].as<float>());
+    }
+    if (!scores.empty()) {
+        return scores;
+    }
+
+    auto profileRows = db->execSqlSync(
+        "SELECT avg_emotion_score "
+        "FROM user_emotion_profile "
+        "WHERE user_id = $1 "
+        "  AND date >= CURRENT_DATE - INTERVAL '7 days' "
+        "ORDER BY date ASC",
+        requesterUserId);
+    for (const auto& row : profileRows) {
+        if (!row["avg_emotion_score"].isNull()) {
+            scores.push_back(row["avg_emotion_score"].as<float>());
+        }
+    }
+    if (!scores.empty()) {
+        return scores;
+    }
+
+    auto authoredStoneRows = db->execSqlSync(
+        "SELECT " + heartlake::utils::sqlMoodScoreExpr("mood_type", "emotion_score") + " AS score "
+        "FROM stones "
+        "WHERE user_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "  AND created_at > NOW() - INTERVAL '7 days' "
+        "ORDER BY created_at ASC",
+        requesterUserId);
+    for (const auto& row : authoredStoneRows) {
+        scores.push_back(row["score"].as<float>());
+    }
+    if (!scores.empty()) {
+        return scores;
+    }
+
+    auto interactedStoneRows = db->execSqlSync(
+        "SELECT " + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS score "
+        "FROM user_interaction_history h "
+        "JOIN stones s ON s.stone_id = h.stone_id "
+        "WHERE h.user_id = $1 "
+        "  AND s.status = 'published' "
+        "  AND s.deleted_at IS NULL "
+        "  AND h.created_at > NOW() - INTERVAL '7 days' "
+        "ORDER BY h.created_at ASC",
+        requesterUserId);
+    for (const auto& row : interactedStoneRows) {
+        scores.push_back(row["score"].as<float>());
+    }
+    if (!scores.empty()) {
+        return scores;
+    }
+
+    auto referenceStoneRows = db->execSqlSync(
+        "SELECT " + heartlake::utils::sqlMoodScoreExpr("mood_type", "emotion_score") + " AS score, "
+        "       " + heartlake::utils::sqlCanonicalMoodExpr("mood_type") + " AS mood_type "
+        "FROM stones "
+        "WHERE stone_id = $1 "
+        "  AND status = 'published' "
+        "  AND deleted_at IS NULL "
+        "LIMIT 1",
+        stoneId);
+    if (!referenceStoneRows.empty()) {
+        const auto& row = referenceStoneRows[0];
+        if (!row["score"].isNull()) {
+            scores.push_back(row["score"].as<float>());
+        } else if (!row["mood_type"].isNull()) {
+            scores.push_back(static_cast<float>(
+                heartlake::utils::scoreForMood(row["mood_type"].as<std::string>())));
+        }
+    }
+
+    return scores;
 }
 
 }  // namespace
@@ -306,9 +452,16 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         try {
             auto result = db->execSqlSync(
                 "SELECT se.stone_id, se.embedding, s.user_id, s.content, "
-                "       COALESCE(s.mood_type, 'neutral') AS mood_type, "
+                "       COALESCE(s.stone_type, 'medium') AS stone_type, "
+                "       COALESCE(s.stone_color, '#7A92A3') AS stone_color, "
+                "       " + heartlake::utils::sqlCanonicalMoodExpr("s.mood_type") + " AS mood_type, "
+                "       " + heartlake::utils::sqlMoodScoreExpr("s.mood_type", "s.emotion_score") + " AS emotion_score, "
+                "       COALESCE(s.boat_count, 0) AS boat_count, "
+                "       COALESCE(u.nickname, '') AS author_name, "
                 "       s.created_at::text AS created_at "
-                "FROM stone_embeddings se JOIN stones s ON se.stone_id = s.stone_id "
+                "FROM stone_embeddings se "
+                "JOIN stones s ON se.stone_id = s.stone_id "
+                "LEFT JOIN users u ON s.user_id = u.user_id "
                 "WHERE se.stone_id != $1 "
                 "  AND s.user_id != $2 "
                 "  AND s.status = 'published' "
@@ -330,11 +483,33 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
                     context.match.stoneId = row["stone_id"].as<std::string>();
                     context.match.userId = row["user_id"].as<std::string>();
                     context.match.content = row["content"].as<std::string>();
+                    context.match.stoneType = row["stone_type"].isNull()
+                        ? "medium"
+                        : row["stone_type"].as<std::string>();
+                    context.match.stoneColor = row["stone_color"].isNull()
+                        ? "#7A92A3"
+                        : row["stone_color"].as<std::string>();
+                    context.match.moodType = row["mood_type"].isNull()
+                        ? "neutral"
+                        : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
+                    context.match.emotionScore = row["emotion_score"].isNull()
+                        ? static_cast<float>(
+                            heartlake::utils::scoreForMood(context.match.moodType))
+                        : row["emotion_score"].as<float>();
+                    context.match.boatCount = row["boat_count"].isNull()
+                        ? 0
+                        : row["boat_count"].as<int>();
+                    context.match.authorName = row["author_name"].isNull()
+                        ? ""
+                        : row["author_name"].as<std::string>();
+                    context.match.createdAt = row["created_at"].isNull()
+                        ? ""
+                        : row["created_at"].as<std::string>();
                     context.match.similarity = similarity;
                     context.match.semanticScore = similarity;
                     context.mood = row["mood_type"].isNull()
                         ? "neutral"
-                        : row["mood_type"].as<std::string>();
+                        : heartlake::utils::normalizeMood(row["mood_type"].as<std::string>());
                     context.createdAt = row["created_at"].isNull()
                         ? ""
                         : row["created_at"].as<std::string>();
@@ -365,7 +540,8 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
             stoneId);
         if (!stoneRow.empty()) {
             if (!stoneRow[0]["mood_type"].isNull())
-                sourceMood = stoneRow[0]["mood_type"].as<std::string>();
+                sourceMood = heartlake::utils::normalizeMood(
+                    stoneRow[0]["mood_type"].as<std::string>());
         } else {
             throw std::runtime_error("Source stone not found during resonance search");
         }
@@ -373,19 +549,15 @@ std::vector<ResonanceMatch> ResonanceSearchService::searchResonance(
         throw std::runtime_error(std::string("Source stone lookup failed: ") + e.what());
     }
 
-    // 加载源用户的情绪轨迹（用于DTW计算）
+    // 加载请求用户的真实情绪轨迹。优先 emotion_tracking，
+    // 其后使用画像、已发布石头、已交互石头和参考石头情绪信号补齐。
     ai::EmotionTrajectory userTraj;
     try {
-        auto trajRows = db->execSqlSync(
-            "SELECT score FROM emotion_tracking "
-            "WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days' "
-            "ORDER BY created_at ASC", requesterUserId);
         userTraj.userId = requesterUserId;
-        for (const auto& r : trajRows) {
-            userTraj.scores.push_back(r["score"].as<float>());
-        }
-        if (!userTraj.scores.empty())
+        userTraj.scores = loadRequesterTrajectoryScores(db, requesterUserId, stoneId);
+        if (!userTraj.scores.empty()) {
             userTraj.currentScore = userTraj.scores.back();
+        }
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("User trajectory load failed: ") + e.what());
     }

@@ -36,9 +36,9 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ""
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
-      AI_PROVIDER: ${AI_PROVIDER:-ollama}
-      AI_BASE_URL: ${AI_BASE_URL:-http://127.0.0.1:11434}
-      AI_MODEL: ${AI_MODEL:-heartlake-qwen}
+      AI_PROVIDER: ${AI_PROVIDER:-deepseek}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
+      AI_MODEL: ${AI_MODEL:-deepseek-chat}
       AI_TIMEOUT: ${AI_TIMEOUT:-15}
       AI_MAX_RETRIES: ${AI_MAX_RETRIES:-1}
       AI_CIRCUIT_BREAKER_FAILURES: ${AI_CIRCUIT_BREAKER_FAILURES:-2}

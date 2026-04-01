@@ -9,6 +9,7 @@
 #include "utils/BusinessRules.h"
 #include "utils/PasetoUtil.h"
 #include "utils/RecoveryKeyGenerator.h"
+#include "utils/MoodUtils.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
 #include "utils/SecurityLogger.h"
@@ -856,7 +857,8 @@ void UserController::getMyBoats(
     auto result = dbClient->execSqlSync(
         "SELECT b.boat_id, b.stone_id, s.user_id AS stone_user_id, "
         "b.content, b.boat_style, b.created_at, "
-        "b.status, b.sender_id, b.is_anonymous, b.is_ai_reply, "
+        "b.status, b.sender_id, b.is_anonymous, "
+        "(b.sender_id IN ('ai_lakegod', 'lake_god')) AS is_ai_reply, "
         "b.mood, b.response_content, b.response_at, "
         "u.nickname AS sender_nickname, COUNT(*) OVER() AS total_count "
         "FROM paper_boats b "
@@ -1043,39 +1045,16 @@ void UserController::getEmotionCalendar(
     }
 
     auto dbClient = drogon::app().getDbClient("default");
+    const auto normalizedMoodExpr =
+        heartlake::utils::sqlCanonicalMoodExpr("mood_type");
 
     auto result = dbClient->execSqlSync(
-        "SELECT DATE(created_at) as date, COALESCE(mood_type, 'neutral') as "
-        "mood, COUNT(*) as count "
+        "SELECT DATE(created_at) as date, " + normalizedMoodExpr + " as mood, "
+        "COUNT(*) as count "
         "FROM stones WHERE user_id = $1 AND status = 'published' "
         "AND TO_CHAR(created_at, 'YYYY-MM') = $2 "
-        "GROUP BY DATE(created_at), COALESCE(mood_type, 'neutral') ORDER BY "
-        "date",
+        "GROUP BY DATE(created_at), " + normalizedMoodExpr + " ORDER BY date",
         user_id, month);
-
-    auto moodToScore = [](const std::string &mood) -> double {
-      if (mood == "happy")
-        return 0.75;
-      if (mood == "calm")
-        return 0.35;
-      if (mood == "neutral")
-        return 0.0;
-      if (mood == "hopeful")
-        return 0.55;
-      if (mood == "grateful")
-        return 0.65;
-      if (mood == "sad")
-        return -0.75;
-      if (mood == "anxious")
-        return -0.45;
-      if (mood == "angry")
-        return -0.65;
-      if (mood == "lonely")
-        return -0.55;
-      if (mood == "confused")
-        return -0.1;
-      return 0.0;
-    };
 
     Json::Value days(Json::objectValue);
     std::map<std::string, std::pair<double, int>> dayScoreAgg;
@@ -1092,7 +1071,7 @@ void UserController::getEmotionCalendar(
       days[date]["count"] = days[date]["count"].asInt() + count;
       days[date]["moods"][mood] =
           days[date]["moods"].get(mood, 0).asInt() + count;
-      dayScoreAgg[date].first += moodToScore(mood) * count;
+      dayScoreAgg[date].first += heartlake::utils::scoreForMood(mood) * count;
       dayScoreAgg[date].second += count;
     }
 
@@ -1134,23 +1113,13 @@ void UserController::getEmotionHeatmap(
       days_count = 365;
 
     auto dbClient = drogon::app().getDbClient("default");
+    const auto normalizedScoreExpr =
+        heartlake::utils::sqlMoodScoreExpr("mood_type", "emotion_score");
 
     auto result = dbClient->execSqlSync(
         "SELECT DATE(created_at) as date, "
         "COUNT(*) as count, "
-        "AVG(COALESCE(emotion_score, "
-        "CASE COALESCE(mood_type, 'neutral') "
-        "WHEN 'happy' THEN 0.75 "
-        "WHEN 'calm' THEN 0.35 "
-        "WHEN 'neutral' THEN 0.0 "
-        "WHEN 'hopeful' THEN 0.55 "
-        "WHEN 'grateful' THEN 0.65 "
-        "WHEN 'sad' THEN -0.75 "
-        "WHEN 'anxious' THEN -0.45 "
-        "WHEN 'angry' THEN -0.65 "
-        "WHEN 'lonely' THEN -0.55 "
-        "WHEN 'confused' THEN -0.1 "
-        "ELSE 0.0 END)) as avg_score "
+        "AVG(" + normalizedScoreExpr + ") as avg_score "
         "FROM stones WHERE user_id = $1 AND status = 'published' "
         "AND created_at >= NOW() - make_interval(days => $2) "
         "GROUP BY DATE(created_at) ORDER BY date",

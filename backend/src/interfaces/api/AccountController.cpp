@@ -774,11 +774,12 @@ void AccountController::getBlockedUsers(
     int64_t offset = static_cast<int64_t>(page - 1) * pageSize;
 
     auto result = dbClient->execSqlSync(
-        "SELECT b.blocked_user_id, u.nickname, u.avatar_url, b.created_at, "
+        "SELECT b.blocked_user_id, u.nickname, u.avatar_url, "
+        "b.created_at::text AS blocked_at, "
         "COUNT(*) OVER() AS total_count "
         "FROM user_blocks b JOIN users u ON b.blocked_user_id = u.user_id "
         "WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $2 OFFSET $3",
-        userId, pageSize, offset);
+        userId, static_cast<int64_t>(pageSize), offset);
 
     Json::Value users(Json::arrayValue);
     for (const auto &row : result) {
@@ -788,7 +789,7 @@ void AccountController::getBlockedUsers(
           row["nickname"].isNull() ? "" : row["nickname"].as<std::string>();
       user["avatar_url"] =
           row["avatar_url"].isNull() ? "" : row["avatar_url"].as<std::string>();
-      user["blocked_at"] = row["created_at"].as<std::string>();
+      user["blocked_at"] = row["blocked_at"].as<std::string>();
       users.append(user);
     }
 

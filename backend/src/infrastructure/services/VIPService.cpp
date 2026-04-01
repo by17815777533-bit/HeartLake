@@ -420,6 +420,14 @@ void VIPService::sendVIPNotification(
 Json::Value VIPService::getVIPStatus(const std::string& userId) {
     Json::Value status;
     auto dbClient = app().getDbClient();
+    Json::Value privilegesArray(Json::arrayValue);
+
+    status["is_vip"] = false;
+    status["vip_level"] = 0;
+    status["days_left"] = 0;
+    status["is_permanent"] = false;
+    status["expires_at"] = Json::Value(Json::nullValue);
+    status["privileges"] = privilegesArray;
 
     try {
         auto result = dbClient->execSqlSync(
@@ -428,8 +436,6 @@ Json::Value VIPService::getVIPStatus(const std::string& userId) {
         );
 
         if (result.size() == 0) {
-            status["is_vip"] = false;
-            status["vip_level"] = 0;
             return status;
         }
 
@@ -447,22 +453,23 @@ Json::Value VIPService::getVIPStatus(const std::string& userId) {
                     status["is_vip"] = true;
                     status["is_permanent"] = true;
                 } else {
-                    status["is_vip"] = (expiresAt > std::time(nullptr));
+                    const auto now = std::time(nullptr);
+                    status["is_vip"] = (expiresAt > now);
                     status["expires_at"] = static_cast<Json::Int64>(expiresAt);
                     status["is_permanent"] = false;
 
-                    // 计算剩余天数
-                    int daysLeft = (expiresAt - std::time(nullptr)) / (24 * 3600);
+                    const auto secondsLeft = expiresAt - now;
+                    const int daysLeft = secondsLeft > 0
+                        ? static_cast<int>((secondsLeft + (24 * 3600) - 1) / (24 * 3600))
+                        : 0;
                     status["days_left"] = daysLeft;
                 }
             }
-        } else {
-            status["is_vip"] = false;
         }
 
         // 获取用户的所有权益
         auto privileges = getUserPrivileges(userId);
-        Json::Value privilegesArray(Json::arrayValue);
+        privilegesArray = Json::Value(Json::arrayValue);
         for (const auto& priv : privileges) {
             privilegesArray.append(priv);
         }
@@ -471,8 +478,6 @@ Json::Value VIPService::getVIPStatus(const std::string& userId) {
         return status;
     } catch (const std::exception& e) {
         LOG_ERROR << "Error getting VIP status for user " << userId << ": " << e.what();
-        status["is_vip"] = false;
-        status["vip_level"] = 0;
         status["error"] = "VIP status query failed";
         return status;
     }

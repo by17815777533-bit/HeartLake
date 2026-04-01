@@ -211,53 +211,65 @@ class MoodColors {
 
     switch (mood.toLowerCase()) {
       case 'happy':
+      case 'joy':
+      case 'love':
+      case 'happiness':
       case '开心':
       case '快乐':
       case '高兴':
         return MoodType.happy;
       case 'calm':
+      case 'peaceful':
+      case 'serene':
       case '平静':
       case '安宁':
       case '宁静':
         return MoodType.calm;
       case 'sad':
+      case 'sadness':
       case '悲伤':
       case '忧伤':
       case '难过':
       case '伤心':
+      case 'lonely':
+      case '孤独':
+      case '寂寞':
         return MoodType.sad;
       case 'anxious':
+      case 'fear':
+      case 'fearful':
+      case 'stressed':
+      case 'worried':
       case '焦虑':
       case '担忧':
       case '紧张':
         return MoodType.anxious;
       case 'angry':
+      case 'anger':
       case '愤怒':
       case '生气':
         return MoodType.angry;
       case 'surprised':
+      case 'surprise':
       case '惊喜':
       case '惊讶':
         return MoodType.surprised;
       case 'confused':
+      case 'uncertain':
       case '迷茫':
       case '困惑':
         return MoodType.confused;
       case 'hopeful':
       case '希望':
       case '期待':
-      case 'peaceful':
       case '平和':
       case '祥和':
         return MoodType.calm;
       case 'grateful':
+      case 'gratitude':
       case '感恩':
       case '感激':
         return MoodType.happy;
-      case 'lonely':
-      case '孤独':
-      case '寂寞':
-        return MoodType.sad;
       default:
         return MoodType.neutral;
     }
@@ -298,6 +310,9 @@ class MoodColors {
     'surprised',
     'confused',
     'neutral',
+    'hopeful',
+    'grateful',
+    'lonely',
   ];
 
   /// 获取所有可用的情绪类型

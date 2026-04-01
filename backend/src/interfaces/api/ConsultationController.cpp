@@ -112,27 +112,32 @@ void ConsultationController::createSession(const HttpRequestPtr& req,
     std::string sessionId = generateSessionId();
     std::string serverKey = E2EEncryption::generateKey();
 
-    auto db = app().getDbClient("default");
-    db->execSqlAsync(
-        "INSERT INTO consultation_sessions (id, user_id, counselor_id, server_key, status, created_at) "
-        "SELECT $1, $2, u.user_id, $3, 'pending', NOW() "
-        "FROM users u "
-        "WHERE u.user_id = $4 AND u.user_id <> $2",
-        [callback, sessionId, serverKey](const orm::Result& result) {
-            if (result.affectedRows() == 0) {
-                callback(ResponseUtil::badRequest("咨询师不存在或无效"));
-                return;
-            }
-            Json::Value resp;
-            resp["session_id"] = sessionId;
-            resp["server_public_key"] = serverKey;
-            callback(ResponseUtil::success(resp));
-        },
-        [callback](const orm::DrogonDbException&) {
-            callback(ResponseUtil::error(500, "创建会话失败"));
-        },
-        sessionId, *userId, serverKey, counselorId
-    );
+    try {
+        auto db = app().getDbClient("default");
+        auto result = db->execSqlSync(
+            "INSERT INTO consultation_sessions (id, user_id, counselor_id, server_key, status, created_at) "
+            "SELECT $1::varchar, $2::varchar, u.user_id, $3::text, 'pending', NOW() "
+            "FROM users u "
+            "WHERE u.user_id = $4::varchar AND u.user_id <> $2::varchar",
+            sessionId, *userId, serverKey, counselorId
+        );
+
+        if (result.affectedRows() == 0) {
+            callback(ResponseUtil::badRequest("咨询师不存在或无效"));
+            return;
+        }
+
+        Json::Value resp;
+        resp["session_id"] = sessionId;
+        resp["server_public_key"] = serverKey;
+        callback(ResponseUtil::success(resp));
+    } catch (const orm::DrogonDbException& e) {
+        LOG_ERROR << "Consultation createSession DB error: " << e.base().what();
+        callback(ResponseUtil::error(500, "创建会话失败"));
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Consultation createSession error: " << e.what();
+        callback(ResponseUtil::error(500, "创建会话失败"));
+    }
 }
 
 void ConsultationController::exchangeKey(const HttpRequestPtr& req,
@@ -220,10 +225,11 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
     auto db = app().getDbClient("default");
     db->execSqlAsync(
         "INSERT INTO consultation_messages (session_id, sender_shadow_id, ciphertext, iv, tag, created_at) "
-        "SELECT $1, $2, $3, $4, $5, NOW() "
+        "SELECT $1::varchar, $2::varchar, $3::text, $4::varchar, $5::varchar, NOW() "
         "FROM consultation_sessions "
-        "WHERE id = $1 AND status = 'active' AND (user_id = $6 OR counselor_id = $6) "
-        "RETURNING id, created_at",
+        "WHERE id = $1::varchar AND status = 'active' "
+        "  AND (user_id = $6::varchar OR counselor_id = $6::varchar) "
+        "RETURNING id, created_at::text AS created_at",
         [callback, sessionId](const orm::Result& result) {
             if (result.affectedRows() == 0) {
                 callback(ResponseUtil::forbidden("无权在此会话中发送消息"));
@@ -240,7 +246,8 @@ void ConsultationController::sendMessage(const HttpRequestPtr& req,
             data["status"] = "sent";
             callback(ResponseUtil::success(data, "消息已发送"));
         },
-        [callback](const orm::DrogonDbException&) {
+        [callback](const orm::DrogonDbException& e) {
+            LOG_ERROR << "Consultation sendMessage DB error: " << e.base().what();
             callback(ResponseUtil::error(500, "发送失败"));
         },
         sessionId, shadowId, ciphertext, iv, tag, *userId
