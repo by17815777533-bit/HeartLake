@@ -210,9 +210,9 @@ curl -fsS http://121.41.195.165/api/health
 curl -I -fsS http://121.41.195.165/admin/
 ./scripts/verify-2c2g.sh
 ./scripts/docker-test.sh
-./scripts/docker-up.sh server-lite
-./scripts/docker-up.sh server-lite-backend
-./scripts/docker-up.sh server-lite-admin
+./scripts/docker-up.sh server-lite-local heartlake-server
+./scripts/docker-up.sh server-lite-backend-local heartlake-server
+./scripts/docker-up.sh server-lite-admin-local heartlake-server
 ```
 
 ## 文档入口

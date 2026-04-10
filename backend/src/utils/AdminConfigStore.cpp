@@ -3,8 +3,9 @@
  */
 #include "utils/AdminConfigStore.h"
 #include "utils/EnvUtils.h"
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <unistd.h>
 
 using namespace heartlake::utils;
 
@@ -12,7 +13,33 @@ std::mutex AdminConfigStore::mutex_;
 
 std::string AdminConfigStore::configFilePath() {
     const char* envPath = std::getenv("ADMIN_CONFIG_FILE");
-    return envPath ? envPath : "./config/admin_config.json";
+    if (envPath && *envPath) {
+        return envPath;
+    }
+
+    constexpr const char* kPrimaryPath = "./config/admin_config.json";
+    constexpr const char* kFallbackPath = "./logs/admin_config.json";
+
+    const std::filesystem::path primary(kPrimaryPath);
+    const std::filesystem::path fallback(kFallbackPath);
+
+    if (std::filesystem::exists(primary)) {
+        return primary.string();
+    }
+    if (std::filesystem::exists(fallback)) {
+        return fallback.string();
+    }
+
+    std::error_code ec;
+    const auto primaryParent = primary.parent_path();
+    if (!primaryParent.empty() &&
+        std::filesystem::exists(primaryParent, ec) &&
+        !ec &&
+        access(primaryParent.c_str(), W_OK) == 0) {
+        return primary.string();
+    }
+
+    return fallback.string();
 }
 
 Json::Value AdminConfigStore::defaultConfig() {
@@ -111,20 +138,31 @@ Json::Value AdminConfigStore::load() {
 
 bool AdminConfigStore::save(const Json::Value& config) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const std::string path = configFilePath();
+    const std::string primaryPath = configFilePath();
+    const std::string fallbackPath = "./logs/admin_config.json";
 
-    std::filesystem::path filePath(path);
-    if (filePath.has_parent_path()) {
-        std::filesystem::create_directories(filePath.parent_path());
+    auto writeTo = [&config](const std::string& path) -> bool {
+        std::filesystem::path filePath(path);
+        if (filePath.has_parent_path()) {
+            std::filesystem::create_directories(filePath.parent_path());
+        }
+
+        std::ofstream out(path);
+        if (!out.is_open()) {
+            return false;
+        }
+
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "  ";
+        out << Json::writeString(writer, config);
+        return static_cast<bool>(out);
+    };
+
+    if (writeTo(primaryPath)) {
+        return true;
     }
-
-    std::ofstream out(path);
-    if (!out.is_open()) {
-        return false;
+    if (primaryPath != fallbackPath) {
+        return writeTo(fallbackPath);
     }
-
-    Json::StreamWriterBuilder writer;
-    writer["indentation"] = "  ";
-    out << Json::writeString(writer, config);
-    return true;
+    return false;
 }

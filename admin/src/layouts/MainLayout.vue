@@ -234,7 +234,7 @@ const fetchAdminInfo = async () => {
 
 const fetchRealtimeStats = async () => {
   try {
-    const res = await api.getRealtimeStats()
+    const res = await api.getRealtimeStats({ source: 'layout' })
     const data = normalizePayloadRecord(res.data)
     if (data) {
       realtimeStats.onlineCount = data.online_count || data.online_users || 0

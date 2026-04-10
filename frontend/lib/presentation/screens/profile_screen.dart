@@ -556,10 +556,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _username =
             resolvedUsername?.isNotEmpty == true ? resolvedUsername : null;
-        _avatarUrl =
-            resolvedAvatarUrl != null && resolvedAvatarUrl.isNotEmpty
-                ? resolvedAvatarUrl
-                : null;
+        _avatarUrl = resolvedAvatarUrl != null && resolvedAvatarUrl.isNotEmpty
+            ? resolvedAvatarUrl
+            : null;
         _bio = resolvedBio;
         _nickname =
             resolvedNickname?.isNotEmpty == true ? resolvedNickname : null;
@@ -1049,7 +1048,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         leading: const Icon(Icons.psychology,
                             color: AppTheme.skyBlue),
                         title: const Text('心理咨询'),
-                        subtitle: const Text('预约专业咨询师',
+                        subtitle: const Text('预约意向演示与对话预览',
                             style: TextStyle(fontSize: 12)),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.push(

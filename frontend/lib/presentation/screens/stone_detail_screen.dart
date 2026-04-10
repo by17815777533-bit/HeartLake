@@ -17,7 +17,6 @@ import '../../utils/app_theme.dart';
 import '../../utils/payload_contract.dart';
 import '../widgets/water_background.dart';
 import '../widgets/report_dialog.dart';
-import '../widgets/similar_stones_section.dart';
 
 /// 石头详情页面
 ///
@@ -25,7 +24,6 @@ import '../widgets/similar_stones_section.dart';
 /// - 情绪色彩背景（根据石头情绪类型动态渲染）
 /// - 涟漪（点赞）和纸船（匿名回应）交互
 /// - WebSocket 实时同步涟漪/纸船计数变化
-/// - 相似石头推荐（HNSW 向量搜索）
 /// - 举报功能
 class StoneDetailScreen extends StatefulWidget {
   final Stone stone;
@@ -816,18 +814,6 @@ class _StoneDetailScreenState extends State<StoneDetailScreen>
                                   return _buildBoatCard(_boats[index]);
                                 },
                               ),
-                  ),
-                  // 相似石头推荐（HNSW向量搜索）
-                  SimilarStonesSection(
-                    stoneId: widget.stone.stoneId,
-                    onStoneTap: (stone) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StoneDetailScreen(stone: stone),
-                        ),
-                      );
-                    },
                   ),
                   // 评论输入框
                   _buildCommentInput(moodConfig),

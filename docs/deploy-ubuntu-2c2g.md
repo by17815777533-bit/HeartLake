@@ -71,9 +71,8 @@ cd /root/HeartLake
 ### 增量更新
 
 ```bash
-cd /root/HeartLake
-./scripts/docker-up.sh server-lite-backend
-./scripts/docker-up.sh server-lite-admin
+./scripts/docker-up.sh server-lite-backend-local heartlake-server
+./scripts/docker-up.sh server-lite-admin-local heartlake-server
 ./scripts/docker-up.sh server-lite-gateway
 ```
 
@@ -84,6 +83,9 @@ cd /root/HeartLake
 ./scripts/deploy-server-lite-local.sh admin heartlake-server
 ./scripts/deploy-server-lite-local.sh all heartlake-server
 ```
+
+`server-lite` 和 `server-lite-admin` 这两个“服务器现编 admin”入口现在默认受保护。
+在 2C2G 机器上它们容易把 `ssh` / `nginx` 一起拖死；除非显式设置 `HEARTLAKE_ALLOW_REMOTE_ADMIN_BUILD=1`，否则请始终走本地构建再推送。
 
 ## 6. 文档同步
 

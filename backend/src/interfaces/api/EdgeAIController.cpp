@@ -14,6 +14,7 @@
 #include "infrastructure/ai/SummaryService.h"
 #include "utils/AdminConfigStore.h"
 #include "utils/EnvUtils.h"
+#include "utils/IdentityShadowMap.h"
 #include "utils/MoodUtils.h"
 #include "utils/RequestHelper.h"
 #include "utils/Validator.h"
@@ -1949,6 +1950,9 @@ void EdgeAIController::lakeGodChat(
           userId, "assistant", ragReply.reply, sentiment.mood, sentiment.score);
 
       Json::Value data;
+      data["shadow_id"] =
+          heartlake::utils::IdentityShadowMap::getInstance()
+              .getOrCreateShadowId(userId);
       data["reply"] = ragReply.reply;
       data["mood"] = sentiment.mood;
       data["score"] = sentiment.score;

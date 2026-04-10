@@ -16,6 +16,12 @@ WHERE user_id = 'demo_full_access'
    OR user_id LIKE 'showcase_user_%'
    OR friend_id LIKE 'showcase_user_%';
 
+DELETE FROM friend_messages
+WHERE sender_id = 'demo_full_access'
+   OR receiver_id = 'demo_full_access'
+   OR sender_id LIKE 'demo_peer_%'
+   OR receiver_id LIKE 'demo_peer_%';
+
 DELETE FROM user_interaction_history
 WHERE user_id = 'demo_full_access'
    OR user_id LIKE 'demo_peer_%'

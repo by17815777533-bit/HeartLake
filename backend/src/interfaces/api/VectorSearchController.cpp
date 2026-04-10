@@ -163,8 +163,8 @@ void VectorSearchController::updateStoneEmbedding(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     const std::string &stoneId) {
-    auto userIdOpt2 = Validator::getUserId(req);
-    if (!userIdOpt2) {
+    const auto adminAttrs = req->getAttributes();
+    if (!adminAttrs || !adminAttrs->find("admin_id")) {
         Json::Value resp;
         resp["code"] = 401;
         resp["message"] = "未登录";

@@ -329,8 +329,11 @@ export default {
   logout: () => http.post('/admin/logout'),
   // Dashboard
   getDashboardStats: () => http.get('/admin/stats/dashboard'),
-  getRealtimeStats: () =>
-    http.get('/admin/stats/realtime', { skipLoading: true } as CustomAxiosRequestConfig),
+  getRealtimeStats: (params?: Params) =>
+    http.get('/admin/stats/realtime', {
+      params,
+      skipLoading: true,
+    } as CustomAxiosRequestConfig),
   getUserGrowthStats: (range: string) =>
     http.get(`/admin/stats/user-growth?days=${range}`, {
       skipLoading: true,
@@ -410,7 +413,7 @@ export default {
     http.post('/admin/edge-ai/moderate', { text }, { timeout: LONG_TIMEOUT }),
   // Recommendation System
   getTrendingContent: (params?: Params) =>
-    http.get('/recommendations/trending', {
+    http.get('/admin/recommendations/trending', {
       params,
       skipLoading: true,
       skipAuthRedirect: true,

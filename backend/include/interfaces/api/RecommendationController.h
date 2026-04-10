@@ -68,6 +68,10 @@ public:
     ADD_METHOD_TO(RecommendationController::getTrendingContent,
                   "/api/recommendations/trending", Get, "heartlake::filters::SecurityAuditFilter");
 
+    ADD_METHOD_TO(RecommendationController::getTrendingContent,
+                  "/api/admin/recommendations/trending", Get, Options,
+                  "heartlake::filters::AdminAuthFilter");
+
     ADD_METHOD_TO(RecommendationController::searchRecommendations,
                   "/api/recommendations/search", Post, "heartlake::filters::SecurityAuditFilter");
 

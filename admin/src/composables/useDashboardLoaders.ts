@@ -188,7 +188,16 @@ export function useDashboardLoaders({
           ? normalizeDashboardRecord(realtimeResult.value.data)
           : null
 
+      const dashboardCanceled =
+        dashResult.status === 'rejected' && isRequestCanceled(dashResult.reason)
+      const realtimeCanceled =
+        realtimeResult.status === 'rejected' && isRequestCanceled(realtimeResult.reason)
+
       if (!dashboardData && !realtimeData) {
+        if (dashboardCanceled || realtimeCanceled) {
+          clearLoaderIssue('stats')
+          return
+        }
         throw new Error('统计接口全部请求失败')
       }
 
@@ -202,7 +211,11 @@ export function useDashboardLoaders({
           dashboardData?.pending_reports ?? realtimeData?.pending_reports ?? stats.pendingReports
       }
 
-      if (dashResult.status === 'rejected' || realtimeResult.status === 'rejected') {
+      const hasRealFailure =
+        (dashResult.status === 'rejected' && !dashboardCanceled) ||
+        (realtimeResult.status === 'rejected' && !realtimeCanceled)
+
+      if (hasRealFailure) {
         markLoaderIssue('stats', '核心统计部分加载失败，当前展示的是最近一次成功结果', true)
         return
       }

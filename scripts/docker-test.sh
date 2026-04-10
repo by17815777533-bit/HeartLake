@@ -83,7 +83,7 @@ if command -v node >/dev/null 2>&1; then
 fi
 
 if [[ "${RUN_EXISTING_TESTS}" == "1" ]]; then
-  echo "[docker-test] 执行测试集合（${TEST_RUNNER}）..."
+  echo "[docker-test] 执行构建与联调基线检查（${TEST_RUNNER}）..."
   "${TEST_RUNNER}"
 fi
 

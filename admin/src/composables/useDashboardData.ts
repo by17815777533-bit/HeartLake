@@ -228,6 +228,10 @@ export function useDashboardData() {
     await loaders.loadMoodDistribution()
   }
 
+  let secondaryLoadTimer: ReturnType<typeof setTimeout> | null = null
+  let refreshInFlight: Promise<void> | null = null
+  let refreshQueued = false
+
   /**
    * 导出大屏数据为 JSON 文件，只保留展示用的业务字段。
    */
@@ -273,14 +277,36 @@ export function useDashboardData() {
   }
 
   /** 并行刷新大屏全部数据。 */
-  const refreshData = async () => {
+  const runDashboardRefresh = async () => {
     loading.value = true
     await loadPrimaryDashboardData()
     lastUpdateTime.value = dayjs().format('HH:mm:ss')
-    loading.value = false
-    setTimeout(() => {
+    if (secondaryLoadTimer) {
+      clearTimeout(secondaryLoadTimer)
+    }
+    secondaryLoadTimer = setTimeout(() => {
       void loadSecondaryDashboardData()
+      secondaryLoadTimer = null
     }, 180)
+    loading.value = false
+  }
+
+  const refreshData = async () => {
+    if (refreshInFlight) {
+      refreshQueued = true
+      return refreshInFlight
+    }
+
+    refreshInFlight = (async () => {
+      do {
+        refreshQueued = false
+        await runDashboardRefresh()
+      } while (refreshQueued)
+    })().finally(() => {
+      refreshInFlight = null
+    })
+
+    return refreshInFlight
   }
 
   return {

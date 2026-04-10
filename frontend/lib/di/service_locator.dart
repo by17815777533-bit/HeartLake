@@ -8,7 +8,6 @@ import '../data/datasources/stone_service.dart';
 import '../data/datasources/friend_service.dart';
 import '../data/datasources/temp_friend_service.dart';
 import '../data/datasources/interaction_service.dart';
-import '../data/datasources/consultation_service.dart';
 import '../data/datasources/user_service.dart';
 import '../data/datasources/account_service.dart';
 import '../data/datasources/guardian_service.dart';
@@ -47,12 +46,13 @@ void setupServiceLocator() {
 
   // AI 与推荐
   sl.registerLazySingleton<EdgeAIService>(() => EdgeAIService());
-  sl.registerLazySingleton<AIRecommendationService>(() => AIRecommendationService());
-  sl.registerLazySingleton<RecommendationService>(() => RecommendationService());
+  sl.registerLazySingleton<AIRecommendationService>(
+      () => AIRecommendationService());
+  sl.registerLazySingleton<RecommendationService>(
+      () => RecommendationService());
   sl.registerLazySingleton<LakeGodService>(() => LakeGodService());
 
-  // 咨询与心理支持
-  sl.registerLazySingleton<ConsultationService>(() => ConsultationService());
+  // 心理支持
   sl.registerLazySingleton<PsychSupportService>(() => PsychSupportService());
   sl.registerLazySingleton<VIPService>(() => VIPService());
 }

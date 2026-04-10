@@ -1659,15 +1659,22 @@ onUnmounted(() => {
   }
 }
 
-@media (max-height: 820px) and (min-width: 1181px) {
+@media (max-height: 820px) and (min-width: 961px) {
   .dashboard-bank {
-    height: min(596px, calc(100vh - 136px));
+    height: auto;
   }
 
   .dashboard-grid {
+    height: auto;
     gap: 14px;
-    grid-template-columns: minmax(0, 1.6fr) minmax(214px, 0.88fr) minmax(270px, 0.98fr);
-    grid-template-rows: minmax(0, 1.01fr) minmax(0, 0.6fr) minmax(0, 0.92fr);
+    grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.96fr);
+    grid-template-rows: none;
+    grid-template-areas:
+      'overview spending'
+      'overview activity'
+      'guide activity'
+      'chart chart'
+      'score score';
   }
 
   .dashboard-card {
@@ -1831,6 +1838,17 @@ onUnmounted(() => {
     margin-top: 10px;
   }
 
+  .dashboard-card--overview,
+  .dashboard-card--activity {
+    min-height: 0;
+  }
+
+  .dashboard-card--guide,
+  .dashboard-card--chart,
+  .dashboard-card--score {
+    min-height: 0;
+  }
+
   .transaction-item {
     grid-template-columns: 40px minmax(0, 1fr) auto;
     gap: 10px;
@@ -1951,15 +1969,22 @@ onUnmounted(() => {
   }
 }
 
-@media (max-height: 740px) and (min-width: 1181px) {
+@media (max-height: 740px) and (min-width: 961px) {
   .dashboard-bank {
-    height: min(584px, calc(100vh - 118px));
+    height: auto;
   }
 
   .dashboard-grid {
+    height: auto;
     gap: 12px;
-    grid-template-columns: minmax(0, 1.6fr) minmax(208px, 0.86fr) minmax(258px, 0.94fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 0.58fr) minmax(0, 0.88fr);
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'overview'
+      'spending'
+      'activity'
+      'guide'
+      'chart'
+      'score';
   }
 
   .dashboard-card {

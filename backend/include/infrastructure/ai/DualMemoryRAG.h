@@ -4,7 +4,7 @@
  * 创新点：基于2024年SoulSpeak论文的双记忆架构
  * - 短期记忆：最近5次交互上下文
  * - 长期记忆：用户情绪画像（从emotion_tracking聚合）
- * - 隐私保护：所有记忆使用shadow_id，不关联真实身份
+ * - 隐私保护：对外仍接收真实 user_id，但内部记忆统一映射为 shadow_id 存储
  *
  * 参考论文：SoulSpeak (arXiv, Dec 2024) - Dual-Memory RAG for Psychotherapy
  */
@@ -31,7 +31,7 @@ struct RagReplyResult {
  * @details 所有记忆使用 shadow_id 存储，不关联真实身份，保护用户隐私。
  */
 struct EmotionMemory {
-  std::string userId; ///< 用户 shadow_id
+  std::string userId; ///< 记忆作用域 shadow_id
 
   /**
    * @brief 短期记忆条目 — 记录单次交互的情绪快照
@@ -86,7 +86,7 @@ public:
 
   /**
    * 生成带有双记忆上下文的AI回复
-   * @param userId 用户ID（使用shadow_id保护隐私）
+   * @param userId 真实用户ID；模块内部会自动映射为 shadow_id 作为记忆键
    * @param currentContent 当前内容
    * @param currentEmotion 当前情绪
    * @param emotionScore 情绪分数
@@ -135,7 +135,7 @@ public:
 private:
   DualMemoryRAG() = default;
   std::unordered_map<std::string, EmotionMemory>
-      memories_;                    ///< shadow_id -> 记忆体映射
+      memories_; ///< shadow_id -> 记忆体映射（进程内不直接暴露真实 user_id）
   mutable std::shared_mutex mutex_; ///< 读多写少场景，用共享锁提升并发读性能
 
   static constexpr int MAX_SHORT_TERM = 5; ///< 短期记忆最大保留条数
@@ -145,16 +145,21 @@ private:
   static constexpr float DECAY_LAMBDA = 0.05f; ///< Ebbinghaus 指数衰减系数
 
   /**
+   * @brief 将真实用户ID映射为记忆作用域 shadow_id
+   */
+  static std::string resolveShadowUserId(const std::string &userId);
+
+  /**
    * @brief 获取或创建用户记忆体
-   * @param userId 用户 shadow_id
+   * @param shadowUserId 用户 shadow_id
    * @return 记忆体引用（调用方需持有锁）
    */
-  EmotionMemory &getOrCreateMemory(const std::string &userId);
+  EmotionMemory &getOrCreateMemory(const std::string &shadowUserId);
 
   /**
    * @brief 获取用户记忆快照，昂贵计算在锁外进行
    */
-  EmotionMemory getMemorySnapshot(const std::string &userId);
+  EmotionMemory getMemorySnapshot(const std::string &shadowUserId);
 
   /**
    * @brief 刷新长期画像（可选按刷新间隔节流）

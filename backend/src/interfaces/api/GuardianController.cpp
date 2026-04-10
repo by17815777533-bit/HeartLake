@@ -12,6 +12,7 @@
 #include "interfaces/api/GuardianController.h"
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/services/GuardianIncentiveService.h"
+#include "utils/IdentityShadowMap.h"
 #include "utils/PasetoUtil.h"
 #include "utils/RequestHelper.h"
 #include "utils/ResponseUtil.h"
@@ -96,6 +97,8 @@ void GuardianController::getEmotionInsights(
   try {
     auto &dualMemory = heartlake::ai::DualMemoryRAG::getInstance();
     auto insights = dualMemory.getEmotionInsights(*userId);
+    insights["shadow_id"] =
+        IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
     callback(ResponseUtil::success(insights));
   } catch (const std::exception &e) {
     LOG_ERROR << "Failed to get emotion insights for user " << *userId << ": "
@@ -137,6 +140,8 @@ void GuardianController::chat(
                                                          emotion, emotionScore);
 
     Json::Value response;
+    response["shadow_id"] =
+        IdentityShadowMap::getInstance().getOrCreateShadowId(*userId);
     response["reply"] = replyResult.reply;
     response["agent"] = "lake_god";
     response["agent_name"] = "湖神";

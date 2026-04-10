@@ -31,6 +31,20 @@ cmake --build "${ROOT_DIR}/backend/${BACKEND_BUILD_DIR}" -j"${BACKEND_BUILD_JOBS
   flutter analyze
 )
 
+CTEST_LISTING="$(ctest --test-dir "${ROOT_DIR}/backend/${BACKEND_BUILD_DIR}" -N)"
+printf '%s\n' "${CTEST_LISTING}"
+CTEST_TOTAL_TESTS="$(printf '%s\n' "${CTEST_LISTING}" | sed -n 's/^Total Tests: //p' | tail -n1)"
+if [[ -z "${CTEST_TOTAL_TESTS}" ]]; then
+  echo "[2c2g] 无法解析 ctest 注册数量"
+  exit 1
+fi
+if [[ "${CTEST_TOTAL_TESTS}" -gt 0 ]]; then
+  echo "[2c2g] 发现 ${CTEST_TOTAL_TESTS} 个真实 ctest 目标，开始执行..."
+  ctest --test-dir "${ROOT_DIR}/backend/${BACKEND_BUILD_DIR}" --output-on-failure
+else
+  echo "[2c2g] 当前未注册 backend CTest 目标，跳过执行"
+fi
+
 if [[ "${VERIFY_ONNX_SMOKE}" == "1" ]]; then
   ./scripts/verify-onnx-smoke.sh
 fi

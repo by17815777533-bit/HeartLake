@@ -16,6 +16,7 @@
 #include "infrastructure/ai/DualMemoryRAG.h"
 #include "infrastructure/ai/AIService.h"
 #include "infrastructure/ai/AdvancedEmbeddingEngine.h"
+#include "utils/IdentityShadowMap.h"
 #include "utils/RequestHelper.h"
 #include <algorithm>
 #include <cctype>
@@ -353,24 +354,30 @@ DualMemoryRAG &DualMemoryRAG::getInstance() {
   return instance;
 }
 
-EmotionMemory &DualMemoryRAG::getOrCreateMemory(const std::string &userId) {
-  auto [it, inserted] = memories_.try_emplace(userId);
+std::string DualMemoryRAG::resolveShadowUserId(const std::string &userId) {
+  return heartlake::utils::IdentityShadowMap::getInstance()
+      .getOrCreateShadowId(userId);
+}
+
+EmotionMemory &DualMemoryRAG::getOrCreateMemory(
+    const std::string &shadowUserId) {
+  auto [it, inserted] = memories_.try_emplace(shadowUserId);
   if (inserted) {
-    it->second.userId = userId;
+    it->second.userId = shadowUserId;
   }
   return it->second;
 }
 
-EmotionMemory DualMemoryRAG::getMemorySnapshot(const std::string &userId) {
+EmotionMemory DualMemoryRAG::getMemorySnapshot(const std::string &shadowUserId) {
   std::shared_lock<std::shared_mutex> readLock(mutex_);
-  auto it = memories_.find(userId);
+  auto it = memories_.find(shadowUserId);
   if (it != memories_.end()) {
     return it->second;
   }
 
   readLock.unlock();
   std::unique_lock<std::shared_mutex> writeLock(mutex_);
-  return getOrCreateMemory(userId);
+  return getOrCreateMemory(shadowUserId);
 }
 
 void DualMemoryRAG::updateShortTermMemory(const std::string &userId,
@@ -395,8 +402,9 @@ void DualMemoryRAG::updateShortTermMemoryInternal(
     const std::string &userId, const std::string &content,
     const std::string &emotion, float score,
     const std::vector<float> &contentEmbedding) {
+  const std::string shadowUserId = resolveShadowUserId(userId);
   std::unique_lock<std::shared_mutex> lock(mutex_);
-  auto &memory = getOrCreateMemory(userId);
+  auto &memory = getOrCreateMemory(shadowUserId);
 
   // 生成时间戳
   auto now = std::chrono::system_clock::now();
@@ -517,8 +525,9 @@ void DualMemoryRAG::markShortTermEntriesAccessed(
     return;
   }
 
+  const std::string shadowUserId = resolveShadowUserId(userId);
   std::unique_lock<std::shared_mutex> lock(mutex_);
-  auto it = memories_.find(userId);
+  auto it = memories_.find(shadowUserId);
   if (it == memories_.end()) {
     return;
   }
@@ -542,9 +551,10 @@ void DualMemoryRAG::refreshLongTermMemory(const std::string &userId) {
 void DualMemoryRAG::refreshLongTermMemoryImpl(const std::string &userId,
                                               bool forceRefresh,
                                               double nowEpoch) {
+  const std::string shadowUserId = resolveShadowUserId(userId);
   {
     std::unique_lock<std::shared_mutex> lock(mutex_);
-    auto &memory = getOrCreateMemory(userId);
+    auto &memory = getOrCreateMemory(shadowUserId);
     auto &longTerm = memory.longTerm;
     if (longTerm.refreshInFlight) {
       return;
@@ -680,7 +690,7 @@ void DualMemoryRAG::refreshLongTermMemoryImpl(const std::string &userId,
   }
 
   std::unique_lock<std::shared_mutex> lock(mutex_);
-  auto &memory = getOrCreateMemory(userId);
+  auto &memory = getOrCreateMemory(shadowUserId);
   if (refreshSucceeded) {
     refreshedProfile.refreshInFlight = false;
     memory.longTerm = std::move(refreshedProfile);
@@ -775,6 +785,7 @@ DualMemoryRAG::buildRAGPrompt(const EmotionMemory &memory,
 RagReplyResult DualMemoryRAG::generateResponseResult(
     const std::string &userId, const std::string &currentContent,
     const std::string &currentEmotion, float emotionScore) {
+  const std::string shadowUserId = resolveShadowUserId(userId);
   // 1. 节流刷新长期记忆，避免每次请求都刷库
   refreshLongTermMemoryImpl(userId, false, currentEpochSeconds());
 
@@ -795,7 +806,7 @@ RagReplyResult DualMemoryRAG::generateResponseResult(
                                 emotionScore, currentEmbedding);
 
   // 3. 构建RAG提示词
-  EmotionMemory memoryCopy = getMemorySnapshot(userId);
+  EmotionMemory memoryCopy = getMemorySnapshot(shadowUserId);
   const auto pickedShortTerm = selectRelevantShortTermEntries(
       memoryCopy.shortTerm, currentContent, currentEmotion, &currentEmbedding);
   markShortTermEntriesAccessed(userId, pickedShortTerm);
@@ -860,7 +871,7 @@ RagReplyResult DualMemoryRAG::generateResponseResult(
   if (!completed || !aiError.empty() || result.empty() ||
       isGenericTemplateReply(result)) {
     replyResult.reply =
-        buildLocalCompanionReply(memoryCopy.longTerm, userId, currentContent,
+        buildLocalCompanionReply(memoryCopy.longTerm, shadowUserId, currentContent,
                                  currentEmotion, emotionScore);
     replyResult.source = "local_fallback";
     replyResult.degraded = true;
@@ -888,13 +899,16 @@ std::string DualMemoryRAG::generateResponse(const std::string &userId,
 }
 
 Json::Value DualMemoryRAG::getEmotionInsights(const std::string &userId) {
+  const std::string shadowUserId = resolveShadowUserId(userId);
   // 节流刷新长期记忆，避免 insights 频繁打 DB
   refreshLongTermMemoryImpl(userId, false, currentEpochSeconds());
 
-  EmotionMemory memoryCopy = getMemorySnapshot(userId);
+  EmotionMemory memoryCopy = getMemorySnapshot(shadowUserId);
 
   Json::Value insights;
   insights["user_id"] = userId;
+  insights["shadow_id"] = shadowUserId;
+  insights["memory_user_id"] = shadowUserId;
   const auto &lt = memoryCopy.longTerm;
 
   // 情绪画像

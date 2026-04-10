@@ -723,7 +723,7 @@ void AdminManagementController::deleteBoat(const HttpRequestPtr &req,
         auto result = dbClient->execSqlSync(
             "WITH updated_boat AS ("
             "  UPDATE paper_boats "
-            "  SET status = 'deleted', deleted_at = NOW() "
+            "  SET status = 'deleted', updated_at = NOW() "
             "  WHERE boat_id = $1 AND COALESCE(status, 'active') <> 'deleted' "
             "  RETURNING boat_id, stone_id"
             "), updated_stone AS ("

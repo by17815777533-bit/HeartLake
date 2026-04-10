@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Set
 
 import requests
@@ -17,6 +18,10 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 PASETO_HEADER = "v4.local."
 PNG_1X1_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sJ6vTgAAAAASUVORK5CYII="
+)
+RUNTIME_SECRET_FILES = (
+    Path(".runtime/compose-bootstrap-secrets.txt"),
+    Path(".runtime/bootstrap-secrets.txt"),
 )
 
 
@@ -65,6 +70,27 @@ def build_admin_token(admin_key: str, admin_id: str = "admin_001", role: str = "
     nonce = os.urandom(12)
     token_body = nonce + ChaCha20Poly1305(key).encrypt(nonce, payload, b"")
     return PASETO_HEADER + b64url_no_padding(token_body)
+
+
+def load_runtime_secrets() -> Dict[str, str]:
+    resolved: Dict[str, str] = {}
+    for path in RUNTIME_SECRET_FILES:
+        if not path.is_file():
+            continue
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            resolved[key.strip()] = value.strip()
+    return resolved
+
+
+def resolve_admin_login_credentials() -> tuple[str, str]:
+    runtime_secrets = load_runtime_secrets()
+    username = os.environ.get("ADMIN_USERNAME", "").strip() or runtime_secrets.get("ADMIN_USERNAME", "").strip()
+    password = os.environ.get("ADMIN_PASSWORD", "").strip() or runtime_secrets.get("ADMIN_PASSWORD", "").strip()
+    return username, password
 
 
 @dataclass
@@ -219,6 +245,27 @@ class SmokeRunner:
             counts[item.kind] = counts.get(item.kind, 0) + 1
         return counts
 
+    def create_admin_session(self, username: str, password: str) -> tuple[Optional[requests.Session], str]:
+        bootstrap = self.user_session(None, "Codex Smoke Admin Login")
+        response = bootstrap.post(
+            f"{self.base_url}/api/admin/login",
+            json={"username": username, "password": password},
+            timeout=self.timeout,
+        )
+        payload = maybe_json(response)
+        if response.status_code != 200:
+            if isinstance(payload, dict):
+                note = payload.get("message", "") or payload.get("error", "")
+            else:
+                note = response.text[:200]
+            return None, note or f"admin login failed with status {response.status_code}"
+        data = unwrap_data(payload)
+        token = data.get("token") if isinstance(data, dict) else None
+        if not isinstance(token, str) or not token.strip():
+            return None, "admin login payload missing token"
+        self.results.append(RouteResult("admin_login", "POST", "/api/admin/login", response.status_code, "pass"))
+        return self.user_session(token, "Codex Smoke Admin"), ""
+
 
 def has_collection_items(payload: Any, *keys: str) -> list[Any]:
     data = unwrap_data(payload)
@@ -259,11 +306,28 @@ def main() -> int:
     args = parser.parse_args()
 
     admin_key = os.environ.get("ADMIN_PASETO_KEY", "").strip()
+    admin_username, admin_password = resolve_admin_login_credentials()
     admin_token = build_admin_token(admin_key) if admin_key else None
-    smoke = SmokeRunner(args.base_url, args.timeout, admin_token)
+    smoke = SmokeRunner(args.base_url, args.timeout, None)
 
     public = smoke.user_session(None)
-    admin = smoke.user_session(admin_token, "Codex Smoke Admin") if admin_token else None
+    admin = None
+    admin_auth_mode = ""
+    admin_auth_error = ""
+    if admin_username and admin_password:
+        admin, admin_auth_error = smoke.create_admin_session(admin_username, admin_password)
+        if admin is not None:
+            admin_auth_mode = "login"
+    if admin is None and admin_token:
+        candidate_admin = smoke.user_session(admin_token, "Codex Smoke Admin")
+        smoke.request("admin_auth_probe", "GET", "/api/admin/info", session=candidate_admin, ok_statuses={200})
+        if smoke.results[-1].kind == "pass":
+            admin = candidate_admin
+            admin_auth_mode = "token"
+        else:
+            admin_auth_error = smoke.results[-1].note or "admin token probe failed"
+    elif admin_auth_error:
+        smoke.skip("admin_auth_probe", "GET", "/api/admin/info", admin_auth_error)
 
     try:
         smoke.request("health", "GET", "/api/health", session=public, ok_statuses={200})
@@ -963,6 +1027,8 @@ def main() -> int:
                 expected_statuses={401},
                 json_body={"username": "root", "password": "invalid-smoke-password"},
             )
+            if admin_auth_mode == "token":
+                smoke.skip("admin_login", "POST", "/api/admin/login", "using ADMIN_PASETO_KEY fallback")
             smoke.request("admin_logout", "POST", "/api/admin/logout", session=admin, ok_statuses={200})
             smoke.request("admin_info", "GET", "/api/admin/info", session=admin, ok_statuses={200})
             smoke.request("admin_trending_topics", "GET", "/api/admin/stats/trending-topics", session=admin, ok_statuses={200})
@@ -1248,7 +1314,8 @@ def main() -> int:
             else:
                 smoke.skip("admin_delete_boat", "DELETE", "/api/admin/boats/{id}", "admin boat id missing")
         else:
-            smoke.skip("admin_routes", "GET", "/api/admin/*", "missing ADMIN_PASETO_KEY")
+            reason = admin_auth_error or "missing admin login credentials and ADMIN_PASETO_KEY"
+            smoke.skip("admin_routes", "GET", "/api/admin/*", reason)
 
         # Cleanup of user-owned interaction artifacts
         if boat_user_id:
