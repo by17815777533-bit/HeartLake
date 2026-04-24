@@ -38,9 +38,6 @@ declare module 'vue' {
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
-    OpsDashboardDeck: typeof import('./src/components/OpsDashboardDeck.vue')['default']
-    OpsGaugeMeter: typeof import('./src/components/OpsGaugeMeter.vue')['default']
-    OpsMiniBars: typeof import('./src/components/OpsMiniBars.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }

@@ -100,20 +100,6 @@ int extractWindowTotal(const drogon::orm::Result& result,
         : result[0][column].as<int>();
 }
 
-drogon::orm::Result execSqlWithStringParams(
-    const drogon::orm::DbClientPtr &dbClient,
-    const std::string &sql,
-    const std::vector<std::string> &params) {
-    switch (params.size()) {
-        case 0: return dbClient->execSqlSync(sql);
-        case 1: return dbClient->execSqlSync(sql, params[0]);
-        case 2: return dbClient->execSqlSync(sql, params[0], params[1]);
-        case 3: return dbClient->execSqlSync(sql, params[0], params[1], params[2]);
-        case 4: return dbClient->execSqlSync(sql, params[0], params[1], params[2], params[3]);
-        default: throw std::invalid_argument("SQL 参数数量超出支持范围");
-    }
-}
-
 drogon::orm::Result execSqlWithStringParamsAndPagination(
     const drogon::orm::DbClientPtr &dbClient,
     const std::string &sql,
