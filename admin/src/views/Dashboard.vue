@@ -5,11 +5,14 @@
       <span>{{ dashboardWarnings.map((item) => item.message).join('；') }}</span>
     </section>
 
-    <section class="dashboard-header">
+    <section class="dashboard-command">
       <div>
-        <span class="eyebrow">HeartLake Operations</span>
-        <h1>心湖运营总览</h1>
-        <p>{{ lakeWeather.desc }} · 最近刷新 {{ lastUpdateTime }}</p>
+        <span class="eyebrow">HeartLake Operations Console</span>
+        <h1>运营工作台</h1>
+        <p>
+          {{ lakeWeather.desc }} · 最近刷新 {{ lastUpdateTime }} ·
+          {{ guideChip }}
+        </p>
       </div>
       <div class="header-actions">
         <el-select v-model="chartRange" class="range-select" size="large" @change="loadGrowthData">
@@ -41,98 +44,148 @@
       </article>
     </section>
 
-    <section class="visual-grid">
-      <article class="panel panel--wide">
-        <div class="panel-head">
-          <div>
-            <span>趋势处理</span>
-            <h2>旅人增长曲线</h2>
+    <section class="dashboard-board">
+      <div class="board-main">
+        <article class="panel panel--trend">
+          <div class="panel-head">
+            <div>
+              <span>增长趋势</span>
+              <h2>旅人增长与活跃基线</h2>
+            </div>
+            <em>{{ trendChipLabel }}</em>
           </div>
-          <em>{{ trendChipLabel }}</em>
-        </div>
-        <v-chart :option="userGrowthOption" autoresize class="chart chart--line" />
-      </article>
+          <div class="trend-summary">
+            <span>
+              峰值窗口
+              <strong>{{ trendPeakInfo?.dateLabel || '--' }}</strong>
+            </span>
+            <span>
+              峰值规模
+              <strong>{{ trendPeakInfo?.valueLabel || '--' }}</strong>
+            </span>
+            <span>
+              当前稳定度
+              <strong>{{ guidePulseValue }}</strong>
+            </span>
+          </div>
+          <v-chart :option="userGrowthOption" autoresize class="chart chart--trend" />
+        </article>
 
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <span>情绪分布</span>
-            <h2>湖面情绪环图</h2>
-          </div>
-          <em>{{ lakeWeather.label }}</em>
-        </div>
-        <v-chart :option="weatherMoodPieOption" autoresize class="chart chart--donut" />
-      </article>
+        <div class="chart-pair">
+          <article class="panel panel--compact-chart">
+            <div class="panel-head">
+              <div>
+                <span>情绪结构</span>
+                <h2>情绪分布</h2>
+              </div>
+              <em>{{ lakeWeather.label }}</em>
+            </div>
+            <v-chart :option="weatherMoodPieOption" autoresize class="chart chart--donut" />
+          </article>
 
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <span>时段活跃</span>
-            <h2>24 小时投石节律</h2>
-          </div>
-          <em>{{ guideChip }}</em>
+          <article class="panel panel--compact-chart">
+            <div class="panel-head">
+              <div>
+                <span>时段节律</span>
+                <h2>24 小时投石</h2>
+              </div>
+              <em>{{ guideChip }}</em>
+            </div>
+            <v-chart :option="activeTimeOption" autoresize class="chart chart--bar" />
+          </article>
         </div>
-        <v-chart :option="activeTimeOption" autoresize class="chart chart--bar" />
-      </article>
 
-      <article class="panel panel--wide">
-        <div class="panel-head">
-          <div>
-            <span>情绪趋势</span>
-            <h2>多情绪波动对比</h2>
+        <article class="panel panel--mood">
+          <div class="panel-head">
+            <div>
+              <span>情绪趋势</span>
+              <h2>多情绪波动对比</h2>
+            </div>
+            <div class="segmented">
+              <button
+                v-for="range in [7, 14, 30]"
+                :key="range"
+                type="button"
+                :class="{ 'is-active': moodTrendRange === range }"
+                @click="setMoodTrendRange(range)"
+              >
+                {{ range }}天
+              </button>
+            </div>
           </div>
-          <div class="segmented">
+          <v-chart :option="moodTrendOption" autoresize class="chart chart--mood" />
+        </article>
+      </div>
+
+      <aside class="board-side" aria-label="运营处置侧栏">
+        <article class="panel score-card">
+          <div class="panel-head">
+            <div>
+              <span>健康度</span>
+              <h2>湖面稳定评分</h2>
+            </div>
+            <button type="button" class="text-link" @click="jumpToReports">预警</button>
+          </div>
+          <div class="score-card__body">
+            <strong>{{ formatCreditScore(creditScoreValue) }}</strong>
+            <span>{{ creditScoreLabel }}</span>
+          </div>
+          <div class="score-track">
+            <i :style="{ width: `${creditScoreValue}%` }" />
+          </div>
+          <div class="score-meta">
+            <span>待处理 {{ formatNumber(Number(stats.pendingReports || 0)) }}</span>
+            <span>在线 {{ formatNumber(Number(stats.onlineCount || 0)) }}</span>
+          </div>
+        </article>
+
+        <article class="panel panel--flow">
+          <div class="panel-head">
+            <div>
+              <span>数据处理</span>
+              <h2>链路水位</h2>
+            </div>
+            <em>{{ currentDateTime }}</em>
+          </div>
+          <div class="flow-list">
+            <div v-for="item in processingFlow" :key="item.label" class="flow-row">
+              <div class="flow-row__copy">
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.value }}</span>
+              </div>
+              <div class="flow-row__track">
+                <i :style="{ width: `${item.percent}%` }" />
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel panel--insight">
+          <div class="panel-head">
+            <div>
+              <span>运营建议</span>
+              <h2>{{ guideHeadline }}</h2>
+            </div>
+            <em>{{ guidePulseValue }}</em>
+          </div>
+          <p>{{ guideCopy }}</p>
+          <div class="signal-grid">
             <button
-              v-for="range in [7, 14, 30]"
-              :key="range"
+              v-for="item in guideSignals"
+              :key="item.label"
               type="button"
-              :class="{ 'is-active': moodTrendRange === range }"
-              @click="setMoodTrendRange(range)"
+              class="signal-pill"
+              @click="jumpToReports"
             >
-              {{ range }}天
+              <span>{{ item.label }}</span>
+              <strong>{{ item.badge }}</strong>
             </button>
           </div>
-        </div>
-        <v-chart :option="moodTrendOption" autoresize class="chart chart--line" />
-      </article>
+        </article>
+      </aside>
+    </section>
 
-      <article class="panel panel--score">
-        <div class="panel-head">
-          <div>
-            <span>健康度</span>
-            <h2>湖面稳定评分</h2>
-          </div>
-          <button type="button" class="text-link" @click="jumpToReports">预警</button>
-        </div>
-        <OpsGaugeMeter
-          :value="creditScoreValue"
-          :max="100"
-          :label="creditScoreLabel"
-          :formatter="formatCreditScore"
-        />
-      </article>
-
-      <article class="panel panel--flow">
-        <div class="panel-head">
-          <div>
-            <span>数据处理</span>
-            <h2>处理链路水位</h2>
-          </div>
-          <em>{{ currentDateTime }}</em>
-        </div>
-        <div class="flow-list">
-          <div v-for="item in processingFlow" :key="item.label" class="flow-row">
-            <div class="flow-row__copy">
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.value }}</span>
-            </div>
-            <div class="flow-row__track">
-              <i :style="{ width: `${item.percent}%` }" />
-            </div>
-          </div>
-        </div>
-      </article>
-
+    <section class="lower-grid">
       <article class="panel panel--ranking">
         <div class="panel-head">
           <div>
@@ -160,26 +213,20 @@
         <div v-else class="empty-state">暂无高置信内容排行</div>
       </article>
 
-      <article class="panel panel--insight">
+      <article class="panel panel--queue">
         <div class="panel-head">
           <div>
-            <span>运营建议</span>
-            <h2>{{ guideHeadline }}</h2>
+            <span>值守清单</span>
+            <h2>今日优先处理</h2>
           </div>
-          <em>{{ guidePulseValue }}</em>
+          <button type="button" class="text-link" @click="jumpToReports">工单</button>
         </div>
-        <p>{{ guideCopy }}</p>
-        <div class="signal-grid">
-          <button
-            v-for="item in guideSignals"
-            :key="item.label"
-            type="button"
-            class="signal-pill"
-            @click="jumpToReports"
-          >
+        <div class="queue-grid">
+          <div v-for="item in dutyItems" :key="item.label" class="queue-item">
             <span>{{ item.label }}</span>
-            <strong>{{ item.badge }}</strong>
-          </button>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.note }}</small>
+          </div>
         </div>
       </article>
     </section>
@@ -193,7 +240,6 @@ import dayjs from 'dayjs'
 import VChart from 'vue-echarts'
 import { Download, RefreshRight } from '@element-plus/icons-vue'
 import { useDashboardData } from '@/composables/useDashboardData'
-import OpsGaugeMeter from '@/components/OpsGaugeMeter.vue'
 import websocket from '@/services/websocket'
 
 const router = useRouter()
@@ -372,6 +418,29 @@ const guideSignals = computed(() => [
   },
 ])
 
+const dutyItems = computed(() => [
+  {
+    label: '举报复核',
+    value: `${formatNumber(Number(stats.pendingReports || 0))} 条`,
+    note: Number(stats.pendingReports || 0) > 0 ? '优先完成回执闭环' : '当前无积压',
+  },
+  {
+    label: '内容巡看',
+    value: `${formatNumber(Number(stats.todayStones || 0))} 条`,
+    note: '按最新入湖顺序抽检',
+  },
+  {
+    label: '在线陪伴',
+    value: `${formatNumber(Number(stats.onlineCount || 0))} 人`,
+    note: '关注夜间高峰窗口',
+  },
+  {
+    label: '隐私预算',
+    value: `${Math.max(0, 100 - Math.round(privacyBudgetPercent.value))}%`,
+    note: '保持推荐与分析余量',
+  },
+])
+
 const processingFlow = computed(() => {
   const totalUsers = Number(stats.totalUsers || 0)
   const todayStones = Number(stats.todayStones || 0)
@@ -514,6 +583,8 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .ops-dashboard {
   min-height: calc(100vh - 90px);
+  display: grid;
+  gap: 10px;
   padding: 0 0 12px;
   color: #1f2937;
   font-variant-numeric: tabular-nums;
@@ -523,21 +594,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
   padding: 9px 12px;
   border: 1px solid #f1c27d;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff8ea;
   color: #7c4d12;
   font-size: 13px;
 }
 
-.dashboard-header {
+.dashboard-command {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 10px;
   padding: 12px 14px;
   border: 1px solid #d8dee8;
   border-radius: 6px;
@@ -604,16 +673,15 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  margin-bottom: 10px;
 }
 
 .metric-tile {
-  min-height: 86px;
+  min-height: 82px;
   padding: 12px;
   border: 1px solid #dce5ec;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
 
   span,
   small {
@@ -645,34 +713,65 @@ onUnmounted(() => {
   }
 }
 
-.visual-grid {
+.dashboard-board {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 10px;
   align-items: stretch;
 }
 
+.board-main,
+.board-side {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.board-side {
+  align-content: start;
+}
+
+.chart-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 10px;
+}
+
+.lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 10px;
+}
+
 .panel {
-  grid-column: span 3;
-  min-height: 232px;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 12px;
   border: 1px solid #dce5ec;
   border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
+}
 
-  &--wide {
-    grid-column: span 6;
-  }
+.panel--trend {
+  min-height: 276px;
+}
 
-  &--score,
-  &--flow,
-  &--ranking,
-  &--insight {
-    min-height: 214px;
-  }
+.panel--compact-chart {
+  min-height: 220px;
+}
+
+.panel--mood {
+  min-height: 230px;
+}
+
+.panel--flow,
+.panel--insight,
+.panel--ranking,
+.panel--queue {
+  min-height: 0;
 }
 
 .panel-head {
@@ -702,14 +801,44 @@ onUnmounted(() => {
 
 .chart {
   flex: 1 1 auto;
-  min-height: 170px;
+  min-height: 0;
 
-  &--line {
-    min-height: 184px;
+  &--trend {
+    height: 184px;
   }
+
   &--donut,
   &--bar {
-    min-height: 176px;
+    height: 158px;
+  }
+
+  &--mood {
+    height: 166px;
+  }
+}
+
+.trend-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+
+  span {
+    min-height: 48px;
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  strong {
+    color: #111827;
+    font-size: 16px;
   }
 }
 
@@ -747,10 +876,69 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.score-card {
+  min-height: 156px;
+}
+
+.score-card__body {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+
+  strong {
+    color: #111827;
+    font-size: 44px;
+    font-weight: 820;
+    line-height: 1;
+  }
+
+  span {
+    margin-bottom: 6px;
+    color: #0f766e;
+    font-size: 14px;
+    font-weight: 760;
+  }
+}
+
+.score-track {
+  height: 9px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7edf5;
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #0f766e;
+  }
+}
+
+.score-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+
+  span {
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 8px;
+    border: 1px solid #d8dee8;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+  }
+}
+
 .flow-list {
   display: grid;
-  gap: 10px;
-  margin-top: 2px;
+  gap: 9px;
 }
 
 .flow-row {
@@ -785,7 +973,7 @@ onUnmounted(() => {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #0f766e, #60a5fa);
+    background: #0f766e;
   }
 }
 
@@ -852,7 +1040,7 @@ onUnmounted(() => {
 }
 
 .empty-state {
-  min-height: 90px;
+  min-height: 120px;
   display: grid;
   place-items: center;
   border: 1px dashed #cbd5e1;
@@ -861,7 +1049,8 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.panel--insight p {
+.panel--insight p,
+.panel--queue p {
   margin: 0 0 10px;
   color: #475569;
   font-size: 13px;
@@ -897,39 +1086,57 @@ onUnmounted(() => {
   }
 }
 
+.queue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.queue-item {
+  min-height: 82px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #dce5ec;
+  border-radius: 6px;
+  background: #f8fafc;
+
+  span,
+  small {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  strong {
+    color: #111827;
+    font-size: 20px;
+  }
+}
+
 @media (max-width: 1180px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .visual-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  .panel {
-    grid-column: span 3;
-  }
-
-  .panel--wide {
-    grid-column: span 6;
+  .dashboard-board,
+  .lower-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
-  .dashboard-header,
+  .dashboard-command,
   .header-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
   .metric-grid,
-  .visual-grid {
+  .chart-pair,
+  .trend-summary,
+  .queue-grid {
     grid-template-columns: 1fr;
-  }
-
-  .panel,
-  .panel--wide {
-    grid-column: span 1;
   }
 }
 </style>

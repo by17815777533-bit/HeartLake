@@ -133,6 +133,41 @@ export function useDashboardLoaders({
     return fallback
   }
 
+  const normalizeMoodBucket = (value: unknown) => {
+    const raw = String(value || '').trim()
+    const lowered = raw.toLowerCase()
+    if (!lowered) return '其他'
+    if (
+      ['开心', '高兴', '期待', 'hopeful', 'grateful', 'happy', 'joy', 'joyful', 'positive'].some(
+        (key) => lowered.includes(key),
+      )
+    ) {
+      return '开心'
+    }
+    if (
+      ['平静', '平稳', '中性', 'neutral', 'calm', 'peaceful', 'stable'].some((key) =>
+        lowered.includes(key),
+      )
+    ) {
+      return '平静'
+    }
+    if (
+      ['难过', '低落', '孤独', 'sad', 'lonely', 'down', 'depressed', 'negative'].some((key) =>
+        lowered.includes(key),
+      )
+    ) {
+      return '难过'
+    }
+    if (
+      ['焦虑', '紧张', '担心', 'anxious', 'anxiety', 'worried', 'stress', 'stressed'].some((key) =>
+        lowered.includes(key),
+      )
+    ) {
+      return '焦虑'
+    }
+    return moodNames.includes(raw) ? raw : '其他'
+  }
+
   const markLoaderIssue = (key: string, message: string, notify = false) => {
     loaderIssues[key] = message
     if (notify) {
@@ -291,10 +326,32 @@ export function useDashboardLoaders({
     try {
       const res = await api.getMoodDistribution()
       const list = normalizeDashboardCollection<MoodDistributionItem>(res.data, ['moods'])
-      moodDistributionOption.value.series[0].data = list.map(
-        (item: MoodDistributionItem, i: number) => ({
-          name: item.mood_type || item.mood,
-          value: item.count,
+      const bucketCounts = new Map(moodNames.map((name) => [name, 0]))
+      list.forEach((item: MoodDistributionItem) => {
+        const bucket = normalizeMoodBucket(item.mood_type || item.mood)
+        bucketCounts.set(bucket, (bucketCounts.get(bucket) || 0) + Number(item.count || 0))
+      })
+      moodDistributionOption.value.series[0].data = moodNames.map((name, i) => ({
+        name,
+        value: bucketCounts.get(name) || 0,
+        itemStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 1,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: moodGradients[i % moodGradients.length].start },
+              { offset: 1, color: moodGradients[i % moodGradients.length].end },
+            ],
+          },
+        },
+      }))
+      if (!list.length) {
+        moodDistributionOption.value.series[0].data = moodNames.map((name, i) => ({
+          name,
+          value: 0,
           itemStyle: {
             color: {
               type: 'linear',
@@ -308,8 +365,8 @@ export function useDashboardLoaders({
               ],
             },
           },
-        }),
-      )
+        }))
+      }
       clearLoaderIssue('moodDistribution')
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
@@ -329,12 +386,14 @@ export function useDashboardLoaders({
         const dates = [...new Set(trendList.map((item) => item.date))].sort()
         moodTrendOption.value.xAxis.data = dates
         moodNames.forEach((name, i) => {
-          moodTrendOption.value.series[i].data = dates.map((date) => {
-            const found = trendList.find(
-              (item) => item.date === date && (item.mood_type === name || item.mood === name),
-            )
-            return found?.count ?? 0
-          })
+          moodTrendOption.value.series[i].data = dates.map((date) =>
+            trendList
+              .filter(
+                (item) =>
+                  item.date === date && normalizeMoodBucket(item.mood_type || item.mood) === name,
+              )
+              .reduce((sum, item) => sum + Number(item.count || 0), 0),
+          )
         })
       } else {
         moodTrendOption.value.xAxis.data = []
