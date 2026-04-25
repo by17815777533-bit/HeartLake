@@ -312,6 +312,7 @@
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import OpsDashboardDeck from '@/components/OpsDashboardDeck.vue'
 import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
