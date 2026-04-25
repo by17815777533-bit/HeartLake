@@ -118,6 +118,21 @@ export function useDashboardLoaders({
     return fallback
   }
 
+  const pickNumber = (
+    record: Record<string, unknown> | null,
+    keys: string[],
+    fallback: number,
+  ): number => {
+    if (!record) return fallback
+    for (const key of keys) {
+      const value = record[key]
+      if (value == null) continue
+      const normalized = Number(value)
+      if (Number.isFinite(normalized)) return normalized
+    }
+    return fallback
+  }
+
   const markLoaderIssue = (key: string, message: string, notify = false) => {
     loaderIssues[key] = message
     if (notify) {
@@ -192,13 +207,30 @@ export function useDashboardLoaders({
       }
 
       if (realtimeData || dashboardData) {
-        stats.totalUsers =
-          realtimeData?.total_users ?? dashboardData?.total_users ?? stats.totalUsers
-        stats.todayStones =
-          dashboardData?.today_stones ?? realtimeData?.today_stones ?? stats.todayStones
-        stats.onlineCount = realtimeData?.online_users ?? stats.onlineCount
-        stats.pendingReports =
-          dashboardData?.pending_reports ?? realtimeData?.pending_reports ?? stats.pendingReports
+        stats.totalUsers = pickNumber(
+          realtimeData,
+          ['total_users', 'totalUsers'],
+          pickNumber(dashboardData, ['total_users', 'totalUsers'], stats.totalUsers),
+        )
+        stats.todayStones = pickNumber(
+          dashboardData,
+          ['today_stones', 'todayStones'],
+          pickNumber(realtimeData, ['today_stones', 'todayStones'], stats.todayStones),
+        )
+        stats.onlineCount = pickNumber(
+          realtimeData,
+          ['online_users', 'online_count', 'onlineUsers', 'onlineCount'],
+          pickNumber(
+            dashboardData,
+            ['online_users', 'online_count', 'onlineUsers', 'onlineCount'],
+            stats.onlineCount,
+          ),
+        )
+        stats.pendingReports = pickNumber(
+          dashboardData,
+          ['pending_reports', 'pendingReports'],
+          pickNumber(realtimeData, ['pending_reports', 'pendingReports'], stats.pendingReports),
+        )
       }
 
       const hasRealFailure =
