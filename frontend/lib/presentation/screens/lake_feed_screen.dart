@@ -23,6 +23,25 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
   final ScrollController _scrollController = ScrollController();
   late final StoneProvider _stoneProvider;
 
+  int _weatherCount(Map<String, dynamic> weather, String key) {
+    final value = weather[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _weatherStoneSummary(Map<String, dynamic> weather) {
+    final hasRecent = weather.containsKey('recent_stones');
+    final recent = hasRecent
+        ? _weatherCount(weather, 'recent_stones')
+        : _weatherCount(weather, 'total_stones');
+    final total = _weatherCount(weather, 'total_stones');
+    if (hasRecent && total > 0 && total != recent) {
+      return '近24小时 $recent 颗 / 总计 $total 颗';
+    }
+    return '近24小时 $recent 颗石子';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -135,7 +154,7 @@ class _LakeFeedScreenState extends State<LakeFeedScreen> {
                                     ),
                                     const SizedBox(height: 5),
                                     Text(
-                                      '最近 ${weather['total_stones'] ?? 0} 颗石子',
+                                      _weatherStoneSummary(weather),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: isDark

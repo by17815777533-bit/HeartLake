@@ -409,29 +409,42 @@ void StoneController::getLakeWeather(
 
         auto dbClient = drogon::app().getDbClient("default");
 
-        auto result = dbClient->execSqlSync(
+        auto recentResult = dbClient->execSqlSync(
             "SELECT stone_color, COUNT(*) as count "
             "FROM stones "
-            "WHERE status = 'published' AND created_at >= NOW() - INTERVAL '1 hour' "
+            "WHERE status = 'published' AND deleted_at IS NULL "
+            "  AND created_at >= NOW() - INTERVAL '24 hours' "
             "GROUP BY stone_color "
             "ORDER BY count DESC"
         );
+        auto totalResult = dbClient->execSqlSync(
+            "SELECT COUNT(*) AS total "
+            "FROM stones "
+            "WHERE status = 'published' AND deleted_at IS NULL"
+        );
 
         std::map<std::string, int> colorCount;
+        int recentStones = 0;
         int totalStones = 0;
 
-        for (const auto& row : result) {
+        for (const auto& row : recentResult) {
             std::string color = row["stone_color"].as<std::string>();
             int count = row["count"].as<int>();
             colorCount[color] = count;
-            totalStones += count;
+            recentStones += count;
+        }
+
+        if (!totalResult.empty() && !totalResult[0]["total"].isNull()) {
+            totalStones = totalResult[0]["total"].as<int>();
         }
 
         Json::Value weatherData;
 
-        if (totalStones == 0) {
+        if (recentStones == 0) {
             weatherData["weather"] = "calm";
-            weatherData["description"] = "湖面平静，等待第一颗石子";
+            weatherData["description"] = totalStones == 0
+                ? "湖面平静，等待第一颗石子"
+                : "湖面暂时平静，过往石子仍有回声";
             weatherData["emoji"] = "🌊";
         } else {
             std::string dominantColor;
@@ -463,6 +476,7 @@ void StoneController::getLakeWeather(
             }
         }
 
+        weatherData["recent_stones"] = recentStones;
         weatherData["total_stones"] = totalStones;
         weatherData["color_distribution"] = Json::Value(Json::objectValue);
 
