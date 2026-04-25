@@ -203,13 +203,16 @@ const fetchEdgeMetricsPayload = async () => {
     return edgeMetricsRequest
   }
 
-  edgeMetricsRequest = api.getEdgeAIMetrics().then(({ data }) => {
-    const normalized = normalizeEdgePayload(data)
-    edgeMetricsSnapshot = { at: Date.now(), data: normalized }
-    return normalized
-  }).finally(() => {
-    edgeMetricsRequest = null
-  })
+  edgeMetricsRequest = api
+    .getEdgeAIMetrics()
+    .then(({ data }) => {
+      const normalized = normalizeEdgePayload(data)
+      edgeMetricsSnapshot = { at: Date.now(), data: normalized }
+      return normalized
+    })
+    .finally(() => {
+      edgeMetricsRequest = null
+    })
 
   return edgeMetricsRequest
 }
@@ -249,9 +252,7 @@ const edgeIssues = computed(() =>
       {
         key,
         stale: state.loaded,
-        summary: state.loaded
-          ? `${label}刷新失败，当前显示上次成功结果。`
-          : `${label}加载失败。`,
+        summary: state.loaded ? `${label}刷新失败，当前显示上次成功结果。` : `${label}加载失败。`,
         detail: state.error,
       },
     ]
@@ -472,15 +473,21 @@ const lastUpdateDisplay = computed(() =>
 const canShowPerformance = computed(() => edgeLoaders.metrics.loaded)
 const performanceEmptyCopy = computed(() => {
   if (edgeLoaders.metrics.error) {
-    return edgeLoaders.metrics.loaded ? '性能指标刷新失败，当前仅保留上次成功快照。' : '性能指标不可用。'
+    return edgeLoaders.metrics.loaded
+      ? '性能指标刷新失败，当前仅保留上次成功快照。'
+      : '性能指标不可用。'
   }
   return '正在加载性能指标。'
 })
 
-const canShowEmotionChart = computed(() => edgeLoaders.emotion.loaded && emotionPulse.history.length > 0)
+const canShowEmotionChart = computed(
+  () => edgeLoaders.emotion.loaded && emotionPulse.history.length > 0,
+)
 const emotionEmptyCopy = computed(() => {
   if (edgeLoaders.emotion.error) {
-    return edgeLoaders.emotion.loaded ? '情绪脉搏刷新失败，当前仅保留摘要状态。' : '情绪脉搏不可用。'
+    return edgeLoaders.emotion.loaded
+      ? '情绪脉搏刷新失败，当前仅保留摘要状态。'
+      : '情绪脉搏不可用。'
   }
   if (edgeLoaders.emotion.loaded) {
     return '暂无情绪脉搏历史。'
@@ -490,7 +497,9 @@ const emotionEmptyCopy = computed(() => {
 
 const queueEmptyCopy = computed(() => {
   if (edgeLoaders.metrics.error) {
-    return edgeLoaders.metrics.loaded ? '节点与链路刷新失败，当前无可展示的节点快照。' : '节点与链路数据不可用。'
+    return edgeLoaders.metrics.loaded
+      ? '节点与链路刷新失败，当前无可展示的节点快照。'
+      : '节点与链路数据不可用。'
   }
   if (edgeLoaders.metrics.loaded) {
     return '暂无节点数据。'
@@ -709,7 +718,9 @@ async function loadPrivacyBudget() {
       ? (p.allocation as Array<Record<string, unknown>>).map((item, index: number) => ({
           value: Number(item.value ?? item.epsilon) || 0,
           name: item.name ?? item.label ?? `模块 ${index + 1}`,
-          itemStyle: { color: ['#315b6f', '#4d8f6b', '#b67a42', '#a35f5f', '#5d6d77', '#7c6975'][index % 6] },
+          itemStyle: {
+            color: ['#315b6f', '#4d8f6b', '#b67a42', '#a35f5f', '#5d6d77', '#7c6975'][index % 6],
+          },
         }))
       : []
     markLoaderSuccess('privacy')
@@ -897,7 +908,7 @@ onUnmounted(() => {
     color: var(--hl-ink);
     font-size: 21px;
     font-weight: 680;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
     line-height: 1.12;
   }
 
@@ -992,7 +1003,7 @@ onUnmounted(() => {
   font-size: clamp(46px, 5.4vw, 58px);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
 
   small {
     margin-left: 8px;

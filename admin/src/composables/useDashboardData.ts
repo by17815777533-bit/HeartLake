@@ -1,5 +1,5 @@
 /**
- * 大屏数据组合逻辑，聚合图表配置、统计加载与数据导出。
+ * Dashboard 数据组合逻辑，聚合图表配置、统计加载与数据导出。
  *
  * 这是 Dashboard 页面的核心 composable，职责包括：
  * 1. 聚合 useChartOptions（图表配置）和 useDashboardLoaders（数据拉取）
@@ -20,8 +20,6 @@ import { useDashboardLoaders } from './useDashboardLoaders'
 export function useDashboardData() {
   /** 基础状态。 */
   const loading = ref(false)
-  const privacyLoading = ref(false)
-  const resonanceLoading = ref(false)
   const lastUpdateTime = ref(dayjs().format('HH:mm:ss'))
   const chartRange = ref(7)
   const moodTrendRange = ref(7)
@@ -29,23 +27,6 @@ export function useDashboardData() {
   const aiTrendingContent = ref<TrendingContentItem[]>([])
   const loaderIssues = reactive<Record<string, string>>({})
   const currentDateTime = ref(dayjs().format('YYYY年MM月DD日 HH:mm'))
-
-  const techBadges = [
-    { icon: '巡看', label: '今日湖面' },
-    { icon: '反馈', label: '旅人反馈' },
-    { icon: '提醒', label: '异常提醒' },
-    { icon: '待办', label: '处置进度' },
-  ]
-
-  const greeting = computed(() => {
-    const hour = dayjs().hour()
-    if (hour < 6) return '夜深了'
-    if (hour < 9) return '早上好'
-    if (hour < 12) return '上午好'
-    if (hour < 14) return '中午好'
-    if (hour < 18) return '下午好'
-    return '晚上好'
-  })
 
   const formatNumber = (num: number) =>
     num >= 10000 ? (num / 10000).toFixed(1) + 'w' : num.toLocaleString()
@@ -57,13 +38,6 @@ export function useDashboardData() {
     onlineCount: 0,
     pendingReports: 0,
   })
-  const statsCards = computed(() => [
-    { title: '总用户数', value: stats.totalUsers, color: '#144552', icon: 'User' },
-    { title: '今日投石', value: stats.todayStones, color: '#2f6b78', icon: 'Edit' },
-    { title: '在线人数', value: stats.onlineCount, color: '#7b97a3', icon: 'Connection' },
-    { title: '待处理举报', value: stats.pendingReports, color: '#b67a42', icon: 'Warning' },
-  ])
-
   /** 隐私预算与查询统计。 */
   const privacyStats = reactive({
     queryCount: 0,
@@ -75,12 +49,6 @@ export function useDashboardData() {
     if (privacyStats.epsilonTotal <= 0) return 0
     return Math.min((privacyStats.epsilonUsed / privacyStats.epsilonTotal) * 100, 100)
   })
-  const privacyBudgetColor = computed(() => {
-    if (privacyBudgetPercent.value < 50) return '#2E7D32'
-    if (privacyBudgetPercent.value < 80) return '#E65100'
-    return '#BA1A1A'
-  })
-
   /** 情绪共鸣统计。 */
   const resonanceStats = reactive({
     todayMatches: 0,
@@ -196,9 +164,7 @@ export function useDashboardData() {
     trendingTopics,
     aiTrendingContent,
     privacyStats,
-    privacyLoading,
     resonanceStats,
-    resonanceLoading,
     loaderIssues,
     ...charts,
   })
@@ -219,7 +185,6 @@ export function useDashboardData() {
       loaders.loadActiveTimeStats(),
       loaders.loadPrivacyStats(),
       loaders.loadResonanceStats(),
-      loaders.loadEmotionTrends(),
     ])
 
   const ensureMoodDistributionLoaded = async () => {
@@ -312,8 +277,6 @@ export function useDashboardData() {
   return {
     // 状态
     loading,
-    privacyLoading,
-    resonanceLoading,
     lastUpdateTime,
     chartRange,
     moodTrendRange,
@@ -322,14 +285,10 @@ export function useDashboardData() {
     loaderIssues,
     dashboardWarnings,
     currentDateTime,
-    techBadges,
-    greeting,
     formatNumber,
     stats,
-    statsCards,
     privacyStats,
     privacyBudgetPercent,
-    privacyBudgetColor,
     resonanceStats,
     // 天气
     lakeWeather,

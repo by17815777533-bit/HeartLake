@@ -5,23 +5,12 @@
 <template>
   <div class="forbidden-page">
     <div class="forbidden-card">
-      <el-icon
-        class="forbidden-icon"
-        :size="72"
-      >
+      <el-icon class="forbidden-icon" :size="72">
         <Lock />
       </el-icon>
-      <h1 class="forbidden-title">
-        权限不足
-      </h1>
-      <p class="forbidden-desc">
-        你没有访问该页面的权限，请联系管理员提升权限。
-      </p>
-      <el-button
-        type="primary"
-        size="large"
-        @click="router.push(ADMIN_HOME_PATH)"
-      >
+      <h1 class="forbidden-title">权限不足</h1>
+      <p class="forbidden-desc">你没有访问该页面的权限，请联系管理员提升权限。</p>
+      <el-button type="primary" size="large" @click="router.push(ADMIN_HOME_PATH)">
         返回首页
       </el-button>
     </div>

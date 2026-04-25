@@ -18,16 +18,12 @@ import type {
   ActiveTimeItem,
   TrendingTopic,
   TrendingContentItem,
-  EmotionTrendItem,
   PrivacyStats,
   ResonanceStats,
 } from '@/types'
 import { moodNames, moodGradients } from './useChartOptions'
 import { createSoftBaseline } from '@/utils/chartSignals'
 import { normalizeCollectionResponse, normalizePayloadRecord } from '@/utils/collectionPayload'
-
-const POSITIVE_MOODS = new Set(['开心', 'positive', 'joy', 'happy'])
-const NEGATIVE_MOODS = new Set(['难过', '焦虑', 'negative', 'sad', 'anxious'])
 
 /** Dashboard 核心统计数据（前端 camelCase 版本） */
 interface DashboardStats {
@@ -74,15 +70,12 @@ interface LoaderDeps {
   aiTrendingContent: Ref<TrendingContentItem[]>
   loaderIssues: Record<string, string>
   privacyStats: PrivacyStats
-  privacyLoading: Ref<boolean>
   resonanceStats: ResonanceStats
-  resonanceLoading: Ref<boolean>
   userGrowthOption: Ref<ChartOptionWithAxisAndSeries>
   moodDistributionOption: Ref<PieChartOption>
   moodTrendOption: Ref<ChartOptionWithAxisAndSeries>
   activeTimeOption: Ref<SeriesOnlyChartOption>
   emotionPulseOption: Ref<GaugeChartOption>
-  emotionTrendsOption: Ref<ChartOptionWithAxisAndSeries>
 }
 
 export function useDashboardLoaders({
@@ -93,15 +86,12 @@ export function useDashboardLoaders({
   aiTrendingContent,
   loaderIssues,
   privacyStats,
-  privacyLoading,
   resonanceStats,
-  resonanceLoading,
   userGrowthOption,
   moodDistributionOption,
   moodTrendOption,
   activeTimeOption,
   emotionPulseOption,
-  emotionTrendsOption,
 }: LoaderDeps) {
   const normalizeDashboardCollection = <T>(payload: unknown, semanticKeys: readonly string[]) =>
     normalizeCollectionResponse<T>(payload, semanticKeys).items
@@ -368,7 +358,6 @@ export function useDashboardLoaders({
 
   /** 读取隐私预算状态。 */
   const loadPrivacyStats = async () => {
-    privacyLoading.value = true
     try {
       const res = await api.getPrivacyBudget()
       const d = normalizeDashboardRecord(res.data)
@@ -380,14 +369,11 @@ export function useDashboardLoaders({
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       markLoaderIssue('privacyStats', `隐私预算加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
-    } finally {
-      privacyLoading.value = false
     }
   }
 
   /** 读取共鸣统计。 */
   const loadResonanceStats = async () => {
-    resonanceLoading.value = true
     try {
       const d = await fetchEmotionPulseRecord()
       resonanceStats.todayMatches = d.today_matches ?? d.sample_count ?? 0
@@ -398,8 +384,6 @@ export function useDashboardLoaders({
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       markLoaderIssue('resonanceStats', `共鸣统计加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
-    } finally {
-      resonanceLoading.value = false
     }
   }
 
@@ -414,58 +398,6 @@ export function useDashboardLoaders({
     } catch (e: unknown) {
       if (isRequestCanceled(e)) return
       markLoaderIssue('emotionPulse', `情绪温度加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
-    }
-  }
-
-  /** 读取情绪趋势折线。 */
-  const loadEmotionTrends = async () => {
-    try {
-      const list = await fetchMoodTrendList(moodTrendRange.value)
-      if (list.length) {
-        const dates = [
-          ...new Set(list.map((item: EmotionTrendItem) => item.date || item.day)),
-        ].sort()
-        const bucket = new Map<string, { positive: number; neutral: number; negative: number }>()
-        dates.forEach((date) => bucket.set(date, { positive: 0, neutral: 0, negative: 0 }))
-
-        list.forEach(
-          (item: EmotionTrendItem & { mood_type?: string; mood?: string; count?: number }) => {
-            const date = item.date || item.day
-            if (!date) return
-            const mood = item.mood_type || item.mood || ''
-            const target = bucket.get(date)
-            if (!target) return
-            const count = Number(item.count ?? 0)
-            if (POSITIVE_MOODS.has(mood)) {
-              target.positive += count
-            } else if (NEGATIVE_MOODS.has(mood)) {
-              target.negative += count
-            } else {
-              target.neutral += count
-            }
-          },
-        )
-
-        emotionTrendsOption.value.xAxis.data = dates
-        emotionTrendsOption.value.series[0].data = dates.map(
-          (date) => bucket.get(date)?.positive ?? 0,
-        )
-        emotionTrendsOption.value.series[1].data = dates.map(
-          (date) => bucket.get(date)?.neutral ?? 0,
-        )
-        emotionTrendsOption.value.series[2].data = dates.map(
-          (date) => bucket.get(date)?.negative ?? 0,
-        )
-      } else {
-        emotionTrendsOption.value.xAxis.data = []
-        emotionTrendsOption.value.series[0].data = []
-        emotionTrendsOption.value.series[1].data = []
-        emotionTrendsOption.value.series[2].data = []
-      }
-      clearLoaderIssue('emotionTrends')
-    } catch (e: unknown) {
-      if (isRequestCanceled(e)) return
-      markLoaderIssue('emotionTrends', `情绪折线加载失败: ${resolveErrorMessage(e, '请稍后重试')}`)
     }
   }
 
@@ -518,7 +450,6 @@ export function useDashboardLoaders({
     loadPrivacyStats,
     loadResonanceStats,
     loadEmotionPulse,
-    loadEmotionTrends,
     loadAITrendingContent,
   }
 }

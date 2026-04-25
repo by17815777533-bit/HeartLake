@@ -908,7 +908,7 @@ onMounted(() => {
       color: var(--hl-ink);
       font-size: 22px;
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: 0;
     }
 
     p {
@@ -1042,7 +1042,7 @@ onMounted(() => {
       color: var(--hl-ink);
       font-size: 18px;
       font-weight: 760;
-      letter-spacing: -0.04em;
+      letter-spacing: 0;
     }
   }
 

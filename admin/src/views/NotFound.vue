@@ -5,23 +5,12 @@
 <template>
   <div class="not-found-page">
     <div class="not-found-card">
-      <el-icon
-        class="not-found-icon"
-        :size="72"
-      >
+      <el-icon class="not-found-icon" :size="72">
         <Warning />
       </el-icon>
-      <h1 class="not-found-title">
-        404
-      </h1>
-      <p class="not-found-desc">
-        你访问的页面不存在或已被移除。
-      </p>
-      <el-button
-        type="primary"
-        size="large"
-        @click="router.push(ADMIN_HOME_PATH)"
-      >
+      <h1 class="not-found-title">404</h1>
+      <p class="not-found-desc">你访问的页面不存在或已被移除。</p>
+      <el-button type="primary" size="large" @click="router.push(ADMIN_HOME_PATH)">
         返回首页
       </el-button>
     </div>

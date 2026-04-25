@@ -1,207 +1,186 @@
 <template>
-  <div class="dashboard-bank ops-page">
-    <section v-if="dashboardWarnings.length" class="dashboard-warning-strip">
-      <strong>部分数据未刷新</strong>
-      <span>
-        {{ dashboardWarnings.map((item) => item.message).join('；') }}
-      </span>
+  <div class="ops-dashboard ops-page">
+    <section v-if="dashboardWarnings.length" class="warning-strip">
+      <strong>数据刷新提示</strong>
+      <span>{{ dashboardWarnings.map((item) => item.message).join('；') }}</span>
     </section>
 
-    <section class="dashboard-grid">
-      <article class="dashboard-card dashboard-card--overview">
-        <div class="card-heading">
+    <section class="dashboard-header">
+      <div>
+        <span class="eyebrow">HeartLake Operations</span>
+        <h1>心湖运营总览</h1>
+        <p>{{ lakeWeather.desc }} · 最近刷新 {{ lastUpdateTime }}</p>
+      </div>
+      <div class="header-actions">
+        <el-select v-model="chartRange" class="range-select" size="large" @change="loadGrowthData">
+          <el-option label="近 7 天" :value="7" />
+          <el-option label="近 14 天" :value="14" />
+          <el-option label="近 30 天" :value="30" />
+        </el-select>
+        <button type="button" class="action-btn" @click="exportData">
+          <el-icon><Download /></el-icon>
+          <span>导出</span>
+        </button>
+        <button
+          type="button"
+          class="action-btn is-primary"
+          :disabled="loading"
+          @click="refreshData"
+        >
+          <el-icon><RefreshRight /></el-icon>
+          <span>刷新</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="核心运营指标">
+      <article v-for="card in metricCards" :key="card.label" class="metric-tile" :class="card.tone">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.note }}</small>
+      </article>
+    </section>
+
+    <section class="visual-grid">
+      <article class="panel panel--wide">
+        <div class="panel-head">
           <div>
-            <span class="card-caption">{{ lakeWeather.label }}</span>
-            <h2>湖面总览</h2>
+            <span>趋势处理</span>
+            <h2>旅人增长曲线</h2>
           </div>
-          <span class="card-chip">{{ currentDateTime }}</span>
+          <em>{{ trendChipLabel }}</em>
         </div>
-
-        <div class="overview-total">
-          <span>累计旅人</span>
-          <div class="overview-total__value">
-            <strong>{{ formattedTravelerCount }}</strong>
-            <small>位</small>
-          </div>
-          <p>{{ balanceDescription }}</p>
-        </div>
-
-        <div class="overview-actions">
-          <button type="button" class="overview-action" @click="exportData">
-            <el-icon><Download /></el-icon>
-            <span>导出概览</span>
-          </button>
-          <button type="button" class="overview-action" :disabled="loading" @click="refreshData">
-            <el-icon><RefreshRight /></el-icon>
-            <span>刷新湖面</span>
-          </button>
-        </div>
-
-        <div class="section-heading">
-          <span>常用入口</span>
-          <small>桌面常用入口</small>
-        </div>
-
-        <div class="overview-cards">
-          <article
-            v-for="item in highlightCards"
-            :key="item.label"
-            class="overview-mini-card"
-            :class="item.tone"
-          >
-            <div class="overview-mini-card__ornament" />
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.note }}</small>
-            <em>{{ item.footer }}</em>
-          </article>
-
-          <button type="button" class="overview-shortcut" @click="jumpToAssist">
-            <strong>AI</strong>
-            <small>智能辅助</small>
-          </button>
-        </div>
+        <v-chart :option="userGrowthOption" autoresize class="chart chart--line" />
       </article>
 
-      <article class="dashboard-card dashboard-card--spending">
-        <div class="card-heading">
+      <article class="panel">
+        <div class="panel-head">
           <div>
-            <span class="card-caption">节律</span>
-            <h3>湖面节律</h3>
+            <span>情绪分布</span>
+            <h2>湖面情绪环图</h2>
           </div>
-          <el-select
-            v-model="chartRange"
-            size="small"
-            class="range-select"
-            @change="loadGrowthData"
-          >
-            <el-option label="7天" :value="7" />
-            <el-option label="14天" :value="14" />
-            <el-option label="30天" :value="30" />
-          </el-select>
+          <em>{{ lakeWeather.label }}</em>
         </div>
+        <v-chart :option="weatherMoodPieOption" autoresize class="chart chart--donut" />
+      </article>
 
-        <div class="spending-stage">
-          <span class="spending-badge">{{ spendingPeakLabel }}</span>
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <span>时段活跃</span>
+            <h2>24 小时投石节律</h2>
+          </div>
+          <em>{{ guideChip }}</em>
+        </div>
+        <v-chart :option="activeTimeOption" autoresize class="chart chart--bar" />
+      </article>
 
-          <div v-if="spendingColumns.length" class="spending-bars">
-            <article
-              v-for="item in spendingColumns"
-              :key="item.label"
-              class="spending-bar"
-              :class="{ 'is-peak': item.isPeak }"
+      <article class="panel panel--wide">
+        <div class="panel-head">
+          <div>
+            <span>情绪趋势</span>
+            <h2>多情绪波动对比</h2>
+          </div>
+          <div class="segmented">
+            <button
+              v-for="range in [7, 14, 30]"
+              :key="range"
+              type="button"
+              :class="{ 'is-active': moodTrendRange === range }"
+              @click="setMoodTrendRange(range)"
             >
-              <div class="spending-bar__track">
-                <span :style="{ height: `${item.height}%` }" />
-              </div>
-              <small>{{ item.label }}</small>
-            </article>
-          </div>
-          <div v-else class="dashboard-card__empty">
-            当前窗口没有有效增长数据，未再展示历史占位柱形。
+              {{ range }}天
+            </button>
           </div>
         </div>
+        <v-chart :option="moodTrendOption" autoresize class="chart chart--line" />
       </article>
 
-      <article class="dashboard-card dashboard-card--activity">
-        <div class="card-heading">
+      <article class="panel panel--score">
+        <div class="panel-head">
           <div>
-            <span class="card-caption">动态</span>
-            <h3>湖面动态</h3>
+            <span>健康度</span>
+            <h2>湖面稳定评分</h2>
           </div>
-          <button type="button" class="text-action" @click="jumpToContent">查看全部</button>
+          <button type="button" class="text-link" @click="jumpToReports">预警</button>
         </div>
-
-        <div v-if="activityRows.length" class="transaction-list">
-          <article v-for="row in activityRows" :key="row.id" class="transaction-item">
-            <div class="transaction-item__icon" :class="row.iconTone">
-              {{ row.badge }}
-            </div>
-            <div class="transaction-item__copy">
-              <strong>{{ row.title }}</strong>
-              <span>{{ row.meta }}</span>
-            </div>
-            <div class="transaction-item__amount" :class="row.tone">
-              {{ row.amount }}
-            </div>
-          </article>
-        </div>
-        <div v-else class="dashboard-card__empty">
-          当前没有可展示的动态内容，未再回退成统计概览卡片。
-        </div>
-      </article>
-
-      <article class="dashboard-card dashboard-card--guide">
-        <div class="card-heading">
-          <div>
-            <span class="card-caption">建议</span>
-            <h3>守湖建议</h3>
-          </div>
-          <span class="card-chip">{{ guideChip }}</span>
-        </div>
-
-        <div class="guide-hero">
-          <strong>{{ guideHeadline }}</strong>
-          <span>{{ guideCopy }}</span>
-        </div>
-
-        <div class="guide-summary">
-          <div class="guide-summary__metric">
-            <span class="guide-summary__label">当前巡看节奏</span>
-            <strong>{{ guidePulseValue }}</strong>
-            <small>{{ guidePulseNote }}</small>
-          </div>
-          <span class="guide-summary__chip">{{ guideChip }}</span>
-        </div>
-
-        <div class="guide-flags">
-          <article v-for="item in guideSignals" :key="item.label" class="guide-flag">
-            <small>{{ item.label }}</small>
-            <strong>{{ item.badge }}</strong>
-          </article>
-        </div>
-      </article>
-
-      <article class="dashboard-card dashboard-card--chart">
-        <div class="card-heading">
-          <div>
-            <span class="card-caption">曲线</span>
-            <h3>旅人波动曲线</h3>
-          </div>
-          <span class="card-chip">{{ trendChipLabel }}</span>
-        </div>
-
-        <div class="chart-summary">
-          <strong>{{ trendHeadline }}</strong>
-          <span>{{ trendContext }}</span>
-        </div>
-
-        <v-chart
-          :option="userGrowthOption"
-          autoresize
-          class="dashboard-chart"
-          role="img"
-          aria-label="旅人增长曲线"
-        />
-      </article>
-
-      <article class="dashboard-card dashboard-card--score">
-        <div class="card-heading">
-          <div>
-            <span class="card-caption">评分</span>
-            <h3>湖面健康度</h3>
-          </div>
-          <button type="button" class="text-action" @click="jumpToReports">查看详情</button>
-        </div>
-
         <OpsGaugeMeter
           :value="creditScoreValue"
           :max="100"
           :label="creditScoreLabel"
           :formatter="formatCreditScore"
         />
+      </article>
 
-        <button type="button" class="score-button" @click="jumpToReports">查看预警</button>
+      <article class="panel panel--flow">
+        <div class="panel-head">
+          <div>
+            <span>数据处理</span>
+            <h2>处理链路水位</h2>
+          </div>
+          <em>{{ currentDateTime }}</em>
+        </div>
+        <div class="flow-list">
+          <div v-for="item in processingFlow" :key="item.label" class="flow-row">
+            <div class="flow-row__copy">
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.value }}</span>
+            </div>
+            <div class="flow-row__track">
+              <i :style="{ width: `${item.percent}%` }" />
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel panel--ranking">
+        <div class="panel-head">
+          <div>
+            <span>内容识别</span>
+            <h2>重点内容排行</h2>
+          </div>
+          <button type="button" class="text-link" @click="jumpToContent">内容库</button>
+        </div>
+        <div v-if="activityRows.length" class="ranking-list">
+          <button
+            v-for="row in activityRows"
+            :key="row.id"
+            type="button"
+            class="ranking-row"
+            @click="jumpToContent"
+          >
+            <b>{{ row.badge }}</b>
+            <span>
+              <strong>{{ row.title }}</strong>
+              <small>{{ row.meta }}</small>
+            </span>
+            <em :class="row.tone">{{ row.amount }}</em>
+          </button>
+        </div>
+        <div v-else class="empty-state">暂无高置信内容排行</div>
+      </article>
+
+      <article class="panel panel--insight">
+        <div class="panel-head">
+          <div>
+            <span>运营建议</span>
+            <h2>{{ guideHeadline }}</h2>
+          </div>
+          <em>{{ guidePulseValue }}</em>
+        </div>
+        <p>{{ guideCopy }}</p>
+        <div class="signal-grid">
+          <button
+            v-for="item in guideSignals"
+            :key="item.label"
+            type="button"
+            class="signal-pill"
+            @click="jumpToReports"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.badge }}</strong>
+          </button>
+        </div>
       </article>
     </section>
   </div>
@@ -223,16 +202,24 @@ const {
   loading,
   lastUpdateTime,
   chartRange,
+  moodTrendRange,
   trendingTopics,
   aiTrendingContent,
   currentDateTime,
   dashboardWarnings,
   formatNumber,
   stats,
+  privacyStats,
+  privacyBudgetPercent,
+  resonanceStats,
   lakeWeather,
   lakeWeatherTemp,
+  weatherMoodPieOption,
   userGrowthOption,
+  moodTrendOption,
+  activeTimeOption,
   loadGrowthData,
+  loadMoodTrend,
   loadEmotionPulse,
   exportData,
   refreshData,
@@ -250,21 +237,22 @@ const formatCompactTitle = (value: string, max = 12) => {
   return value.length > max ? `${value.slice(0, max)}...` : value
 }
 
-const formattedTravelerCount = computed(() => Number(stats.totalUsers || 0).toLocaleString())
-const formattedHeatIndex = computed(
-  () => `${Math.max(0, Math.min(100, Math.round(Number(lakeWeatherTemp.value || 0))))}/100`,
-)
-
-const balanceDescription = computed(() => {
-  return `${lakeWeather.value.desc} · 当前在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · 待处置 ${formatNumber(Number(stats.pendingReports || 0))} 项 · 情绪温度 ${formattedHeatIndex.value}`
-})
-
 const growthLabels = computed(() =>
   (userGrowthOption.value.xAxis.data || []).map((item) => String(item)),
 )
 const growthValues = computed(() =>
   (userGrowthOption.value.series?.[0]?.data || []).map((item) => Number(item) || 0),
 )
+
+const trendPeakInfo = computed(() => {
+  if (!growthLabels.value.length || !growthValues.value.length) return null
+  const peakValue = Math.max(...growthValues.value)
+  const peakIndex = growthValues.value.indexOf(peakValue)
+  return {
+    dateLabel: formatCompactDate(growthLabels.value[peakIndex] || ''),
+    valueLabel: `${formatNumber(peakValue)} 位`,
+  }
+})
 
 const communityScore = computed(() => {
   const base = lakeWeatherTemp.value * 0.62
@@ -273,88 +261,81 @@ const communityScore = computed(() => {
   return Math.max(38, Math.min(96, Math.round(base + activeBonus + 18 - reportPenalty)))
 })
 
-const highlightCards = computed(() => [
+const metricCards = computed(() => [
+  {
+    label: '累计旅人',
+    value: formatNumber(Number(stats.totalUsers || 0)),
+    note: '匿名身份总量',
+    tone: 'is-blue',
+  },
   {
     label: '今日投石',
     value: formatNumber(Number(stats.todayStones || 0)),
-    note: '公开表达',
-    footer: `待处理 ${formatNumber(Number(stats.pendingReports || 0))} 条`,
-    tone: 'is-blue',
+    note: '公开表达新增',
+    tone: 'is-green',
   },
   {
     label: '在线陪伴',
     value: formatNumber(Number(stats.onlineCount || 0)),
-    note: '实时活跃',
-    footer: `${communityScore.value} 分稳定`,
-    tone: 'is-mint',
+    note: '实时活跃旅人',
+    tone: 'is-violet',
+  },
+  {
+    label: '待处理',
+    value: formatNumber(Number(stats.pendingReports || 0)),
+    note: '举报与复核队列',
+    tone: 'is-amber',
   },
 ])
 
-const spendingColumns = computed(() => {
-  const sourceValues = growthValues.value.slice(-7)
-  const sourceLabels = growthLabels.value.slice(-7).map((item) => formatCompactDate(item))
-  if (!sourceValues.length || !sourceLabels.length) return []
-  const max = Math.max(...sourceValues, 1)
-  const peakValue = Math.max(...sourceValues)
-  const peakIndex = sourceValues.indexOf(peakValue)
-
-  return sourceValues.map((value, index) => ({
-    label: sourceLabels[index] || `序列${index + 1}`,
-    value,
-    isPeak: index === peakIndex,
-    height: Math.max(26, Math.round((value / max) * 100)),
-  }))
+const trendChipLabel = computed(() => `近 ${chartRange.value} 天`)
+const guidePulseValue = computed(() => `${communityScore.value} 分`)
+const creditScoreValue = computed(() => communityScore.value)
+const creditScoreLabel = computed(() => {
+  if (creditScoreValue.value >= 82) return '稳健'
+  if (creditScoreValue.value >= 66) return '平稳'
+  return '关注中'
 })
-
-const spendingPeakLabel = computed(() => {
-  const peak = spendingColumns.value.find((item) => item.isPeak) || spendingColumns.value[0]
-  return peak
-    ? `近 ${chartRange.value} 天最高单日新增 ${formatNumber(peak.value)} 位`
-    : `近 ${chartRange.value} 天暂无有效增长数据`
-})
+const formatCreditScore = (value: number) => `${Math.round(value)}`
 
 const activityRows = computed(() => {
   if (aiTrendingContent.value.length) {
     return aiTrendingContent.value.slice(0, 5).map((item, index) => {
       const content = String(item.content || '')
-      const normalizedScore = Math.round(
-        Math.max(0, Math.min(1, Number(item.score || 0) || 0)) * 100,
-      )
-      const isPositive = normalizedScore >= 70
+      const normalizedScore = Math.round(Math.max(0, Math.min(1, Number(item.score || 0))) * 100)
       return {
         id: item.id || `content-${index}`,
         badge: String(index + 1),
-        title: formatCompactTitle(content),
-        meta: item.mood ? `推荐内容 · 情绪 ${item.mood}` : '推荐内容',
+        title: formatCompactTitle(content, 14),
+        meta: item.mood ? `推荐内容 · ${item.mood}` : '推荐内容',
         amount: `${normalizedScore} 分`,
-        tone: isPositive ? 'is-positive' : normalizedScore >= 45 ? 'is-neutral' : 'is-negative',
-        iconTone: index % 2 === 0 ? 'is-blue' : 'is-mint',
+        tone:
+          normalizedScore >= 70
+            ? 'is-positive'
+            : normalizedScore >= 45
+              ? 'is-neutral'
+              : 'is-negative',
       }
     })
   }
 
-  if (trendingTopics.value.length) {
-    return trendingTopics.value.slice(0, 5).map((item, index) => ({
-      id: `${item.keyword}-${index}`,
-      badge: String(index + 1),
-      title: formatCompactTitle(item.keyword, 10),
-      meta: '热度话题',
-      amount: `${formatNumber(Number(item.count || 0))} 次`,
-      tone: index === 0 ? 'is-positive' : 'is-neutral',
-      iconTone: index % 2 === 0 ? 'is-blue' : 'is-mint',
-    }))
-  }
-
-  return []
+  return trendingTopics.value.slice(0, 5).map((item, index) => ({
+    id: `${item.keyword}-${index}`,
+    badge: String(index + 1),
+    title: formatCompactTitle(item.keyword, 14),
+    meta: '热度话题',
+    amount: `${formatNumber(Number(item.count || 0))} 次`,
+    tone: index === 0 ? 'is-positive' : 'is-neutral',
+  }))
 })
 
 const guideCopy = computed(() => {
   const topTopic = trendingTopics.value[0]?.keyword
-  if (topTopic) {
-    return `“${formatCompactTitle(topTopic, 10)}”仍在升温，建议提前提醒并加密巡看。`
+  if (Number(stats.pendingReports || 0) > 0) {
+    return '先处理举报和复核队列，再继续观察情绪趋势是否同步升温。'
   }
-
-  return '当前节律平稳，保持巡看频次和温和提醒即可。'
+  if (topTopic) return `“${formatCompactTitle(topTopic, 10)}”正在升温，建议提高对应内容的巡看密度。`
+  return '当前没有明显异常主题，保持巡看频次并关注夜间活跃时段即可。'
 })
 
 const guideChip = computed(() => {
@@ -365,84 +346,91 @@ const guideChip = computed(() => {
 
 const guideHeadline = computed(() => {
   const topTopic = trendingTopics.value[0]?.keyword
-  if (topTopic) {
-    return `盯住“${formatCompactTitle(topTopic, 8)}”的波动`
-  }
-
-  if (Number(stats.pendingReports || 0) > 0) {
-    return '先处理异常反馈，再回看节律'
-  }
-
-  return '湖面状态稳定，维持当前巡看即可'
+  if (Number(stats.pendingReports || 0) > 0) return '优先处理异常反馈'
+  if (topTopic) return `关注“${formatCompactTitle(topTopic, 8)}”波动`
+  return '湖面状态稳定'
 })
 
-const trendPeakInfo = computed(() => {
-  if (!growthLabels.value.length || !growthValues.value.length) {
-    return null
-  }
+const guideSignals = computed(() => [
+  {
+    label: '峰值窗口',
+    badge: trendPeakInfo.value?.dateLabel || '未加载',
+  },
+  {
+    label: '巡看主题',
+    badge: trendingTopics.value[0]?.keyword
+      ? formatCompactTitle(trendingTopics.value[0].keyword, 6)
+      : '平稳',
+  },
+  {
+    label: '隐私余量',
+    badge: `${Math.max(0, 100 - Math.round(privacyBudgetPercent.value))}%`,
+  },
+  {
+    label: '共鸣情绪',
+    badge: resonanceStats.topMood ? formatCompactTitle(resonanceStats.topMood, 6) : '未识别',
+  },
+])
 
-  const peakValue = Math.max(...growthValues.value)
-  const peakIndex = growthValues.value.indexOf(peakValue)
-  return {
-    dateLabel: formatCompactDate(growthLabels.value[peakIndex] || ''),
-    valueLabel: `${formatNumber(peakValue)} 位`,
-  }
-})
-
-const guidePulseValue = computed(() => `${communityScore.value} 分`)
-const guidePulseNote = computed(
-  () =>
-    `在线 ${formatNumber(Number(stats.onlineCount || 0))} 人 · ${trendPeakInfo.value ? `峰值 ${trendPeakInfo.value.valueLabel}` : '峰值未加载'} · 最近刷新 ${lastUpdateTime.value}`,
-)
-
-const guideSignals = computed(() => {
-  const pendingCount = Number(stats.pendingReports || 0)
-  const topTopic = trendingTopics.value[0]?.keyword
+const processingFlow = computed(() => {
+  const totalUsers = Number(stats.totalUsers || 0)
+  const todayStones = Number(stats.todayStones || 0)
+  const onlineCount = Number(stats.onlineCount || 0)
+  const pendingReports = Number(stats.pendingReports || 0)
+  const protectedUsers = Number(privacyStats.protectedUsers || 0)
+  const resonanceSamples = Number(resonanceStats.todayMatches || 0)
+  const privacyRemaining = Math.max(0, 100 - Math.round(privacyBudgetPercent.value))
+  const peak = Math.max(
+    totalUsers,
+    todayStones,
+    onlineCount,
+    pendingReports,
+    protectedUsers,
+    resonanceSamples,
+    1,
+  )
+  const toPercent = (value: number, min = 10) =>
+    Math.max(min, Math.min(100, Math.round((value / peak) * 100)))
 
   return [
     {
-      label: '峰值窗口',
-      badge: trendPeakInfo.value?.dateLabel || '未加载',
-      note: trendPeakInfo.value
-        ? `最近高点 ${trendPeakInfo.value.valueLabel}，适合回看节律是否突增。`
-        : '增长曲线还没有有效数据，当前不再展示伪造峰值。',
+      label: '身份接入',
+      value: `${formatNumber(totalUsers)} 位`,
+      percent: toPercent(totalUsers, 24),
     },
-    pendingCount > 0
-      ? {
-          label: '优先事项',
-          badge: `${formatNumber(pendingCount)} 条`,
-          note: '先处理待办反馈，再调整广播或巡看策略。',
-        }
-      : {
-          label: '巡看主题',
-          badge: topTopic ? formatCompactTitle(topTopic, 6) : '平稳',
-          note: topTopic
-            ? `围绕“${formatCompactTitle(topTopic, 8)}”提高巡看密度。`
-            : '暂无明显升温主题，保持当前节奏即可。',
-        },
+    {
+      label: '内容入湖',
+      value: `${formatNumber(todayStones)} 条`,
+      percent: toPercent(todayStones, 16),
+    },
+    {
+      label: '实时在线',
+      value: `${formatNumber(onlineCount)} 人`,
+      percent: toPercent(onlineCount, 14),
+    },
+    {
+      label: '复核队列',
+      value: `${formatNumber(pendingReports)} 条`,
+      percent: pendingReports ? toPercent(pendingReports, 18) : 8,
+    },
+    {
+      label: '隐私预算',
+      value: `${privacyRemaining}% 余量`,
+      percent: Math.max(8, privacyRemaining),
+    },
+    {
+      label: '共鸣样本',
+      value: `${formatNumber(resonanceSamples)} 次`,
+      percent: toPercent(resonanceSamples, 12),
+    },
   ]
 })
 
-const trendHeadline = computed(() =>
-  trendPeakInfo.value ? `峰值 ${trendPeakInfo.value.valueLabel}` : '暂无有效波峰数据',
-)
-const trendChipLabel = computed(() => `近 ${chartRange.value} 天`)
-const trendContext = computed(() =>
-  trendPeakInfo.value
-    ? `峰值日 ${trendPeakInfo.value.dateLabel} · 最近刷新 ${lastUpdateTime.value}`
-    : `最近刷新 ${lastUpdateTime.value}`,
-)
+const setMoodTrendRange = async (range: number) => {
+  moodTrendRange.value = range
+  await loadMoodTrend()
+}
 
-const creditScoreValue = computed(() => communityScore.value)
-const creditScoreLabel = computed(() => {
-  if (creditScoreValue.value >= 82) return '稳健'
-  if (creditScoreValue.value >= 66) return '平稳'
-  return '关注中'
-})
-
-const formatCreditScore = (value: number) => `${Math.round(value)}`
-
-const jumpToAssist = () => router.push('/edge-ai')
 const jumpToContent = () => router.push('/content')
 const jumpToReports = () => router.push('/reports')
 
@@ -452,9 +440,7 @@ let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const scheduleRealtimeRefresh = () => {
   if (document.hidden) return
-  if (realtimeRefreshTimer) {
-    clearTimeout(realtimeRefreshTimer)
-  }
+  if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer)
   realtimeRefreshTimer = setTimeout(() => {
     void refreshData()
     realtimeRefreshTimer = null
@@ -467,9 +453,7 @@ const startPolling = () => {
       currentDateTime.value = dayjs().format(dashboardTimeFormat)
     }, 60000)
   }
-  if (!pulseTimer) {
-    pulseTimer = setInterval(loadEmotionPulse, 30000)
-  }
+  if (!pulseTimer) pulseTimer = setInterval(loadEmotionPulse, 30000)
 }
 
 const stopPolling = () => {
@@ -528,1808 +512,411 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.dashboard-bank {
-  --dashboard-gap: 18px;
-  --dashboard-radius: 28px;
-  height: min(756px, calc(100vh - 146px));
-  min-height: 0;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  font-family:
-    'Avenir Next', 'SF Pro Display', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+.ops-dashboard {
+  min-height: calc(100vh - 110px);
+  padding: 4px 2px 20px;
+  color: #1f2937;
   font-variant-numeric: tabular-nums;
 }
 
-.dashboard-warning-strip {
-  display: grid;
-  gap: 6px;
+.warning-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 14px;
-  padding: 14px 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(185, 117, 63, 0.24);
-  background: linear-gradient(135deg, rgba(255, 245, 231, 0.98), rgba(255, 236, 212, 0.98));
-  color: #7b4f23;
-  box-shadow: 0 12px 22px rgba(184, 128, 67, 0.12);
+  padding: 12px 14px;
+  border: 1px solid #f1c27d;
+  border-radius: 8px;
+  background: #fff8ea;
+  color: #7c4d12;
+  font-size: 13px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+
+  h1 {
+    margin: 4px 0 6px;
+    font-size: 28px;
+    font-weight: 760;
+    letter-spacing: 0;
+    color: #111827;
+  }
+
+  p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+  }
+}
+
+.eyebrow {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-select {
+  width: 118px;
+}
+
+.action-btn {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid #d7e1ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &.is-primary {
+    border-color: #0f766e;
+    background: #0f766e;
+    color: #ffffff;
+  }
+
+  &:disabled {
+    opacity: 0.56;
+    cursor: progress;
+  }
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.metric-tile {
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid #dce5ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+
+  span,
+  small {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+  }
 
   strong {
-    font-size: 13px;
-    font-weight: 700;
+    display: block;
+    margin: 12px 0 8px;
+    color: #111827;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
   }
 
-  span {
-    font-size: 12px;
-    line-height: 1.6;
+  &.is-blue {
+    border-top: 4px solid #3b82f6;
+  }
+  &.is-green {
+    border-top: 4px solid #0f766e;
+  }
+  &.is-violet {
+    border-top: 4px solid #7c3aed;
+  }
+  &.is-amber {
+    border-top: 4px solid #d97706;
   }
 }
 
-.dashboard-grid {
+.visual-grid {
   display: grid;
-  height: calc(100% - 74px);
-  gap: var(--dashboard-gap);
-  grid-template-columns: minmax(0, 1.48fr) minmax(230px, 0.82fr) minmax(292px, 0.94fr);
-  grid-template-rows: minmax(182px, 0.98fr) minmax(138px, 0.74fr) minmax(228px, 1fr);
-  grid-template-areas:
-    'overview spending activity'
-    'overview guide activity'
-    'chart chart score';
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
 
-.dashboard-card {
-  position: relative;
-  overflow: hidden;
+.panel {
+  min-height: 286px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  padding: 24px;
-  border-radius: var(--dashboard-radius);
-  border: 1px solid rgba(163, 183, 224, 0.18);
-  background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(241, 247, 255, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 22px 42px rgba(105, 131, 183, 0.1);
+  padding: 16px;
+  border: 1px solid #dce5ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+
+  &--wide {
+    grid-column: span 2;
+  }
+
+  &--score,
+  &--flow,
+  &--ranking,
+  &--insight {
+    min-height: 250px;
+  }
 }
 
-.dashboard-card__empty {
-  display: grid;
-  place-items: center;
-  min-height: 120px;
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px dashed rgba(130, 152, 186, 0.24);
-  color: #627684;
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.36);
-}
-
-.dashboard-card--overview {
-  grid-area: overview;
-}
-.dashboard-card--spending {
-  grid-area: spending;
-  background: linear-gradient(180deg, rgba(215, 227, 255, 0.98), rgba(204, 218, 255, 0.98));
-}
-
-.dashboard-card--activity {
-  grid-area: activity;
-  background: linear-gradient(180deg, rgba(214, 237, 231, 0.98), rgba(204, 233, 226, 0.98));
-}
-
-.dashboard-card--guide {
-  grid-area: guide;
-  background: linear-gradient(180deg, rgba(221, 242, 236, 0.98), rgba(211, 238, 232, 0.98));
-}
-
-.dashboard-card--chart {
-  grid-area: chart;
-  background: linear-gradient(180deg, rgba(241, 247, 255, 0.98), rgba(230, 239, 255, 0.98));
-}
-
-.dashboard-card--score {
-  grid-area: score;
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(241, 246, 255, 0.98));
-}
-
-.card-heading {
+.panel-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
 
-  > div {
-    display: grid;
-    gap: 6px;
+  span,
+  em {
+    color: #64748b;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
   }
 
-  h2,
-  h3 {
-    margin: 0;
-    color: #101828;
-    font-size: 21px;
-    font-weight: 680;
-    line-height: 1.12;
-  }
-
-  h3 {
-    font-size: 19px;
+  h2 {
+    margin: 4px 0 0;
+    color: #111827;
+    font-size: 17px;
+    font-weight: 760;
+    line-height: 1.25;
+    white-space: nowrap;
   }
 }
 
-.card-caption,
-.card-chip {
+.chart {
+  flex: 1 1 auto;
+  min-height: 210px;
+
+  &--line {
+    min-height: 226px;
+  }
+  &--donut,
+  &--bar {
+    min-height: 214px;
+  }
+}
+
+.segmented {
   display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+  padding: 3px;
+  border: 1px solid #d7e1ea;
+  border-radius: 8px;
+  background: #f8fafc;
 
-.card-caption {
-  background: rgba(255, 255, 255, 0.66);
-  color: var(--hl-ink-soft);
-}
+  button {
+    min-width: 48px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
 
-.card-chip {
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--hl-ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
-}
-
-.overview-total {
-  margin-top: 18px;
-
-  > span {
-    display: block;
-    color: #202738;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-
-  p {
-    max-width: 22rem;
-    margin: 10px 0 0;
-    color: var(--hl-ink-soft);
-    font-size: 11px;
-    line-height: 1.5;
+    &.is-active {
+      background: #0f766e;
+      color: #ffffff;
+    }
   }
 }
 
-.overview-total__value {
+.text-link {
+  border: 0;
+  background: transparent;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.flow-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.flow-row {
+  display: grid;
+  gap: 8px;
+}
+
+.flow-row__copy {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  margin-top: 12px;
-  color: #12131a;
-  line-height: 0.92;
+  justify-content: space-between;
+  gap: 12px;
 
   strong {
-    font-size: clamp(48px, 4.8vw, 64px);
-    font-weight: 800;
-    letter-spacing: -0.08em;
+    color: #1f2937;
+    font-size: 13px;
   }
 
-  small {
-    margin-bottom: 6px;
-    color: #8b98b3;
-    font-size: 20px;
+  span {
+    color: #64748b;
+    font-size: 12px;
     font-weight: 700;
   }
 }
 
-.overview-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
+.flow-row__track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf2f7;
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0f766e, #60a5fa);
+  }
 }
 
-.overview-action {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 44px;
-  display: inline-flex;
+.ranking-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ranking-row {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-start;
   gap: 10px;
-  padding: 0 18px 0 12px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1b2435;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 12px 18px rgba(113, 138, 184, 0.08);
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.96),
-      0 16px 24px rgba(113, 138, 184, 0.12);
-  }
-
-  .el-icon {
-    width: 28px;
-    height: 28px;
+  b {
+    width: 24px;
+    height: 24px;
     display: grid;
     place-items: center;
-    border-radius: 50%;
-    background: rgba(233, 241, 255, 0.92);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  }
-}
-
-.section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 18px;
-
-  span {
-    color: #111827;
-    font-size: 15px;
-    font-weight: 680;
-  }
-
-  small {
-    color: var(--hl-ink-soft);
-    font-size: 10px;
-    line-height: 1.4;
-  }
-}
-
-.overview-cards {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 68px;
-  gap: 10px;
-  margin-top: 14px;
-  align-items: stretch;
-}
-
-.overview-mini-card,
-.overview-shortcut {
-  position: relative;
-  border: none;
-  border-radius: 24px;
-  overflow: hidden;
-}
-
-.overview-mini-card {
-  min-height: 132px;
-  padding: 16px;
-  text-align: left;
-  box-shadow: 0 20px 34px rgba(115, 142, 195, 0.12);
-
-  span,
-  small,
-  em {
-    display: block;
-    position: relative;
-    z-index: 1;
-  }
-
-  span {
-    color: rgba(28, 33, 48, 0.72);
+    border-radius: 6px;
+    background: #e8f5f3;
+    color: #0f766e;
     font-size: 12px;
-    font-weight: 650;
   }
-
-  strong {
-    position: relative;
-    z-index: 1;
-    display: block;
-    margin-top: 26px;
-    color: #121827;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-  }
-
-  small {
-    margin-top: 6px;
-    color: rgba(27, 33, 48, 0.62);
-    font-size: 10px;
-    line-height: 1.45;
-  }
-
-  em {
-    position: absolute;
-    left: 18px;
-    bottom: 16px;
-    font-style: normal;
-    color: rgba(27, 33, 48, 0.78);
-    font-size: 10px;
-    font-weight: 600;
-  }
-}
-
-.overview-mini-card__ornament {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(42, 52, 74, 0.18);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    border: 1.5px solid rgba(42, 52, 74, 0.18);
-  }
-
-  &::before {
-    inset: 10px;
-  }
-
-  &::after {
-    inset: -18px 26px 26px -18px;
-  }
-}
-
-.overview-mini-card.is-blue {
-  background: linear-gradient(180deg, rgba(177, 204, 255, 0.96), rgba(163, 192, 255, 0.98));
-}
-
-.overview-mini-card.is-mint {
-  background: linear-gradient(180deg, rgba(210, 239, 235, 0.96), rgba(196, 234, 227, 0.98));
-}
-
-.overview-shortcut {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 8px;
-  min-height: 132px;
-  background: #232326;
-  color: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 20px 30px rgba(35, 35, 38, 0.2);
 
   strong,
   small {
     display: block;
-    position: relative;
-    z-index: 1;
   }
 
   strong {
-    font-size: 24px;
-    font-weight: 760;
-    letter-spacing: 0.08em;
+    color: #111827;
+    font-size: 13px;
   }
 
   small {
-    color: rgba(255, 255, 255, 0.74);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  em {
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 800;
+
+    &.is-positive {
+      color: #0f766e;
+    }
+    &.is-neutral {
+      color: #2563eb;
+    }
+    &.is-negative {
+      color: #dc2626;
+    }
   }
 }
 
-.range-select {
-  width: 92px;
-}
-
-.dashboard-card--spending :deep(.el-select__wrapper) {
-  min-height: 34px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
-}
-
-.dashboard-card--spending :deep(.el-select__selected-item) {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.spending-stage {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.spending-badge {
-  align-self: flex-start;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
-  color: #1a2540;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.spending-bars {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  align-items: end;
+.empty-state {
   min-height: 120px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 13px;
 }
 
-.spending-bar {
+.panel--insight p {
+  margin: 2px 0 18px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.signal-grid {
   display: grid;
-  justify-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.spending-bar__track {
-  width: 26px;
-  height: 98px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 4px 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.32);
-
-  span {
-    width: 18px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.96));
-    box-shadow:
-      inset 0 -1px 0 rgba(144, 163, 214, 0.18),
-      0 10px 18px rgba(255, 255, 255, 0.28);
-  }
-}
-
-.spending-bar.is-peak .spending-bar__track span {
-  width: 20px;
-  background: linear-gradient(180deg, #8fb3ff, #7d9ff3);
-  box-shadow: 0 16px 26px rgba(126, 156, 241, 0.24);
-}
-
-.spending-bar small {
-  color: rgba(27, 39, 65, 0.72);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.text-action {
-  border: none;
-  background: transparent;
-  color: rgba(22, 31, 51, 0.72);
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.transaction-list {
+.signal-pill {
+  min-height: 70px;
   display: grid;
-  gap: 0;
-  margin-top: 8px;
-  flex: 1 1 auto;
-}
-
-.transaction-item {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(80, 115, 113, 0.12);
-}
-
-.transaction-item:last-child {
-  border-bottom: none;
-}
-
-.transaction-item__icon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 1px solid rgba(28, 34, 45, 0.28);
-  color: #1a2435;
-  font-size: 13px;
-  font-weight: 700;
-
-  &.is-blue {
-    background: rgba(235, 243, 255, 0.72);
-  }
-
-  &.is-mint {
-    background: rgba(236, 248, 244, 0.78);
-  }
-}
-
-.transaction-item__copy {
-  min-width: 0;
-
-  strong {
-    display: block;
-    color: #132033;
-    font-size: 14px;
-    font-weight: 680;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  span {
-    display: block;
-    margin-top: 3px;
-    color: rgba(19, 32, 51, 0.62);
-    font-size: 10px;
-  }
-}
-
-.transaction-item__amount {
-  font-size: 14px;
-  font-weight: 720;
-  letter-spacing: -0.02em;
-}
-
-.transaction-item__amount.is-positive {
-  color: #0f6e55;
-}
-.transaction-item__amount.is-negative {
-  color: #1c2433;
-}
-.transaction-item__amount.is-neutral {
-  color: #51627e;
-}
-
-.dashboard-card--guide::before,
-.dashboard-card--guide::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  border: 1.5px solid rgba(84, 121, 188, 0.18);
-}
-
-.dashboard-card--guide::before {
-  right: 26px;
-  bottom: 26px;
-  width: 94px;
-  height: 94px;
-}
-
-.dashboard-card--guide::after {
-  right: 70px;
-  bottom: 14px;
-  width: 54px;
-  height: 54px;
-}
-
-.guide-hero {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-
-  strong {
-    color: #132033;
-    font-size: 18px;
-    font-weight: 720;
-    letter-spacing: -0.04em;
-    line-height: 1.2;
-  }
-
-  span {
-    color: rgba(19, 32, 51, 0.68);
-    font-size: 12px;
-    line-height: 1.65;
-  }
-}
-
-.guide-summary {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.86), rgba(237, 244, 255, 0.9));
-  border: 1px solid rgba(143, 166, 228, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.guide-summary__metric {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.guide-summary__label {
-  color: rgba(19, 32, 51, 0.62);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.guide-summary__metric strong {
-  color: #132033;
-  font-size: 20px;
-  font-weight: 780;
-  letter-spacing: -0.05em;
-  line-height: 1.04;
-}
-
-.guide-summary__metric small {
-  color: rgba(19, 32, 51, 0.62);
-  font-size: 10px;
-  line-height: 1.35;
-}
-
-.guide-summary__chip {
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.8);
-  color: #20314d;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.guide-flags {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: center;
   gap: 8px;
-  margin-top: 10px;
-}
-
-.guide-flag {
-  display: grid;
-  gap: 4px;
-  min-height: 50px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(143, 166, 228, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  min-width: 0;
-
-  small,
-  strong {
-    display: block;
-    min-width: 0;
-  }
-
-  small {
-    color: rgba(19, 32, 51, 0.62);
-    font-size: 9px;
-    line-height: 1.25;
-  }
-
-  strong {
-    color: #132033;
-    font-size: 12px;
-    font-weight: 720;
-    line-height: 1.26;
-    overflow-wrap: anywhere;
-  }
-}
-
-.guide-button,
-.score-button {
-  height: 40px;
-  margin-top: auto;
-  align-self: flex-start;
-  padding: 0 18px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #94b6ff, #7ea3f4);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
+  padding: 12px;
+  border: 1px solid #dce5ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  text-align: left;
   cursor: pointer;
-  box-shadow: 0 18px 28px rgba(126, 156, 241, 0.22);
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 22px 32px rgba(126, 156, 241, 0.26);
-  }
-}
-
-.chart-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
-
-  strong {
-    color: #131c2f;
-    font-size: 13px;
-    font-weight: 700;
-  }
 
   span {
-    color: rgba(19, 32, 51, 0.62);
-    font-size: 10px;
-  }
-}
-
-.dashboard-chart {
-  flex: 1 1 auto;
-  min-height: 236px;
-  height: 100%;
-  margin-top: 4px;
-}
-
-.dashboard-card--chart :deep(.echarts) {
-  height: 100%;
-}
-
-.dashboard-card--score {
-  padding-bottom: 18px;
-  align-items: stretch;
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter) {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-  padding-top: 4px;
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__dial) {
-  width: min(198px, 100%);
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__marker) {
-  display: none;
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__mask) {
-  bottom: 10px;
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__content) {
-  inset: auto 0 14px;
-  gap: 2px;
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__content strong) {
-  font-size: clamp(32px, 3vw, 44px);
-}
-
-.dashboard-card--score :deep(.ops-gauge-meter__content span) {
-  font-size: 13px;
-}
-
-.score-button {
-  align-self: center;
-  min-width: 146px;
-}
-
-@media (max-width: 1180px) and (min-width: 961px) {
-  .dashboard-bank {
-    --dashboard-gap: 14px;
-    --dashboard-radius: 24px;
-    height: min(632px, calc(100vh - 112px));
-  }
-
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 1.4fr) minmax(176px, 0.76fr) minmax(232px, 0.88fr);
-    grid-template-rows: minmax(148px, 0.96fr) minmax(116px, 0.74fr) minmax(198px, 1fr);
-  }
-
-  .dashboard-card {
-    padding: 18px;
-  }
-
-  .card-heading {
-    h2,
-    h3 {
-      font-size: 18px;
-    }
-
-    h3 {
-      font-size: 16px;
-    }
-  }
-
-  .card-caption,
-  .card-chip {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 9px;
-  }
-
-  .overview-total {
-    margin-top: 12px;
-
-    > span,
-    p {
-      font-size: 10px;
-    }
-  }
-
-  .overview-total__value {
-    margin-top: 8px;
-
-    strong {
-      font-size: clamp(40px, 5vw, 52px);
-    }
-
-    small {
-      margin-bottom: 5px;
-      font-size: 16px;
-    }
-  }
-
-  .overview-actions {
-    margin-top: 14px;
-  }
-
-  .overview-action {
-    height: 38px;
-    padding: 0 12px 0 10px;
-    font-size: 10px;
-
-    .el-icon {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  .section-heading {
-    margin-top: 14px;
-
-    span {
-      font-size: 14px;
-    }
-
-    small {
-      display: none;
-    }
-  }
-
-  .overview-cards {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.94fr) 58px;
-    margin-top: 10px;
-  }
-
-  .overview-mini-card {
-    min-height: 104px;
-    padding: 12px;
-
-    span,
-    small,
-    em {
-      font-size: 9px;
-    }
-
-    strong {
-      margin-top: 16px;
-      font-size: 19px;
-    }
-
-    em {
-      left: 14px;
-      bottom: 12px;
-    }
-  }
-
-  .overview-mini-card__ornament {
-    top: 10px;
-    right: 10px;
-    width: 64px;
-    height: 64px;
-
-    &::before {
-      inset: 8px;
-    }
-
-    &::after {
-      inset: -14px 18px 18px -14px;
-    }
-  }
-
-  .overview-shortcut {
-    min-height: 104px;
-
-    span {
-      font-size: 34px;
-    }
-  }
-
-  .range-select {
-    width: 76px;
-  }
-
-  .dashboard-card--spending :deep(.el-select__wrapper) {
-    min-height: 30px;
-  }
-
-  .spending-stage {
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .spending-badge,
-  .text-action {
-    font-size: 9px;
-  }
-
-  .spending-bars {
-    min-height: 82px;
-    gap: 6px;
-  }
-
-  .spending-bar {
-    gap: 6px;
-  }
-
-  .spending-bar__track {
-    width: 20px;
-    height: 66px;
-
-    span {
-      width: 12px;
-    }
-  }
-
-  .spending-bar.is-peak .spending-bar__track span {
-    width: 14px;
-  }
-
-  .spending-bar small {
-    font-size: 8px;
-  }
-
-  .transaction-item {
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 6px 0;
-  }
-
-  .transaction-item__icon {
-    width: 34px;
-    height: 34px;
-    font-size: 10px;
-  }
-
-  .transaction-item__copy {
-    strong {
-      font-size: 12px;
-    }
-
-    span {
-      margin-top: 2px;
-      font-size: 9px;
-    }
-  }
-
-  .transaction-item__amount {
+    color: #64748b;
     font-size: 12px;
   }
 
-  .dashboard-card--guide::before {
-    right: 22px;
-    bottom: 18px;
-    width: 74px;
-    height: 74px;
-  }
-
-  .dashboard-card--guide::after {
-    right: 54px;
-    bottom: 4px;
-    width: 46px;
-    height: 46px;
-  }
-
-  .guide-hero {
-    margin-top: 10px;
-
-    strong {
-      font-size: 15px;
-    }
-
-    span {
-      font-size: 10px;
-    }
-  }
-
-  .guide-summary {
-    margin-top: 10px;
-    padding: 12px;
-    border-radius: 18px;
-  }
-
-  .guide-summary__metric strong {
+  strong {
+    color: #111827;
     font-size: 18px;
   }
+}
 
-  .guide-flags {
-    gap: 8px;
-    margin-top: 10px;
+@media (max-width: 1180px) {
+  .metric-grid,
+  .visual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .guide-flag {
-    min-height: 46px;
-    padding: 8px 9px;
-    border-radius: 18px;
-  }
-
-  .guide-flag strong {
-    font-size: 11px;
-  }
-
-  .guide-button,
-  .score-button {
-    height: 34px;
-    padding: 0 14px;
-    font-size: 10px;
-  }
-
-  .chart-summary {
-    margin-top: 8px;
-
-    strong {
-      font-size: 11px;
-    }
-
-    span {
-      font-size: 9px;
-    }
-  }
-
-  .dashboard-chart {
-    min-height: 176px;
-  }
-
-  .dashboard-card--score {
-    padding-bottom: 14px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__dial) {
-    width: min(148px, 100%);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content strong) {
-    font-size: clamp(24px, 3vw, 34px);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content span) {
-    font-size: 11px;
+  .panel--wide {
+    grid-column: span 2;
   }
 }
 
-@media (max-width: 1440px) and (min-width: 1181px) {
-  .dashboard-grid {
-    gap: 16px;
-    grid-template-columns: minmax(0, 1.56fr) minmax(228px, 0.86fr) minmax(286px, 0.94fr);
-  }
-
-  .dashboard-card {
-    padding: 20px;
-    border-radius: 26px;
-  }
-
-  .overview-total__value strong {
-    font-size: clamp(46px, 4.3vw, 60px);
-  }
-
-  .overview-mini-card {
-    min-height: 134px;
-    padding: 16px;
-  }
-
-  .overview-mini-card strong {
-    margin-top: 28px;
-    font-size: 25px;
-  }
-
-  .overview-shortcut {
-    min-height: 134px;
-  }
-
-  .spending-bars {
-    min-height: 120px;
-  }
-
-  .spending-bar__track {
-    width: 26px;
-    height: 96px;
-  }
-
-  .dashboard-chart {
-    min-height: 210px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__dial) {
-    width: min(178px, 100%);
-  }
-}
-
-@media (max-height: 820px) and (min-width: 961px) {
-  .dashboard-bank {
-    height: auto;
-  }
-
-  .dashboard-grid {
-    height: auto;
-    gap: 14px;
-    grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.96fr);
-    grid-template-rows: none;
-    grid-template-areas:
-      'overview spending'
-      'overview activity'
-      'guide activity'
-      'chart chart'
-      'score score';
-  }
-
-  .dashboard-card {
-    padding: 18px;
-    border-radius: 24px;
-  }
-
-  .card-heading {
-    gap: 12px;
-
-    h2,
-    h3 {
-      margin-top: 6px;
-      font-size: 19px;
-    }
-
-    h3 {
-      font-size: 17px;
-    }
-  }
-
-  .card-caption,
-  .card-chip {
-    min-height: 31px;
-    padding: 0 11px;
-    font-size: 10px;
-  }
-
-  .overview-total {
-    margin-top: 12px;
-
-    p {
-      margin-top: 8px;
-      font-size: 11px;
-      line-height: 1.48;
-    }
-  }
-
-  .overview-total__value {
-    margin-top: 6px;
-
-    strong {
-      font-size: clamp(40px, 4vw, 54px);
-    }
-
-    small {
-      font-size: 18px;
-      margin-bottom: 5px;
-    }
-  }
-
-  .overview-actions,
-  .section-heading {
-    margin-top: 12px;
-  }
-
-  .overview-action,
-  .guide-button,
-  .score-button {
-    height: 38px;
-    font-size: 11px;
-  }
-
-  .overview-cards {
-    gap: 12px;
-    margin-top: 12px;
-  }
-
-  .overview-mini-card {
-    min-height: 118px;
-    padding: 14px;
-
-    span {
-      font-size: 11px;
-    }
-
-    strong {
-      margin-top: 20px;
-      font-size: 21px;
-    }
-
-    small,
-    em {
-      font-size: 10px;
-    }
-
-    em {
-      left: 16px;
-      bottom: 14px;
-    }
-  }
-
-  .overview-shortcut {
-    min-height: 118px;
-
-    span {
-      font-size: 36px;
-    }
-  }
-
-  .overview-mini-card__ornament {
-    top: 12px;
-    right: 12px;
-    width: 76px;
-    height: 76px;
-
-    &::before {
-      inset: 8px;
-    }
-
-    &::after {
-      inset: -16px 22px 22px -16px;
-    }
-  }
-
-  .range-select {
-    width: 86px;
-  }
-
-  .dashboard-card--spending :deep(.el-select__wrapper) {
-    min-height: 33px;
-  }
-
-  .spending-stage {
-    gap: 14px;
-    margin-top: 12px;
-  }
-
-  .spending-badge {
-    padding: 5px 10px;
-    font-size: 10px;
-  }
-
-  .spending-bars {
-    min-height: 102px;
-    gap: 10px;
-  }
-
-  .spending-bar {
-    gap: 8px;
-  }
-
-  .spending-bar__track {
-    width: 24px;
-    height: 82px;
-
-    span {
-      width: 16px;
-    }
-  }
-
-  .spending-bar.is-peak .spending-bar__track span {
-    width: 18px;
-  }
-
-  .spending-bar small {
-    font-size: 9px;
-  }
-
-  .transaction-list {
-    margin-top: 10px;
-  }
-
-  .dashboard-card--overview,
-  .dashboard-card--activity {
-    min-height: 0;
-  }
-
-  .dashboard-card--guide,
-  .dashboard-card--chart,
-  .dashboard-card--score {
-    min-height: 0;
-  }
-
-  .transaction-item {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 8px 0;
-  }
-
-  .transaction-item__icon {
-    width: 40px;
-    height: 40px;
-    font-size: 12px;
-  }
-
-  .transaction-item__copy {
-    strong {
-      font-size: 13px;
-    }
-
-    span {
-      margin-top: 3px;
-      font-size: 10px;
-    }
-  }
-
-  .transaction-item__amount {
-    font-size: 13px;
-  }
-
-  .dashboard-card--guide::before {
-    right: 28px;
-    bottom: 22px;
-    width: 92px;
-    height: 92px;
-  }
-
-  .dashboard-card--guide::after {
-    right: 68px;
-    bottom: 4px;
-    width: 58px;
-    height: 58px;
-  }
-
-  .guide-hero {
-    margin-top: 10px;
-
-    strong {
-      font-size: 16px;
-    }
-
-    span {
-      font-size: 11px;
-      line-height: 1.5;
-    }
-  }
-
-  .guide-summary {
-    padding: 12px 14px;
-  }
-
-  .guide-summary__metric strong {
-    font-size: 19px;
-  }
-
-  .guide-summary__metric small {
-    line-height: 1.4;
-  }
-
-  .chart-summary {
-    margin-top: 6px;
-
-    strong {
-      font-size: 13px;
-    }
-
-    span {
-      font-size: 10px;
-    }
-  }
-
-  .dashboard-chart {
-    min-height: 164px;
-    margin-top: 2px;
-  }
-
-  .dashboard-card--score {
-    padding-bottom: 10px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter) {
-    padding-top: 0;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__dial) {
-    width: min(144px, 100%);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__mask) {
-    width: 114px;
-    height: 114px;
-    bottom: 6px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content) {
-    inset: auto 0 8px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content strong) {
-    font-size: clamp(24px, 3vw, 32px);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content span) {
-    font-size: 11px;
-  }
-
-  .score-button {
-    min-width: 126px;
-    height: 32px;
-    margin-top: 6px;
-  }
-}
-
-@media (max-height: 740px) and (min-width: 961px) {
-  .dashboard-bank {
-    height: auto;
-  }
-
-  .dashboard-grid {
-    height: auto;
-    gap: 12px;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'overview'
-      'spending'
-      'activity'
-      'guide'
-      'chart'
-      'score';
-  }
-
-  .dashboard-card {
-    padding: 16px;
-    border-radius: 22px;
-  }
-
-  .card-heading {
-    h2,
-    h3 {
-      margin-top: 4px;
-      font-size: 17px;
-    }
-
-    h3 {
-      font-size: 16px;
-    }
-  }
-
-  .card-caption,
-  .card-chip {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 9px;
-  }
-
-  .overview-total {
-    margin-top: 10px;
-
-    > span,
-    p {
-      font-size: 10px;
-    }
-
-    p {
-      margin-top: 6px;
-    }
-  }
-
-  .overview-total__value {
-    margin-top: 6px;
-
-    strong {
-      font-size: clamp(36px, 3.8vw, 48px);
-    }
-
-    small {
-      margin-bottom: 4px;
-      font-size: 16px;
-    }
-  }
-
-  .overview-actions,
-  .section-heading {
-    margin-top: 10px;
-  }
-
-  .overview-action {
-    height: 34px;
-    min-width: 124px;
-    padding: 0 14px 0 10px;
-    font-size: 10px;
-
-    .el-icon {
-      width: 22px;
-      height: 22px;
-    }
-  }
-
-  .section-heading {
-    span {
-      font-size: 14px;
-    }
-
-    small {
-      font-size: 9px;
-    }
-  }
-
-  .overview-cards {
-    grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.88fr) 62px;
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .overview-mini-card {
-    min-height: 102px;
-    padding: 12px;
-
-    span,
-    small,
-    em {
-      font-size: 9px;
-    }
-
-    strong {
-      margin-top: 16px;
-      font-size: 18px;
-    }
-
-    em {
-      left: 14px;
-      bottom: 12px;
-    }
-  }
-
-  .overview-mini-card__ornament {
-    top: 10px;
-    right: 10px;
-    width: 64px;
-    height: 64px;
-
-    &::before {
-      inset: 8px;
-    }
-
-    &::after {
-      inset: -14px 18px 18px -14px;
-    }
-  }
-
-  .overview-shortcut {
-    min-height: 102px;
-
-    span {
-      font-size: 32px;
-    }
-  }
-
-  .range-select {
-    width: 76px;
-  }
-
-  .dashboard-card--spending :deep(.el-select__wrapper) {
-    min-height: 30px;
-  }
-
-  .spending-stage {
-    gap: 10px;
-    margin-top: 10px;
-  }
-
-  .spending-badge,
-  .text-action,
-  .chart-summary span {
-    font-size: 9px;
-  }
-
-  .guide-hero span,
-  .guide-summary__label,
-  .guide-summary__metric small,
-  .guide-summary__chip,
-  .guide-flag small {
-    font-size: 9px;
-  }
-
-  .spending-bars {
-    min-height: 84px;
-    gap: 8px;
-  }
-
-  .spending-bar {
-    gap: 6px;
-  }
-
-  .spending-bar__track {
-    width: 22px;
-    height: 68px;
-
-    span {
-      width: 14px;
-    }
-  }
-
-  .spending-bar.is-peak .spending-bar__track span {
-    width: 16px;
-  }
-
-  .spending-bar small {
-    font-size: 8px;
-  }
-
-  .transaction-list {
-    margin-top: 8px;
-  }
-
-  .transaction-item {
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 6px 0;
-  }
-
-  .transaction-item__icon {
-    width: 34px;
-    height: 34px;
-    font-size: 10px;
-  }
-
-  .transaction-item__copy {
-    strong {
-      font-size: 12px;
-    }
-
-    span {
-      margin-top: 2px;
-      font-size: 9px;
-    }
-  }
-
-  .transaction-item__amount {
-    font-size: 12px;
-  }
-
-  .dashboard-card--guide::before {
-    right: 24px;
-    bottom: 18px;
-    width: 76px;
-    height: 76px;
-  }
-
-  .dashboard-card--guide::after {
-    right: 56px;
-    bottom: 4px;
-    width: 46px;
-    height: 46px;
-  }
-
-  .guide-hero {
-    margin-top: 8px;
-
-    span {
-      line-height: 1.45;
-    }
-  }
-
-  .guide-summary {
-    margin-top: 10px;
-    padding: 12px;
-  }
-
-  .guide-flags {
-    margin-top: 10px;
-  }
-
-  .guide-flags {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-button,
-  .score-button {
-    height: 32px;
-    padding: 0 14px;
-    font-size: 10px;
-  }
-
-  .chart-summary {
-    margin-top: 6px;
-
-    strong {
-      font-size: 11px;
-    }
-  }
-
-  .dashboard-chart {
-    min-height: 152px;
-    margin-top: 0;
-  }
-
-  .dashboard-card--score {
-    padding-bottom: 12px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__dial) {
-    width: min(146px, 100%);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__mask) {
-    width: 116px;
-    height: 116px;
-    bottom: 8px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content) {
-    inset: auto 0 10px;
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content strong) {
-    font-size: clamp(24px, 2.5vw, 32px);
-  }
-
-  .dashboard-card--score :deep(.ops-gauge-meter__content span) {
-    font-size: 11px;
-  }
-
-  .score-button {
-    min-width: 122px;
-  }
-}
-
-@media (max-width: 960px) {
-  .dashboard-bank {
-    height: auto;
-  }
-
-  .dashboard-grid {
-    height: auto;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: none;
-    grid-template-areas:
-      'overview overview'
-      'spending activity'
-      'guide activity'
-      'chart chart'
-      'score score';
-  }
-}
-
-@media (max-width: 860px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'overview'
-      'spending'
-      'guide'
-      'activity'
-      'chart'
-      'score';
-  }
-
-  .overview-actions,
-  .overview-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .overview-action {
-    width: 100%;
-  }
-
-  .overview-shortcut {
-    min-height: 90px;
-  }
-
-  .chart-summary {
+@media (max-width: 760px) {
+  .dashboard-header,
+  .header-actions {
+    align-items: stretch;
     flex-direction: column;
-    align-items: flex-start;
+  }
+
+  .metric-grid,
+  .visual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel--wide {
+    grid-column: span 1;
   }
 }
 </style>

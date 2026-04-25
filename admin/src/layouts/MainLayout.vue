@@ -1,50 +1,96 @@
 <template>
-  <div class="main-layout">
+  <div class="main-layout" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }">
     <div v-if="appStore.isGlobalLoading" class="global-loading-bar">
       <div class="loading-progress" />
     </div>
 
-    <div class="workspace-shell">
-      <header class="workspace-shell__header">
+    <aside class="ops-sidebar" aria-label="后台导航">
+      <div class="ops-sidebar__brand">
         <button class="brand-mark" type="button" @click="navigateTo(ADMIN_HOME_PATH)">
-          <div class="brand-mark__icon">
+          <span class="brand-mark__icon">
             <img src="@/assets/logo.svg" alt="HeartLake" />
-          </div>
-          <div class="brand-mark__copy">
-            <strong>心湖后台</strong>
-            <span>值守工作台</span>
-          </div>
+          </span>
+          <span class="brand-mark__copy">
+            <strong>HeartLake</strong>
+            <small>管理后台</small>
+          </span>
         </button>
 
-        <nav class="top-nav" aria-label="主导航">
+        <el-tooltip :content="sidebarCollapsed ? '展开导航' : '收起导航'" placement="right">
           <button
-            v-for="item in menuItems"
+            class="sidebar-toggle"
+            type="button"
+            @click="sidebarCollapsed = !sidebarCollapsed"
+          >
+            <el-icon>
+              <Expand v-if="sidebarCollapsed" />
+              <Fold v-else />
+            </el-icon>
+          </button>
+        </el-tooltip>
+      </div>
+
+      <nav class="ops-nav">
+        <section v-for="section in menuSections" :key="section.label" class="ops-nav__section">
+          <span class="ops-nav__label">{{ section.label }}</span>
+          <button
+            v-for="item in section.items"
             :key="item.path"
             type="button"
-            class="top-nav__item"
-            :class="{ 'is-active': route.path === item.path }"
+            class="ops-nav__item"
+            :class="{ 'is-active': isActiveRoute(item.path) }"
+            :title="sidebarCollapsed ? item.title : item.desc"
             @click="navigateTo(item.path)"
           >
-            {{ item.title }}
+            <el-icon>
+              <component :is="item.icon" />
+            </el-icon>
+            <span class="ops-nav__text">
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.desc }}</small>
+            </span>
+            <em v-if="item.badge" class="ops-nav__badge">{{ item.badge }}</em>
           </button>
-        </nav>
+        </section>
+      </nav>
 
-        <div class="workspace-shell__tools">
-          <div
-            class="header-status"
-            :class="{ 'is-warning': Boolean(headerStatusWarning) }"
-            :title="headerStatusWarning || headerStatusText"
-          >
+      <div class="ops-sidebar__footer">
+        <div class="sidebar-status" :class="{ 'is-warning': Boolean(headerStatusWarning) }">
+          <span class="sidebar-status__dot" />
+          <div>
             <strong>{{ headerStatusText }}</strong>
-            <span v-if="headerStatusWarning">{{ headerStatusWarning }}</span>
+            <small>{{ headerStatusWarning || '服务状态正常' }}</small>
           </div>
+        </div>
 
+        <div class="sidebar-metrics">
+          <article>
+            <span>在线</span>
+            <strong>{{ Number(realtimeStats.onlineCount || 0) }}</strong>
+          </article>
+          <article>
+            <span>今日投石</span>
+            <strong>{{ Number(realtimeStats.todayStones || 0) }}</strong>
+          </article>
+        </div>
+      </div>
+    </aside>
+
+    <section class="ops-workbench">
+      <header class="ops-topbar">
+        <div class="page-identity">
+          <span>{{ currentSectionLabel }}</span>
+          <h1>{{ currentMenuItem?.title || route.meta.title || '管理后台' }}</h1>
+          <p>{{ currentMenuItem?.desc || '统一处理运营、审核、配置与审计任务。' }}</p>
+        </div>
+
+        <div class="ops-topbar__tools">
           <div class="shell-search">
             <el-input
               v-model="navSearch"
               clearable
               :prefix-icon="Search"
-              placeholder="搜索页面"
+              placeholder="搜索功能页"
               @keyup.enter="openFirstSearchResult"
             />
 
@@ -56,34 +102,30 @@
                 class="shell-search__result"
                 @click="navigateTo(item.path)"
               >
-                <div>
+                <el-icon>
+                  <component :is="item.icon" />
+                </el-icon>
+                <span>
                   <strong>{{ item.title }}</strong>
-                  <span>{{ routeNarrativeMap[item.path]?.summary }}</span>
-                </div>
-                <small>{{ item.path.replace('/', '') || 'dashboard' }}</small>
+                  <small>{{ item.desc }}</small>
+                </span>
               </button>
 
               <div v-if="!filteredMenuItems.length" class="shell-search__empty">没有匹配的入口</div>
             </div>
           </div>
 
-          <button
-            class="header-icon-btn"
-            type="button"
-            aria-label="查看求助处理"
-            @click="navigateTo('/reports')"
-          >
-            <el-icon><Bell /></el-icon>
-          </button>
+          <el-tooltip content="刷新实时统计" placement="bottom">
+            <button class="header-icon-btn" type="button" @click="fetchRealtimeStats">
+              <el-icon><RefreshRight /></el-icon>
+            </button>
+          </el-tooltip>
 
-          <button
-            class="header-icon-btn"
-            type="button"
-            aria-label="查看系统偏好"
-            @click="navigateTo('/settings')"
-          >
-            <el-icon><Setting /></el-icon>
-          </button>
+          <el-tooltip content="求助处理" placement="bottom">
+            <button class="header-icon-btn" type="button" @click="navigateTo('/reports')">
+              <el-icon><Bell /></el-icon>
+            </button>
+          </el-tooltip>
 
           <el-tooltip
             :content="appStore.isDark ? '切换亮色模式' : '切换暗色模式'"
@@ -99,14 +141,21 @@
 
           <el-dropdown @command="handleCommand">
             <button class="header-account" type="button">
-              <el-avatar :size="38">
-                {{ adminInfo.nickname?.charAt(0) || 'A' }}
+              <el-avatar :size="34">
+                {{ adminInitial }}
               </el-avatar>
+              <span>
+                <strong>{{ adminInfo.nickname }}</strong>
+                <small>{{ appStore.userInfo?.role || 'admin' }}</small>
+              </span>
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile"> 个人设置 </el-dropdown-item>
-                <el-dropdown-item command="logout" divided> 退出登录 </el-dropdown-item>
+                <el-dropdown-item command="profile">个人设置</el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -120,55 +169,68 @@
           </transition>
         </router-view>
       </main>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
+import {
+  computed,
+  ref,
+  reactive,
+  onMounted,
+  onUnmounted,
+  type Component as VueComponent,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Bell, Moon, Search, Setting, Sunny } from '@element-plus/icons-vue'
+import {
+  Bell,
+  Cpu,
+  DataLine,
+  Document,
+  Expand,
+  Fold,
+  HomeFilled,
+  Management,
+  Moon,
+  RefreshRight,
+  Search,
+  Setting,
+  Sunny,
+  SwitchButton,
+  Tickets,
+  User,
+  Warning,
+} from '@element-plus/icons-vue'
 import api, { isRequestCanceled } from '@/api'
 import websocket from '@/services/websocket'
 import { useAppStore } from '@/stores'
 import { ADMIN_HOME_PATH, ADMIN_LOGIN_PATH } from '@/utils/adminRoutes'
 import { normalizePayloadRecord } from '@/utils/collectionPayload'
 
+interface MenuItem {
+  path: string
+  title: string
+  desc: string
+  icon: VueComponent
+  badge?: string
+}
+
+interface MenuSection {
+  label: string
+  items: MenuItem[]
+}
+
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const navSearch = ref('')
-
-const menuItems = [
-  { path: ADMIN_HOME_PATH, title: '总览' },
-  { path: '/users', title: '旅人' },
-  { path: '/content', title: '内容' },
-  { path: '/moderation', title: '守护' },
-  { path: '/reports', title: '求助' },
-  { path: '/sensitive-words', title: '词典' },
-  { path: '/logs', title: '日志' },
-  { path: '/settings', title: '设置' },
-  { path: '/edge-ai', title: '智能辅助' },
-]
-
-const routeNarrativeMap: Record<string, { kicker: string; summary: string }> = {
-  [ADMIN_HOME_PATH]: {
-    kicker: '湖面总览',
-    summary: '查看旅人状态、波动趋势和需要优先处理的内容。',
-  },
-  '/users': { kicker: '旅人关怀', summary: '筛查账户状态、活跃记录和个体产出。' },
-  '/content': { kicker: '内容台账', summary: '统一查看石头与纸船，确认当前内容水位。' },
-  '/moderation': { kicker: '温暖守护', summary: '把系统判断与人工复核放在同一个工作面上。' },
-  '/reports': { kicker: '求助处理', summary: '优先处理待办举报，确保反馈和回执有闭环。' },
-  '/sensitive-words': { kicker: '风险词典', summary: '维护风控边界，避免策略漂移和漏拦截。' },
-  '/logs': { kicker: '服务留痕', summary: '查看后台动作和交接轨迹。' },
-  '/settings': { kicker: '系统偏好', summary: '高权限配置、广播和模型参数统一收口。' },
-  '/edge-ai': { kicker: '智能辅助', summary: '查看引擎状态、节点能力和推理健康度。' },
-}
+const sidebarCollapsed = ref(false)
 
 const adminInfo = reactive({
-  nickname: appStore.userInfo?.nickname || appStore.userInfo?.username || '管理员',
+  nickname:
+    appStore.userInfo?.nickname?.toString() || appStore.userInfo?.username?.toString() || '管理员',
 })
 const adminInfoError = ref<string | null>(null)
 
@@ -181,28 +243,116 @@ const hasRealtimeStats = ref(false)
 
 let statsInterval: ReturnType<typeof setInterval> | null = null
 
+const menuSections = computed<MenuSection[]>(() => [
+  {
+    label: '运营中台',
+    items: [
+      {
+        path: ADMIN_HOME_PATH,
+        title: '运营总览',
+        desc: '旅人、内容、情绪和实时处理水位',
+        icon: HomeFilled,
+      },
+      {
+        path: '/users',
+        title: '旅人管理',
+        desc: '账户状态、活跃轨迹和个体关怀',
+        icon: User,
+      },
+      {
+        path: '/content',
+        title: '内容管理',
+        desc: '石头、纸船、作者和发布状态台账',
+        icon: Document,
+      },
+    ],
+  },
+  {
+    label: '风控处理',
+    items: [
+      {
+        path: '/moderation',
+        title: '内容审核',
+        desc: 'AI 预审、人工复核与审核历史',
+        icon: Warning,
+      },
+      {
+        path: '/reports',
+        title: '求助工单',
+        desc: '举报流转、处置备注和回执闭环',
+        icon: Tickets,
+        badge: Number(realtimeStats.todayStones || 0) > 0 ? '实时' : '',
+      },
+      {
+        path: '/sensitive-words',
+        title: '风险词典',
+        desc: '词条级别、处置策略和批量维护',
+        icon: Management,
+      },
+    ],
+  },
+  {
+    label: '系统治理',
+    items: [
+      {
+        path: '/edge-ai',
+        title: '智能辅助',
+        desc: '引擎节点、情绪脉搏和隐私预算',
+        icon: Cpu,
+      },
+      {
+        path: '/logs',
+        title: '操作审计',
+        desc: '管理员动作、来源 IP 和事件链路',
+        icon: DataLine,
+      },
+      {
+        path: '/settings',
+        title: '系统配置',
+        desc: '全站开关、AI 配置、限流和广播',
+        icon: Setting,
+      },
+    ],
+  },
+])
+
+const flatMenuItems = computed(() => menuSections.value.flatMap((section) => section.items))
+
+const currentMenuItem = computed(() => flatMenuItems.value.find((item) => isActiveRoute(item.path)))
+
+const currentSectionLabel = computed(() => {
+  const section = menuSections.value.find((group) =>
+    group.items.some((item) => isActiveRoute(item.path)),
+  )
+  return section?.label || '后台工作台'
+})
+
 const filteredMenuItems = computed(() => {
   const keyword = navSearch.value.trim().toLowerCase()
   if (!keyword) return []
 
-  return menuItems
-    .filter((item) =>
-      [item.title, item.path, routeNarrativeMap[item.path]?.summary]
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword),
-    )
-    .slice(0, 6)
+  return flatMenuItems.value
+    .filter((item) => [item.title, item.path, item.desc].join(' ').toLowerCase().includes(keyword))
+    .slice(0, 8)
 })
 
 const headerStatusText = computed(() => {
   if (!hasRealtimeStats.value) {
-    return '实时统计待加载'
+    return '统计待加载'
   }
   return `在线 ${Number(realtimeStats.onlineCount || 0)} · 今日投石 ${Number(realtimeStats.todayStones || 0)}`
 })
 
 const headerStatusWarning = computed(() => adminInfoError.value || realtimeStatsError.value)
+
+const adminInitial = computed(() => adminInfo.nickname?.charAt(0).toUpperCase() || 'A')
+
+const isActiveRoute = (path: string) => {
+  if (path === ADMIN_HOME_PATH) {
+    return route.path === ADMIN_HOME_PATH || route.path === '/'
+  }
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
 
 const navigateTo = (path: string) => {
   navSearch.value = ''
@@ -223,7 +373,7 @@ const fetchAdminInfo = async () => {
     const res = await api.getAdminInfo()
     const data = normalizePayloadRecord(res.data)
     if (data) {
-      adminInfo.nickname = data.nickname || data.username || '管理员'
+      adminInfo.nickname = data.nickname?.toString() || data.username?.toString() || '管理员'
       adminInfoError.value = null
     }
   } catch (e: unknown) {
@@ -237,8 +387,8 @@ const fetchRealtimeStats = async () => {
     const res = await api.getRealtimeStats({ source: 'layout' })
     const data = normalizePayloadRecord(res.data)
     if (data) {
-      realtimeStats.onlineCount = data.online_count || data.online_users || 0
-      realtimeStats.todayStones = data.today_stones || 0
+      realtimeStats.onlineCount = Number(data.online_count || data.online_users || 0)
+      realtimeStats.todayStones = Number(data.today_stones || 0)
       hasRealtimeStats.value = true
       realtimeStatsError.value = null
     }
@@ -261,7 +411,7 @@ const handleCommand = async (command: string) => {
       router.push(ADMIN_LOGIN_PATH)
       ElMessage.success('已退出登录')
     } catch {
-      // 取消退出
+      // 用户取消退出
     }
   } else if (command === 'profile') {
     router.push('/settings')
@@ -276,6 +426,7 @@ const handleStatsUpdate = (data: {
   if (data) {
     realtimeStats.onlineCount = data.online_count ?? data.online_users ?? realtimeStats.onlineCount
     realtimeStats.todayStones = data.today_stones ?? realtimeStats.todayStones
+    hasRealtimeStats.value = true
   }
 }
 
@@ -328,550 +479,613 @@ onUnmounted(() => {
 
 .global-loading-bar {
   position: fixed;
-  top: 16px;
-  left: 50%;
-  width: min(380px, calc(100vw - 40px));
-  height: 5px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
   overflow: hidden;
   z-index: 9999;
-  box-shadow: 0 12px 24px rgba(76, 103, 148, 0.14);
+  background: rgba(37, 99, 235, 0.08);
 
   .loading-progress {
-    width: 40%;
+    width: 36%;
     height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #8cb2ff, #99ddd5);
-    animation: loading-progress 1.4s ease-in-out infinite;
+    background: linear-gradient(90deg, #2563eb, #10b981, #f59e0b);
+    animation: loading-progress 1.25s ease-in-out infinite;
   }
 }
 
 .main-layout {
+  --sidebar-width: 280px;
   min-height: 100vh;
-  padding: 14px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(223, 236, 255, 0.92), transparent 44%),
-    linear-gradient(180deg, #dbe8fd 0%, #d0e0f8 100%);
-}
-
-.workspace-shell {
-  width: 100%;
-  margin: 0 auto;
-  min-height: calc(100vh - 28px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 18px 20px 20px;
-  border-radius: 32px;
-  border: 7px solid rgba(255, 255, 255, 0.98);
-  background:
-    radial-gradient(circle at 84% 80%, rgba(214, 240, 233, 0.32), transparent 18%),
-    radial-gradient(circle at 14% 12%, rgba(203, 219, 255, 0.28), transparent 22%),
-    linear-gradient(180deg, rgba(237, 244, 255, 0.98), rgba(229, 238, 255, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 30px 64px rgba(97, 127, 179, 0.14);
-  animation: shell-entrance 420ms ease-out;
-  -webkit-font-smoothing: antialiased;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  background: #eef2f7;
+  color: #111827;
   font-family:
     'Avenir Next', 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
-.workspace-shell__header {
+.main-layout.is-sidebar-collapsed {
+  --sidebar-width: 76px;
+}
+
+.ops-sidebar {
+  min-height: 100vh;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-right: 1px solid #d8dee8;
+  background: #101828;
+  color: #e5e7eb;
+}
+
+.ops-sidebar__brand {
+  display: flex;
   align-items: center;
-  padding-bottom: 14px;
-  flex: 0 0 auto;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 72px;
+  padding: 14px 14px 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .brand-mark {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border: none;
   background: transparent;
-  padding: 0;
+  color: inherit;
   cursor: pointer;
 }
 
 .brand-mark__icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  background: rgba(117, 205, 187, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
 
   img {
-    width: 22px;
-    height: 22px;
+    width: 23px;
+    height: 23px;
   }
 }
 
 .brand-mark__copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
   text-align: left;
 
   strong {
-    color: var(--hl-ink);
-    font-size: 14px;
-    font-weight: 700;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 760;
+    letter-spacing: 0;
   }
 
-  span {
-    color: var(--hl-ink-soft);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+  small {
+    color: #9ca3af;
+    font-size: 12px;
+    letter-spacing: 0;
   }
 }
 
-.top-nav {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 0 2px;
+.sidebar-toggle,
+.header-icon-btn {
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
   background: transparent;
-}
-
-.top-nav__item {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 9px;
-  border: none;
-  border-radius: 14px;
-  background: transparent;
-  color: #273149;
-  font-size: 12px;
-  font-weight: 650;
   cursor: pointer;
-  transition: var(--m3-transition);
+}
+
+.sidebar-toggle {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: #cbd5e1;
 
   &:hover {
-    color: var(--hl-ink);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+}
+
+.ops-nav {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 10px;
+}
+
+.ops-nav__section + .ops-nav__section {
+  margin-top: 16px;
+}
+
+.ops-nav__label {
+  display: block;
+  padding: 0 10px 8px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.ops-nav__item {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #cbd5e1;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+
+  .el-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 17px;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
   }
 
   &.is-active {
-    color: var(--hl-ink);
-    background: rgba(255, 255, 255, 0.62);
-    box-shadow: 0 6px 12px rgba(111, 139, 187, 0.08);
+    background: #2563eb;
+    color: #ffffff;
   }
 }
 
-.workspace-shell__tools {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  position: relative;
-}
-
-.header-status {
+.ops-nav__text {
+  min-width: 0;
   display: grid;
   gap: 2px;
-  min-width: 168px;
-  padding: 9px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(132, 160, 202, 0.18);
-  background: rgba(255, 255, 255, 0.72);
-  color: #4f6670;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+
+  strong,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0;
+  }
 
   strong {
+    font-size: 14px;
+    font-weight: 720;
+  }
+
+  small {
+    color: currentColor;
+    opacity: 0.68;
+    font-size: 11px;
+  }
+}
+
+.ops-nav__badge {
+  min-width: 34px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: currentColor;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ops-sidebar__footer {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-status {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+
+  strong,
+  small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #ffffff;
     font-size: 12px;
-    font-weight: 700;
-    line-height: 1.2;
+    font-weight: 720;
+  }
+
+  small {
+    margin-top: 2px;
+    color: #aab4c3;
+    font-size: 11px;
+  }
+
+  &.is-warning .sidebar-status__dot {
+    background: #f59e0b;
+  }
+}
+
+.sidebar-status__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.sidebar-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+
+  article {
+    min-width: 0;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  span,
+  strong {
+    display: block;
   }
 
   span {
+    color: #9ca3af;
     font-size: 11px;
-    line-height: 1.3;
-    color: #8a5a2b;
   }
 
-  &.is-warning {
-    border-color: rgba(198, 138, 73, 0.3);
-    background: rgba(255, 244, 230, 0.86);
+  strong {
+    margin-top: 4px;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 780;
+    letter-spacing: 0;
   }
+}
+
+.ops-workbench {
+  min-width: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ops-topbar {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 24px;
+  border-bottom: 1px solid #d8dee8;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.page-identity {
+  min-width: 0;
+
+  span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  h1 {
+    margin: 3px 0 2px;
+    color: #111827;
+    font-size: 20px;
+    font-weight: 760;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  p {
+    max-width: 54rem;
+    overflow: hidden;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ops-topbar__tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .shell-search {
   position: relative;
-  width: min(222px, 17vw);
+  width: 280px;
 
   :deep(.el-input__wrapper) {
     min-height: 38px;
-    border-radius: 999px !important;
-    background: rgba(240, 246, 255, 0.9) !important;
-    border: 1px solid rgba(164, 183, 224, 0.24);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
-  }
-
-  :deep(.el-input__inner) {
-    font-size: 12px;
+    border-radius: 8px !important;
+    background: #f8fafc !important;
+    border: 1px solid #d8dee8;
+    box-shadow: none !important;
   }
 }
 
 .shell-search__results {
   position: absolute;
-  top: calc(100% + 10px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
-  padding: 10px;
-  border-radius: 22px;
-  background: rgba(248, 252, 255, 0.96);
-  border: 1px solid rgba(137, 165, 207, 0.14);
-  box-shadow: 0 24px 50px rgba(96, 121, 169, 0.18);
-  z-index: 20;
+  z-index: 40;
+  padding: 6px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
 }
 
 .shell-search__result {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
   border: none;
-  border-radius: 16px;
+  border-radius: 6px;
   background: transparent;
-  color: inherit;
+  color: #111827;
   text-align: left;
   cursor: pointer;
-  transition: var(--m3-transition);
 
-  strong {
-    display: block;
-    color: var(--hl-ink);
-    font-size: 13px;
+  .el-icon {
+    color: #2563eb;
+    font-size: 17px;
   }
 
-  span,
+  strong,
   small {
-    color: var(--hl-ink-soft);
-    font-size: 12px;
-    line-height: 1.5;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 13px;
+    font-weight: 720;
+  }
+
+  small {
+    color: #64748b;
+    font-size: 11px;
   }
 
   &:hover {
-    background: rgba(233, 242, 255, 0.86);
+    background: #f1f5f9;
   }
 }
 
 .shell-search__empty {
-  padding: 12px 14px;
-  color: var(--hl-ink-soft);
+  padding: 12px;
+  color: #64748b;
   font-size: 13px;
 }
 
-.header-icon-btn,
-.header-account {
-  flex: 0 0 auto;
+.header-icon-btn {
   width: 38px;
   height: 38px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--hl-ink);
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 10px 18px rgba(112, 137, 183, 0.08);
-  transition: var(--m3-transition);
+  border-radius: 8px;
+  border-color: #d8dee8;
+  background: #ffffff;
+  color: #334155;
 
   &:hover {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.96);
+    border-color: #2563eb;
+    color: #2563eb;
   }
 }
 
 .header-account {
-  overflow: hidden;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 3px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
 
   :deep(.el-avatar) {
-    background: linear-gradient(180deg, #8db2ff, #7ea0ef);
+    background: #2563eb;
     color: #ffffff;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 720;
+  }
+
+  span {
+    display: grid;
+    gap: 1px;
+    text-align: left;
+  }
+
+  strong {
+    font-size: 12px;
+    font-weight: 720;
+  }
+
+  small {
+    color: #64748b;
+    font-size: 10px;
   }
 }
 
 .main-content {
-  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  margin-top: 0;
   overflow: auto;
-  padding-right: 2px;
+  padding: 22px 24px 28px;
 }
 
 .main-content :deep(.ops-page),
 .main-content :deep(.dashboard-bank),
 .main-content :deep(.edge-workbench) {
-  animation: page-rise 460ms ease-out both;
-}
-
-@media (max-width: 1180px) and (min-width: 961px) {
-  .main-layout {
-    padding: 14px;
-  }
-
-  .workspace-shell {
-    width: 100%;
-    min-height: calc(100vh - 28px);
-    padding: 16px 16px 18px;
-    border-width: 6px;
-    border-radius: 28px;
-  }
-
-  .workspace-shell__header {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
-    padding-bottom: 12px;
-  }
-
-  .brand-mark {
-    gap: 8px;
-  }
-
-  .brand-mark__icon {
-    width: 30px;
-    height: 30px;
-
-    img {
-      width: 18px;
-      height: 18px;
-    }
-  }
-
-  .brand-mark__copy {
-    strong {
-      font-size: 13px;
-    }
-
-    span {
-      display: none;
-    }
-  }
-
-  .top-nav {
-    gap: 4px;
-  }
-
-  .top-nav__item {
-    min-height: 28px;
-    padding: 0 8px;
-    font-size: 11px;
-  }
-
-  .workspace-shell__tools {
-    gap: 6px;
-  }
-
-  .shell-search {
-    width: min(178px, 19vw);
-
-    :deep(.el-input__wrapper) {
-      min-height: 34px;
-    }
-
-    :deep(.el-input__inner) {
-      font-size: 11px;
-    }
-  }
-
-  .header-icon-btn,
-  .header-account {
-    width: 34px;
-    height: 34px;
-  }
+  animation: page-rise 260ms ease-out both;
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
+  transition: opacity 0.16s ease;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(8px);
-}
-
-@media (max-height: 820px) and (min-width: 1121px) {
-  .main-layout {
-    padding: 12px;
-  }
-
-  .workspace-shell {
-    width: 100%;
-    min-height: calc(100vh - 24px);
-    padding: 16px 18px 18px;
-    border-radius: 30px;
-  }
-
-  .workspace-shell__header {
-    gap: 14px;
-    padding-bottom: 12px;
-  }
-
-  .brand-mark__icon {
-    width: 32px;
-    height: 32px;
-
-    img {
-      width: 20px;
-      height: 20px;
-    }
-  }
-
-  .brand-mark__copy strong {
-    font-size: 14px;
-  }
-
-  .top-nav {
-    gap: 6px;
-  }
-
-  .top-nav__item {
-    min-height: 28px;
-    padding: 0 9px;
-    font-size: 12px;
-  }
-
-  .shell-search {
-    width: min(204px, 16vw);
-
-    :deep(.el-input__wrapper) {
-      min-height: 36px;
-    }
-
-    :deep(.el-input__inner) {
-      font-size: 12px;
-    }
-  }
-
-  .header-icon-btn,
-  .header-account {
-    width: 36px;
-    height: 36px;
-  }
-}
-
-@media (max-height: 740px) and (min-width: 1181px) {
-  .main-layout {
-    padding: 10px;
-  }
-
-  .workspace-shell {
-    min-height: calc(100vh - 20px);
-    padding: 14px 16px 16px;
-    border-width: 6px;
-    border-radius: 28px;
-  }
-
-  .workspace-shell__header {
-    gap: 12px;
-    padding-bottom: 10px;
-  }
-
-  .brand-mark__icon {
-    width: 30px;
-    height: 30px;
-
-    img {
-      width: 18px;
-      height: 18px;
-    }
-  }
-
-  .brand-mark__copy strong {
-    font-size: 13px;
-  }
-
-  .brand-mark__copy span,
-  .top-nav__item {
-    font-size: 11px;
-  }
-
-  .shell-search {
-    width: min(194px, 15vw);
-
-    :deep(.el-input__wrapper) {
-      min-height: 34px;
-    }
-
-    :deep(.el-input__inner) {
-      font-size: 11px;
-    }
-  }
-
-  .header-icon-btn,
-  .header-account {
-    width: 34px;
-    height: 34px;
-  }
-}
-
-@media (max-width: 960px) {
-  .workspace-shell__header {
-    grid-template-columns: 1fr;
-  }
-
-  .workspace-shell__tools {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .top-nav {
-    justify-content: flex-start;
-  }
-
-  .shell-search {
-    width: min(100%, 320px);
-  }
-}
-
-@media (max-width: 760px) {
-  .main-layout {
-    padding: 12px;
-  }
-
-  .workspace-shell {
-    min-height: calc(100vh - 24px);
-    padding: 16px;
-    border-width: 6px;
-    border-radius: 28px;
-  }
-}
-
-@keyframes shell-entrance {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.992);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 @keyframes page-rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.main-layout.is-sidebar-collapsed {
+  .ops-sidebar__brand {
+    padding: 14px 10px;
+    justify-content: center;
+  }
+
+  .brand-mark__copy,
+  .ops-nav__label,
+  .ops-nav__text,
+  .ops-nav__badge,
+  .ops-sidebar__footer,
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .brand-mark {
+    justify-content: center;
+  }
+
+  .ops-nav {
+    padding: 14px 10px;
+  }
+
+  .ops-nav__item {
+    grid-template-columns: 36px;
+    justify-content: center;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .main-layout {
+    --sidebar-width: 236px;
+  }
+
+  .shell-search {
+    width: 220px;
+  }
+
+  .header-account span {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    min-height: auto;
+    grid-template-rows: auto;
+  }
+
+  .ops-sidebar__brand,
+  .ops-sidebar__footer {
+    display: none;
+  }
+
+  .ops-nav {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    overflow-x: auto;
+  }
+
+  .ops-nav__section {
+    display: contents;
+  }
+
+  .ops-nav__label,
+  .ops-nav__text small,
+  .ops-nav__badge {
+    display: none;
+  }
+
+  .ops-nav__item {
+    width: auto;
+    min-width: 96px;
+    grid-template-columns: 28px auto;
+    min-height: 42px;
+  }
+
+  .ops-nav__text {
+    display: block;
+  }
+
+  .ops-topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-topbar__tools {
+    justify-content: space-between;
+  }
+
+  .shell-search {
+    flex: 1 1 auto;
+    width: auto;
   }
 }
 </style>

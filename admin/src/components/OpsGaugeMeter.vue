@@ -144,7 +144,7 @@ const markerStyle = computed(() => {
     font-size: clamp(34px, 4vw, 46px);
     font-weight: 800;
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   span {

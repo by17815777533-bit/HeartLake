@@ -695,7 +695,7 @@ onMounted(() => fetchWords())
       color: var(--hl-ink);
       font-size: 22px;
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: 0;
     }
 
     p {

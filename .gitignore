@@ -69,3 +69,7 @@ papers/
 
 # MCP config
 .mcp.json
+
+# Local soft-copyright application materials
+softcopyright/
+*.~lock.*
