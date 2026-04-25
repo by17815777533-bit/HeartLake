@@ -496,11 +496,11 @@ onUnmounted(() => {
 }
 
 .main-layout {
-  --sidebar-width: 280px;
+  --sidebar-width: 252px;
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  background: #eef2f7;
+  background: #f3f6fa;
   color: #111827;
   font-family:
     'Avenir Next', 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
@@ -508,16 +508,16 @@ onUnmounted(() => {
 }
 
 .main-layout.is-sidebar-collapsed {
-  --sidebar-width: 76px;
+  --sidebar-width: 64px;
 }
 
 .ops-sidebar {
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  border-right: 1px solid #d8dee8;
-  background: #101828;
-  color: #e5e7eb;
+  border-right: 1px solid #d7dde6;
+  background: #ffffff;
+  color: #334155;
 }
 
 .ops-sidebar__brand {
@@ -525,9 +525,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 72px;
-  padding: 14px 14px 14px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 60px;
+  padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .brand-mark {
@@ -542,16 +542,17 @@ onUnmounted(() => {
 }
 
 .brand-mark__icon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: #ffffff;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
 
   img {
-    width: 23px;
-    height: 23px;
+    width: 21px;
+    height: 21px;
   }
 }
 
@@ -562,15 +563,15 @@ onUnmounted(() => {
   text-align: left;
 
   strong {
-    color: #ffffff;
-    font-size: 15px;
+    color: #111827;
+    font-size: 14px;
     font-weight: 760;
     letter-spacing: 0;
   }
 
   small {
-    color: #9ca3af;
-    font-size: 12px;
+    color: #64748b;
+    font-size: 11px;
     letter-spacing: 0;
   }
 }
@@ -586,48 +587,48 @@ onUnmounted(() => {
 
 .sidebar-toggle {
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  color: #cbd5e1;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: #475569;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
+    background: #eef2f7;
+    color: #2563eb;
   }
 }
 
 .ops-nav {
   min-height: 0;
   overflow-y: auto;
-  padding: 14px 10px;
+  padding: 10px 8px;
 }
 
 .ops-nav__section + .ops-nav__section {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .ops-nav__label {
   display: block;
-  padding: 0 10px 8px;
-  color: #64748b;
-  font-size: 12px;
+  padding: 0 8px 6px;
+  color: #94a3b8;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
 }
 
 .ops-nav__item {
   width: 100%;
-  min-height: 52px;
+  min-height: 42px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
-  color: #cbd5e1;
+  color: #334155;
   text-align: left;
   cursor: pointer;
   transition:
@@ -635,21 +636,33 @@ onUnmounted(() => {
     color 0.16s ease;
 
   .el-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    font-size: 17px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 16px;
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.07);
-    color: #ffffff;
+    background: #f1f5f9;
+    color: #0f172a;
+
+    .el-icon {
+      color: #2563eb;
+      background: #eaf2ff;
+    }
   }
 
   &.is-active {
-    background: #2563eb;
-    color: #ffffff;
+    background: #eaf2ff;
+    color: #1d4ed8;
+    box-shadow: inset 3px 0 0 #2563eb;
+
+    .el-icon {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
   }
 }
 
@@ -667,36 +680,37 @@ onUnmounted(() => {
   }
 
   strong {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 720;
   }
 
   small {
     color: currentColor;
     opacity: 0.68;
-    font-size: 11px;
+    font-size: 10px;
   }
 }
 
 .ops-nav__badge {
-  min-width: 34px;
-  min-height: 22px;
+  min-width: 30px;
+  min-height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: #dbeafe;
   color: currentColor;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
 }
 
 .ops-sidebar__footer {
   display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
 .sidebar-status {
@@ -704,9 +718,10 @@ onUnmounted(() => {
   grid-template-columns: 10px minmax(0, 1fr);
   gap: 10px;
   align-items: flex-start;
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
 
   strong,
   small {
@@ -717,14 +732,14 @@ onUnmounted(() => {
   }
 
   strong {
-    color: #ffffff;
+    color: #111827;
     font-size: 12px;
     font-weight: 720;
   }
 
   small {
     margin-top: 2px;
-    color: #aab4c3;
+    color: #64748b;
     font-size: 11px;
   }
 
@@ -748,9 +763,10 @@ onUnmounted(() => {
 
   article {
     min-width: 0;
-    padding: 10px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
   }
 
   span,
@@ -759,14 +775,14 @@ onUnmounted(() => {
   }
 
   span {
-    color: #9ca3af;
-    font-size: 11px;
+    color: #64748b;
+    font-size: 10px;
   }
 
   strong {
     margin-top: 4px;
-    color: #ffffff;
-    font-size: 18px;
+    color: #111827;
+    font-size: 16px;
     font-weight: 780;
     letter-spacing: 0;
   }
@@ -780,15 +796,14 @@ onUnmounted(() => {
 }
 
 .ops-topbar {
-  min-height: 72px;
+  min-height: 58px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 14px;
   align-items: center;
-  padding: 14px 24px;
+  padding: 9px 18px;
   border-bottom: 1px solid #d8dee8;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
+  background: #ffffff;
 }
 
 .page-identity {
@@ -802,9 +817,9 @@ onUnmounted(() => {
   }
 
   h1 {
-    margin: 3px 0 2px;
+    margin: 2px 0 1px;
     color: #111827;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 760;
     line-height: 1.2;
     letter-spacing: 0;
@@ -814,8 +829,8 @@ onUnmounted(() => {
     max-width: 54rem;
     overflow: hidden;
     color: #6b7280;
-    font-size: 12px;
-    line-height: 1.5;
+    font-size: 11px;
+    line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -824,17 +839,17 @@ onUnmounted(() => {
 .ops-topbar__tools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .shell-search {
   position: relative;
-  width: 280px;
+  width: 244px;
 
   :deep(.el-input__wrapper) {
-    min-height: 38px;
-    border-radius: 8px !important;
+    min-height: 34px;
+    border-radius: 6px !important;
     background: #f8fafc !important;
     border: 1px solid #d8dee8;
     box-shadow: none !important;
@@ -903,9 +918,9 @@ onUnmounted(() => {
 }
 
 .header-icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   border-color: #d8dee8;
   background: #ffffff;
   color: #334155;
@@ -917,13 +932,13 @@ onUnmounted(() => {
 }
 
 .header-account {
-  height: 38px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   gap: 9px;
   padding: 0 10px 0 3px;
   border: 1px solid #d8dee8;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
   color: #111827;
   cursor: pointer;
@@ -955,7 +970,7 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 22px 24px 28px;
+  padding: 14px 16px 18px;
 }
 
 .main-content :deep(.ops-page),
@@ -987,7 +1002,7 @@ onUnmounted(() => {
 
 .main-layout.is-sidebar-collapsed {
   .ops-sidebar__brand {
-    padding: 14px 10px;
+    padding: 10px;
     justify-content: center;
   }
 
@@ -1005,13 +1020,13 @@ onUnmounted(() => {
   }
 
   .ops-nav {
-    padding: 14px 10px;
+    padding: 10px;
   }
 
   .ops-nav__item {
-    grid-template-columns: 36px;
+    grid-template-columns: 30px;
     justify-content: center;
-    padding: 8px;
+    padding: 6px;
   }
 }
 

@@ -666,15 +666,10 @@ onMounted(() => fetchWords())
 
 <style lang="scss" scoped>
 .sensitive-words-page {
-  .sensitive-filter-form {
-    :deep(.el-form-item) {
-      margin-bottom: 0;
-    }
-  }
-
   .sensitive-table-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    grid-template-columns: minmax(280px, 0.76fr) minmax(0, 1.24fr);
+    gap: 10px;
     align-items: flex-end;
   }
 
@@ -688,22 +683,6 @@ onMounted(() => fetchWords())
   .sensitive-inline-filter {
     width: 100%;
     justify-content: flex-end;
-  }
-
-  .sensitive-table-copy {
-    h3 {
-      color: var(--hl-ink);
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin-top: 4px;
-      color: var(--hl-ink-soft);
-      font-size: 12px;
-      line-height: 1.55;
-    }
   }
 
   @media (max-width: 1200px) {
@@ -720,17 +699,17 @@ onMounted(() => fetchWords())
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
-    padding: 10px 14px;
-    border: 1px solid rgba(182, 122, 66, 0.14);
-    background: rgba(182, 122, 66, 0.08);
-    border-radius: 16px;
-    font-size: 13px;
-    color: var(--hl-ink-soft);
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #9a3412;
   }
 
   .ops-inline-alert {
-    margin-bottom: 14px;
+    margin-bottom: 8px;
   }
 
   .ops-inline-alert__body {

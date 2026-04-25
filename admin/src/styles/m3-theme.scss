@@ -224,7 +224,7 @@ select {
 
 .ops-page--compact {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .filter-card,
@@ -253,17 +253,17 @@ select {
 
 .ops-page .el-card__body,
 .ops-table-card .el-card__body {
-  padding: 18px 20px !important;
+  padding: 12px 14px !important;
 }
 
 .ops-table-card .el-card__body {
   display: grid;
-  gap: 18px;
+  gap: 10px;
 }
 
 .filter-card,
 .toolbar-card {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .ops-soft-toolbar,
@@ -277,9 +277,9 @@ select {
 .ops-soft-toolbar {
   align-items: center;
   justify-content: space-between;
-  padding: 14px;
+  padding: 10px;
   border: 1px solid var(--hl-line);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--hl-panel-muted);
 }
 
@@ -294,10 +294,10 @@ select {
 }
 
 [class$='-table-copy'] {
-  flex: 1 1 320px;
+  flex: 1 1 280px;
   min-width: 260px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 [class$='-table-copy']::before {
@@ -305,7 +305,7 @@ select {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 22px;
+  min-height: 20px;
   padding: 0 8px;
   border-radius: 4px;
   background: #e2e8f0;
@@ -323,7 +323,7 @@ html.dark [class$='-table-copy']::before {
 [class$='-table-copy'] h3 {
   margin: 0;
   color: var(--hl-ink);
-  font-size: 18px;
+  font-size: 16px !important;
   font-weight: 760;
   line-height: 1.25;
   letter-spacing: 0;
@@ -332,8 +332,8 @@ html.dark [class$='-table-copy']::before {
 [class$='-table-copy'] p {
   margin: 0;
   color: var(--hl-ink-soft);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .ops-toolbar-meta {
@@ -345,13 +345,13 @@ html.dark [class$='-table-copy']::before {
 .ops-toolbar-meta__item {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
+  min-height: 22px;
+  padding: 0 7px;
   border: 1px solid var(--hl-line);
   border-radius: 4px;
   background: var(--hl-panel);
   color: #475569;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -374,7 +374,7 @@ html.dark .ops-toolbar-meta__item {
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .batch-bar {
@@ -382,9 +382,9 @@ html.dark .ops-toolbar-meta__item {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #fed7aa;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff7ed;
   color: #9a3412;
   font-size: 13px;
@@ -411,6 +411,12 @@ html.dark .ops-toolbar-meta__item {
   font-weight: 650;
   letter-spacing: 0;
   box-shadow: none !important;
+}
+
+.ops-page .el-button {
+  min-height: 30px;
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .el-button--primary {
@@ -440,11 +446,47 @@ html.dark .ops-toolbar-meta__item {
   color: var(--hl-ink) !important;
 }
 
+.el-button.is-link,
+.el-button.is-text {
+  min-height: auto;
+  height: auto;
+  padding: 0 4px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.el-button.is-link.el-button--primary,
+.el-button.is-text.el-button--primary {
+  color: #2563eb !important;
+}
+
+.el-button.is-link.el-button--success,
+.el-button.is-text.el-button--success {
+  color: #16a34a !important;
+}
+
+.el-button.is-link.el-button--warning,
+.el-button.is-text.el-button--warning {
+  color: #d97706 !important;
+}
+
+.el-button.is-link.el-button--danger,
+.el-button.is-text.el-button--danger {
+  color: #dc2626 !important;
+}
+
+.el-button.is-link.el-button--info,
+.el-button.is-text.el-button--info {
+  color: #64748b !important;
+}
+
 .el-input__wrapper,
 .el-select .el-input__wrapper,
 .el-textarea__inner,
 .el-date-editor.el-input__wrapper,
 .el-input-number .el-input__wrapper {
+  min-height: 32px;
   border-radius: 6px !important;
   border: 1px solid var(--hl-line) !important;
   background: var(--hl-panel) !important;
@@ -460,7 +502,7 @@ html.dark .ops-toolbar-meta__item {
 
 .el-form--inline {
   align-items: center;
-  gap: 8px 10px;
+  gap: 6px 8px;
 }
 
 .el-form--inline .el-form-item {
@@ -471,7 +513,7 @@ html.dark .ops-toolbar-meta__item {
 .el-form-item__label,
 .ops-page .el-form-item__label {
   color: #475569;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -485,6 +527,7 @@ html.dark .ops-page .el-form-item__label {
   border: 1px solid var(--hl-line);
   border-radius: 8px;
   background: var(--hl-panel) !important;
+  font-size: 12px;
 }
 
 .el-table::before {
@@ -508,7 +551,13 @@ html.dark .ops-page .el-form-item__label {
 }
 
 .el-table .cell {
-  line-height: 1.55;
+  line-height: 1.42;
+  padding: 0 8px;
+}
+
+.el-table th.el-table__cell,
+.el-table td.el-table__cell {
+  padding: 7px 0 !important;
 }
 
 .el-table .el-table__body tr:hover > td.el-table__cell {
@@ -530,8 +579,8 @@ html.dark .el-table th.el-table__cell {
 }
 
 .el-tabs__item {
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: 0;
   font-weight: 680;
   letter-spacing: 0;
@@ -559,7 +608,7 @@ html.dark .el-table th.el-table__cell {
 }
 
 .el-empty {
-  padding: 24px 0;
+  padding: 16px 0;
 }
 
 .el-empty__description p {
@@ -578,7 +627,7 @@ html.dark .el-table th.el-table__cell {
 .m3-page-header {
   display: grid;
   gap: 6px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .m3-page-title {
@@ -599,14 +648,14 @@ html.dark .el-table th.el-table__cell {
 .m3-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .m3-stat-card {
   position: relative;
-  min-height: 112px;
-  padding: 16px;
+  min-height: 92px;
+  padding: 12px;
 }
 
 .m3-stat-card::before {
@@ -619,7 +668,7 @@ html.dark .el-table th.el-table__cell {
 
 .m3-stat-card .stat-value {
   color: #111827;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 780;
   line-height: 1.2;
   letter-spacing: 0;
@@ -633,10 +682,10 @@ html.dark .el-table th.el-table__cell {
 
 .m3-stat-card .stat-icon {
   position: absolute;
-  right: 16px;
+  right: 12px;
   top: 50%;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 8px;

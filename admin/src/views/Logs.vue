@@ -551,20 +551,15 @@ onMounted(() => fetchLogs())
 
 <style lang="scss" scoped>
 .logs-page {
-  .logs-filter-form {
-    :deep(.el-form-item) {
-      margin-bottom: 0;
-    }
-  }
-
   .logs-table-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
-    gap: 14px;
+    grid-template-columns: minmax(280px, 0.76fr) minmax(0, 1.24fr);
+    gap: 10px;
+    align-items: end;
   }
 
   .ops-inline-alert {
-    margin-bottom: 14px;
+    margin-bottom: 8px;
   }
 
   .ops-inline-alert__body {
@@ -577,36 +572,7 @@ onMounted(() => fetchLogs())
   .logs-inline-filter {
     width: 100%;
     flex: none;
-    justify-content: stretch;
-
-    :deep(.el-form-item:nth-child(1)),
-    :deep(.el-form-item:nth-child(2)) {
-      grid-column: span 3;
-    }
-
-    :deep(.el-form-item:nth-child(3)) {
-      grid-column: span 4;
-    }
-
-    :deep(.el-form-item:nth-child(4)) {
-      grid-column: span 2;
-    }
-  }
-
-  .logs-table-copy {
-    h3 {
-      color: var(--hl-ink);
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin-top: 4px;
-      color: var(--hl-ink-soft);
-      font-size: 12px;
-      line-height: 1.55;
-    }
+    justify-content: flex-end;
   }
 
   @media (max-width: 1200px) {

@@ -32,22 +32,18 @@ const router = useRouter()
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at top left, rgba(162, 190, 255, 0.26), transparent 22%),
-    radial-gradient(circle at bottom right, rgba(157, 228, 217, 0.2), transparent 24%),
-    linear-gradient(180deg, #d9e8ff, #cfe0ff);
+  padding: 24px;
+  background: #eef2f7;
 }
 
 .not-found-card {
   text-align: center;
-  padding: 54px 44px;
-  background:
-    radial-gradient(circle at top right, rgba(197, 238, 229, 0.26), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(240, 247, 255, 0.98));
-  border: 1px solid rgba(137, 165, 207, 0.14);
-  border-radius: 34px;
-  box-shadow: 0 28px 56px rgba(91, 121, 178, 0.12);
-  max-width: 460px;
+  padding: 34px 32px;
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  max-width: 420px;
 }
 
 .not-found-icon {
@@ -57,7 +53,7 @@ const router = useRouter()
 
 .not-found-title {
   font-family: var(--hl-font-display);
-  font-size: 56px;
+  font-size: 44px;
   font-weight: 700;
   color: var(--m3-on-surface);
   margin: 0 0 12px 0;

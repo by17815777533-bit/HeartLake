@@ -482,36 +482,15 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .reports-page {
-  .reports-filter-form {
-    :deep(.el-form-item) {
-      margin-bottom: 0;
-    }
-  }
-
   .reports-table-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+    gap: 10px;
     align-items: flex-end;
   }
 
   .reports-inline-filter {
     justify-content: flex-end;
-  }
-
-  .reports-table-copy {
-    h3 {
-      color: var(--hl-ink);
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin-top: 4px;
-      color: var(--hl-ink-soft);
-      font-size: 12px;
-      line-height: 1.55;
-    }
   }
 
   @media (max-width: 1180px) {
@@ -521,14 +500,14 @@ onMounted(() => {
   }
 
   .pagination-wrapper {
-    margin-top: 10px;
+    margin-top: 8px;
     display: flex;
     justify-content: flex-end;
   }
 
   .handled-text {
     color: var(--m3-on-surface-variant);
-    font-size: 14px;
+    font-size: 12px;
   }
 }
 </style>

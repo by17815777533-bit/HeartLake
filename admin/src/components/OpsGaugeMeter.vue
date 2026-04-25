@@ -3,10 +3,7 @@
     <div class="ops-gauge-meter__dial">
       <div class="ops-gauge-meter__track" />
       <div class="ops-gauge-meter__arc" />
-      <span
-        class="ops-gauge-meter__marker"
-        :style="markerStyle"
-      />
+      <span class="ops-gauge-meter__marker" :style="markerStyle" />
       <div class="ops-gauge-meter__mask" />
       <div class="ops-gauge-meter__content">
         <strong>{{ displayValue }}</strong>
@@ -19,22 +16,27 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  value: number
-  max?: number
-  label: string
-  formatter?: (value: number) => string
-}>(), {
-  max: 100,
-  formatter: undefined,
-})
+const props = withDefaults(
+  defineProps<{
+    value: number
+    max?: number
+    label: string
+    formatter?: (value: number) => string
+  }>(),
+  {
+    max: 100,
+    formatter: undefined,
+  },
+)
 
 const ratio = computed(() => {
   if (!props.max) return 0
   return Math.max(0, Math.min(1, props.value / props.max))
 })
 
-const displayValue = computed(() => props.formatter ? props.formatter(props.value) : String(props.value))
+const displayValue = computed(() =>
+  props.formatter ? props.formatter(props.value) : String(props.value),
+)
 const labelColor = computed(() => {
   if (ratio.value < 0.34) return '#f08283'
   if (ratio.value < 0.67) return '#e0a74f'
@@ -78,30 +80,33 @@ const markerStyle = computed(() => {
   height: 198px;
   transform: translateX(-50%);
   border-radius: 50%;
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 56%, #000 57% 69%, transparent 70% 100%);
+  -webkit-mask: radial-gradient(
+    circle at 50% 50%,
+    transparent 0 56%,
+    #000 57% 69%,
+    transparent 70% 100%
+  );
   mask: radial-gradient(circle at 50% 50%, transparent 0 56%, #000 57% 69%, transparent 70% 100%);
 }
 
 .ops-gauge-meter__track {
-  background:
-    conic-gradient(
-      from 180deg at 50% 50%,
-      rgba(220, 228, 243, 0.96) 0 180deg,
-      transparent 180deg 360deg
-    );
+  background: conic-gradient(
+    from 180deg at 50% 50%,
+    rgba(220, 228, 243, 0.96) 0 180deg,
+    transparent 180deg 360deg
+  );
 }
 
 .ops-gauge-meter__arc {
-  background:
-    conic-gradient(
-      from 180deg at 50% 50%,
-      #f07b7d 0 38deg,
-      #efad59 38deg 90deg,
-      #f1ce67 90deg 118deg,
-      #8fd7a5 118deg 148deg,
-      #79d2c3 148deg 180deg,
-      transparent 180deg 360deg
-    );
+  background: conic-gradient(
+    from 180deg at 50% 50%,
+    #f07b7d 0 38deg,
+    #efad59 38deg 90deg,
+    #f1ce67 90deg 118deg,
+    #8fd7a5 118deg 148deg,
+    #79d2c3 148deg 180deg,
+    transparent 180deg 360deg
+  );
 }
 
 .ops-gauge-meter__mask {
@@ -112,10 +117,8 @@ const markerStyle = computed(() => {
   height: 142px;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 255, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 18px 28px rgba(139, 160, 206, 0.1);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #e2e8f0;
 }
 
 .ops-gauge-meter__marker {
@@ -128,7 +131,10 @@ const markerStyle = computed(() => {
   border: 4px solid var(--marker-color);
   box-shadow: 0 10px 20px rgba(119, 142, 191, 0.2);
   transform: translate(-50%, -50%);
-  transition: left 260ms ease, top 260ms ease, border-color 220ms ease;
+  transition:
+    left 260ms ease,
+    top 260ms ease,
+    border-color 220ms ease;
 }
 
 .ops-gauge-meter__content {
@@ -141,7 +147,7 @@ const markerStyle = computed(() => {
 
   strong {
     color: var(--hl-ink);
-    font-size: clamp(34px, 4vw, 46px);
+    font-size: 36px;
     font-weight: 800;
     line-height: 1;
     letter-spacing: 0;

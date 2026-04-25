@@ -45,45 +45,36 @@ const normalizedItems = computed(() => {
 .ops-mini-bars {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
-  gap: 12px;
+  gap: 8px;
   align-items: end;
-  min-height: 118px;
+  min-height: 92px;
 }
 
 .ops-mini-bars__item {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
   min-width: 0;
-  transition: transform 180ms ease;
-
-  &:hover {
-    transform: translateY(-2px);
-  }
 }
 
 .ops-mini-bars__track {
   position: relative;
-  width: 30px;
-  height: 74px;
+  width: 26px;
+  height: 58px;
   display: flex;
   align-items: end;
   justify-content: center;
   padding: 4px 0;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(236, 242, 255, 0.5));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    inset 0 -1px 0 rgba(152, 174, 224, 0.08);
+  border-radius: 4px;
+  background: #e2e8f0;
 
   span {
     position: relative;
     z-index: 1;
-    width: 22px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, #8fb1ff, #7d9ff4);
-    box-shadow: 0 14px 22px rgba(126, 156, 241, 0.24);
+    width: 16px;
+    border-radius: 3px;
+    background: #2563eb;
     transform-origin: bottom center;
     animation: bar-rise 420ms ease-out both;
   }
@@ -91,15 +82,14 @@ const normalizedItems = computed(() => {
 
 .ops-mini-bars__item strong {
   min-width: 34px;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  color: #1f2d44;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #111827;
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .ops-mini-bars__item small {
@@ -109,19 +99,16 @@ const normalizedItems = computed(() => {
 }
 
 .ops-mini-bars__item:nth-child(even) .ops-mini-bars__track span {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 243, 255, 0.96));
-  box-shadow:
-    inset 0 -1px 0 rgba(133, 158, 220, 0.22),
-    0 12px 18px rgba(255, 255, 255, 0.4);
+  background: #0f766e;
 }
 
 .ops-mini-bars__item.is-peak {
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .ops-mini-bars__item.is-peak .ops-mini-bars__track span {
-  width: 24px;
-  background: linear-gradient(180deg, #86adff, #7097f2);
+  width: 18px;
+  background: #1d4ed8;
 }
 
 @keyframes bar-rise {

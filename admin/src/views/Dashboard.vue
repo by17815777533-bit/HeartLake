@@ -513,8 +513,8 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .ops-dashboard {
-  min-height: calc(100vh - 110px);
-  padding: 4px 2px 20px;
+  min-height: calc(100vh - 90px);
+  padding: 0 0 12px;
   color: #1f2937;
   font-variant-numeric: tabular-nums;
 }
@@ -523,8 +523,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
   border: 1px solid #f1c27d;
   border-radius: 8px;
   background: #fff8ea;
@@ -536,12 +536,16 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #ffffff;
 
   h1 {
-    margin: 4px 0 6px;
-    font-size: 28px;
+    margin: 2px 0 4px;
+    font-size: 22px;
     font-weight: 760;
     letter-spacing: 0;
     color: #111827;
@@ -563,7 +567,7 @@ onUnmounted(() => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .range-select {
@@ -571,13 +575,13 @@ onUnmounted(() => {
 }
 
 .action-btn {
-  height: 40px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
+  padding: 0 10px;
   border: 1px solid #d7e1ea;
-  border-radius: 8px;
+  border-radius: 4px;
   background: #ffffff;
   color: #1f2937;
   font-size: 13px;
@@ -599,13 +603,13 @@ onUnmounted(() => {
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .metric-tile {
-  min-height: 112px;
-  padding: 16px;
+  min-height: 86px;
+  padding: 12px;
   border: 1px solid #dce5ec;
   border-radius: 8px;
   background: #ffffff;
@@ -620,9 +624,9 @@ onUnmounted(() => {
 
   strong {
     display: block;
-    margin: 12px 0 8px;
+    margin: 8px 0 5px;
     color: #111827;
-    font-size: 32px;
+    font-size: 26px;
     font-weight: 800;
     line-height: 1;
   }
@@ -643,30 +647,31 @@ onUnmounted(() => {
 
 .visual-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 10px;
   align-items: stretch;
 }
 
 .panel {
-  min-height: 286px;
+  grid-column: span 3;
+  min-height: 232px;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 12px;
   border: 1px solid #dce5ec;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 
   &--wide {
-    grid-column: span 2;
+    grid-column: span 6;
   }
 
   &--score,
   &--flow,
   &--ranking,
   &--insight {
-    min-height: 250px;
+    min-height: 214px;
   }
 }
 
@@ -674,8 +679,8 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 
   span,
   em {
@@ -686,9 +691,9 @@ onUnmounted(() => {
   }
 
   h2 {
-    margin: 4px 0 0;
+    margin: 3px 0 0;
     color: #111827;
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 760;
     line-height: 1.25;
     white-space: nowrap;
@@ -697,14 +702,14 @@ onUnmounted(() => {
 
 .chart {
   flex: 1 1 auto;
-  min-height: 210px;
+  min-height: 170px;
 
   &--line {
-    min-height: 226px;
+    min-height: 184px;
   }
   &--donut,
   &--bar {
-    min-height: 214px;
+    min-height: 176px;
   }
 }
 
@@ -712,7 +717,7 @@ onUnmounted(() => {
   display: inline-flex;
   padding: 3px;
   border: 1px solid #d7e1ea;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #f8fafc;
 
   button {
@@ -744,8 +749,8 @@ onUnmounted(() => {
 
 .flow-list {
   display: grid;
-  gap: 16px;
-  margin-top: 4px;
+  gap: 10px;
+  margin-top: 2px;
 }
 
 .flow-row {
@@ -771,7 +776,7 @@ onUnmounted(() => {
 }
 
 .flow-row__track {
-  height: 10px;
+  height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: #edf2f7;
@@ -786,16 +791,16 @@ onUnmounted(() => {
 
 .ranking-list {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .ranking-row {
-  min-height: 46px;
+  min-height: 40px;
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 6px 0;
   border: 0;
   border-bottom: 1px solid #eef2f7;
   background: transparent;
@@ -847,7 +852,7 @@ onUnmounted(() => {
 }
 
 .empty-state {
-  min-height: 120px;
+  min-height: 90px;
   display: grid;
   place-items: center;
   border: 1px dashed #cbd5e1;
@@ -857,7 +862,7 @@ onUnmounted(() => {
 }
 
 .panel--insight p {
-  margin: 2px 0 18px;
+  margin: 0 0 10px;
   color: #475569;
   font-size: 13px;
   line-height: 1.7;
@@ -866,17 +871,17 @@ onUnmounted(() => {
 .signal-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .signal-pill {
-  min-height: 70px;
+  min-height: 56px;
   display: grid;
   align-content: center;
   gap: 8px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #dce5ec;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
@@ -888,18 +893,25 @@ onUnmounted(() => {
 
   strong {
     color: #111827;
-    font-size: 18px;
+    font-size: 15px;
   }
 }
 
 @media (max-width: 1180px) {
-  .metric-grid,
-  .visual-grid {
+  .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .visual-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .panel {
+    grid-column: span 3;
+  }
+
   .panel--wide {
-    grid-column: span 2;
+    grid-column: span 6;
   }
 }
 
@@ -915,6 +927,7 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .panel,
   .panel--wide {
     grid-column: span 1;
   }

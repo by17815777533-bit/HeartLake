@@ -852,33 +852,19 @@ const sendBroadcast = async () => {
 
 <style lang="scss" scoped>
 .settings-page {
-  .settings-summary-grid {
-    margin-top: 18px;
-  }
-
-  .settings-table-copy {
-    h3 {
-      color: var(--hl-ink);
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin-top: 4px;
-      color: var(--hl-ink-soft);
-      font-size: 12px;
-      line-height: 1.55;
-    }
-  }
-
   :deep(.el-form[aria-label='系统配置']),
   :deep(.el-form[aria-label='智能回复设置']),
   :deep(.el-form[aria-label='限流配置']),
   :deep(.el-form[aria-label='广播消息']) {
     max-width: none;
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+    gap: 0 14px;
+    padding: 10px;
+    border: 1px solid var(--hl-line);
+    border-radius: 6px;
+    background: var(--hl-panel-muted);
   }
 
   :deep(.el-form[aria-label='系统配置'] .el-form-item:nth-child(2)),

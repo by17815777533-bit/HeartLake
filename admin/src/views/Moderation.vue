@@ -617,35 +617,24 @@ onMounted(() => fetchPending())
 
 <style lang="scss" scoped>
 .moderation-page {
-  .moderation-table-copy {
-    h3 {
-      color: var(--hl-ink);
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin-top: 4px;
-      color: var(--hl-ink-soft);
-      font-size: 12px;
-      line-height: 1.55;
-    }
-  }
-
   .moderation-history-filter {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--hl-line);
+    border-radius: 6px;
+    background: var(--hl-panel-muted);
   }
 
   .content-preview {
     margin: 0;
     color: var(--hl-ink);
-    line-height: 1.7;
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .risk-meter {
     display: grid;
-    gap: 8px;
+    gap: 5px;
   }
 
   .risk-meter__meta {
@@ -667,7 +656,7 @@ onMounted(() => fetchPending())
   }
 
   .pagination-wrapper {
-    margin-top: 10px;
+    margin-top: 8px;
     display: flex;
     justify-content: flex-end;
   }

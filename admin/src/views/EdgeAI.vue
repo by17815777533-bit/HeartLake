@@ -2,9 +2,9 @@
   智能辅助页面
 
   统一到新的管理台语言：
-  - 叙事型页首 + 指标带，弱化旧的技术大屏感
-  - 为性能、联动、检索、设置提供一致的雾面容器
-  - 让“智能辅助”更像值守与陪伴工具，而不是开发演示页
+  - 桌面管理端卡片网格
+  - 性能、联动、检索、设置使用一致的运维容器
+  - 让“智能辅助”成为可值守、可处置的后台模块
 -->
 
 <template>
@@ -835,17 +835,16 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .edge-workbench {
-  --edge-gap: 18px;
-  --edge-radius: 28px;
+  --edge-gap: 10px;
+  --edge-radius: 6px;
 
-  padding-bottom: 6px;
   font-variant-numeric: tabular-nums;
 }
 
 .edge-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.46fr) minmax(184px, 0.78fr) minmax(252px, 0.96fr);
-  grid-template-rows: minmax(182px, 0.98fr) minmax(138px, 0.74fr) minmax(282px, 1fr);
+  grid-template-columns: minmax(320px, 1.2fr) minmax(230px, 0.86fr) minmax(280px, 1fr);
+  grid-template-rows: minmax(150px, auto) minmax(118px, auto) minmax(250px, auto);
   grid-template-areas:
     'engine perf queue'
     'engine guide queue'
@@ -857,63 +856,62 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   min-height: 0;
-  padding: 24px;
+  padding: 14px;
   border-radius: var(--edge-radius);
-  border: 1px solid rgba(133, 156, 201, 0.12);
-  background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(241, 247, 255, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 22px 42px rgba(104, 128, 173, 0.12);
+  border: 1px solid #d8dee8;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .edge-card--engine {
   grid-area: engine;
-  min-height: 418px;
+  min-height: 386px;
+  border-top: 3px solid #2563eb;
 }
 .edge-card--perf {
   grid-area: perf;
-  min-height: 182px;
-  background: linear-gradient(180deg, rgba(215, 227, 255, 0.98), rgba(204, 218, 255, 0.98));
+  min-height: 150px;
+  border-top: 3px solid #0f766e;
 }
 .edge-card--queue {
   grid-area: queue;
-  min-height: 418px;
-  background: linear-gradient(180deg, rgba(214, 237, 231, 0.98), rgba(204, 233, 226, 0.98));
+  min-height: 386px;
+  border-top: 3px solid #7c3aed;
 }
 .edge-card--guide {
   grid-area: guide;
-  min-height: 138px;
-  background: linear-gradient(180deg, rgba(221, 242, 236, 0.98), rgba(211, 238, 232, 0.98));
+  min-height: 118px;
+  border-top: 3px solid #d97706;
 }
 .edge-card--chart {
   grid-area: chart;
-  min-height: 282px;
-  background: linear-gradient(180deg, rgba(241, 247, 255, 0.98), rgba(230, 239, 255, 0.98));
+  min-height: 250px;
+  border-top: 3px solid #2563eb;
 }
 .edge-card--score {
   grid-area: score;
-  min-height: 282px;
-  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(241, 246, 255, 0.98));
+  min-height: 250px;
+  border-top: 3px solid #16a34a;
 }
 
 .edge-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 
   h2,
   h3 {
-    margin: 8px 0 0;
+    margin: 5px 0 0;
     color: var(--hl-ink);
-    font-size: 21px;
-    font-weight: 680;
+    font-size: 17px;
+    font-weight: 760;
     letter-spacing: 0;
-    line-height: 1.12;
+    line-height: 1.2;
   }
 
   h3 {
-    font-size: 19px;
+    font-size: 15px;
   }
 }
 
@@ -921,34 +919,31 @@ onUnmounted(() => {
 .edge-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .edge-eyebrow {
-  background: rgba(255, 255, 255, 0.72);
+  background: #f1f5f9;
   color: var(--hl-ink-soft);
-  text-transform: uppercase;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .edge-eyebrow--warning {
-  background: rgba(255, 240, 220, 0.88);
-  color: #8d4f26;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .edge-chip {
-  background: rgba(255, 255, 255, 0.8);
-  color: var(--hl-ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .engine-total {
-  margin-top: 18px;
+  margin-top: 12px;
 
   > span {
     display: block;
@@ -958,7 +953,7 @@ onUnmounted(() => {
 
   p {
     max-width: 24rem;
-    margin-top: 10px;
+    margin: 8px 0 0;
     color: var(--hl-ink-soft);
     font-size: 13px;
     line-height: 1.7;
@@ -966,11 +961,11 @@ onUnmounted(() => {
 }
 
 .edge-status-banner {
-  margin-top: 16px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(163, 95, 95, 0.14);
-  background: rgba(255, 247, 244, 0.9);
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
 
   strong {
     display: block;
@@ -988,27 +983,27 @@ onUnmounted(() => {
 }
 
 .edge-status-banner.is-stale {
-  border-color: rgba(182, 122, 66, 0.16);
-  background: rgba(255, 249, 240, 0.9);
+  border-color: #fed7aa;
+  background: #fffbeb;
 }
 
 .edge-status-banner.is-error {
-  border-color: rgba(163, 95, 95, 0.18);
-  background: rgba(255, 244, 241, 0.92);
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .engine-total__value {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--hl-ink);
-  font-size: clamp(46px, 5.4vw, 58px);
+  font-size: 42px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
 
   small {
-    margin-left: 8px;
-    color: #8da5db;
-    font-size: 22px;
+    margin-left: 6px;
+    color: #64748b;
+    font-size: 16px;
     font-weight: 700;
   }
 }
@@ -1016,46 +1011,48 @@ onUnmounted(() => {
 .engine-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .engine-action {
-  min-width: 124px;
-  height: 42px;
+  min-width: 108px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  padding: 0 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  background: #ffffff;
   color: var(--hl-ink);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 12px 18px rgba(113, 138, 184, 0.08);
   transition: var(--m3-transition);
+
+  &:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .engine-stack {
   display: grid;
   grid-template-columns: 1fr 1fr minmax(94px, 0.64fr);
-  gap: 12px;
+  gap: 8px;
   align-items: end;
-  margin-top: 28px;
+  margin-top: 14px;
 }
 
 .engine-mini-card {
-  min-height: 134px;
-  padding: 16px;
-  border: none;
-  border-radius: 24px;
+  min-height: 94px;
+  padding: 11px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #f8fafc;
   text-align: left;
-  box-shadow: 0 18px 32px rgba(120, 146, 194, 0.16);
 
   span,
   small {
@@ -1063,41 +1060,41 @@ onUnmounted(() => {
   }
 
   span {
-    color: rgba(35, 45, 67, 0.74);
+    color: var(--hl-ink-soft);
     font-size: 11px;
   }
 
   strong {
     display: block;
-    margin-top: 24px;
+    margin-top: 18px;
     color: #1d2740;
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 19px;
+    font-weight: 760;
   }
 
   small {
-    margin-top: 8px;
-    color: rgba(35, 45, 67, 0.62);
+    margin-top: 6px;
+    color: var(--hl-ink-soft);
     font-size: 11px;
   }
 }
 
 .engine-mini-card.is-blue {
-  background: linear-gradient(180deg, rgba(177, 204, 255, 0.92), rgba(166, 194, 255, 0.96));
+  border-top: 3px solid #2563eb;
 }
 
 .engine-mini-card.is-mint {
-  background: linear-gradient(180deg, rgba(209, 241, 236, 0.92), rgba(196, 236, 229, 0.96));
+  border-top: 3px solid #0f766e;
 }
 
 .engine-mini-card--more {
-  min-height: 138px;
+  min-height: 94px;
   display: grid;
   align-content: center;
   justify-items: center;
   gap: 6px;
-  background: #212121;
-  box-shadow: 0 20px 34px rgba(33, 33, 33, 0.22);
+  background: #eff6ff;
+  color: #1d4ed8;
 
   strong,
   small {
@@ -1105,33 +1102,36 @@ onUnmounted(() => {
   }
 
   strong {
-    color: #ffffff;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    color: #1d4ed8;
+    font-size: 15px;
+    font-weight: 760;
+    letter-spacing: 0;
   }
 
   small {
-    color: rgba(255, 255, 255, 0.68);
+    color: #64748b;
     font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: 0;
   }
 }
 
 .queue-list {
   display: grid;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 0;
+  margin-top: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .queue-item {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  padding: 11px 0;
-  border-bottom: 1px solid rgba(122, 163, 157, 0.16);
+  padding: 9px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 
 .queue-item:last-child {
@@ -1139,13 +1139,13 @@ onUnmounted(() => {
 }
 
 .queue-item__avatar {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--hl-ink);
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #2563eb;
   font-weight: 700;
 }
 
@@ -1176,7 +1176,7 @@ onUnmounted(() => {
 }
 
 .queue-item__value.is-up {
-  color: #5aaf9d;
+  color: #0f766e;
 }
 .queue-item__value.is-neutral {
   color: #6f7c96;
@@ -1198,59 +1198,35 @@ onUnmounted(() => {
   line-height: 1.7;
 }
 
-.edge-card--guide::before,
-.edge-card--guide::after {
-  content: '';
-  position: absolute;
-  border-radius: 999px;
-  border: 1px solid rgba(129, 157, 230, 0.26);
-}
-
-.edge-card--guide::before {
-  width: 112px;
-  height: 112px;
-  right: 22px;
-  bottom: 18px;
-}
-
-.edge-card--guide::after {
-  width: 74px;
-  height: 74px;
-  right: 88px;
-  bottom: 44px;
-}
-
 .guide-copy {
-  max-width: 28ch;
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   color: var(--hl-ink);
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .guide-button {
-  margin-top: 18px;
-  height: 40px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #8cb2ff, #789cf2);
+  margin-top: 12px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #0f766e;
+  border-radius: 4px;
+  background: #0f766e;
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 14px 26px rgba(120, 156, 242, 0.22);
 }
 
 .edge-chart {
-  height: 234px;
-  margin-top: 16px;
+  height: 206px;
+  margin-top: 10px;
 }
 
 .score-meta {
   display: grid;
-  gap: 6px;
-  margin-top: 16px;
+  gap: 5px;
+  margin-top: 10px;
   text-align: center;
 
   span {
@@ -1261,17 +1237,17 @@ onUnmounted(() => {
 
 @media (max-width: 1180px) and (min-width: 961px) {
   .edge-workbench {
-    --edge-gap: 14px;
-    --edge-radius: 24px;
+    --edge-gap: 10px;
+    --edge-radius: 6px;
   }
 
   .edge-grid {
-    grid-template-columns: minmax(0, 1.38fr) minmax(152px, 0.72fr) minmax(218px, 0.88fr);
-    grid-template-rows: minmax(154px, 0.96fr) minmax(118px, 0.74fr) minmax(236px, 1fr);
+    grid-template-columns: minmax(0, 1.16fr) minmax(184px, 0.78fr) minmax(240px, 0.92fr);
+    grid-template-rows: minmax(148px, auto) minmax(116px, auto) minmax(224px, auto);
   }
 
   .edge-card {
-    padding: 18px;
+    padding: 12px;
   }
 
   .edge-head {
@@ -1287,15 +1263,8 @@ onUnmounted(() => {
     }
   }
 
-  .edge-eyebrow,
-  .edge-chip {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 9px;
-  }
-
   .engine-total {
-    margin-top: 14px;
+    margin-top: 10px;
 
     > span,
     p {
@@ -1304,11 +1273,10 @@ onUnmounted(() => {
   }
 
   .engine-total__value {
-    margin-top: 6px;
-    font-size: clamp(40px, 5vw, 50px);
+    font-size: 36px;
 
     small {
-      font-size: 18px;
+      font-size: 14px;
     }
   }
 
@@ -1331,9 +1299,8 @@ onUnmounted(() => {
   }
 
   .engine-mini-card {
-    min-height: 116px;
-    padding: 14px;
-    border-radius: 20px;
+    min-height: 86px;
+    padding: 10px;
 
     span {
       font-size: 10px;
@@ -1350,7 +1317,7 @@ onUnmounted(() => {
   }
 
   .engine-mini-card--more {
-    min-height: 120px;
+    min-height: 86px;
   }
 
   .queue-list {
@@ -1395,22 +1362,8 @@ onUnmounted(() => {
     font-size: 11px;
   }
 
-  .edge-card--guide::before {
-    width: 84px;
-    height: 84px;
-    right: 16px;
-    bottom: 14px;
-  }
-
-  .edge-card--guide::after {
-    width: 56px;
-    height: 56px;
-    right: 60px;
-    bottom: 36px;
-  }
-
   .edge-chart {
-    height: 200px;
+    height: 190px;
     margin-top: 14px;
   }
 
@@ -1419,7 +1372,7 @@ onUnmounted(() => {
   }
 
   .edge-card--score :deep(.ops-gauge-meter__content strong) {
-    font-size: clamp(30px, 3vw, 40px);
+    font-size: 34px;
   }
 }
 

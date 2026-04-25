@@ -277,49 +277,48 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 <style scoped lang="scss">
 .ops-dashboard-deck {
   display: grid;
-  grid-template-columns: minmax(0, 1.36fr) minmax(300px, 0.82fr) minmax(330px, 0.92fr);
-  grid-template-rows: minmax(174px, auto) minmax(152px, auto);
-  grid-template-areas:
-    'overview spending activity'
-    'overview guide activity';
-  gap: 12px;
-  margin-bottom: 14px;
+  grid-template-columns:
+    minmax(300px, 1.28fr) minmax(220px, 0.84fr) minmax(260px, 1fr)
+    minmax(230px, 0.88fr);
+  grid-template-rows: auto;
+  grid-template-areas: 'overview spending activity guide';
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .ops-dashboard-deck.is-compact {
-  min-height: 360px;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
 }
 
 .ops-dashboard-card {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 12px;
   border: 1px solid #d8dee8;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
   box-shadow: none;
 }
 
 .ops-dashboard-card--overview {
   grid-area: overview;
-  border-left: 3px solid #2563eb;
+  border-top: 3px solid #2563eb;
 }
 
 .ops-dashboard-card--spending {
   grid-area: spending;
-  border-left: 3px solid #0f766e;
+  border-top: 3px solid #0f766e;
 }
 
 .ops-dashboard-card--activity {
   grid-area: activity;
-  border-left: 3px solid #7c3aed;
+  border-top: 3px solid #7c3aed;
 }
 
 .ops-dashboard-card--guide {
   grid-area: guide;
-  border-left: 3px solid #d97706;
+  border-top: 3px solid #d97706;
 }
 
 .card-heading {
@@ -331,14 +330,14 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   > div {
     min-width: 0;
     display: grid;
-    gap: 6px;
+    gap: 4px;
   }
 
   h2,
   h3 {
     margin: 0;
     color: #111827;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 760;
     line-height: 1.25;
     letter-spacing: 0;
@@ -350,12 +349,12 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 24px;
+  min-height: 20px;
   padding: 0 8px;
   border-radius: 4px;
   background: #f1f5f9;
   color: #475569;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -365,7 +364,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 }
 
 .overview-total {
-  margin-top: 12px;
+  margin-top: 10px;
 
   > span {
     display: block;
@@ -375,8 +374,8 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   }
 
   p {
-    max-width: 32rem;
-    margin: 8px 0 0;
+    max-width: 28rem;
+    margin: 6px 0 0;
     color: #64748b;
     font-size: 12px;
     line-height: 1.55;
@@ -387,12 +386,12 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: flex;
   align-items: flex-end;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 6px;
   line-height: 1;
 
   strong {
     color: #111827;
-    font-size: 40px;
+    font-size: 30px;
     font-weight: 780;
     letter-spacing: 0;
   }
@@ -410,7 +409,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 
   strong {
     max-width: 15rem;
-    font-size: 24px;
+    font-size: 20px;
     line-height: 1.16;
     word-break: keep-all;
     overflow-wrap: anywhere;
@@ -421,20 +420,20 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .overview-actions :deep(.overview-action) {
-  min-height: 32px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0 12px;
   border: 1px solid #d8dee8;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #ffffff;
   color: #1f2937;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
   cursor: pointer;
@@ -449,7 +448,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .overview-highlight,
@@ -458,12 +457,12 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 .guide-summary,
 .guide-flag {
   border: 1px solid #d8dee8;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #f8fafc;
 }
 
 .overview-highlight {
-  min-height: 82px;
+  min-height: 68px;
   display: grid;
   gap: 4px;
   padding: 10px;
@@ -488,7 +487,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   justify-content: space-between;
   gap: 10px;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 10px;
 
   span {
     color: #111827;
@@ -506,12 +505,12 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(88px, 0.55fr);
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .overview-mini-card {
-  min-height: 84px;
-  padding: 12px;
+  min-height: 70px;
+  padding: 10px;
   position: relative;
   overflow: hidden;
 
@@ -532,9 +531,9 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 
   strong {
     display: block;
-    margin-top: 12px;
+    margin-top: 8px;
     color: #111827;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 780;
     letter-spacing: 0;
   }
@@ -576,14 +575,14 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 }
 
 .overview-shortcut {
-  min-height: 84px;
+  min-height: 70px;
   display: grid;
   place-items: center;
   align-content: center;
   gap: 6px;
   padding: 10px;
-  background: #111827;
-  color: #ffffff;
+  background: #eef6ff;
+  color: #1d4ed8;
   text-align: center;
 
   strong {
@@ -595,7 +594,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 
   small,
   em {
-    color: rgba(255, 255, 255, 0.78);
+    color: #64748b;
     font-size: 10px;
     font-style: normal;
     line-height: 1.3;
@@ -614,8 +613,8 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .spending-badge {
@@ -629,7 +628,7 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 }
 
 .spending-bars {
-  min-height: 78px;
+  min-height: 64px;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
@@ -653,8 +652,8 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 }
 
 .spending-bar__track {
-  width: 22px;
-  height: 76px;
+  width: 20px;
+  height: 60px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -676,15 +675,15 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 .transaction-list {
   display: flex;
   flex-direction: column;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .transaction-item {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 8px;
   align-items: center;
-  padding: 8px 0;
+  padding: 6px 0;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -693,8 +692,8 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 }
 
 .transaction-item__icon {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: 1px solid #d8dee8;
@@ -754,12 +753,12 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
 
 .guide-hero {
   display: grid;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 4px;
+  margin-top: 8px;
 
   strong {
     color: #111827;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 760;
     line-height: 1.35;
   }
@@ -776,8 +775,8 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 12px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 9px;
 }
 
 .guide-summary__metric {
@@ -812,15 +811,15 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .guide-flag {
-  min-height: 44px;
+  min-height: 40px;
   display: grid;
   align-content: center;
   gap: 2px;
-  padding: 8px;
+  padding: 7px;
   background: #ffffff;
 
   small,
@@ -842,14 +841,45 @@ const resolvedGuideItems = computed(() => props.guideItems.slice(0, 3))
   }
 }
 
-@media (max-width: 1240px) {
+.ops-dashboard-deck.is-compact .overview-total p,
+.ops-dashboard-deck.is-compact .section-heading {
+  display: none;
+}
+
+.ops-dashboard-deck.is-compact .overview-cards {
+  margin-top: 10px;
+}
+
+.ops-dashboard-deck.is-compact .overview-mini-card,
+.ops-dashboard-deck.is-compact .overview-shortcut {
+  min-height: 58px;
+  padding: 8px;
+}
+
+.ops-dashboard-deck.is-compact .overview-mini-card strong {
+  margin-top: 6px;
+  font-size: 16px;
+}
+
+.ops-dashboard-deck.is-compact .spending-stage {
+  justify-content: flex-start;
+}
+
+.ops-dashboard-deck.is-compact .spending-bars {
+  margin-top: 10px;
+}
+
+.ops-dashboard-deck.is-compact .guide-flags {
+  display: none;
+}
+
+@media (max-width: 1320px) {
   .ops-dashboard-deck,
   .ops-dashboard-deck.is-compact {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.82fr);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.84fr);
     grid-template-areas:
       'overview spending'
-      'overview guide'
-      'activity activity';
+      'activity guide';
   }
 }
 
